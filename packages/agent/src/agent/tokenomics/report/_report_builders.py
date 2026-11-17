@@ -1,5 +1,3 @@
-"""Data aggregation helpers for the tokenomics report."""
-
 from __future__ import annotations
 
 from collections import defaultdict
@@ -28,14 +26,12 @@ def _build_report_data(
     config_path: str,
     predicted_osl_map: dict[str, float] | None = None,
 ) -> dict:
-    # Flatten all per-call observations
     all_llm: list[dict] = []
     all_tool: list[dict] = []
     for prof in profiles:
         all_llm.extend(prof.llm_call_events)
         all_tool.extend(prof.tool_call_events)
 
-    # ── Token stats by model ──────────────────────────────────────────────
     m_isls: dict[str, list] = defaultdict(list)
     m_osls: dict[str, list] = defaultdict(list)
     m_tps: dict[str, list] = defaultdict(list)
@@ -89,7 +85,6 @@ def _build_report_data(
             "tps_p90": round(_pct(tps_vals, 90), 2) if tps_vals else 0.0,
         }
 
-    # ── Token stats by component (phase) ─────────────────────────────────
     ph_isls: dict[str, list] = defaultdict(list)
     ph_osls: dict[str, list] = defaultdict(list)
     ph_tot: dict[str, dict] = defaultdict(
@@ -139,7 +134,6 @@ def _build_report_data(
             "cache_rate": t["total_cached"] / t["total_isl"] if t["total_isl"] > 0 else 0.0,
         }
 
-    # ── ISL growth: avg ISL by sequential call index, per model ───────────
     growth_data: dict[str, dict[int, list]] = defaultdict(lambda: defaultdict(list))
     for ev in all_llm:
         growth_data[ev["model"]][ev["call_idx"]].append(ev["isl"])
@@ -153,17 +147,14 @@ def _build_report_data(
             for v in [idx_map[idx]]
         ]
 
-    # ── ISL vs latency sample ─────────────────────────────────────────────
     isl_latency_sample = [
         {"isl": ev["isl"], "dur_s": ev["dur_s"], "model": ev["model"], "osl": ev["osl"]}
         for ev in all_llm
         if ev["dur_s"] > 0
     ]
 
-    # ── Sys-prompt estimate (min ISL per model) ───────────────────────────
     sys_prompt_est = {m: min(m_isls[m]) for m in m_isls if m_isls[m]}
 
-    # ── LLM latency per model ─────────────────────────────────────────────
     m_durs: dict[str, list] = defaultdict(list)
     for ev in all_llm:
         if ev["dur_s"] > 0:
@@ -171,7 +162,6 @@ def _build_report_data(
 
     llm_latency = {m: _latency_stats(durs) for m, durs in m_durs.items()}
 
-    # ── Tool latency per tool ─────────────────────────────────────────────
     t_durs: dict[str, list] = defaultdict(list)
     for ev in all_tool:
         if ev["dur_s"] > 0:
@@ -179,20 +169,17 @@ def _build_report_data(
 
     tool_latency = {tool: _latency_stats(durs) for tool, durs in t_durs.items()}
 
-    # ── Cost by model ─────────────────────────────────────────────────────
     by_model_cost: dict[str, float] = defaultdict(float)
     for prof in profiles:
         for ps in prof.phases:
             by_model_cost[ps.model] += ps.cost_usd
 
-    # ── Cost by phase ─────────────────────────────────────────────────────
     by_phase_cost: dict[str, float] = {}
     for ph in PHASE_ORDER:
         total = sum(prof.cost_for_phase(ph) for prof in profiles)
         if total > 0:
             by_phase_cost[PHASE_LABELS.get(ph, ph)] = round(total, 6)
 
-    # ── Per-query list ────────────────────────────────────────────────────
     per_query = []
     for prof in profiles:
         pq_by_phase = {}
@@ -217,7 +204,6 @@ def _build_report_data(
             }
         )
 
-    # ── Pricing snapshot ──────────────────────────────────────────────────
     pricing_snapshot: dict[str, dict] = {}
     for model in pricing.known_models():
         p = pricing.get(model)
@@ -233,7 +219,6 @@ def _build_report_data(
             "output_per_1m_tokens": pricing._default.output_per_1m_tokens,
         }
 
-    # ── Tool cost aggregation ─────────────────────────────────────────────
     by_tool_cost: dict[str, dict] = defaultdict(lambda: {"calls": 0, "total_cost_usd": 0.0})
     for ev in all_tool:
         entry = by_tool_cost[ev["tool"]]
@@ -241,14 +226,8 @@ def _build_report_data(
         entry["total_cost_usd"] += ev.get("cost_usd", 0.0)
     by_tool_cost = {k: dict(v) for k, v in by_tool_cost.items()}
 
-    # Tool pricing snapshot (only configured tools)
     tool_pricing_snapshot = {name: pricing.get_tool(name).cost_per_call for name in pricing.known_tools()}
 
-    # ── Predicted vs actual OSL (from NOVA-Predicted-OSL in CSV) ─────────
-    # NOTE: in current agent-runtime traces, NOVA-Predicted-OSL is filled post-hoc with
-    # the actual completion tokens, so predicted == actual on every call.
-    # The list is populated here for forward-compatibility; the chart is hidden
-    # when all errors are zero (trivially perfect, not informative).
     predicted_vs_actual: list[dict] = []
     if predicted_osl_map:
         for ev in all_llm:
@@ -300,13 +279,6 @@ def _build_report_data(
 
 
 def _build_comparison_data(run_datas: list[dict]) -> dict:
-    """Return an A-vs-B comparison block to embed in the primary run's report_data.
-
-    Only the first two runs are compared.  The per-query list is the UNION of
-    both runs' query IDs so that queries unique to one run are still visible in
-    the table (with null for the missing side).  The delta bar chart in the
-    report only renders bars for queries present in both runs.
-    """
     a = run_datas[0]
     b = run_datas[1]
 
@@ -328,7 +300,6 @@ def _build_comparison_data(run_datas: list[dict]) -> dict:
             if cost_a:
                 cost_pct: float | None = round(cost_delta / cost_a * 100, 1)
             else:
-                # Zero baseline: a nonzero delta is an infinite change, not 0%.
                 cost_pct = 0.0 if not cost_delta else None
         else:
             cost_delta = cost_pct = None

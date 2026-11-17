@@ -1,31 +1,15 @@
-/**
- * A recorded answer (`./stream-frames.ts`) as chat wire v2 events, for the dev
- * pages that replay one: `/dev/stream-replay` folds them directly,
- * `/dev/stream-socket` sends them through a fake socket.
- *
- * The recording predates v2, so its chunks are mapped once, here, onto the
- * events the v2 producers write for the same moments (`docs/design/chat-wire-v2.md`
- * §a): a masthead-only chunk is `masthead`, prose is `TEXT_MESSAGE_*`, the
- * settle is `STATE_SNAPSHOT`, each card is a `card` event, and the terminal is
- * `RUN_FINISHED` with its result. The steps before the answer follow
- * `contracts/wire/v2/turn-answered.jsonl`, one retrieval round per query.
- */
-
 import type { RecordedFrame, RecordedTurn } from './stream-frames'
 
-/** One event body (no envelope) and when it is sent, in ms after the question. */
 export interface TimedBody {
   at: number
   body: Record<string, unknown>
 }
 
-/** The envelope-stamped frames, in order, with their seq. */
 export interface TimedFrame {
   at: number
   frame: Record<string, unknown>
 }
 
-/** A stand-in for the backend's `card_key` (a hash of the card's JSON): equal cards, equal keys. */
 const cardKey = (card: unknown): string => {
   let hash = 0x811c9dc5
   for (const char of JSON.stringify(card)) hash = Math.imul(hash ^ char.charCodeAt(0), 0x01000193) >>> 0
@@ -34,7 +18,6 @@ const cardKey = (card: unknown): string => {
 
 export const keyed = (cards: readonly unknown[] = []) => cards.map((card) => ({ key: cardKey(card), card }))
 
-/** The fields of a recorded terminal that `TurnResult` carries. */
 const RESULT_FIELDS = [
   'sources',
   'answer_meta',
@@ -53,7 +36,6 @@ export const resultOf = (frame: RecordedFrame, messageId: string): Record<string
   ...Object.fromEntries(RESULT_FIELDS.filter((field) => frame[field] != null).map((field) => [field, frame[field]])),
 })
 
-/** The recorded answer, from its first chunk, `speed` times its recorded pace, starting at `start` ms. */
 export const answerBodies = (turn: RecordedTurn, messageId: string, start = 0, speed = 1): TimedBody[] => {
   const t0 = turn.frames[0]?.t ?? 0
   const out: TimedBody[] = []
@@ -83,28 +65,11 @@ export const answerBodies = (turn: RecordedTurn, messageId: string, start = 0, s
   return out
 }
 
-/**
- * The recorded answer ended the way the product ends one today: the terminal
- * carries the settled snapshot's text, sources and masthead, and the cards
- * that streamed, so `RUN_FINISHED` continues the settle instead of replacing it.
- *
- * The recordings predate ADR-0067. `oib2`'s terminal is the whole-answer
- * repair rewrite it retired (541 characters for the 1724 settled, the table
- * gone); the repair now patches a misquoted quote in place, and the ADR-0066
- * live measurement found the snapshot byte-identical to the terminal. Replayed
- * as recorded, every harness run would show an end-of-turn rewrite the product
- * no longer makes. The recording stays as it was (`stream-frames.ts` is
- * evidence, and specs read its terminal); the old ending is the `rewrite`
- * scenario.
- *
- * Bodies with no snapshot before their terminal come back unchanged.
- */
 export const asSettled = (bodies: readonly TimedBody[]): TimedBody[] => {
   const snapshot = bodies.findLast(({ body }) => body.type === 'STATE_SNAPSHOT')?.body.snapshot as
     | { text: string; sources: unknown[]; answer_meta?: unknown }
     | undefined
   if (!snapshot) return [...bodies]
-  // The last card at each index is the one on screen when the turn ends.
   const streamed = new Map<number, unknown>()
   for (const { body } of bodies) {
     if (body.name !== 'card') continue
@@ -121,12 +86,9 @@ export const asSettled = (bodies: readonly TimedBody[]): TimedBody[] => {
 }
 
 const QUERIES = ['OIB-Richtlinie 2 Geltungsbereich', 'OIB-RL 2 Ausgabe 2023 Abweichungen Landesrecht', 'Brandschutz Fluchtwege Gebäudeklassen']
-/** `TURN_HEARTBEAT_SECONDS`, as the handler beats while a turn runs. */
 export const HEARTBEAT_MS = 20_000
-/** Milliseconds one retrieval round takes, model call and search together. */
 const ROUND_MS = 4_000
 
-/** One knowledge search's fan-out, as `render_grounding_block` builds it. */
 const lanes = (round: number) => [
   {
     key: 'building_law_oib',
@@ -147,7 +109,6 @@ const lanes = (round: number) => [
   },
 ]
 
-/** The steps before the answer: documents, three retrieval rounds, synthesis. Returns the bodies and when the answer may start. */
 export const stepBodies = (): { bodies: TimedBody[]; answerStart: number } => {
   const bodies: TimedBody[] = [
     { at: 40, body: { type: 'STEP_FINISHED', step: { id: 'status:documents', kind: 'status', slot: 'documents', key: 'status.documents.project' } } },
@@ -167,7 +128,6 @@ export const stepBodies = (): { bodies: TimedBody[]; answerStart: number } => {
   return { bodies, answerStart: synthesis + 300 }
 }
 
-/** The whole turn: RUN_STARTED, the steps, the recorded answer, the heartbeats, a stage. Stamped and numbered. */
 export const v2Turn = (
   turn: RecordedTurn,
   ids: { conversationId: string; turnId: string; messageId: string },
@@ -177,12 +137,6 @@ export const v2Turn = (
   return stampTurn([...bodies, ...answerBodies(turn, ids.messageId, answerStart, speed)], ids)
 }
 
-/**
- * A turn's bodies between `RUN_STARTED` and its terminal, made a whole turn:
- * `RUN_STARTED` first, a heartbeat every {@link HEARTBEAT_MS} while it runs,
- * the memory stage after a `RUN_FINISHED` (none after a `RUN_ERROR`, which
- * persists nothing), all in time order and numbered from seq 1.
- */
 export const stampTurn = (
   bodies: readonly TimedBody[],
   ids: { conversationId: string; turnId: string; messageId: string }
@@ -191,16 +145,13 @@ export const stampTurn = (
   const answered = bodies.some(({ body }) => body.type === 'RUN_FINISHED')
   const all: TimedBody[] = [{ at: 0, body: { type: 'RUN_STARTED', message_id: ids.messageId } }, ...bodies]
   if (answered) all.push({ at: end + 900, body: { type: 'CUSTOM', name: 'stage', value: { stage: 'memory_reflection', status: 'empty' } } })
-  // The heartbeat is stamped by the same sequencer, so it takes its place in seq.
   for (let at = HEARTBEAT_MS; at < end; at += HEARTBEAT_MS) {
     all.push({ at, body: { type: 'CUSTOM', name: 'heartbeat', value: { every_ms: HEARTBEAT_MS } } })
   }
-  // Stable: bodies sent at the same millisecond keep their order (START before its first delta).
   all.sort((a, b) => a.at - b.at)
   return all.map(({ at, body }, index) => ({ at, frame: stampFrame(index + 1, body, ids) }))
 }
 
-/** The v2 envelope around a body. `ts` is left to the sender, which knows the clock. */
 export const stampFrame = (
   seq: number,
   body: Record<string, unknown>,

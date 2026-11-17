@@ -63,8 +63,7 @@ describe('project profile prompt view', () => {
     )
   })
 
-  it('builds a stored display projection without calling AI-Q', () => {
-    // Keys outside the intake definition fall back to humanized labels.
+  it('builds a stored display projection without calling the agent backend', () => {
     const display = buildProjectProfileDisplay(profile)
     expect(display.keyFacts).toEqual([
       { label: 'Floors above', value: '5' },
@@ -91,7 +90,6 @@ describe('project profile prompt view', () => {
       assumptions: {},
     }
     const display = buildProjectProfileDisplay(intakeProfile)
-    // Intake (stage) order, not alphabetical: module A before module C.
     expect(display.keyFacts).toEqual([
       { label: 'Bundesland', value: 'Wien' },
       { label: 'Bauwerkstyp · Haupthaus', value: 'Gebäude' },
@@ -333,7 +331,6 @@ describe('project profile prompt view: what a reading found (ADR-0111)', () => {
       '- storeys_above_ground@bldg1: 3 | alternativ: 4 (Einreichplan Schnitt.pdf, S. 2) | alternativ: 5',
     ])
     expect(view).not.toContain('ZITAT')
-    // The section sits after the assumptions and before nothing else.
     expect(view.indexOf('contested:')).toBeGreaterThan(view.indexOf('assumptions:'))
   })
 
@@ -420,7 +417,6 @@ describe('project profile prompt view: what a reading found (ADR-0111)', () => {
   })
 })
 
-/** The `- key=value` lines of the `confirmed:` section, the way the Python agent tier reads them. */
 function facts(view: string): string[] {
   const lines = view.split('\n')
   const start = lines.indexOf('confirmed:')

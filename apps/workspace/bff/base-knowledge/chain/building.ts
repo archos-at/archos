@@ -1,10 +1,3 @@
-/**
- * The project's buildings as an edition's scope reads them (ADR-0178): each
- * building's answers to the facts its country defines (`fact_definitions`),
- * read off the profile through the intake's own readers, so a scope and the
- * building-class derivation read one building the same way. Pure.
- */
-
 import { projectIntakeDefinitionV1 } from '@/lib/project-profile/intake-definition'
 import type { ProjectProfile } from '@/lib/project-profile/types'
 import { buildingIdsOf } from '@/lib/project-intake/derivation-view'
@@ -16,7 +9,6 @@ import type { FactDefinition } from '../wire/setup-facts'
 
 const NO_BUILDINGS: BuildingScope = { buildings: [], definitions: [] }
 
-/** The project's buildings, each with its answers to the facts its country defines (the released setup `records`), read on `on`. */
 export function projectBuildings(
   profile: ProjectProfile | null | undefined,
   on: string,

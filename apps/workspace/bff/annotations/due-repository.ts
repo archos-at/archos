@@ -1,16 +1,3 @@
-/**
- * The marks the daily reminder of a Zuständige's Frist reads
- * (`./due-reminders.ts`): open, with a Zuständige and a date inside a window
- * of days, on a document that carries marks, is in the working set and passed
- * screening. A held upload is reminded of by nobody, as it is told to nobody
- * (`SCREENED_ONLY`, ADR-0086). The window bounds both reads from below as well
- * as above, so a mark whose Frist passed long ago neither reminds anyone nor
- * keeps its organization in the daily discovery. The partial index of
- * migration 0151 (`idx_document_annotations_due`, on `due_on` over the open
- * marks with a Zuständige and a date) holds exactly the rows the window
- * ranges over; whether a read takes it is the planner's call.
- */
-
 import 'server-only'
 import { and, asc, eq, gt, gte, inArray, isNotNull, lte, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
@@ -21,7 +8,6 @@ import { SCREENED_ONLY } from '@/lib/documents/document-reader'
 import type { OpenableDocument } from '@/lib/documents/may-open'
 import { documentVisibleTo } from '@/lib/documents/visibility'
 
-/** One mark due, with the document facts its Zuständige's right to open it is asked by. */
 export interface DueMark {
   id: string
   documentId: string
@@ -32,7 +18,6 @@ export interface DueMark {
   document: OpenableDocument & { id: string }
 }
 
-/** The days, `YYYY-MM-DD` and inclusive, whose Frist a run reminds of. */
 export interface DueWindow {
   from: string
   through: string
@@ -55,18 +40,6 @@ const onItsDocument = and(
   eq(documents.organizationId, documentAnnotations.organizationId)
 )
 
-/**
- * The organizations with at least one mark due within `window`, at most
- * `limit`. Discovery for the daily sweep, which runs it under the platform
- * scope and then works inside each organization (`withTenant`).
- *
- * In an order that changes with `day` (a hash of the organization and the
- * day), so when more organizations have marks due than `limit`, the ones left
- * out are a different set each day rather than the same tail for good. Not by
- * the earliest Frist: discovery cannot see which marks were reminded already
- * (that is on the inbox rows), so the offices with long-overdue, already
- * reminded marks would hold the head of the list every day.
- */
 export async function listOrganizationsWithDueMarks(window: DueWindow, day: string, limit: number): Promise<string[]> {
   const rows = await getDb()
     .select({ organizationId: documentAnnotations.organizationId })
@@ -79,7 +52,6 @@ export async function listOrganizationsWithDueMarks(window: DueWindow, day: stri
   return rows.map((row) => row.organizationId)
 }
 
-/** One page of an organization's marks due within `window`, by id after `after`, at most `limit`. */
 export async function listDueMarksPage(
   organizationId: string,
   window: DueWindow,

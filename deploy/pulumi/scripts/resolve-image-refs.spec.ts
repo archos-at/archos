@@ -4,25 +4,11 @@ import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-/**
- * The staging image resolver and its downgrade guard, run as the workflow runs
- * them: bash, a real git history, and stubs for everything that would touch the
- * network (`pulumi`, the GHCR lookup, `curl`).
- *
- * On 09-28 the deploy resolved the backend from the Actions run index, which
- * returned a list without the newest build, and pinned a 09-11 image. Nothing
- * compared that to what was running. These cases pin both halves: resolution
- * from git + registry, and the refusal to move a service backwards.
- */
-
 const SCRIPTS = __dirname;
 const ROOT = mkdtempSync(join(tmpdir(), "resolve-image-refs-"));
 const REPO = join(ROOT, "repo");
 const BIN = join(ROOT, "bin");
 
-// Commits by name. Develop's first-parent line is c1 c2 c3 m4 c5; `side` was
-// merged by m4 and is on develop's history but NOT its first-parent line, so
-// CI never published images for it.
 const C: Record<string, string> = {};
 
 const GIT_ENV = {
@@ -64,8 +50,6 @@ beforeAll(() => {
   C.m4 = git("rev-parse", "HEAD");
   commit("c5");
 
-  // `pulumi stack output --json` prints $STUB_OUTPUTS, or fails on demand;
-  // `pulumi config get cmsEnabled` prints $STUB_CMS_ENABLED, unset when empty.
   stub(
     "pulumi",
     [
@@ -76,9 +60,6 @@ beforeAll(() => {
       "printf '%s' \"$out\"",
     ].join("\n"),
   );
-  // The registry: $STUB_PUBLISHED holds "service tag" lines. Same contract as
-  // find-published-tag.sh — first published tag in argument order, exit 1 for
-  // none, exit 2 when the registry "fails".
   stub(
     "find-published-tag",
     [
@@ -90,9 +71,6 @@ beforeAll(() => {
       "exit 1",
     ].join("\n"),
   );
-  // curl, for find-published-tag.sh itself: the token endpoint answers a
-  // token, a manifest HEAD answers the code listed in $STUB_CURL_CODES
-  // ("<image path>:<tag> <code>" lines), 404 when unlisted.
   stub(
     "curl",
     [
@@ -114,9 +92,9 @@ afterAll(() => {
 
 type Run = { status: number | null; stdout: string; stderr: string };
 
-function run(script: string, env: Record<string, string>, args: string[] = [], cwd: string = REPO): Run {
+function run(script: string, env: Record<string, string>, args: string[] = []): Run {
   const result = spawnSync("bash", [join(SCRIPTS, script), ...args], {
-    cwd,
+    cwd: REPO,
     encoding: "utf8",
     env: {
       ...GIT_ENV,
@@ -134,13 +112,11 @@ function run(script: string, env: Record<string, string>, args: string[] = [], c
   return { status: result.status, stdout: result.stdout, stderr: result.stderr };
 }
 
-/** The registry repository: the CMS's image is named `cms`, the older three keep their prefixed names. */
 const repository = (service: string) => (service === "cms" ? "cms" : `grid-oib-${service}`);
 
 const ref = (service: string, commitName: string) =>
   `ghcr.io/archos-at/${repository(service)}:sha-${C[commitName]}`;
 
-/** Every service published at `commitName`, as "service tag" lines. */
 const publishedAt = (...commitNames: string[]) =>
   commitNames
     .flatMap((n) => ["backend", "frontend", "web", "cms"].map((s) => `${s} sha-${C[n]}`))
@@ -174,8 +150,6 @@ describe("resolve-image-refs.sh", () => {
   });
 
   it("walks past a commit whose publish failed to the newest tagged one", () => {
-    // c5 and m4 have no tags: their publish failed (the PyPI timeout of run
-    // 36411247085) or built nothing for this service.
     const out = resolve({ STUB_PUBLISHED: publishedAt("c3") });
     expect(out.status, out.stderr).toBe(0);
     expect(pinned(out).BACKEND_IMAGE_REF).toBe(ref("backend", "c3"));
@@ -188,9 +162,6 @@ describe("resolve-image-refs.sh", () => {
   });
 
   it("pins every service to the deploy commit when a green CI run triggered it, without asking the registry", () => {
-    // CI tags all three images for a commit only once every check passed, so
-    // a green run means the tags exist (the workflow verifies them before
-    // this runs). An older commit in the registry must not win.
     const out = resolve({ RUN_ID: "123", STUB_PUBLISHED: publishedAt("c3") });
     expect(out.status, out.stderr).toBe(0);
     expect(pinned(out)).toEqual({
@@ -202,8 +173,6 @@ describe("resolve-image-refs.sh", () => {
   });
 
   it("refuses to move a service to a commit older than the one deployed", () => {
-    // The 09-28 incident: c5's backend is running, and resolution came back
-    // with an older image.
     const out = resolve({
       STUB_PUBLISHED: [publishedAt("c3"), `frontend sha-${C.c5}`, `web sha-${C.c5}`].join("\n"),
       STUB_OUTPUTS: deployed({
@@ -217,7 +186,6 @@ describe("resolve-image-refs.sh", () => {
     expect(out.stderr).toContain("::error::backend: refusing to downgrade");
     expect(out.stderr).toContain(ref("backend", "c5"));
     expect(out.stderr).toContain(ref("backend", "c3"));
-    // Every service is still reported, so the log shows the whole picture.
     expect(out.stderr).toContain(`frontend: ${ref("frontend", "c3")} -> ${ref("frontend", "c5")}`);
   });
 
@@ -303,7 +271,6 @@ describe("resolve-image-refs.sh", () => {
   });
 
   it("keeps the running CMS when an operator rolls back to a tag from before the CMS had an image", () => {
-    // c2 predates the CMS: the other three have sha-c2, the CMS does not.
     const tag = `sha-${C.c2}`;
     const out = resolve({
       EXPLICIT_TAG: tag,
@@ -346,106 +313,6 @@ describe("resolve-image-refs.sh", () => {
     });
     expect(out.status, out.stderr).toBe(0);
     expect(pinned(out).CMS_IMAGE_REF).toBe(ref("cms", "c3"));
-  });
-});
-
-/**
- * The vector-store floor (ADR-0115). A rollback by image tag deploys the
- * CURRENT program with an OLD image: once Chroma is gone from the program, a
- * backend built before that falls back to an empty embedded Chroma per pod,
- * answers from nothing and loses every upload, with nothing reporting an
- * error. Develop's history here: `chroma1` deploys Chroma, `removal` takes it
- * out, `after` follows, `revert` puts it back.
- */
-describe("resolve-image-refs.sh, the vector-store floor", () => {
-  const STORE_REPO = join(ROOT, "store-repo");
-  const S: Record<string, string> = {};
-  const sgit = (...args: string[]) =>
-    execFileSync("git", args, { cwd: STORE_REPO, env: GIT_ENV, encoding: "utf8" }).trim();
-  const scommit = (name: string) => {
-    sgit("add", "-A");
-    sgit("commit", "--allow-empty", "-q", "-m", name);
-    S[name] = sgit("rev-parse", "HEAD");
-  };
-  const chromaTs = join(STORE_REPO, "deploy", "pulumi", "src", "data", "chroma.ts");
-  const backend = (name: string) => `ghcr.io/archos-at/grid-oib-backend:sha-${S[name]}`;
-  const all = (name: string) => ({
-    backend: backend(name),
-    frontend: `ghcr.io/archos-at/grid-oib-frontend:sha-${S[name]}`,
-    web: `ghcr.io/archos-at/grid-oib-web:sha-${S[name]}`,
-    cms: `ghcr.io/archos-at/cms:sha-${S[name]}`,
-  });
-  const resolveAt = (deploy: string, env: Record<string, string>) =>
-    run("resolve-image-refs.sh", { DEPLOY_SHA: S[deploy], ...env }, [], STORE_REPO);
-
-  beforeAll(() => {
-    execFileSync("mkdir", ["-p", join(STORE_REPO, "deploy", "pulumi", "src", "data")]);
-    sgit("init", "-q", "-b", "develop");
-    writeFileSync(chromaTs, "export function installChroma() {}\n");
-    scommit("chroma1");
-    rmSync(chromaTs);
-    scommit("removal");
-    scommit("after");
-    writeFileSync(chromaTs, "export function installChroma() {}\n");
-    scommit("revert");
-  });
-
-  it("refuses a rollback to an image built while the program still deployed Chroma", () => {
-    const out = resolveAt("after", {
-      EXPLICIT_TAG: `sha-${S.chroma1}`,
-      STUB_OUTPUTS: JSON.stringify({ deployedImages: all("after") }),
-    });
-    expect(out.status).toBe(1);
-    expect(out.stdout).toBe("");
-    expect(out.stderr).toContain(`::error::backend: refusing ${backend("chroma1")}. It was built for chroma`);
-    expect(out.stderr).toContain("git revert");
-  });
-
-  it("refuses a bare re-deploy that would keep a Chroma-era backend under a program without Chroma", () => {
-    // No image found in the walk: the resolver keeps what is deployed.
-    const out = resolveAt("after", {
-      RESOLVE_DEPTH: "1",
-      STUB_PUBLISHED: "",
-      STUB_OUTPUTS: JSON.stringify({ deployedImages: all("chroma1") }),
-    });
-    expect(out.status).toBe(1);
-    expect(out.stderr).toContain("It was built for chroma, and the program");
-  });
-
-  it("allows a rollback that stays on the same side of the removal", () => {
-    const out = resolveAt("after", {
-      EXPLICIT_TAG: `sha-${S.removal}`,
-      STUB_OUTPUTS: JSON.stringify({ deployedImages: all("after") }),
-    });
-    expect(out.status, out.stderr).toBe(0);
-    expect(out.stdout).toContain(`BACKEND_IMAGE_REF=${backend("removal")}`);
-  });
-
-  it("allows the forward deploy of a revert, whose program and image both run Chroma again", () => {
-    const out = resolveAt("revert", { RUN_ID: "7", STUB_OUTPUTS: JSON.stringify({ deployedImages: all("after") }) });
-    expect(out.status, out.stderr).toBe(0);
-    expect(out.stdout).toContain(`BACKEND_IMAGE_REF=${backend("revert")}`);
-  });
-
-  // Prod pins its tag in Pulumi.prod.yaml and resolves nothing, so its job
-  // runs the floor on its own.
-  it("is a script of its own, as the prod job runs it on the pinned tag", () => {
-    const floor = (deploy: string, ref: string) =>
-      run("vector-store-floor.sh", { DEPLOY_SHA: S[deploy] }, [ref], STORE_REPO);
-    expect(floor("after", backend("chroma1")).status).toBe(1);
-    expect(floor("after", backend("removal")).status).toBe(0);
-    const unreadable = floor("after", "ghcr.io/archos-at/grid-oib-backend:latest");
-    expect(unreadable.status).toBe(0);
-    expect(unreadable.stderr).toContain("::warning::backend: cannot tell which vector store");
-  });
-
-  it("refuses a Qdrant-only image under a program that deploys Chroma again", () => {
-    const out = resolveAt("revert", {
-      EXPLICIT_TAG: `sha-${S.after}`,
-      STUB_OUTPUTS: JSON.stringify({ deployedImages: all("revert") }),
-    });
-    expect(out.status).toBe(1);
-    expect(out.stderr).toContain("It was built for qdrant, and the program");
   });
 });
 
@@ -492,7 +359,6 @@ describe("verify-image-tag.sh", () => {
     const out = run("verify-image-tag.sh", { STUB_CURL_CODES: all("sha-a", "200"), CMS_ENABLED: "true" }, ["archos-at", "sha-a"]);
     expect(out.status).toBe(1);
     expect(out.stdout).toContain("not published for cms");
-    // Without the CMS, its image is not asked for.
     expect(run("verify-image-tag.sh", { STUB_CURL_CODES: all("sha-a", "200") }, ["archos-at", "sha-a"]).status).toBe(0);
   });
 });

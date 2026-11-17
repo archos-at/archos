@@ -169,9 +169,7 @@ describe.skipIf(!url)('bff_job_queue reads and writes from the BFF', () => {
 
     expect((await platform(() => repo.takeJob(jobId, 'run-1/0', { staleSeconds: 600 })))?.attempts).toBe(1)
     expect(await platform(() => repo.takeJob(jobId, 'run-1/1', { staleSeconds: 600 }))).toBeNull()
-    // A reassigned copy of the same attempt does not match the claim either.
     expect(await platform(() => repo.takeJob(jobId, 'run-1/0', { staleSeconds: 600 }))).toBeNull()
-    // Silent past the stale window, it has lost the row, and its writes are refused.
     await age(jobId, { claimedMinutes: 20, heartbeatMinutes: 20 })
     expect((await platform(() => repo.takeJob(jobId, 'run-1/1', { staleSeconds: 600 })))?.claimedBy).toBe('run-1/1')
     expect(await platform(() => repo.finishJob(jobId, 'run-1/0'))).toBe(false)
@@ -194,7 +192,6 @@ describe.skipIf(!url)('bff_job_queue reads and writes from the BFF', () => {
 
   it('leaves a row the claim loop before Hatchet still works on: an old take with a fresh heartbeat is alive', async () => {
     const jobId = await enqueueAs(ORG_A, 'p-rollout')
-    // The old loop held one take across many slices and refreshed only heartbeat_at.
     await platform(() =>
       db.execute(sql`UPDATE bff_job_queue SET status = 'claimed', claimed_by = 'bff-jobs-old-pod', claimed_at = now(), heartbeat_at = now(), attempts = 1 WHERE job_id = ${jobId}::uuid`),
     )
@@ -204,7 +201,6 @@ describe.skipIf(!url)('bff_job_queue reads and writes from the BFF', () => {
     const sweep = await platform(() => repo.listJobsToDispatch({ graceSeconds: 120, staleSeconds: 360, limit: 500 }))
     expect(sweep.map((row) => row.jobId)).not.toContain(jobId)
 
-    // Once the old pod is gone, its heartbeat goes stale and the row is taken.
     await age(jobId, { claimedMinutes: 45, heartbeatMinutes: 10 })
     const stale = await platform(() => repo.listJobsToDispatch({ graceSeconds: 120, staleSeconds: 360, limit: 500 }))
     expect(stale.map((row) => row.jobId)).toContain(jobId)
@@ -217,7 +213,6 @@ describe.skipIf(!url)('bff_job_queue reads and writes from the BFF', () => {
     await platform(() => repo.takeJob(mine, 'run-a/0@w-1', { staleSeconds: 600 }))
     await platform(() => repo.takeJob(takenOver, 'run-b/0@w-2', { staleSeconds: 600 }))
 
-    // This pod thinks it still holds `takenOver` as run-b/0@w-1: that holder is not on the row.
     const held = [
       { jobId: mine, holder: 'run-a/0@w-1' },
       { jobId: takenOver, holder: 'run-b/0@w-1' },
@@ -228,7 +223,6 @@ describe.skipIf(!url)('bff_job_queue reads and writes from the BFF', () => {
 
     expect(await status(mine)).toMatchObject({ status: 'queued', claimed_by: null, attempts: 1 })
     expect(await status(takenOver)).toMatchObject({ status: 'claimed', claimed_by: 'run-b/0@w-2' })
-    // No stale window: Hatchet's retry takes it now, and the cut-off attempt can write nothing.
     expect((await platform(() => repo.takeJob(mine, 'run-a/1@w-3', { staleSeconds: 600 })))?.attempts).toBe(2)
     expect(await platform(() => repo.finishJob(mine, 'run-a/0@w-1'))).toBe(false)
   })
@@ -248,7 +242,6 @@ describe.skipIf(!url)('bff_job_queue reads and writes from the BFF', () => {
 
     expect(saved?.claimedAt).toBeInstanceOf(Date)
     expect(await status(jobId)).toMatchObject({ status: 'queued', attempts: 0, claimed_by: null, payload: { projectId: 'p-slice', cursor: 7 } })
-    // Not due for an hour: no run takes it, and the sweep does not dispatch it.
     expect(await platform(() => repo.takeJob(jobId, 'run-2', { staleSeconds: 600 }))).toBeNull()
     const stranded = await platform(() => repo.listJobsToDispatch({ graceSeconds: 0, staleSeconds: 600, limit: 500 }))
     expect(stranded.map((row) => row.jobId)).not.toContain(jobId)

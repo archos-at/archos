@@ -19,10 +19,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { REVIEWER_READER } from '@/lib/documents/document-reader'
 
 vi.mock('server-only', () => ({}))
-// Project access is FGA (WorkOS), which is not this suite's subject: the shelf's
-// authorization is unit-tested, and the database's half is the point here.
 vi.mock('@/lib/authz/projects', () => ({ requireProjectAccess: vi.fn().mockResolvedValue(undefined) }))
-// The backend mirror is best-effort; nothing listens.
 vi.mock('@/lib/backend-proxy', () => ({ getBackendUrl: () => 'http://127.0.0.1:9' }))
 
 const url = process.env.TEST_DATABASE_URL
@@ -44,7 +41,7 @@ describe.skipIf(!url)('shelf folders against Postgres', () => {
       userId: USER,
       organizationId,
       role: 'member',
-      permissions: ['org:archiv:manage'],
+      permissions: ['org:office_shelf:manage'],
     }) as unknown as import('@/lib/auth/types').AuthorizedSession
   const inTenant = <T>(run: () => Promise<T>, organizationId = ORG): Promise<T> =>
     withTenant({ organizationId, userId: USER }, run)
@@ -116,7 +113,6 @@ describe.skipIf(!url)('shelf folders against Postgres', () => {
     const duplicate = await inTenant(() =>
       folders.createShelfFolder(session(), shelf.OFFICE_SHELF, { name: 'Normen' }),
     )
-    // The same name in another tenant's Archiv is another folder.
     const elsewhere = await inTenant(
       () => folders.createShelfFolder(session(OTHER_ORG), shelf.OFFICE_SHELF, { name: 'Normen' }),
       OTHER_ORG,
@@ -226,20 +222,15 @@ describe.skipIf(!url)('shelf folders against Postgres', () => {
     expect(refused).toEqual({ ok: false, error: 'Folder not found in this project.' })
     expect(await folderOf(projectDoc)).toBeNull()
 
-    // Deleting the folder re-files its document into the parent: nothing is
-    // left for the ON DELETE CASCADE to find.
     const deleted = await inTenant(() => folders.deleteShelfFolder(session(), shelf.OFFICE_SHELF, child.id))
     expect(deleted.ok && deleted.result).toEqual({ documentsMoved: 1, foldersMoved: 0 })
     expect(await folderOf(officeShelfDoc)).toBe(root.id)
-    // The row is gone, not a tombstone: the Archiv has no Papierkorb (ADR-0088),
-    // and `project_folders_bin_state_check` would refuse a deleted Archiv folder.
     const left = await inTenant(() => db.execute(sql`SELECT id FROM project_folders WHERE id = ${child.id}`))
     expect(Array.from(left)).toHaveLength(0)
 
     const rootDeleted = await inTenant(() => folders.deleteShelfFolder(session(), shelf.OFFICE_SHELF, root.id))
     expect(rootDeleted.ok && rootDeleted.result).toEqual({ documentsMoved: 1, foldersMoved: 0 })
     expect(await folderOf(officeShelfDoc)).toBeNull()
-    // The document itself survived both deletes.
     const survivors = await inTenant(() =>
       db.execute(sql`SELECT id FROM documents WHERE id = ${officeShelfDoc}`),
     )
@@ -258,18 +249,13 @@ describe.skipIf(!url)('shelf folders against Postgres', () => {
     const project = (options = {}) => repo.listDocumentPage(shelf.projectShelf(projectId), ORG, { reader: REVIEWER_READER, ...options })
     const ids = async (page: ReturnType<typeof officeShelf>) => (await page).rows.map((row) => row.id.slice(-2)).sort()
 
-    // The working set by default, both shelves alike.
-    // (`01` and `02` are the documents the previous test left behind.)
     expect(await ids(officeShelf())).toEqual(['01', '11', '13'])
     expect(await ids(project())).toEqual(['02', '21', '23'])
-    // Archived ones on request.
     expect(await ids(officeShelf({ includeArchived: true }))).toContain('12')
     expect(await ids(project({ includeArchived: true }))).toContain('22')
-    // The author filter.
     expect(await ids(officeShelf({ authoredBy: 'agent' }))).toEqual(['13'])
     expect(await ids(project({ authoredBy: 'agent' }))).toEqual(['23'])
 
-    // One row shape: the key sets cannot diverge because the query is one.
     const officeShelfRow = (await officeShelf()).rows[0]
     const projectRow = (await project()).rows[0]
     expect(Object.keys(officeShelfRow).sort()).toEqual(Object.keys(projectRow).sort())

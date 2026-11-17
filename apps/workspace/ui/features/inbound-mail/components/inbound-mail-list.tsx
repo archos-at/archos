@@ -1,19 +1,5 @@
 'use client'
 
-/**
- * The E-Mail-Eingang's list pane: the two lists („Wartet auf Ablage ·
- * Bearbeitet“), the waiting rows under „Bereit“ and „Braucht Sie“ in their
- * sections (thread groups, the quiet group of unconfirmed and automatic mail),
- * and every state the list can be in, each with its own words: loading,
- * failed, never used (which teaches the address in place), all done, nothing
- * handled yet.
- *
- * „Bearbeitet“ is one list: each row already says what became of its mail, so
- * the facets it had (Abgelegt, Verworfen, Abgelaufen) were cut (the owner's
- * review, 2026-10-27). The route still takes `?outcome=`, and so does the
- * `inbound-mail-list` operation: only the buttons went.
- */
-
 import type { JSX, ReactNode } from 'react'
 import Link from 'next/link'
 import { CheckCircle2, ChevronDown, History, Inbox as InboxGlyph, MailOpen, Mails } from 'lucide-react'
@@ -52,7 +38,6 @@ export interface InboundMailListProps {
   sections: ListSection[]
   status: InboundMailListStatus
   onFilterChange: (status: InboundMailListStatus, outcome: InboundMailOutcome | null) => void
-  /** The waiting count beside the first filter; null while unknown. */
   waitingCount: number | null
   openId: string | null
   focusedId: string | null
@@ -62,37 +47,22 @@ export interface InboundMailListProps {
   hrefFor: (mailId: string) => string
   quietOpen: boolean
   onQuietOpenChange: (open: boolean) => void
-  /** File a whole thread group as suggested. */
   onFileGroup: (threadId: string, mailIds: string[]) => void
   fileGroupBusy: string | null
-  /** File one ready mail as suggested, from its row. */
   onFileOne: (mailId: string) => void
-  /** The ready row whose press is in flight. */
   fileOneBusy: string | null
-  /** File every ready mail of the page (at most one request's worth) as suggested, after the confirmation. */
   onFileReady: (mailIds: string[]) => void
   onRetry: () => void
   onLoadMore: () => void
   loadingMore: boolean
-  /** Whether the project ever received mail; null while unknown. Decides „never used“ against „all done“. */
   everReceived: boolean | null
-  /** The address, for the never-used state. */
   addressBlock: ReactNode
-  /**
-   * What the never-used state says about the address: it is below (`address`),
-   * there is none yet and the reader can make one (`create`), or there is none
-   * and someone who manages the project has to (`ask`).
-   */
   neverCase?: 'address' | 'create' | 'ask'
-  /** The Wartet/Bearbeitet switch; off while nothing ever arrived, when there is nothing to switch between. */
   showFilter?: boolean
-  /** The selection bar, pinned under the list while something is selected. */
   selectionBar: ReactNode
-  /** The closed-project notice, above the rows. */
   notice: ReactNode
 }
 
-/** A row-end press of a heading or a thread line: the raised press, so „Als Fassung 4–6 ablegen“ reads as a press, not a label. */
 const GROUP_ACTION = 'shrink-0 gap-1.5'
 
 export function InboundMailList(props: InboundMailListProps): JSX.Element {
@@ -105,8 +75,6 @@ export function InboundMailList(props: InboundMailListProps): JSX.Element {
         <ToggleGroup
           type="single"
           segmented
-          // The track on the list's edge. 14px, the tabs' size and Offene Punkte's filter's: one size for a segmented control in Dateien.
-          // A track is one step below the plane it lies on: on the split's desk that is the selected grey, or it vanished.
           className="@3xl:bg-selected [&>button]:text-sm"
           size="sm"
           value={status}
@@ -169,8 +137,6 @@ function ListBody({
   const t = useTranslations(inboundMailCopy)
   if (state.kind === 'loading') {
     return (
-      // The loaded list's geometry: a section label where „Bereit“ stands, then rows of a subject and a sender at the
-      // rows' pitch, in the list's 6px, the row's inset and the checkbox's column. No hairlines: the rows have none.
       <div aria-busy="true" data-testid="inbound-mail-list-loading">
         <div className="flex min-h-7 items-center px-4 pt-4 pb-1">
           <Skeleton className="h-3 w-16" />
@@ -245,7 +211,6 @@ function ListBody({
     )
   }
 
-  // While mails are picked the bar under the list is the one way to file them: the heading's and the thread's presses step back.
   const picking = checked.size > 0
   const row = (mail: InboundMailSummaryView, inGroup = false): JSX.Element => (
     <InboundMailRow
@@ -267,8 +232,6 @@ function ListBody({
   return (
     <div className="flex flex-col">
       {sections.map((section, index) => {
-        // A run of mails outside any group is one list, so the hairline between two of them is drawn as in a thread:
-        // the run is rendered at its first mail and skipped after it.
         if (section.kind === 'mail') {
           if (sections[index - 1]?.kind === 'mail') return null
           const run = sections.slice(index).findIndex((next) => next.kind !== 'mail')
@@ -278,18 +241,13 @@ function ListBody({
         if (section.kind === 'readiness') {
           const ready = section.readiness === 'ready'
           const batch = section.mails.slice(0, INBOUND_MAIL_DECISION_MAX_MAILS)
-          // A section that is one thread and nothing else: the thread's own press files the same mails, so the
-          // section's would be a second press for one act, 40px above it.
           const next = sections[index + 1]
           const soleThread = next?.kind === 'thread' && next.mails.length === section.mails.length && sections[index + 2]?.kind !== 'mail'
           return (
             <div
               key={`readiness-${section.readiness}`}
-              // The Postfach's „E-Mails warten“ row links here (`lib/inbox/targets.ts`).
               id={ready ? INBOUND_MAIL_READY_ANCHOR : undefined}
               data-readiness={section.readiness}
-              // A section opens about 48px of white under the row above it (the row's 12px inset counted), twice a
-              // thread's 24px end, which it absorbs after a thread; the list's first heading sits under the filter.
               className="flex scroll-mt-2 flex-col gap-1 px-4 pt-9 pb-1 first:pt-1 [section+&]:pt-3"
               data-testid={`readiness-${section.readiness}`}
             >
@@ -314,9 +272,7 @@ function ListBody({
           )
         }
         if (section.kind === 'thread') {
-          // A thread's ready and waiting halves are two groups (`listSections`): the first mail tells them apart.
           const groupKey = `${section.threadId}:${section.mails[0]?.id ?? ''}`
-          // One request decides at most twenty mails; in filing order, the first twenty keep their Fassungen.
           const batch = section.mails.slice(0, INBOUND_MAIL_DECISION_MAX_MAILS)
           return (
             <section key={groupKey} aria-label={t('group.thread', { name: section.name, count: section.mails.length })} data-testid={`thread-group-${section.threadId}`}>
@@ -335,7 +291,6 @@ function ListBody({
                     type="button"
                     size="sm"
                     variant="secondary"
-                    // No glyph: the file glyph is the „Bereit“ heading's press for all of them; this one files the thread.
                     className={GROUP_ACTION}
                     busy={fileGroupBusy === groupKey}
                     busyLabel={t('bulk.fileSuggestedBusy')}
@@ -349,7 +304,6 @@ function ListBody({
                     })}
                   </BusyButton>
                 ) : (
-                  // Every mail of this half needs the person: the way in is its first mail, and no Fassung range is promised.
                   <Button asChild size="sm" variant="secondary" className={GROUP_ACTION}>
                     <Link href={hrefFor(section.mails[0].id)} data-testid="thread-group-open">
                       {t('group.reviewInOrder')}
@@ -363,11 +317,10 @@ function ListBody({
           )
         }
         return (
-          // More of this list, in place: the design language's `Collapsible`.
           <Collapsible key="quiet" open={quietOpen} onOpenChange={onQuietOpenChange} asChild>
             <section data-testid="quiet-group">
               <CollapsibleTrigger
-                className="text-muted-foreground hover:bg-accent flex w-full items-center gap-2 px-4 py-2.5 text-left text-xs font-medium outline-none transition-colors duration-snap ease-out focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/60 motion-reduce:transition-none pointer-coarse:min-h-11"
+                className="text-muted-foreground hover:bg-hover flex w-full items-center gap-2 px-4 py-2.5 text-left text-xs font-medium outline-none transition-colors duration-snap ease-out focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/60 motion-reduce:transition-none pointer-coarse:min-h-11"
                 data-testid="quiet-group-toggle"
               >
                 <ChevronDown className={cn('size-3.5 transition-transform duration-quick ease-out motion-reduce:transition-none', !quietOpen && '-rotate-90')} aria-hidden />

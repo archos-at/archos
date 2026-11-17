@@ -1,45 +1,3 @@
-/**
- * What a recorded value becomes (`docs/design/agentic-project-intake.md`,
- * „The BFF decides what a value becomes"). Pure: the service loads the
- * profile, the needs and the readable files, masks the quotes, and hands them
- * here; this answers one result per value and the profile after them.
- *
- * In order, for each value:
- *
- *  1. refused `vocabulary`: a token outside the question's options, a value
- *     of the wrong kind, or an empty one;
- *  2. refused `dismissed`: a value a person dismissed for that key;
- *  3. refused `unreadable-file`: evidence from a file outside the project's
- *     main collection (`extractableFileNames`);
- *  4. refused `unknown-key`: a key no wizard question writes, in the scope
- *     that question is asked in (`questionForKey`), or on a building the
- *     profile does not describe. Whether the question is asked yet is not
- *     consulted: a reading may find the Wohnungen before the Nutzungen that
- *     open their question, and the values of one batch do not depend on their
- *     order. A key with a confirmed fact is never refused here: the reading
- *     may corroborate or contradict it. The derived `building_class@bldgN` is
- *     always refused, a confirmed one included: it is derived from its inputs
- *     and proposed, and a class taken from a document would skip the inputs a
- *     person checks (and is what an injected line asks for). Checked against
- *     the profile at the write, the first three before (they do not move);
- *  5. equal to the confirmed fact: `corroborated`, its evidence grows;
- *     different: `contradiction`, an alternative on the FACT, which is never
- *     overwritten;
- *  6. equal to the suggestion there: `corroborated`; different: `contradiction`,
- *     an alternative on the suggestion;
- *  7. otherwise a new suggestion (`agent_suggested`), with its evidence and
- *     the reading that suggested it (`readingId`).
- *
- * Then the class of every building whose inputs moved is derived again and
- * written (`withDerivedClass`), and the answer names the needs the batch
- * opened (`openedNeeds`: listed after it, not before).
- *
- * A reading may also take back a suggestion of its own (`planWithdraw`): only
- * an `agent_suggested` value no person confirmed, carrying this reading's id.
- * It is removed, not dismissed: no person said no, so a later reading may
- * suggest it again, where a dismissed value stays refused.
- */
-
 import type { ProjectIntakeDefinition } from '@/lib/project-profile/intake-types'
 import { validateProfilePatchVocabulary } from '@/lib/project-profile/intake-vocabulary'
 import type { DocumentEvidence } from '@/lib/project-profile/evidence-schema'
@@ -73,18 +31,12 @@ import type {
   WithdrawResult,
 } from './types'
 
-/** What the screen of one value needs to know besides the value. */
 export interface RecordScreen {
   definition: ProjectIntakeDefinition
   dismissed: readonly DismissedValue[]
   readableFiles: ReadonlySet<string>
 }
 
-/**
- * The question's vocabulary, as the profile's one door checks it, and the
- * tokens a reading may record for it (never „noch offen", which defers an
- * answer and is no value a document states).
- */
 function outsideVocabulary(value: RecordValue, definition: ProjectIntakeDefinition): boolean {
   if (!isMeaningfulValue(value.value)) return true
   try {
@@ -102,10 +54,6 @@ function outsideVocabulary(value: RecordValue, definition: ProjectIntakeDefiniti
   return !given.every((token) => typeof token === 'string' && tokens.has(token))
 }
 
-/**
- * The refusals that do not depend on the profile as it stands at the write:
- * vocabulary, dismissed, unreadable file. Null when none applies.
- */
 export function staticRefusal(value: RecordValue, screen: RecordScreen): RecordRefusalReason | null {
   if (outsideVocabulary(value, screen.definition)) return 'vocabulary'
   const dismissed = screen.dismissed.some(
@@ -116,7 +64,6 @@ export function staticRefusal(value: RecordValue, screen: RecordScreen): RecordR
   return null
 }
 
-/** One value that passed the static screen, with its evidence masked and its reason worded. */
 export interface ScreenedValue {
   key: string
   value: ProjectPrimitiveValue
@@ -124,19 +71,14 @@ export interface ScreenedValue {
   reason: string
 }
 
-/** When and by which reading a write happens, and how the needs are computed around it. */
 export interface RecordContext {
   now: string
-  /** The reading's job id: a suggestion it creates carries it, and only it may withdraw that suggestion. */
   readingId: string
   needs: ComputeNeedsOptions
-  /** The released setup records to classify by. */
   records: readonly StoredRuleset[]
-  /** The project's knowledge context withholds law at its site: no class is derived, and a derived one goes. */
   lawWithheld?: boolean
 }
 
-/** Write one value onto the profile, or say why not. */
 function applyValue(
   profile: ProjectProfile,
   item: ScreenedValue,
@@ -178,36 +120,29 @@ function applyValue(
 }
 
 export interface RecordPlan {
-  /** One per value, in request order. */
   results: RecordResult[]
   profile: ProjectProfile
-  /** The keys whose entries changed, the derived classes included. */
   changedKeys: string[]
-  /** The needs these values opened, decisive first. */
   opened: OpenedNeed[]
 }
 
-/** The profile with the class of every building whose inputs changed derived again; the class keys that moved join `changed`. */
 function withClassesDerived(
   before: ProjectProfile,
   profile: ProjectProfile,
   definition: ProjectIntakeDefinition,
   changed: Set<string>,
   now: string,
-  scope: Pick<SetupScopeOptions, 'records' | 'lawWithheld'>
+  scope: Pick<SetupScopeOptions, 'records' | 'lawWithheld'>,
+  everyBuilding = false
 ): ProjectProfile {
-  // No records released for the country (before or after the batch): nothing can be derived, so
-  // nothing may be taken away either; the stored classes stay until the records publish.
+  if (scope.lawWithheld) return profile
   if (setupUnpublished(before, scope.records) && setupUnpublished(profile, scope.records)) return profile
   let current = profile
-  // Read before the loop: a class written below moves no input, and the site is the batch's.
   const classification = classificationFor(current, scope)
   const all = buildingIdsOf(current, definition)
-  // Without a classification no class may stand, and a site that selects another one moves every class:
-  // every building is visited. A site change within one classification (another Land) moves none.
   const moved = classificationFor(before, scope)?.rulesetId !== classification?.rulesetId
   const touched =
-    classification && !moved ? buildingsTouchedBy(changed, all, classificationInputs(classification)) : all
+    classification && !moved && !everyBuilding ? buildingsTouchedBy(changed, all, classificationInputs(classification)) : all
   for (const buildingId of touched) {
     const derived = withDerivedClass(current, definition, buildingId, now, scope)
     current = derived.profile
@@ -216,18 +151,12 @@ function withClassesDerived(
   return current
 }
 
-/**
- * The profile after these values, what each became, and the needs they
- * opened. `refusals` holds the static refusals the service already found, by
- * the value's position; those values are not applied.
- */
 export function planRecord(
   profile: ProjectProfile,
   definition: ProjectIntakeDefinition,
   values: ReadonlyArray<{ key: string; screened: ScreenedValue | null; refusal: RecordRefusalReason | null }>,
   context: RecordContext
 ): RecordPlan {
-  // The buildings as the profile describes them before the batch: no value of it can add one.
   const buildingIds = buildingIdsOf(profile, definition)
   const recordable = (key: string) => recordableKey(definition, key, buildingIds) !== null
   let current = profile
@@ -251,7 +180,17 @@ export function planRecord(
   return { results, profile: current, changedKeys: [...changed], opened }
 }
 
-/** Why `readingId` may not withdraw the suggestion under `key`; null when it may. */
+export function planRederive(
+  profile: ProjectProfile,
+  definition: ProjectIntakeDefinition,
+  context: Pick<RecordContext, 'now' | 'records' | 'lawWithheld'>
+): { profile: ProjectProfile; changedKeys: string[] } {
+  const changed = new Set<string>()
+  const scope = { records: context.records, lawWithheld: context.lawWithheld }
+  const current = withClassesDerived(profile, profile, definition, changed, context.now, scope, true)
+  return { profile: current, changedKeys: [...changed] }
+}
+
 export function withdrawRefusal(profile: ProjectProfile, key: string, readingId: string): WithdrawRefusalReason | null {
   if (profile.facts[key]) return 'confirmed'
   const assumption = profile.assumptions[key]
@@ -261,20 +200,11 @@ export function withdrawRefusal(profile: ProjectProfile, key: string, readingId:
 }
 
 export interface WithdrawPlan {
-  /** One per key, in request order. */
   results: WithdrawResult[]
   profile: ProjectProfile
-  /** The keys whose entries changed, the derived classes included. */
   changedKeys: string[]
 }
 
-/**
- * The profile without the suggestions this reading takes back, and what became
- * of each key. A withdrawn suggestion goes with the alternatives found beside
- * it in the same reading; the class of a building whose input went is derived
- * again (and goes, when it can no longer be derived). Nothing is remembered as
- * dismissed.
- */
 export function planWithdraw(
   profile: ProjectProfile,
   definition: ProjectIntakeDefinition,

@@ -1,12 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The BFF's own chat-socket client (ADR-0106): it sends the question only to
- * a server that reads `if_idle`, and reads what became of it. The driver
- * underneath is the store-free `createTurnSocket`; here a fake stands in for
- * it, so the test plays the server's hello and frames.
- */
 
 import { describe, expect, it, vi } from 'vitest'
 import type { TurnSocket, TurnSocketOptions, TurnSocketStatus } from '@/adapters/api/turn-socket'
@@ -25,7 +19,6 @@ const MESSAGE: HeadlessUserMessage = {
 
 const REQUIRES = ['user_message.trigger', 'user_message.if_idle']
 
-/** A server played by the test: its hello's `accepts`, and the frames it answers with. */
 function fakeServer(accepts: readonly string[]) {
   const sent: ClientMessage[] = []
   let options: TurnSocketOptions | null = null

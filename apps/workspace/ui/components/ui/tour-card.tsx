@@ -1,26 +1,5 @@
 'use client'
 
-/**
- * The floating card of a guided tour: one stop's title and body, where the
- * reader is in the tour, and the controls to move through it.
- *
- * A molecule, and deliberately domain-free. It knows nothing about which tour
- * it belongs to or which library positions it — the product tour
- * (`features/onboarding/components/product-tour.tsx`) hands it copy and
- * callbacks, and the positioning library places it. Anything that wants a
- * second tour composes this card rather than restyling the library's default.
- *
- * It is a floating panel, so it takes the square surface radius (`rounded-surface`) and
- * the popover surface, the same material as a Popover or a Dialog. The primary
- * action is ink like every other primary action; progress is a row of quiet
- * dashes rather than a coloured bar, because nothing about "stop 3 of 5" is a
- * signal worth chroma.
- *
- * Focus moves to the primary button whenever the stop changes, so a keyboard
- * reader can walk the tour with Enter alone. The positioning library owns the
- * arrow keys and Escape.
- */
-
 import * as React from 'react'
 import { X } from 'lucide-react'
 
@@ -34,21 +13,17 @@ export interface TourCardLabels {
   back: string
   done: string
   close: string
-  /** "2 of 5", already interpolated. */
   progress: string
 }
 
 export interface TourCardProps {
   title: string
   children: React.ReactNode
-  /** Zero-based index of the current stop. */
   step: number
   total: number
   labels: TourCardLabels
-  /** Advances, or finishes the tour on the last stop. */
   onNext: () => void
   onBack: () => void
-  /** Leaves the tour early. */
   onClose: () => void
   className?: string
 }
@@ -81,7 +56,7 @@ export function TourCard({
       aria-labelledby={titleId}
       aria-describedby={bodyId}
       className={cn(
-        'bg-popover text-popover-foreground w-[min(22rem,calc(100vw-2rem))] rounded-surface border p-5 shadow-lg',
+        'bg-popover text-popover-foreground w-[min(22rem,calc(100vw-2rem))] rounded-surface p-5 shadow-lg',
         className,
       )}
     >
@@ -93,7 +68,7 @@ export function TourCard({
           type="button"
           onClick={onClose}
           aria-label={labels.close}
-          className="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring/60 touch-target -m-1.5 flex size-7 shrink-0 items-center justify-center rounded-control transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 motion-reduce:transition-none"
+          className="text-muted-foreground hover:bg-hover hover:text-foreground focus-visible:ring-ring/60 touch-target -m-1.5 flex size-7 shrink-0 items-center justify-center rounded-control transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 motion-reduce:transition-none"
         >
           <X className="size-3.5" aria-hidden />
         </button>
@@ -123,7 +98,6 @@ export function TourCard({
   )
 }
 
-/** One dash per stop; the current one is ink, the visited ones half ink. */
 function TourProgress({ step, total }: { step: number; total: number }): JSX.Element {
   return (
     <div className="flex items-center gap-1" aria-hidden>

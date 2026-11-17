@@ -1,5 +1,3 @@
-"""The format engines read their format, whoever publishes it."""
-
 from __future__ import annotations
 
 import pytest
@@ -100,8 +98,6 @@ def test_ris_xml_reads_the_document_inside_content_without_the_screen_reader_twi
 
 
 def test_akn_eids_are_the_anchors_at_any_unit_the_record_names():
-    # A citation to an Absatz resolves to `document + art_16_b/para_1`: the eId
-    # Fedlex wrote, kept verbatim, at whatever level the record makes a passage.
     document = Akn({"unit": "paragraph", "language": "de"}).document(RPG)
     anchors = [p.anchor for p in document.passages]
     assert "art_16_b/para_1" in anchors and "art_16_b/para_2" in anchors

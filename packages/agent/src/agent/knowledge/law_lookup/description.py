@@ -1,11 +1,3 @@
-"""The tool description the model reads, written from the source record.
-
-Which source, in which language its questions come, how its texts cite a
-provision, which territories its filter knows and which collections the
-``application`` argument may name: every one of those is the record's. The
-argument names are the tool's own and do not change with the source.
-"""
-
 from __future__ import annotations
 
 from urllib.parse import urlparse
@@ -25,7 +17,6 @@ def _ids(law: LawSource, kind: str) -> str:
 
 
 def _collections_line(law: LawSource) -> str:
-    """The non-statute collections by kind, as the ``application`` argument takes them."""
     parts = [f"{ids} for {words}" for kind, words in _KIND_WORDS if (ids := _ids(law, kind))]
     return ", ".join(parts)
 
@@ -37,7 +28,6 @@ def _document_host(law: LawSource) -> str:
 
 
 def describe(law: LawSource) -> str:
-    """The whole description: what the tool answers, its arguments, and what it returns."""
     wording = law.wording
     name, word = wording.source, wording.subdivision
     sign, plural = law.section_sign, law.section_plural
@@ -66,7 +56,8 @@ question, then the project's site, and the answer states which.
 number. Up to six in one call ("{plural} 75 {conjunction} 81 {work}"); past six it names those it did not read.
     application (str): Only for the non-statute collections: {_collections_line(law)}. Empty for statute law.
     as_of (str): Optional YYYY-MM-DD: the version in force on that day (e.g. the filing day of a \
-submission), read only from {name} version documents of that day; a miss rather than today's text.
+submission). A past day is read only from {name} version documents of that day, a miss rather than today's \
+text; today or a later day reads today's text, and says so.
 
 Returns:
     str: Numbered passages, each with Source, Dokumentart, Punkt, a Citation key to copy verbatim, and the \

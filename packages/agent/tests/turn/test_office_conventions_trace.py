@@ -1,5 +1,3 @@
-"""The office's conventions a turn was shown reach its trace (ADR-0129)."""
-
 from __future__ import annotations
 
 import pytest
@@ -90,8 +88,6 @@ class TestTheTraceSaysWhatTheTurnWasShown:
 
 
 class TestTheTraceSaysWhatPersonalMemoryTheTurnHad:
-    """ADR-0180: how many of the asker's notes were shown and whether the turn keeps nothing; never a note."""
-
     BLOCK = 'PERSONAL_MEMORY v1\n- [pinned | profile] "Leitet die Einreichplanung."\n- [preference] "Kurz antworten."'
 
     async def _load(self, monkeypatch, **fields):
@@ -116,7 +112,6 @@ class TestTheTraceSaysWhatPersonalMemoryTheTurnHad:
         assert metadata["personal_memory_lines"] == 2
         assert metadata["temporary_conversation"] is False
         assert "Einreichplanung" not in repr(metadata)
-        # To the prompt and the reflection stage on their own fields, never in the project context.
         assert context.personal_memory == self.BLOCK
         assert context.stage_facts.personal_memory == self.BLOCK
         assert context.project_context is None

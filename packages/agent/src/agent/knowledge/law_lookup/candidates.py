@@ -1,13 +1,3 @@
-"""[2] Which documents this call will consider. CAP: three.
-
-Two sources, in this order, because one is verified and free and the other is
-neither: the norm catalog (``configs/norms/*/registry.yml``, ADR-0025) holds
-checked pointers for the core building law, and a live search of the source,
-planned by the search planner, covers everything else. A caller who passed an
-address (a source URL or a document number) skips both: an address is not a
-guess to be improved.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -15,8 +5,10 @@ import re
 from dataclasses import dataclass
 
 from public_sources.access.base import fold
+from public_sources.access.base import placeholders
 
 from agent.knowledge.law_lookup.address import Address
+from agent.knowledge.law_lookup.address import section_in
 from agent.knowledge.law_lookup.as_of import in_force_on
 from agent.knowledge.law_lookup.as_of import parse_day
 from agent.knowledge.law_lookup.client import SourceRequestError
@@ -25,18 +17,13 @@ from agent.knowledge.law_lookup.trace import LookupTrace
 
 logger = logging.getLogger(__name__)
 
-#: Documents considered per call. Three is one law, the adjacent one a
-#: building-law question straddles, and one spare: past that the tool is
-#: guessing, and a miss naming what it did not read beats a third download.
 MAX_CANDIDATES = 3
-#: Live-search page size.
 LIVE_PAGE_SIZE = 20
+VERSIONS_PAGE_SIZE = 100
 
 
 @dataclass(frozen=True)
 class Candidate:
-    """A document this call MIGHT read, with everything a citation needs."""
-
     title: str
     url: str = ""  # fetchable full text; empty for a reference-only entry
     citation_url: str = ""
@@ -45,6 +32,7 @@ class Candidate:
     territory: str = ""
     origin: str = ""  # "address" | "catalog" | "live"
     version_date: str = ""
+    provision: str = ""  # the provision a version document holds, as the hit states it (``Engine.provision_field``)
     unavailable: str = ""  # why there is no full text, stated verbatim to the model
 
     @property
@@ -54,8 +42,6 @@ class Candidate:
 
 @dataclass(frozen=True)
 class Search:
-    """What one call's live search needs: the source, its client, the planner, the catalog's path."""
-
     law: LawSource
     client: object
     planner: object
@@ -63,13 +49,8 @@ class Search:
 
 
 async def collect_candidates(search: Search, question: str, address: Address, trace: LookupTrace, as_of: str = ""):
-    """At most three documents: the address, else the catalog, else the live search.
-
-    On a past day (``as_of``) only live version documents in force on it: an
-    address or a catalog pointer names today's consolidation (``as_of.py``).
-    """
     if as_of:
-        return await live_candidates(search, question, address, trace, as_of)
+        return await dated_candidates(search, question, address, trace, as_of)
     addressed = candidate_from_address(address, search.law)
     if addressed is not None:
         trace.searched = f"the address you passed ({addressed.citation_url})"
@@ -88,7 +69,6 @@ async def collect_candidates(search: Search, question: str, address: Address, tr
 
 
 def _signals_case_law(question: str, law: LawSource) -> bool:
-    """Whether the question asks for case law (the record's words), which no statute catalog answers."""
     signals = law.lookup.case_law_signals
     if not signals:
         return False
@@ -97,7 +77,6 @@ def _signals_case_law(question: str, law: LawSource) -> bool:
 
 
 def candidate_from_address(address: Address, law: LawSource) -> Candidate | None:
-    """The document the caller addressed directly: a source URL or a document number."""
     if address.url:
         return Candidate(title="", url=address.url, citation_url=address.url, origin="address")
     if not address.document_number:
@@ -112,11 +91,6 @@ def candidate_from_address(address: Address, law: LawSource) -> Candidate | None
 
 
 def listed_candidates(question: str, address: Address, law: LawSource) -> list[Candidate] | None:
-    """The documents a source without a search lists in its record, matched by title; None for a searchable source.
-
-    A portal that publishes each statute as a page (``web_document``) names its documents in the record;
-    the one the reference or the question names is read, and a source that lists one document reads it.
-    """
     documents = getattr(law.access.config, "documents", None)
     if law.lookup.search or not documents:
         return None
@@ -130,11 +104,6 @@ def listed_candidates(question: str, address: Address, law: LawSource) -> list[C
 
 
 def catalog_candidates(question: str, address: Address, search: Search) -> list[Candidate]:
-    """Verified pointers from the norm catalog, jurisdiction-filtered.
-
-    Match on the topic, then drop every other territory's law: a project in one
-    territory must never be handed another's building code.
-    """
     from agent.common.norm_registry import focus_entries
     from agent.common.norm_registry import load_registry
     from agent.common.norm_registry import match_entries
@@ -148,11 +117,6 @@ def catalog_candidates(question: str, address: Address, search: Search) -> list[
 
 
 def candidate_from_entry(entry, law: LawSource) -> Candidate:
-    """One catalog entry as a candidate, unavailability stated verbatim.
-
-    A norm that exists with no reachable full text is a fact the answer must
-    state, not a silent gap.
-    """
     in_source = bool(entry.application and entry.document_number)
     name = law.wording.source
     unavailable = ""
@@ -175,15 +139,10 @@ def candidate_from_entry(entry, law: LawSource) -> Candidate:
 
 
 def candidate_from_hit(hit, law: LawSource, *, whole_law: bool = True) -> Candidate:
-    """One live hit as a candidate.
-
-    The whole law beats the single-provision document: the extractor works on
-    provisions and the consolidated law is the document that HAS them. Case
-    law has no whole-law URL and falls back to its own text. A version of a
-    past day is read as itself (``whole_law=False``), never the law of today.
-    """
     engine = law.engine
-    url = (hit.full_law_url or hit.fetch_url) if whole_law else hit.fetch_url
+    reads_today = whole_law and bool(hit.full_law_url)
+    url = hit.full_law_url if reads_today else hit.fetch_url
+    own_date = hit.metadata.get(engine.in_force_from, "") if engine.in_force_from else ""
     return Candidate(
         title=hit.title,
         url=url,
@@ -192,32 +151,68 @@ def candidate_from_hit(hit, law: LawSource, *, whole_law: bool = True) -> Candid
         collection=hit.application,
         territory=hit.metadata.get(engine.territory_field, "") if engine.territory_field else "",
         origin="live",
-        version_date=hit.metadata.get(engine.in_force_from, "") if engine.in_force_from else "",
+        version_date="" if reads_today else own_date,
+        provision=hit.metadata.get(engine.provision_field, "") if engine.provision_field else "",
     )
 
 
 async def live_candidates(
     search: Search, question: str, address: Address, trace: LookupTrace, as_of: str = ""
 ) -> list[Candidate]:
-    """A live search of the source, planned when a planner is configured; on ``as_of``, versions of that day."""
     if not search.law.lookup.search:
         return []
     plan = await search_plan(search, question, address, trace)
+    hits = await _hits(search, _search_args(search.law, plan, as_of))
+    if as_of:
+        return versions_on(hits, as_of, trace, search.law)
+    return [candidate_from_hit(hit, search.law) for hit in hits[:MAX_CANDIDATES]]
+
+
+async def dated_candidates(
+    search: Search, question: str, address: Address, trace: LookupTrace, as_of: str
+) -> list[Candidate]:
+    if not (address.law and address.sections and search.law.lookup.search):
+        return await live_candidates(search, question, address, trace, as_of)
+    plan = {
+        "collection": trace.collection or search.law.lookup.statute(subdivision=bool(address.territory)).id,
+        "terms": "",
+        "title": address.law,
+        "territory": address.territory,
+    }
+    narrowed = len(address.sections) == 1 and _takes_provision(search.law)
+    for provision in (address.number, "") if narrowed else ("",):
+        args = _search_args(search.law, plan, as_of, page_size=VERSIONS_PAGE_SIZE)
+        args.update(provision=provision, provision_kind=address.kind if provision else "")
+        kept = versions_on(await _hits(search, args), as_of, trace, search.law, address)
+        if kept:
+            trace.searched = f"the versions of {address.law!r}"
+            trace.collection = plan["collection"]
+            return kept
+    return await live_candidates(search, question, address, trace, as_of)
+
+
+def _takes_provision(law: LawSource) -> bool:
     try:
-        result = await search.client.search(_search_args(search.law, plan, as_of))
+        operation = law.access.operation(law.lookup.search)
+    except Exception:  # noqa: BLE001 — an access type with no operations narrows nothing
+        return False
+    templates = [template for param in operation.params for template in (param.name, param.value)]
+    return any(name == "provision" for template in templates for name, _arg in placeholders(template))
+
+
+async def _hits(search: Search, args: dict[str, str]) -> list:
+    try:
+        result = await search.client.search(args)
     except SourceRequestError as exc:
         logger.info("law_lookup: live search failed (%s)", exc)
         return []
-    except Exception:  # a tool must always hand the agent a string, so a miss it is
+    except Exception:
         logger.exception("law_lookup: live search failed")
         return []
-    if as_of:
-        return versions_on(result.hits, as_of, trace, search.law)
-    return [candidate_from_hit(hit, search.law) for hit in result.hits[:MAX_CANDIDATES]]
+    return list(result.hits)
 
 
-def _search_args(law: LawSource, plan: dict, as_of: str) -> dict[str, str]:
-    """The plan as the record's search operation's arguments (its templates name them)."""
+def _search_args(law: LawSource, plan: dict, as_of: str, *, page_size: int = LIVE_PAGE_SIZE) -> dict[str, str]:
     args = {
         "application": plan["collection"],
         "query": plan["terms"],
@@ -225,23 +220,32 @@ def _search_args(law: LawSource, plan: dict, as_of: str) -> dict[str, str]:
         "date_from": as_of,
         "date_to": "",
         "page": "1",
-        "page_size": str(LIVE_PAGE_SIZE),
+        "page_size": str(page_size),
     }
     if law.lookup.territory is not None:
         args[law.lookup.territory.argument] = plan["territory"]
     return args
 
 
-def versions_on(hits, as_of: str, trace: LookupTrace, law: LawSource) -> list[Candidate]:
-    """The version documents in force on ``as_of``, each read as itself, never the whole law of today."""
+def versions_on(hits, as_of: str, trace: LookupTrace, law: LawSource, address: Address | None = None):
     day = parse_day(as_of)
     kept = [hit for hit in hits if day is not None and in_force_on(hit.metadata, day, law.engine)]
     trace.versions_dropped = len(hits) - len(kept)
+    if address is not None:
+        kept = [hit for hit in kept if _holds_addressed(hit, address, law)]
     return [candidate_from_hit(hit, law, whole_law=False) for hit in kept[:MAX_CANDIDATES]]
 
 
+def _holds_addressed(hit, address: Address, law: LawSource) -> bool:
+    field = law.engine.provision_field
+    stated = hit.metadata.get(field, "") if field else ""
+    if not stated or not address.sections:
+        return True
+    kind, number = section_in(stated, law.grammar)
+    return number in address.sections and kind in ("", address.kind)
+
+
 async def search_plan(search: Search, question: str, address: Address, trace: LookupTrace) -> dict:
-    """The effective search, planned when a planner is configured."""
     effective = {
         "collection": trace.collection or search.law.lookup.statute(subdivision=bool(address.territory)).id,
         "terms": question,
@@ -256,7 +260,6 @@ async def search_plan(search: Search, question: str, address: Address, trace: Lo
 
 
 async def _planned(planner, effective: dict, address: Address) -> dict:
-    """Run the planner; the caller's arguments survive a planner failure."""
     try:
         plan = await planner(
             effective["terms"], effective["collection"], effective["title"], effective["territory"], "", ""
@@ -270,7 +273,5 @@ async def _planned(planner, effective: dict, address: Address) -> dict:
         "collection": plan.collection,
         "terms": plan.terms,
         "title": plan.title,
-        # The caller's / project's territory outranks the planner's guess: it is a
-        # request FACT, and a planner that drops it hands one territory another's law.
         "territory": address.territory or getattr(plan, "territory", ""),
     }

@@ -1,35 +1,5 @@
 'use client'
 
-/**
- * Org skill authoring dialog (org:skills:manage). Fields: name, description
- * and the instruction body in agentskills.io format, plus the reserved
- * metadata controls the UI owns — who may use the skill (`grid-agents`, the
- * ONE availability gate), whether its live line is muted (`grid-hidden`), and
- * its preferred output cards (`grid-cards`) — and the master enabled switch.
- *
- * There is no control for `grid-auto-invoke`. It was a switch an author
- * flipped to keep a skill OUT of the model's catalog, which is a person
- * deciding whether the model may pick — the thing ADR-0060 deleted everywhere
- * else. The key is still tolerated on a stored document (it rides through as
- * unreserved metadata, like `grid-execution`), so an old row keeps loading; it
- * is simply not written, not read and not offered. Editing a clone shows
- * its source. Platform-builtin skills have no DB row and are never edited here;
- * they are cloned instead (see the toolbox).
- *
- * There is deliberately nothing here about time or output. A skill does not
- * know when it runs or what a run produces: scheduling belongs to the JOB that
- * attaches it, and the output kind is that job's choice (`jobs.output`).
- *
- * Laid out as one view rather than a wizard. The fields are few; what is not
- * few is the number of things an author has to hold in mind at once — the
- * document the fields produce, whether the description will actually be
- * matched, and where the skill will exist. All three are live beside the
- * fields, and a step-by-step flow could only show them after the fact.
- *
- * The server owns all final validation; this dialog only mirrors the write
- * boundary rules (name shape/lengths) for instant feedback.
- */
-
 import type { JSX } from 'react'
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { useStore } from '@tanstack/react-form'
@@ -97,27 +67,16 @@ import { SkillFindingList } from './SkillFindingList'
 import { SkillReviewPanel } from './SkillReviewPanel'
 import { useSkillReview, type SkillReviewField } from '../hooks/use-skill-review'
 import { capturePosthog } from '@/lib/analytics/posthog'
+import { readMetadata, writtenMetadataKey } from '@/lib/skills/legacy-names'
 
-/** Rule names must satisfy server-side: lowercase a-z/0-9, single hyphens. */
 const SKILL_NAME_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/
 
-/**
- * The description budget, mirrored from the write boundary.
- *
- * Shown as a live counter rather than only as a rejection: this one field is
- * the entire basis on which an agent decides to load the skill, so an author
- * writing it deserves to see how much room they still have while they write —
- * not after the save bounces.
- */
 const DESCRIPTION_MAX = 1024
 
-/** Everything except the keys this dialog owns a control for. */
 function withoutReservedKeys(metadata: Record<string, string>): Record<string, string> {
-  const owned = new Set([
-    METADATA_CARDS,
-    METADATA_AGENTS,
-    METADATA_HIDDEN,
-  ])
+  const owned = new Set(
+    ([METADATA_CARDS, METADATA_AGENTS, METADATA_HIDDEN] as const).flatMap((key) => [key, writtenMetadataKey(key)]),
+  )
   const rest: Record<string, string> = {}
   for (const key of Object.keys(metadata)) {
     if (owned.has(key)) continue
@@ -126,74 +85,30 @@ function withoutReservedKeys(metadata: Record<string, string>): Record<string, s
   return rest
 }
 
-/**
- * Reserved metadata keys the editor writes.
- *
- * Spelled out here rather than imported from `@/lib/skills/types`: that module
- * is the server-side write boundary and pulls in the Drizzle schema, which has
- * no business in a client bundle. The values are asserted against the stored
- * document by this dialog's spec.
- */
-const METADATA_CARDS = 'grid-cards'
-const METADATA_AGENTS = 'grid-agents'
-const METADATA_HIDDEN = 'grid-hidden'
+const METADATA_CARDS = 'cards'
+const METADATA_AGENTS = 'agents'
+const METADATA_HIDDEN = 'hidden'
 
 const HIDDEN_TRUE = new Set(['true', '1', 'yes'])
 
 function readHidden(metadata?: Record<string, string>): boolean {
-  return HIDDEN_TRUE.has((metadata?.[METADATA_HIDDEN] ?? '').trim().toLowerCase())
+  return HIDDEN_TRUE.has((metadata ? (readMetadata(metadata, METADATA_HIDDEN) ?? '') : '').trim().toLowerCase())
 }
 
-/**
- * Where the document this dialog writes actually goes, and what its master
- * switch means.
- *
- * A seam, not a generalisation for its own sake. A skill curated in Platform →
- * Skills is the SAME agentskills.io document as one authored in an
- * organization — same name rules, same description budget, same reviewer, same
- * preview — and the only differences are the endpoint it is saved to and
- * whether the switch reads "enabled for this org" or "published to the fleet".
- * Writing a second dialog for those two differences would fork the SKILL.md
- * authoring experience in two, and the copy that gets less use is the one that
- * would quietly rot.
- *
- * Omitted, everything below defaults to the org toolbox.
- */
 export interface SkillPersistence {
-  /**
-   * Persist the document. `enabled` carries the master switch's position;
-   * `categoryId` the picker's (a UUID, or null for unsorted).
-   */
   save: (input: CreateSkillInput & { categoryId?: string | null }, enabled: boolean) => Promise<void>
-  /** Remove it while editing. Omitted = the dialog offers no delete. */
   remove?: () => Promise<void>
-  /** Copy for the master switch. */
   switchLabels?: { label: string; hint: string }
-  /** Copy for the header. */
   titles?: { create: string; edit: string; createSubtitle: string; editSubtitle: string }
-  /** Toast on a successful save. */
   successMessage?: { create: string; edit: string }
-  /**
-   * Copy for the delete confirmation.
-   *
-   * The default text is about an org toolbox and the job snapshots a deletion
-   * leaves running — true there, and wrong in front of a platform owner
-   * withdrawing a skill from the whole fleet.
-   */
   deleteCopy?: { title: string; description: string; confirm: string }
 }
 
 interface SkillEditorDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  /** The skill being edited, or null when creating. */
   skill: SkillListItem | null
-  /** Where the document goes. Defaults to this organization's toolbox. */
   persistence?: SkillPersistence
-  /**
-   * The categories on offer — this org's categories for the toolbox, the platform
-   * categories for the catalogue. Empty means unsorted is the only answer.
-   */
   categories?: SkillCategoryListItem[]
   onSaved: () => void
 }
@@ -204,25 +119,15 @@ interface EditorValues {
   body: string
 }
 
-/**
- * The three questions, in the order an author can actually answer them.
- *
- * `what` before `instructions` because a skill that cannot be FOUND is not a
- * skill — the name and the one-line description are the whole of what an agent
- * reads every turn, and writing them first is writing the contract before the
- * implementation. `check` last because it reads all three.
- */
 const STEP_KEYS = ['what', 'instructions', 'check'] as const
 type StepKey = (typeof STEP_KEYS)[number]
 
-/** Which step holds each field a finding can be about. */
 const STEP_FOR_FIELD: Record<SkillReviewField, StepKey> = {
   name: 'what',
   description: 'what',
   body: 'instructions',
 }
 
-/** The control to put the caret in when a finding sends the author to a field. */
 const CONTROL_ID: Record<SkillReviewField, string> = {
   name: 'name',
   description: 'description',
@@ -239,109 +144,34 @@ export function SkillEditorDialog({
 }: SkillEditorDialogProps): JSX.Element {
   const t = useTranslations(skillsCopy)
   const isEdit = skill !== null
-  /**
-   * The row every field starts from. Null for a new skill.
-   *
-   * Read in state INITIALISERS, which run once per mount — so this dialog is
-   * remounted per open (`skills-panel.tsx` keys it). Seeding in an effect
-   * instead would fight the author for the fields they had already typed into.
-   */
   const source: SkillListItem | null = skill
   const [preferredCards, setPreferredCards] = useState<string[]>(() =>
-    parsePreferredCardTypes(source?.metadata[METADATA_CARDS]),
+    parsePreferredCardTypes(source ? readMetadata(source.metadata, METADATA_CARDS) : undefined),
   )
   const [cardQuery, setCardQuery] = useState('')
-  /**
-   * Which agents may use this skill (`grid-agents`).
-   *
-   * This is the ONLY scope there is. Absent means every agent, which is the
-   * default a new skill gets — most skills are useful to both, and the ones
-   * that are not say so.
-   */
   const [agents, setAgents] = useState<AgentScope>(() =>
-    parseAgentScope(source?.metadata[METADATA_AGENTS]),
+    parseAgentScope(source ? readMetadata(source.metadata, METADATA_AGENTS) : undefined),
   )
-  /**
-   * Whether a successful activation stays off the live one-liner.
-   *
-   * Default off (visible). On writes `grid-hidden: true`. A presentation choice
-   * about the REPORT — whether this activation is worth a line while the answer
-   * is being written — never about whether the skill runs. The skill is still
-   * named under the answer either way.
-   */
   const [hidden, setHidden] = useState(() => readHidden(source?.metadata))
-  /**
-   * Metadata keys this UI has no control for (anything a future version adds),
-   * carried through a save untouched.
-   *
-   * Held in STATE rather than read off `skill` at build time so the raw
-   * document section can also remove one: a SKILL.md pasted without a key
-   * means the author deleted it, and re-adding it from the original row would
-   * quietly overrule them.
-   */
   const [extraMetadata, setExtraMetadata] = useState<Record<string, string>>(() =>
     source ? withoutReservedKeys(source.metadata) : {},
   )
 
-  /**
-   * The frontmatter `metadata` this dialog will write.
-   *
-   * ONE function, used both by the submit and by the SKILL.md preview — the
-   * preview's claim to be "exactly what gets stored" only holds if the two
-   * cannot disagree, and two copies of this assembly is precisely how they
-   * would start to.
-   */
   const buildMetadata = useCallback((): Record<string, string> => {
     const metadata: Record<string, string> = {}
     const scope = formatAgentScope(agents)
-    if (scope) metadata[METADATA_AGENTS] = scope
-    // Absent, not empty: "no preference" is the default, and an empty
-    // `grid-cards:` line in the preview would read as a setting the author has
-    // to understand rather than one they never touched.
+    if (scope) metadata[writtenMetadataKey(METADATA_AGENTS)] = scope
     if (preferredCards.length > 0) {
-      metadata[METADATA_CARDS] = formatPreferredCardTypes(preferredCards)
+      metadata[writtenMetadataKey(METADATA_CARDS)] = formatPreferredCardTypes(preferredCards)
     }
-    if (hidden) metadata[METADATA_HIDDEN] = 'true'
+    if (hidden) metadata[writtenMetadataKey(METADATA_HIDDEN)] = 'true'
     return { ...metadata, ...extraMetadata }
   }, [agents, extraMetadata, hidden, preferredCards])
   const [enabled, setEnabled] = useState(isEdit ? skill.enabled : true)
-  /**
-   * The category this skill stands on, or null for unsorted.
-   *
-   * Arrangement, not document: pasting a whole SKILL.md (`applyDocument`)
-   * leaves it alone — the document carries no category, and a paste that
-   * re-categorized would surprise on every import.
-   */
   const [categoryId, setCategoryId] = useState<string | null>(source?.categoryId ?? null)
-  /**
-   * Whether the draft as it now stands has been through the check.
-   *
-   * The save waits on it. A skill is an instruction the model will act on
-   * unsupervised, and the one failure the author cannot see from inside the
-   * form is a description that never gets matched — which is what the reviewer
-   * reads for. Making the check a step, rather than a button beside the form
-   * that nobody presses, is the only way that reading actually happens.
-   *
-   * What the findings SAY is not a condition. Blocking a save on a model's
-   * verdict would be the forcing this codebase removed from every other
-   * surface, aimed at the author instead of the agent; and a reviewer that
-   * could not run blocks nothing at all, because our outage is not the
-   * author's to pay for.
-   */
   const [stepIndex, setStepIndex] = useState(0)
-  /**
-   * The furthest step reached, so everything behind the reader is a button and
-   * nothing ahead is. A stepper that let somebody jump to the end would offer a
-   * shortcut the form's own validation then takes back.
-   */
   const [furthest, setFurthest] = useState(0)
   const step: StepKey = STEP_KEYS[stepIndex] ?? 'what'
-  /**
-   * Take the author to the field a finding is about, and put the caret in it.
-   *
-   * The focus waits a frame: the step it belongs to has not rendered at the
-   * moment the row is pressed, so there is nothing to focus yet.
-   */
   const goToField = useCallback((field: SkillReviewField) => {
     setStepIndex(STEP_KEYS.indexOf(STEP_FOR_FIELD[field]))
     requestAnimationFrame(() => {
@@ -355,11 +185,6 @@ export function SkillEditorDialog({
     setFurthest((seen) => Math.max(seen, clamped))
   }, [])
 
-  /**
-   * What the last step's „Erweitert" is already holding, so nobody has to open
-   * it to find out. An advanced section that quietly carries three of your
-   * answers is a trap.
-   */
   const advancedSummary = [
     agents.selected.length < SKILL_AGENTS.length ? t('editor.agents.heading') : null,
     hidden ? t('editor.hiddenLabel') : null,
@@ -378,11 +203,6 @@ export function SkillEditorDialog({
     () => new Map(CARD_CATALOG.map((entry) => [entry.type, entry])),
     [],
   )
-  /**
-   * The pickable rows: the catalogue filtered by the query, minus what is
-   * already chosen — a selected card is shown as a chip above, and leaving it in
-   * the list too would make the list the second place to un-select it.
-   */
   const cardResults = useMemo(
     () => searchCardCatalog(cardQuery).filter((entry) => !preferredCards.includes(entry.type)),
     [cardQuery, preferredCards],
@@ -435,10 +255,6 @@ export function SkillEditorDialog({
         metadata,
         enabled,
       }
-      // Omitted on create when unsorted (the schema takes no null there);
-      // explicit null on edit removes the category. The category is
-      // arrangement, and an edit that never touched the picker must not
-      // move it.
       const payload: CreateSkillInput & { categoryId?: string | null } = isEdit
         ? { ...document, categoryId }
         : categoryId !== null
@@ -480,34 +296,11 @@ export function SkillEditorDialog({
     },
   })
 
-  /**
-   * The draft as it stands, subscribed rather than read off `form.state`.
-   *
-   * The review's staleness is derived from these three strings, so they have to
-   * cause a render when they change — a snapshot read in the body would leave a
-   * verdict looking current about text that has moved on, which is the one lie
-   * this surface must not tell.
-   */
-  /**
-   * Whether anything has been typed or chosen since the dialog opened.
-   *
-   * Two halves, because the fields live in the form and the arrangement
-   * (agents, cards, category, the two switches) lives beside it. The form knows
-   * its own fields against their defaults, so typing a letter and deleting it
-   * again is clean; the arrangement is compared as one serialised snapshot taken
-   * on the first render.
-   */
   const fieldsChanged = useStore(form.store, (state) => !state.isDefaultValue)
   const arrangement = JSON.stringify([preferredCards, agents, hidden, enabled, categoryId, extraMetadata])
   const openedWith = useRef(arrangement)
   const dirty = fieldsChanged || arrangement !== openedWith.current
 
-  /**
-   * The ONE way out. Escape, a tap beside the dialog, the close X and Abbrechen
-   * all come through here: an instruction written on site is minutes of work,
-   * and a stray tap must not be able to throw it away. A clean form closes at
-   * once; the question is about the unsaved edit, not about the dialog.
-   */
   const requestClose = (): void => {
     if (form.state.isSubmitting) return
     if (dirty) {
@@ -529,15 +322,6 @@ export function SkillEditorDialog({
     body: liveBody,
   })
 
-  /**
-   * The steps, each marked with what the reviewer left open on it.
-   *
-   * This is the map a revision is done from: the critique sits under the field
-   * it is about, and the rail says which steps still hold one — so an author
-   * who has just read the verdict knows where to go without holding a list in
-   * their head. Marked only while the verdict is CURRENT; a stale one describes
-   * a draft that no longer exists.
-   */
   const openOnStep = (key: StepKey): number =>
     review.stale
       ? 0
@@ -552,20 +336,13 @@ export function SkillEditorDialog({
   })
 
 
-  /**
-   * A whole SKILL.md, written back into the form.
-   *
-   * Every field the document can carry is replaced, including the ones it does
-   * NOT mention: a metadata key the author removed has to disappear, or the
-   * advanced section would be able to add settings but never take them away.
-   */
   const applyDocument = useCallback(
     (parsed: ParsedSkillDocument) => {
       form.setFieldValue('name', parsed.name)
       form.setFieldValue('description', parsed.description)
       form.setFieldValue('body', parsed.body)
-      setPreferredCards(parsePreferredCardTypes(parsed.metadata[METADATA_CARDS]))
-      setAgents(parseAgentScope(parsed.metadata[METADATA_AGENTS]))
+      setPreferredCards(parsePreferredCardTypes(readMetadata(parsed.metadata, METADATA_CARDS)))
+      setAgents(parseAgentScope(readMetadata(parsed.metadata, METADATA_AGENTS)))
       setHidden(readHidden(parsed.metadata))
       setExtraMetadata(withoutReservedKeys(parsed.metadata))
       toast.success(t('editor.raw.applied'))
@@ -573,7 +350,6 @@ export function SkillEditorDialog({
     [form, t],
   )
 
-  /** Toolbar tooltips for the Markdown editor, in the UI language. */
   const markdownLabels = useMemo<MarkdownEditorLabels>(
     () => ({
       h1: t('editor.markdown.h1'),
@@ -597,7 +373,6 @@ export function SkillEditorDialog({
     [t],
   )
 
-  /** Deletable only while editing, and only where the caller says how. */
   const canDelete = isEdit && (persistence ? Boolean(persistence.remove) : true)
 
   const confirmDelete = async () => {
@@ -641,11 +416,6 @@ export function SkillEditorDialog({
             decides whether somebody finishes. Everything that is not the
             document is behind one „Erweitert" on the last step. */}
         <DialogContent
-          // Full screen on a phone: nobody writes a skill's instruction in a
-          // floating card that is mostly margin. `p-0` hands the padding to this
-          // dialog (the header and the body carry their own), so the safe area
-          // is stated here too: the title clears the Dynamic Island and the
-          // footer clears the home indicator when the page runs standalone.
           fullScreenOnMobile
           className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 phone:pt-[env(safe-area-inset-top)] phone:pb-[env(safe-area-inset-bottom)] sm:max-w-2xl"
         >
@@ -802,10 +572,6 @@ export function SkillEditorDialog({
                     />
                       <form.Subscribe selector={(state) => state.values}>
                         {(values) => (
-                          /* Not wrapped in `Advanced`: this section brings its
-                             own disclosure, and a fold inside a fold is two
-                             chevrons for one act. It is the only control that
-                             can rewrite every field at once, so it sits last. */
                           <SkillRawDocumentSection
                             document={renderSkillDocument({
                               name: values.name,
@@ -859,10 +625,6 @@ export function SkillEditorDialog({
                               <div className="flex flex-col gap-2.5">
                                 {SKILL_AGENTS.map((agent) => {
                                   const checked = agents.selected.includes(agent)
-                                  // Un-checking the last one would mean "available to no
-                                  // agent", which `grid-agents` cannot express — an empty
-                                  // allowlist reads as "all agents" to both resolvers. So
-                                  // the last remaining box is held.
                                   const last = checked && agents.selected.length === 1
                                   const key = agent === 'researcher' ? 'chat' : 'deep'
                                   return (
@@ -1052,7 +814,7 @@ export function SkillEditorDialog({
               {canDelete && (
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="secondary"
                   className="text-destructive hover:text-destructive"
                   onClick={() => setConfirmOpen(true)}
                 >
@@ -1067,9 +829,6 @@ export function SkillEditorDialog({
                     type="submit"
                     disabled={!canSubmit || isSubmitting || !review.gate.checked}
                     aria-busy={isSubmitting}
-                    // Named, not just greyed: a disabled button with no
-                    // reason is a dead end, and the reason here is a step the
-                    // author can take in one click.
                     aria-describedby={review.gate.checked ? undefined : 'skill-review-required'}
                   >
                     <span className="inline-grid justify-items-start">

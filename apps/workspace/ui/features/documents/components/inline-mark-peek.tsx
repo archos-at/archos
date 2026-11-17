@@ -12,26 +12,13 @@ import type { DocumentReview } from '../hooks/use-document-review'
 import { MarkBody } from './review/mark-body'
 import { markInk } from './review/review-page-layer'
 import { PRODUCT_NAME } from '@/lib/brand'
+import { isAgentKind } from '@/lib/agent-kind'
 
-/** Long enough that crossing a pin on the way somewhere else does not open it. */
 const OPEN_DELAY_MS = 130
-/** Long enough to travel from the pin into the card without it vanishing. */
 const CLOSE_DELAY_MS = 220
 
-/** A pointer that hovers: a mouse or a trackpad. A finger keeps the pin's tap, which opens the review. */
 export const HOVER_QUERY = '(hover: hover) and (pointer: fine)'
 
-/**
- * What a pin in the file preview says when the pointer rests on it: the mark's
- * words (three lines), who set it, how many answers it has, and the way into
- * the review at it. A glance, not a decision: before this, the only way to read
- * a mark inline was a click that took the whole screen.
- *
- * It lays itself over one page beside the review's own layer and anchors to an
- * invisible box where that layer draws the pin (the mark's point, the pin
- * standing on it). It follows the review's hover, which the pin sets, so the
- * layer needs no second handler.
- */
 export function InlineMarkPeek({
   page,
   review,
@@ -65,7 +52,7 @@ export function InlineMarkPeek({
     (annotation) => annotation.id === shownId && annotation.page === page && annotation.onCurrentRevision
   )
   if (!canHover || !mark) return null
-  const author = mark.authorKind === 'piloti' ? PRODUCT_NAME : mark.createdByName
+  const author = isAgentKind(mark.authorKind) ? PRODUCT_NAME : mark.createdByName
   return (
     <Popover open onOpenChange={(open) => !open && setShownId(null)}>
       <PopoverAnchor asChild>

@@ -1,12 +1,3 @@
-"""Ways to find nothing, and what each says. None of them is empty.
-
-An empty tool result is the one output that reliably produces an invented
-citation: the model has a question, no evidence, and nothing telling it what to
-do instead. Each shape gets its own words, in the source's terms, and each ends
-in one concrete retry. Ported from the RIS tool's suite (``test_ris_lookup_miss``)
-onto XA's statute portal.
-"""
-
 from __future__ import annotations
 
 import pytest
@@ -22,7 +13,6 @@ async def _ask(portal=None, *, catalog=None, planner=None, picker=None, **args) 
 
 
 async def test_nothing_matched_anywhere_still_says_what_was_searched():
-    """No catalog entry, no live hit: the miss names the planner's terms and the province."""
     output = await _ask(
         planner=xa.planner(collection="Regional", terms="parking obligation"),
         question="How many parking spaces?",
@@ -43,7 +33,6 @@ async def test_an_unresolved_province_is_the_first_thing_the_retry_asks_for():
 
 
 async def test_a_catalog_entry_with_no_full_text_is_named_and_not_invented():
-    """The catalog's own honest case: the norm exists, its text is not in the source."""
     standard = xa.catalog_entry(
         id="xa-standard-1300",
         title="XA Standard 1300",
@@ -83,7 +72,6 @@ async def test_a_web_only_catalog_entry_hands_the_web_tool_its_next_move():
 
 
 async def test_a_document_that_was_read_but_answers_nothing_returns_its_index():
-    """The twin of ``read_passage``'s outline, labelled as an index."""
     portal = xa.Portal.with_codes()
     output = await _ask(
         portal,
@@ -122,7 +110,6 @@ async def test_a_failed_live_search_is_a_miss_with_a_retry_not_an_exception(answ
 
 
 async def test_a_live_hit_that_cannot_be_fetched_is_named_as_unread():
-    """The fetch failed; the miss still says which document it was."""
     portal = xa.Portal()  # every document is a 404
     portal.search = xa.search_answer(xa.hit("XAN40299999", "Garage Act 2008", collection="Regional"))
 
@@ -133,8 +120,6 @@ async def test_a_live_hit_that_cannot_be_fetched_is_named_as_unread():
 
 
 class TestActionRow:
-    """One ``law`` row per call (ADR-0132): the question, the provision asked for, how many passages were cut."""
-
     @pytest.fixture
     def rows(self, monkeypatch):
         bodies = []

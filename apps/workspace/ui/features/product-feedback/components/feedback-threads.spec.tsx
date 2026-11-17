@@ -47,7 +47,6 @@ const COLLEAGUE: OwnProductFeedbackSummary = {
   reporterName: 'Jakob Steiner',
 }
 
-/** The report the form files in the specs below. */
 const SENT: OwnProductFeedbackSummary = {
   ...REPORT,
   id: '0b1c2d3e-4f50-4617-8899-aabbccddee21',
@@ -67,7 +66,6 @@ const THREAD: OwnProductFeedbackThread = {
   live: true,
 }
 
-/** The pane the open thread is in: the list stays beside it, with the same excerpts. */
 const detail = () => within(screen.getByTestId('feedback-detail-pane'))
 
 const page = (reports: OwnProductFeedbackSummary[], extra: Partial<OwnProductFeedbackListResponse> = {}): OwnProductFeedbackListResponse => ({
@@ -115,7 +113,6 @@ describe('FeedbackThreadsDialog: the cases', () => {
     expect(within(active).getByText('New')).toBeInTheDocument()
     expect(within(done).getByText('The citations save me time every day.')).toBeInTheDocument()
     expect(within(done).getByText('Resolved')).toBeInTheDocument()
-    // Active above done, whatever order the server listed them in.
     expect(active.compareDocumentPosition(done) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(onUpdatedCount).toHaveBeenCalledWith(1)
   })

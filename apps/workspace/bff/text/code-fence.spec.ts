@@ -15,7 +15,6 @@ describe('fencedBlock', () => {
     const lines = block.split('\n')
     const fence = openingCodeFence(lines[0]!)
     expect(fence).toEqual({ char: '`', length: 5 })
-    // Only the last line closes it: the quoted run is too short.
     expect(lines.slice(1).map((line) => closesCodeFence(line, fence!))).toEqual([false, false, false, true])
   })
 })

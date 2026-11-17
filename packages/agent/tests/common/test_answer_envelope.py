@@ -1,18 +1,7 @@
-"""The ``answer_json`` envelope: extraction, validation and the gates.
-
-The envelope is the enforcement point the rhetorical cards moved to, so the
-tests mirror its three promises: fail-open in every direction (a malformed
-envelope costs the enrichment, never the answer), deterministic gates (a
-verdict is a short VALUE, takeaways are earned by length, one callout at
-most), and a wire payload that is a NATIVE answer field — it never touches
-the card registry.
-"""
-
 from __future__ import annotations
 
 import json
 
-from agent.agents.piloti.markers import detect_and_strip_confidence_marker
 from agent.common.answer_envelope import ANATOMY_FIELDS
 from agent.common.answer_envelope import CONTEXT_MAX_CHARS
 from agent.common.answer_envelope import ENVELOPE_VERSION
@@ -26,6 +15,7 @@ from agent.common.answer_envelope import render_envelope_response_format
 from agent.common.answer_envelope import render_envelope_schema
 from agent.common.answer_envelope import resolve_callout_marker
 from agent.common.wire_v2 import StatusStep
+from agent.core.markers import detect_and_strip_confidence_marker
 
 
 def _fenced(payload: dict) -> str:
@@ -58,8 +48,6 @@ class TestExtraction:
         assert meta.verdict.value == "REI 60"
 
     def test_the_markers_survive_inside_the_answer_field(self):
-        # The envelope splits FIRST; the tail-anchored detectors then run on the
-        # prose it returns, so the confidence marker keeps being a signal.
         content = _fenced({"answer": "Die Antwort [1].\n\n[CONFIDENCE:medium | Lücke]", "callout": _CALLOUT})
         prose, meta = extract_answer_envelope(content)
         assert meta is not None and meta.callout is not None
@@ -75,8 +63,6 @@ class TestExtraction:
         assert meta is not None and meta.verdict is not None
 
     def test_the_trailer_form_keeps_the_outside_prose(self):
-        # A model that writes prose and then a fenced meta-only object: the
-        # prose is the content minus the fence, the anatomy comes from the fence.
         content = "Die Antwort [1].\n\n" + _fenced({"verdict": _VERDICT})
         prose, meta = extract_answer_envelope(content)
         assert prose == "Die Antwort [1]."
@@ -89,8 +75,6 @@ class TestExtraction:
         assert meta is None
 
     def test_a_break_after_the_answer_keeps_the_answer_and_drops_the_rest(self):
-        # The recorded failure: a surface card closed one brace too many, after
-        # the prose had closed whole and settled on screen.
         content = (
             '```answer_json\n{"kind":"ruling","answer":"Die Außentreppe ist in A2 auszuführen [2].\\n\\n'
             '[[card:1]]","cards":[{"type":"surface","components":[{"id":"t","component":"Text",'
@@ -131,18 +115,12 @@ class TestExtraction:
         assert meta is None
 
     def test_a_fence_inside_the_answer_does_not_end_the_envelope(self):
-        # The answer is Markdown, and Markdown carries fences: a ```mermaid
-        # drawing, a listing. The envelope used to end at the FIRST ``` after
-        # it, which is that inner fence, so the object was cut mid-string and
-        # the reader got raw JSON. It ends where its JSON object ends.
         answer = 'Der Ablauf [1].\n\n```mermaid\nflowchart TD\n  A["Einreichung"] --> B\n```\n\nDanach [1].'
         prose, meta = extract_answer_envelope(_fenced({"answer": answer, "verdict": _VERDICT}))
         assert prose == answer
         assert meta is not None and meta.verdict is not None
 
     def test_a_fence_written_with_raw_newlines_does_not_end_it_either(self):
-        # `strict=False` exists because models write raw newlines inside JSON
-        # strings, so the inner fence can sit at the start of a real line.
         content = (
             '```answer_json\n{"answer": "Der Ablauf.\n\n```mermaid\nflowchart TD\n  A --> B\n```\n\nEnde.", '
             '"verdict": {"value": "REI 60", "subject": "Feuerwiderstand"}}\n```'
@@ -199,9 +177,6 @@ class TestGating:
         assert self._gate({"takeaways": _TAKEAWAYS[:1]}, prose_chars=1_000) is None
 
     def test_a_detail_that_restates_its_claim_is_dropped(self):
-        # A row with a `detail` is a button; one that opens onto its own claim
-        # teaches the reader the chevrons are decorative. Blank and verbatim are
-        # the two forms of that a gate can judge without guessing at quality.
         payload = self._gate(
             {
                 "takeaways": [
@@ -271,11 +246,6 @@ class TestGating:
         assert payload["verdict"]["value"] == "REI 60"
 
     def test_unknown_kind_is_a_walkthrough_and_drops_the_verdict(self):
-        """Garbage is not legacy. Legacy is ABSENT kind.
-
-        Exclusive kinds used to fail open to a ruling the moment the model
-        missed the token (``Walkthrough``, ``essay``, ``Durchgang``).
-        """
         meta = AnswerMeta.model_validate({"kind": "essay", "verdict": _VERDICT})
         assert meta.kind == "walkthrough"
         payload = gate_answer_meta(meta, prose_chars=1_000)
@@ -283,19 +253,6 @@ class TestGating:
 
 
 class TestAVerdictNeverRestsOnADocumentAgentWrote:
-    """The gate that keeps an approved office document from becoming a norm.
-
-    A published Piloti document is real evidence and it is citable — but a
-    VERDICT is the one place an answer names a Fundstelle for a value the
-    reader copies straight into a Nachweis, and „REI 90, laut
-    Brandschutzkonzept Haus B" reads as a requirement whether or not the
-    document ever claimed to be one. ``verify_citations`` cannot catch this: it
-    proves the source is real, and this source IS real.
-
-    The gate drops the verdict, not the answer — every word of the prose, and
-    every citation in it, survives.
-    """
-
     _AGENT_DOCS = frozenset({"brandschutzkonzept haus b"})
 
     def _gate(self, reference: dict | None, documents: frozenset[str] | None = None) -> dict | None:
@@ -319,20 +276,11 @@ class TestAVerdictNeverRestsOnADocumentAgentWrote:
         assert payload["verdict"]["reference"] == {"document": "OIB-Richtlinie 2", "section": "Tabelle 1b"}
 
     def test_a_verdict_with_no_reference_survives_an_ordinary_turn(self):
-        """Nothing agent-authored was retrieved, so there is nothing to launder.
-
-        „Nicht geregelt" is the common unattributed verdict and it must keep
-        standing: on a turn whose registry holds no Piloti document, an absent
-        Fundstelle is an absent Fundstelle and nothing more.
-        """
         payload = self._gate(None, documents=frozenset())
         assert payload is not None
         assert payload["verdict"] == _VERDICT
 
     def test_a_verdict_with_no_reference_is_dropped_when_the_agent_wrote_a_source(self):
-        """THE HOLE. The gate above can only judge a reference it was given, so
-        omitting it was the cheapest way to the same headline resting on the
-        same document — with the evidence that would have failed it left out."""
         assert self._gate(None) is None
 
     def test_the_unreferenced_drop_is_counted_under_its_own_reason(self, emitted):
@@ -340,14 +288,11 @@ class TestAVerdictNeverRestsOnADocumentAgentWrote:
         assert [step.detail["reason"] for step in emitted.steps] == ["unreferenced_with_agent_source"]
 
     def test_a_norm_reference_still_survives_a_turn_with_an_agent_document(self):
-        """The three cases are distinct: a norm Fundstelle is kept even when the
-        turn also retrieved something Piloti wrote."""
         payload = self._gate({"document": "OIB-Richtlinie 2", "section": "Tabelle 1b"})
         assert payload is not None
         assert payload["verdict"]["reference"]["document"] == "OIB-Richtlinie 2"
 
     def test_a_turn_that_retrieved_no_agent_document_gates_nothing(self):
-        """The common case, and the one that must cost nothing."""
         payload = self._gate({"document": "Brandschutzkonzept Haus B"}, documents=frozenset())
         assert payload is not None
 
@@ -359,14 +304,10 @@ class TestAVerdictNeverRestsOnADocumentAgentWrote:
         assert payload is not None
 
     def test_a_name_too_short_to_judge_is_left_alone(self):
-        """A two-character Fundstelle is not a document name a substring test
-        can decide, in either direction."""
         payload = self._gate({"document": "B"}, documents=frozenset({"b"}))
         assert payload is not None
 
     def test_the_drop_is_counted_as_a_technical_event(self, emitted):
-        """A gate that drops silently makes „how often does this happen?"
-        unanswerable, and that rate is what says whether the wording works."""
         assert self._gate({"document": "Brandschutzkonzept Haus B"}) is None
         assert emitted.steps == [
             StatusStep(
@@ -398,8 +339,6 @@ class TestControlFields:
         assert meta.escalate_to_deep is True
 
     def test_control_fields_never_reach_the_wire_payload(self):
-        # Confidence travels as answer_confidence, escalation as routing —
-        # the answer_meta wire payload is anatomy only.
         meta = AnswerMeta.model_validate(
             {"confidence": {"level": "high"}, "escalate_to_deep": False, "callout": _CALLOUT}
         )
@@ -416,13 +355,9 @@ class TestControlFields:
 
 class TestRenderedSchema:
     def test_the_taught_schema_names_every_field_the_validator_knows(self):
-        """One source of truth: a field added to the models MUST reach the
-        prompt in the same commit, or the model is validated against a schema
-        it was never taught."""
         schema = render_envelope_schema()
         for name in ("answer*", "confidence", "escalate_to_deep", "kind", "verdict", "takeaways", "callout"):
             assert name in schema
-        # And the enum values the frontend switches on.
         assert '"note" | "warning" | "deadline" | "tip"' in schema
         assert '"low" | "medium" | "high"' in schema
         assert '"direct" | "walkthrough" | "ruling" | "handoff"' in schema
@@ -437,14 +372,6 @@ class TestRenderedSchema:
 
 class TestWireCrossing:
     def test_the_gated_payload_matches_the_shared_fixture(self):
-        """`tests/fixtures/answer_meta/wire_payload.json` pins the Python↔TS crossing.
-
-        The frontend's `sanitizeAnswerMeta` asserts the same file survives its
-        sanitizer verbatim (`message-answer-meta.spec.ts`), so a renamed key or
-        a moved cap on either side fails a test instead of shipping green with
-        every anatomy field silently dropped — the exact class of loss the
-        `binding_status` rename once proved possible.
-        """
         import pathlib
 
         fixture = json.loads(
@@ -470,8 +397,6 @@ class TestWireCrossing:
 
 
 class TestStrictResponseFormat:
-    """The provider-enforced schema, derived from the same models as the gates."""
-
     def test_the_wrapper_is_openrouter_structured_outputs(self):
         fmt = render_envelope_response_format()
         assert fmt["type"] == "json_schema"
@@ -479,7 +404,6 @@ class TestStrictResponseFormat:
         assert fmt["json_schema"]["strict"] is True
 
     def test_strict_mode_invariants_hold_everywhere(self):
-        """Every object is closed and requires every key — strict's contract."""
 
         def walk(schema: dict) -> None:
             if schema.get("type") == "object":
@@ -495,8 +419,6 @@ class TestStrictResponseFormat:
         walk(render_envelope_response_format()["json_schema"]["schema"])
 
     def test_the_masthead_leads_then_the_answer_and_the_enums_survive(self):
-        # The masthead is written first so it stands above the prose before
-        # its first word streams (ADR-0066); everything else follows the prose.
         schema = render_envelope_response_format()["json_schema"]["schema"]
         order = list(schema["properties"])
         assert order[: len(MASTHEAD_FIELDS) + 1] == [*MASTHEAD_FIELDS, "answer"]
@@ -510,7 +432,6 @@ class TestStrictResponseFormat:
         assert kind["enum"] == ["direct", "walkthrough", "ruling", "handoff", "work"]
 
     def test_an_enforced_reply_parses_through_the_same_validator(self):
-        """Strict mode spells absence as null; extraction must not care."""
         reply = json.dumps(
             {
                 "answer": "Die Antwort [1].",
@@ -531,8 +452,6 @@ class TestStrictResponseFormat:
 
 
 class TestCalloutMarker:
-    """`[[callout]]` placement: at most one placeable marker, or none."""
-
     def test_no_marker_passes_through_untouched(self):
         prose = "Absatz eins.\n\nAbsatz zwei."
         assert resolve_callout_marker(prose, has_callout=True) == prose
@@ -547,20 +466,15 @@ class TestCalloutMarker:
         prose = "Absatz eins.\n\n[[callout]]\n\nAbsatz zwei mit [[callout]] mitten im Satz."
         resolved = resolve_callout_marker(prose, has_callout=False)
         assert "[[callout]]" not in resolved
-        # The own-line marker took its whole line; the inline one left the
-        # sentence intact.
         assert "Absatz zwei mit  mitten im Satz." in resolved
 
     def test_a_mid_sentence_marker_never_counts_as_placed(self):
         prose = "Ein Satz mit [[callout]] darin.\n\n[[callout]]"
         resolved = resolve_callout_marker(prose, has_callout=True)
-        # The own-line one is the kept one, even though the inline one came first.
         assert resolved == "Ein Satz mit  darin.\n\n[[callout]]"
 
 
 class TestSummaryGate:
-    """The near-universal field: owed on every reply, still gated."""
-
     def test_a_standfirst_survives(self):
         meta = AnswerMeta.model_validate({"summary": "  REI 60 in GK 4; im Keller REI 90.  "})
         payload = gate_answer_meta(meta, prose_chars=100)
@@ -573,9 +487,6 @@ class TestSummaryGate:
         assert "summary" not in payload and payload["verdict"]["value"] == "REI 60"
 
     def test_the_length_drop_is_counted_under_its_field_and_reason(self, emitted):
-        """The reader keeps the prose; the operator gets the rate. A dropped
-        summary is a standfirst nobody sees, and only a count says whether the
-        limit or the prompt wording is wrong."""
         meta = AnswerMeta.model_validate({"summary": "x" * (SUMMARY_MAX_CHARS + 1), "verdict": _VERDICT})
         gate_answer_meta(meta, prose_chars=100)
         assert [(step.id, step.detail) for step in emitted.steps] == [
@@ -589,8 +500,6 @@ class TestSummaryGate:
 
 
 class TestTopicContextGates:
-    """The masthead slots: nominal title plus one-line scope, both optional."""
-
     def test_values_survive_stripped(self):
         meta = AnswerMeta.model_validate(
             {"topic": "  Brandschutz  ", "context": "  OIB-RL 2, Ausgabe Mai 2023 · Wien  "}
@@ -623,8 +532,6 @@ class TestTopicContextGates:
         assert payload["summary"] == "REI 60."
 
     def test_no_gate_interaction_with_kind(self):
-        # Backend keeps both; the frontend prefers the verdict masthead when it
-        # shows. The model decides content, never placement.
         for kind in ("direct", "walkthrough", "ruling", "handoff"):
             meta = AnswerMeta.model_validate(
                 {"kind": kind, "topic": "Brandschutz", "context": "OIB-RL 2", "verdict": _VERDICT}
@@ -633,7 +540,6 @@ class TestTopicContextGates:
             assert payload is not None
             assert payload["topic"] == "Brandschutz"
             assert payload["context"] == "OIB-RL 2"
-        # And without any kind at all (legacy envelope).
         meta = AnswerMeta.model_validate({"topic": "Brandschutz", "context": "OIB-RL 2"})
         payload = gate_answer_meta(meta, prose_chars=100)
         assert payload is not None
@@ -695,8 +601,6 @@ class TestTopicContextRegistry:
 
 
 class TestSkillsApplied:
-    """A CONTROL field (ADR-0063): taught, enforced, never on the reader's wire."""
-
     def test_it_parses_and_never_reaches_the_wire(self):
         from agent.common.answer_envelope import gate_answer_meta
 
@@ -714,8 +618,6 @@ class TestSkillsApplied:
 
 
 class TestHeadlessSalvage:
-    """An envelope whose opening never arrived is salvaged; one that has its opening is not."""
-
     def test_a_reply_that_lost_its_opening_is_salvaged(self):
         content = 'Die Höhe beträgt 2,10 m [1].", "kind": "ruling"}\n```'
         prose, meta = extract_answer_envelope(content)
@@ -729,17 +631,12 @@ class TestHeadlessSalvage:
         assert meta is not None and meta.kind == "ruling"
 
     def test_a_headless_tail_whose_only_kind_is_a_nested_cards_is_cut_at_the_cards(self):
-        # The only `", "kind":` is the callout's: cutting there shipped a JSON
-        # fragment as prose under an invented kind. The cut is at `"cards"`,
-        # the envelope's own key, and the callout's kind invents nothing.
         content = 'Mehr Text hier.", "cards":[{"type":"callout", "kind":"note", "text":"Achtung"}]}\n```'
         prose, meta = extract_answer_envelope(content)
         assert prose == "Mehr Text hier."
         assert meta is not None and meta.kind is None
 
     def test_a_headless_tail_without_a_kind_is_salvaged(self):
-        # Answer feedback, October 2026: the model never wrote `kind`, so the
-        # tail opened at `confidence` and the reader got the JSON under the answer.
         content = (
             "Für eine sichere Einordnung bräuchte es die Fensterbeschreibung [1].\n\n## Quellen\n"
             '- [1] [KB] F18 Brandschutzfenster.pdf, p.1", "confidence":{"level":"medium",'
@@ -755,8 +652,6 @@ class TestHeadlessSalvage:
         assert extract_answer_envelope(content) == (content, None)
 
     def test_a_json_example_in_the_prose_is_not_cut_at_its_own_keys(self):
-        # Review finding: the example's "confidence" looked like a headless tail
-        # and the reply was cut inside the example.
         content = 'Beispiel: {"name": "test", "confidence": {"level": "medium"}}'
         assert extract_answer_envelope(content) == (content, None)
 
@@ -765,8 +660,6 @@ class TestHeadlessSalvage:
         assert extract_answer_envelope(content) == (content, None)
 
     def test_an_unparseable_object_with_its_opening_is_not_cut_at_a_nested_kind(self):
-        # Not JSON (``\q``), and the callout's own "kind" looks like a headless
-        # tail: salvage would ship a JSON fragment as prose under an invented kind.
         content = (
             '{"kind":"direct","answer":"Die Höhe gilt \\q nach Tabelle.", '
             '"callout":{"title":"T", "kind":"warning", "text":"x"}}'

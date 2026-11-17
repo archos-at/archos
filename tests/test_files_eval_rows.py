@@ -1,11 +1,3 @@
-"""The office-file eval's rows, fixture, arms and checks: everything between a recorded turn and its report (ADR-0127).
-
-Offline: the live run needs a model key, a Qdrant and the seeded project. What is pinned here is what
-would make a live run measure the wrong thing: a row with no expectation, a row naming a file the
-fixture does not hold, an arm that does not change what it says it changes, a check that reads a
-recorded call wrongly.
-"""
-
 from __future__ import annotations
 
 import sys
@@ -98,7 +90,6 @@ class TestTheFixture:
         )
 
     def test_chunks_hold_text_twice_as_production_stores_it(self):
-        """The breadcrumb and the overlap, without which the count rows measure nothing (``pf-count-*``)."""
         report = next(f for f in PROJECT.files if f.name.startswith("Brandschutzkonzept"))
         breadcrumbs = [s["metadata"].get("clause_path") or "" for s in fixture_files.chunk_specs(PROJECT, report)]
         assert sum(path.startswith("3 Rettungswege und Aufzug") for path in breadcrumbs) == 4
@@ -124,18 +115,10 @@ MAIL_THREAD = "Verlauf_MA37_Stellplaetze.md"
 
 @pytest.fixture(scope="module")
 def specs():
-    """The Verlauf's chunks, as the real Markdown chunker cuts them."""
     return fixture_files.chunk_specs(PROJECT, next(f for f in PROJECT.files if f.name == MAIL_THREAD))
 
 
 class TestTheMailThread:
-    """The E-Mail-Verlauf the ``pf-mail-*`` rows read, cut by the real Markdown chunker (ADR-0137, DECISION §10).
-
-    What a live row could not tell apart from a model's mistake is pinned here: a citation lands on one
-    message, the forged heading stays inside its real sender's section, the quote stays under the message
-    that kept it, and nothing a reader is not meant to see (an address) is in a chunk.
-    """
-
     THREAD = MAIL_THREAD
     RENDITION = REPO_ROOT / "tests" / "fixtures" / "files_eval" / "mail" / "parking-thread.md"
     HUBER = "12.05.2026 09:12 · Mag. Anna Huber (ma37.wien.gv.at)"
@@ -203,7 +186,6 @@ class TestTheMailThread:
 class TestTheArms:
     TOOLS = ["web_search_tool", "knowledge_search", "read_passage", "list_files", "look"]
 
-    #: The research agent's tools once ADR-0133's slices land: literal search is a tool of its own.
     COMING = ["web_search_tool", "knowledge_search", "ls", "glob", "grep", "read_file", "look"]
 
     def test_hybrid_changes_nothing(self):
@@ -214,9 +196,8 @@ class TestTheArms:
         pairs = dict(files_eval.arm_overrides("semantic", self.TOOLS))
         assert pairs["functions.shallow_research_agent.tools"] == "web_search_tool,knowledge_search,look"
         assert pairs["functions.knowledge_search.match_modes"] == "meaning"
-        # The filesystem verbs over the estate are navigation too (ADR-0133); the override switches them off.
         assert pairs["functions.shallow_research_agent.filesystem"] == "null"
-        from agent.agents.piloti.register import ResearchAgentConfig
+        from agent.core.register import ResearchAgentConfig
 
         assert ResearchAgentConfig(llm="x", filesystem="null").filesystem is None
         assert ResearchAgentConfig(llm="x", filesystem="knowledge_search").filesystem == "knowledge_search"
@@ -254,7 +235,7 @@ class TestTheArms:
     def test_the_overrides_name_keys_the_config_and_its_schema_accept(self):
         from knowledge_layer.register import KnowledgeRetrievalConfig
 
-        from agent.agents.piloti.register import ResearchAgentConfig
+        from agent.core.register import ResearchAgentConfig
 
         for arm in ("semantic", "grep"):
             pairs = dict(files_eval.arm_overrides(arm, self.TOOLS))
@@ -264,7 +245,6 @@ class TestTheArms:
                 ResearchAgentConfig(llm="x", prefetch=pairs["functions.shallow_research_agent.prefetch"])
         tools = files_eval.configured_tools()
         assert {"knowledge_search", "list_files"} <= set(tools)
-        # Piloti reads with `read_file` over the estate (ADR-0133 slice 6); the navigate arm unbinds the search.
         assert "read_passage" not in tools
         assert "knowledge_search" not in dict(files_eval.arm_overrides("navigate", tools))[
             "functions.shallow_research_agent.tools"
@@ -286,7 +266,6 @@ class TestWhatTheCommitCanDo:
     def test_the_needs_are_read_off_the_exported_tool_schema(self):
         found = files_eval.available_needs()
         assert found <= set(files_eval.NEEDS)
-        # Today's tools have none of the S3/S5/S6/S7 arguments; once a slice lands its row starts running.
         schema = REPO_ROOT / "apps" / "workspace" / "tests" / "fixtures" / "backend-tools.schema.json"
         assert schema.exists()
 
@@ -357,7 +336,6 @@ class TestTheChecks:
         assert files_eval.moves([]) == "none"
 
     def test_a_row_written_for_the_old_names_holds_for_the_standard_ones(self):
-        """ADR-0133 §8: the matcher maps old to new for the release the aliases live, so runs compare."""
         new = [
             {"name": "read_file", "arguments": {"file_path": "/project/Gutachten/B.pdf.md", "pages": "4-6"}},
             {"name": "ls", "arguments": {"path": "/project/Einreichung/", "depth": 2}},
@@ -366,7 +344,6 @@ class TestTheChecks:
         assert files_eval.called({"read_passage": {"pages": "4-6", "document": "B.pdf"}}, new)
         assert files_eval.called({"list_files": {"view": "tree", "folder": "Einreichung"}}, new)
         assert files_eval.called({"knowledge_search": {"match": "exact"}}, new)
-        # A grep is the literal move, reported apart from a ranked search (the arms compare the two).
         assert files_eval.moves(new) == "list+grep+read"
 
     def test_a_row_written_for_the_standard_names_holds_for_the_old_ones(self):
@@ -385,8 +362,6 @@ class TestTheChecks:
 
 
 class TestTheComingNames:
-    """ADR-0133 §8: a call by a coming name holds the row written for today's, and the other way round."""
-
     def test_a_path_is_read_as_the_scope_it_addresses(self):
         assert files_eval.path_scope("/project/Gutachten/Brandschutz/Brandschutzkonzept_Hubergasse14.pdf.md") == {
             "shelf": "project",
@@ -446,7 +421,6 @@ class TestTheComingNames:
         assert checks == {"no_repeat:list_files": False}
 
     def test_every_row_holds_for_the_coming_names_of_its_own_tools(self):
-        """Each `tools.must` item a row names by today's tool is met by the coming tool's call."""
         coming = {
             "list_files": {"name": "ls", "arguments": {"path": "/project/"}},
             "read_passage": {"name": "read_file", "arguments": {"file_path": "/project/x.pdf.md"}},
@@ -465,8 +439,6 @@ class TestTheComingNames:
 
 
 class TestTheNewRows:
-    """The rows the owner asked for: the open document is a hint, not the scope; and exact lookups."""
-
     def _pages(self, name: str) -> str:
         return "\n".join(next(f for f in PROJECT.files if f.name == name).pages)
 

@@ -2,24 +2,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The workspace eval's catalog, written by the production code
- * (`task be:eval:answer-suite -- --set workspace`, ADR-0123). What in-product
- * Piloti sees on its MCP door — every operation it may name, and what
- * `describe-operation` answers for each — is written to
- * `tests/fixtures/workspace/catalog.json`, which
- * `scripts/turn_census/fixture_workspace.py` serves. Beside it, what
- * `search-operations` returns for a fixed set of queries, English and German:
- * the fixture ranks with a Python mirror of the server's ranking
- * (`lib/text/operation-search.ts`, which `discovery.ts` ranks with), and
- * `tests/test_workspace_eval.py` holds that mirror to these lists.
- *
- * A change to the catalog, to a description or to the ranking fails here until
- * the fixture is regenerated, so the eval never measures a door production no
- * longer has:
- *
- *   UPDATE_FIXTURES=1 npx vitest run app/api/mcp/workspace-eval.fixture.spec.ts
- */
 
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -38,7 +20,7 @@ const LIMIT = 10
 
 const session = {
   userId: 'user_eval',
-  email: 'eval@piloti.test',
+  email: 'eval@example.test',
   name: 'Eval',
   accessToken: '',
   organizationId: 'org_eval',
@@ -47,14 +29,9 @@ const session = {
   permissions: [],
   featureFlags: null,
 }
-const piloti: AgentPrincipal = { actor: 'piloti', session, clientId: null, scopes: [] }
-const ctx = { principal: piloti, mode: 'search' as const }
+const agent: AgentPrincipal = { actor: 'piloti', session, clientId: null, scopes: [] }
+const ctx = { principal: agent, mode: 'search' as const }
 
-/**
- * Queries a model writes for office work, each in both languages, then the
- * edge cases of the ranking. The German ones are what the people ask in; the
- * English ones what the catalog says.
- */
 export const SEARCH_QUERIES = [
   'add member project',
   'Mitglied zu Projekt hinzufügen',
@@ -86,7 +63,6 @@ export const SEARCH_QUERIES = [
   'Anmerkung beantworten',
   'conversation share',
   'Unterhaltung teilen',
-  // The edges the mirror must keep: blank lists all, a one-letter word is dropped, no usable word finds nothing.
   '',
   'a project list',
   '(a+)+$',
@@ -109,7 +85,7 @@ function describeText(name: string): string {
 }
 
 function render(): string {
-  const operations = visibleOperations(piloti).map((op) => {
+  const operations = visibleOperations(agent).map((op) => {
     const annotations = annotationsOf(op)
     return {
       name: op.name,
@@ -134,7 +110,7 @@ function render(): string {
 }
 
 describe('the workspace eval catalog', () => {
-  it('is what the production door shows in-product Piloti', () => {
+  it('is what the production door shows for the in-product agent', () => {
     const rendered = render()
     if (process.env.UPDATE_FIXTURES === '1') writeFileSync(FILE, rendered)
     expect(readFileSync(FILE, 'utf8')).toBe(rendered)

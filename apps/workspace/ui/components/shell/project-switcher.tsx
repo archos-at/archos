@@ -24,26 +24,8 @@ export interface ProjectSwitcherProps {
   collapsed?: boolean
 }
 
-/**
- * The project selector is the first control of the rail and the one press on
- * it: the kit's secondary press (white with its 12% edge, radius 6; Paper on a
- * desk, principle 4) across the rail's column, 40px, the project's name at
- * 14/600 on ONE line and the chevrons that say it opens. A name that does not
- * fit loses its middle and keeps its end („Baufeld D12" is what tells sibling
- * projects apart); it never wraps, and the whole name is the press's title and
- * the open menu's first row. The version before set the name on two wrapped
- * lines beside a 24px tile of initials with no box round them: a paragraph and
- * a tile, nothing that read as a control.
- */
-// 12 + name + 4 + 14 + 6: the name starts on the wordmark's and the icons' 24px edge
-// and has 212px of the default rail's 248px column.
 const TRIGGER_CLASS = 'h-10 w-full justify-between gap-1 pr-1.5 pl-3 text-left pointer-coarse:h-11'
 
-/**
- * The icon rail's shape of the same press: a nav tile's 36px square on the
- * rail's 32px axis, holding the project's initials. The one place initials
- * stand, because no name fits there; the name is its tooltip.
- */
 const TILE_CLASS = 'size-9 min-w-0 p-0 pointer-coarse:size-11'
 
 const GROUP_CLASS =
@@ -57,14 +39,10 @@ export function ProjectSwitcher({ projects, activeProjectId, collapsed }: Projec
   const [open, setOpen] = React.useState(false)
   const [query, setQuery] = React.useState('')
   const [recentIds, setRecentIds] = React.useState<string[]>([])
-  // The keyboard's place in the list. It starts on the first project that is
-  // not the current one: starting on the current row drew the cursor's fill
-  // and the check on one row, two marks for one thing.
   const [cursor, setCursor] = React.useState('')
 
   const onOpenChange = (next: boolean): void => {
     setOpen(next)
-    // Read on every open: the reader may have moved between projects since.
     if (next) {
       const recent = readRecentProjectIds()
       setRecentIds(recent)
@@ -81,8 +59,6 @@ export function ProjectSwitcher({ projects, activeProjectId, collapsed }: Projec
 
   const choose = (projectId: string): void => {
     setOpen(false)
-    // Switching into a project always lands on its Chat — the project's
-    // primary workspace (spec §5).
     if (projectId !== activeProjectId) router.push(`/app/projects/${projectId}/chat`)
   }
   const item = (project: ProjectSwitcherProject): React.JSX.Element => {
@@ -90,7 +66,7 @@ export function ProjectSwitcher({ projects, activeProjectId, collapsed }: Projec
     const quiet = project.status === 'paused' || project.status === 'closed'
     return (
       <CommandItem key={project.id} value={project.id} onSelect={() => choose(project.id)} className="gap-2.5">
-        <span className={cn('min-w-0 flex-1 truncate', isCurrent && 'font-semibold')}>{project.name}</span>
+        <span className={cn('min-w-0 flex-1 truncate', isCurrent && 'font-medium')}>{project.name}</span>
         {quiet && project.status && (
           <span className="text-muted-foreground shrink-0 text-xs">{tProjects(`card.status.${project.status}`)}</span>
         )}
@@ -114,7 +90,7 @@ export function ProjectSwitcher({ projects, activeProjectId, collapsed }: Projec
           </span>
         ) : (
           <>
-            <MiddleTruncate text={name} tail={12} className="min-w-0 flex-1 text-sm font-semibold" />
+            <MiddleTruncate text={name} tail={12} className="min-w-0 flex-1 text-[13px] font-medium" />
             <ChevronsUpDown className="text-muted-foreground size-3.5" aria-hidden />
           </>
         )}
@@ -125,8 +101,6 @@ export function ProjectSwitcher({ projects, activeProjectId, collapsed }: Projec
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
       {collapsed ? (
-        // The icon rail shows the mark alone, so the name is a tooltip beside
-        // it, as the section tiles below name theirs.
         <Tooltip>
           <TooltipTrigger asChild>{trigger}</TooltipTrigger>
           <TooltipContent side="right">{name}</TooltipContent>
@@ -135,23 +109,20 @@ export function ProjectSwitcher({ projects, activeProjectId, collapsed }: Projec
         trigger
       )}
       <PopoverContent
-        // Under the press it belongs to, on its left edge, as a menu hangs
-        // from its button; beside the icon rail, where there is no room under
-        // a 36px tile.
         align="start"
         side={collapsed ? 'right' : 'bottom'}
         sideOffset={collapsed ? 22 : 6}
-        className="w-72 p-0 motion-reduce:animate-none"
+        className={cn('p-0 motion-reduce:animate-none', collapsed ? 'w-60' : 'w-(--radix-popover-trigger-width)')}
       >
         {/* The phone's sheet in a popover: a search first (a dozen running
             projects is past what a reader scans), then the three opened last,
             then the rest. One order on both shapes (`project-list.ts`). */}
-        <Command shouldFilter={false} loop value={cursor} onValueChange={setCursor} label={t('projectSwitcher.switchHeading')}>
+        {/* Rows at the rail's 13px, so a list as narrow as its press still holds a project's whole name. */}
+        <Command shouldFilter={false} loop value={cursor} onValueChange={setCursor} label={t('projectSwitcher.switchHeading')} className="[&_[cmdk-item]]:text-[13px]">
           <CommandInput
             value={query}
             onValueChange={(next) => {
               setQuery(next)
-              // Enter takes the first match, as the list now reads.
               const found = switcherSections(projects, activeProjectId, recentIds, next)
               const order = found.kind === 'browse' ? [...found.recent, ...found.rest] : found.matches
               setCursor(order[0]?.id ?? 'all-projects')

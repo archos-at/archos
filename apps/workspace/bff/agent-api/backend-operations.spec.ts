@@ -2,11 +2,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The agent's read tools over MCP (ADR-0122): the operations are the contract
- * the Python tools generate, and a call is the person's own chat turn context,
- * signed by this tier and sent to the backend with the internal token.
- */
 
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -119,9 +114,6 @@ describe('the operations', () => {
     expect(BACKEND_OPERATIONS.map((op) => op.tool)).toEqual(fixture.tools.map((tool) => tool.name))
     for (const tool of fixture.tools) {
       const op = BACKEND_OPERATIONS.find((candidate) => candidate.tool === tool.name)
-      // The description is the agent surface's own English one, not Piloti's native tool text
-      // (`backend-operations.ts`); the input is the tool's own, property for property, less
-      // `conclusion`: Piloti's status line, which an outside agent is never asked for.
       expect(op?.description.length).toBeGreaterThan(200)
       expect(op?.description).not.toBe(tool.description)
       const own = Object.keys(op?.inputSchema.properties ?? {}).filter((key) => key !== 'projectId')
@@ -136,7 +128,6 @@ describe('the operations', () => {
         readOnlyHint: true,
         destructiveHint: false,
         idempotentHint: true,
-        // Only the law lookup leaves the workspace (it reaches the public RIS).
         openWorldHint: op.name === 'law-lookup',
       })
       const schema = op.inputSchema
@@ -146,7 +137,6 @@ describe('the operations', () => {
       } else {
         expect(op.needsProject).toBe(true)
         expect(Object.keys(schema.properties ?? {})[0]).toBe('projectId')
-        // The shared corpus belongs to no project: the search may leave it out with `shelf: "base"`.
         if (op.name === 'knowledge-search') expect(schema.required).not.toContain('projectId')
         else expect(schema.required?.[0]).toBe('projectId')
       }

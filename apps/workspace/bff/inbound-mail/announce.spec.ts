@@ -71,15 +71,12 @@ const PROJECT = '0e5b4f2e-1d7c-4c3a-9a51-2f0d8c6b7a10'
 const MEMBER = 'user_01HZX3Y4Z5A6B7C8D9E0F1G2H3'
 const MANAGER = 'user_01HZX3Y4Z5A6B7C8D9E0F1G2M1'
 const OTHER = 'user_01HZX3Y4Z5A6B7C8D9E0F1G2O1'
-/** May open the project, never write in it: the E-Mail-Eingang does not let them file. */
 const READER = 'user_01HZX3Y4Z5A6B7C8D9E0F1G2R1'
-/** Who holds what: MEMBER writes, MANAGER manages and edits, READER only reads, OTHER nothing. */
 const PERMISSIONS: Record<string, readonly string[]> = {
   [MEMBER]: ['project:view', 'project:documents:write'],
   [MANAGER]: ['project:view', 'project:manage', 'project:edit'],
   [READER]: ['project:view'],
 }
-/** Everyone who may write in the project, in the directory's order. */
 const WRITERS = [MEMBER, MANAGER]
 
 const mail = (overrides: Partial<WaitingMail> = {}): WaitingMail => ({
@@ -95,7 +92,6 @@ const mail = (overrides: Partial<WaitingMail> = {}): WaitingMail => ({
 
 const emitted = () => (vi.mocked(emitInboxItems).mock.calls[0]?.[0] ?? []) as InboxEmission[]
 
-/** Who holds what, as both the lenient and the strict check read it. */
 const holdsAsListed = async (_session: unknown, _project: string, userId: string, permission: string) =>
   (PERMISSIONS[userId] ?? []).includes(permission)
 
@@ -105,7 +101,6 @@ beforeEach(() => {
   cache = new MapCacheStore()
   setCacheStore(cache)
   vi.mocked(userHoldsProjectPermissionStrict).mockImplementation(holdsAsListed)
-  // A test that makes the write fail leaves that behind otherwise (clearAllMocks keeps implementations).
   vi.mocked(emitInboxItems).mockImplementation(async (rows) => rows.length)
   vi.mocked(findProjectInOrg).mockResolvedValue({ id: PROJECT, name: 'Wohnbau Hietzing' } as never)
   vi.mocked(loadOrganizationDirectory).mockResolvedValue(
@@ -145,7 +140,6 @@ describe('inbound_mail.waiting', () => {
       userId === MANAGER ? permission === 'project:edit' : permission === 'project:view'
     vi.mocked(userHoldsProjectPermission).mockImplementation(onlyManagerWrites)
     vi.mocked(userHoldsProjectPermissionStrict).mockImplementation(onlyManagerWrites)
-    // Past the writers' cache window, as a rights change is read.
     cache.map.clear()
     await announceWaiting(mail())
     expect(emitted().map((row) => row.recipientUserId)).toEqual([MANAGER])
@@ -153,7 +147,6 @@ describe('inbound_mail.waiting', () => {
 
   it('tells the writers, not the member, that a read-only member’s signed mail waits: they are the ones who can file it', async () => {
     const reader = mail({ senderUserId: READER })
-    // Signed and addressed to the project, so the sender would be told, but READER may not file it.
     expect(notifiesSender(reader)).toBe(true)
 
     await announceWaiting(reader)
@@ -163,7 +156,6 @@ describe('inbound_mail.waiting', () => {
     await announceExpiring(reader)
     expect(emitted().map((row) => row.recipientUserId)).toEqual(WRITERS)
 
-    // The member still hears why their own mail waits.
     vi.mocked(emitInboxItems).mockClear()
     await announceHeld({ ...reader, senderClass: 'office_member' })
     expect(emitted()).toEqual([expect.objectContaining({ recipientUserId: READER, type: 'inbound_mail.held_for_writers' })])
@@ -183,7 +175,6 @@ describe('inbound_mail.waiting', () => {
   })
 
   it('tells the managers, never nobody, when WorkOS does not answer a write check, and keeps no guess', async () => {
-    // Throttled: the strict check throws, the lenient one fails closed, and only a manage check gets through.
     vi.mocked(userHoldsProjectPermissionStrict).mockRejectedValue(new Error('429 Too Many Requests'))
     vi.mocked(userHoldsProjectPermission).mockImplementation(async (_s, _p, userId, permission) =>
       userId === MANAGER && permission === 'project:manage',
@@ -219,7 +210,6 @@ describe('inbound_mail.waiting', () => {
     expect(unverified.payload).toEqual({ subject: 'Wohnbau Hietzing', variant: 'unconfirmed' })
     expect(automatic.payload).toEqual({ subject: 'Wohnbau Hietzing', variant: 'unconfirmed' })
     expect(verified.payload).toEqual({ subject: 'Wohnbau Hietzing' })
-    // One counted row per recipient and project, whatever the mail.
     expect(new Set([unverified, automatic, verified].map((row) => row.groupKey))).toEqual(
       new Set([`inbound_mail.waiting:project:${PROJECT}`]),
     )
@@ -278,7 +268,6 @@ describe('inbound_mail.decided (D9)', () => {
         payload: { subject: 'Wohnbau Hietzing', related: 'Behörde/Bescheide' },
       }),
     ])
-    // The folders are read as the member reads the files: one held from them by its screening names none.
     expect(filedFolderIds).toHaveBeenCalledWith(MAIL, { kind: 'member', userId: MEMBER })
   })
 
@@ -308,7 +297,6 @@ describe('inbound_mail.decided (D9)', () => {
     ])
 
     vi.mocked(emitInboxItems).mockClear()
-    // The amendment: the member a forged From names is told what became of it; they are the one who can tell.
     expect(await announceDecided(decided({ senderTrust: 'member_unverified', outcome: 'dismissed' }))).toBe(true)
     expect(emitted()[0]).toMatchObject({ recipientUserId: MEMBER, type: 'inbound_mail.rejected' })
     vi.mocked(emitInboxItems).mockClear()
@@ -465,8 +453,6 @@ describe('settling the project’s collapsed rows', () => {
 })
 
 describe('redacted by construction (RT-X1)', () => {
-  // Strings a stranger could write. None is passed in a field the emitters read,
-  // and the extra fields below stand for a caller that hands the whole row over.
   const CANARY = ['canary-sender@evil.example', 'Canary Subject Zeile', 'canary-file.pdf', 'Canary Absender']
   const leaky = { senderAddress: CANARY[0], subject: CANARY[1], filename: CANARY[2], senderName: CANARY[3] }
 

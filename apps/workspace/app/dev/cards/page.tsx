@@ -1,17 +1,5 @@
 'use client'
 
-/**
- * Card-gallery dev page: renders every Grid card type with realistic fixture
- * data so visual changes can be reviewed (and screenshotted) in one place.
- * Not linked from anywhere and returns 404 outside development.
- *
- * The whole gallery is pinned to German with `fixedLocale`. Without it the
- * provider falls back to `defaultLocale` ('en'), which is how the committed
- * screenshot came to show an English „Ask about this" chip in the middle of a
- * German Anforderungsliste: the cards whose copy is hardcoded German looked
- * right and only the translated ones leaked. See docs/ux/visual-screenshots.md.
- */
-
 import { notFound } from 'next/navigation'
 
 import { I18nProvider } from '@/i18n'
@@ -56,9 +44,6 @@ export default function CardsGalleryPage() {
 }
 
 function Gallery() {
-  // The three proposal cards are receipts of proposals the server holds
-  // (ADR-0105); `/dev` has no server, so the proposals API is faked for them.
-  // See `/dev/proposal-receipts` for every state.
   const proposalsReady = useFakeProposalClient()
   return (
     <main className="mx-auto flex max-w-2xl flex-col gap-8 p-6">
@@ -456,7 +441,7 @@ function Gallery() {
         />
       </Section>
 
-      {/* Delegation: work Piloti took on, with the deadline the person named
+      {/* Delegation: work the agent took on, with the deadline the person named
           and a link to the thread the run writes into. Presentational on
           purpose — the row exists by the time the card renders, so there is
           nothing to accept (see `TaskCreatedCard`'s header). */}
@@ -561,9 +546,9 @@ function Gallery() {
         )}
       </Section>
 
-      {/* A system card the annotations tool pushes: what Piloti did on a
+      {/* A system card the annotations tool pushes: what the agent did on a
           document. Two proposed marks (a box, a point) to take over or discard
-          one by one, and an answer in an existing thread; then what Piloti did
+          one by one, and an answer in an existing thread; then what the agent did
           at the person's request: a mark set open, two changes with their
           notes and an undo, and a deletion. The gallery's
           document does not exist, so the live read fails soft: the marks stay

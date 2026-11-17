@@ -142,14 +142,15 @@ restore_rls_role_names() {
 # The release transfer suite (rollover-to-prod, step 2) moves a country's release
 # from one deployment to another: two fresh copies of the migrated database,
 # taken before any suite writes to it, one per deployment.
-RELEASE_DATABASES="grid_app_release_source grid_app_release_target"
+# The carry suite (ADR-0181) carries released bundles into a third, the deployment they are carried to.
+RELEASE_DATABASES="grid_app_release_source grid_app_release_target grid_app_carry_target"
 release_databases() {
   local name
   for name in $RELEASE_DATABASES; do
     $PSQL -q -v ON_ERROR_STOP=1 -c "CREATE DATABASE $name TEMPLATE grid_app OWNER $OWNER;"
   done
 }
-RELEASE_URLS="TEST_RELEASE_SOURCE_DATABASE_URL=postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app_release_source TEST_RELEASE_TARGET_DATABASE_URL=postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app_release_target"
+RELEASE_URLS="TEST_RELEASE_SOURCE_DATABASE_URL=postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app_release_source TEST_RELEASE_TARGET_DATABASE_URL=postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app_release_target TEST_CARRY_DATABASE_URL=postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app_carry_target"
 
 # `--only <spec…>`: the migrated cluster and the restricted role, for the specs
 # named and nothing else. For one suite while you work on it, and for the
@@ -202,6 +203,8 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
     bff/projects/memory-service.integration.spec.ts \
     bff/projects/memory-restricted.integration.spec.ts \
     bff/personal-memory/personal-memory.integration.spec.ts \
+    bff/personal-memory/personal-memory-topics.integration.spec.ts \
+    bff/projects/memory-topics.integration.spec.ts \
     bff/documents/document-versions.integration.spec.ts \
     bff/documents/list-page.integration.spec.ts \
     bff/documents/quarantine-listing.integration.spec.ts \
@@ -238,6 +241,7 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
     bff/changes/repository.integration.spec.ts \
     bff/push/repository.integration.spec.ts \
     bff/agent-asks/repository.integration.spec.ts \
+    bff/turns/turn-steps.integration.spec.ts \
     bff/residency/processing-policy.integration.spec.ts \
     bff/inbox/repository.integration.spec.ts \
     bff/project-experience/readable-files.integration.spec.ts \
@@ -266,6 +270,7 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
     bff/mail-thread/follow.integration.spec.ts \
     bff/mail-thread/archive.integration.spec.ts \
     bff/base-knowledge/store/repository.integration.spec.ts \
+    bff/base-knowledge/store/office-editions.integration.spec.ts \
     bff/base-knowledge/store/rulesets.integration.spec.ts \
     bff/base-knowledge/platform/platform.integration.spec.ts \
     bff/base-knowledge/platform/approve-alone.integration.spec.ts \
@@ -307,6 +312,10 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
 # draft into another's (rollover-to-prod, step 2). Its own two databases.
 echo "==> running the release transfer suite as app_rw"
 env $RELEASE_URLS npx vitest run bff/base-knowledge/platform/release-transfer.integration.spec.ts
+
+# Reviewed releases carried to a deployment by the promotion (ADR-0181): its own database.
+echo "==> running the knowledge carry suite as app_rw"
+env $RELEASE_URLS npx vitest run bff/base-knowledge/platform/carry.integration.spec.ts
 
 # The tenant suites above may leave queued jobs behind: Ausmisten bins a
 # subfolder, and a Papierkorb delete queues its purge takeover and a refused
@@ -4324,3 +4333,128 @@ refused_in cs_0234 "INSERT INTO knowledge_ruleset_revisions (revision_id, record
 apply_in cs_0234 0234_citation_style_rulesets.sql
 check_in cs_0234 "SELECT count(*) FROM pg_constraint WHERE conname = 'knowledge_ruleset_revisions_citation_style_purpose'" "1" "0234 applies again after its down"
 echo "==> 0234 citation style and its down migration verified"
+
+# ---------------------------------------------------------------------------
+# Migration 0235: a territory states its time zone (`zone`). The down drops the
+# column (lossy: every stated zone goes), and 0235 applies again.
+# ---------------------------------------------------------------------------
+echo "==> verifying the 0235 territory zone and its down migration on tz_0235"
+migrate_until tz_0235 0235_territory_zone
+apply_in tz_0235 0235_territory_zone.sql   # up twice: idempotent
+check_in tz_0235 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_territory_revisions' AND column_name = 'zone'" "1" "0235 adds the zone column"
+apply_in tz_0235 0235_territory_zone.down.sql
+check_in tz_0235 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_territory_revisions' AND column_name = 'zone'" "0" "0235 down drops the zone column"
+apply_in tz_0235 0235_territory_zone.sql
+check_in tz_0235 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_territory_revisions' AND column_name = 'zone'" "1" "0235 applies again after its down"
+echo "==> 0235 territory zone and its down migration verified"
+
+# ---------------------------------------------------------------------------
+# Migration 0236: the records policy reads the entitlement and the reach as one
+# set each (`knowledge_entitled_countries()`, `knowledge_reached_ids()`), not
+# 0211's per-row `knowledge_country_entitled` and walk. The down restores 0228's
+# policy and drops both functions (lossless; the per-row functions stay defined
+# throughout), and 0236 applies again. That the sets answer what the per-row
+# functions answer is `visibility.integration.spec.ts`'s.
+# ---------------------------------------------------------------------------
+echo "==> verifying the 0236 sets read once and its down migration on rr_0236"
+migrate_until rr_0236 0236_reached_records_once
+apply_in rr_0236 0236_reached_records_once.sql   # up twice: idempotent
+RR_SETS="SELECT count(*) FROM pg_policies WHERE tablename = 'knowledge_records' AND qual LIKE '%knowledge_reached_ids()%' AND qual LIKE '%knowledge_entitled_countries()%'"
+RR_ROWS="SELECT count(*) FROM pg_policies WHERE tablename = 'knowledge_records' AND (qual LIKE '%knowledge_reached_by_relation(id)%' OR qual LIKE '%knowledge_country_entitled(country_id)%')"
+check_in rr_0236 "$RR_SETS" "1" "0236 reads the entitlement and the reach as sets in the records policy"
+check_in rr_0236 "$RR_ROWS" "0" "0236 leaves no per-row function in the records policy"
+check_in rr_0236 "SELECT (pg_get_functiondef('knowledge_reached_ids()'::regprocedure) LIKE '%knowledge_entitled_countries()%')::text" "true" "0236 seeds the reach from the entitled set"
+check_in rr_0236 "SELECT count(*) FROM pg_proc WHERE proname IN ('knowledge_reached_by_relation', 'knowledge_country_entitled')" "2" "0236 keeps the per-row functions defined for the previous build"
+apply_in rr_0236 0236_reached_records_once.down.sql
+check_in rr_0236 "$RR_SETS" "0" "0236 down takes the sets out of the records policy"
+check_in rr_0236 "$RR_ROWS" "1" "0236 down restores 0228's per-row policy"
+check_in rr_0236 "SELECT count(*) FROM pg_proc WHERE proname IN ('knowledge_reached_ids', 'knowledge_entitled_countries')" "0" "0236 down drops both set functions"
+apply_in rr_0236 0236_reached_records_once.sql
+check_in rr_0236 "$RR_SETS" "1" "0236 applies again after its down"
+echo "==> 0236 sets read once and its down migration verified"
+
+# ---------------------------------------------------------------------------
+# Migration 0238: a memory note belongs to a topic (ADR-0180). A note that
+# existed has none; the column takes text of 1 to 40 characters with no
+# surrounding space, or nothing; the topic indexes exist. The down drops the
+# column (lossy: every topic goes), and 0238 applies again.
+# ---------------------------------------------------------------------------
+echo "==> verifying the 0238 memory topics and their down migration on mt_0238"
+migrate_before mt_0238 0238_memory_topics
+sql_in mt_0238 <<<"INSERT INTO personal_memory (organization_id, user_id, kind, content, content_key) VALUES ('org_0238', 'user_a', 'preference', 'Answers in short paragraphs.', 'answers in short paragraphs')"
+sql_in mt_0238 <<<"INSERT INTO project_memory (scope, organization_id, kind, content) VALUES ('organization', 'org_0238', 'decision', 'Bauanträge gehen digital ein.')"
+apply_in mt_0238 0238_memory_topics.sql
+apply_in mt_0238 0238_memory_topics.sql   # up twice: idempotent
+check_in mt_0238 "SELECT coalesce(topic, 'none') FROM personal_memory WHERE organization_id = 'org_0238'" "none" "0238: a personal note that existed has no topic"
+check_in mt_0238 "SELECT coalesce(topic, 'none') FROM project_memory WHERE organization_id = 'org_0238'" "none" "0238: a project note that existed has no topic"
+sql_in mt_0238 <<<"UPDATE personal_memory SET topic = 'Brandschutz' WHERE organization_id = 'org_0238'"
+sql_in mt_0238 <<<"UPDATE project_memory SET topic = 'Stellplätze' WHERE organization_id = 'org_0238'"
+refused_in mt_0238 "UPDATE personal_memory SET topic = ' Brandschutz' WHERE organization_id = 'org_0238'" "personal_memory_topic_bounded" "a personal topic with a leading space was accepted"
+refused_in mt_0238 "UPDATE project_memory SET topic = 'Brandschutz ' WHERE organization_id = 'org_0238'" "project_memory_topic_bounded" "a project topic with a trailing space was accepted"
+refused_in mt_0238 "UPDATE personal_memory SET topic = '' WHERE organization_id = 'org_0238'" "personal_memory_topic_bounded" "an empty personal topic was accepted"
+refused_in mt_0238 "UPDATE project_memory SET topic = repeat('x', 41) WHERE organization_id = 'org_0238'" "project_memory_topic_bounded" "a 41-character project topic was accepted"
+check_in mt_0238 "SELECT count(*) FROM pg_indexes WHERE indexname IN ('idx_personal_memory_topic', 'idx_project_memory_topic')" "2" "0238: both topic indexes exist"
+check_in mt_0238 "SELECT (pg_get_expr(polqual, polrelid) LIKE '%current_user_id()%')::text FROM pg_policy WHERE polrelid = 'personal_memory'::regclass AND polname = 'tenant_isolation'" "true" "0238: the personal policy still names the person"
+apply_in mt_0238 0238_memory_topics.down.sql
+check_in mt_0238 "SELECT count(*) FROM information_schema.columns WHERE column_name = 'topic' AND table_name IN ('personal_memory', 'project_memory')" "0" "0238 down drops both topic columns"
+check_in mt_0238 "SELECT count(*) FROM personal_memory WHERE organization_id = 'org_0238'" "1" "0238 down leaves the personal notes"
+check_in mt_0238 "SELECT count(*) FROM project_memory WHERE organization_id = 'org_0238'" "1" "0238 down leaves the project notes"
+apply_in mt_0238 0238_memory_topics.sql
+check_in mt_0238 "SELECT count(*) FROM personal_memory WHERE organization_id = 'org_0238' AND topic IS NULL" "1" "0238 applies again after its down, and no note has a topic"
+echo "==> 0238 memory topics and their down migration verified"
+
+# ---------------------------------------------------------------------------
+# Migrations 0241 to 0243: the stored names' expand step (ADR-0182 phase 4).
+# 0241: current_org() and current_user_id() read app.* first, grid.* second.
+# 0242: the actor-kind checks accept 'agent' beside 'piloti', under brand-free
+# constraint names. 0243: the live-name index covers generated/ beside piloti/.
+# Each applies twice, its down restores the previous shape, and it applies again.
+# ---------------------------------------------------------------------------
+echo "==> verifying the 0241 to 0243 expand migrations and their downs on sn_0241"
+migrate_before sn_0241 0241_app_session_settings
+apply_in sn_0241 0241_app_session_settings.sql
+apply_in sn_0241 0241_app_session_settings.sql   # up twice: idempotent
+check_in sn_0241 "SELECT current_org() FROM (SELECT set_config('app.organization_id', 'org_new', false), set_config('grid.organization_id', 'org_old', false)) AS s" "org_new" "0241: current_org() prefers app.organization_id"
+check_in sn_0241 "SELECT current_org() FROM (SELECT set_config('grid.organization_id', 'org_old', false)) AS s" "org_old" "0241: current_org() falls back to grid.organization_id"
+check_in sn_0241 "SELECT current_user_id() FROM (SELECT set_config('app.user_id', 'user_new', false)) AS s" "user_new" "0241: current_user_id() reads app.user_id"
+check_in sn_0241 "SELECT count(*) FROM pg_attrdef d JOIN pg_attribute a ON a.attrelid = d.adrelid AND a.attnum = d.adnum WHERE a.attname = 'organization_id' AND pg_get_expr(d.adbin, d.adrelid) LIKE '%app.organization_id%'" "4" "0241: the four organization defaults read the new setting"
+apply_in sn_0241 0241_app_session_settings.down.sql
+check_in sn_0241 "SELECT coalesce(current_org(), 'none') FROM (SELECT set_config('app.organization_id', 'org_new', false)) AS s" "none" "0241 down: current_org() reads only the old setting again"
+apply_in sn_0241 0241_app_session_settings.sql
+apply_in sn_0241 0242_agent_actor_kind.sql
+apply_in sn_0241 0242_agent_actor_kind.sql   # up twice: idempotent
+check_in sn_0241 "SELECT count(*) FROM pg_constraint WHERE conname IN ('document_annotations_only_agent_proposes', 'document_annotations_agent_needs_a_person')" "2" "0242: both constraints carry their brand-free names"
+check_in sn_0241 "SELECT count(*) FROM pg_constraint WHERE conname IN ('document_annotations_only_piloti_proposes', 'document_annotations_piloti_needs_a_person')" "0" "0242: the old constraint names are gone"
+check_in sn_0241 "SELECT count(*) FROM pg_constraint WHERE conname IN ('document_annotations_author_known', 'document_annotation_replies_author_known', 'proposed_changes_proposer_known', 'document_annotations_only_agent_proposes') AND pg_get_constraintdef(oid) LIKE '%''agent''%' AND pg_get_constraintdef(oid) LIKE '%''piloti''%'" "4" "0242: every actor-kind check accepts both values"
+apply_in sn_0241 0242_agent_actor_kind.down.sql
+check_in sn_0241 "SELECT count(*) FROM pg_constraint WHERE conname IN ('document_annotations_only_piloti_proposes', 'document_annotations_piloti_needs_a_person')" "2" "0242 down: the old constraint names return"
+apply_in sn_0241 0242_agent_actor_kind.sql
+apply_in sn_0241 0243_documents_generated_namespace.sql
+apply_in sn_0241 0243_documents_generated_namespace.sql   # up twice: idempotent
+check_in sn_0241 "SELECT (indexdef LIKE '%generated/%' AND indexdef LIKE '%piloti/%')::text FROM pg_indexes WHERE indexname = 'uniq_documents_live_name_per_collection'" "true" "0243: the live-name index covers both namespaces"
+apply_in sn_0241 0243_documents_generated_namespace.down.sql
+check_in sn_0241 "SELECT (indexdef LIKE '%generated/%')::text FROM pg_indexes WHERE indexname = 'uniq_documents_live_name_per_collection'" "false" "0243 down: the index returns to 0083's two arms"
+apply_in sn_0241 0243_documents_generated_namespace.sql
+echo "==> 0241 to 0243 expand migrations and their downs verified"
+
+# ---------------------------------------------------------------------------
+# Migration 0244: a ledger row names its model once. A provider id written
+# twice is folded to the id; an id once, one with no provider prefix and a
+# NULL stay as they are. The down changes nothing, and 0244 applies again.
+# ---------------------------------------------------------------------------
+echo "==> verifying the 0244 model folded once and its down migration on um_0244"
+migrate_before um_0244 0244_usage_events_model_once
+sql_in um_0244 <<SQL
+INSERT INTO llm_usage_events (organization_id, model, generation_id) VALUES
+  ('org_0244', 'openai/gpt-6.1-terraopenai/gpt-6.1-terra', 'a-doubled'),
+  ('org_0244', 'openai/gpt-6.1-terra', 'b-once'),
+  ('org_0244', 'gpt-4ogpt-4o', 'c-no-prefix'),
+  ('org_0244', NULL, 'd-none');
+SQL
+STATE_0244="SELECT string_agg(generation_id || '=' || coalesce(model, 'null'), ',' ORDER BY generation_id) FROM llm_usage_events WHERE organization_id = 'org_0244'"
+apply_in um_0244 0244_usage_events_model_once.sql
+check_in um_0244 "$STATE_0244" "a-doubled=openai/gpt-6.1-terra,b-once=openai/gpt-6.1-terra,c-no-prefix=gpt-4ogpt-4o,d-none=null" "0244 folds a doubled provider id and touches no other row"
+apply_in um_0244 0244_usage_events_model_once.down.sql
+apply_in um_0244 0244_usage_events_model_once.sql
+check_in um_0244 "$STATE_0244" "a-doubled=openai/gpt-6.1-terra,b-once=openai/gpt-6.1-terra,c-no-prefix=gpt-4ogpt-4o,d-none=null" "0244 applies again after its down and folds nothing twice"
+echo "==> 0244 model folded once and its down migration verified"

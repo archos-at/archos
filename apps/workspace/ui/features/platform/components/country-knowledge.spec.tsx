@@ -16,16 +16,8 @@ vi.mock('sonner', () => ({
   toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() },
 }))
 
-/** Who is looking: `u` wrote the fixture's request, anybody else did not. */
 const viewer = vi.hoisted(() => ({ id: 'reviewer' }))
 vi.mock('@/adapters/auth/use-auth', () => ({ useAuth: () => ({ user: { id: viewer.id } }) }))
-
-/**
- * Platform → Länder (ADR-0165): the list of countries with their stage and next
- * step, one country's page with each section and its empty state, all from the
- * real routes' shapes; a request opened from the review section asks before its
- * next step runs, and read-only staff get no write control.
- */
 
 const OVERVIEW = {
   countries: [{ countryId: 'AT', released: { authority: 2, work: 3 }, openRequests: 1, entitledOffices: 4, overdueEditions: 1 }],
@@ -57,7 +49,6 @@ const REQUEST = {
 
 const fetchMock = vi.fn()
 
-/** The routes as a stateful stand-in: a verdict the review route takes is on the request read next. */
 function serve(overviewStatus = 200, request: typeof REQUEST & { captures?: unknown[] } = REQUEST) {
   let decision: string | null = null
   fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
@@ -79,7 +70,6 @@ function serve(overviewStatus = 200, request: typeof REQUEST & { captures?: unkn
 
 beforeEach(() => {
   viewer.id = 'reviewer'
-  // The review section of the country page, where a request opens.
   window.history.replaceState(null, '', '?section=review')
   fetchMock.mockReset()
   vi.stubGlobal('fetch', fetchMock)
@@ -141,7 +131,6 @@ describe('CountryKnowledge', () => {
     expect(await screen.findByTestId('country-review-waiting')).toHaveTextContent('MA 37')
     await user.click(screen.getByRole('tab', { name: 'Works and editions' }))
     expect(await screen.findByText('No texts yet')).toBeInTheDocument()
-    // With no draft open, a person still adds a document: the dialog opens one (add-document-dialog.spec.tsx).
     expect(screen.getByRole('button', { name: 'Add a document' })).toBeInTheDocument()
     await user.click(screen.getByRole('tab', { name: 'Sources' }))
     expect(await screen.findByText('No source yet')).toBeInTheDocument()
@@ -308,7 +297,6 @@ describe('CountryKnowledge', () => {
     first.unmount()
     window.history.replaceState(null, '', '?section=review')
 
-    // A text fetched through a source its own request proposed is held the same way (migration 0224).
     fetchMock.mockClear()
     serve(200, withText('url', false) as unknown as typeof REQUEST)
     const second = render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.knowledgeReview]))
@@ -320,7 +308,6 @@ describe('CountryKnowledge', () => {
     second.unmount()
     window.history.replaceState(null, '', '?section=review')
 
-    // Positive control: a text the product fetched from a configured source asks for no such check.
     fetchMock.mockClear()
     serve(200, withText('url') as unknown as typeof REQUEST)
     render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.knowledgeReview]))
@@ -425,10 +412,22 @@ describe('CountryKnowledge', () => {
     render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.knowledgeReview, PLATFORM_PERMISSIONS.knowledgeApproveAlone]))
     await user.click(await screen.findByRole('button', { name: 'Review' }))
     await user.click(await screen.findByRole('button', { name: 'All correct' }))
-    // Every entry correct, and still neither an approval alone nor a plain approve, which four eyes would refuse.
     await screen.findByText(/another person approves it/)
     expect(screen.queryByRole('button', { name: 'Approve without a second review' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Approve' })).toBeDisabled()
+  })
+
+  test('shows the reviewer a request that leaves its country without coverage, before approving, and still offers the step', async () => {
+    const warnings = [{ code: 'country_states_no_coverage', recordId: 'AT', detail: 'the country states no coverage' }]
+    serve(200, { ...REQUEST, warnings } as typeof REQUEST)
+    const user = userEvent.setup()
+    render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.knowledgeReview]))
+    await user.click(await screen.findByRole('button', { name: 'Review' }))
+    await user.click(await screen.findByRole('button', { name: 'All correct' }))
+    expect(await screen.findByTestId('change-request-warning-country_states_no_coverage')).toHaveTextContent(
+      'The country states no coverage: a site in it stays at gate none, without binding editions, unless a region on its chain states one.'
+    )
+    expect(screen.getByRole('button', { name: 'Approve' })).toBeEnabled()
   })
 
   test('offers no approval alone once the request is approved as domain expert', async () => {

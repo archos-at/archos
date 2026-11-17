@@ -3,14 +3,6 @@ import * as pulumi from "@pulumi/pulumi";
 import { baseStackConfig } from "./src/test-support/stack-config";
 import { DependencyGraph } from "./src/test-support/dependency-graph";
 
-/**
- * The databases and the owner role are renamed from their AI-Q names on the
- * deploy that carries ADR-0145 row 10d, by `pg-rename-legacy-names`. It must run
- * before anything connects with the new names (every tier waits on the init
- * Job, so the init Job waits on it), as the superuser the Cluster now exposes,
- * and the Cluster must bootstrap a fresh stack with the new names directly.
- */
-
 const JOB = "kubernetes:batch/v1:Job";
 const CLUSTER = "kubernetes:postgresql.cnpg.io/v1:Cluster";
 const STATEFULSET = "kubernetes:apps/v1:StatefulSet";
@@ -39,7 +31,7 @@ const inputs = (type: string, name: string) => {
   return hit as { spec: Record<string, any> };
 };
 
-describe("the rename of the AI-Q databases and role", () => {
+describe("the rename of the legacy databases and role", () => {
   beforeAll(async () => {
     graph = new DependencyGraph();
     pulumi.runtime.setAllConfig({ ...baseStackConfig(), "grid-oib:observabilityEnabled": "false" });
@@ -83,8 +75,6 @@ describe("the rename of the AI-Q databases and role", () => {
   });
 
   it("renames the row-level-security roles after the migrations, ahead of everything that logs in as them", () => {
-    // The migrations written before the rename grant to the old names, so a
-    // fresh cluster migrates with those; the rename comes after (ADR-0145 row 10d).
     expect(graph.waitsOn(JOB, "pg-rename-rls-roles", JOB, MIGRATE_JOB)).toBe(true);
     expect(graph.waitsOn(JOB, MIGRATE_JOB, JOB, "pg-rename-legacy-names")).toBe(true);
     expect(graph.waitsOn(DEPLOYMENT, "frontend", JOB, "pg-rename-rls-roles")).toBe(true);

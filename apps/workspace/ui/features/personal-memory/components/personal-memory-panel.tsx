@@ -1,18 +1,7 @@
 'use client'
 
-/**
- * „Mein Gedächtnis“: the notes the agent keeps about one person (ADR-0180),
- * for that person to read, add to, correct, pin and remove. It opens with the
- * one sentence the store exists to make true: nobody else reads these.
- *
- * The list is the project memory panel's, from the same parts
- * (`memory-note-parts.tsx`), without what a personal note does not have:
- * no verification, no confidence, no scope. Order is the server's (pinned
- * first, then newest) and is kept after a local change by the same rule.
- */
-
 import type { JSX } from 'react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Brain, Lock, Pencil, Pin, PinOff, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ApiRequestError } from '@/adapters/api/api-error'
@@ -32,12 +21,14 @@ import {
   MemoryNoteItem,
   MemoryNoteText,
 } from '@/components/memory/memory-note-parts'
+import { TopicFolders } from '@/components/memory/topic-folders'
+import { TopicPicker } from '@/components/memory/topic-picker'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 import { FactLine } from '@/components/ui/fact-line'
 import { Field, FieldLabel } from '@/components/ui/field'
-import { ItemContent, ItemList } from '@/components/ui/item'
+import { ItemContent } from '@/components/ui/item'
 import { LoadError } from '@/components/ui/load-error'
 import { NoteMeta } from '@/components/ui/note-list'
 import { RaisedCard, RaisedCardBody } from '@/components/ui/raised-card'
@@ -45,17 +36,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea'
 import { TimeAgo } from '@/components/ui/time-ago'
 import { useLocale, useTranslations } from '@/i18n'
+import { memoryTopicsCopy } from '@/i18n/namespaces/memory-topics'
 import { personalMemoryCopy } from '@/i18n/namespaces/personal-memory'
 import { useMemoryKindLabels } from '@/components/memory/memory-kinds'
 import { collectPages } from '@/lib/api/offset-page'
+import { summarizeTopics } from '@/lib/memory-topics/topic'
 import { noteRefusalKind, type NoteRefusalKind } from '@/lib/knowledge/note-refusal'
 import {
   PERSONAL_MEMORY_KINDS,
   PERSONAL_MEMORY_MAX_CONTENT_CHARS,
   type PersonalMemoryKind,
 } from '@/lib/personal-memory/vocabulary'
+import { PersonalNoteTopicMove, PersonalTopicActions } from './personal-topic-actions'
 
-/** The server's order: pinned first, then the most recently changed. */
 function inServerOrder(notes: PersonalMemoryNote[]): PersonalMemoryNote[] {
   return [...notes].sort(
     (a, b) => Number(b.pinned) - Number(a.pinned) || b.updatedAt.localeCompare(a.updatedAt) || b.id.localeCompare(a.id)
@@ -64,30 +57,28 @@ function inServerOrder(notes: PersonalMemoryNote[]): PersonalMemoryNote[] {
 
 const isConflict = (error: unknown): boolean => error instanceof ApiRequestError && error.status === 409
 
-/** What a note held that the server refused it for (`details.kind`), or null for any other failure. */
 const refusedKind = (error: unknown): NoteRefusalKind | null =>
   error instanceof ApiRequestError && error.status === 400 ? noteRefusalKind(error.details) : null
 
 export function PersonalMemoryPanel(): JSX.Element {
   const t = useTranslations(personalMemoryCopy)
+  const topicCopy = useTranslations(memoryTopicsCopy)
   const kindLabels = useMemoryKindLabels()
   const { locale } = useLocale()
   const [notes, setNotes] = useState<PersonalMemoryNote[] | null>(null)
   const [loadFailed, setLoadFailed] = useState(false)
-  /** The note a request is out for: its actions wait. */
   const [busyId, setBusyId] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editDraft, setEditDraft] = useState('')
-  /** Why the open editor's last save was refused; it stays open with the text. */
   const [editError, setEditError] = useState<string | null>(null)
   const [removingId, setRemovingId] = useState<string | null>(null)
-  /** The confirmation for removing every note is open; `clearing` while its request is out. */
   const [confirmingClear, setConfirmingClear] = useState(false)
   const [clearing, setClearing] = useState(false)
 
   const [adding, setAdding] = useState(false)
   const [addKind, setAddKind] = useState<PersonalMemoryKind>('preference')
   const [addContent, setAddContent] = useState('')
+  const [addTopic, setAddTopic] = useState<string | null>(null)
   const [addBusy, setAddBusy] = useState(false)
 
   const load = useCallback(async (signal: { cancelled: boolean }): Promise<void> => {
@@ -108,8 +99,10 @@ export function PersonalMemoryPanel(): JSX.Element {
     }
   }, [load])
 
-  /** Put a note the server answered into the list, in the list's order; a note already there is replaced. */
-  /** Why a save failed, in the person's language: the refused kind when the server named one, else the generic text. */
+  const topics = useMemo(() => summarizeTopics(notes ?? []), [notes])
+  const topicNames = useMemo(() => topics.map((topic) => topic.name), [topics])
+  const reload = useCallback((): Promise<void> => load({ cancelled: false }), [load])
+
   const saveFailure = (error: unknown): string => {
     const kind = refusedKind(error)
     return kind ? t(`refused.${kind}`) : t('errors.saveFailed')
@@ -122,6 +115,7 @@ export function PersonalMemoryPanel(): JSX.Element {
   const closeAdd = (): void => {
     setAdding(false)
     setAddContent('')
+    setAddTopic(null)
   }
 
   const submitAdd = async (): Promise<void> => {
@@ -129,10 +123,9 @@ export function PersonalMemoryPanel(): JSX.Element {
     if (!content) return
     setAddBusy(true)
     try {
-      const { item, created } = await addPersonalMemoryNote({ kind: addKind, content })
+      const { item, created } = await addPersonalMemoryNote({ kind: addKind, content, topic: addTopic })
       keep(item)
       closeAdd()
-      // A text one of the person's notes already says is that note, marked current: nothing was added.
       toast.success(t(created ? 'added' : 'alreadyKept'))
     } catch (error) {
       toast.error(saveFailure(error))
@@ -171,7 +164,6 @@ export function PersonalMemoryPanel(): JSX.Element {
       setEditingId(null)
       toast.success(t('updated'))
     } catch (error) {
-      // The editor stays open with what was typed: the person decides what to do with it.
       setEditError(isConflict(error) ? t('errors.conflict') : saveFailure(error))
     } finally {
       setBusyId(null)
@@ -195,8 +187,6 @@ export function PersonalMemoryPanel(): JSX.Element {
   const clear = async (): Promise<void> => {
     setClearing(true)
     try {
-      // The server removes every note the person holds, also one kept since this
-      // list was read, so the count that is said afterwards is the server's.
       const { removed } = await clearPersonalMemory()
       setNotes([])
       setEditingId(null)
@@ -209,6 +199,84 @@ export function PersonalMemoryPanel(): JSX.Element {
     }
   }
 
+  const renderNote = (note: PersonalMemoryNote): JSX.Element => {
+    const busy = busyId === note.id
+    const isEditing = editingId === note.id
+    return (
+      <MemoryNoteItem data-testid="personal-memory-note">
+        <ItemContent>
+          {isEditing ? (
+            <MemoryNoteEditor
+              id={`personal-memory-edit-${note.id}`}
+              label={t('editLabel')}
+              value={editDraft}
+              onChange={(value) => {
+                setEditDraft(value)
+                setEditError(null)
+              }}
+              onSave={() => void submitEdit(note)}
+              onCancel={() => setEditingId(null)}
+              busy={busy}
+              saveLabel={t('save')}
+              cancelLabel={t('cancel')}
+              error={editError}
+              maxLength={PERSONAL_MEMORY_MAX_CONTENT_CHARS}
+            />
+          ) : (
+            <>
+              <MemoryNoteText pinned={note.pinned} pinnedLabel={t('pinned')}>
+                {note.content}
+              </MemoryNoteText>
+              <div className="text-muted-foreground mt-1 text-xs">
+                <NoteMeta
+                  parts={[
+                    kindLabels.kind(note.kind),
+                    t(`provenance.${note.provenanceType}`),
+                    <TimeAgo key="when" date={note.updatedAt} locale={locale} short />,
+                  ]}
+                />
+              </div>
+            </>
+          )}
+        </ItemContent>
+
+        {!isEditing && (
+          <MemoryNoteActions>
+            <PersonalNoteTopicMove item={note} topics={topicNames} onChanged={reload} />
+            <MemoryNoteAction
+              icon={note.pinned ? PinOff : Pin}
+              label={note.pinned ? t('unpin') : t('pin')}
+              title={note.pinned ? t('unpinTitle') : t('pinTitle')}
+              onClick={() => void togglePin(note)}
+              disabled={busy}
+            />
+            <MemoryNoteAction
+              icon={Pencil}
+              label={t('edit')}
+              title={t('edit')}
+              onClick={() => startEdit(note)}
+              disabled={busy}
+            />
+            <MemoryNoteAction
+              icon={Trash2}
+              label={t('remove')}
+              title={t('removeTitle')}
+              onClick={() => setRemovingId(note.id)}
+              disabled={busy}
+              destructive
+            />
+          </MemoryNoteActions>
+        )}
+      </MemoryNoteItem>
+    )
+  }
+
+  const renderTopicActions = (topic: string | null): JSX.Element | null => {
+    if (topic === null) return null
+    const count = topics.find((entry) => entry.name === topic)?.count ?? 0
+    return <PersonalTopicActions topic={topic} count={count} topics={topicNames} onChanged={reload} />
+  }
+
   return (
     <section className="min-w-0 space-y-4" data-testid="personal-memory-panel">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
@@ -216,7 +284,7 @@ export function PersonalMemoryPanel(): JSX.Element {
           {t('audience')}
         </FactLine>
         <Button
-          variant="outline"
+          variant="secondary"
           size="sm"
           onClick={() => setAdding(true)}
           className={adding ? 'pointer-events-none invisible' : undefined}
@@ -264,6 +332,16 @@ export function PersonalMemoryPanel(): JSX.Element {
                 autoFocus
               />
             </Field>
+            <Field>
+              <FieldLabel htmlFor="personal-memory-add-topic">{topicCopy('filterLabel')}</FieldLabel>
+              <TopicPicker
+                id="personal-memory-add-topic"
+                topics={topicNames}
+                value={addTopic}
+                onChange={setAddTopic}
+                disabled={addBusy}
+              />
+            </Field>
             <div className="flex justify-end gap-2">
               <Button variant="ghost" size="sm" onClick={closeAdd} disabled={addBusy}>
                 {t('cancel')}
@@ -291,78 +369,7 @@ export function PersonalMemoryPanel(): JSX.Element {
       )}
 
       {!loadFailed && notes !== null && notes.length > 0 && (
-        <ItemList>
-          {notes.map((note) => {
-            const busy = busyId === note.id
-            const isEditing = editingId === note.id
-            return (
-              <MemoryNoteItem key={note.id} data-testid="personal-memory-note">
-                <ItemContent>
-                  {isEditing ? (
-                    <MemoryNoteEditor
-                      id={`personal-memory-edit-${note.id}`}
-                      label={t('editLabel')}
-                      value={editDraft}
-                      onChange={(value) => {
-                        setEditDraft(value)
-                        setEditError(null)
-                      }}
-                      onSave={() => void submitEdit(note)}
-                      onCancel={() => setEditingId(null)}
-                      busy={busy}
-                      saveLabel={t('save')}
-                      cancelLabel={t('cancel')}
-                      error={editError}
-                      maxLength={PERSONAL_MEMORY_MAX_CONTENT_CHARS}
-                    />
-                  ) : (
-                    <>
-                      <MemoryNoteText pinned={note.pinned} pinnedLabel={t('pinned')}>
-                        {note.content}
-                      </MemoryNoteText>
-                      <div className="text-muted-foreground mt-1 text-xs">
-                        <NoteMeta
-                          parts={[
-                            kindLabels.kind(note.kind),
-                            t(`provenance.${note.provenanceType}`),
-                            <TimeAgo key="when" date={note.updatedAt} locale={locale} short />,
-                          ]}
-                        />
-                      </div>
-                    </>
-                  )}
-                </ItemContent>
-
-                {!isEditing && (
-                  <MemoryNoteActions>
-                    <MemoryNoteAction
-                      icon={note.pinned ? PinOff : Pin}
-                      label={note.pinned ? t('unpin') : t('pin')}
-                      title={note.pinned ? t('unpinTitle') : t('pinTitle')}
-                      onClick={() => void togglePin(note)}
-                      disabled={busy}
-                    />
-                    <MemoryNoteAction
-                      icon={Pencil}
-                      label={t('edit')}
-                      title={t('edit')}
-                      onClick={() => startEdit(note)}
-                      disabled={busy}
-                    />
-                    <MemoryNoteAction
-                      icon={Trash2}
-                      label={t('remove')}
-                      title={t('removeTitle')}
-                      onClick={() => setRemovingId(note.id)}
-                      disabled={busy}
-                      destructive
-                    />
-                  </MemoryNoteActions>
-                )}
-              </MemoryNoteItem>
-            )
-          })}
-        </ItemList>
+        <TopicFolders items={notes} topics={topics} renderItem={renderNote} renderTopicActions={renderTopicActions} />
       )}
 
       {/* Under the list it empties, and quiet: tonal like „Notiz hinzufügen“, its
@@ -370,7 +377,7 @@ export function PersonalMemoryPanel(): JSX.Element {
           number of notes and that it cannot be undone. */}
       {!loadFailed && notes !== null && notes.length > 0 && (
         <div className="flex justify-end">
-          <Button variant="outline" size="sm" onClick={() => setConfirmingClear(true)} disabled={clearing}>
+          <Button variant="secondary" size="sm" onClick={() => setConfirmingClear(true)} disabled={clearing}>
             <Trash2 className="text-destructive size-4" aria-hidden />
             {t('removeAll')}
           </Button>

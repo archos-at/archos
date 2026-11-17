@@ -1,4 +1,3 @@
-/** Datenbasis — the composer's "where may Piloti look" control. */
 export { SourceBasisTrigger, type SourceBasisTriggerProps } from './SourceBasisTrigger'
 export { SourceBasisPicker } from './SourceBasisPicker'
 export { SourceBasisRow, type SourceBasisRowProps } from './SourceBasisRow'

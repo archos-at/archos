@@ -14,6 +14,8 @@ import {
   addPersonalMemoryNote,
   listPersonalMemory,
   removePersonalMemoryNote,
+  removePersonalMemoryTopic,
+  renamePersonalMemoryTopic,
   updatePersonalMemoryNote,
 } from './personal-memory-client'
 
@@ -41,13 +43,16 @@ const NOTE = {
 }
 
 describe('listPersonalMemory', () => {
-  it('reads the first page without a query when nothing is asked', async () => {
-    fetchMock.mockResolvedValueOnce(Response.json({ items: [NOTE], nextCursor: null }))
+  it('reads the first page without a query when nothing is asked, with the shelf topics', async () => {
+    fetchMock.mockResolvedValueOnce(
+      Response.json({ items: [NOTE], nextCursor: null, topics: [{ name: 'Brandschutz', count: 1 }] }),
+    )
 
     const page = await listPersonalMemory()
 
     expect(fetchMock).toHaveBeenCalledWith('/api/user/memory')
     expect(page.items).toEqual([NOTE])
+    expect(page.topics).toEqual([{ name: 'Brandschutz', count: 1 }])
   })
 
   it('carries the limit and the cursor of the next page', async () => {
@@ -144,5 +149,57 @@ describe('clearPersonalMemory', () => {
     fetchMock.mockResolvedValueOnce(new Response('no', { status: 403 }))
 
     await expect(clearPersonalMemory()).rejects.toMatchObject({ status: 403 })
+  })
+})
+
+describe('renamePersonalMemoryTopic', () => {
+  it('patches the topics route with the topic it moves from and to, and answers how many notes moved', async () => {
+    fetchMock.mockResolvedValueOnce(Response.json({ moved: 3 }))
+
+    await expect(renamePersonalMemoryTopic({ from: 'brandschutz', to: 'Brandschutz' })).resolves.toEqual({ moved: 3 })
+    expect(fetchMock).toHaveBeenCalledWith('/api/user/memory/topics', {
+      method: 'PATCH',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ from: 'brandschutz', to: 'Brandschutz' }),
+    })
+  })
+
+  it('sends null to ungroup the notes of a topic', async () => {
+    fetchMock.mockResolvedValueOnce(Response.json({ moved: 2 }))
+
+    await renamePersonalMemoryTopic({ from: 'Brandschutz', to: null })
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/user/memory/topics',
+      expect.objectContaining({ body: '{"from":"Brandschutz","to":null}' }),
+    )
+  })
+
+  it('throws the typed error with the status and the refusal details when the write is refused', async () => {
+    fetchMock.mockResolvedValueOnce(Response.json({ details: { reason: 'topic_too_long' } }, { status: 400 }))
+
+    await expect(renamePersonalMemoryTopic({ from: 'Brandschutz', to: 'x'.repeat(41) })).rejects.toMatchObject({
+      status: 400,
+      reason: 'topic_too_long',
+    })
+  })
+})
+
+describe('removePersonalMemoryTopic', () => {
+  it('deletes the topic route with its name and answers how many notes went', async () => {
+    fetchMock.mockResolvedValueOnce(Response.json({ removed: 3 }))
+
+    await expect(removePersonalMemoryTopic('Brandschutz')).resolves.toEqual({ removed: 3 })
+    expect(fetchMock).toHaveBeenCalledWith('/api/user/memory/topics', {
+      method: 'DELETE',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ name: 'Brandschutz' }),
+    })
+  })
+
+  it('throws the typed error with the status when the server refuses', async () => {
+    fetchMock.mockResolvedValueOnce(new Response('no', { status: 403 }))
+
+    await expect(removePersonalMemoryTopic('Brandschutz')).rejects.toMatchObject({ status: 403 })
   })
 })

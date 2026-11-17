@@ -39,8 +39,8 @@ export function FilePreviewChrome({ controller }: { controller: FilePreviewContr
             and it is deliberately the SAME six elements on every document.
 
             It used to be the surface's noticeboard: the name, the byline, the
-            type · status line, the assignment faces with their popover, "Piloti
-            dazu fragen", "Kolleg:in fragen", Herunterladen, the actions menu,
+            type · status line, the assignment faces with their popover, the ask
+            button, "Kolleg:in fragen", Herunterladen, the actions menu,
             expand and close. Ten things, five of them conditional, in a row that
             had to WRAP on anything narrower than a laptop — so the chrome
             reflowed into two or three lines as you moved between files, and the
@@ -54,7 +54,7 @@ export function FilePreviewChrome({ controller }: { controller: FilePreviewContr
             status and category. Every one of those is unconditional (or as good
             as: the menu goes with `canManage`, expand with a previewable format),
             so the shape is the same at every width and the icons never move.
-            Everything that DESCRIBES what Piloti made of the document, and
+            Everything that DESCRIBES what the agent made of the document, and
             everything that acts on it, moved to the rail — see the identity block
             there. */}
         {reader && (
@@ -119,7 +119,6 @@ export function FilePreviewChrome({ controller }: { controller: FilePreviewContr
           />
         )}
         {!peeking && !reader && (
-          // The name on the rail's 16px edge, with no format box before it: the facts line under the name says „PDF“. Tools 12px apart, the tonal ones as every bar's.
           <div className="flex shrink-0 items-start gap-x-3 px-4 pb-3.5 pt-[max(0.875rem,env(safe-area-inset-top))] sm:pt-3.5">
             {/* The name the document was GIVEN, if it was given one. `title`
               carries it in full for the truncated case — and the file's own name
@@ -134,14 +133,14 @@ export function FilePreviewChrome({ controller }: { controller: FilePreviewContr
                 {actions.name}
               </h3>
               {/* The subheading: what kind of document this is, and — only when
-                it matters — that Piloti cannot quote it.
+                it matters — that the agent cannot quote it.
 
                 „Zitierbar" is the case for almost every document in the library,
                 so a green badge saying so was a chip that appeared on everything
                 and therefore distinguished nothing; a reader scanning the header
                 learned only that the app has badges. The states worth a chip are
                 the ones that change what the reader can do next: „Wird
-                verarbeitet", „Fehlgeschlagen", and „Abgelegt" for a report Piloti
+                verarbeitet", „Fehlgeschlagen", and „Abgelegt" for a report the agent
                 wrote and deliberately never indexed. In all three the Ask button
                 in the rail is grey, and this chip is why. Citable stays silent,
                 and the ordinary case has an ordinary header.
@@ -165,7 +164,6 @@ export function FilePreviewChrome({ controller }: { controller: FilePreviewContr
                 {fileFacts && (
                   <span
                     className="text-muted-foreground min-w-0 shrink truncate text-xs tabular-nums"
-                    // The MIME type a reader cannot parse, for whoever needs it.
                     title={file.contentType ?? undefined}
                     data-testid="file-preview-facts"
                   >
@@ -380,18 +378,8 @@ export function FilePreviewChrome({ controller }: { controller: FilePreviewContr
             open={isLargePreviewOpen}
             onOpenChange={setIsLargePreviewOpen}
             fileName={actions.name}
-            // The enlarged view is the other place a full-size original used to
-            // cross the wire whole, so it gets the optimizable path too when there
-            // is one. A PDF goes to the same-origin stream instead of the
-            // presigned URL: the enlarged viewer renders the document with pdf.js,
-            // which FETCHES it, and a cross-origin fetch has no CORS policy to
-            // land on. See `documentFileUrl`.
             src={isImage ? (previewImageUrl ?? previewUrl) : documentFileUrl(file.id)}
             isImage={isImage}
-            // Only ever consulted in image mode, so it is asked of the IMAGE src:
-            // the PDF branch renders through pdf.js on the same-origin stream and
-            // never reaches the optimizer at all. `isOptimizerEligible` is checked
-            // against the optimizer's real allow-list (see `optimizable.ts`).
             imageUnoptimized={!isOptimizerEligible(previewImageUrl ?? previewUrl)}
           />
         )}

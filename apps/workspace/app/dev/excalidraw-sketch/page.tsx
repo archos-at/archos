@@ -1,22 +1,5 @@
 'use client'
 
-/**
- * Dev preview — sketches Piloti drew in Excalidraw's own format (ADR-0146).
- *
- * Every sketch below is an answer dev Piloti's model wrote on 2026-10-27
- * (`_fixtures/model-sketches.ts`, verbatim), rendered by the real Markdown
- * renderer inside a filing target, as an answer in a project is: a room-bubble
- * sketch, a site sketch, an annotated flow, a document wireframe and a
- * comparison board. Then the two other states: a fence the server refused
- * (`excalidraw-refused`, one quiet line, never the JSON) and one still being written,
- * replayed element by element (`?stream=0` holds it half-written for a
- * capture).
- *
- * `?theme=dark` puts the page in dark mode. Filing goes to
- * `/api/projects/proj-preview/diagrams`, which the preview has no session for.
- * Pinned to German. 404s outside development.
- */
-
 import { notFound, useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useState } from 'react'
 import { I18nProvider } from '@/i18n'
@@ -42,7 +25,6 @@ function Panel({ title, note, children }: { title: string; note: string; childre
   )
 }
 
-/** The room sketch's answer replayed a few characters at a time, as the stream delivers it. */
 function Streaming({ answer, hold }: { answer: string; hold: boolean }) {
   const [length, setLength] = useState(hold ? Math.floor(answer.length * 0.55) : 0)
   useEffect(() => {

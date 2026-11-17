@@ -1,9 +1,3 @@
-"""``run_agent_job`` as its phases: what each one decides, and that the terminal paths always run.
-
-Module under test: ``agent_host.jobs.agent_job`` (claim, run, release),
-``agent_job_setup`` (prepare) and ``job_outcome`` (persist, finish, failure).
-"""
-
 from __future__ import annotations
 
 import base64
@@ -15,6 +9,15 @@ from typing import Any
 
 import pytest
 
+from agent.common import MODEL_OVERRIDES_HEADER
+from agent.project_context import COLLECTION_SCOPE_HEADER
+from agent.project_context import ORGANIZATION_ID_HEADER
+from agent.project_context import PROJECT_CONTEXT_HEADER
+from agent.project_context import PROJECT_ID_HEADER
+from agent.project_context import PROJECT_MEMORY_HEADER
+from agent.project_context import REQUEST_CONTEXT_ENVELOPE_HEADER
+from agent.project_context import REQUEST_CONTEXT_ENVELOPE_SIG_HEADER
+from agent.project_context import USER_ID_HEADER
 from agent_host.jobs import agent_job
 from agent_host.jobs import agent_job_setup
 from agent_host.jobs import job_outcome
@@ -35,7 +38,6 @@ def _request(**overrides: Any) -> JobRequest:
 
 
 def test_the_request_carries_exactly_the_payload_keys():
-    """A parameter added to ``run_agent_job`` and not to ``JobRequest`` would fail every job at its first line."""
     params = set(inspect.signature(run_agent_job).parameters) - agent_job._PROCESS_KNOBS
     assert params == {f.name for f in fields(JobRequest)}
 
@@ -49,7 +51,6 @@ def test_the_request_reads_who_the_job_runs_for():
 
 @pytest.fixture
 def statuses(monkeypatch) -> list[str]:
-    """The job store's guarded status writes, answered "already terminal" when the list starts with one."""
     written: list[str] = []
 
     async def update(_store, _job_id, status, **_kwargs):
@@ -65,7 +66,6 @@ def statuses(monkeypatch) -> list[str]:
 
 @pytest.fixture
 def released(monkeypatch) -> list[str]:
-    """Record the release and the checkpoint purge, which run on every path."""
     seen: list[str] = []
 
     monkeypatch.setattr(agent_job, "_purge_deep_checkpoint", lambda job_id: seen.append(f"purge:{job_id}"))
@@ -137,8 +137,6 @@ async def test_a_failure_in_prepare_is_recorded_and_the_job_released(monkeypatch
 
 
 class _Provider:
-    """A provider whose every dial returns a new provider, recording the order."""
-
     def __init__(self, applied: tuple[str, ...] = ()) -> None:
         self.applied = applied
 
@@ -193,13 +191,62 @@ def test_the_scope_headers_are_base64url_so_german_text_survives(monkeypatch):
 
     agent_job_setup._inject_scope_headers(object(), request, SimpleNamespace(type="deep_research_agent"))
 
-    assert json.loads(_decoded(injected["x-grid-collection-scope"])) == ["p_1"]
-    assert "„Hof“" in _decoded(injected["x-grid-project-context"])
+    assert json.loads(_decoded(injected["x-collection-scope"])) == ["p_1"]
+    assert "„Hof“" in _decoded(injected["x-project-context"])
+
+
+def test_each_scope_header_goes_under_its_new_name_and_the_old_one_its_readers_read(monkeypatch):
+    injected: dict[str, str] = {}
+    monkeypatch.setattr(agent_job_setup, "_inject_worker_headers", lambda _state, headers: injected.update(headers))
+    request = _request(collection_scope=["p_1"], project_context="Hof", model_overrides={"research": "m"})
+
+    agent_job_setup._inject_scope_headers(object(), request, SimpleNamespace(type="deep_research_agent"))
+
+    assert injected[COLLECTION_SCOPE_HEADER] == injected["x-collection-scope"]
+    assert injected[PROJECT_CONTEXT_HEADER] == injected["x-project-context"]
+    assert injected[MODEL_OVERRIDES_HEADER] == injected["x-model-overrides"]
+    assert len(injected) == 6
+
+
+@pytest.mark.asyncio
+async def test_the_identity_and_envelope_headers_go_under_both_names(monkeypatch):
+    injected: dict[str, str] = {}
+    monkeypatch.setattr(agent_job_setup, "_inject_worker_headers", lambda _state, headers: injected.update(headers))
+
+    async def envelope(*_args: Any, **_kwargs: Any) -> dict[str, str]:
+        return {REQUEST_CONTEXT_ENVELOPE_HEADER: "header", REQUEST_CONTEXT_ENVELOPE_SIG_HEADER: "signature"}
+
+    monkeypatch.setattr(agent_job_setup, "envelope_headers_for_run", envelope)
+    identity = {"project_id": "proj-1", "organization_id": "org-1", "user_id": "user-1"}
+
+    await agent_job_setup._inject_identity_headers(object(), _request(usage_context={"identity": identity}))
+
+    assert injected == {
+        "x-project-id": "proj-1",
+        PROJECT_ID_HEADER: "proj-1",
+        "x-organization-id": "org-1",
+        ORGANIZATION_ID_HEADER: "org-1",
+        "x-user-id": "user-1",
+        USER_ID_HEADER: "user-1",
+        "x-request-context": "header",
+        REQUEST_CONTEXT_ENVELOPE_HEADER: "header",
+        "x-request-context-sig": "signature",
+        REQUEST_CONTEXT_ENVELOPE_SIG_HEADER: "signature",
+    }
+
+
+@pytest.mark.asyncio
+async def test_the_project_memory_goes_under_both_names(monkeypatch):
+    injected: dict[str, str] = {}
+    monkeypatch.setattr(agent_job_setup, "_inject_worker_headers", lambda _state, headers: injected.update(headers))
+    encoded = base64.urlsafe_b64encode(b"Notiz").decode().rstrip("=")
+
+    await agent_job_setup._inject_memory_header(object(), _request(project_memory="Notiz"))
+
+    assert injected == {"x-project-memory": encoded, PROJECT_MEMORY_HEADER: encoded}
 
 
 class _Store:
-    """An event store that keeps what it is given."""
-
     def __init__(self) -> None:
         self.events: list[dict] = []
 
@@ -213,7 +260,6 @@ class _Store:
 @pytest.mark.asyncio
 @pytest.mark.parametrize("agent_type", ["research_agent", "deep_research_agent"])
 async def test_a_job_runs_its_phases_to_a_success_and_one_thread_turn(monkeypatch, statuses, released, agent_type):
-    """The happy path end to end, with only the agent runtime's config and builder and the agent itself faked."""
     from contextlib import asynccontextmanager
 
     from agent.agents.deep_researcher.anatomy import ReportAnatomy
@@ -272,11 +318,7 @@ async def test_a_job_runs_its_phases_to_a_success_and_one_thread_turn(monkeypatc
     assert (seen["turn"]["conversation_id"], seen["turn"]["answer"]) == ("c-1", "Die Traufhöhe beträgt 9 m.")
     assert seen["notify"] == "success"
     assert released == ["urls:job-1", "purge:job-1"]
-    # Deep research closes its phase progress before the status changes.
     assert (agent_type == "deep_research_agent") == any(e.get("type") == "job.phase" for e in store.events)
-
-
-# --- a temporary conversation keeps nothing (ADR-0180 rule 2) -----------------
 
 
 def test_reflection_follows_the_flag_for_an_ordinary_conversation():

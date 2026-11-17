@@ -71,8 +71,6 @@ describe('useAnswerFileReferences', () => {
     expect(result.current.resolve('PD8280-2.PDF')?.file.id).toBe('p1')
   })
 
-  // The gap this change closes: a file the reader dropped into THIS chat was
-  // reachable by no index at all, so the answer naming it back was dead text.
   it('reaches a file attached to this conversation', async () => {
     corpora({ session: [row('s1', 'Bestandsplan-1910.pdf')] })
     const { result } = referencesFor('Der Bestandsplan-1910.pdf zeigt den Konsens.')
@@ -81,8 +79,6 @@ describe('useAnswerFileReferences', () => {
     expect(result.current.resolve('Bestandsplan-1910.pdf')?.corpus).toBe('session')
   })
 
-  // The index is "every file the reader has", so it reads the listing to its
-  // end: a file older than the first page is as nameable as the newest.
   it('names a project file that sits past the listing\'s first page', async () => {
     server.use(
       shelfGet('project', '/api/documents', ({ request }) =>
@@ -114,14 +110,10 @@ describe('useAnswerFileReferences', () => {
     corpora({ projekt: [row('p1', 'Statik.pdf')] })
     const { result } = referencesFor('Siehe Konzept.pdf.')
 
-    // The index still loads (the body names a document type), it simply
-    // resolves nothing — which is plain prose, not a broken chip.
     await waitFor(() => expect(result.current.resolve('Statik.pdf')).toBeNull())
     expect(result.current.fileNames).toEqual([])
   })
 
-  // The whole point of the gate: three list fetches per answer would be paid by
-  // every answer, and almost no answer names a file.
   it('fetches nothing for an answer with no document in it', async () => {
     let fetched = false
     corpora({ projekt: [row('p1', 'Statik.pdf')], onProjectFetch: () => (fetched = true) })
@@ -132,9 +124,6 @@ describe('useAnswerFileReferences', () => {
     expect(result.current.fileNames).toEqual([])
   })
 
-  // It used to wait for the finished answer, which fetched at the settle and
-  // re-parsed an answer the reader had just read to the end. The paced body
-  // grows a word at a time, so a name is linked once it is whole on screen.
   it('starts while the answer is still arriving, as soon as a filename appears', async () => {
     let fetched = false
     corpora({ projekt: [row('p1', 'pd8280-2.pdf')], onProjectFetch: () => (fetched = true) })
@@ -150,8 +139,6 @@ describe('useAnswerFileReferences', () => {
     expect(fetched).toBe(true)
   })
 
-  // The marker plugins are memoised on this result, so a new object per reveal
-  // step re-parsed every block of the answer per word once a name had appeared.
   it('keeps the same references while the body grows around the same names', async () => {
     corpora({ projekt: [row('p1', 'pd8280-2.pdf')] })
     const { result, rerender } = renderHook(({ body }) =>

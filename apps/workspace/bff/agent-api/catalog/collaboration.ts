@@ -1,20 +1,3 @@
-/**
- * The collaboration operations (ADR-0122): inbox, push notifications, sharing
- * state, assignments, mentions, proposed changes, Piloti's changes, the
- * person's preferences and the files attached to a chat.
- * See `projects.ts` for the shape and `docs/architecture/agent-surface.md` for
- * the rules.
- *
- * Changing who may see a resource (visibility, grants, revoking, taking
- * ownership under `/api/sharing/.../grants`) is here too, as `sensitivity:
- * 'access'`: an outside agent sees it only under the organization's opt-in and
- * the step-up scope (`SENSITIVE_SCOPE_ENFORCED_BY_WORKOS`, off until WorkOS
- * enforces it, so today no agent sees it), and Piloti never does. Also left out: registering a
- * browser for push (`POST /api/notifications/push/devices`, `GET .../config`),
- * which needs a browser push subscription, and the multipart session-document
- * upload.
- */
-
 import { z } from 'zod'
 import {
   assignmentBodySchema,
@@ -30,8 +13,10 @@ import {
 import { pushPreferencesPatchSchema } from '@/lib/inbox/push-categories'
 import {
   createPersonalMemorySchema,
+  deletePersonalMemoryTopicSchema,
   listPersonalMemoryQuerySchema,
   patchPersonalMemorySchema,
+  renamePersonalMemoryTopicSchema,
 } from '@/lib/personal-memory/wire'
 import { grantPostSchema, roleChangeSchema, visibilitySchema } from '@/lib/sharing/sharing-wire'
 import { SHAREABLE_RESOURCE_TYPES } from '@/lib/sharing/sharing-vocabulary'
@@ -61,7 +46,6 @@ const proposalParams = z.object({
 })
 
 export const collaborationOperations = [
-  // Inbox
   {
     name: 'inbox-list',
     domain: 'collaboration',
@@ -148,7 +132,6 @@ export const collaborationOperations = [
     load: () => import('@/app/api/inbox/[id]/archive/route'),
   },
 
-  // Push notifications
   {
     name: 'push-device-list',
     domain: 'collaboration',
@@ -191,7 +174,6 @@ export const collaborationOperations = [
     load: () => import('@/app/api/notifications/push/preferences/route'),
   },
 
-  // Sharing
   {
     name: 'sharing-get',
     domain: 'collaboration',
@@ -281,7 +263,6 @@ export const collaborationOperations = [
     load: () => import('@/app/api/sharing/[resourceType]/[resourceId]/grants/[subjectUserId]/route'),
   },
 
-  // Assignments
   {
     name: 'assignment-list',
     domain: 'collaboration',
@@ -329,7 +310,6 @@ export const collaborationOperations = [
     load: () => import('@/app/api/assignments/[resourceType]/[resourceId]/route'),
   },
 
-  // Mentions and hand-offs
   {
     name: 'conversation-awaiting-get',
     domain: 'collaboration',
@@ -367,7 +347,6 @@ export const collaborationOperations = [
     load: () => import('@/app/api/mentions/[requestId]/release/route'),
   },
 
-  // Proposed changes and Piloti's changes
   {
     name: 'proposal-list',
     domain: 'collaboration',
@@ -377,8 +356,6 @@ export const collaborationOperations = [
       '`projectId` (from project-list) or `shelf`, and optionally `kind`. Page with `nextCursor`. Ids feed proposal-get; the person decides each.',
     method: 'GET',
     path: '/api/proposals',
-    // The route's `proposalListQuerySchema` adds the refinement (a project or a shelf, never both), which is
-    // not a ZodObject; the route is the gate.
     query: proposalListQueryShape,
     spansProjects: 'unlessScoped',
     load: () => import('@/app/api/proposals/route'),
@@ -430,7 +407,6 @@ export const collaborationOperations = [
     load: () => import('@/app/api/piloti-changes/[id]/undo/route'),
   },
 
-  // Preferences
   {
     name: 'user-preference-get',
     domain: 'collaboration',
@@ -454,7 +430,6 @@ export const collaborationOperations = [
     load: () => import('@/app/api/user/preferences/route'),
   },
 
-  // Personal memory (ADR-0180)
   {
     name: 'personal-memory-list',
     domain: 'collaboration',
@@ -462,7 +437,7 @@ export const collaborationOperations = [
     description:
       'The notes kept about the person themself (how they want answers, their role and recurring topics), ' +
       'pinned first then newest, as `{ items, nextCursor }`. Only this person reads these notes: no colleague and no administrator of the ' +
-      'organization sees them. Item ids feed personal-memory-update and personal-memory-delete.',
+      'organization sees them. `topics` counts all the person’s notes. Item ids feed personal-memory-update and personal-memory-delete.',
     method: 'GET',
     path: '/api/user/memory',
     query: listPersonalMemoryQuerySchema,
@@ -473,7 +448,7 @@ export const collaborationOperations = [
     domain: 'collaboration',
     summary: 'Add a personal memory note',
     description:
-      'Keeps one note about the person themself: `kind` and `content`, optional `pinned`. A note about a project belongs in ' +
+      'Keeps one note about the person themself: `kind` and `content`, optional `pinned` and `topic`. A note about a project belongs in ' +
       'project-memory-create, never here. A note that says what an existing one says is that note, returned again. Answers ' +
       '`{ item, created }`: 201 with `created: true` for a new note, 200 with `created: false` for the note already held. ' +
       '400 when the content holds a secret (a password, an API key, an account or identity number) or no letter or digit.',
@@ -488,7 +463,7 @@ export const collaborationOperations = [
     domain: 'collaboration',
     summary: 'Edit a personal memory note',
     description:
-      'Changes any of a personal note’s kind, content or pinned flag; at least one field. `itemId` is from personal-memory-list. ' +
+      'Changes any of a personal note’s kind, content, pinned flag or `topic`; at least one field. `itemId` is from personal-memory-list. ' +
       '409 when another note of the person already says the new content. Answers `{ item }`.',
     method: 'PATCH',
     path: '/api/user/memory/[itemId]',
@@ -510,6 +485,31 @@ export const collaborationOperations = [
     load: () => import('@/app/api/user/memory/[itemId]/route'),
   },
   {
+    name: 'personal-memory-topic-rename',
+    domain: 'collaboration',
+    summary: 'Rename or merge a personal memory topic',
+    description:
+      'Moves the person’s notes from topic `from` to `to`; an existing `to` merges, `to: null` ungroups. Answers `{ moved }`.',
+    method: 'PATCH',
+    path: '/api/user/memory/topics',
+    body: renamePersonalMemoryTopicSchema,
+    idempotent: true,
+    load: () => import('@/app/api/user/memory/topics/route'),
+  },
+  {
+    name: 'personal-memory-topic-delete',
+    domain: 'collaboration',
+    summary: 'Delete a personal memory topic and its notes',
+    description:
+      'Deletes every personal note on topic `name` (from personal-memory-list), for good; it cannot be undone. ' +
+      'Answers `{ removed }`. To keep the notes, use personal-memory-topic-rename with `to: null`.',
+    method: 'DELETE',
+    path: '/api/user/memory/topics',
+    body: deletePersonalMemoryTopicSchema,
+    destructive: true,
+    load: () => import('@/app/api/user/memory/topics/route'),
+  },
+  {
     name: 'personal-memory-clear',
     domain: 'collaboration',
     summary: 'Delete all personal memory notes',
@@ -523,7 +523,6 @@ export const collaborationOperations = [
     load: () => import('@/app/api/user/memory/route'),
   },
 
-  // Files attached to a chat
   {
     name: 'session-document-list',
     domain: 'collaboration',

@@ -1,8 +1,3 @@
-/**
- * projectIntake namespace: the setup page (`/app/projects/[id]/setup`), where
- * Piloti reads a project's documents and the person reviews what it found
- * (ADR-0111). German is the office's language; this is the English twin.
- */
 export const projectIntake = {
   status: {
     waiting: 'Waiting for documents',
@@ -87,7 +82,6 @@ export const projectIntake = {
     decisiveHint: 'Decides the Gebäudeklasse',
     empty: 'Nothing found yet. {productName} lists its suggestions here once it has read a document.',
   },
-  // Filing: the project's open filing suggestions, the same ones Files shows.
   filing: {
     heading: 'Filing',
     description:

@@ -1,15 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The built `ui://piloti/proposal-card` document (ADR-0142), as
- * `scripts/build-mcp-app-views.ts` writes it for the door: one self-contained
- * HTML5 document a host can draw under the MCP Apps default CSP (no origin to
- * load from or connect to), the same for every office, within its size budget.
- *
- * Bun builds it (the toolchain, ADR-0103), so this spec runs the script with
- * `bun` into a temporary folder and reads what it wrote.
- */
 
 import { execFileSync } from 'node:child_process'
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
@@ -18,7 +9,6 @@ import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { APP_VIEWS } from '@/lib/agent-api/catalog/app-views'
 
-/** About 1.7 MiB with A2UI 0.14 (React, the MCP Apps SDK with its own zod, A2UI, the card and three namespaces in two languages). */
 const BUDGET_BYTES = 2 * 1024 * 1024
 
 let dir = ''
@@ -59,10 +49,9 @@ describe('the proposal card document', () => {
     expect(html).not.toMatch(/https:\/\/app\.piloti\.at/)
   })
 
-  it('carries the card’s words and not the rest of Piloti’s dictionaries', () => {
+  it('carries the card’s words and not the rest of the app’s dictionaries', () => {
     expect(html).toContain('Übernehmen')
     expect(html).toContain('Apply this?')
-    // The Markdown renderer and its mermaid stayed out (`markdown-stand-in.tsx`).
     expect(html).not.toContain('mermaid')
   })
 

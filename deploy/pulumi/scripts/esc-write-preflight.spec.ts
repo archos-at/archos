@@ -4,16 +4,6 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-/**
- * The ESC write preflight (ADR-0147), run as the workflow runs it: bash and a
- * `pulumi` stub that records every call and refuses the ones it is told to.
- *
- * Pinned: it touches only the probe environment, it cleans up after itself,
- * and a refusal says which permission is missing. `warn` must never fail the
- * run, because until the move needs the grant a missing one is not a reason
- * to stop deploying; `fail` must.
- */
-
 const SCRIPT = join(__dirname, "esc-write-preflight.sh");
 const ROOT = mkdtempSync(join(tmpdir(), "esc-write-preflight-"));
 const BIN = join(ROOT, "bin");

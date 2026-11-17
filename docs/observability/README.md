@@ -6,7 +6,7 @@ trace or a score there ([ADR-0089](../adr/0089-langfuse-is-the-observability-pla
 PostHog is where that joins everything else: product events, errors, logs,
 replays, surveys, support and alerts, with Langfuse's traces and scores
 exported into it ([ADR-0100](../adr/0100-posthog-is-the-product-platform-and-langfuse-feeds-it.md)).
-This is a priority, not a nice-to-have: we improve Piloti from what these two
+This is a priority, not a nice-to-have: we improve the agent from what these two
 show, so a model call, an agent step, a quality check or a user-facing action
 that neither shows counts as a defect.
 
@@ -17,6 +17,7 @@ that neither shows counts as a defect.
 | [`error-tracking.md`](error-tracking.md) | You want to know where an exception lands (PostHog error tracking, replacing err2issue per ADR-0100), what each runtime sends, and the volume limits |
 | [`langfuse-audit-2026-10.md`](langfuse-audit-2026-10.md) | You want to know what Langfuse offers, what we use, and what is still open |
 | [`metrics.md`](metrics.md) | You want a number over time: what is measured (the application, the cluster, every service), where each metric comes from, and how to add one ([ADR-0119](../adr/0119-every-metric-goes-to-posthog-through-the-collector.md)) |
+| [`querying-product-analytics`](../../skills/querying-product-analytics/SKILL.md) | You or an agent query PostHog: the views `prod_events` and `customer_events` that select production ([`views/`](../../deploy/posthog/views/)), and what the schema does not say. Published in PostHog as the project skill of the same name |
 | [`posthog-events.md`](posthog-events.md) | You are adding or reading a PostHog product event: every browser and server event, its properties and the line that sends it, and the rules each follows |
 | [`org-spend-in-posthog.md`](org-spend-in-posthog.md) | You want an office's LLM spend, its limits or the platform's total cost in PostHog: where the numbers come from, the views and dashboards, and how to ask the PostHog MCP |
 | [`posthog-migration.md`](posthog-migration.md) | You are working on the PostHog switch ([ADR-0100](../adr/0100-posthog-is-the-product-platform-and-langfuse-feeds-it.md)): what goes where, the free-tier budget, the checklist only a person can do |

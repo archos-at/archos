@@ -1,5 +1,3 @@
-"""Tests for async job submit data source targeting."""
-
 from __future__ import annotations
 
 import logging
@@ -22,7 +20,6 @@ from agent_host.routes import job_handlers
 
 @pytest.fixture(autouse=True)
 def data_source_registry():
-    """Provide deterministic data sources for submit route validation."""
     reset_registry()
     populate_from_config(
         [
@@ -46,7 +43,6 @@ def data_source_registry():
 
 @pytest.fixture
 async def submit_app(monkeypatch, tmp_path):
-    """Build a minimal app with async submit routes and patched side effects."""
     import agent.auth
     import agent_host.routes.jobs as jobs_routes
 
@@ -82,9 +78,6 @@ async def submit_app(monkeypatch, tmp_path):
 
     web_tool = SimpleNamespace(name="web_search_tool")
     knowledge_tool = SimpleNamespace(name="knowledge_search_tool")
-    # Map tool names to their LangChain-wrapper stand-ins. The mock get_tools
-    # below filters by tool_names so the validator's "tools=None means inherit
-    # all registry refs" branch is actually exercised by the test suite.
     tools_by_name: dict[str, SimpleNamespace] = {
         "web_search_tool": web_tool,
         "knowledge_search_tool": knowledge_tool,
@@ -94,8 +87,6 @@ async def submit_app(monkeypatch, tmp_path):
         return [tools_by_name[name] for name in tool_names if name in tools_by_name]
 
     builder = MagicMock()
-    # Realistic default for researcher agents: tools=None means "inherit all
-    # registry refs," which the validator resolves via get_all_tool_refs().
     builder.get_function_config.return_value = SimpleNamespace(tools=None, exclude_tools=[])
     builder.get_tools = AsyncMock(side_effect=_filtered_get_tools)
 
@@ -122,10 +113,7 @@ async def test_submit_job_forwards_selected_data_sources(submit_app):
 
 @pytest.mark.asyncio
 async def test_data_sources_lists_registry_and_reports_vlm_available_true(submit_app, monkeypatch):
-    """GET /v1/data_sources lists the registry and reports vlm_available=True when a VLM key resolves."""
     app, _submitted_job, _builder = submit_app
-    # A resolvable VLM key ⇒ derived capability is True. Force the provider key
-    # off so only the explicit override drives the result.
     monkeypatch.setenv("VLM_API_KEY", "vlm-secret")
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
 
@@ -140,7 +128,6 @@ async def test_data_sources_lists_registry_and_reports_vlm_available_true(submit
 
 @pytest.mark.asyncio
 async def test_data_sources_reports_vlm_available_false_without_a_key(submit_app, monkeypatch):
-    """vlm_available is False when no VLM key (explicit or inferred provider key) resolves."""
     app, _submitted_job, _builder = submit_app
     monkeypatch.delenv("VLM_API_KEY", raising=False)
     monkeypatch.delenv("VLM_BASE_URL", raising=False)
@@ -155,7 +142,6 @@ async def test_data_sources_reports_vlm_available_false_without_a_key(submit_app
 
 @pytest.mark.asyncio
 async def test_data_sources_vlm_available_true_via_provider_inference(submit_app, monkeypatch):
-    """The provider key inferred from the default OpenRouter VLM host also lights up the capability."""
     app, _submitted_job, _builder = submit_app
     monkeypatch.delenv("VLM_API_KEY", raising=False)
     monkeypatch.delenv("VLM_BASE_URL", raising=False)
@@ -184,7 +170,6 @@ async def test_submit_job_omitted_data_sources_keeps_all_sources(submit_app):
 
 @pytest.mark.asyncio
 async def test_submit_job_explicit_null_data_sources_keeps_all_sources(submit_app):
-    """Explicit `null` in the JSON body must behave identically to field omission."""
     app, submitted_job, builder = submit_app
 
     with TestClient(app) as client:
@@ -424,7 +409,7 @@ async def test_submit_job_validates_sources_for_researcher(submit_app, monkeypat
     app, submitted_job, builder = submit_app
 
     research_config = AgentConfig(
-        class_path="agent.agents.piloti.agent.ChatAgent",
+        class_path="agent.core.agent.ChatAgent",
         config_name="shallow_research_agent",
         description="Test researcher",
     )
@@ -575,17 +560,7 @@ async def test_submit_job_returns_500_when_validation_tool_resolution_fails_for_
 
 @pytest.mark.asyncio
 async def test_validation_calls_get_all_tool_refs_when_fn_config_tools_is_none(submit_app, monkeypatch):
-    """Regression test: ``tools is None`` must inherit refs via ``get_all_tool_refs``.
-
-    The fixture's default ``tools=None`` exercises this branch, but no other
-    test asserts the exact call. This pins the contract so future refactors
-    that swap the inheritance mechanism (e.g. caching, alternate registries)
-    surface here instead of silently changing agent capability resolution.
-    """
     app, submitted_job, builder = submit_app
-    # Default fixture is tools=None, exclude_tools=[]. Spy on the name as bound
-    # in the routes module (Python testing idiom: patch where used, not where
-    # defined).
 
     spy = MagicMock(wraps=job_data_sources.get_all_tool_refs)
     monkeypatch.setattr(job_data_sources, "get_all_tool_refs", spy)
@@ -598,8 +573,6 @@ async def test_validation_calls_get_all_tool_refs_when_fn_config_tools_is_none(s
 
     assert response.status_code == 200
     spy.assert_called_once()
-    # Sanity check: the spy returned the registry-populated tool refs and the
-    # builder was asked to resolve those exact refs via LangChain wrappers.
     builder.get_tools.assert_awaited_once()
     _, kwargs = builder.get_tools.await_args
     assert sorted(kwargs["tool_names"]) == ["knowledge_search_tool", "web_search_tool"]
@@ -608,12 +581,6 @@ async def test_validation_calls_get_all_tool_refs_when_fn_config_tools_is_none(s
 
 @pytest.mark.asyncio
 async def test_validation_does_not_call_get_all_tool_refs_when_fn_config_tools_is_explicit(submit_app, monkeypatch):
-    """Regression test: explicit ``tools=[...]`` must override registry inheritance.
-
-    Mirror of the test above for the opposite branch: when the agent declares
-    an explicit tool list, the validator must use it verbatim and skip the
-    inheritance call entirely.
-    """
     app, submitted_job, builder = submit_app
     builder.get_function_config.return_value = SimpleNamespace(
         tools=["knowledge_search_tool"],

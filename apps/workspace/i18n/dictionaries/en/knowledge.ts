@@ -1,4 +1,3 @@
-/** Knowledge-base transparency page: what the RAG currently knows. */
 export const knowledge = {
   title: 'Knowledge base',
   subtitle:
@@ -49,8 +48,6 @@ export const knowledge = {
     removed: 'The corpus no longer lists this document, but its indexed content is still searchable. Delete it to clear it.',
     inconsistent: 'Recorded as processed but no searchable content was found. Re-run the sync.',
   },
-  // A page drawn small with a place on it marked (ADR-0128): the look card,
-  // the Herleitung's look row and the citation peek share it.
   placeThumbnail: {
     page: 'Page {page}',
     loading: 'Drawing the page',
@@ -104,8 +101,6 @@ export const knowledge = {
     passwordSubmit: 'Open document',
     passwordIncorrect: 'That password is not correct.',
   },
-  // "Handled in your office": has the office dealt with the passage the reader is
-  // looking at, and where. Only what they may read is searched.
   similar: {
     title: 'Handled in your office',
     action: 'Check your projects',
@@ -134,7 +129,6 @@ export const knowledge = {
     openPassage: 'Open {document}, page {page}',
     openPassageNoPage: 'Open {document}',
   },
-  // The RIS reader: a legal source read INSIDE Piloti, not in a browser tab.
   risViewer: {
     description: 'Reading copy from RIS.',
     openAtRis: 'Open at RIS',

@@ -1,29 +1,5 @@
 'use client'
 
-/**
- * The answer-feedback window, in sentences.
- *
- * **Why it sits right under the figures.** Everything around it is correct and
- * none of it is a story: a rate, four bars, a line, a table, a list of failed
- * turns. A reader who has thirty seconds reads the biggest number and leaves with
- * whatever that number implied. This says what the window actually means, and
- * says the good part and the bad part in that order.
- *
- * **Two columns, not one list.** What is working and what needs attention are
- * rendered as peers, side by side, at the same weight. Stacking them would make
- * the second one the conclusion — and the whole reason this exists is that the
- * surface used to have only the second one.
- *
- * **It says it is generated, and when.** A paragraph in a product looks
- * authored. This one is written by a model over a moving window, so it carries
- * its age and a way to re-ask; a stale narrative with no visible timestamp is how
- * a page loses a reader's trust permanently rather than temporarily.
- *
- * The empty states are not errors. A window with nine votes has no digest
- * because nine votes cannot support one, and that sentence is more useful than a
- * confident paragraph about nine votes.
- */
-
 import type { JSX } from 'react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowRight, RefreshCw, Sparkles, ThumbsDown, ThumbsUp } from 'lucide-react'
@@ -51,35 +27,17 @@ import {
 export type { FeedbackDigestPayload }
 
 export interface FeedbackDigestProps {
-  /**
-   * The query string of the window this digest describes: `days`, and the
-   * `org` / `topic` filters that narrow the aggregates. The drill-in's own
-   * filters (direction, reason, free text) do not change the sentences, and
-   * passing them made every Missed/Landed switch re-ask the model.
-   */
   search: string
   className?: string
 }
 
-/** Codes that describe a young window rather than a failure. */
 const BENIGN = new Set(['no_feedback', 'too_few_votes'])
 
-/**
- * The digest card. Fetches on its own so a slow model never delays the figures,
- * and renders one of four states: the sentences, a young window, a thin window,
- * or a failure that says the figures below are still good.
- */
 export function FeedbackDigest({ search, className }: FeedbackDigestProps): JSX.Element | null {
   const t = useTranslations(platformCopy)
   const { locale } = useLocale()
   const [data, setData] = useState<AnswerFeedbackDigestResponse | null>(null)
   const [loading, setLoading] = useState(true)
-  /**
-   * The request this card is still waiting on. Filters change faster than a
-   * model answers — switch direction, then topic — and without this the slower
-   * of two in-flight digests wins by finishing last, leaving sentences that
-   * describe a window nobody is looking at any more.
-   */
   const latestRequest = useRef(0)
 
   const load = useCallback(
@@ -135,10 +93,6 @@ export function FeedbackDigest({ search, className }: FeedbackDigestProps): JSX.
     </CardTitle>
   )
 
-  // A young window and a broken model both mean "no sentences", and the reader
-  // needs to know which: one is a reason to come back tomorrow, the other is a
-  // reason to look at the logs. Said in one quiet line under the card title,
-  // not as a big empty panel competing with the figures below.
   if (!digest) {
     return (
       <Card className={className} data-testid="feedback-digest-empty">
@@ -257,10 +211,6 @@ export function FeedbackDigest({ search, className }: FeedbackDigestProps): JSX.
   )
 }
 
-/**
- * One half of the digest. Always rendered, even with nothing in it — a column
- * that disappears when empty is how the good half quietly loses its billing.
- */
 function DigestColumn({
   testId,
   icon,

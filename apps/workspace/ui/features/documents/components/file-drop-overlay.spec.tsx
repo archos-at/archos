@@ -1,8 +1,3 @@
-/**
- * The window guard and the overlay: a file nobody took is not opened by the
- * browser, a drag inside the page is left to the page, and a refusal is said.
- */
-
 import { render, renderHook, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { FileDropOverlay, useWindowDragGuard } from './file-drop-overlay'

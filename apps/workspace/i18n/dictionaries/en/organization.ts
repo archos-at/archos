@@ -1,4 +1,3 @@
-/** The organization management page (admin). */
 export const organization = {
   title: 'Organization',
   subtitle: 'Manage your organization, its members, and access.',
@@ -18,7 +17,6 @@ export const organization = {
     compliance: 'Compliance',
     enterprise: 'Enterprise',
   },
-  /** Page headers of the section routes — one heading per route, not per card. */
   sections: {
     overview: {
       title: 'Overview',
@@ -69,12 +67,6 @@ export const organization = {
         'SSO, directory sync, domain verification and audit-log streaming — the WorkOS controls only an admin may touch.',
     },
   },
-  /**
-   * Organization -> Download log (ADR-0088): who took which document out, and
-   * who opened one in a folder with its own access list. Personal data about
-   * staff, so the page says what it is for, how long it keeps it and that
-   * reading it is recorded.
-   */
   downloadLog: {
     purpose:
       'This log exists for security and accountability: to find out who took a document out or opened one in a folder with its own access list. It is not an activity report and is not used to evaluate anyone.',
@@ -135,9 +127,7 @@ export const organization = {
       error: 'The retention could not be saved. Please try again.',
     },
   },
-  /** People & access: the member directory, the role catalog, the permission map. */
   access: {
-    /** Accessible name of the sub-tab strip when it is wider than the screen. */
     tabsScrollable: 'Sections, scrolls sideways',
     people: {
       title: 'People',
@@ -154,11 +144,10 @@ export const organization = {
     roles: {
       title: 'Roles',
       description: 'The roles this organization can hand out, and what each one unlocks.',
-      // Singular/plural is chosen in the component — this i18n has no ICU.
       permissionCountOne: '1 permission',
       permissionCountOther: '{count} permissions',
       platformNotice:
-        'Platform staff only. These roles live in the GRID Platform organization and cannot be assigned here.',
+        'Platform staff only. These roles live in the platform organization and cannot be assigned here.',
     },
     permissions: {
       title: 'Permissions',
@@ -168,28 +157,18 @@ export const organization = {
       noRoles: 'No role grants this',
       deprecated: 'Deprecated',
     },
-    // Shared by the role catalog and the permission reference — one tier
-    // vocabulary, so the two surfaces cannot drift into different words for
-    // the same thing.
     tiers: {
       org: 'Organization',
       project: 'Project',
       folder: 'Folder',
       platform: 'Platform',
     },
-    // The gate here is `org:members:manage`, NOT org admin — borrowing the
-    // notAdmin copy would tell a User Admin the wrong thing about why they
-    // are being refused.
     notAllowed: {
       title: 'You cannot manage people here',
       description:
         'Managing people and roles needs the “Manage people and roles” permission. An organization admin can grant it.',
     },
   },
-  /**
-   * Personen & Zugriff → Eigene Rollen (ADR-0087): roles an office builds in
-   * WorkOS and assigns on the People tab.
-   */
   customRoles: {
     title: 'Custom roles',
     description:
@@ -248,7 +227,6 @@ export const organization = {
       stillAssigned: 'Somebody still holds this role. Give them another role on the People tab first.',
       error: 'The role could not be deleted. Please try again.',
     },
-    /** One label and one line per organization permission, keyed by the slug after `org:` with `:` as `_`. */
     permission: {
       settings_manage: { name: 'Manage organization settings', hint: 'Name, language and defaults of the organization.' },
       models_manage: { name: 'Manage AI models', hint: 'Which model each part of {productName} works with.' },
@@ -319,12 +297,6 @@ export const organization = {
     saveError: 'Could not save organization settings. Please try again.',
     loadError: 'Could not load organization settings right now. Please refresh to try again.',
   },
-  /**
-   * Organization → Instructions: the standing block every answer in the
-   * organization is written under. The hint states the boundary out loud,
-   * because the boundary is the point: standing preferences on form, focus and
-   * workflow — never a rule that overrides Piloti, never a normative value.
-   */
   instructions: {
     title: 'Instructions',
     description:
@@ -387,7 +359,6 @@ export const organization = {
     searchPlaceholder: 'Search appropriate models…',
     noResults: 'No appropriate models match your search.',
     contextWindow: 'Context',
-    /** The platform's reference request priced at the current price list (ADR-0053). */
     creditsPerRequest: '≈ {credits} credits per request',
     resetToDefault: 'Use default',
     comment: 'Change note (optional)',
@@ -415,7 +386,6 @@ export const organization = {
     saveErrorZdrUnavailable:
       'The zero-data-retention list could not be loaded, so the models could not be checked. Nothing was saved; try again shortly.',
     zdrTitle: 'Zero data retention',
-    /** Phone-only toggle on the long zero-data-retention paragraph. */
     zdrHintMore: 'Show more',
     zdrHintLess: 'Show less',
     zdrHint:
@@ -453,7 +423,6 @@ export const organization = {
       'The zero-data-retention list could not be loaded, so no model can be offered right now. Try again shortly.',
     noZdrResults: 'No model with a zero-data-retention endpoint matches.',
     noZdrMark: 'No zero-data-retention endpoint',
-    /** Why a model was refused for a task (`ModelRejectionCode`, lib/model-config/rejections.ts). */
     rejection: {
       unknown_group: 'This task no longer exists.',
       not_in_catalog: '{model} is not in the model catalog.',
@@ -524,7 +493,6 @@ export const organization = {
     history: 'Key history',
     revokedOn: 'created {date}',
   },
-  /** Storage: bytes stored against the quota that stops new uploads. */
   storage: {
     title: 'Document storage',
     description:
@@ -536,9 +504,7 @@ export const organization = {
     nearQuota: 'Almost full — new uploads will soon be refused',
     projectDocuments: 'Project documents',
     officeShelfDocuments: 'Office filing',
-    /** Count-neutral: a scope with exactly one document renders this too. */
     documentCount: 'Documents: {count}',
-    /** The per-file upload limit, read-only; `size` is formatted with its unit. */
     maxFileSize: 'Largest file per upload',
     setByPlatform:
       'Your storage quota and the largest file you can upload are set by {productName}. Contact support if you need more.',
@@ -617,7 +583,6 @@ export const organization = {
     open: 'View audit logs',
     error: 'Could not open the audit log viewer.',
   },
-  /** Sensible Daten → „Inhalte aus gelöschten Ordnern" (ADR-0088). */
   deletedFolderContent: {
     title: 'Content from deleted folders',
     description:
@@ -641,7 +606,6 @@ export const organization = {
     loadError: 'The setting could not be loaded.',
     readOnly: 'Only organization admins can change this.',
   },
-  /** Sensitive data: the lists Piloti checks every upload against (ADR-0086). */
   screening: {
     title: 'Screening list',
     description:
@@ -685,7 +649,6 @@ export const organization = {
     readOnly: 'Only people with the “Manage organization settings” permission can change these lists.',
     loadError: 'Could not load the lists.',
   },
-  /** Quarantine: files the content check held back (ADR-0086). */
   quarantine: {
     listLabel: 'Files held back',
     empty: 'Nothing is waiting for review',
@@ -746,58 +709,10 @@ export const organization = {
       unscreened: 'Not checked',
     },
   },
-  /** What Piloti learned about the office's conventions, to confirm or decline (ADR-0129). */
   baseKnowledge: {
-    title: 'Office base knowledge',
-    description: 'Standards, commentaries and directives your office owns. {productName} answers from them for your office only, names the edition and the last check, and warns when the check is too old.',
-    add: 'Record from the office shelf',
-    upload: 'Upload a file',
-    uploadHint: 'For a purchased standard: the file is stored, and its text is read only after you confirm.',
-    pick: 'Choose a document',
-    noCandidates: 'Every office shelf document is already recorded, or the shelf is empty.',
-    propose: 'Create proposal',
-    proposed: 'Proposal',
-    proposedHint: 'Proposed from the file name. {productName} reads the text only once you confirm.',
-    confirm: 'Confirm',
-    attest: 'Our licence covers use by everyone in the office.',
-    attestAi: 'Our licence also covers processing by the hosted AI services (indexing, reading, quoting).',
-    metadataOnly: 'Metadata only',
-    metadataOnlyHint: 'The text is not used: {productName} names the standard and its edition but does not read or quote it.',
-    allowAi: 'Licence covers AI processing',
-    check: 'Checked: current',
-    remove: 'Remove',
-    removeConfirm: 'Remove the document and its entry? {productName} will no longer cite it.',
-    checkedAt: 'Last checked {date}',
-    neverChecked: 'Never checked',
-    overdue: 'Check overdue',
-    edition: 'Edition {label}',
-    licensed: 'Licensed',
-    appliesIn: 'Applies in {territories}',
-    addressedTo: 'Directive of {authorities}',
-    empty: 'No base knowledge recorded yet. Choose a document from the office shelf.',
-    loadError: 'The base knowledge could not be loaded.',
-    saveError: 'That could not be saved. Please try again.',
-    field: {
-      kind: 'Kind',
-      designation: 'Designation',
-      title: 'Title',
-      editionLabel: 'Edition',
-      territoryIds: 'Applies in (ISO, e.g. AT-9)',
-      authority: 'Authority (for directives)',
-      licenceClass: 'Licence',
-    },
-    kind: {
-      technical_standard: 'Standard',
-      guideline: 'Guideline',
-      commentary: 'Commentary',
-      authority_directive: 'Directive',
-      statute: 'Law',
-    },
-    licence: {
-      licensed: 'Licensed (purchased)',
-      public_restricted: 'Public, restricted',
-      public_open: 'Public, open',
-    },
+    title: 'Office standards',
+    description: 'Your office’s standards, commentaries and directives have a place of their own beside Office filing. Upload them there, sort them into folders, confirm and check them. {productName} answers from them for your office only.',
+    open: 'Open office standards',
   },
   officeConventions: {
     title: 'What {productName} has learned about the office',

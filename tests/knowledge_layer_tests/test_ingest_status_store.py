@@ -1,10 +1,3 @@
-"""Tests for the cross-replica ingestion status store (Stage C).
-
-Persisting ingestion status to Postgres lets a status poll routed to any replica
-resolve — otherwise a replica that didn't accept the upload returns "not found".
-Verified here on SQLite; production uses the shared Postgres.
-"""
-
 from __future__ import annotations
 
 from datetime import datetime
@@ -42,8 +35,6 @@ def sqlite_db(tmp_path, monkeypatch):
 def test_noop_without_db(monkeypatch):
     monkeypatch.delenv("SUMMARY_DB", raising=False)
     monkeypatch.delenv("NAT_JOB_STORE_DB_URL", raising=False)
-    # No DB configured: writes are no-ops and reads return None (adapter then
-    # falls back to its in-process dict — single-node behaviour unchanged).
     ingest_status_store.put(_status("job-1"))
     assert ingest_status_store.get("job-1") is None
 
@@ -81,11 +72,6 @@ def _job_with_files(job_id: str, state: JobState, files: dict[str, FileStatus]) 
 
 
 class TestInFlightFiles:
-    """What the chat turn waits on. This used to raise on the first job with
-    per-file detail (it compared against ``FileStatus.COMPLETED``, which does
-    not exist), and the caller's fail-open swallowed it, so the "still being
-    read" warning never fired for exactly the uploads it was written for."""
-
     def test_lists_files_still_ingesting_in_a_running_job(self, sqlite_db):
         ingest_status_store.put(
             _job_with_files(
@@ -114,11 +100,7 @@ class TestInFlightFiles:
         assert ingest_status_store.in_flight_files(["s_test"]) == {}
 
 
-# --- A live row is a claim its owner keeps making ---------------------------
-
-
 def _age_heartbeat(url: str, job_id: str, *, legacy: bool = False) -> None:
-    """Make a row look like its owner stopped beating (or, legacy, never beat)."""
     from sqlalchemy import create_engine
     from sqlalchemy import text
 
@@ -171,7 +153,6 @@ class TestInterruptedJobs:
         assert got.metadata["failure_reason"] == "interrupted"
         assert got.metadata["retryable"] is True
         assert got.file_details[0].status == FileStatus.FAILED
-        # Stored that way, not only answered: the next reader sees the same.
         _age_heartbeat(sqlite_db, "job-1")
         again = ingest_status_store.get("job-1")
         assert again is not None and again.status == JobState.FAILED
@@ -183,7 +164,6 @@ class TestInterruptedJobs:
         assert got is not None and got.status == JobState.COMPLETED
 
     def test_a_legacy_row_ages_by_its_last_write(self, sqlite_db):
-        # A replica that predates heartbeats writes neither column.
         ingest_status_store.put(_with_file("job-1", JobState.PROCESSING))
         _age_heartbeat(sqlite_db, "job-1", legacy=True)
         got = ingest_status_store.get("job-1")
@@ -289,15 +269,7 @@ class TestFindLive:
         assert ingest_status_store.find_live("k1").job_id == "job-1"
 
 
-# --- Lost writes are reported, and a settle that lost the race says so -------
-
-
 def _owner_beats_before_the_settle(monkeypatch, url: str) -> None:
-    """The owner beats between a reader's SELECT and its settling UPDATE.
-
-    Through its own engine, as the owner is another process: the store's
-    SQLite pool holds one connection, and the reader has it.
-    """
     from sqlalchemy import create_engine
     from sqlalchemy import text
 
@@ -338,7 +310,6 @@ class TestWritesReportTheirOutcome:
         assert ingest_status_store.heartbeat([]) == 0
 
     def test_a_settled_row_is_not_the_owners_to_beat_any_more(self, sqlite_db):
-        """Settling clears the owner, so the owner's heartbeat sees the row is gone."""
         ingest_status_store.put(_with_file("job-1", JobState.PROCESSING))
         _age_heartbeat(sqlite_db, "job-1")
         assert ingest_status_store.get("job-1").status == JobState.FAILED
@@ -378,8 +349,6 @@ class TestTheSettleRace:
 
 
 class TestTheOwnerIsRightAboutItsJob:
-    """An owner cut off past the stale window is settled by another replica; its next write wins."""
-
     def test_the_owners_terminal_write_replaces_the_interrupted_failure(self, sqlite_db):
         ingest_status_store.put(_with_file("job-1", JobState.PROCESSING))
         _age_heartbeat(sqlite_db, "job-1")
@@ -391,7 +360,6 @@ class TestTheOwnerIsRightAboutItsJob:
         assert got is not None and got.status == JobState.COMPLETED and got.error_message is None
 
     def test_the_owners_live_write_makes_the_job_findable_again(self, sqlite_db):
-        """Otherwise a retried dispatch finds nothing live and starts a second job on the same file."""
         status = _with_file("job-1", JobState.PROCESSING)
         status.metadata = {"dispatch_key": "k1"}
         ingest_status_store.put(status)
@@ -405,9 +373,6 @@ class TestTheOwnerIsRightAboutItsJob:
         assert ingest_status_store.heartbeat(["job-1"]) == 1
 
 
-# --- A job a person stopped --------------------------------------------------
-
-
 class TestCancelledJobs:
     def test_settle_cancelled_marks_the_job_and_every_unfinished_file(self, sqlite_db):
         ingest_status_store.put(_with_file("job-1", JobState.PROCESSING))
@@ -419,10 +384,8 @@ class TestCancelledJobs:
         assert got.status == JobState.CANCELLED
         assert got.error_message.startswith("cancelled:")
         assert got.metadata["cancelled"] is True
-        # A file mid-read cannot keep a live state, and its own reason says it was stopped.
         assert got.file_details[0].status == FileStatus.FAILED
         assert got.file_details[0].error_message.startswith("cancelled:")
-        # Not the failure a lost owner leaves: nothing failed.
         assert "failure_reason" not in got.metadata
 
     def test_a_cancelled_job_is_not_in_flight(self, sqlite_db):
@@ -438,7 +401,6 @@ class TestCancelledJobs:
         assert ingest_status_store.get("job-1").status == JobState.COMPLETED
 
     def test_a_cancel_stops_vouching_for_the_row(self, sqlite_db):
-        """The hold outlasts the run's whole schedule; a cancelled run has none left."""
         ingest_status_store.put(_with_file("job-1", JobState.PROCESSING))
         assert ingest_run_hold.hold("job-1", "run-1", 3600) is True
 
@@ -447,7 +409,6 @@ class TestCancelledJobs:
         assert _held_until(sqlite_db, "job-1") is None
 
     def test_a_cancelled_row_a_dead_worker_wrote_live_again_reads_interrupted(self, sqlite_db):
-        """Its write landed before the cancel reached it, then it died: nobody beats, and nothing holds the row."""
         ingest_status_store.put(_with_file("job-1", JobState.PROCESSING))
         ingest_run_hold.hold("job-1", "run-1", 3600)
         ingest_status_store.settle_cancelled("job-1")

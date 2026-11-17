@@ -1,9 +1,3 @@
-/**
- * The office's skills ranked by the words of a task: name, description and the
- * lines of each body that match. Thin adapter (ADR-0017); the ranking lives in
- * `@/lib/skills/service`.
- */
-
 import { apiRoute, parseQuery } from '@/lib/api/handler'
 import { requireSkillsEnabled } from '@/lib/authz/feature-flags'
 import { searchSkills } from '@/lib/skills/service'

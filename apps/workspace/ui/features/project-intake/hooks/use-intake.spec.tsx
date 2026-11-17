@@ -1,7 +1,3 @@
-/**
- * The review kept current: polling while Piloti reads, the answer of a decision
- * replacing the view, and what a refused or failed call says.
- */
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { toast } from 'sonner'
@@ -35,7 +31,7 @@ describe('useIntake', () => {
     expect(client.get).not.toHaveBeenCalled()
   })
 
-  it('polls every five seconds while Piloti reads, and stops when the reading ends', async () => {
+  it('polls every five seconds while the agent reads, and stops when the reading ends', async () => {
     client.get.mockResolvedValueOnce(INTAKE_READING).mockResolvedValue(INTAKE_READY)
     const { result } = mount(INTAKE_READING)
 

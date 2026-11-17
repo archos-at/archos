@@ -1,22 +1,5 @@
 'use client'
 
-/**
- * Dev preview for a manual confirmation that could not be saved.
- *
- * Its own route rather than another block on `/dev/bim-compliance`, because
- * this state does not exist until somebody presses Save: the page drives the
- * form itself and the registry waits on the alert, so the capture is
- * deterministic rather than a race with an effect.
- *
- * The state is worth pinning because of what the failure used to look like —
- * nothing. The request rejected, the form stayed open, and an architect who
- * had just signed off a requirement had every reason to believe it was
- * recorded. On the one surface whose whole purpose is to be a record, a
- * silent write failure is the worst thing it can do.
- *
- * Not linked from anywhere and 404s outside development.
- */
-
 import type { JSX } from 'react'
 import { useEffect, useRef } from 'react'
 import { notFound } from 'next/navigation'
@@ -64,12 +47,6 @@ export default function BimConfirmationFailedPreviewPage(): JSX.Element {
   )
 }
 
-/**
- * Opens the note form and presses Save against a rejecting handler.
- *
- * Two steps, each waiting for the button the previous one revealed, so the
- * sequence cannot outrun React's render.
- */
 function Driver(): JSX.Element {
   const rootRef = useRef<HTMLDivElement | null>(null)
 
@@ -77,10 +54,6 @@ function Driver(): JSX.Element {
     const root = rootRef.current
     if (!root) return
     let stopped = false
-    // By test id, not by label: the preview renders in whichever locale the
-    // harness picks, and a driver keyed on German copy silently does nothing
-    // in an English run — which is exactly how this capture first came back
-    // showing the untouched form.
     const press = (testId: string): boolean => {
       const button = root.querySelector<HTMLButtonElement>(`[data-testid="${testId}"]`)
       button?.click()

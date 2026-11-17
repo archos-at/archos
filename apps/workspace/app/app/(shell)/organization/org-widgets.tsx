@@ -1,18 +1,5 @@
 'use client'
 
-/**
- * WorkOS organization-management widgets.
- *
- * The Users Management widget (invite members, assign roles, remove access) is
- * shown to any org admin. The advanced widgets (SSO, Directory Sync, Domain
- * Verification) are each rendered only when the caller holds the matching
- * WorkOS permission — the server decides that and passes booleans down, and the
- * token route independently refuses to mint scopes the caller lacks.
- *
- * Each widget gets its own scoped `authToken` provider. All render inside a
- * single WorkOsWidgets provider whose appearance follows Grid's theme.
- */
-
 import { useMemo } from 'react'
 import {
   WorkOsWidgets,

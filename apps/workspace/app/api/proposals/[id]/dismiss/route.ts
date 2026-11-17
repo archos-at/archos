@@ -1,9 +1,3 @@
-/**
- * Dismiss a proposed change (ADR-0105): `POST` → `{ proposal }`, 409 unless it
- * is still `proposed`. Thin handler; the rules live in
- * `@/lib/proposals/service`.
- */
-
 import { apiRoute } from '@/lib/api/handler'
 import { dismissProposal } from '@/lib/proposals/service'
 

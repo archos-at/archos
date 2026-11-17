@@ -1,7 +1,3 @@
-"""The re-ingest suites' harness: a temp metadata store, a live ingestor on a real
-Qdrant, a seeded previous version and a wait for a job to finish.
-"""
-
 from __future__ import annotations
 
 import time
@@ -17,7 +13,6 @@ from knowledge_layer_testing.vector_store import write
 
 @pytest.fixture()
 def stores(tmp_path):
-    """A temp SQLite metadata store for the whole job."""
     from agent.knowledge import configure_summary_db
     from agent.knowledge import factory
 
@@ -38,7 +33,6 @@ def live_ingestor(qdrant_store):
 
 
 def _seed_previous_version(ing, stores, collection_name: str, file_name: str) -> None:
-    """The version already live: two chunks and a row a person edited."""
     from agent.knowledge import register_summary
     from agent.knowledge import set_document_display_title
     from agent.knowledge import set_document_doc_class

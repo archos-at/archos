@@ -7,44 +7,8 @@ export type DeletionEntityType = 'project' | 'document' | 'conversation' | 'orga
 export const DELETION_STATUSES = ['pending', 'purging', 'purged', 'restored', 'failed'] as const
 export type DeletionStatus = (typeof DELETION_STATUSES)[number]
 
-/**
- * Claims a queue row gets before it is `failed` and waits for a person. The
- * purger is plain JavaScript and keeps its own copy (`purger/db.js`,
- * `MAX_ATTEMPTS`); `purger/deletion-lifecycle.spec.mjs` holds the two equal.
- */
 export const DELETION_MAX_ATTEMPTS = 10
 
-/**
- * A queued deletion's lifecycle (ADR-0179), from every writer of the status:
- * the purger (`purger/db.js`), the Papierkorb (`projects/folder-bin-repository.ts`),
- * the project restore (`projects/repository.ts`), the chat erasure
- * (`conversations/repository.ts`) and the scheduler's trace sweep
- * (`workers/maintenance-sql.js`).
- *
- * A row is born `pending`. A holder claims it (`purging`): the purger once it
- * is due, or „Endgültig löschen" in a request, which may also `retry` a
- * `failed` row. The holder finishes it, releases it for another pass (a failed
- * attempt with attempts left, a legal hold, or the purge done and only the
- * traces owed to the purger), or fails it. The purger takes a `purging` row
- * over once its claim is 15 minutes old (`reclaim`). A project or folder is
- * restored only while `pending` and never claimed. A chat's delete request
- * erases in the request and closes its own row without claiming it, and closes
- * a `failed` one when a repeated delete worked.
- *
- * A claim is a token: every claim writes a fresh `claimed_at`, and a holder's
- * closing write (finish, release, fail) matches the one it took, so a holder
- * whose stale claim was taken over changes nothing. `failed` is also closed
- * `purged` where the erasure is proven: by the holder whose purge finished
- * after the reap had failed its row, for a folder the BFF marked purged
- * with no traces owed (`closeErased`, `purger/db.js`), and for a chat whose
- * row is gone once the trace sweep has erased the traces the purger could not
- * (`markConversationTracesErased`, `workers/maintenance-sql.js`).
- *
- * Attempts are not a state: a `pending` row always has attempts left, and the
- * one that has none is `failed`. The database refuses the other reading
- * (`deletion_queue_pending_has_attempts`, migration 0227): the purger claims a
- * row only below the cap, so a `pending` row at it would wait for ever.
- */
 export const DELETION_LIFECYCLE = defineLifecycle<
   DeletionStatus,
   'claim' | 'reclaim' | 'retry' | 'finish' | 'release' | 'fail' | 'restore' | 'close'
@@ -79,12 +43,10 @@ export const deletionQueue = pgTable(
     payload: jsonb('payload').$type<Record<string, unknown>>(),
   },
   (table) => ({
-    // Migration 0223; generated from the tuple so the CHECK and the type cannot drift.
     statusKnown: check(
       'deletion_queue_status_known',
       sql`${table.status} IN (${sql.raw(DELETION_STATUSES.map((status) => `'${status}'`).join(', '))})`
     ),
-    // Migration 0227; the cap comes from the constant so the CHECK and the writers cannot drift.
     pendingHasAttempts: check(
       'deletion_queue_pending_has_attempts',
       sql`${table.status} <> 'pending' OR ${table.attempts} < ${sql.raw(String(DELETION_MAX_ATTEMPTS))}`

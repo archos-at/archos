@@ -1,22 +1,7 @@
-"""The scores of a country's quality bar (ADR-0165 amendment), declared into ``SCORE_DEFINITIONS``.
-
-Two groups. The golden run's own (``golden-*``), written by the BFF on the trace of each turn that answered a
-golden case (``bff/langfuse/golden-run-score.ts``), under the dataset run of that golden run. And four of
-the six citation scores the country-as-data review names as the bar for "better than before": what an
-answer's citations must hold in any country. The golden run writes two of them today, on golden cases only,
-by reading the case's expectation off the answer and its cited sources. The other two need a citation that
-carries its edition and its role, which the answer pipeline does not write yet; they are declared here so the
-name, the type and the meaning are fixed before the first writer exists. The remaining two,
-``law-cited-from-web`` and ``binding-claim-without-records``, are the agent's on every answered turn and are
-declared once, in ``law_source_scores``: the golden run does not write them, so a golden trace carries one
-value per name.
-"""
-
 from __future__ import annotations
 
 from .score_definition import ScoreDefinition
 
-#: The Langfuse dataset a golden case is an item of; the golden run links each answer's trace to it.
 GOLDEN_CASES_DATASET = "golden-cases"
 
 GOLDEN_SCORE_DEFINITIONS: tuple[ScoreDefinition, ...] = (

@@ -1,12 +1,3 @@
-/**
- * Knowledge-base source PDF: streams a base-corpus PDF for the in-app viewer
- * (clicked citations, knowledge page rows). Read-only, and only a file released
- * in a country the session's office is entitled to (ADR-0173): a draft's text,
- * a rolled-back text and another country's file are a 404, as a name that does
- * not exist is. Platform operators read unreleased files through
- * `/api/platform/knowledge/documents/[fileName]`.
- */
-
 import { apiRoute } from '@/lib/api/handler'
 import { BadRequestError } from '@/lib/api/errors'
 import { streamKnowledgeBaseDocumentFor } from '@/lib/knowledge/released-corpus'

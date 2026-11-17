@@ -1,52 +1,3 @@
-/**
- * An E-Mail-Verlauf's bytes: the Markdown rendition one Fassung of the thread
- * document holds (ADR-0137, DECISION D11, D12). Pure and deterministic, over
- * the thread's `mail_thread_entries` rows and nothing else, so a retry or two
- * concurrent filings give the same bytes, and the second hits the upload
- * path's unchanged digest.
- *
- * **One `##` section per message.** The knowledge layer's Markdown chunker
- * cuts a section at every ATX heading (`text_formats.py`) and cites it by its
- * heading, so each message is one citable passage. Sections are ordered by the
- * clamped send time; a late message is inserted at its date.
- *
- * **The superset invariant.** Fassung N+1 holds every section of Fassung N
- * byte for byte, so a citation into an earlier Fassung stays true. What makes
- * it hold:
- * - a section is rendered from its own row only, with two references to other
- *   entries, both to entries filed *before* it (a quote folded because it
- *   reproduces one, and „Antwort auf“): an entry filed later never changes an
- *   earlier section;
- * - headings are stored on the row when it is inserted
- *   ({@link mailThreadEntryHeading}) and never recomputed;
- * - attachment lines are frozen on their rows when the entry is inserted
- *   (`mail_thread_entry_attachments.section_*`, decided by
- *   {@link sectionAttachment});
- * - the words are a versioned table, in the thread's one locale
- *   (`./render-copy.ts`).
- *
- * The one recorded exception is detach (D34): the next Fassung leaves the
- * detached message's section out, and a section that folded a quote of it, or
- * answered it, shows the quote again or loses the „Antwort auf“ line. Earlier
- * Fassungen still hold all of it.
- *
- * **Nothing a stranger wrote becomes structure.** Every name, domain, subject
- * and body goes through `lib/text/markdown-escape.ts`, after every line
- * terminator Python's `splitlines()` honours has become `\n` and every other
- * control character, zero-width character and bidi control is gone. A body line `## 14.10.2026 · MA 37` stays a line
- * of its real sender's section.
- *
- * **Authority is never laundered** (RT-S2). A heading names the signing
- * domain only when a signature confirmed it, and otherwise says „Domain nicht
- * bestätigt“ or „aus dem Outlook-Archiv“; a kept quote is labelled by the
- * message that quoted it, never by whom it claims to quote. A name cannot fake
- * a domain: brackets are taken out of names and domains alike.
- *
- * **What is not written** (RT-S13, ingestion §8): no address beyond its
- * domain, no Bcc, no attachment name from a folder less visible than the
- * thread, no name the Namensprüfung stopped.
- */
-
 import type { Locale } from '@/i18n/config'
 import { SCREENING_PLACEHOLDERS } from '@/lib/upload-screening/content-screen'
 import { escapeInline, escapeMarkdown } from '@/lib/text/markdown-escape'
@@ -62,29 +13,18 @@ import type {
 } from './mail-thread-wire'
 import { MAIL_THREAD_RENDER_COPY, type MailThreadRenderCopy } from './render-copy'
 
-/** The most own text one section prints; the rest is in the original, and the section says so. */
 export const MAX_SECTION_TEXT_CHARS = 100_000
-/** A name longer than this is cut: a display name is a label, not a paragraph. */
 const MAX_NAME_CHARS = 80
-/** Names a recipient line lists before it counts the rest. */
 const MAX_LISTED_RECIPIENTS = 10
-/** Below this, an entry's text is too short to say a quote reproduces it („Danke“). */
 const MIN_FOLD_CHARS = 20
-/** What a folded quote may hold besides the entries it reproduces: the quote header a client writes per message. */
 const FOLD_RESIDUE_PER_ENTRY = 200
 
-/**
- * Who wrote a forwarded message, as the forward said (migration 0198): the
- * heading names them, and the sender becomes the line „Weitergeleitet von“.
- */
 export interface MailThreadAuthor {
   name: string | null
   address: string | null
-  /** When they wrote it; null when the forward gave no date, and the heading takes the forward's. */
   sentAt: Date | null
 }
 
-/** What the renderer reads of a heading's sender. Every field is fixed when the entry is inserted. */
 export interface MailThreadHeadingFields {
   source: MailThreadEntrySource
   sentAt: Date
@@ -94,46 +34,35 @@ export interface MailThreadHeadingFields {
   senderDomain: string | null
   signerDomain: string | null
   senderTrust: SenderTrust
-  /** The original's author when the message was forwarded to the project. */
   author?: MailThreadAuthor | null
 }
 
-/** One `mail_thread_entries` row, its JSON columns parsed through the wire schemas. */
 export interface MailThreadRenderEntry extends MailThreadHeadingFields {
   id: string
-  /** As stored when the entry was inserted. */
   heading: string
   filedAt: Date
   inReplyToEntryId: string | null
   participants: readonly MailThreadParticipant[]
   ownText: string
-  /** Set when the person chose „Unkenntlich ablegen“ (D13). */
   maskedSpans: readonly MailThreadMaskedSpan[] | null
   quoted: readonly MailThreadQuote[]
   calendar: readonly MailThreadCalendarEvent[]
-  /** In the message's order, as frozen on the entry's attachment rows. */
   attachments: readonly MailThreadSectionAttachment[]
 }
 
 export interface MailThreadRenderInput {
-  /** The thread document's name as a person confirmed it, without `.md`. */
   title: string
-  /** The thread's locale, fixed at its creation. */
   locale: Locale
-  /** The thread this one continues past the cap („Als Fortsetzung ablegen“), by name. */
   continues: string | null
   entries: readonly MailThreadRenderEntry[]
 }
 
 export interface MailThreadRendition {
   markdown: string
-  /** UTF-8 length, for the thread's byte cap. */
   bytes: number
-  /** The sections in document order. */
   sections: Array<{ entryId: string; heading: string }>
 }
 
-/** A row the renderer refuses to write: a bug upstream, never a stranger's input. */
 export class MailThreadRenderError extends Error {
   constructor(
     readonly code: 'heading_mismatch' | 'duplicate_heading',
@@ -144,14 +73,6 @@ export class MailThreadRenderError extends Error {
   }
 }
 
-// ------------------------------------------------------------ headings
-
-/**
- * The heading a new entry is stored with: its base ({@link entryHeadingBase})
- * or, when the thread already has that heading (same minute, same sender),
- * the base with ` (2)`, ` (3)`. Never a running number: an out-of-order
- * message would renumber every later one and break their citations.
- */
 export function mailThreadEntryHeading(
   fields: MailThreadHeadingFields,
   taken: Iterable<string>,
@@ -163,17 +84,6 @@ export function mailThreadEntryHeading(
   for (let n = 2; ; n += 1) if (!used.has(`${base} (${n})`)) return `${base} (${n})`
 }
 
-/**
- * `{date time} · {name} ({signing domain})` for a verified mail,
- * `… ({from domain}, Domain nicht bestätigt)` for an unverified one and
- * `… ({from domain}, aus dem Outlook-Archiv)` for an archive entry (D11).
- * The time is the clamped send time, in Vienna.
- *
- * A forwarded message is headed by its author, at the time they wrote it
- * (never after it arrived), and their domain is never confirmed: the
- * forwarder's signature covers the forward, not what it quotes (RT-S2). The
- * forwarder is named in the line under it ({@link forwardedByLine}).
- */
 export function entryHeadingBase(fields: MailThreadHeadingFields, locale: Locale): string {
   const copy = MAIL_THREAD_RENDER_COPY[locale]
   const at = clampSentAt(fields.sentAt, fields.receivedAt).sentAt
@@ -188,7 +98,6 @@ export function entryHeadingBase(fields: MailThreadHeadingFields, locale: Locale
   return `${copy.dateTime(at)} · ${who} (${headingAuthority(fields, copy)})`
 }
 
-/** `{name} ({authority}), {date time}`: who forwarded an authored message, by the rule of a sender's heading. */
 function forwardedByLine(entry: MailThreadHeadingFields, copy: MailThreadRenderCopy): string {
   const who = displayName(entry.senderName, entry.senderAddress, copy)
   const at = clampSentAt(entry.sentAt, entry.receivedAt).sentAt
@@ -203,7 +112,6 @@ function headingAuthority(fields: MailThreadHeadingFields, copy: MailThreadRende
   return [fromDomain, copy.unverifiedDomain].filter(Boolean).join(', ')
 }
 
-/** Whether a stored heading is what the entry's own fields make, possibly numbered. */
 export function headingMatchesEntry(entry: MailThreadRenderEntry, locale: Locale): boolean {
   const base = entryHeadingBase(entry, locale)
   if (entry.heading === base) return true
@@ -211,9 +119,6 @@ export function headingMatchesEntry(entry: MailThreadRenderEntry, locale: Locale
   return /^\d+\)$/.test(entry.heading.slice(base.length + 2))
 }
 
-// ------------------------------------------------------------ the thread
-
-/** The thread's rendition. Throws {@link MailThreadRenderError} on a row whose heading lies about its sender. */
 export function renderMailThread(input: MailThreadRenderInput): MailThreadRendition {
   const copy = MAIL_THREAD_RENDER_COPY[input.locale]
   const headings = new Set<string>()
@@ -243,7 +148,6 @@ export function renderMailThread(input: MailThreadRenderInput): MailThreadRendit
   }
 }
 
-/** By clamped send time, then receipt, then id: the reading order. */
 function documentOrder(a: MailThreadRenderEntry, b: MailThreadRenderEntry): number {
   return (
     clampSentAt(a.sentAt, a.receivedAt).sentAt.getTime() - clampSentAt(b.sentAt, b.receivedAt).sentAt.getTime() ||
@@ -252,7 +156,6 @@ function documentOrder(a: MailThreadRenderEntry, b: MailThreadRenderEntry): numb
   )
 }
 
-/** By filing time, then id: which entries a section may lean on. */
 function filingOrder(a: MailThreadRenderEntry, b: MailThreadRenderEntry): number {
   return a.filedAt.getTime() - b.filedAt.getTime() || a.id.localeCompare(b.id)
 }
@@ -298,7 +201,6 @@ function section(
   return parts.join('\n\n')
 }
 
-/** The bulleted lines under a heading: who forwarded it, what it answers, who it went to, invitations, attachments. */
 function factLines(
   entry: MailThreadRenderEntry,
   answered: MailThreadRenderEntry | undefined,
@@ -347,7 +249,6 @@ function meetingLine(event: MailThreadCalendarEvent, copy: MailThreadRenderCopy)
   return cancelled ? `${line} (${copy.cancelled})` : line
 }
 
-/** Named where its frozen line names it; the rest counted. */
 function attachmentLine(attachments: readonly MailThreadSectionAttachment[], copy: MailThreadRenderCopy): string {
   const named: string[] = []
   let unnamed = 0
@@ -363,28 +264,14 @@ function attachmentLine(attachments: readonly MailThreadSectionAttachment[], cop
   return named.join('; ')
 }
 
-/** What the filing knew about one attachment when its message was filed. */
 export interface MailThreadAttachmentFiling {
   disposition: MailThreadAttachmentDisposition
-  /** The name the document has (filed, or already present); null for a file without one. */
   name: string | null
-  /** The document's folder path at filing, '' or null for the project root. */
   folderPath: string | null
-  /** Its folder is at least as visible as the thread document's (judged by the filing). */
   visibleWithThread: boolean
-  /** It was filed under a name the Namensprüfung stopped, which a person released. */
   nameReleased: boolean
 }
 
-/**
- * What a thread's section will print for one attachment, for ever (RT-S13):
- * its name and folder only when it is a document, in a folder at least as
- * visible as the thread document's, under a name the Namensprüfung passed
- * without a release; otherwise nothing, and the section counts it. Decided
- * once, when the entry is inserted, and frozen on its row
- * (`mail_thread_entry_attachments.section_*`): an attachment filed later, or a
- * document renamed, never rewrites an earlier section.
- */
 export function sectionAttachment(filing: MailThreadAttachmentFiling): MailThreadSectionAttachment {
   const name = filing.name ? oneLine(filing.name).slice(0, 500) : ''
   if (filing.disposition === 'not_filed' || !name || !filing.visibleWithThread || filing.nameReleased) {
@@ -394,28 +281,14 @@ export function sectionAttachment(filing: MailThreadAttachmentFiling): MailThrea
   return { name, folderPath: folderPath || null }
 }
 
-// ------------------------------------------------------------ text
-
-/** Every line terminator Python's `str.splitlines()` honours, `\r\n` first so it becomes one break. */
 const LINE_TERMINATORS = /\r\n|[\n\r\v\f\x1c-\x1e\x85\u2028\u2029]/g
-/** Control characters that are no line break: C0 but tab and newline, DEL, C1. */
 const CONTROLS = /[\x00-\x08\x0e-\x1f\x7f-\x84\x86-\x9f]/g
-/**
- * Characters a reader never sees that split a word or turn text around on
- * screen: zero-width space, non-joiner and joiner, the directional marks, the
- * bidi embeddings, overrides and isolates, the word joiner, the byte-order
- * mark and the soft hyphen. The same set the Python reader drops
- * (`agent_host/mail/body_text.py`, `_INVISIBLE`); this covers what does not
- * pass it: names, subjects, file names and the Outlook archive's fields.
- */
 const INVISIBLE = /[\u00ad\u200b-\u200f\u202a-\u202e\u2060\u2066-\u2069\ufeff]/g
 
-/** One line of a header value: every terminator and control character a space, invisible characters gone, white space collapsed. */
 function oneLine(value: string): string {
   return value.replace(LINE_TERMINATORS, ' ').replace(CONTROLS, ' ').replace(INVISIBLE, '').replace(/\s+/g, ' ').trim()
 }
 
-/** A body or quote as escaped Markdown: one kind of line break, no controls or invisible characters, at most one blank line in a row. */
 function bodyText(raw: string, copy: MailThreadRenderCopy): string {
   let text = raw
     .replace(LINE_TERMINATORS, '\n')
@@ -432,11 +305,6 @@ function bodyText(raw: string, copy: MailThreadRenderCopy): string {
   return cut ? `${text}\n\n*${escapeInline(copy.truncated)}*` : text
 }
 
-/**
- * The own text with each masked span replaced by its placeholder, the way
- * `maskText` writes them (`[IBAN entfernt]`); overlapping spans merge. Spans
- * outside the text are ignored.
- */
 function masked(text: string, spans: readonly MailThreadMaskedSpan[] | null): string {
   if (!spans || spans.length === 0) return text
   const ordered = spans
@@ -453,7 +321,6 @@ function masked(text: string, spans: readonly MailThreadMaskedSpan[] | null): st
   return out + text.slice(cursor)
 }
 
-/** Text as a fold compares it: quote markers gone, white space collapsed, case-folded. */
 function foldable(text: string): string {
   return text
     .normalize('NFC')
@@ -465,14 +332,6 @@ function foldable(text: string): string {
     .toLowerCase()
 }
 
-/**
- * Whether a quoted block only reproduces entries the thread held before this
- * one was filed, so leaving it out of the rendition loses nothing (D11). It
- * folds when it contains the whole text of at least one such entry and
- * little else: a quote header per reproduced entry, never a sentence of its
- * own. When in doubt it is kept: a repeated paragraph costs less than a lost
- * one, and a mid-thread first message's history exists only in its quote.
- */
 function foldsInto(quote: MailThreadQuote, earlier: readonly MailThreadRenderEntry[]): boolean {
   let rest = foldable(quote.text)
   let reproduced = 0
@@ -485,16 +344,8 @@ function foldsInto(quote: MailThreadQuote, earlier: readonly MailThreadRenderEnt
   return reproduced > 0 && rest.replace(/\s+/g, ' ').trim().length <= FOLD_RESIDUE_PER_ENTRY * reproduced
 }
 
-// ------------------------------------------------------------ names
-
-/** Brackets a name or domain could use to fake an authority: `Huber (ma37.wien.gv.at)`. */
 const BRACKETS = /[()<>[\]{}]/g
 
-/**
- * A sender's name as a heading prints it: one line, no brackets, no address.
- * A display name that is itself an address gives way to the address's local
- * part, so no full address is printed (ingestion §8).
- */
 function displayName(name: string | null, address: string | null, copy: MailThreadRenderCopy): string {
   const clean = (value: string) => oneLine(value.replace(BRACKETS, ' ')).slice(0, MAX_NAME_CHARS).trim()
   const own = name && !name.includes('@') ? clean(name) : ''
@@ -503,7 +354,6 @@ function displayName(name: string | null, address: string | null, copy: MailThre
   return local || copy.unknownSender
 }
 
-/** A domain as printed: lower-case letters, digits, dots and hyphens only, so it cannot close a bracket or add a word. */
 function cleanDomain(domain: string | null): string {
   if (!domain) return ''
   return domain

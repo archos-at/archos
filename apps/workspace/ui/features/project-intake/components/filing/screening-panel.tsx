@@ -19,13 +19,10 @@ import { SummaryBlock } from './filing-atoms'
 import type { ScreeningPreview } from './folder-tree'
 
 export interface ScreeningSummaryProps {
-  /** The project's list; null while it loads or when it could not be read. */
   screening: ProjectUploadScreeningState | null
   loadFailed: boolean
   onRetry: () => void
-  /** What the list holds back of the current choice; null without a choice. */
   preview: ScreeningPreview | null
-  /** The draft being edited, so the tree shows its effect before it is saved. */
   draft: ProjectScreeningOverride | null
   onDraftChange: (draft: ProjectScreeningOverride | null) => void
   onSave: (override: ProjectScreeningOverride) => Promise<boolean>
@@ -33,21 +30,12 @@ export interface ScreeningSummaryProps {
 
 const key = (term: string): string => term.toLocaleLowerCase('de')
 
-/** Which list this is, in a sentence: the office's, Piloti's suggestion, or the project's own. */
 function listName(screening: ProjectUploadScreeningState, t: Translator): string {
   const { override } = screening
   if (override.addedNameTerms.length + override.removedNameTerms.length > 0) return t('screening.listProject')
   return screening.officeSuggested ? t('screening.listSuggested') : t('screening.listOffice')
 }
 
-/**
- * Sensible Daten, as one block of the summary card: what the office's list
- * keeps on the server of the choice and on which terms, and (for whoever
- * manages the project) „Für dieses Projekt anpassen", which opens the list for
- * this project only in a sheet: an office term switched off here, or a term
- * added here. A draft shows its effect in the tree and the sheet before it is
- * saved (ADR-0086, 2026-10-20).
- */
 export function ScreeningSummary(props: ScreeningSummaryProps): JSX.Element {
   const { screening, loadFailed, onRetry, preview, draft, onDraftChange } = props
   const t = useTranslations(intakeFilingStepCopy)
@@ -119,7 +107,6 @@ export function ScreeningSummary(props: ScreeningSummaryProps): JSX.Element {
   )
 }
 
-/** The list for this project, in a sheet: the office's terms switched per project, and terms of its own. */
 function ScreeningEditor({
   screening,
   preview,

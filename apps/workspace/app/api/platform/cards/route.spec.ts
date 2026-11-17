@@ -10,7 +10,6 @@ vi.mock('@/lib/auth/session', () => ({
 }))
 
 vi.mock('@/lib/authz/platform', () => {
-  // Defined inside the factory: vi.mock is hoisted above module-level classes.
   class PlatformAccessDeniedError extends Error {
     readonly status = 403
   }
@@ -91,8 +90,6 @@ describe('GET /api/platform/cards', () => {
     const body = await res.json()
     expect(body.cardCount).toBe(1)
     expect(body.cards[0].type).toBe('requirement_checklist')
-    // The shape a field names travels with the catalog, so a reader can see
-    // what a `[ChecklistItem]` actually contains.
     expect(body.buildingBlocks.ChecklistItem[0].name).toBe('label')
   })
 
@@ -110,8 +107,6 @@ describe('GET /api/platform/cards', () => {
       new UpstreamError('Card catalog backend unreachable')
     )
     const res = await GET(request())
-    // An empty list would read as "Grid has no cards", which is the one answer
-    // this endpoint must never give.
     expect(res.status).toBe(502)
   })
 })

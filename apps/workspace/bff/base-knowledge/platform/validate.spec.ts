@@ -7,7 +7,8 @@
  */
 import { describe, expect, it } from 'vitest'
 import { proposedRecordSchema } from './wire'
-import { type DatedPlatformEdition, type KnownCapture, type KnownRecord, type Problem, validateProposal } from './validate'
+import { type DatedPlatformEdition, type KnownCapture, type KnownRecord, type Problem, NO_COVERAGE_WARNING, releaseWarnings, validateProposal } from './validate'
+import { bodyOf, claimsOf, recordIdOf } from './records'
 
 const CAPTURE = '6f0c1a7e-2b7d-4c55-9a3e-6d1f0b2a9c11'
 const UPLOAD = '7a1d2b8f-3c8e-4d66-8b4f-7e2a1c3b0d22'
@@ -33,7 +34,6 @@ const ma37 = (extra: Record<string, unknown> = {}) => ({
   ...extra,
 })
 
-/** The kit's checks other than KC-6, for records proposed without citations: what the tests below are about. */
 function kit(records: ReturnType<typeof parse>, country: string, known: ReadonlyMap<string, KnownRecord>, existing: DatedPlatformEdition[] = []): Problem[] {
   return validateProposal(records, country, known, CAPTURES, existing).filter((problem) => problem.code !== 'KC-6')
 }
@@ -100,7 +100,6 @@ describe('validateProposal', () => {
     })
 
     it('finds a compound a PDF hyphenated across a line, and still not the compound with a word changed', () => {
-      // As the BauNVO's PDF has it (page 6): the line ends at "Bundes-", the next begins "Immissionsschutzgesetzes".
       const pdf = 'im Sinne des § 3 des Bundes-\nImmissionsschutzgesetzes sowie Auswirkungen'
       const capture = new Map<string, KnownCapture>([[CAPTURE, { text: `MA 37 – Baupolizei. ${pdf}`, basis: 'fetched' }]])
       const check = (quote: string) =>
@@ -234,11 +233,9 @@ describe('validateProposal', () => {
     expect(kit(overlapping, 'AT', KNOWN)).toEqual([
       expect.objectContaining({ code: 'KC-3', key: 'e2018' }),
     ])
-    // RIS's last day in force copied as the end leaves one day between the editions: refused, with the day to enter.
     expect(kit(parse([work, edition('e2018', '2018-09-01', '2023-12-31'), edition('e2024', '2024-01-01', null)]), 'AT', KNOWN)).toEqual([
       expect.objectContaining({ code: 'KC-3', key: 'e2018', pointer: '/inForceTo', detail: expect.stringContaining('plus one') }),
     ])
-    // inForceTo is the first day no longer in force: an edition ending on the day it begins is in force on no day.
     expect(kit(parse([work, edition('e2024', '2024-01-01', '2024-01-01')]), 'AT', KNOWN)).toEqual([
       expect.objectContaining({ code: 'KC-3', pointer: '/inForceTo' }),
     ])
@@ -270,7 +267,6 @@ describe('validateProposal', () => {
     ])
     const closing = parse([edition('e2018', '2018-09-01', '2024-01-01'), edition('e2024', '2024-01-01', null)])
     expect(kit(closing, 'AT', known, published)).toEqual([])
-    // An edition of another work does not count.
     expect(kit(alone, 'AT', known, [{ ...published[0], workId: 'work:other' }])).toEqual([])
   })
 
@@ -317,5 +313,29 @@ describe('validateProposal', () => {
       expect(validateProposal(parse([golden()]), 'AT', KNOWN, CAPTURES).map((p) => p.code)).toEqual(['KC-6'])
       expect(validateProposal(parse([golden({ citations: cited() })]), 'AT', KNOWN, CAPTURES)).toEqual([])
     })
+  })
+})
+
+describe('releaseWarnings', () => {
+  const territory = (values: Record<string, unknown>) => {
+    const [record] = parse([{ type: 'territory', id: 'XA', kind: 'country', name: 'Xanadu', parents: [], citations: cited(), ...values }])
+    return { type: 'territory' as const, recordId: recordIdOf(record), claims: claimsOf(bodyOf(record)) }
+  }
+
+  it('warns, and refuses nothing, when the country’s own territory states no coverage', () => {
+    expect(releaseWarnings('XA', [territory({})])).toEqual([{ code: 'country_states_no_coverage', recordId: 'XA', detail: NO_COVERAGE_WARNING }])
+    expect(NO_COVERAGE_WARNING).toBe('the country states no coverage: a site in it stays at gate none, without binding editions, unless a region on its chain states one')
+  })
+
+  it('is quiet when the country states a coverage, for a subdivision, a union, or a request without the country', () => {
+    expect(releaseWarnings('XA', [territory({ coverageLevel: 'core' })])).toEqual([])
+    expect(releaseWarnings('XA', [territory({ id: 'XA-1', kind: 'state', parents: [{ id: 'XA', validFrom: null, validTo: null }] })])).toEqual([])
+    expect(releaseWarnings('XU', [territory({ id: 'XU', kind: 'union' })])).toEqual([])
+    expect(releaseWarnings('XA', [])).toEqual([])
+  })
+
+  it('is quiet when a region of the request states the coverage the country leaves open', () => {
+    const region = territory({ id: 'XA-1', kind: 'state', parents: [{ id: 'XA', validFrom: null, validTo: null }], coverageLevel: 'core' })
+    expect(releaseWarnings('XA', [territory({}), region])).toEqual([])
   })
 })

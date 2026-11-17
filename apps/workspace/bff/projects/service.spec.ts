@@ -3,7 +3,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-/** WorkOS's effective permissions on one project: `project:view`, or nothing. */
 const effective = vi.fn()
 vi.mock('@/lib/workos/client', () => ({
   getWorkOS: () => ({ authorization: { listEffectivePermissionsByExternalId: effective } }),
@@ -49,7 +48,7 @@ import type { AuthorizedSession } from '@/lib/auth/types'
 
 const session = (overrides: Partial<AuthorizedSession> = {}): AuthorizedSession => ({
   userId: 'user_1',
-  email: 'someone@grid.com',
+  email: 'someone@example.test',
   name: 'Someone',
   accessToken: 'token',
   organizationId: 'org_1',
@@ -64,18 +63,10 @@ const ALPHA = makeProject({ id: 'proj_alpha', name: 'Alpha', organizationId: 'or
 const BETA = makeProject({ id: 'proj_beta', name: 'Beta', organizationId: 'org_1' })
 const GAMMA = makeProject({ id: 'proj_gamma', name: 'Gamma', organizationId: 'org_1' })
 
-/**
- * The listing used to return every project in the organization while the detail
- * route gated on per-project FGA — so `project-viewer`/`editor`/`admin` decided
- * who could OPEN a project but not who could SEE that it exists. These tests
- * would have failed against that behaviour.
- */
 describe('listProjects', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     listProjectsInOrg.mockResolvedValue([ALPHA, BETA, GAMMA])
-    // These tests are about the listing, not the cache: each mocks WorkOS
-    // differently, so a cached verdict from the previous one would lie.
     process.env.AUTHZ_CACHE_TTL_MS = '0'
   })
 
@@ -95,7 +86,6 @@ describe('listProjects', () => {
     const visible = await listProjects(session())
 
     expect(visible).toEqual([])
-    // The tenant's project names must not survive anywhere in the response.
     expect(JSON.stringify(visible)).not.toContain('Alpha')
   })
 
@@ -126,8 +116,6 @@ describe('listProjects', () => {
   })
 
   it('org admins still see every project in their organization (named bypass)', async () => {
-    // A legacy admin session: role slug, no claims. `hasPermission`'s bounded
-    // catalog implication carries it, so nobody re-logs-in for the fix.
     const visible = await listProjects(session({ role: 'admin', permissions: ['org:projects:administer'] }))
 
     expect(visible).toHaveLength(3)
@@ -135,17 +123,12 @@ describe('listProjects', () => {
   })
 
   it('the bypass is the PERMISSION, not the role slug', async () => {
-    // This pair is what fails if `hasPermission(...)` is reverted to
-    // `session.role === 'admin'`. The old test above passes under BOTH rules,
-    // so on its own it pinned nothing.
     const custom = await listProjects(
       session({ role: 'acme-owner', permissions: ['org:projects:administer'] })
     )
     expect(custom).toHaveLength(3)
     expect(effective).not.toHaveBeenCalled()
 
-    // …and a role that holds org permissions but not THAT one is filtered like
-    // anyone else.
     effective.mockResolvedValue(page(false))
     const auditor = await listProjects(
       session({ role: 'org-auditor', permissions: ['org:audit:view'] })
@@ -175,11 +158,6 @@ describe('listProjects', () => {
   })
 })
 
-/**
- * The grid's derived reads must inherit the FGA filtering above rather than
- * re-deriving their own scope — a document count or an activity timestamp for a
- * project the caller cannot open is the same leak in a different shape.
- */
 describe('getProjectsListData', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -219,7 +197,6 @@ describe('getProjectsListData', () => {
     expect(data.projects.map((project) => project.id)).toEqual(['proj_beta'])
     expect(data.viewerActivity).toEqual({ proj_beta: '2026-08-05T09:00:00.000Z' })
     expect(data.documentCounts).toEqual({ proj_beta: 4 })
-    // Waiting mail is counted only for the projects the caller reaches (and, inside, only where they may file mail).
     expect(waitingMailCounts).toHaveBeenCalledWith(expect.anything(), ['proj_beta'])
     expect(data.mailWaiting).toEqual({ proj_beta: 2 })
   })

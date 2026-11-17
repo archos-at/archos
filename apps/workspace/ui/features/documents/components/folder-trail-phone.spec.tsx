@@ -6,14 +6,8 @@ import { FolderBreadcrumbRow } from './folder-navigation'
 import type { FolderItem } from '../file-types'
 
 vi.mock('next/navigation', () => ({ usePathname: () => '/app/projects/p1/files' }))
-// A phone: every media query the frame asks (the phone's) answers yes.
 vi.mock('@/hooks/use-media-query', () => ({ useMediaQuery: () => true }))
 
-/**
- * A phone inside a folder (review of 2026-11-10, finding 4): five levels deep the ← alone named no parent and offered
- * no way up two levels. One line above the title says where the folder is, without the project („… › Parent“), and
- * its „…“ opens the levels above.
- */
 const folder = (id: string, parentId: string | null, name: string): FolderItem => ({ id, parentId, name, path: `/${name}` })
 const FOLDERS: FolderItem[] = [
   folder('a', null, 'Grundlagen'),

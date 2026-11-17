@@ -1,13 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * What a listing row carries about the document's Anmerkungen
- * (`toListedDocuments`): the live marks counted for the rows the reader may
- * see, in one query for the whole page, with the reader the rows were read
- * with and the reader's own id for „für Sie". The SQL itself (the grouping,
- * the statuses, the visibility predicate) is `annotations/repository.integration.spec.ts`'s.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 

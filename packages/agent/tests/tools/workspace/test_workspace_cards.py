@@ -1,11 +1,3 @@
-"""``workspace__call``: a write the server proposed becomes an ``operation_proposal`` card; nothing else does.
-
-The server's answer is the only input (``structuredContent`` ``{decision: 'propose', proposalId,
-summary, operation}``, ``lib/agent-api/discovery.ts``). The proposal already exists, so no request
-goes to the proposals route: the card carries the server's id and the person decides it there.
-Only the socket and the card channel's binding are replaced.
-"""
-
 from __future__ import annotations
 
 import json
@@ -50,8 +42,6 @@ def proposed(proposal_id: str = PROPOSAL_ID, operation: str = "folder-rename") -
 
 
 class Server:
-    """Answers each socket call with the next body of ``answers``; every request is recorded."""
-
     def __init__(self) -> None:
         self.answers: list[str] = []
         self.requests: list[Any] = []
@@ -99,7 +89,6 @@ async def test_a_proposed_write_puts_the_card_in_the_chat_with_the_servers_propo
         "input": CALL_INPUT,
         "proposal_id": PROPOSAL_ID,
     }
-    # It is a card of the real vocabulary, not a look-alike.
     assert answer_card_adapter.validate_python(card).model_dump(exclude_none=True) == card
 
 
@@ -109,11 +98,10 @@ async def test_the_card_is_shown_without_asking_the_proposals_route_for_anything
     await workspace.run_call("folder-rename", CALL_INPUT)
 
     paths = {request.full_url for request in server.requests}
-    assert paths == {"http://bff.test/api/mcp"}
+    assert paths == {"http://bff.test/api/mcp?mode=search"}
 
 
 async def test_the_same_call_repeated_shows_one_card(server, registry) -> None:
-    """The server answers a repeat with the proposal it already has; a second card would be a second control."""
     server.extend([structured_answer(proposed()), structured_answer(proposed())])
 
     await workspace.run_call("folder-rename", CALL_INPUT)
@@ -154,7 +142,6 @@ async def test_anything_but_a_proposal_emits_no_card(server, registry, answer) -
 
 
 async def test_only_call_emits_cards(server, registry) -> None:
-    """A search or a describe may echo a proposal-shaped result; they are not writes."""
     server.append(structured_answer(proposed()))
 
     await workspace.run_describe("folder-rename")
@@ -228,10 +215,6 @@ async def test_a_read_lands_in_the_retrieval_ledger_and_a_proposal_or_refusal_do
     assert [(hit["name"], hit.get("shelf")) for hit in hits] == [("project-list", workspace.WORKSPACE_SHELF)]
 
 
-# ---------------------------------------------------------------------------
-# document-revision-compare -> revision_compare card (ADR-0128, slice V10)
-# ---------------------------------------------------------------------------
-
 NEWER_ID = str(uuid.uuid4())
 OLDER_ID = str(uuid.uuid4())
 COMPARE_INPUT = {"params": {"id": NEWER_ID}, "body": {"older": OLDER_ID, "page": 2}}
@@ -255,7 +238,6 @@ async def test_a_comparison_puts_both_pages_and_the_boxes_in_the_chat(server, re
     assert card["type"] == "revision_compare"
     assert (card["older_id"], card["newer_id"], card["page"]) == (OLDER_ID, NEWER_ID, 2)
     assert card["summary"] == ["Treppe breiter", "Plankopf geändert"]
-    # Only boxes on the compared page that have an area; one reaching past the edge is clamped onto it.
     assert card["changes"] == [
         {"region": [0.6, 0.1, 0.2, 0.1], "label": "Laufbreite 1,10 m statt 1,00 m"},
         {"region": [0.9, 0.9, 0.1, 0.1], "label": "Plankopf"},

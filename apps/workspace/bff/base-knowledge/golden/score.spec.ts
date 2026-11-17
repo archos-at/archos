@@ -160,7 +160,6 @@ describe('Austria’s golden cases', () => {
         .uses.filter((use) => use.role === 'binding')
         .map((use) => use.editionId)
       expect(binding, record.key).toContain(`edition:${edition.editionKey}`)
-      // The phrase an answer must write is the edition's own label.
       const label = lawRecords.find((law) => law.type === 'edition' && law.key === edition.editionKey)
       expect(edition.anyOf, record.key).toContain(label?.type === 'edition' ? label.label : '')
     }

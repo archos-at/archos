@@ -1,20 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Mentioning a colleague on an Anmerkung, driven through the TYPED CLIENT and
- * the real routes, service and inbox emitters (ADR-0055): only the document
- * reader, the repository, who may open the document and the inbox's writes
- * are faked.
- *
- * What is pinned: the server keeps a mention only while its „@Name" stands in
- * the text, the name is the directory's, and the person may open the document;
- * whoever is mentioned anew is told once (`annotation.mentioned`), never
- * twice for one reply (no `annotation.activity` beside it), never themselves;
- * an edit tells only whom it adds; a Zuständige made responsible in the same
- * write hears that instead; and answering in the thread settles one's own
- * mention.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -29,7 +15,6 @@ vi.mock('@/lib/auth/require-auth', () => ({
   }),
 }))
 vi.mock('@/lib/documents/access', () => ({ getAccessibleDocument: vi.fn() }))
-// Collaboration on, as an office that mentions people has it; one case switches it off.
 vi.mock('@/lib/authz/feature-flags', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/authz/feature-flags')>()),
   isCollaborationEnabled: vi.fn(() => true),
@@ -118,7 +103,7 @@ const ROUTES: Array<{ pattern: RegExp; method: string; handler: Handler; params:
 ]
 
 const run = async (path: string, init?: RequestInit) => {
-  const url = new URL(path, 'https://grid.test')
+  const url = new URL(path, 'https://example.test')
   const method = init?.method ?? 'GET'
   const route = ROUTES.find((entry) => entry.pattern.test(url.pathname) && entry.method === method)
   if (!route) throw new Error(`no route for ${method} ${url.pathname}`)
@@ -138,7 +123,6 @@ const DOC = {
 
 const ANNA: MarkMention = { targetId: 'user_anna', display: 'Anna Berger' }
 const BEN: MarkMention = { targetId: 'user_ben', display: 'Ben Gruber' }
-/** In the organization, but not cleared for the folder the document is filed in. */
 const FAR: MarkMention = { targetId: 'user_far', display: 'Fritz Fern' }
 const ME: MarkMention = { targetId: 'user_me', display: 'Miriam Hofer' }
 const AGENT: MarkMention = { targetId: 'agent:piloti', display: PRODUCT_NAME }
@@ -160,7 +144,6 @@ const MARK: AnnotationRecord = {
   mentions: [],
   basis: null,
   authorKind: 'person',
-  // Anna set the mark: she takes part in its thread.
   status: 'open',
   assigneeUserId: null,
   dueOn: null,
@@ -178,7 +161,6 @@ const MARK: AnnotationRecord = {
   replies: [],
 }
 
-/** Every inbox row the writes asked for, once the after-commit work has run. */
 async function rows(): Promise<InboxEmission[]> {
   await new Promise((resolve) => setTimeout(resolve, 0))
   return vi.mocked(emitInboxItems).mock.calls.flatMap(([emissions]) => emissions)
@@ -203,7 +185,6 @@ beforeEach(() => {
   vi.mocked(mayOpenDocument).mockImplementation(
     async (_tenant, _doc, userIds) => new Set(userIds.filter((userId) => userId !== FAR.targetId))
   )
-  // Who may be a Zuständige: whoever may write the document (here, whoever may open it).
   vi.mocked(mayWriteDocument).mockImplementation(
     async (_tenant, _doc, userIds) => new Set(userIds.filter((userId) => userId !== FAR.targetId))
   )
@@ -245,9 +226,7 @@ describe('a reply that mentions colleagues', () => {
         mentions: [
           ANNA,
           FAR,
-          // Picked, then deleted from the text: nobody.
           BEN,
-          // A crafted chip that names somebody else: nobody.
           { targetId: 'user_me', display: 'Die Chefin' },
         ],
       },
@@ -261,7 +240,6 @@ describe('a reply that mentions colleagues', () => {
     await replyToAnnotation('doc_1', 'ann_1', { body: '@Anna Berger @Ben Gruber passt das?', mentions: [ANNA, BEN] }, { run })
 
     expect(await rowsOf('annotation.mentioned')).toEqual(['user_anna', 'user_ben'])
-    // Anna set the mark, so she takes part in its thread; the mention is her one row.
     expect(await rowsOf('annotation.activity')).toEqual([])
     const [row] = (await rows()).filter((one) => one.type === 'annotation.mentioned')
     expect(row).toMatchObject({
@@ -289,7 +267,7 @@ describe('a reply that mentions colleagues', () => {
     expect(enforceMentionBounds).not.toHaveBeenCalled()
   })
 
-  it('addresses Piloti when Piloti is mentioned, as the chip’s flag does', async () => {
+  it('addresses the agent when the agent is mentioned, as the chip’s flag does', async () => {
     await replyToAnnotation('doc_1', 'ann_1', { body: `@${PRODUCT_NAME} stimmt die Breite?`, mentions: [AGENT] }, { run })
 
     expect(insertAnnotationReply).toHaveBeenCalledWith(
@@ -388,7 +366,6 @@ describe('a mark whose text mentions colleagues', () => {
       { run }
     )
 
-    // Anna is mentioned, Ben made Zuständige, Miriam set it, Fritz may not open the folder.
     expect(await rowsOf('annotation.activity')).toEqual(['user_lead', 'user_up'])
     const [row] = (await rows()).filter((emission) => emission.type === 'annotation.activity')
     expect(row).toMatchObject({ anchorId: 'ann_new', actorUserId: 'user_me', payload: expect.objectContaining({ variant: 'created', related: '5' }) })
@@ -444,7 +421,7 @@ describe('a mark whose text mentions colleagues', () => {
 })
 
 describe('what a mention costs and where it counts', () => {
-  it('counts @Piloti against the chat’s one mention budget, like a person', async () => {
+  it('counts @agent against the chat’s one mention budget, like a person', async () => {
     await replyToAnnotation('doc_1', 'ann_1', { body: `@${PRODUCT_NAME} stimmt das?`, mentions: [AGENT] }, { run })
     expect(enforceMentionBounds).toHaveBeenLastCalledWith(expect.objectContaining({ userId: 'user_me' }), 1)
 
@@ -452,7 +429,7 @@ describe('what a mention costs and where it counts', () => {
     expect(enforceMentionBounds).toHaveBeenLastCalledWith(expect.objectContaining({ userId: 'user_me' }), 2)
   })
 
-  it('keeps no @Piloti in a mark’s own text: only a reply addresses Piloti, and setting a mark wakes nobody', async () => {
+  it('keeps no @agent in a mark’s own text: only a reply addresses the agent, and setting a mark wakes nobody', async () => {
     await createAnnotation(
       'doc_1',
       { page: 1, shape: 'point', x: 0.2, y: 0.2, kind: 'hint', body: `@${PRODUCT_NAME} @Anna Berger prüfen`, mentions: [AGENT, ANNA] },
@@ -465,7 +442,7 @@ describe('what a mention costs and where it counts', () => {
     expect(enforceMentionBounds).toHaveBeenCalledWith(expect.anything(), 1)
   })
 
-  it('mentions nobody but Piloti where the office has no collaboration, as the chat and the people picker do', async () => {
+  it('mentions nobody but the agent where the office has no collaboration, as the chat and the people picker do', async () => {
     vi.mocked(isCollaborationEnabled).mockReturnValue(false)
 
     await replyToAnnotation('doc_1', 'ann_1', { body: `@${PRODUCT_NAME} @Anna Berger bitte`, mentions: [AGENT, ANNA] }, { run })
@@ -554,12 +531,10 @@ describe('a mention whose text is gone, or whose mark is closed', () => {
     await deleteReply(session as unknown as Parameters<typeof deleteReply>[0], 'doc_1', 'ann_1', 'rep_1')
     await rows()
 
-    // Anna's mention goes, which nothing left names; Ben's stays, because the mark still asks him.
     expect(markInboxItemsInertAnchoredOn).toHaveBeenCalledTimes(1)
     expect(markInboxItemsInertAnchoredOn).toHaveBeenCalledWith(
       expect.objectContaining({ types: ['annotation.mentioned'], anchorId: 'ann_1', recipientUserId: 'user_anna' })
     )
-    // Every other row the reply wrote, by its id, counts it no more and quotes nothing: Ben's request still asks.
     expect(retractInboxOccurrenceAnchoredOn).toHaveBeenCalledWith(
       expect.objectContaining({
         types: ['annotation.mentioned'],

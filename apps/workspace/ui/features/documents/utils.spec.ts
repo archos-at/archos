@@ -53,9 +53,6 @@ describe('utils', () => {
     })
 
     test('a cancelled upload the server does not list is drawn cancelled, never uploading', () => {
-      // The row as the abort path leaves it, after a listing that does not
-      // know the file: `setFilesFromServer` keeps it, and the chat's file
-      // sources map exactly this status.
       const store = useDocumentsStore.getState()
       store.clearTrackedFiles()
       store.addTrackedFile({ id: 'row-1', fileName: 'a.pdf', fileSize: 1, status: 'uploading', progress: 0, collectionName: 'chat-1' })

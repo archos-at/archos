@@ -1,18 +1,5 @@
 'use client'
 
-/**
- * What ingestion read a document to be (its dossier), what it points at and
- * who points at it, and how much of it was read — the lower half of the
- * „Piloti reading“ rail (`agent-reading.tsx`). Contract:
- * `docs/architecture/document-dossier.md`.
- *
- * The dossier and the raw references arrive on the file itself; resolving a
- * reference to a document of the project needs the project's documents, so
- * that half comes from the findings route (`useDocumentFindings`), or from the
- * caller where it already holds it (a dev preview). Until it lands, every
- * reference is shown by its label, neither linked nor marked missing.
- */
-
 import type { JSX, ReactNode } from 'react'
 import Link from 'next/link'
 import { Chip } from '@/components/ui/chip'
@@ -34,7 +21,6 @@ import { useDocumentFindings } from '../hooks/use-document-findings'
 
 type Translate = ReturnType<typeof useTranslations>
 
-/** „S. 2“ or „S. 2, 4, 7“, or nothing. */
 export function pagesLabel(t: Translate, pages: readonly number[]): string | null {
   if (pages.length === 0) return null
   return pages.length === 1 ? t('rail.page', { page: pages[0] }) : t('rail.pages', { pages: pages.join(', ') })
@@ -43,7 +29,6 @@ export function pagesLabel(t: Translate, pages: readonly number[]): string | nul
 const INLINE_LINK =
   'text-foreground decoration-border hover:decoration-foreground font-medium underline underline-offset-2'
 
-/** A link to the project's profile, the Steckbrief, where the intake wizard shows and edits it. */
 export function ProjectProfileLink({ projectId, children }: { projectId: string; children: ReactNode }): JSX.Element {
   return (
     <Link
@@ -56,7 +41,6 @@ export function ProjectProfileLink({ projectId, children }: { projectId: string;
   )
 }
 
-/** A link that opens a document of the project in its Dateien preview (`?doc=`). */
 export function DocumentLink({
   projectId,
   document,
@@ -78,7 +62,6 @@ export function DocumentLink({
   )
 }
 
-/** „38 von 40 Seiten vollständig gelesen · 2 Zeichnungsseiten nicht ausgewertet (Seitenlimit)“. */
 export function CoverageLine({ coverage }: { coverage: ReadingCoverage }): JSX.Element {
   const t = useTranslations(dossierCopy)
   if (coverage.notRead === 0) {
@@ -113,7 +96,6 @@ function formatDate(iso: string, locale: string): string {
   })
 }
 
-/** Type, parties, dates, place and the facts the document states. */
 export function DossierFacts({ dossier }: { dossier: Dossier }): JSX.Element | null {
   const t = useTranslations(dossierCopy)
   const { locale } = useLocale()
@@ -164,7 +146,6 @@ export function DossierFacts({ dossier }: { dossier: Dossier }): JSX.Element | n
   )
 }
 
-/** One reference: a link per document it resolves to, muted when the project lacks it. */
 function ReferenceItem({ resolved, projectId }: { resolved: ResolvedReference; projectId?: string }): JSX.Element | null {
   const t = useTranslations(dossierCopy)
   const { reference, resolution, targets } = resolved
@@ -204,7 +185,6 @@ function ReferencePages({ reference }: { reference: DocumentReference }): JSX.El
   return label ? <span className="text-muted-foreground tabular-nums">{label}</span> : null
 }
 
-/** The references, grouped by kind; norms and laws as chips, documents and drawing numbers as a list. */
 export function DossierReferences({
   references,
   projectId,
@@ -217,7 +197,6 @@ export function DossierReferences({
     kind,
     items: references.filter((resolved) => resolved.reference.kind === kind && resolved.resolution !== 'self'),
   })).filter((group) => group.items.length > 0)
-  // Documents and drawing numbers lead: they are what a person can open.
   const order: Record<string, number> = { document: 0, plan: 1, norm: 2, law: 3 }
   groups.sort((a, b) => order[a.kind] - order[b.kind])
   if (groups.length === 0) return null
@@ -248,7 +227,6 @@ export function DossierReferences({
   )
 }
 
-/** „Verwiesen von“: the documents that point at this one. */
 export function DossierReferencedBy({
   incoming,
   projectId,
@@ -276,7 +254,6 @@ export function DossierReferencedBy({
   )
 }
 
-/** The references as known before the project's documents are: by label only. */
 const unresolved = (references: readonly DocumentReference[]): ResolvedReference[] =>
   references.map((reference) => ({
     reference,
@@ -284,10 +261,6 @@ const unresolved = (references: readonly DocumentReference[]): ResolvedReference
     targets: [],
   }))
 
-/**
- * The whole block. `links` given (a preview with fixtures) is used as is;
- * otherwise, inside a project, the findings route resolves the references.
- */
 export function DocumentDossier({
   file,
   projectId,
@@ -300,8 +273,6 @@ export function DocumentDossier({
   const hasReferences = (file.docReferences?.length ?? 0) > 0
   const fetched = useDocumentFindings(projectId, {
     documentId: file.id,
-    // Re-read when this document's own reading changes; „Verwiesen von“ needs
-    // the read even when the document points at nothing itself.
     refreshKey: `${file.status}:${file.docReferences?.length ?? 0}`,
     enabled: links === undefined,
   })

@@ -1,34 +1,17 @@
-"""Unit tests for visual/vector PDF-page rendering + drawing captioning.
-
-Covers the fix for image-only / vector CAD PDFs (e.g. an architectural
-"Perspektivischer Schnitt") whose pages carry thousands of vector paths but
-almost no extractable text — often only a licence watermark. The text and
-embedded-image extractors both miss such pages, so the document summary used to
-describe the watermark ("VECTORWORKS EDUCATIONAL VERSION ...") instead of the
-drawing.
-
-Covers:
-- ``_strip_watermark_lines`` — licence/watermark boilerplate removal.
-- ``_parse_drawing_fields`` — parsing the structured drawing-VLM response.
-- ``_summary_from_drawing_fields`` — building a watermark-free document summary
-  from rendered-page descriptions.
-- ``processing.render_visual_pages_no_vlm`` — the drawing check (text-sparse AND
-  path-heavy, ``page_triage``) with pypdfium2 mocked.
-- The ``_run_ingestion`` drawing branch end-to-end (heavy collaborators mocked):
-  a watermark-only PDF is rendered, captioned, and summarised from the drawing
-  — never from the watermark.
-"""
-
 import time
 from unittest.mock import MagicMock
 
 import pytest
 from knowledge_layer.ingest import LlamaIndexIngestor
-from knowledge_layer.ingest import adapter
-from knowledge_layer.ingest.adapter import _parse_drawing_fields
-from knowledge_layer.ingest.adapter import _scrub_watermark_phrases
-from knowledge_layer.ingest.adapter import _strip_watermark_lines
-from knowledge_layer.ingest.adapter import _summary_from_drawing_fields
+from knowledge_layer.ingest import _parse_drawing_fields
+from knowledge_layer.ingest import _scrub_watermark_phrases
+from knowledge_layer.ingest import _strip_watermark_lines
+from knowledge_layer.ingest import _summary_from_drawing_fields
+from knowledge_layer.ingest import limits
+from knowledge_layer.ingest import page_triage
+from knowledge_layer.ingest import pdf_text
+from knowledge_layer.ingest import vision_credentials
+from knowledge_layer.ingest import vision_reads
 from knowledge_layer_testing.vector_store import FakeEmbedder
 from knowledge_layer_testing.vector_store import record
 from knowledge_layer_testing.vector_store import write
@@ -37,18 +20,15 @@ from agent.common.credential_resolution import ResolvedCredential
 
 
 def _patch_vlm_credential(monkeypatch, api_key: str):
-    """Point the ingestion path's VLM credential resolver at a fixed key
-    (the BYOK-aware chokepoint ingestion consults, not ``_get_vlm_api_key``)."""
     cred = ResolvedCredential(
         api_key=api_key,
         base_url="https://vlm.test/v1",
         model="test-vlm",
         source="env" if api_key else "none",
     )
-    monkeypatch.setattr(adapter, "resolve_vlm_credential", lambda organization_id=None: cred)
+    monkeypatch.setattr(vision_credentials, "resolve_vlm_credential", lambda organization_id=None: cred)
 
 
-# A representative structured response from the drawing-aware VLM prompt.
 _VLM_DRAWING_RESPONSE = (
     "ZEICHNUNGSTYP: perspektive\n"
     "MASSSTAB: Maßstabsfiguren vorhanden\n"
@@ -62,11 +42,6 @@ _VLM_DRAWING_RESPONSE = (
     "ZUSAMMENFASSUNG: Perspektivischer Schnitt durch einen fünfgeschossigen "
     "Bildungsbau mit zentralem Atrium und Freitreppe."
 )
-
-
-# =============================================================================
-# Watermark stripping
-# =============================================================================
 
 
 class TestStripWatermarkLines:
@@ -86,15 +61,8 @@ class TestStripWatermarkLines:
         assert _strip_watermark_lines("") == ""
 
 
-# =============================================================================
-# Substring watermark scrubbing for VLM captions
-# =============================================================================
-
-
 class TestScrubWatermarkPhrases:
     def test_scrubs_watermark_mid_line(self):
-        # The line-level filter never fires here (the stamp is embedded in
-        # prose), so without the substring scrub this leaks into the summary.
         caption = "Ein Grundriss EG. VECTORWORKS EDUCATIONAL VERSION im Plan. Zentrales Atrium."
         scrubbed = _scrub_watermark_phrases(caption)
         assert "VECTORWORKS" not in scrubbed.upper()
@@ -113,13 +81,10 @@ class TestScrubWatermarkPhrases:
         assert _scrub_watermark_phrases(caption) == caption
 
     def test_collapses_whitespace_left_behind(self):
-        # Removing the stamp must not leave a double space or a dangling blank line.
         scrubbed = _scrub_watermark_phrases("Grundriss.\nVECTORWORKS EDUCATIONAL VERSION\nSchnitt.")
         assert scrubbed == "Grundriss.\nSchnitt."
 
     def test_scrub_to_empty_and_none_are_falsy(self):
-        # A caption that is nothing but a watermark scrubs to "" (falsy) so the
-        # ``caption[:500] or None`` fallback yields None, never an empty summary.
         assert _scrub_watermark_phrases("VECTORWORKS EDUCATIONAL VERSION") == ""
         assert _scrub_watermark_phrases("   ") == ""
         assert _scrub_watermark_phrases(None) == ""
@@ -127,10 +92,6 @@ class TestScrubWatermarkPhrases:
 
 
 class TestGenericVlmPromptWatermarkExclusion:
-    """The generic image-caption prompt (used for standalone JPG/PNG and
-    PDF-embedded rasters) must instruct the model to exclude watermark/licence
-    text — the drawing path already does, the generic path did not."""
-
     def _capture_prompt(self, monkeypatch, *, extract_charts):
         captured = {}
 
@@ -153,23 +114,16 @@ class TestGenericVlmPromptWatermarkExclusion:
         import openai
 
         monkeypatch.setattr(openai, "OpenAI", _FakeClient)
-        monkeypatch.setattr(adapter, "_get_vlm_api_key", lambda: "k")
-        adapter._analyze_image_with_vlm(b"fakeimagebytes", extract_charts=extract_charts)
+        monkeypatch.setattr(vision_credentials, "_get_vlm_api_key", lambda: "k")
+        vision_reads._analyze_image_with_vlm(b"fakeimagebytes", extract_charts=extract_charts)
         return captured["prompt"]
 
     @pytest.mark.parametrize("extract_charts", [True, False])
     def test_prompt_excludes_watermarks(self, monkeypatch, extract_charts):
         prompt = self._capture_prompt(monkeypatch, extract_charts=extract_charts)
         assert "VECTORWORKS EDUCATIONAL VERSION" in prompt
-        # Shifts toward content/meaning rather than transcribing all visible text.
         assert "content" in prompt.lower() or "CONTENT" in prompt
-        # The old "any text visible" transcription instruction is gone.
         assert "any text visible" not in prompt.lower()
-
-
-# =============================================================================
-# Drawing-field parsing
-# =============================================================================
 
 
 class TestParseDrawingFields:
@@ -201,18 +155,12 @@ class TestParseDrawingFields:
         assert fields["detail"].startswith("Ein Längsschnitt")
 
 
-# =============================================================================
-# Document summary from drawing fields
-# =============================================================================
-
-
 class TestSummaryFromDrawingFields:
     def test_prefers_summary_sentences(self):
         pages = [{"fields": _parse_drawing_fields(_VLM_DRAWING_RESPONSE)}]
         summary = _summary_from_drawing_fields(pages)
         assert summary is not None
         assert summary.startswith("Perspektivischer Schnitt")
-        # The watermark must never appear in the summary.
         assert "VECTORWORKS" not in summary.upper()
 
     def test_synthesises_from_type_and_scale_when_no_sentence(self):
@@ -226,14 +174,9 @@ class TestSummaryFromDrawingFields:
         assert _summary_from_drawing_fields([]) is None
 
 
-# =============================================================================
-# VLM runtime model override (org-scoped, ingest_vlm agent group)
-# =============================================================================
-
-
 class TestVlmModelOverride:
     def test_none_without_org(self):
-        assert adapter._resolve_vlm_model_override(None) is None
+        assert vision_credentials._resolve_vlm_model_override(None) is None
 
     def test_reads_ingest_vlm_group_for_org(self, monkeypatch):
         from agent.common import model_overrides
@@ -241,7 +184,7 @@ class TestVlmModelOverride:
         monkeypatch.setattr(
             model_overrides, "resolve_org_model_overrides", lambda org: {"ingest_vlm": "tenant/vision-model"}
         )
-        assert adapter._resolve_vlm_model_override("org-1") == "tenant/vision-model"
+        assert vision_credentials._resolve_vlm_model_override("org-1") == "tenant/vision-model"
 
     def test_fails_open_to_none_on_error(self, monkeypatch):
         from agent.common import model_overrides
@@ -250,12 +193,7 @@ class TestVlmModelOverride:
             raise RuntimeError("BFF unreachable")
 
         monkeypatch.setattr(model_overrides, "resolve_org_model_overrides", boom)
-        assert adapter._resolve_vlm_model_override("org-1") is None
-
-
-# =============================================================================
-# Visual-page render heuristic (pypdfium2 mocked)
-# =============================================================================
+        assert vision_credentials._resolve_vlm_model_override("org-1") is None
 
 
 class _FakeTextPage:
@@ -294,7 +232,7 @@ class _FakePage:
         return _FakeTextPage(self._text)
 
     def get_objects(self):
-        return [_FakeObj(adapter._PAGEOBJ_PATH) for _ in range(self._n_paths)]
+        return [_FakeObj(page_triage._PAGEOBJ_PATH) for _ in range(self._n_paths)]
 
     def get_size(self):
         return self._size
@@ -330,7 +268,6 @@ class TestRenderVisualPagesNoVlm:
     def test_watermark_only_vector_page_is_rendered(self, monkeypatch):
         from knowledge_layer.ingest import processing as _processing
 
-        # Only a watermark as text, tens of thousands of vector paths.
         _install_fake_pdf(monkeypatch, [_FakePage("VECTORWORKS EDUCATIONAL VERSION", n_paths=5000)])
 
         out = _processing.render_visual_pages_no_vlm("ignored.pdf")
@@ -338,13 +275,11 @@ class TestRenderVisualPagesNoVlm:
         assert len(out) == 1
         assert out[0]["page_number"] == 1
         assert len(out[0]["image_bytes"]) > 0
-        # Rendered near the long-edge target (±2px for scale rounding).
         assert abs(max(out[0]["width"], out[0]["height"]) - 2048) <= 2
 
     def test_text_page_is_skipped(self, monkeypatch):
         from knowledge_layer.ingest import processing as _processing
 
-        # Plenty of text, no vector paths → not a visual page.
         _install_fake_pdf(monkeypatch, [_FakePage("A" * 5000, n_paths=0)])
 
         out = _processing.render_visual_pages_no_vlm("ignored.pdf")
@@ -362,8 +297,6 @@ class TestRenderVisualPagesNoVlm:
         assert len(out) == 2
 
     def test_render_cap_says_which_pages_it_drops(self, monkeypatch, caplog):
-        # Issue #437: a plan set past the cap indexed its later sheets as
-        # text only while reporting nothing. The cap stays; the silence goes.
         import logging
 
         from knowledge_layer.ingest import processing as _processing
@@ -380,11 +313,6 @@ class TestRenderVisualPagesNoVlm:
         )
 
 
-# =============================================================================
-# _run_ingestion drawing branch (heavy collaborators mocked)
-# =============================================================================
-
-
 @pytest.fixture
 def summary_db(tmp_path):
     from agent.knowledge import configure_summary_db
@@ -398,13 +326,9 @@ def summary_db(tmp_path):
 
 @pytest.fixture
 def ingestor(tmp_path, monkeypatch, qdrant_store):
-    """A LlamaIndexIngestor with embeddings + vector index mocked out."""
 
     def fake_invoke(prompt):
-        # The tag prompt is the only one containing "klassifizierst".
         if "klassifizierst" not in prompt:
-            # Echo that the summary LLM actually saw the drawing description
-            # (not the watermark) — the drawing text mentions "Atrium".
             content = "Perspektivischer Schnitt eines Bildungsbaus." if "Atrium" in prompt else "GENERIC"
             return MagicMock(content=content)
         return MagicMock(content='["Schnitt", "Perspektive"]')
@@ -435,20 +359,14 @@ def _wait_terminal(ing, job_id, timeout=30):
 
 class TestRunIngestionDrawingBranch:
     def test_summary_comes_from_drawing_not_watermark(self, tmp_path, monkeypatch, ingestor, summary_db):
-        """The user-reported bug: a watermark-only vector PDF must be summarised
-        from its rendered-page drawing description, never from the watermark."""
         from agent.knowledge import get_available_documents
 
         _patch_vlm_credential(monkeypatch, "vlm-key")
-        # The rendered-page VLM returns the architectural drawing description.
         monkeypatch.setattr(
-            adapter,
+            vision_reads,
             "_analyze_drawing_page_with_vlm",
             lambda *a, **k: (_VLM_DRAWING_RESPONSE, _parse_drawing_fields(_VLM_DRAWING_RESPONSE)),
         )
-        # Force the page-render path without depending on a real vector PDF:
-        # report one visual page for any PDF. The renderer returns raw pages
-        # (no VLM) — enrich_vlm_batch enriches them via the mocked VLM above.
         import knowledge_layer.ingest.processing as processing_module
 
         monkeypatch.setattr(
@@ -463,8 +381,7 @@ class TestRunIngestionDrawingBranch:
                 }
             ],
         )
-        # Text extraction yields nothing usable (watermark already stripped).
-        monkeypatch.setattr(adapter, "_extract_text_from_pdf", lambda p: [])
+        monkeypatch.setattr(pdf_text, "_extract_text_from_pdf", lambda p: [])
 
         pdf = tmp_path / "perspektivischer_schnitt.pdf"
         pdf.write_bytes(b"%PDF-1.4\n% minimal\n")
@@ -479,12 +396,10 @@ class TestRunIngestionDrawingBranch:
         assert len(docs) == 1
         summary = docs[0].summary
         assert summary is not None
-        # The summary describes the drawing, never the watermark.
         assert "VECTORWORKS" not in summary.upper()
         assert "Schnitt" in summary or "Bildungsbau" in summary
 
     def test_missing_vlm_key_skips_render_without_failing(self, tmp_path, monkeypatch, ingestor, summary_db):
-        """No VLM key → no page render, but a normal text PDF still ingests."""
         from agent.knowledge import get_available_documents
 
         _patch_vlm_credential(monkeypatch, "")
@@ -493,7 +408,7 @@ class TestRunIngestionDrawingBranch:
         render = MagicMock()
         monkeypatch.setattr(processing_module, "render_visual_pages_no_vlm", render)
         monkeypatch.setattr(
-            adapter,
+            pdf_text,
             "_extract_text_from_pdf",
             lambda p: [{"page_number": 1, "text": "Baubeschreibung: dreigeschossiges Wohngebäude."}],
         )
@@ -510,8 +425,6 @@ class TestRunIngestionDrawingBranch:
         assert len(docs) == 1
 
     def test_visual_details_returns_per_page_descriptions(self, monkeypatch, ingestor):
-        """get_document_visual_details returns the drawing/image chunk captions
-        (prefix stripped, sorted by page) for the file-preview detail section."""
         write(
             "coll",
             [
@@ -538,7 +451,6 @@ class TestRunIngestionDrawingBranch:
 
         details = ingestor.get_document_visual_details("coll", "plan.pdf")
 
-        # Text chunk and the other file excluded; drawings sorted by page; prefix stripped.
         assert [d["page"] for d in details] == [1, 2]
         assert details[0]["drawing_type"] == "grundriss"
         assert details[1]["drawing_type"] == "schnitt"
@@ -556,9 +468,6 @@ class TestRunIngestionDrawingBranch:
         assert ingestor.get_document_visual_details("coll", "plan.pdf") == []
 
     def test_visual_details_carries_how_many_depictions_share_the_sheet(self, monkeypatch, ingestor):
-        """Issue #440: the backend knows `segment_count` per chunk but dropped
-        it, so the preview could not say which of a sheet's depictions a row
-        is. Rows without the key (pre-segment chunks) read as a single one."""
         drawing = {"content_type": "drawing", "drawing_type": "floor_plan", "drawing_scale": "1:100"}
         write(
             "coll",
@@ -598,9 +507,6 @@ class TestRunIngestionDrawingBranch:
         ]
 
     def test_org_byok_and_model_override_reach_the_vlm(self, tmp_path, monkeypatch, ingestor, summary_db):
-        """The org id captured at /v1/ingest drives the VLM the same way the
-        chat models resolve theirs: the org's BYOK key + base URL and its
-        runtime model override reach the rendered-page VLM call."""
         seen_org: dict[str, str | None] = {}
 
         def fake_cred(organization_id=None):
@@ -613,9 +519,9 @@ class TestRunIngestionDrawingBranch:
             seen_org["override"] = organization_id
             return "tenant/vision-model"
 
-        monkeypatch.setattr(adapter, "resolve_vlm_credential", fake_cred)
-        monkeypatch.setattr(adapter, "_resolve_vlm_model_override", fake_override)
-        monkeypatch.setattr(adapter, "_extract_text_from_pdf", lambda p: [])
+        monkeypatch.setattr(vision_credentials, "resolve_vlm_credential", fake_cred)
+        monkeypatch.setattr(vision_credentials, "_resolve_vlm_model_override", fake_override)
+        monkeypatch.setattr(pdf_text, "_extract_text_from_pdf", lambda p: [])
 
         captured: dict[str, object] = {}
 
@@ -623,10 +529,8 @@ class TestRunIngestionDrawingBranch:
             captured.update(model=vlm_model, base_url=vlm_base_url, api_key=vlm_api_key)
             return ("ZEICHNUNGSTYP: grundriss\nMASSSTAB: keiner", {"drawing_type": "grundriss", "scale": "keiner"})
 
-        monkeypatch.setattr(adapter, "_analyze_drawing_page_with_vlm", fake_vlm_call)
+        monkeypatch.setattr(vision_reads, "_analyze_drawing_page_with_vlm", fake_vlm_call)
 
-        # render_visual_pages_no_vlm must return at least one raw page so
-        # enrich_vlm_batch fires the VLM call (where we capture the creds).
         import knowledge_layer.ingest.processing as processing_module
 
         monkeypatch.setattr(
@@ -646,7 +550,6 @@ class TestRunIngestionDrawingBranch:
         _wait_terminal(ingestor, job_id)
 
         assert seen_org == {"cred": "org-9", "override": "org-9"}
-        # BYOK swaps the key + base URL; the runtime override swaps the model.
         assert captured == {
             "api_key": "byok-key",
             "base_url": "https://tenant.example/v1",
@@ -666,7 +569,7 @@ class TestRunIngestionEmbedsAndChecksWithTheWholePage:
         ]
         table = PageTable("3", "Anforderungen an Treppenhäuser", rows, 1)
         monkeypatch.setattr(
-            adapter,
+            pdf_text,
             "_extract_text_from_pdf",
             lambda p: [{"page_number": 1, "text": "Seite 1", "tables": [table], "table_boxes": [(0, 0, 1, 1)]}],
         )
@@ -676,21 +579,17 @@ class TestRunIngestionEmbedsAndChecksWithTheWholePage:
         assert _wait_terminal(ingestor, job_id).is_success
 
     def test_a_table_page_is_judged_by_its_table_text_too(self, tmp_path, monkeypatch, ingestor, summary_db):
-        """The heuristic got the text with its captioned tables cut out, so a
-        table page read as text-sparse and was captioned as a drawing."""
         render = MagicMock(return_value=[])
 
         self._ingest_table_page(tmp_path, monkeypatch, ingestor, render)
 
         page_texts = render.call_args.kwargs["page_texts"]
         assert "REI 90" in page_texts[1]
-        assert len(page_texts[1]) >= adapter.VISUAL_PAGE_MIN_TEXT_CHARS
+        assert len(page_texts[1]) >= limits.VISUAL_PAGE_MIN_TEXT_CHARS
 
     def test_the_chunks_are_embedded_with_the_ingestors_own_embed_model(
         self, tmp_path, monkeypatch, ingestor, summary_db
     ):
-        """Passed explicitly, never read off the global ``Settings``, which the
-        retriever once set to its 3 s query model."""
         import llama_index.core
 
         monkeypatch.setattr(llama_index.core.Settings, "_embed_model", None)

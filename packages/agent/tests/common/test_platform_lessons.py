@@ -1,5 +1,3 @@
-"""Tests for the platform-lessons digest resolver."""
-
 import httpx
 import pytest
 
@@ -24,7 +22,6 @@ def _clean_cache(monkeypatch):
 
 
 def _mock_bff(monkeypatch, payload: object = None, error: Exception | None = None) -> dict:
-    """Patch httpx.get; returns a call counter."""
     calls = {"n": 0}
 
     class FakeResponse:
@@ -59,8 +56,6 @@ class TestSanitize:
         assert sanitize_lessons_digest(42) is None
 
     def test_missing_header_rejected(self):
-        # A payload that does not open with the versioned header is not a
-        # digest this module produced — never inject arbitrary text.
         assert sanitize_lessons_digest('- [x | 1x] "no header"') is None
         assert sanitize_lessons_digest("") is None
         assert sanitize_lessons_digest("   ") is None
@@ -122,15 +117,6 @@ class TestResolution:
 
 
 class TestHoldout:
-    """The control group both tiers must agree on.
-
-    These vectors are pinned on the TypeScript side too
-    (apps/workspace/bff/platform-lessons/holdout.spec.ts). The two
-    implementations decide different things — this tier whether to INJECT, the
-    BFF how to LABEL the resulting vote — so a disagreement would not fail
-    anything loudly; it would quietly mislabel every measurement.
-    """
-
     def test_off_at_zero_and_total_at_hundred(self):
         assert is_in_holdout_slice("conv-1", 0) is False
         assert is_in_holdout_slice("conv-1", 100) is True
@@ -148,8 +134,6 @@ class TestHoldout:
         assert 0.08 < share < 0.12
 
     def test_monotonic_in_percentage(self):
-        # Raising the holdout must not reshuffle the arms, or every measurement
-        # taken before the change becomes uninterpretable.
         for index in range(500):
             cid = f"conv-{index}"
             if is_in_holdout_slice(cid, 10):
@@ -172,7 +156,6 @@ class TestHoldoutSuppression:
             lambda key, fallback: 100 if key == "lessons.holdout_pct" else fallback,
         )
         assert get_platform_lessons_digest("conv-1") is None
-        # And it costs nothing: a suppressed turn must not even fetch.
         assert calls["n"] == 0
 
     def test_treated_conversation_still_receives_the_digest(self, monkeypatch):
@@ -192,7 +175,6 @@ class TestHoldoutSuppression:
             raise RuntimeError("settings down")
 
         monkeypatch.setattr("agent.common.retrieval_settings.get_retrieval_setting", _boom)
-        # Measurement must never decide whether a user gets an answer.
         assert get_platform_lessons_digest("conv-1") == DIGEST
 
 
@@ -237,8 +219,6 @@ class TestLessonIds:
 
 
 class TestResolutionCarriesTheArmAndTheLessons:
-    """What the trace records: the arm, and the ids of the lessons in the injected digest."""
-
     def test_a_treated_turn_carries_the_digest_and_its_lesson_ids(self, monkeypatch):
         monkeypatch.setenv("INTERNAL_API_TOKEN", "tok")
         _mock_bff(monkeypatch, {"digest": DIGEST, "lessonIds": [LESSON_A, LESSON_B]})

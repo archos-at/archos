@@ -125,12 +125,29 @@ runs it.
 | `src/layouts/BaseLayout.astro` | `<head>`, skip link, header, `<main>`, footer. Every page uses it. |
 | `src/components/` | One Astro component per design-system component, ported from `packages/brand/react`. |
 | `src/lib/identity.ts` | Typed brand strings, read from `identity.json`; `withName` fills `{name}` in copy. |
-| `src/i18n/` | Languages: the route table (`paths.ts`), the shell strings (`ui.ts`), navigation (`nav.ts`) and page copy (`pages/`). See [Languages](AGENTS.md#languages). |
+| `src/i18n/` | Languages: the route table (`paths.ts`), the shell strings (`ui.ts`), navigation (`nav.ts`) and page copy (`pages/`). See [Languages](#languages). |
 | `src/views/` | Page markup, one view per page, rendered for both locales. |
 | `src/styles/brand/` | Committed copy of the design system (tokens, components, fonts, identity). Generated, never edited. |
 | `src/styles/site.css` | Page glue only: skip link, `[hidden]`, image sizing. Uses tokens. |
 | `src/assets/media/` | Photos, product screenshots and the video the pages render, as full-resolution masters (table below); `src/lib/media.ts` exports them. |
 | `public/media/` | Files that keep a fixed address: the pilot office logos, the funding logo, the share card (table below). |
+
+## Languages
+
+German is the default and lives at the root; English is under `/en/` with English first segments (`/datensicherheit` is `/en/security`).
+Astro's `i18n` config in `astro.config.mjs` sets the locales and `prefixDefaultLocale: false`. Everything else goes through two files:
+
+- `src/i18n/paths.ts`: `ROUTES`, one row per page with its `de` and `en` path. `localePath(key, locale)` builds a link, `alternateOf(pathname)` gives the other locale's twin (language switch and hreflang), `localeFromUrl(url)` reads the locale of a URL.
+- `src/i18n/ui.ts` and `src/i18n/pages/<key>.ts`: the strings. Each exports `{ de, en }` with `en` typed `typeof de`. Brand name as `{name}`, filled by `withName`.
+
+A view takes a `locale` prop and renders the page once for both locales. The two route files only say which locale: `<HomeView locale="de" />` and `<HomeView locale="en" />`. `BaseLayout` requires `locale`, and so do the components that print a UI string (`Gallery`, `Video`, `AITag`, `DuoCards`, `SplitPage`).
+
+A page in `UNLISTED_ROUTES` (`src/i18n/paths.ts`) is built but not offered: no link, no sitemap entry, `noindex`. Take its key out of that list to offer it again.
+
+Every page renders through `src/layouts/BaseLayout.astro`, which provides the header, footer and
+`<main>`. A page that needs no header (the split pages) passes `bare` to the same layout.
+`src/i18n/nav.ts` builds the navigation and footer links for a locale; change the labels in `src/i18n/ui.ts`
+and the paths in `src/i18n/paths.ts`, not in a page.
 
 ## Styles and brand
 
@@ -143,12 +160,23 @@ drifted. Change a token or a brand string in `packages/brand`, then sync.
 Reference media from the eight-page reference site, renamed in English by what each file shows.
 The tables give the source file and where it appears.
 
-**Rendered media** are in `src/assets/media/`, as full-resolution masters: 2560 px on the long
+**Rendered media** are in `src/assets/media/`, as full-resolution masters: 3840 px on the long
 edge at most, never shrunk by hand, WebP at quality 92 (photos) or 95 (screenshots), in sRGB.
 Views take them from `src/lib/media.ts` and render them with Astro's `<Image>`, which builds
 variants from 320 px (photos) or 640 px (screenshots) up to the master's width, with a `srcset` and
-`sizes`, so a phone loads the variant its layout needs (the hero at 390 px: 57 KB instead of 181 KB;
-a gallery card stays 2560 px, because on a phone it shows its image 500 px high and 1250 px wide).
+`sizes`, so a phone loads the variant its layout needs (the hero at 390 px: 57 KB instead of 181 KB).
+
+A master must carry the device pixels of its widest drawing, or the browser enlarges it and it looks
+soft. Measured on dev.archos.tech (2026-11-12, Playwright, drawn width × device pixel ratio against
+the file the `srcset` chose): with 2560 px masters the hero was enlarged 1.08× on a 14-inch MacBook
+(1512 × 2), 1.25× on a 16-inch (1728 × 2) and 1.9× on a 5K screen; a gallery card 1.29× on a phone
+(390 × 3: 500 px high at 5:2 is about 3300 device pixels); `ai-search-compare-photo` (1104 px) 1.27×
+on every retina screen; the founder portraits (560 and 380 px) up to 2.8× on a phone. Everything else
+was drawn at or below its file's size. The hero, the gallery, the floor plan and the demo background
+are now 3840 px masters from the Drive originals; `ai-search-compare-photo` and the founder portraits
+still want larger originals. Images uploaded into a Claude chat
+arrive at 2000 px on the long edge, smaller than these masters: replace a master only from the
+original file (Drive, or committed to the branch), never from a chat upload.
 The video is imported with `?url`, so it is served from `/_astro/` like the images. The built files
 have hashed names, so a replaced master reaches every visitor at once. Photos show in their own
 colours and brightness: no CSS filter darkens or tints them. Where text sits on a photo, the design
@@ -159,20 +187,20 @@ section order there.
 
 | File in `src/assets/media/` | Source | Where it is used |
 |---|---|---|
-| `product-plan-revision-changes.webp` | `b3c4660c81.webp`, the composer hint retouched to the current name (Inter Regular 15.6 px, the app's face when it was captured); 2560 × 1460 | Home and „Planstände vergleichen“, hero image (plan revision with sources) |
-| `product-search-derivation.webp` | Drive `02_Startseite_Galerie-1_Eine-Frage.png` (4960 × 1984), 2560 × 1024 | Home, gallery slide 1, "Suchen" |
-| `product-compare-clearance.webp` | Drive `03_Startseite_Galerie-2_Planstand-und-Anforderungen.png` (4960 × 1984), 2560 × 1024 | Home, gallery slide 2, "Vergleichen"; „Planstände vergleichen“, requirements |
-| `product-model-check.webp` | Drive `04_Startseite_Galerie-3_Komplexe-Modelle.png` (4960 × 1984), 2560 × 1024 | Home, gallery slide 3, "Prüfen" (3D model check) |
-| `product-floor-plan-query.webp` | Drive `07_Startseite_Gebaut-fuer-Planungsbueros.png` (4864 × 1620), 2560 × 853 | Home, "Gebaut für Architektur- & Planungsbüros." (floor plan with questions); „Baurecht durchsuchen“ and „KI für Architekturbüros“ (the escape-route question) |
+| `product-plan-revision-changes.webp` | Drive `01_Startseite_Hero.png` (5248 × 2992, from the owner's zip 2026-11-12), the composer hint retouched from the old name to the current one (Inter Regular 32.1 px, fitted to the original line by least squares); 3840 × 2189 | Home and „Planstände vergleichen“, hero image (plan revision with sources) |
+| `product-search-derivation.webp` | Drive `02_Startseite_Galerie-1_Eine-Frage.png` (4960 × 1984), 3840 × 1536 | Home, gallery slide 1, "Suchen" |
+| `product-compare-clearance.webp` | Drive `03_Startseite_Galerie-2_Planstand-und-Anforderungen.png` (4960 × 1984), 3840 × 1536 | Home, gallery slide 2, "Vergleichen"; „Planstände vergleichen“, requirements |
+| `product-model-check.webp` | Drive `04_Startseite_Galerie-3_Komplexe-Modelle.png` (4960 × 1984), 3840 × 1536 | Home, gallery slide 3, "Prüfen" (3D model check) |
+| `product-floor-plan-query.webp` | Drive `07_Startseite_Gebaut-fuer-Planungsbueros.png` (4864 × 1620), 3840 × 1279 | Home, "Gebaut für Architektur- & Planungsbüros." (floor plan with questions); „Baurecht durchsuchen“ and „KI für Architekturbüros“ (the escape-route question) |
 | `planner-design-photo.webp` | Drive `05_Startseite_Planerinnen-entwerfen.png` (2576 × 1940), 2560 × 1928 | Home, duo card "Planer:innen entwerfen." (photo, white text on the scrim) |
-| `ai-search-compare-photo.webp` | Drive `06_Startseite_KI-sucht-vergleicht-prueft.png`, 1104 × 1424 (the original's size) | Home, duo card "KI sucht, vergleicht und prüft." (dark card, photo) |
+| `ai-search-compare-photo.webp` | Drive `06_Startseite_KI-sucht-vergleicht-prueft.png`, 1104 × 1424 (the original's size; the Drive file is no larger, so it stays enlarged about 1.3× on a retina screen until a larger export exists) | Home, duo card "KI sucht, vergleicht und prüft." (dark card, photo) |
 | `knowledge-video.mp4` | Drive `archos_wissen_final_C_2432.mp4` (video folder), unchanged (H.264, 2432 × 1216, 34 s; a provisional cut) | German home only (its frames carry German text; the English home has no visual there until an English cut exists), the video "Das Wissen Ihres Büros wird nutzbar." H.264 MP4 plays in every current browser, so there is no WebM twin |
 | `knowledge-video-poster.webp` | The video's frame at 6 s ("Doch es liegt verstreut."), 2432 × 1216 | Same video, poster |
-| `team-conversation-photo.webp` | Drive `08_Startseite_Zitat-Foto.png` (grayscale), 1080 × 1350 | Home, portrait beside the feld72 quote |
+| `feld72-team-photo.webp` | The feld72 team photo the owner sent in the chat (JPEG, 2000 × 1294, sRGB), as WebP quality 92; © Vilma Pflaum Photography, credited under the photo. 2000 px is enough here: the widest drawing is about 1400 device pixels | Home, beside the feld72 quote, wide (`Quote` with `wide`, in its own proportions, never cropped) |
 | `jonathan-uhlemann.webp` | Drive `Founder/Unknown.jpg` (702 × 700), cropped to 4:5, 560 × 700 | Home, founders row "Das Planungsbüro der Zukunft entsteht heute." (portrait, 4:5) |
 | `matthias-bigl.webp` | the retired site's original portrait (git history, 1086 × 1448, colour), cropped to 4:5 and set in greyscale like the others, 560 × 700 | Home, founders row (portrait, 4:5) |
 | `ferdinand-rubenbauer.webp` | the retired site's team graphic (git history, `team.png`, right card, duotone), cropped to 4:5 and set in greyscale, 380 × 475; the largest version that exists, a new photo is still welcome | Home, founders row (portrait, 4:5) |
-| `demo-panel-background.webp` | Drive `11_Demo_Hintergrund.png` (too large for the Drive connector), as the owner exported it: 2000 × 1140 WebP, sRGB, unchanged | Demo, background of the form panel |
+| `demo-panel-background.webp` | Drive `11_Demo_Hintergrund.png` (5248 × 2992, from the owner's zip), 3840 × 2189 | Demo, background of the form panel |
 | `example-module-plan-rev-c.svg`, `example-module-plan-rev-d.svg` | Drawn for the blocks page with the blog covers' pens (`packages/brand/docs/blog-covers.md`): one residential module in plan, 1600 × 1000, as two plan states. Rev. D adds a desk to the kitchen counter, a built-in cabinet and an installation wall. Vector, so no `<Image>` variants; imported with `?url` | „Bausteine für Blogbeiträge“ (`/blog-bausteine/`, unlisted): the before/after comparison and the annotated image |
 
 | File in `public/media/` | Reference file | Where it is used |
@@ -328,3 +356,30 @@ the band to `/media/covers/<id>.png` at build time with sharp, the post's `og:im
 JSON-LD `image`. How to draw one: [`packages/brand/docs/blog-covers.md`](../../packages/brand/docs/blog-covers.md).
 
 Screenshots of every route for a PR: `bun run capture` (see [visual screenshots](../../docs/ux/visual-screenshots.md#website-targets)).
+
+## Contributor rules, in full
+
+The full form of the rules in [`AGENTS.md`](AGENTS.md), with their reasons and checks.
+
+| When you | You must | Why |
+|---|---|---|
+| Need a style change | Change `packages/brand` (tokens or `css/components.css`), then run `node packages/brand/sync.mjs` | `src/styles/brand/` is a generated copy. A hand edit is overwritten by the next sync and fails `--check`. |
+| Need a brand string (name, claim, address, e-mail, domain) | Read it from `src/lib/identity.ts`; in copy write `{name}` and pass it through `withName` | A typed name breaks at the next rename. |
+| Add a page or a string | Provide `de` and `en`. Page copy in `src/i18n/pages/<key>.ts`, markup in `src/views/<Page>View.astro`, two thin route files (`src/pages/<de-path>.astro` and `src/pages/en/<en-path>.astro`). A new route is one row in `src/i18n/paths.ts`. Shell strings go in `src/i18n/ui.ts`. | The English dictionary is typed `typeof de`, so a missing key fails `astro check`. |
+| Build a page or a block | Use only the components in `src/components/` and the tokens | The design system is the one source. A new visual needs a design-system change first. |
+| Add a value (colour, size, spacing) | Use a token from `src/styles/brand/tokens.css`, never a literal | Spacing comes from the `--space-*` scale; no new colours or sizes in `site.css`. |
+| Write German copy | Follow the German copy rules in [`packages/brand/README.md`](../../packages/brand/README.md) | Sie-form, colon gendering, no exclamation marks, buttons start with a verb, no AI jargon. |
+| Name a file, a component or a class | `PascalCase.astro` for a component, kebab-case for everything else ([`naming.md`](../../docs/contributing/naming.md#casing-and-form)) | Review. `ui-button`, `DuoCards`. |
+| Add an image | A photo or screenshot the page renders goes in `src/assets/media/` as the full-resolution master (3840 px long edge at most, never shrunk by hand, sRGB; at least as many pixels as its widest drawing needs, README "Media"), is exported from `src/lib/media.ts` and is rendered with Astro's `<Image>` and its `widths` and `sizes`. Only a file that must keep a fixed address (a logo, the share card) goes in `public/media/`. English kebab-case name, and a row in the table in `README.md`. No CSS filter on a photo: text on it gets its contrast from the design system's scrim | The table is how a reader finds out what a file shows. A phone must not download a 3840 px master, and a retina screen must not get a blurry one: a master narrower than its drawing in device pixels is enlarged and looks soft. A filter that darkens or tints a photo leaves it dull and colour-shifted |
+| Add an AI-generated image | Mark it with the `AITag` component | The design system requires the mark. |
+| Write a blog post | Write it in the CMS (`apps/cms`, ADR-0155): both languages live in one post, and a person with the Publisher role publishes it. A new cover drawing is a pull request: `src/assets/covers/<id>.svg`, drawn by [`packages/brand/docs/blog-covers.md`](../../packages/brand/docs/blog-covers.md), and the same id in `COVER_DRAWINGS` (`apps/cms/src/fields/choices.ts`) | `apps/cms/tests/choices.test.ts` fails a CMS cover, category or call-to-action list that differs from this app's; `src/lib/covers.test.ts` fails a drawing outside the system |
+| Change the MDX fixtures in `src/content/blog` | Keep them a faithful offline copy: give a fixture a `category`, a `cover`, and set `translationSlug` to its twin's slug | The content schema; `apps/cms/tests/import-blog.test.ts` fails twins that do not name each other or disagree, and MDX the CMS cannot hold |
+| Render something new from the CMS | A block: its config in `apps/cms/src/blocks/`, its props in `BLOCK_PROPS` (`src/lib/post-blocks.ts`), its component in `src/components/PostBlock.astro` (`apps/cms/README.md`, "Adding a block"). A node of the rich text: `src/components/RichText.astro`. CMS text reaches the page only through these two components, never as raw HTML | `src/lib/rich-text.test.ts` fails a CMS block without props here or without a component in `PostBlock.astro` |
+| Edit a legal page (`/datenschutz`, `/impressum`, the English twins) | Leave no bracketed placeholder (`[14 Tagen]`, `[EU]`); a value nobody verified is marked `TODO(owner):` and listed in the pull request | Nothing yet: `scripts/check_brand_rules.mjs` at the repo root does not look for brackets |
+| Write a component that scripts | Keep the script in the `.astro` file's `<script>` (Astro bundles it to `/_astro/`) and keep state in attributes. Use no `is:inline` with a body and no inline event handler | No React, no framework runtime. The Content-Security-Policy's `script-src` allows no inline script (`runtime/security-headers.mjs`), so one is blocked in production. |
+| Add a call to action, a form or a link worth measuring | Pass `cta`/`ctaLabel` to `Button` or `TextLink` (or `area` to `CTABand`), `id` to `MailForm`; let PostHog's autocapture do the rest. A custom `posthog.capture` only for what autocapture cannot see, named in English snake_case and added to README "Analytics" | Buy, don't build: the SDK records clicks, page views, scroll depth, UTMs and web vitals itself. No event may carry what a visitor typed. |
+| Put text on a photo | Add its selector to `PHOTO_TEXT` in `scripts/check-accessibility.mjs` | axe cannot measure text on images; that list is how the gate measures it (4.5:1 against every pixel). |
+| Change what the page stores, sends or shows to PostHog | Change `src/i18n/pages/privacy.ts` in the same commit | The privacy policy states exactly what `runtime/web-analytics.mjs` configures. |
+| Move, rename or remove a public address | Give the old address a fate in `redirects.mjs` (301 in one hop to the page that answers it now, or 410) and run `bun run build && bun run check:routes` | `src/lib/route-fates.test.ts` fails a target that is not a page or is itself redirected; nothing catches a forgotten old address but this row. README, "SEO" |
+| Add a page, for search | Its row in `ROUTES` puts it in the sitemap with its twin; add its view and copy file to `PAGE_SOURCES` in `sitemap.mjs` for its date; pass its FAQ items to `BaseLayout` as `faq` | `bun run check:structured-data` fails an FAQ without `FAQPage` and an inner page without breadcrumbs |
+| Change a page | Run `bun run build && bun run check:a11y` | WCAG 2.2 AA is the bar; the gate fails on any axe finding. |

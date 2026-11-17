@@ -63,7 +63,6 @@ describe('resolveProjectSettingsAccess', () => {
   })
 
   test('decides by permission, so a custom role holding only members:manage gets the roster', async () => {
-    // The old page asked `role === 'project-admin'` and would have refused this.
     held = new Set(['project:view', 'project:members:manage'])
     const access = await resolveProjectSettingsAccess(session, 'p1')
     expect(access.manageMembers).toBe(true)
@@ -77,9 +76,6 @@ describe('resolveProjectSettingsAccess', () => {
   })
 
   test('a closed project keeps status changes and the roster for its manager, nothing else (ADR-0090)', async () => {
-    // `can` refuses every write into a closed project but members:manage, so
-    // only the roster survives it; closing, reopening and deleting are asked
-    // with `evenWhenClosed`.
     held = new Set(['project:view', 'project:members:manage'])
     managesEvenWhenClosed = true
     const access = await resolveProjectSettingsAccess(session, 'p1')

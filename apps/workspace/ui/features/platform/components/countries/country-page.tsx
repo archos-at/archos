@@ -1,13 +1,5 @@
 'use client'
 
-/**
- * One country's knowledge (Platform → Länder → a country), the only place it is
- * kept. Its sections follow the work: overview with the one next step, works
- * and editions with their texts, sources, rules, review, quality. The open
- * section is in the address (`?section=`), so a link lands on it; a change
- * request opens over the page (`?request=`).
- */
-
 import type { JSX } from 'react'
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
@@ -32,7 +24,6 @@ import { usePlatformJson } from './use-platform-json'
 
 const BASE = '/api/platform/knowledge'
 
-/** The open section and request, kept in the address without a navigation. */
 function useAddressState(): [CountrySection, (section: CountrySection) => void, string | null, (id: string | null) => void] {
   const [section, setSection] = useState<CountrySection>('overview')
   const [request, setRequest] = useState<string | null>(null)
@@ -79,9 +70,8 @@ export function CountryPage({ countryId }: { countryId: string }): JSX.Element {
   if (overview.load.state === 'error' && overview.load.status === 403) {
     return <EmptyState icon={Globe2} title={t('countryKnowledge.disabledTitle')} description={t('countryKnowledge.disabledBody')} />
   }
-  // The map reads the change requests, not the overview: it stays one click away while the overview loads or fails.
   const mapLink = (
-    <Button asChild variant="outline" size="sm">
+    <Button asChild variant="secondary" size="sm">
       <Link href={`/app/platform/countries/${countryId.toLowerCase()}/map`} data-testid="open-law-map">
         {tMap('open')}
       </Link>

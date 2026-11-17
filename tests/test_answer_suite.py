@@ -1,12 +1,3 @@
-"""The answer suite's bookkeeping: the part of it a CI machine can run.
-
-`scripts/turn_census/suite.py` needs a model key and an ingested corpus to RUN.
-What is testable offline is everything between a recorded turn and the report:
-how a recording becomes a Run, how the checks read an answer, and what the
-report says. A suite whose reading of a turn is wrong reports its own bugs as
-the agent's, so this is the part that has to be right.
-"""
-
 from __future__ import annotations
 
 import json
@@ -87,8 +78,6 @@ def test_a_recorded_turn_reads_as_one_run(tmp_path):
 
 
 def test_a_file_under_its_published_2019_name_counts_as_cited(tmp_path):
-    # oib.or.at publishes the 2019 Richtlinien as `oib-rl-<n>-<title>-2019.pdf`, which `rl_<n>_` does not see:
-    # observe reads cited files through the corpus's canonical names (`cited_files.py`).
     answer = ANSWER + "\n[2] oib-rl-6-energieeinsparung-und-waermeschutz-2019.pdf, p.3"
     run = suite.observe(QUESTION, 1, *_recorded_turn(tmp_path, answer))
     assert run.cited_families == ["2", "6"]
@@ -134,8 +123,6 @@ def test_the_core_set_needs_no_project():
 
 
 def test_a_value_inside_a_tab_counts(tmp_path):
-    # Seen in the first baseline: REI 60 stood in the variant tab's table, and a
-    # check that read only the prose called the answer wrong.
     run = suite.observe(QUESTION, 1, *_recorded_turn(tmp_path))
     run.answer = "Die Nachweise unterscheiden sich je Variante: [[card:1]]"
     envelope = {
@@ -145,8 +132,6 @@ def test_a_value_inside_a_tab_counts(tmp_path):
 
 
 def test_the_answer_is_the_last_envelope_not_the_repair_after_it(tmp_path):
-    # Seen in the full sweep: every repaired turn read as "no envelope",
-    # because the repair's plain rewrite was the last reply.
     record, log = _recorded_turn(tmp_path)
     repair = _call(30.0, 4.0, reasoning=100, output=[{"type": "message", "content": [{"text": "Überarbeitet [1]."}]}])
     record.write_text(record.read_text() + "\n" + json.dumps(repair))
@@ -188,8 +173,6 @@ def test_a_question_about_a_guideline_the_corpus_lacks_is_skipped_by_name(tmp_pa
 
 
 def test_an_answer_without_its_fence_still_has_its_envelope(tmp_path):
-    # Seen live: the pipeline accepted a bare-JSON answer and the reader got it
-    # whole, while a fence-only reading called the turn envelope-less.
     record, log = _recorded_turn(tmp_path)
     bare = {"type": "message", "content": [{"text": json.dumps({**ENVELOPE, "answer": "Antwort [1]."})}]}
     rows = [json.loads(line) for line in record.read_text().splitlines()]
@@ -200,7 +183,6 @@ def test_an_answer_without_its_fence_still_has_its_envelope(tmp_path):
 
 
 def _streamed(tmp_path: Path, events: list[dict]) -> dict:
-    """What the recorder writes for one streamed call of these events."""
     import subprocess
     import textwrap
 
@@ -234,8 +216,6 @@ def _streamed(tmp_path: Path, events: list[dict]) -> dict:
 
 
 def test_a_streamed_call_records_its_response_and_when_text_began(tmp_path):
-    # A streamed answer (ADR-0066) has no JSON body: the first core run after
-    # prose streamed recorded every envelope as missing.
     completed = {
         "type": "response.completed",
         "response": {"output": [{"type": "message"}], "usage": {"output_tokens": 3}},
@@ -246,13 +226,10 @@ def test_a_streamed_call_records_its_response_and_when_text_began(tmp_path):
     assert entry["resp"]["output"] == [{"type": "message"}]
     assert entry["usage"] == {"output_tokens": 3}
     assert entry["t_first_text"] > 0
-    # A stream that never showed text (tool calls only) has no first-text time.
     assert "t_first_text" not in _streamed(tmp_path, [{"type": "response.created"}, completed])
 
 
 def test_a_model_call_that_raises_is_recorded_with_its_seconds(tmp_path):
-    # A timed-out attempt the SDK retries raised out of send, so it was never
-    # written and its seconds vanished from the turn.
     import subprocess
     import textwrap
 
@@ -305,9 +282,6 @@ def test_the_first_text_column_reads_the_final_call(tmp_path):
 
 
 def test_an_empty_inventory_refuses_to_measure(tmp_path):
-    # A suite started outside the ingest's directory read ./summaries.db as an
-    # empty file and measured an agent with no inventory, no family overviews
-    # and no quote checks, 7 s per turn slower, without an error.
     import sqlite3
 
     empty = tmp_path / "empty.db"
@@ -321,8 +295,6 @@ def test_an_empty_inventory_refuses_to_measure(tmp_path):
 
 
 def test_the_inventory_checked_is_the_one_the_runs_read(monkeypatch, tmp_path):
-    # Every run's `nat run` starts in the repo root, so a relative path means
-    # the root's file, wherever the suite itself was started from.
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("SUMMARY_DB", raising=False)
     assert suite.inventory_database() == (suite.ROOT / "summaries.db").resolve()
@@ -332,20 +304,19 @@ def test_the_inventory_checked_is_the_one_the_runs_read(monkeypatch, tmp_path):
 
 
 def test_the_runs_import_this_checkout(tmp_path):
-    # From a worktree whose interpreter installed another checkout's packages,
-    # the runs measured that checkout while the report named this commit.
     import census
 
     path = census.tree_pythonpath(tmp_path).split(os.pathsep)
     shim = Path(path[1])
     assert path[0] == str(census.HERE) and path[2] == str(census.ROOT / "packages" / "agent" / "src")
     assert shim.parent == tmp_path and shim.name.startswith(".tree-")
-    assert (shim / "knowledge_layer").resolve() == (census.ROOT / "packages/knowledge-layer/src").resolve()
+    assert (shim / "knowledge_layer").resolve() == (
+        census.ROOT / "packages/knowledge-layer/src/knowledge_layer"
+    ).resolve()
     assert suite.foreign_imports(tmp_path) == []
 
 
 def test_the_workers_can_ask_for_the_path_at_once(tmp_path):
-    # Four workers built the links at once and one died on FileExistsError.
     from concurrent.futures import ThreadPoolExecutor
 
     import census
@@ -367,8 +338,6 @@ def test_a_record_line_the_kill_cut_short_is_skipped(tmp_path):
 
 
 def test_a_run_that_recorded_nothing_summarizes_as_empty(tmp_path):
-    # A `nat run` that died before its first model call wrote no record, and
-    # the census crashed on the missing file instead of reporting.
     import census
 
     assert census.summarize(tmp_path / "never-written.jsonl") == {"kinds": {}, "research": [], "wall_seconds": 0.0}
@@ -381,8 +350,6 @@ def test_every_linked_package_is_checked_for_a_foreign_import():
 
 
 def test_the_frontend_plugins_a_run_loads_come_from_this_checkout():
-    # From a worktree, the main checkout's editable `agent_host` met the worktree's
-    # `agent` and every turn died, reported as a 0.0 s run.
     import census
 
     packages = census.source_packages()
@@ -391,7 +358,6 @@ def test_the_frontend_plugins_a_run_loads_come_from_this_checkout():
 
 
 def test_one_failing_run_does_not_sink_the_suite(tmp_path, monkeypatch):
-    # A raise in one worker used to discard every result after the paid runs.
     def boom(*args, **kwargs):
         raise RuntimeError("nat died")
 
@@ -402,8 +368,6 @@ def test_one_failing_run_does_not_sink_the_suite(tmp_path, monkeypatch):
 
 
 def test_a_table_or_a_drawing_in_a_card_counts(tmp_path):
-    # A table the reader saw in a card was reported as missing, because the
-    # shape check read only the prose.
     run = suite.Run(question_id="q", run=1, answer="Siehe Tabelle: [[card:1]]")
     table = {"expect": {"shape": "table"}}
     in_text = {"cards": [{"type": "surface", "components": [{"component": "Text", "text": "| Wand | REI 60 |"}]}]}
@@ -439,8 +403,6 @@ def test_a_repair_after_the_answer_is_neither_the_final_call_nor_a_research_roun
 
 
 def test_the_import_check_asks_the_interpreter_the_runs_use(tmp_path, monkeypatch):
-    # The runs used .venv/bin/nat while the check asked sys.executable, so it
-    # answered for an interpreter no run used.
     import subprocess
 
     import census
@@ -494,7 +456,6 @@ def test_report_rereads_the_recording_beside_the_results(tmp_path, monkeypatch, 
     record, log = _recorded_turn(tmp_path)
     record.rename(tmp_path / f"suite-101010-7-{QUESTION['id']}-1.jsonl")
     log.rename(tmp_path / f"suite-101010-7-{QUESTION['id']}-1.log")
-    # What results.json holds is stale: the report must come from the recording.
     stale = suite.Run(question_id=QUESTION["id"], run=1, wall_s=99.0, error="old harness bug")
     report = _results(tmp_path, [stale], {"started": "t", "runs_per_question": 1, "stamp": "101010-7"})
     monkeypatch.setattr(suite, "load_questions", lambda **_: ([QUESTION], []))
@@ -514,7 +475,6 @@ def test_a_recording_belongs_to_its_own_question_and_stamp(tmp_path):
     os.utime(other_suite, (1, 1))
     assert suite.recording(tmp_path, "101010-7", run) == mine
     assert suite.recording(tmp_path, "000000-1", run) is None
-    # An older results.json has no stamp: the exact question, newest file.
     assert suite.recording(tmp_path, None, run) == mine
     other_question.unlink()
     mine.unlink()
@@ -536,8 +496,6 @@ def test_only_a_question_that_needs_a_project_says_why(capsys):
 
 
 def test_the_startup_probe_reexecutes_into_this_checkout(monkeypatch, tmp_path):
-    # From a worktree the in-process probe timed the main checkout's
-    # knowledge layer, and the fix was a symlink built by hand.
     import census
     import startup_probe
 
@@ -562,16 +520,15 @@ def test_the_startup_probe_reexecutes_into_this_checkout(monkeypatch, tmp_path):
     assert seen["env"][startup_probe._IN_TREE] == "1" and "REC_OUT" not in seen["env"]
     shim = Path(seen["env"]["PYTHONPATH"].split(os.pathsep)[1])
     assert shim.is_relative_to(tmp_path)
-    assert (shim / "knowledge_layer").resolve() == (census.ROOT / "packages/knowledge-layer/src").resolve()
+    assert (shim / "knowledge_layer").resolve() == (
+        census.ROOT / "packages/knowledge-layer/src/knowledge_layer"
+    ).resolve()
 
-    # The re-executed process does not re-execute.
     monkeypatch.setenv(startup_probe._IN_TREE, "1")
     startup_probe._in_tree(["Frage?"])
 
 
 def test_a_landed_quote_patch_explains_the_settled_replacement():
-    # A landed patch removes the quote's unverified marker, so the terminal
-    # differs from the settled frame by design (ADR-0067); N = 0 is logged too.
     replaced = "Piloti: the terminal frame replaced the settled answer (10 -> 9 chars)\n"
     landed = suite.log_signals("Piloti: quote patch corrected 1 of 2 quote(s)\n" + replaced)
     missed = suite.log_signals("Piloti: quote patch corrected 0 of 1 quote(s)\n" + replaced)
@@ -581,11 +538,9 @@ def test_a_landed_quote_patch_explains_the_settled_replacement():
 
 
 def test_the_startup_probe_takes_the_key_some_environments_carry(monkeypatch, capsys):
-    # With only OPENROUTER_KEY set the probe failed at its first model call.
     import startup_probe
 
     monkeypatch.setenv(startup_probe._IN_TREE, "1")
-    # Set, then emptied: monkeypatch restores what ensure_key writes.
     monkeypatch.setenv("OPENROUTER_API_KEY", "")
     monkeypatch.setenv("OPENROUTER_KEY", "")
     assert startup_probe.main(["Frage?"]) == 2
@@ -605,15 +560,11 @@ def test_the_startup_probe_takes_the_key_some_environments_carry(monkeypatch, ca
 
 
 def test_a_bad_only_id_is_refused_before_anything_is_ingested(monkeypatch):
-    # The ids were checked after the preflight, which with --ingest had
-    # already run a full sync.
     monkeypatch.setattr(suite, "_preflight", lambda out, ingest: pytest.fail("preflight ran for a bad id"))
     assert suite.main(["--only", "no-such-id", "--ingest"]) == 2
 
 
 def test_a_foreign_checkout_is_refused_before_the_ingest(monkeypatch, tmp_path):
-    # From a worktree the ingest ran another checkout's knowledge layer in
-    # this process, and only then did the import check refuse.
     import types
 
     import agent
@@ -635,7 +586,6 @@ def test_census_report_without_recordings_names_the_mistake(capsys):
 
 
 def test_wall_time_ends_with_the_call_that_ends_last(tmp_path):
-    # A long answer call overlapped by a short check that started later.
     import census
 
     record = tmp_path / "r.jsonl"
@@ -649,7 +599,6 @@ def test_wall_time_ends_with_the_call_that_ends_last(tmp_path):
 
 
 def test_a_summary_db_given_as_a_path_is_refused_before_any_run(monkeypatch, tmp_path, capsys):
-    # A bare path started every run, and every run died parsing it as a URL.
     monkeypatch.setattr(suite, "ensure_key", lambda: True)
     monkeypatch.setattr(suite, "foreign_imports", lambda out: [])
     monkeypatch.setattr(suite, "_corpus_ready", lambda: True)
@@ -666,7 +615,6 @@ def test_the_suite_reads_the_dialect_the_validator_holds():
 
 
 def test_a_corpus_in_the_store_reads_as_ready(qdrant_store):
-    """Readiness is the corpus's chunk count in the store the ingest writes through."""
     from knowledge_layer_testing.vector_store import record
     from knowledge_layer_testing.vector_store import write
 
@@ -678,7 +626,6 @@ def test_a_corpus_in_the_store_reads_as_ready(qdrant_store):
 
 
 def _ingest_in_this_process(monkeypatch, tmp_path, *, succeed: bool):
-    """A corpus of one file, and an ingestor whose ``run_prepared`` does what a worker would."""
     from agent import corpus_store
     from agent import oib_sync
     from tests.corpus_job_fakes import FakeIngestor
@@ -699,7 +646,6 @@ def _ingest_in_this_process(monkeypatch, tmp_path, *, succeed: bool):
 
 
 def test_ingest_runs_the_corpus_jobs_in_this_process(monkeypatch, tmp_path):
-    # `oib_sync.sync()` only hands jobs over; on a developer machine no worker would run them.
     ran, _ingestor, needs_ingestion = _ingest_in_this_process(monkeypatch, tmp_path, succeed=True)
 
     assert suite._ingest_corpus(poll_seconds=0) is None
@@ -715,9 +661,8 @@ def test_ingest_reports_a_file_whose_job_failed_instead_of_waiting_for_it(monkey
 
 
 def test_the_turn_decisions_precedent_is_read_off_its_log_line():
-    """Beside the lookups a run made, p(precedent) calibrates the prefetch threshold (ADR-0064)."""
     line = (
-        "INFO agent.agents.piloti.decisions: Turn decision in 431 ms: evidence=0.97 corpus=referenz(0.92) "
+        "INFO agent.core.decisions: Turn decision in 431 ms: evidence=0.97 corpus=referenz(0.92) "
         "families=[] skill=None cards=[] self_contained=0.9 precedent=0.83\n"
     )
 
@@ -727,8 +672,6 @@ def test_the_turn_decisions_precedent_is_read_off_its_log_line():
 
 
 def test_a_local_corpus_directory_is_ingested_without_a_bff_or_an_object_store(monkeypatch, tmp_path):
-    # `--ingest` read the corpus from SeaweedFS through the BFF, so the suite
-    # could not run without a deployed stack (gate G1 waited on one for that).
     from agent import corpus_store
     from agent import oib_sync
     from tests.corpus_job_fakes import FakeIngestor
@@ -739,7 +682,6 @@ def test_a_local_corpus_directory_is_ingested_without_a_bff_or_an_object_store(m
     real = {seam: getattr(corpus_store, seam) for seam in seams}
     install(monkeypatch, tmp_path)
     for seam in seams:
-        # The real BFF and bucket again, with no BFF configured: only --corpus can store anything.
         monkeypatch.setattr(corpus_store, seam, real[seam])
     monkeypatch.delenv("FRONTEND_INTERNAL_URL", raising=False)
     corpus = tmp_path / "oib"
@@ -757,7 +699,6 @@ def test_a_local_corpus_directory_is_ingested_without_a_bff_or_an_object_store(m
     row = corpus_store.get_file("oib-rl_2_ausgabe_mai_2023.pdf")
     assert row is not None and not row.needs_ingestion(oib_sync.CHUNK_FORMAT_VERSION)
     assert downloaded == [b"%PDF-1.4 rl2"]
-    # A second run stores the same bytes again and leaves them ingested.
     assert suite.use_local_corpus(corpus) == 1
     assert not corpus_store.get_file("oib-rl_2_ausgabe_mai_2023.pdf").needs_ingestion(oib_sync.CHUNK_FORMAT_VERSION)
 
@@ -768,8 +709,6 @@ def test_corpus_without_ingest_is_refused():
 
 
 def test_the_startup_probe_times_only_methods_the_retriever_has():
-    # The probe wrapped `_hybrid_lexical_boost` after the Qdrant rewrite removed
-    # it, and died with AttributeError before the first turn.
     import re
 
     import startup_probe

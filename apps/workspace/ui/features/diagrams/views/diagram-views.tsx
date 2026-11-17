@@ -1,14 +1,5 @@
 'use client'
 
-/**
- * The five diagram views — one per reader's job (`docs/design/answer-visuals.md`).
- *
- * Two are node graphs on `@xyflow/react` (`GraphCanvas`): a flow, and a map
- * where the column is wide enough to hold one. The other three are HTML,
- * because their structure is a grid, not a graph: parties in columns, dates on
- * an axis, shares on a scale. None of them is an SVG someone else designed.
- */
-
 import { type ReactNode, type RefObject, useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import dagre from '@dagrejs/dagre'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
@@ -28,16 +19,8 @@ import type {
 import { GraphCanvas, type GraphEdgeSpec, type GraphNodeSpec, type GraphSpec } from './graph-canvas'
 import { FLOW_NODE_TYPES, MAP_NODE_TYPES } from './graph-nodes'
 
-// ── flow ─────────────────────────────────────────────────────────────────────
-
 const NODE_GAP = 28
 
-/**
- * A dagre pass is the expensive part of a flow (~200 ms at 100 nodes), and a
- * model is immutable once parsed, so what one pass says about it is kept with
- * it: a resize, a parent re-render or a remount reads it back instead of
- * laying the graph out again.
- */
 const PASSES = new WeakMap<FlowModel, Map<string, unknown>>()
 
 function once<T>(model: FlowModel, key: string, compute: () => T): T {
@@ -47,7 +30,6 @@ function once<T>(model: FlowModel, key: string, compute: () => T): T {
   return passes.get(key) as T
 }
 
-/** The most nodes any rank holds, from a layout with nominal sizes. */
 function widestRank(model: FlowModel, rankdir: 'TB' | 'LR'): number {
   return once(model, `widest:${rankdir}`, () => countWidestRank(model, rankdir))
 }
@@ -68,15 +50,11 @@ function countWidestRank(model: FlowModel, rankdir: 'TB' | 'LR'): number {
 }
 
 function FlowGraph({ model, label }: { model: FlowModel; label: string }) {
-  // A left-to-right flow only while it fits; a phone reads top to bottom.
   const build = useCallback(
     (width: number): GraphSpec => {
       const direction = model.direction === 'right' && width >= 560 ? 'LR' : 'TB'
       const breadth = widestRank(model, direction)
       const across = direction === 'TB' ? breadth : Math.max(2, model.nodes.length / breadth)
-      // Never narrower than the longest word needs: a German compound broken
-      // mid-word („Verbesserungsauftra-g") reads as a typo. Past 190px the
-      // layout scrolls instead, and hyphenation takes what is left.
       const longestWord = Math.max(...model.nodes.flatMap((node) => node.label.split(/\s+/).map((word) => word.length)))
       const floor = Math.min(190, Math.max(132, longestWord * 7.4 + 26))
       const nodeWidth = Math.round(Math.min(230, Math.max(floor, (width - 16 - (across - 1) * NODE_GAP) / across)))
@@ -102,12 +80,6 @@ function FlowGraph({ model, label }: { model: FlowModel; label: string }) {
   )
 }
 
-/**
- * A flow on a phone: the steps in order, each decision with its branches
- * written out. Two readable nodes side by side do not fit in ~280px, and a
- * graph that hides its second branch behind a scroll is worse than a list that
- * says where each branch goes.
- */
 function FlowOutline({ model }: { model: FlowModel }) {
   const order = flowOrder(model)
   const byId = new Map(model.nodes.map((node) => [node.id, node]))
@@ -118,14 +90,13 @@ function FlowOutline({ model }: { model: FlowModel }) {
         const node = byId.get(id)
         if (!node || node.shape === 'point') return null
         const outgoing = model.edges.filter((edge) => edge.from === id && byId.get(edge.to)?.shape !== 'point')
-        // The plain case: one unlabelled step straight to the next one in order.
         const straight =
           outgoing.length === 1 && !outgoing[0].label && !outgoing[0].dashed && position.get(outgoing[0].to) === i + 1
         return (
           <li key={id} className="flex flex-col gap-1">
             <div
               className={cn(
-                'text-foreground rounded-lg border px-3 py-2 text-[13px] leading-snug whitespace-pre-line text-pretty hyphens-auto shadow-xs',
+                'text-foreground rounded-lg border px-3 py-2 text-[13px] leading-snug whitespace-pre-line text-pretty hyphens-auto',
                 node.shape === 'decision'
                   ? 'bg-warning-subtle border-[color-mix(in_oklch,var(--border-color-feedback-warning)_45%,transparent)] font-medium'
                   : node.shape === 'end'
@@ -159,7 +130,6 @@ function FlowOutline({ model }: { model: FlowModel }) {
   )
 }
 
-/** The nodes in reading order: by dagre's rank, then left to right. */
 function flowOrder(model: FlowModel): string[] {
   return once(model, 'order', () => readingOrder(model))
 }
@@ -174,17 +144,10 @@ function readingOrder(model: FlowModel): string[] {
   return [...graph.nodes()].sort((a, b) => graph.node(a).y - graph.node(b).y || graph.node(a).x - graph.node(b).x)
 }
 
-/** Where a flow is drawn as a graph rather than listed: two readable nodes side by side. */
 const FLOW_GRAPH_MIN_REM = 28
 
-/** Below this a map is an outline: root, parts and leaves need three columns. */
 const MAP_TREE_MIN_REM = 34
 
-/**
- * The width of the element `ref` is put on, in rem; null until it is measured.
- * Measured before the first paint, so the form chosen from it is the first one
- * seen, and neither form is built for a render nobody sees.
- */
 function useWidthRem(): [RefObject<HTMLDivElement | null>, number | null] {
   const ref = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState<number | null>(null)
@@ -204,12 +167,6 @@ function useWidthRem(): [RefObject<HTMLDivElement | null>, number | null] {
   return [ref, width]
 }
 
-/**
- * A graph where the column holds one, the outline where it does not — and only
- * the one that is shown. Both used to mount with a container query hiding one,
- * so every flow paid for the outline's dagre pass on a desktop and for the
- * graph's on a phone.
- */
 export function FlowDiagram({ model, label }: { model: FlowModel; label: string }) {
   const [ref, width] = useWidthRem()
   return (
@@ -223,15 +180,12 @@ export function FlowDiagram({ model, label }: { model: FlowModel; label: string 
   )
 }
 
-// ── map ──────────────────────────────────────────────────────────────────────
-
 const flatten = (node: MapTreeNode, level: number, into: { node: MapTreeNode; level: number }[]) => {
   into.push({ node, level })
   for (const child of node.children) flatten(child, level + 1, into)
   return into
 }
 
-/** A map as an indented outline: the root, its parts as groups, what each covers beneath. */
 function MapOutline({ model }: { model: MapModel }) {
   return (
     <div className="flex flex-col gap-3">
@@ -259,9 +213,6 @@ function MapOutline({ model }: { model: MapModel }) {
 }
 
 export function MapDiagram({ model, label }: { model: MapModel; label: string }) {
-  // Memoised on the model: a new array per render made `build` new per render,
-  // and the canvas rebuilt, re-measured and laid out the whole tree again on
-  // every re-render of the answer around it — every streamed token.
   const nodes = useMemo(() => flatten(model.root, 0, []), [model])
   const build = useCallback(
     (width: number): GraphSpec => ({
@@ -272,18 +223,12 @@ export function MapDiagram({ model, label }: { model: MapModel; label: string })
         data: { label: node.label, level },
         width: level === 0 ? Math.min(180, width * 0.26) : level === 1 ? Math.min(200, width * 0.3) : Math.min(220, width * 0.32),
       })),
-      // Children are handed to dagre last-first: in a left-to-right layout it
-      // stacks siblings from the bottom, and the parts must read top-down in
-      // the order the answer wrote them.
       edges: nodes.flatMap(({ node }) =>
         [...node.children].reverse().map((child) => ({ id: `${node.id}->${child.id}`, source: node.id, target: child.id }))
       ),
     }),
     [nodes]
   )
-  // A tree needs three columns of room; below that it is an outline. Only the
-  // one that is shown mounts: both used to, with a container query hiding one,
-  // so every map on a phone still paid for the tree's dagre pass and canvas.
   const [ref, width] = useWidthRem()
   return (
     <div ref={ref}>
@@ -295,8 +240,6 @@ export function MapDiagram({ model, label }: { model: MapModel; label: string })
     </div>
   )
 }
-
-// ── handoff ──────────────────────────────────────────────────────────────────
 
 export function HandoffDiagram({ model }: { model: HandoffModel }) {
   const index = new Map(model.parties.map((party, i) => [party.id, i]))
@@ -310,7 +253,7 @@ export function HandoffDiagram({ model }: { model: HandoffModel }) {
           {model.parties.map((party) => (
             <div
               key={party.id}
-              className="border-border bg-card text-foreground rounded-lg border px-2 py-1.5 text-center text-[13px] font-medium shadow-xs"
+              className="bg-card text-foreground rounded-lg px-2 py-1.5 text-center text-[13px] font-medium shadow-xs"
             >
               {party.label}
             </div>
@@ -387,25 +330,13 @@ export function HandoffDiagram({ model }: { model: HandoffModel }) {
   )
 }
 
-// ── schedule ─────────────────────────────────────────────────────────────────
-
 const DAY = 86_400_000
 const dayOf = (iso: string) => Date.parse(`${iso}T00:00:00Z`)
 const dateLabel = (iso: string) =>
   new Intl.DateTimeFormat('de-AT', { day: '2-digit', month: '2-digit', timeZone: 'UTC' }).format(new Date(dayOf(iso)))
-/**
- * The last day a task covers, for its label. Mermaid's end is exclusive —
- * `2026-10-01, 14d` ends on the 15th — which is right for the bar's length and
- * one day too many in words: the reader reads „bis 15.10." as including it.
- */
 const lastDay = (task: ScheduleTask) =>
   new Date(Math.max(dayOf(task.start), dayOf(task.end) - DAY)).toISOString().slice(0, 10)
 
-/**
- * Up to five dates along the axis, whole days and each one once. Spread by
- * fractions of the span, a schedule of fewer than four days put the same date
- * under several ticks („25.10." four times, and four React keys alike).
- */
 function scheduleTicks(start: number, end: number): { iso: string; at: number }[] {
   const days = Math.round((end - start) / DAY)
   const steps = Math.min(4, days)
@@ -447,7 +378,6 @@ export function ScheduleDiagram({ model }: { model: ScheduleModel }) {
           ) : null}
           {section.tasks.map((task, index) => (
             <div
-              // Two tasks may share a name and a start; the list never reorders.
               key={index}
               className="grid grid-cols-1 items-center gap-x-3 gap-y-0.5 @[30rem]:grid-cols-[minmax(0,11rem)_minmax(0,1fr)]"
             >
@@ -480,8 +410,6 @@ export function ScheduleDiagram({ model }: { model: ScheduleModel }) {
   )
 }
 
-// ── shares ───────────────────────────────────────────────────────────────────
-
 const percent = new Intl.NumberFormat('de-AT', { maximumFractionDigits: 1 })
 
 export function SharesDiagram({ model }: { model: SharesModel }) {
@@ -506,8 +434,6 @@ export function SharesDiagram({ model }: { model: SharesModel }) {
     </div>
   )
 }
-
-// ── dispatch ─────────────────────────────────────────────────────────────────
 
 export function DiagramView({ model, label }: { model: DiagramModel; label: string }): ReactNode {
   switch (model.kind) {

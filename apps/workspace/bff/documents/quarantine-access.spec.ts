@@ -1,19 +1,3 @@
-/**
- * A held document (ADR-0086) exists only for its uploader and for the people
- * who may review the quarantine: a quarantined one, and since the 2026-10-08
- * amendment every upload whose screening has not passed yet.
- *
- * The audit found a quarantined file served to every project member, and in the
- * Büroablage to every org member, on every byte path: `getAccessibleDocument`
- * never looked at the status. These specs drive the real gate and the real
- * reviewer rule (`mayReviewQuarantine`) through each surface a person opens a
- * file by — download, preview, text preview, thumbnail, the signed image URL
- * the thumbnail and preview hand out — and the listing, for a member, the
- * uploader and a reviewer. The repository mock answers each read
- * by the reader it is given (`mayReadDocument`, the in-memory twin of
- * `documentVisibleTo`; `visibility.integration.spec.ts` holds the two equal).
- */
-
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const PAGE = { level: { sort: 'added', dir: 'desc', limit: 100 } } as const
@@ -46,7 +30,6 @@ vi.mock('@/lib/projects/repository', () => ({
   findProjectInOrg: vi.fn().mockResolvedValue({ id: 'proj-1', collectionName: 'proj_abc' }),
 }))
 vi.mock('@/lib/backend-proxy', () => ({ getBackendUrl: () => 'http://backend:8000' }))
-// Which documents a Fassung link names, resolved for the reader, is `revision-links-loader.spec.ts`'s subject.
 vi.mock('./revision-links-loader', () => ({ loadRevisionLinks: vi.fn(async () => new Map()) }))
 vi.mock('@/lib/annotations/repository', () => ({ tallyLiveMarks: vi.fn(async () => new Map()) }))
 vi.mock('./reconcile-status', () => ({
@@ -79,10 +62,8 @@ import { listDocumentsPage, probeProjectDocumentNames, resolveProjectDocumentsBy
 const personOf = (userId: string, permissions: string[] = []): AuthorizedSession =>
   ({ organizationId: 'org-1', userId, email: `${userId}@example.com`, permissions }) as unknown as AuthorizedSession
 
-/** A project member who neither uploaded the file nor reviews the project's quarantine. */
 const member = personOf('member-1')
 const uploader = personOf('uploader-1')
-/** The project's admin: `project:manage` on it. */
 const projectAdmin = personOf('admin-1')
 const orgAdmin = personOf('owner-1', [ORG_PERMISSIONS.projectsAdminister])
 
@@ -97,7 +78,6 @@ const quarantined = (overrides: Partial<Document> = {}): Document =>
     ...overrides,
   })
 
-/** The repository's item read, answering by the reader it is given. */
 function store(row: Document): void {
   vi.mocked(findDocumentInOrg).mockImplementation(async (_id, _org, reader) => (mayReadDocument(row, reader) ? row : null))
 }
@@ -117,7 +97,6 @@ const SURFACES: Surface[] = [
 
 beforeEach(() => {
   vi.clearAllMocks()
-  // Every session here may view the project; only its admin may manage it.
   vi.mocked(requireProjectAccess).mockImplementation(async (session, _projectId, permission) => {
     if (permission === 'project:manage' && session.userId !== 'admin-1') throw new ForbiddenError()
     return { role: 'project-viewer' } as Awaited<ReturnType<typeof requireProjectAccess>>
@@ -136,7 +115,6 @@ describe.each(SURFACES)('the $name of a quarantined project document', ({ open, 
 
   it('does not exist for a project member who did not upload it', async () => {
     await expect(open(member)).rejects.toBeInstanceOf(NotFoundError)
-    // Refused before a byte was asked for.
     expect(s3Client.send).not.toHaveBeenCalled()
   })
 
@@ -153,21 +131,11 @@ describe.each(SURFACES)('the $name of a quarantined project document', ({ open, 
   })
 })
 
-/**
- * The signed image URL outlives its mint, and its route has no session to run
- * `getAccessibleDocument` with. A re-upload keeps the document's id, so a card
- * that fetched its thumbnail URL before the new bytes were held holds a URL for
- * the held thumbnail, or for an image, the held image. The route serves
- * screened files only (ADR-0086), so the URL stops working for everyone the
- * moment the row is held, its uploader and reviewers included: they preview
- * through the presigned `url` their own session check produced.
- */
 describe('the signed image URL of a document that turns held', () => {
   const imageRow = (overrides: Partial<Document> = {}): Document =>
     quarantined({ filename: 'plan.png', contentType: 'image/png', storageKey: 'org-1/proj-1/doc-q/plan.png', ...overrides })
   const before = imageRow({ status: 'completed' as const, errorMessage: null, screeningOutcome: 'clean' })
 
-  /** Mint through the real surface, then present the URL as the optimizer would. */
   async function mintThenStream(session: AuthorizedSession, atMint: Document, atUse: Document): Promise<Response> {
     store(atMint)
     const { url } = await getDocumentThumbnail(session, 'doc-q')
@@ -227,12 +195,6 @@ describe('a document whose screening passed', () => {
   })
 })
 
-/**
- * Held from upload until the screening passes (ADR-0086, 2026-10-08): a file
- * still on its way through the gate is not the project's yet either. Before
- * the amendment every member could list and download it in the minutes before
- * its verdict, and a quarantine then took back what had already been seen.
- */
 describe.each([
   ['uploaded', null],
   ['pending', null],
@@ -259,11 +221,6 @@ describe.each([
   })
 })
 
-/**
- * The write paths load the row through the same rule (ADR-0086): a member who
- * may not see a held file is told it does not exist, rather than allowed to
- * delete or rename it. Refused before anything was erased or written.
- */
 describe('the write paths on a held document', () => {
   const request = () => new Request('http://localhost/api/documents/doc-q', { method: 'DELETE' })
 
@@ -328,8 +285,6 @@ describe('the project listing and a quarantined document', () => {
     expect(vi.mocked(findProjectDocumentsByFilenames).mock.calls[0][3]).toMatchObject({ reader: memberReader('member-1') })
   })
 
-  // The upload planner's probe answers with the digest: somebody else's
-  // unscreened file would let a member confirm its contents by hash.
   it('narrows the name probe the same way', async () => {
     await probeProjectDocumentNames(member, 'proj-1', ['konten.csv'])
     await probeProjectDocumentNames(projectAdmin, 'proj-1', ['konten.csv'])
@@ -338,13 +293,6 @@ describe('the project listing and a quarantined document', () => {
   })
 })
 
-/**
- * The query reads the row as it was; the reconcile that runs on the rows it
- * read can turn one `quarantined` (a re-index of a file that passed before is
- * in flight with that pass on record, and visible). That row must be narrowed
- * again by the same rule, or the first member to open the Dateien after the
- * new verdict is handed its name.
- */
 describe('a verdict that lands during the listing', () => {
   const pendingRow = (id: string, createdBy: string): DocumentListRow => ({
     id,
@@ -393,14 +341,6 @@ describe('a verdict that lands during the listing', () => {
   })
 })
 
-/**
- * The optimizer's signed image URL is a bearer capability fetched without a
- * session, so it cannot ask again whether the person it names reviews the
- * quarantine. A reviewer opening a colleague's held PNG used to get one, and the
- * route then refused it (404): the pane showed "preview failed" instead of the
- * file. A held file is previewed through the URL this session's own check
- * presigned; the signed route serves screened files only.
- */
 describe('the preview of a held image', () => {
   const heldImage = () =>
     quarantined({ status: 'processing' as const, errorMessage: null, filename: 'scan.png', contentType: 'image/png' })

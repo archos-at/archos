@@ -1,15 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The mention hand-off (ADR-0034, spec MN-1…MN-16).
- *
- * The behaviour under test is *the agent deliberately not answering*, which is
- * indistinguishable from a bug unless it is exactly right. So the addressing rule
- * gets a case per branch, and every refusal is asserted to have written nothing —
- * a refused mention that still granted access or still notified someone would be
- * the worst kind of failure here.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -17,8 +8,6 @@ vi.mock('@/lib/sharing/access', () => ({
   requireResourceAccess: vi.fn(),
 }))
 
-// Who may read what a conversation recorded is `restricted-use.spec.ts`'s subject;
-// here it is the answer each test sets (default: everybody).
 vi.mock('@/lib/conversations/restricted-use', () => ({
   peopleWhoMayRead: vi.fn(),
   assertMayWidenConversation: vi.fn(),
@@ -35,8 +24,6 @@ vi.mock('@/lib/sharing/directory', () => ({
   unknownPerson: (userId: string) => ({ userId, email: null, name: userId, profilePictureUrl: null }),
 }))
 
-// The real bounds (10 per message, 100 per hour) are part of the rule under test;
-// only the counter itself is stubbed.
 vi.mock('@/lib/limits', async (importActual) => ({
   ...(await importActual<typeof import('@/lib/limits')>()),
   consumeLimit: vi.fn(),
@@ -103,6 +90,7 @@ import {
   resolveRequestsOnReply,
 } from './service'
 import { AGENT_MENTION_ID, MENTION_ERROR_REASONS } from './types'
+import { LEGACY_AGENT_MENTION_ID } from './legacy-mention-ids'
 
 const session = {
   userId: 'user_me',
@@ -140,7 +128,6 @@ function requestRow(overrides: Partial<MentionRequest> = {}): MentionRequest {
   }
 }
 
-/** The caller's role on the conversation — the thing MN-5's invite policy turns on. */
 function stubCallerRole(role: ResourceRole): void {
   vi.mocked(requireResourceAccess).mockResolvedValue({
     role,
@@ -166,7 +153,6 @@ function send(mentions: string[], extra: { note?: string; excerpt?: string } = {
 beforeEach(() => {
   vi.mocked(peopleWhoMayRead).mockImplementation(async (_org, _id, userIds) => new Set(userIds))
   stubCallerRole('owner')
-  // Anna is already in the room; Bob and Carol are not.
   vi.mocked(resolveParticipants).mockResolvedValue(['user_me', ANNA])
   vi.mocked(loadOrganizationDirectory).mockResolvedValue(
     new Map([
@@ -197,8 +183,6 @@ describe('applyMessageMentions — addressing (spec MN-1)', () => {
 
     expect(result.addressees).toEqual({ agent: true, users: [] })
     expect(result.createdRequests).toBe(0)
-    // The hot path: an ordinary question to the agent must cost no probe, no
-    // rate-limit write and no query.
     expect(requireResourceAccess).not.toHaveBeenCalled()
     expect(consumeLimit).not.toHaveBeenCalled()
     expect(insertMentionRequests).not.toHaveBeenCalled()
@@ -219,8 +203,6 @@ describe('applyMessageMentions — addressing (spec MN-1)', () => {
   })
 
   it('falls back to the agent when every mentioned id is unresolvable', async () => {
-    // Spec MN-3: a stale picker entry is dropped, not refused — but the message
-    // still has to be answered by somebody.
     const result = await send(['user_ghost'])
 
     expect(result.addressees).toEqual({ agent: true, users: [] })
@@ -254,7 +236,6 @@ describe('applyMessageMentions — the invite policy (spec MN-5, MN-6, OQ-3)', (
       targetId: BOB,
     })
 
-    // No invitation, no request, no notification: a refused mention leaves no trail.
     expect(grantResourceAccess).not.toHaveBeenCalled()
     expect(insertMentionRequests).not.toHaveBeenCalled()
     expect(emitInboxItems).not.toHaveBeenCalled()
@@ -281,12 +262,6 @@ describe('applyMessageMentions — the invite policy (spec MN-5, MN-6, OQ-3)', (
   })
 
   it('refuses a mention of an EX-project-member, even though they are still a participant', async () => {
-    // Grants are deliberately retained when someone is removed from a project
-    // (lifecycle §5), so an ex-member is a "participant" forever. Being in the
-    // room is not the same as still being able to reach the room: without the
-    // container check the picker offers them, the mention succeeds, a request is
-    // written and an inbox item carries the thread's TITLE to somebody who may
-    // no longer see the project (spec MN-6, SH-19).
     vi.mocked(resolveParticipants).mockResolvedValue(['user_me', ANNA])
     vi.mocked(filterUsersWithProjectAccess).mockResolvedValue(new Set([BOB]))
 
@@ -297,7 +272,6 @@ describe('applyMessageMentions — the invite policy (spec MN-5, MN-6, OQ-3)', (
       reason: MENTION_ERROR_REASONS.containerAccessRequired,
       targetId: ANNA,
     })
-    // Nothing written and nobody told: no grant, no request row, no inbox item.
     expect(grantResourceAccess).not.toHaveBeenCalled()
     expect(insertMentionRequests).not.toHaveBeenCalled()
     expect(emitInboxItems).not.toHaveBeenCalled()
@@ -316,8 +290,6 @@ describe('applyMessageMentions — the invite policy (spec MN-5, MN-6, OQ-3)', (
   })
 
   it('refuses a mention of someone who cannot reach the container project', async () => {
-    // Surfaced from grantResourceAccess rather than re-checked here (spec SH-5):
-    // one implementation of the rule, one place to keep correct.
     vi.mocked(grantResourceAccess).mockRejectedValue(
       new BadRequestError('not in the project', {
         reason: 'container-access-required',
@@ -347,7 +319,6 @@ describe('applyMessageMentions — bounds (spec MN-13)', () => {
     expect((failure as ForbiddenError).details).toEqual({
       reason: MENTION_ERROR_REASONS.rateLimited,
     })
-    // Refused before the authorization probe, let alone a write.
     expect(requireResourceAccess).not.toHaveBeenCalled()
     expect(insertMentionRequests).not.toHaveBeenCalled()
   })
@@ -381,7 +352,6 @@ describe('applyMessageMentions — notification (spec MN-14, MN-15)', () => {
         groupKey: 'mention.requested:conversation:conv_1:msg_1',
         payload: {
           subject: 'Atrium',
-          // The question beats the quote (spec MN-12).
           excerpt: 'Richtig, das Atrium als OIB 2.3 zu behandeln?',
         },
       },
@@ -439,13 +409,10 @@ describe('resolveRequestsOnReply (spec MN-9.1, MN-16, MN-18)', () => {
 
     const result = await resolveRequestsOnReply(input)
 
-    // Scoped to the author: someone else's outstanding request is untouched
-    // (spec MN-10 — each person's request resolves independently).
     expect(listOpenRequestsForSubject).toHaveBeenCalledWith('conversation', 'conv_1', ANNA)
     expect(resolveRequests).toHaveBeenCalledWith(['req_1'], 'answered', ANNA)
     expect(result).toEqual({ answered: 1, askedBack: 0, askerUserIds: ['user_me'] })
 
-    // The recipient's own item resolves without them dismissing anything (MN-16)…
     expect(resolveInboxItemsFor).toHaveBeenCalledWith([
       {
         organizationId: 'org_1',
@@ -453,7 +420,6 @@ describe('resolveRequestsOnReply (spec MN-9.1, MN-16, MN-18)', () => {
         groupKey: 'mention.requested:conversation:conv_1:msg_1',
       },
     ])
-    // …and the asker is told (MN-18).
     expect(emitInboxItems).toHaveBeenCalledWith([
       expect.objectContaining({
         recipientUserId: 'user_me',
@@ -465,11 +431,6 @@ describe('resolveRequestsOnReply (spec MN-9.1, MN-16, MN-18)', () => {
   })
 
   it('settles only the replying person, never a colleague mentioned on the SAME message', async () => {
-    // Matthias mentioned Anna AND Bob on msg_1, so their two requests share the
-    // group key `mention.requested:conversation:conv_1:msg_1` — only the
-    // recipient differs. Anna replying must not close Bob's request, drop his
-    // badge, or take his row out of "needs you" while the banner still says the
-    // thread is waiting for him (spec MN-10, lifecycle invariant 3).
     vi.mocked(listOpenRequestsForSubject).mockResolvedValue([requestRow({ requestedOf: ANNA })])
     vi.mocked(resolveRequests).mockResolvedValue([
       requestRow({ requestedOf: ANNA, status: 'answered', resolution: 'answered', resolvedBy: ANNA }),
@@ -477,8 +438,6 @@ describe('resolveRequestsOnReply (spec MN-9.1, MN-16, MN-18)', () => {
 
     await resolveRequestsOnReply(input)
 
-    // Only Anna is addressed. Bob shares the group key and is absent, which is
-    // exactly the pairing the repository UPDATE now keys on.
     const targets = vi.mocked(resolveInboxItemsFor).mock.calls[0]![0]
     expect(targets).toEqual([
       {
@@ -488,19 +447,9 @@ describe('resolveRequestsOnReply (spec MN-9.1, MN-16, MN-18)', () => {
       },
     ])
     expect(targets.map((target) => target.recipientUserId)).not.toContain(BOB)
-    // Anna's own request is the only one asked about in the first place.
     expect(listOpenRequestsForSubject).toHaveBeenCalledWith('conversation', 'conv_1', ANNA)
   })
 
-  /**
-   * The clarifying-question cascade.
-   *
-   * Anna was asked. Anna replies with a question BACK to Matthias. Treating that
-   * as an answer told Matthias "Anna hat geantwortet" about a message that
-   * answered nothing, offered to hand the thread back to Piloti, and stacked a
-   * second, contradictory row next to the request Anna's own message had just
-   * created. One message, two opposite claims.
-   */
   it('records a question put back to the asker as asked_back, not as an answer', async () => {
     vi.mocked(listOpenRequestsForSubject).mockResolvedValue([requestRow()])
     vi.mocked(resolveRequests).mockResolvedValue([
@@ -512,8 +461,6 @@ describe('resolveRequestsOnReply (spec MN-9.1, MN-16, MN-18)', () => {
     expect(resolveRequests).toHaveBeenCalledWith(['req_1'], 'asked_back', ANNA)
     expect(result).toEqual({ answered: 0, askedBack: 1, askerUserIds: ['user_me'] })
 
-    // Anna's own "you were asked" row still clears — she did respond, and leaving
-    // it would keep telling her she owes an answer (MN-16).
     expect(resolveInboxItemsFor).toHaveBeenCalledWith([
       {
         organizationId: 'org_1',
@@ -521,15 +468,10 @@ describe('resolveRequestsOnReply (spec MN-9.1, MN-16, MN-18)', () => {
         groupKey: 'mention.requested:conversation:conv_1:msg_1',
       },
     ])
-    // And the false claim is gone: the ONLY thing Matthias hears about this
-    // message is the new request it created, emitted by `applyMentions`.
     expect(emitInboxItems).not.toHaveBeenCalled()
   })
 
   it('judges each asker separately when one message answers one and asks another', async () => {
-    // Anna answers Bob and asks Matthias something in the same breath. Rolling
-    // them together would either rob Bob of his answer notification or tell
-    // Matthias he got one.
     vi.mocked(listOpenRequestsForSubject).mockResolvedValue([
       requestRow({ id: 'req_matthias', requestedBy: 'user_me' }),
       requestRow({ id: 'req_bob', requestedBy: BOB }),
@@ -552,7 +494,6 @@ describe('resolveRequestsOnReply (spec MN-9.1, MN-16, MN-18)', () => {
     expect(resolveRequests).toHaveBeenCalledWith(['req_bob'], 'answered', ANNA)
     expect(result).toMatchObject({ answered: 1, askedBack: 1 })
 
-    // Only Bob is told he was answered.
     const notified = vi.mocked(emitInboxItems).mock.calls.flatMap(([items]) => items)
     expect(notified.map((item) => item.recipientUserId)).toEqual([BOB])
   })
@@ -683,30 +624,25 @@ describe('getAwaitingState (spec MN-8)', () => {
 
 describe('listMentionCandidates (spec MN-4, SH-19)', () => {
   it('offers the agent, participants, and invitable project members only', async () => {
-    // Carol is in the organization but cannot reach the project.
     vi.mocked(filterUsersWithProjectAccess).mockResolvedValue(new Set([ANNA, BOB]))
 
     const { candidates, canInvite } = await listMentionCandidates(session, 'conv_1')
 
-    expect(candidates.map((candidate) => candidate.targetId)).toEqual([AGENT_MENTION_ID, ANNA, BOB])
+    expect(candidates.map((candidate) => candidate.targetId)).toEqual([LEGACY_AGENT_MENTION_ID, ANNA, BOB])
     expect(candidates[0]).toMatchObject({ isAgent: true, needsInvite: false })
     expect(candidates[1]).toMatchObject({ isParticipant: true, needsInvite: false })
     expect(candidates[2]).toMatchObject({ isParticipant: false, needsInvite: true })
-    // Nobody outside the project appears at all — offering a name that can only
-    // ever be refused reads as a bug (spec MN-6).
     expect(candidates.some((candidate) => candidate.targetId === CAROL)).toBe(false)
     expect(canInvite).toBe(true)
   })
 
   it('does not offer a participant who has lost access to the container project', async () => {
-    // Anna holds a retained grant but was removed from the project. Offering her
-    // would be offering a name the send path can only ever refuse (spec MN-6).
     vi.mocked(resolveParticipants).mockResolvedValue(['user_me', ANNA])
     vi.mocked(filterUsersWithProjectAccess).mockResolvedValue(new Set([BOB]))
 
     const { candidates } = await listMentionCandidates(session, 'conv_1')
 
-    expect(candidates.map((candidate) => candidate.targetId)).toEqual([AGENT_MENTION_ID, BOB])
+    expect(candidates.map((candidate) => candidate.targetId)).toEqual([LEGACY_AGENT_MENTION_ID, BOB])
   })
 
   it('reports canInvite false for a collaborator, who may only tag participants', async () => {
@@ -730,7 +666,6 @@ describe('listShareCandidates', () => {
 describe('listShareCandidates: only people who can read what the chat drew on may be invited (ADR-0088)', () => {
   beforeEach(() => {
     stubCallerRole('owner')
-    // Anna is in the room; Bob and Carol reach the project, nobody else.
     vi.mocked(filterUsersWithProjectAccess).mockResolvedValue(new Set([ANNA, BOB, CAROL]))
   })
 
@@ -748,7 +683,6 @@ describe('listShareCandidates: only people who can read what the chat drew on ma
 
     await listShareCandidates(session, 'conversation', 'conv_1')
 
-    // Anna is already a participant; the caller is never a candidate.
     expect(peopleWhoMayRead).toHaveBeenCalledTimes(1)
     expect(vi.mocked(peopleWhoMayRead).mock.calls[0].slice(0, 3)).toEqual(['org_1', 'conv_1', [BOB, CAROL]])
   })

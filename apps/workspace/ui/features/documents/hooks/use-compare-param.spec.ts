@@ -42,7 +42,6 @@ describe('useCompareParam', () => {
       { id: 'doc-a', filename: 'Grundriss EG Index B.pdf' },
       { id: 'doc-b', filename: 'Grundriss EG Index C.pdf' }
     )
-    // `?doc=` and everything else stay; a reload must not reopen the comparison.
     expect(replace).toHaveBeenCalledWith('/app/projects/p1/files?doc=doc-b&folder=f1', {
       scroll: false,
     })
@@ -68,8 +67,6 @@ describe('useCompareParam', () => {
   })
 
   it('waits for the rest of the listing before concluding the older document is missing', () => {
-    // The listing streams in page by page; the older Fassung is usually further
-    // down it than the newer one.
     search = new URLSearchParams('doc=doc-b&compare=doc-a')
     const { rerender } = renderHook(({ files, complete }) => useCompareParam(files, complete), {
       initialProps: { files: [NEWER] as FileItem[], complete: false },

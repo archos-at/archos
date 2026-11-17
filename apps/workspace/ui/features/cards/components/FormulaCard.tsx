@@ -1,36 +1,5 @@
 'use client'
 
-/**
- * FormulaCard — a named rule the reader can ask "what if" of, on the card.
- *
- * The model names the rule, the case it asks for and the inputs, each with its
- * source. This card compiles the rule to a Rechenweg (`../lib/formulas`),
- * evaluates it with `calculation`'s arithmetic, takes the bound from the
- * Richtlinie's table for that case, and draws the steps with the one
- * derivation renderer (`./Derivation`) (ADR-0143). Change the Dämmstärke and
- * the U-value, the Rechenweg and the verdict recompute once the reader pauses,
- * with no model call and nothing saved.
- *
- * Three promises the layout keeps:
- *
- *  - **Every number is computed, cited or the reader's own.** Results are
- *    computed here; each input says where its value is written; each bound
- *    names its Punkt and row. A value the reader changed is marked „Ihre
- *    Annahme" beside the source's value, beside every verdict resting on it,
- *    and beside the verdict in the header.
- *  - **The bound does not move.** It is the Richtlinie's, chosen by the case
- *    the model named, and has no control.
- *  - **Unknown is said, never guessed.** An input the source does not give is
- *    empty, and every verdict that needs it reads „kann nicht beurteilen"
- *    until the reader enters a value; a value the field refuses says so, not
- *    that one is missing.
- *
- * The verdict is carried by an icon and a word (`StatusBadge`), never by
- * colour alone. `presentational` in CARD_INTERACTIVITY: the inputs are one
- * reader's view state, bound into the A2UI surface's data model and nowhere
- * else (`features/a2ui/reader-inputs.ts`).
- */
-
 import { useId, useMemo, useState, type FC } from 'react'
 import { Info, RotateCcw, SlidersHorizontal, UserPen } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -87,8 +56,6 @@ type FormulaCardProps = Pick<FormulaCardData, 'title' | 'formula' | 'note' | 'si
 
 const withUnit = (value: string, unit: string): string => (unit ? `${value} ${unit}` : value)
 
-/* ── the words: typed key maps in ../lib/formula-copy, resolved by its spec ── */
-
 const inputLabel = (key: InputLabel, t: Translator): string => t(INPUT_KEYS[key])
 
 const zeroQuantity = (key: InputLabel, t: Translator): string =>
@@ -100,7 +67,6 @@ const termText = (key: TermKey, params: { group?: string | null; metres?: number
   return t(withMetres ? TERM_METRES_KEYS[key as keyof typeof TERM_METRES_KEYS] : TERM_KEYS[key], values)
 }
 
-/** The case the model named, said in words above the inputs: „Außenwand gegen Außenluft · Neubau". */
 const caseText = (formula: FormulaCardData['formula'], t: Translator): string | null => {
   switch (formula.name) {
     case 'u_value':
@@ -119,9 +85,6 @@ const wordsFor = (t: Translator): FormulaWords => ({
   term: (key, params) => termText(key, params, t),
 })
 
-/* ── inputs ─────────────────────────────────────────────────────────────── */
-
-/** Where an input's value comes from: its source line, its norm reference. */
 const sourceText = (slot: InputSlot): string =>
   [
     slot.input.source,
@@ -130,11 +93,6 @@ const sourceText = (slot: InputSlot): string =>
     .filter(Boolean)
     .join(' · ')
 
-/**
- * The sources of one row's inputs. One line when they agree; each input's own,
- * named, when they do not („Dicke d: Wandaufbau AW 01 · λ: Produktdatenblatt"),
- * so the reader knows which figure a source stands behind before changing it.
- */
 const RowSources: FC<{ slots: InputSlot[]; id: string; t: Translator }> = ({ slots, id, t }) => {
   const texts = slots.map(sourceText)
   const provenance = slots.find((slot) => slot.input.provenance)?.input.provenance
@@ -159,7 +117,6 @@ const RowSources: FC<{ slots: InputSlot[]; id: string; t: Translator }> = ({ slo
   )
 }
 
-/** The reader's-assumption marker: an icon and the word, the colour only reinforcing them. */
 const AssumptionChip: FC<{ label: string }> = ({ label }) => (
   <Chip variant="warning" size="sm">
     <UserPen aria-hidden="true" />
@@ -169,7 +126,6 @@ const AssumptionChip: FC<{ label: string }> = ({ label }) => (
 
 type ChangeHandler = (key: string, value: number | null, issue: QuantityIssue | null) => void
 
-/** One input's control: a field, or the given value; and, once changed, the reader's-assumption marker. */
 const InputField: FC<{
   slot: InputSlot
   value: number | null
@@ -226,8 +182,6 @@ const InputField: FC<{
         </span>
       )}
       {changed && (
-        // The reader's figure, said in words and beside the source's, so a
-        // screenshot of the card cannot pass it off as the plan's.
         <span
           id={markerId}
           className="card-meta flex max-w-[8.5rem] flex-wrap items-center justify-end gap-x-1.5 gap-y-0.5 text-right"
@@ -284,12 +238,6 @@ const InputRowItem: FC<{
   )
 }
 
-/**
- * One row per layer or leg (its inputs side by side under their own small
- * labels), or per input where the rule has no groups. Side by side because a
- * layer is read as one thing — „EPS-F: 20 cm, λ 0,035" — and two rows per layer
- * made a four-layer wall eight rows tall.
- */
 const InputRows: FC<{
   slots: InputSlot[]
   values: Record<string, number | null>
@@ -319,9 +267,6 @@ const InputRows: FC<{
   )
 }
 
-/* ── checks ─────────────────────────────────────────────────────────────── */
-
-/** The quantity as the card prints it: a step's result as its Rechenweg line does, an input as written. */
 const quantityText = (check: LimitCheck, judged: JudgedFormula, t: Translator): string => {
   const { value, unit } = check.quantity
   if (value == null) return missingLabel(t)
@@ -339,7 +284,6 @@ const boundText = (check: LimitCheck, t: Translator): string => {
   return `${fmtComparator(limit.comparator)} ${withUnit(formatInput(limit.value), spec.unit)}`
 }
 
-/** Why a check cannot be judged: a refused entry, a division by zero, or a value nobody has given. */
 const undecidedText = (
   check: LimitCheck,
   compiled: CompiledFormula,
@@ -357,11 +301,9 @@ const undecidedText = (
   return t('cards.formula.cannotJudge')
 }
 
-/** Why a held check gives no verdict, with the edition its bound is from and the one that binds. */
 const holdText = (hold: EditionHold, t: Translator): string =>
   t(HOLD_KEYS[hold.reason], { edition: hold.edition, binding: hold.binding ?? '' })
 
-/** One check as the live region says it: the verdict, or the hint with its reason. */
 const spokenCheck = (check: LimitCheck, judged: JudgedFormula, t: Translator): string => {
   const said = { name: t(CHECK_KEYS[check.spec.id]), value: quantityText(check, judged, t), bound: boundText(check, t) }
   return check.hold
@@ -382,7 +324,6 @@ const CheckRow: FC<{
     <li className="flex flex-col gap-1">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         {check.hold ? (
-          // No ✓ and no ✗: the bound is from an edition that does not bind here, or nobody settled which does.
           <Chip variant="info" size="sm">
             <Info aria-hidden="true" />
             {t('cards.formula.hold.label')}
@@ -410,19 +351,11 @@ const CheckRow: FC<{
   )
 }
 
-/* ── the card ───────────────────────────────────────────────────────────── */
-
 export const FormulaCard: FC<FormulaCardProps> = ({ title, formula, note, site_binding: siteBinding }) => {
   const t = useTranslations(chatCopy)
   const { overrides, change, reset } = useReaderOverrides()
-  // Which fields hold text the field refused. One reader's view of their own
-  // typing, so component state, never the data model.
   const [issues, setIssues] = useState<Record<string, QuantityIssue>>({})
   const [interacted, setInteracted] = useState(false)
-  // Bumped by „Zurücksetzen" and used as the inputs' key, so every field is
-  // drawn afresh from the source. A field whose source value is null and whose
-  // text was refused („1x") reported null either way, so a value-driven reset
-  // would leave the refused text and its error on screen.
   const [resetCount, setResetCount] = useState(0)
 
   const slots = useMemo(() => inputSlots(formula), [formula])

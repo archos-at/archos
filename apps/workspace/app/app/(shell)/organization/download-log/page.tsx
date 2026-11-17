@@ -1,17 +1,3 @@
-/**
- * Organization → download log (ADR-0088): who took which document out, and who
- * opened one in a folder with its own access list.
- *
- * The chrome, the back link and the section nav live in the shared `layout.tsx`;
- * this page only names its section and renders it.
- *
- * Gated on `org:downloads:view`, the permission `GET /api/organization/download-log`
- * enforces, and nothing else: the audit-log permission does not open it, because
- * this is data about what staff opened. The rows are read by the client through
- * the API, so every read is recorded in the audit trail; the page itself reads
- * nothing but the member list for the person filter.
- */
-
 import type { JSX } from 'react'
 import { ShieldAlert } from 'lucide-react'
 import { withPageSession } from '@/lib/auth/require-auth'
@@ -44,8 +30,6 @@ export default async function OrganizationDownloadLogPage(): Promise<JSX.Element
       )
     }
 
-    // The person filter is a convenience: a WorkOS hiccup leaves it with the
-    // everyone option only, never a failed page.
     let people: DownloadLogPerson[] = []
     try {
       people = await listOrganizationMembers(session.organizationId)

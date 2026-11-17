@@ -1,16 +1,5 @@
 'use client'
 
-/**
- * One upload's summary, kept current while Piloti is still reading it.
- *
- * The first answer may arrive before every file has been read. While the batch
- * is open and a file of it is `reading`, the summary is asked for again every
- * {@link UPLOAD_SUMMARY_POLL_MS}; the first answer with `completedAt` set (or
- * nothing left reading) ends the polling. A failed poll keeps what is on
- * screen and tries again on the next tick: a dropped request does not take a
- * good summary away.
- */
-
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ApiRequestError } from '@/adapters/api/api-error'
 import { getProjectName, getUploadSummary, type UploadSummary } from '@/adapters/api/upload-batches-client'
@@ -30,8 +19,6 @@ export function useUploadSummary(
   pollMs: number = UPLOAD_SUMMARY_POLL_MS
 ): { state: UploadSummaryState; retry: () => void } {
   const [state, setState] = useState<UploadSummaryState>({ status: 'loading' })
-  // Bumped by every answer and every failed poll, so the next tick is planned
-  // even when a poll changed nothing.
   const [answers, setAnswers] = useState(0)
 
   const load = useCallback(
@@ -58,8 +45,6 @@ export function useUploadSummary(
     return () => controller.abort()
   }, [load])
 
-  // A file allowed from this summary (or anywhere else) is read again: hear
-  // it, quietly, so its row stops saying it waits for review.
   const generation = useDocumentsGeneration()
   const seenGeneration = useRef(generation)
   useEffect(() => {
@@ -89,7 +74,6 @@ export function useUploadSummary(
   return { state, retry }
 }
 
-/** The project's name for the summary's header; `null` until known, or when it cannot be read. */
 export function useProjectName(projectId: string | null): string | null {
   const [name, setName] = useState<string | null>(null)
   useEffect(() => {

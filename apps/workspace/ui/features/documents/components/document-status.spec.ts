@@ -27,18 +27,14 @@ describe('document status families', () => {
 
   it('reads a failed re-upload as still citable through its previous version', () => {
     expect(failedWithPreviousVersion({ status: 'failed', versionCount: 2 })).toBe(true)
-    // One version: nothing earlier to fall back on.
     expect(failedWithPreviousVersion({ status: 'failed', versionCount: 1 })).toBe(false)
-    // A payload that did not read the count says the conservative thing.
     expect(failedWithPreviousVersion({ status: 'failed', versionCount: null })).toBe(false)
     expect(failedWithPreviousVersion({ status: 'failed' })).toBe(false)
-    // Not a failure at all.
     expect(failedWithPreviousVersion({ status: 'processing', versionCount: 3 })).toBe(false)
   })
 })
 
 describe('documentStatusLabel', () => {
-  // Returns the key itself, so every assertion is about WHICH key was picked.
   const t = (key: string): string => key
 
   it('labels declared statuses from the table', () => {
@@ -62,12 +58,6 @@ describe('documentStatusLabel', () => {
   })
 })
 
-/*
- * Since ADR-0054 a person may publish Piloti's document into the index, and
- * the dispatch guard lets only that published version through. Its status is
- * then the truth: an authorship override showed a published, indexed report as
- * „nicht in der Wissensbasis“ and kept Ask from opening it.
- */
 describe('whether a document is in the knowledge base', () => {
   it.each(['user', 'agent'] as const)('follows the status for a document by %s', (authoredBy) => {
     const indexed = { status: 'completed', authoredBy }

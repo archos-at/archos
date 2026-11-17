@@ -1,25 +1,5 @@
 'use client'
 
-/**
- * Composer file-state dev preview: the REAL InputArea with files attached, so
- * the file-input surface (inline FileChips above the textarea, the manage-files
- * button, per-file status/retry/remove) can be reviewed and screenshotted at
- * desktop + mobile. Seeds a fake conversation + tracked files into the stores in
- * an effect (backend-free). Not linked anywhere; 404s outside development.
- *
- * `?state=` selects an extra captured state:
- *   - (none)        → the composer with clickable chips + the mobile "manage" entry.
- *   - preview       → the shared read-only FilePreviewDialog opened from a chip.
- *   - sheet         → the mobile FileSourcesTab bottom-sheet (manage files).
- *   - research-done → the post-research composer: locked field + the explicit
- *                     "Neue Sitzung starten" forward action and helper line
- *                     (replaces the old no-op explanation popover).
- *
- * A module-scope fetch shim (browser + dev only) serves the file-preview URL and
- * visual-details payload so the preview pane renders fully backend-free — same
- * pattern as /dev/file-preview.
- */
-
 import { useEffect, useState } from 'react'
 import { notFound } from 'next/navigation'
 import { AppConfigProvider, type AppConfig } from '@/shared/context'
@@ -70,8 +50,6 @@ const files: TrackedFile[] = [
   },
 ]
 
-// Rich fixture for the read-only chip preview — a real "document page" so the
-// left pane renders something, plus indexed metadata the pane tolerates.
 const PAGE_SVG =
   'data:image/svg+xml;utf8,' +
   encodeURIComponent(
@@ -107,9 +85,6 @@ const PREVIEW_FIXTURE: FileItem = {
   capture: null,
 }
 
-// Install the fetch shim at module scope (before any component effect fires) so
-// the pane's preview / visual-details fetches always resolve. Idempotent +
-// dev/browser-guarded.
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   const w = window as unknown as { __composerFilesShim?: boolean }
   if (!w.__composerFilesShim) {
@@ -134,15 +109,11 @@ export default function ComposerFilesPreviewPage() {
     notFound()
   }
 
-  // Read the requested state after mount (in an effect, not during render) so
-  // the server and first client render agree — avoids a hydration mismatch.
   const [state, setState] = useState<string | null>(null)
 
   useEffect(() => {
     const requested = new URLSearchParams(window.location.search).get('state')
     setState(requested)
-    // The post-research state seeds a finished run's answer: the composer
-    // stays open beside it (a follow-up runs in the same thread, ADR-0062).
     const messages =
       requested === 'research-done'
         ? [
@@ -171,7 +142,6 @@ export default function ComposerFilesPreviewPage() {
     useLayoutStore.setState({ knowledgeLayerAvailable: true })
   }, [])
 
-  // Preview state: the shared read-only dialog as opened from a successful chip.
   if (state === 'preview') {
     return (
       <AppConfigProvider config={config}>
@@ -183,8 +153,6 @@ export default function ComposerFilesPreviewPage() {
     )
   }
 
-  // Sheet state: the mobile FileSourcesTab bottom-sheet (manage files). Renders
-  // the exact bottom-sheet chrome the composer's manage-files dialog uses.
   if (state === 'sheet') {
     return (
       <AppConfigProvider config={config}>

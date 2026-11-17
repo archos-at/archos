@@ -1,5 +1,5 @@
 # The workspace eval (`task be:eval:answer-suite -- --set workspace`, ADR-0123): office work
-# asked of Piloti in the fixture office (`apps/workspace/tests/fixtures/workspace/office.json`),
+# asked of the agent in the fixture office (`apps/workspace/tests/fixtures/workspace/office.json`),
 # its door served by `scripts/turn_census/fixture_workspace.py`.
 #
 # Every run sits in the office's current project („Wohnhaus Mödling"), as Lena Berger, an
@@ -15,8 +15,8 @@
 #               `or_tool` names a native tool that does the same job (the check passes on it).
 #   uses:       tools the turn must have done the work with: a native tool's name as the model binds
 #               it (`remember`, `canvas__mark`) or a door operation; a list item means any one of them.
-#               Which tool is Piloti's for a job is `apps/workspace/bff/agent-api/exposure.config.ts`
-#               (`piloti: 'native:<tool>'` hides the door's operation from Piloti).
+#               Which tool is the agent's for a job is `apps/workspace/bff/agent-api/exposure.config.ts`
+#               (the agent's entry, `native:<tool>`, hides the door's operation from the agent).
 #   no_write:   true: nothing proposed (an ambiguous target is asked about, not guessed)
 #   no_workspace: true: the door was not used at all
 #   no_repeat:  operations a follow-up must not call again (the earlier turn already read them)
@@ -44,7 +44,7 @@ questions:
       mentions: [Thomas Wagner]
 
   # A project role is the person's to grant: project-member-add is `access` (ADR-0122), which
-  # in-product Piloti neither sees nor proposes. It must not file a look-alike instead
+  # in-product the agent neither sees nor proposes. It must not file a look-alike instead
   # (project-person-add is the project record's list of parties, not access).
   - id: ws-member-add-de
     question: Füge Anna Huber als Bearbeiterin zu diesem Projekt hinzu.
@@ -154,9 +154,9 @@ questions:
     expect:
       no_workspace: true
 
-  # The native tools Piloti does office work with (ADR-0122, amendment of 2026-10-21: the
-  # exposure config hides the door's look-alike from Piloti). Each row is the job; the check is
-  # that it got done with Piloti's own tool, not with a door operation it no longer sees.
+  # The native tools the agent does office work with (ADR-0122, amendment of 2026-10-21: the
+  # exposure config hides the door's look-alike from the agent). Each row is the job; the check is
+  # that it got done with the agent's own tool, not with a door operation it no longer sees.
   - id: ws-remember-de
     question: "Merk dir für dieses Projekt: Die Bauherrin will alle Pläne zusätzlich als DWG."
     expect:

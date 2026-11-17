@@ -26,19 +26,11 @@ import {
   subtreeOf,
 } from './ifc-folder-guard'
 
-/**
- *   Modelle/              (open)
- *     Archiv/             (open)
- *   Verwaltung/           (its own list)
- *   Pläne/                (open)
- *   Freigaben/            (its own list, everyone reads)
- */
 const TREE: AccessFolder[] = [
   { id: 'modelle', parentId: null, accessMode: 'inherit', everyoneReads: false },
   { id: 'modelle-archiv', parentId: 'modelle', accessMode: 'inherit', everyoneReads: false },
   { id: 'verwaltung', parentId: null, accessMode: 'custom', everyoneReads: false },
   { id: 'plaene', parentId: null, accessMode: 'inherit', everyoneReads: false },
-  // A list that narrows only who writes: every member still reads, so it is no restriction here.
   { id: 'freigaben', parentId: null, accessMode: 'custom', everyoneReads: true },
 ]
 
@@ -76,7 +68,6 @@ describe('assertRestrictionKeepsIfcOpen', () => {
       message: expect.stringContaining('hold 2 IFC models'),
       details: { code: 'IFC_IN_RESTRICTED_FOLDER', models: 2 },
     })
-    // The folder and everything below it is what the restriction would cover.
     const [, , folderIds] = vi.mocked(countIfcDocumentsInFolders).mock.calls[0]
     expect([...folderIds].sort()).toEqual(['modelle', 'modelle-archiv'])
   })

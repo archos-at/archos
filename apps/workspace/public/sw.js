@@ -1,34 +1,3 @@
-/*
- * Piloti service worker: system notifications for the inbox, and nothing else
- * (Web Push, ADR-0112).
- *
- * What it does:
- *   - push                 shows the notification the server sent
- *   - notificationclick    marks the item read, then focuses an open Piloti tab
- *                          and takes it to the item, or opens one
- *   - pushsubscriptionchange   subscribes again and tells the server
- *   - message              closes notifications the page says are no longer news
- *
- * What it must never do: cache anything. There is NO `fetch` event handler here
- * and no Cache Storage use, on purpose. Piloti serves several offices from one
- * origin, and a worker that answered requests from a cache could answer one
- * person with what another person's session fetched, or keep a revoked
- * document alive on a device. The browser's own HTTP cache rules stay in charge
- * of every request. The worker calls `fetch()` twice, to mark a tapped item
- * read and to re-register a rotated subscription, and those are requests it
- * makes, not ones it intercepts.
- *
- * It is a classic script with no build step and no imports, so it can be served
- * as a static file with `Cache-Control: no-cache` (next.config.ts) and updated
- * by a deploy like any other asset. The pure functions at the top are exported
- * for the spec (`bff/push/service-worker.spec.ts`) when loaded as a module;
- * in a browser `module` does not exist and only the listeners register.
- *
- * The payload shape is `PushMessage` in `bff/push/payload.ts`. `version`
- * lets this file and the server move independently across a deploy: a payload
- * of a version this file does not know still shows a notification, with the
- * words it carries if they are there and a generic line if they are not.
- */
 'use strict'
 
 var INBOX_PATH = '/app/inbox'
@@ -42,8 +11,10 @@ var READ_PATH = '/api/inbox/read'
 var READ_WAIT_MS = 400
 
 /** The page-to-worker and worker-to-page message types. */
-var MESSAGE_CLOSE = 'piloti:close-notifications'
-var MESSAGE_NAVIGATE = 'piloti:navigate'
+var MESSAGE_CLOSE = 'close-notifications'
+var MESSAGE_NAVIGATE = 'navigate'
+var INBOX_TAG = 'inbox'
+var LEGACY_NAMES = { close: 'piloti:close-notifications', navigate: 'piloti:navigate', tag: 'piloti-inbox' } // drop after release 2026-W50
 
 function isString(value) {
   return typeof value === 'string' && value.length > 0
@@ -80,7 +51,7 @@ function parseMessage(text) {
     title: isString(data.title) ? data.title : GENERIC_TITLE,
     body: isString(data.body) ? data.body : '',
     url: isString(data.url) ? data.url : INBOX_PATH,
-    tag: isString(data.tag) ? data.tag : 'piloti-inbox',
+    tag: isString(data.tag) ? data.tag : INBOX_TAG,
     itemId: isString(data.itemId) ? data.itemId : '',
   }
 }
@@ -114,6 +85,10 @@ function pickWindow(windows, origin) {
   return visible.length > 0 ? visible[0] : ours[0] || null
 }
 
+function currentTag(tag) {
+  return tag === LEGACY_NAMES.tag ? INBOX_TAG : tag
+}
+
 /**
  * Which of these notifications a close request names: all of them, the items it
  * lists (a notification remembers its inbox item in `data.itemId`), or the tags.
@@ -121,10 +96,10 @@ function pickWindow(windows, origin) {
 function notificationsToClose(notifications, request) {
   if (request && request.all === true) return notifications
   var itemIds = request && Array.isArray(request.itemIds) ? request.itemIds : []
-  var tags = request && Array.isArray(request.tags) ? request.tags : []
+  var tags = request && Array.isArray(request.tags) ? request.tags.map(currentTag) : []
   return notifications.filter(function (notification) {
     var itemId = notification.data && notification.data.itemId
-    return tags.indexOf(notification.tag) !== -1 || (isString(itemId) && itemIds.indexOf(itemId) !== -1)
+    return tags.indexOf(currentTag(notification.tag)) !== -1 || (isString(itemId) && itemIds.indexOf(itemId) !== -1)
   })
 }
 
@@ -176,15 +151,15 @@ async function openItem(scope, rawUrl) {
   } catch (error) {
     // A window the browser will not focus is still told where to go.
   }
-  // `navigate` is refused for a window this worker does not control; the page
-  // listens for the message and routes itself.
   try {
     var navigated = client.navigate ? await client.navigate(target) : null
     if (navigated) return
   } catch (error) {
     // Fall through to the message.
   }
-  client.postMessage({ type: MESSAGE_NAVIGATE, url: target.slice(scope.location.origin.length) })
+  var path = target.slice(scope.location.origin.length)
+  client.postMessage({ type: MESSAGE_NAVIGATE, url: path })
+  client.postMessage({ type: LEGACY_NAMES.navigate, url: path })
 }
 
 /**
@@ -243,8 +218,6 @@ function register(scope) {
   scope.addEventListener('notificationclick', function (event) {
     event.notification.close()
     var data = event.notification.data || {}
-    // The read is sent first and given a moment to land before the page loads,
-    // never longer: a browser lets a tap open a window only for a short while.
     var reading = markRead(data.itemId)
     var settled = new Promise(function (resolve) {
       setTimeout(resolve, READ_WAIT_MS)
@@ -263,7 +236,7 @@ function register(scope) {
   })
   scope.addEventListener('message', function (event) {
     var request = event.data
-    if (!request || request.type !== MESSAGE_CLOSE) return
+    if (!request || (request.type !== MESSAGE_CLOSE && request.type !== LEGACY_NAMES.close)) return
     event.waitUntil(
       scope.registration.getNotifications().then(function (notifications) {
         notificationsToClose(notifications, request).forEach(function (notification) {
@@ -276,6 +249,8 @@ function register(scope) {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
+    INBOX_TAG: INBOX_TAG,
+    LEGACY_NAMES: LEGACY_NAMES,
     MESSAGE_CLOSE: MESSAGE_CLOSE,
     MESSAGE_NAVIGATE: MESSAGE_NAVIGATE,
     READ_PATH: READ_PATH,

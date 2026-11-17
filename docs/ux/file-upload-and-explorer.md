@@ -62,7 +62,7 @@ Three terminal phases are neither a success nor a failure:
   something also failed.
 - **`stored`**, „Abgelegt“ (“Filed”), muted: the bytes are kept and nothing
   read them (the document's `uploaded` / `stored` status). Not „Zitierbar“,
-  because Piloti cannot cite it. The header counts it as added.
+  because the agent cannot cite it. The header counts it as added.
 - **`canceled`**, „Abgebrochen“ (“Cancelled”), muted: the reader stopped it. Two
   acts land here and read the same. While the bytes are still moving the row's
   ✕ aborts the transport. Once the server holds them and is reading the file the
@@ -184,7 +184,7 @@ decorated afterwards. Where each one landed:
    per-second byte counter never is.
 2. **Match between the system and the real world.** "Waiting", "Sending",
    "Reading", "Citable" — not `pending`, `ingesting`, `success`. "Citable"
-   tells a planner whether Piloti can use the file in an answer, which is what they check first. Sizes, speeds and
+   tells a planner whether the agent can use the file in an answer, which is what they check first. Sizes, speeds and
    durations are formatted in the app's locale, not the runtime's.
 3. **User control and freedom.** Cancel one file, cancel the batch, retry one,
    retry all failed, dismiss. A held file is dismissed, never retried. Before this change there was **no way to cancel an
@@ -294,19 +294,19 @@ hairlines inset past the glyph. The atoms are `components/ui/inspector-group.tsx
 both columns, which is what puts label and value on one baseline. Top to bottom:
 
 - **Who and what next.** A contact row (face, name, „Verantwortlich" under it,
-  „Bearbeiten"), then „Mit Piloti besprechen" with Piloti's glyph, then
-  „Kollegin fragen". The primary button names Piloti because „Besprechen" alone
+  „Bearbeiten"), then „Mit {productName} besprechen" with the agent's glyph, then
+  „Kollegin fragen". The primary button names the agent because „Besprechen" alone
   did not say with whom, and beside „Kollegin fragen" it read as a team meeting.
-- **Von Piloti gelesen.** The summary, how much was read and what Piloti took
+- **Von {productName} gelesen.** The summary, how much was read and what the agent took
   the file to be, in ONE group: they are one answer to "does the agent actually
   understand this file". The type chip is the ink tint, a discipline an ink
   outline, a topic a muted outline; the quiet fill `secondary` vanished on the
   rail (#f2f2f0 on #f1f1ef).
 - **Fassungen und Freigabe.** One group divided by what each part asks: the
-  standing, the decision, Piloti's suggestion, the timeline, the archive door.
+  standing, the decision, the agent's suggestion, the timeline, the archive door.
   Attention is the group's stronger edge and the decision's primary button; the
   section used to widen into a card only while something was asked.
-- **Auf den Seiten.** What Piloti saw on each page: page, drawing type (translated,
+- **Auf den Seiten.** What the agent saw on each page: page, drawing type (translated,
   or humanized from the key, never `floor_plan`), scale, the description, and the
   structured data behind it. Loaded with the document, four entries then „Alle N
   zeigen", and each entry turns the inline PDF to its page. It was a collapsed
@@ -438,13 +438,13 @@ card and list choice is.
 
 | Part | What it says | Each count opens |
 |---|---|---|
-| Bar and legend | How many documents in the subtree Piloti has read, and where the rest of those it is meant to read stand: being read, failed, held back. The headline names the read count, so the legend does not repeat it; with it, the legend adds up to the headline's „von N“. Documents Piloti never reads follow last, „16 weitere nicht in der Wissensbasis“, outside the sum, and then the headline says what „alle“ counts („Alle 27 Dokumente der Wissensbasis gelesen“). The bar is a hairline, drawn only while something is still open: everything read is the quiet case, with no bar at all. | The flat list of that state, across all subfolders |
-| What needs a person (first, open) | Failed documents, with one button to read all of them again. Documents held back by the content check. Citable documents Piloti placed in no document type. Each „Anzeigen“ has its own accessible name. | The flat list of those documents |
-| What it is about (folded) | The document types and disciplines Piloti assigned to the citable documents, each family under its label („Dokumentart“, „Fachbereich“), most frequent first, and the kinds of content it found. „Sonstiges“ always comes last. Then the topics Piloti recognised (up to twelve), and for photos the span of days the camera says they were taken on. Folded, its line names the types. A long chip truncates and carries its full text on hover. | The flat list of documents with that tag or topic, or of the dated photos |
+| Bar and legend | How many documents in the subtree the agent has read, and where the rest of those it is meant to read stand: being read, failed, held back. The headline names the read count, so the legend does not repeat it; with it, the legend adds up to the headline's „von N“. Documents the agent never reads follow last, „16 weitere nicht in der Wissensbasis“, outside the sum, and then the headline says what „alle“ counts („Alle 27 Dokumente der Wissensbasis gelesen“). The bar is a hairline, drawn only while something is still open: everything read is the quiet case, with no bar at all. | The flat list of that state, across all subfolders |
+| What needs a person (first, open) | Failed documents, with one button to read all of them again. Documents held back by the content check. Citable documents the agent placed in no document type. Each „Anzeigen“ has its own accessible name. | The flat list of those documents |
+| What it is about (folded) | The document types and disciplines the agent assigned to the citable documents, each family under its label („Dokumentart“, „Fachbereich“), most frequent first, and the kinds of content it found. „Sonstiges“ always comes last. Then the topics the agent recognised (up to twelve), and for photos the span of days the camera says they were taken on. Folded, its line names the types. A long chip truncates and carries its full text on hover. | The flat list of documents with that tag or topic, or of the dated photos |
 | Where it sticks (folded) | Up to four subfolders, worst first, whose own documents need attention or are being read. Each is named by its path, so the reader lands on the folder with the trouble and not on an ancestor. | Walks into that folder |
 
 The order is what the reader has to do: what needs them first and open, then
-„Was Piloti noch fehlt“, „Worum es hier geht“ and „Wo es hakt“, each folded to
+„Was {productName} noch fehlt“, „Worum es hier geht“ and „Wo es hakt“, each folded to
 one line that already names what it holds. Opened in full the brief was taller
 than a laptop screen, and the listing it introduces started below the fold.
 
@@ -453,11 +453,11 @@ older Fassung whose newer one is in the corpus is left out of every count, the
 pages, the chips, the failures and the re-read, whatever the „Ältere Fassungen“
 filter says.
 
-At the project root only, a fifth part, „Was Piloti noch fehlt“, lists the
+At the project root only, a fifth part, „Was {productName} noch fehlt“, lists the
 documents the intake answers say the project should hold and that no file is
 bound to yet. These are the entries the agent reads as its missing documents. A
 file that is in the project but not yet bound to its role still shows here as
-missing, because Piloti cannot tell which file it is until it is bound.
+missing, because the agent cannot tell which file it is until it is bound.
 
 The re-read button appears only for a reader who may write in that folder,
 because a re-read changes the document for everybody who can open it. It sends
@@ -466,7 +466,7 @@ row turns to „Wird gelesen“ as its answer comes in.
 
 **Folder rows in the list view** show the worst state of everything in their
 subtree, as one swatch and one phrase, in this order: failed, held back, being
-read, and then „Alles gelesen“ when every document Piloti is meant to read is
+read, and then „Alles gelesen“ when every document the agent is meant to read is
 citable. The folder tiles of the card view carry the same mark as a coloured dot
 beside the name, without the words, which are its tooltip and its screen-reader
 text: the card view is for browsing, the list view is the detail view, and the
@@ -476,7 +476,7 @@ back, never indexed); „Zitierbar“ is spelled out in the list view's status
 column. An unplaced document is not named on a row. It appears only in the
 brief's „Where it sticks“, because on most folders of a project it would be
 noise. An empty
-folder, or one holding only documents Piloti never reads, shows nothing.
+folder, or one holding only documents the agent never reads, shows nothing.
 
 **Where the data comes from.** Nothing is fetched for the brief or the rows.
 The browser computes both from the listing the Files view already loads:
@@ -492,7 +492,7 @@ back, still being read, or not in the knowledge base is counted. Its tags,
 disciplines, content kinds and summary stay out of the brief. A document the
 content check has not released cannot reach the reader through the brief.
 
-## Folders that say what they hold, and Piloti's filing suggestion
+## Folders that say what they hold, and the agent's filing suggestion
 
 **Preview:** `/dev/filing-suggestions`
 
@@ -506,7 +506,7 @@ no way to change it, and an undescribed folder shows them nothing. The dialog
 folds whitespace, clears the description when emptied and refuses more than
 500 characters before it asks the server.
 
-Piloti reads the descriptions when it suggests where an upload belongs
+The agent reads the descriptions when it suggests where an upload belongs
 ([`proposed-changes.md`](../architecture/proposed-changes.md#filing-suggestions)).
 One proposal per target folder (`file_operation`, no conversation), so a person
 confirms per folder. Every control below is that proposal
@@ -522,7 +522,7 @@ hint. Otherwise they are read when the shelf is shown and after a change.
 
 **The chip, on the file.** The suggestion reaches the person where the file is:
 a small pill on the left of the card's footer, right after the name in the list
-view, and on the row of the upload tray. Piloti's glyph and „→ Bescheide“, the
+view, and on the row of the upload tray. The agent's glyph and „→ Bescheide“, the
 last segment of the target path, with a quiet „neu“ for a folder the move
 creates (`FilingChip`, `components/ui/filing-chip.tsx`). It is calm because a
 batch upload can put ten on one screen: the card's own surface, no fill colour
@@ -561,7 +561,7 @@ folder (`FilingBar`, `features/documents/components/filing-bar.tsx`) when one
 target folder in view collects two files or more; then it lists every target
 folder of the view, one line each: the path in full and never cut, „neu“, the
 count („2 Dateien“), and „Belassen“ and „Verschieben“ / „Anlegen und
-verschieben“ (both tonal), under „Piloti schlägt vor, 3 Dateien abzulegen“. With
+verschieben“ (both tonal), under „{productName} schlägt vor, 3 Dateien abzulegen“. With
 one file per folder the chip is the shorter way, so the bar stays away. It is
 quiet: the card surface, one hairline, no shadow. Hovering or focusing a line
 fills it and outlines the cards and rows it would move, a 2px strongest-hairline
@@ -580,7 +580,7 @@ as a suggestion a person confirms, also when a new state does not carry the
 old file name. ADR-0099 records why this is a link between two documents and
 not a merge.
 
-Piloti suggests in two ways:
+The agent suggests in two ways:
 
 - **By name.** Each file carries the name-based suggestion, computed when its
   listing is read, so a document uploaded before this existed is still asked
@@ -590,7 +590,7 @@ Piloti suggests in two ways:
 - **By reading.** After a new document is read, a model compares its summary
   with the documents it could replace, name matches first, and keeps a
   suggestion only above a confidence threshold. The preview names the basis:
-  the name, or what Piloti read.
+  the name, or what the agent read.
 
 The preview's one section „Fassungen und Freigabe“ (`document-revisions.tsx`,
 below) asks the question. „Ja,
@@ -606,7 +606,7 @@ A same-name re-upload (ADR-0054's version chain) gets the same change line
 against its previous version.
 
 **One section, not two: „Fassungen und Freigabe“** (`document-revisions.tsx`,
-mounted once in `file-preview-pane.tsx`, directly under Piloti's reading).
+mounted once in `file-preview-pane.tsx`, directly under the agent's reading).
 It replaced „Fassungen“ (the older documents linked under other names) and
 „Freigabe und Fassungen“ (this document's own uploads and the approval
 controls, last in the rail), which described one history in two places.
@@ -617,26 +617,26 @@ controls, last in the rail), which described one history in two places.
   step with a person („Nächster Schritt: Freigabe durch Sabine Gruber“, from the
   open round's recipients, `reviewerUserIds` on the version listing; „Ihre
   Freigabe“ when it is the reader's; „ein Teammitglied“ only when the name is
-  unknown); and which Fassung Piloti answers from, in one sentence. When that is
-  an older one, the sentence names it by number („Piloti antwortet weiter aus
+  unknown); and which Fassung the agent answers from, in one sentence. When that is
+  an older one, the sentence names it by number („{productName} antwortet weiter aus
   Fassung 1.“), so the header and the rows cannot contradict each other.
   Published is not answerable until read: while a person's re-upload is read,
   or after its reading failed, the previous upload keeps „aktuell“ and the
   sentence names it, because the knowledge layer retires the old passages only
-  once the new ones are stored. A first upload being read says „Piloti antwortet
-  daraus, sobald sie gelesen ist.“ A Piloti document's publish purges first, so
+  once the new ones are stored. A first upload being read says „{productName} antwortet
+  daraus, sobald sie gelesen ist.“ Publishing an agent document purges first, so
   nothing stands in for it. A
   person's upload, born published without a review, gets no state word and no
   track; a Fassung a newer document replaced is „Ersetzt“, without a track.
   Under the header, when a decision is the reader's: „Freigeben“ and
-  „Änderungen anfordern“ visible, „Piloti überarbeiten lassen“ and „Ablehnen“
+  „Änderungen anfordern“ visible, „{productName} überarbeiten lassen“ and „Ablehnen“
   behind ⋯, and one line on what approving means.
 - **Body, a disclosure:** the suggestion card, then ONE timeline, newest first and
   numbered „Fassung 3, 2, 1“ (`buildRevisionTimeline`) across the uploads under
   this name (`useDocumentLifecycle`) and the older documents under other names
   (`file.revision.history`), merged by date. An older Fassung that was opened has
   the newer document as its top row. The index or date is a secondary tag;
-  „aktuell“ marks only the Fassung Piloti answers from; no row says „Ersetzt“.
+  „aktuell“ marks only the Fassung the agent answers from; no row says „Ersetzt“.
   Each fact once: the person and date on the act line („Hochgeladen von Anna
   Berger · 14.08.2026“; an upload never reads „Freigegeben“), a file name only on
   a row that is another document, cut in the middle (`MiddleTruncate`). One
@@ -648,7 +648,7 @@ controls, last in the rail), which described one history in two places.
   „Datei stilllegen …“ is one quiet line at the end; its confirm lists what it
   does.
 - **It opens itself** on the attention edge, once: a decision is this reader's to
-  take (`lifecycleNeedsReader`), Piloti has an unconfirmed suggestion, or the file
+  take (`lifecycleNeedsReader`), the agent has an unconfirmed suggestion, or the file
   is an older Fassung. A reader who closes it keeps it closed.
 - **Surfaces without lifecycle permissions** (the Büroablage sheet, the chat peek)
   get the same section with the cross-name timeline and the suggestion, and no
@@ -679,11 +679,11 @@ off-screen, so the sheet never blanks mid-pinch. File names are cut in the
 middle (`MiddleTruncate`, `lib/text/middle-truncate.ts`) from where the two
 names first differ, so the index survives. Both pages are drawn at one scale
 in a shared box; when the page counts differ the dialog says so. „Seite N mit
-Piloti vergleichen“ asks the vision comparison for that page
+{productName} vergleichen“ asks the vision comparison for that page
 (`useRevisionVisualChanges`); each answered page is kept, so marking page 2
 keeps page 1's boxes. The boxes are numbered outlines in the mark ink (dashed
 in the overlay) on the newer sheet, and the list beside it (under it below
-1024 px) groups them by page, with Piloti's sentence under its box's label when
+1024 px) groups them by page, with the agent's sentence under its box's label when
 the counts pair, and the caveat that dimensions are checked in the document.
 Below 1024 px the list is a bottom sheet behind an „Änderungen“ button with the
 count; choosing a change closes it and shows the box. On a phone, upright or on
@@ -691,7 +691,7 @@ its side, the dialog fills the screen and clears the safe areas.
 Boxes and rows are one selection: hovering or focusing either lights both (a
 tooltip names the box), clicking a row turns to its page and scrolls its box
 into view. A refusal names the remedy and offers a retry where one can help
-(409: still being read; 502/503: Piloti not reachable). Boxes already known can
+(409: still being read; 502/503: the agent not reachable). Boxes already known can
 be passed as `overlays`; a run replaces them. PDFs and office files (through
 their PDF rendition) are drawn with the preview's pdf.js runtime, images from
 the preview URL; a page load that fails names the file and offers „Erneut
@@ -767,9 +767,9 @@ time.
 |---|---|
 | Byte-level upload transport (the only XHR in the app) | `src/lib/http/xhr-upload.ts` |
 | A folder's description: the line, the dialog, the edit (`describe`) | `src/features/documents/components/folder-description-dialog.tsx`; `src/features/documents/hooks/use-folder-tree.ts` |
-| Piloti's filing suggestion: the chip and its popover, the highlight, the filing bar, the shelf's open suggestions | `src/features/documents/components/filing-suggestion.tsx`; `src/features/documents/components/filing-bar.tsx`; the kit: `src/components/ui/filing-chip.tsx`, `path-change.tsx`, `suggestion-panel.tsx`, `highlight.ts`; `src/features/documents/hooks/use-filing-suggestions.ts`; `src/features/documents/lib/filing-suggestions.ts` |
+| The agent's filing suggestion: the chip and its popover, the highlight, the filing bar, the shelf's open suggestions | `src/features/documents/components/filing-suggestion.tsx`; `src/features/documents/components/filing-bar.tsx`; the kit: `src/components/ui/filing-chip.tsx`, `path-change.tsx`, `suggestion-panel.tsx`, `highlight.ts`; `src/features/documents/hooks/use-filing-suggestions.ts`; `src/features/documents/lib/filing-suggestions.ts` |
 | The folder brief: a folder's subtree tally, the brief, what each count selects | `src/features/documents/lib/folder-knowledge.ts`; `src/features/documents/components/folder-brief.tsx` |
-| Revision series read from file names (TS twin of `packages/knowledge-layer/src/revision_series.py`) | `src/lib/documents/revision-series.ts` |
+| Revision series read from file names (TS twin of `packages/knowledge-layer/src/knowledge_layer/revision_series.py`) | `src/lib/documents/revision-series.ts` |
 | The preview's Fassungen und Freigabe section; the timeline rule; the lifecycle data; the link request | `src/features/documents/components/document-revisions.tsx`; `src/lib/documents/revision-timeline.ts`; `src/features/documents/hooks/use-document-lifecycle.ts`; `src/features/documents/lib/revision-request.ts` |
 | A folder's read state: the dot on its tile, the dot and phrase on its list-view row | `src/features/documents/components/folder-read-state.tsx` |
 | Bulk re-read, four requests at a time, and the one request each sends | `src/features/documents/hooks/use-bulk-reingest.ts`; `src/features/documents/lib/reingest-request.ts` |
@@ -839,7 +839,7 @@ What a shelf may differ in is exactly the fields of `FileShelf`:
 | `askAbout` | opens the project chat | absent | There is no Archiv chat to open |
 | `preview` | `store` (the project shell hosts it; chat shares it) | `dialog` (the sheet has no host) | Where a preview can be mounted |
 | `handoverKey` | project id | absent | `ProjectFileDrop` hands a drop to a project only |
-| `messages` | „… in dieses Projekt", „in Piloti’s Wissen" | „… in die Büroablage", „in der Büroablage" | Two sentences naming the shelf |
+| `messages` | „… in dieses Projekt", „in {productName}s Wissen" | „… in die Büroablage", „in der Büroablage" | Two sentences naming the shelf |
 | header | `ProjectSectionActions` portal into the section's `PageHeader` | the same band (`SECTION_HEADER_CLASS`) and `PageHeader`, with a count pill by the title and the sheet's close beside it | Each frames the same controls |
 
 The tag chips of the old Archiv grid are „Kategorie" in the shared filter menu
@@ -981,7 +981,7 @@ never drains the shelf for the default view.
   keystroke and asks the server 250 ms after the last one, across the whole
   shelf (`q`, without a folder); it matches file names and renames, and the
   empty result says so and points to Enter for the semantic search over the
-  content. The status filter is `state=` (read-state families). „Von Piloti“
+  content. The status filter is `state=` (read-state families). „Von {productName}“
   and „auch archivierte“ were already server filters.
 - **The folder tiles, the header count and the brief come from the shelf
   summary** (`useShelfSummary`, `GET {list}/summary`): one aggregate per
@@ -991,7 +991,7 @@ never drains the shelf for the default view.
   „Alle erneut lesen“ over the failed ids the summary names) and „Wo es hakt“
   are the summary's. „Worum es hier geht“ needs what the backend put on each
   document, so a summary-built brief shows the section folded with a „Laden“
-  button instead of claiming Piloti recognised nothing; pressing it, or opening
+  button instead of claiming the agent recognised nothing; pressing it, or opening
   one of the brief's slices, turns the drain on and the brief is built from the
   whole shelf as before.
 - **What still drains the shelf**: a kind, tag, assignment or „Freigabe
@@ -1020,7 +1020,7 @@ never drains the shelf for the default view.
 - **Changes made elsewhere arrive live.** The workspace joins its shelf's live
   channel (`shelf:project-<id>` or `shelf:office_shelf`, ADR-0110) through
   `useShelfLive`. The server says `shelf.changed` after every write to the
-  shelf: a new or replaced document (a person's, a mail import, one Piloti
+  shelf: a new or replaced document (a person's, a mail import, one the agent
   filed), a rename, a delete, a move, a folder made, renamed, moved, binned,
   restored or given new access, an upload released from screening, and an
   ingestion that finished, failed or was quarantined. The hint carries no data;

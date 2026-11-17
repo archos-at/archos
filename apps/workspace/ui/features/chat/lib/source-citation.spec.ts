@@ -7,11 +7,6 @@ import type { CitationSource } from '../types'
 
 const NOW = new Date('2026-07-28T12:00:00Z')
 
-/**
- * Fixtures go through the REAL model rather than being hand-built, so a change
- * to how a document is identified, titled or tinted shows up here instead of
- * being papered over by a literal that no producer would ever emit.
- */
 const refFor = (citation: CitationSource): CitationRef => {
   const [document] = buildCitationModel({ citations: [citation] })
   if (!document) throw new Error('fixture produced no document')
@@ -95,8 +90,6 @@ describe('toCslItem', () => {
   })
 
   test('nothing is invented: no edition phrase → no edition and no issued date', () => {
-    // Neither the title nor the filename states an edition, so the citation
-    // must not carry one — a fabricated Fundstelle is worse than a short one.
     const csl = toCslItem(
       refFor({
         id: 'c4',
@@ -129,6 +122,124 @@ describe('toTechnicalText', () => {
       'Bauordnung für Wien § 108, in: Rechtsinformationssystem des Bundes (RIS), ' +
         'abgerufen am 28.07.2026: https://www.ris.bka.gv.at/x.'
     )
+  })
+
+  test('a text the records name is titled by them, not by its file name, and published by their issuer', () => {
+    const recorded = refFor({
+      id: 'c8',
+      content: '',
+      timestamp: NOW,
+      title: 'xa-guide-4-2019-text-0a1b2c3d4e5f.pdf',
+      fileName: 'xa-guide-4-2019-text-0a1b2c3d4e5f.pdf',
+      citationKey: 'xa-guide-4-2019-text-0a1b2c3d4e5f.pdf, p.3',
+      collection: 'oib_knowledge',
+      kind: 'building_law',
+      lane: 'building_law_base',
+      origin: 'kb',
+      page: 3,
+      number: 8,
+      isCited: true,
+      line: { edition_id: 'edition:xa-guide-4-2019', designation: 'XA Guide 4', edition_label: 'Edition 2019', issuer: 'Xanadu Building Institute' },
+    })
+    expect(recorded.document.title).toBe('XA Guide 4, Edition 2019')
+    const item = toCslItem(recorded, NOW)
+    expect(item).toMatchObject({ type: 'standard', title: 'XA Guide 4, Edition 2019', publisher: 'Xanadu Building Institute' })
+    expect(toTechnicalText(recorded, NOW)).not.toContain('Rechtsinformationssystem')
+  })
+
+  test('a law read live keeps its own title and source: the records name its work, not an edition', () => {
+    const live = refFor({
+      id: 'c9',
+      content: '',
+      timestamp: NOW,
+      title: 'Bauordnung für Wien § 108',
+      kind: 'building_law',
+      lane: 'building_law_ris',
+      origin: 'ris',
+      url: 'https://www.ris.bka.gv.at/x',
+      number: 9,
+      isCited: true,
+      line: { work_id: 'work:bo-wien', designation: 'BO für Wien', issuer: 'Land Wien' },
+    })
+    expect(live.document.title).toBe('Bauordnung für Wien § 108')
+    expect(toTechnicalText(live, NOW)).toBe(toTechnicalText(law, NOW))
+  })
+
+  test('a law read live keeps its own title and source even where the records hold an edition of its work', () => {
+    const live = refFor({
+      id: 'c10',
+      content: '',
+      timestamp: NOW,
+      title: 'Bauordnung für Wien § 108',
+      kind: 'building_law',
+      lane: 'building_law_ris',
+      origin: 'ris',
+      url: 'https://www.ris.bka.gv.at/x',
+      number: 10,
+      isCited: true,
+      line: { work_id: 'work:bo-wien', edition_id: 'edition:bo-wien-2023', designation: 'BO für Wien', edition_label: 'LGBl. Nr. 37/2023', issuer: 'Land Wien' },
+    })
+    expect(live.document.title).toBe('Bauordnung für Wien § 108')
+    expect(toTechnicalText(live, NOW)).toBe(toTechnicalText(law, NOW))
+  })
+
+  test('a text the publish titled from its records still takes its issuer as publisher', () => {
+    const titled = refFor({
+      id: 'c13',
+      content: '',
+      timestamp: NOW,
+      title: 'XA Guide 4, Edition 2019',
+      fileName: 'manifestation-xa-guide-4-2019-text-0a1b2c3d4e5f.pdf',
+      kind: 'building_law',
+      lane: 'building_law_base',
+      origin: 'kb',
+      number: 13,
+      isCited: true,
+      line: { edition_id: 'edition:xa-guide-4-2019', designation: 'XA Guide 4', edition_label: 'Edition 2019', issuer: 'Xanadu Building Institute' },
+    })
+    expect(toCslItem(titled, NOW)).toMatchObject({ type: 'standard', title: 'XA Guide 4, Edition 2019', publisher: 'Xanadu Building Institute' })
+    expect(toTechnicalText(titled, NOW)).not.toContain('Rechtsinformationssystem')
+  })
+
+  test('a recorded text whose edition label repeats the designation names it once', () => {
+    const recorded = refFor({
+      id: 'c12',
+      content: '',
+      timestamp: NOW,
+      title: 'xa-reg-305-text-0a1b2c3d4e5f.pdf',
+      fileName: 'xa-reg-305-text-0a1b2c3d4e5f.pdf',
+      kind: 'building_law',
+      lane: 'building_law_base',
+      origin: 'kb',
+      number: 12,
+      isCited: true,
+      line: { edition_id: 'edition:xa-reg-305', designation: 'Regulation 305/2011', edition_label: 'Regulation 305/2011' },
+    })
+    expect(recorded.document.title).toBe('Regulation 305/2011')
+    expect(toCslItem(recorded, NOW).title).toBe('Regulation 305/2011')
+  })
+
+  test('a recorded text whose work names no issuer keeps the publisher its lane gives', () => {
+    const recorded = refFor({
+      id: 'c11',
+      content: '',
+      timestamp: NOW,
+      title: 'oib-rl-6-2015-text-0a1b2c3d4e5f.pdf',
+      fileName: 'oib-rl-6-2015-text-0a1b2c3d4e5f.pdf',
+      kind: 'building_law',
+      lane: 'building_law_oib',
+      origin: 'kb',
+      page: 9,
+      number: 11,
+      isCited: true,
+      line: { edition_id: 'edition:oib-rl-6-2015', designation: 'OIB-Richtlinie 6', edition_label: 'Ausgabe März 2015' },
+    })
+    expect(toCslItem(recorded, NOW)).toMatchObject({
+      type: 'standard',
+      title: 'OIB-Richtlinie 6, Ausgabe März 2015',
+      publisher: 'Österreichisches Institut für Bautechnik',
+      'publisher-place': 'Wien',
+    })
   })
 
   test('numbers the bibliography the way the answer cites it', () => {
@@ -164,8 +275,6 @@ describe('toQuoteList', () => {
   })
 })
 
-// The bibliographic formats are rendered by citation-js on the BFF (it is a
-// Node library and cannot run in the browser) — exercise the real renderer.
 describe('server-side citation rendering', () => {
   test('BibTeX comes out importable, with a real entry per source', async () => {
     const bibtex = await renderOnServer([toCslItem(oib, NOW), toCslItem(law, NOW)], 'bibtex')
@@ -227,9 +336,6 @@ describe('renderCitations', () => {
 
 describe('CSL ids are unique per reference', () => {
   test('two pages of one document export as two entries, not one', () => {
-    // A bibliography lists one row per LOCUS and CSL consumers key on `id`, so
-    // two unnumbered pages of the same document collided and the importer
-    // silently dropped one.
     const page = (n: number): CitationSource => ({
       id: `c${n}`,
       content: `[KB] Plan.pdf, p.${n}`,
@@ -245,17 +351,10 @@ describe('CSL ids are unique per reference', () => {
     const ids = document!.loci.map((locus) => toCslItem({ document: document!, locus }, NOW).id)
 
     expect(new Set(ids).size).toBe(2)
-    // The id is written as the BibTeX key, and the parts it is built from are
-    // storage identities: an unescaped comma from a locus key ("Plan.pdf, p.3")
-    // ends the key mid-entry and the record stops parsing.
     for (const id of ids) expect(id).toMatch(/^[A-Za-z0-9._-]+$/)
   })
 
   test('two loci that sanitize alike still export as two entries', () => {
-    // Reducing an id to BibTeX-safe characters maps `,` and `;` onto the same
-    // `-`, so two loci of one document whose keys differ only in punctuation
-    // collided — and a CSL consumer keys on `id`, so one row overwrote the
-    // other. Sanitizing must not undo the per-locus identity.
     const keyed = (citationKey: string, n: number): CitationSource => ({
       id: `c${n}`,
       content: `[KB] ${citationKey}`,
@@ -277,8 +376,6 @@ describe('CSL ids are unique per reference', () => {
   })
 
   test('a locus known only by its citation key still yields a usable key', () => {
-    // No page, so the locus is keyed on the citation key itself — commas,
-    // spaces and dots included.
     const [document] = buildCitationModel({
       citations: [
         {
@@ -299,14 +396,6 @@ describe('CSL ids are unique per reference', () => {
   })
 })
 
-/**
- * The Punkt — the identifier Austrian building law is actually cited by.
- *
- * The chunker establishes it against the corpus's own contents pages, the
- * knowledge layer prints it, the wire carries it and the model holds it. Every
- * export then dropped it, so a citation an architect pastes into a Befund named
- * the PAGE — a fact about one edition's PDF — instead of the requirement.
- */
 describe('a clause is carried through to the citation', () => {
   const withClause = refFor({
     id: 'p1',
@@ -330,8 +419,6 @@ describe('a clause is carried through to the citation', () => {
   })
 
   test('is named before the page in the Fachtext form', () => {
-    // The requirement identifies itself; the page only says where this edition
-    // prints it.
     const text = toTechnicalText(withClause, NOW)
 
     expect(text).toContain('Pkt. 3.5.2')
@@ -340,8 +427,6 @@ describe('a clause is carried through to the citation', () => {
   })
 
   test('carries „Pkt." only before a bare number', () => {
-    // A project document's section is addressed by what it is called („§ 4",
-    // „Zeilen 2-41"); prefixing those with „Pkt." names nothing.
     for (const clause of ['§ 4', 'Zeilen 2-41', 'Geschoße', 'Tabelle 3']) {
       const text = toTechnicalText({ ...withClause, locus: { ...withClause.locus!, clause } }, NOW)
       expect(text).toContain(`, ${clause}, `)
@@ -350,8 +435,6 @@ describe('a clause is carried through to the citation', () => {
   })
 
   test('is absent when the citation does not name one', () => {
-    // A document-level reference has no Punkt, and inventing one would be the
-    // same overstatement `refPage` refuses for pages.
     expect(toCslItem(oib, NOW).section).toBeUndefined()
     expect(toTechnicalText(oib, NOW)).not.toContain('Pkt.')
   })

@@ -1,13 +1,3 @@
-/**
- * The office-wide search (ADR-0136, `docs/design/document-search.md`, 08:55):
- * every shelf the reader may open, every kind of thing the office works with.
- * Reached from the rail's „Suche“, the header's magnifier and ⌘K.
- *
- * The question is in the URL (`?q=…&type=…`), so the page is a link; the
- * organism reads it on the client, inside the Suspense boundary
- * `useSearchParams` asks for.
- */
-
 import type { JSX } from 'react'
 import { Suspense } from 'react'
 import { type Metadata } from 'next'

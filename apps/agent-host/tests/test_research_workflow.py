@@ -1,13 +1,3 @@
-"""Research runs on Hatchet (ADR-0150): the code of ours around the engine.
-
-The engine itself is exercised by ``test_research_workflow_engine.py``, against
-a real Hatchet. Here Hatchet is the ``hatchet`` fixture's fake only for the one
-wiring test of the submit (what reaches the SDK: ids and ciphertext, never
-plaintext) and the cancel's error path; everything else is our own logic: the
-refusals before anything is persisted, the task body's failure mapping, the
-verdicts, the liveness lifespan and the cutover. The job store is real (SQLite).
-"""
-
 from __future__ import annotations
 
 import inspect
@@ -20,7 +10,6 @@ import pytest
 from hatchet_sdk import NonRetryableException
 from hatchet_sdk import Priority
 from hatchet_sdk.exceptions import TaskRunError
-from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
 
 from agent.auth import Principal
@@ -28,7 +17,6 @@ from agent.common.task_failures import TransientTaskError
 from agent_host.jobs import access as job_access
 from agent_host.jobs import orchestrator_runs
 from agent_host.jobs import payload_crypto
-from agent_host.jobs import requeue_legacy
 from agent_host.jobs import research_workflow
 from agent_host.jobs import submit
 from agent_host.jobs import worker as worker_mod
@@ -71,9 +59,6 @@ async def _submit(job_id: str = "job-1", *, priority: str | None = None, organiz
         )
 
 
-# ---------------------------------------------------------------- submit
-
-
 async def test_a_submit_starts_research_run_with_ids_and_ciphertext_only(db_url, hatchet):
     await _submit()
 
@@ -108,9 +93,6 @@ async def test_without_a_key_nothing_reaches_hatchet_and_the_job_is_rolled_back(
     assert job_access.get_job_access("job-1", db_url) is None
 
 
-# ---------------------------------------------------------------- cancel
-
-
 async def test_a_failed_hatchet_cancel_leaves_the_status_flip_to_stop_the_run(db_url, hatchet, monkeypatch):
     notify = AsyncMock()
     monkeypatch.setattr(job_kill, "notify_job_outcome_from_access", notify)
@@ -126,9 +108,6 @@ async def test_a_failed_hatchet_cancel_leaves_the_status_flip_to_stop_the_run(db
 async def test_a_job_with_no_recorded_run_cancels_nothing(db_url, hatchet):
     assert await research_workflow.cancel(db_url, "job-unknown") is False
     hatchet.runs.aio_cancel.assert_not_awaited()
-
-
-# ---------------------------------------------------------------- the task
 
 
 def _stored(**overrides: Any) -> str:
@@ -154,7 +133,6 @@ def _input(stored: str) -> research_workflow.ResearchRunInput:
 
 @pytest.fixture
 def replayed(monkeypatch) -> list:
-    """``run_agent_job`` bound against its real signature, as in ``test_retired_payload_keys``."""
     calls: list = []
     signature = inspect.signature(run_agent_job)
 
@@ -195,12 +173,10 @@ async def test_a_deterministic_run_failure_is_not_retried(db_url, replayed):
 
 
 def _what_hatchet_stores(raised: BaseException) -> str:
-    """The failure as the SDK serialises it into the engine: message and the whole traceback chain."""
     return TaskRunError.from_exception(raised, "step-run-1").serialize(include_metadata=True)
 
 
 async def test_a_transient_database_error_before_the_run_is_retried_and_keeps_the_run_id(db_url, monkeypatch):
-    """A database that is away at ``try_take`` is the moment, not the job: Hatchet tries again."""
     orchestrator_runs.record(db_url, "job-1", "run-1")
 
     async def _database_away(*_args):
@@ -265,8 +241,6 @@ async def test_spent_attempts_fail_the_job_unless_a_verdict_stands(db_url, monke
 
 
 class TestVerdicts:
-    """The two verdicts a run that never reached ``run_agent_job`` needs written for it."""
-
     @pytest.fixture
     def written(self, monkeypatch) -> list:
         calls: list = []
@@ -304,14 +278,10 @@ class TestVerdicts:
 
 
 async def test_the_envelope_is_renewed_at_task_start_by_the_run_path():
-    """ADR-0108: the renewal is inside ``run_agent_job``'s setup, which the task calls unchanged."""
     import agent_host.jobs.agent_job_setup as setup
 
     assert "envelope_headers_for_run(" in inspect.getsource(setup)
     assert "run_agent_job(" in inspect.getsource(worker_mod.run_stored_job)
-
-
-# ---------------------------------------------------------------- the worker
 
 
 async def test_the_worker_lifespan_keeps_the_liveness_file_fresh(tmp_path, monkeypatch):
@@ -325,61 +295,6 @@ async def test_the_worker_lifespan_keeps_the_liveness_file_fresh(tmp_path, monke
     await asyncio.sleep(0)
     assert marker.read_text() == "ok"
     await lifespan.aclose()
-
-
-# ---------------------------------------------------------------- the cutover
-
-
-_OLD_COLUMNS = "(job_id, lane, payload, status, priority)"
-
-
-def _old_queue(db_url: str, rows: list[tuple[str, str, str, int, str]]) -> None:
-    with EventStore._get_or_create_sync_engine(db_url).begin() as conn:
-        conn.execute(
-            text(
-                "CREATE TABLE research_job_queue (job_id VARCHAR PRIMARY KEY, lane VARCHAR, payload TEXT,"
-                " status VARCHAR, priority INTEGER, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)"
-            )
-        )
-        conn.execute(text("CREATE TABLE IF NOT EXISTS job_info (job_id TEXT PRIMARY KEY, status TEXT)"))
-        for job_id, lane, payload, priority, status in rows:
-            conn.execute(
-                text(f"INSERT INTO research_job_queue {_OLD_COLUMNS} VALUES (:j, :l, :p, :s, :r)"),
-                {"j": job_id, "l": lane, "p": payload, "s": status, "r": priority},
-            )
-            conn.execute(text("INSERT INTO job_info VALUES (:j, 'submitted')"), {"j": job_id})
-
-
-async def test_the_cutover_starts_every_live_row_once_and_empties_the_old_queue(db_url, monkeypatch):
-    started: dict[str, tuple[str | None, str | None]] = {}
-
-    async def start(db_url, job_id, payload, organization_id, priority):
-        assert "claim_owner" in payload  # replayed as stored; the worker drops it
-        started[job_id] = (organization_id, priority)
-        orchestrator_runs.record(db_url, job_id, f"run-{job_id}")
-        return f"run-{job_id}"
-
-    monkeypatch.setattr(research_workflow, "start", start)
-    old = _stored(claim_owner="host:1")
-    _old_queue(
-        db_url,
-        [
-            ("job-a", "org-a", old, 1, "queued"),
-            ("job-b", "__platform__", old, 0, "claimed"),
-            ("job-c", "org-a", "enc:garbage", 0, "queued"),
-            ("job-d", "org-a", old, 0, "dead"),
-        ],
-    )
-
-    result = await requeue_legacy.requeue(db_url)
-
-    assert result.started == ["job-a", "job-b"]
-    assert result.unreadable == ["job-c"]
-    assert started == {"job-a": ("org-a", "bulk"), "job-b": (None, "interactive")}
-    assert (await requeue_legacy.requeue(db_url)).started == []  # a second run starts nothing
-    with EventStore._get_or_create_sync_engine(db_url).connect() as conn:
-        left = [row[0] for row in conn.execute(text("SELECT job_id FROM research_job_queue ORDER BY job_id"))]
-    assert left == ["job-c", "job-d"]
 
 
 async def _owns(*_args) -> bool:

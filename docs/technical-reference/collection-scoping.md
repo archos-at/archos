@@ -211,7 +211,7 @@ Internal endpoint that:
 - Reads `projectId` and `conversationId` from query params
 - Asks for an interactive chat scope (`interactiveChat: true`), the only scope that may carry
   restricted-folder collections
-- Resolves the Piloti session from the encrypted WorkOS cookie
+- Resolves the session from the encrypted WorkOS cookie
 - Enforces project access if auth is required
 - Returns JSON with `{ scope, header, organizationId, userId, accessToken }`
 
@@ -272,7 +272,7 @@ The fallback calls `_resolve_target_collections()` from the `knowledge_layer` re
 
 ## Python Legacy: `_resolve_target_collections()`
 
-**File**: `packages/knowledge-layer/src/register.py` (line 220)
+**File**: `packages/knowledge-layer/src/knowledge_layer/register.py` (line 220)
 
 Config-based collection resolution when no scope header is present:
 
@@ -306,7 +306,7 @@ This limit is relevant in multi-tenant or multi-project setups where many collec
 
 The scope header described above governs synchronous chat requests. Async
 deep-research jobs are different: the `X-Grid-Collection-Scope` header is
-read **once, at job submit time**, in `piloti/conversation_register.py`, and
+read **once, at job submit time**, in `core/conversation_register.py`, and
 carried through as a `collection_scope` field on the job payload rather than
 as a live header.
 

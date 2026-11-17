@@ -6,7 +6,7 @@ it is listed in the `data_source_registry`. Everything below applies to both;
 the last sections are only for a data source.
 
 Before adding one, read the principles in
-[agent-tool-surface.md](agent-tool-surface.md#1-principles). Piloti binds about
+[agent-tool-surface.md](agent-tool-surface.md#1-principles). The agent binds about
 twenty tools, and every one is paid for on every call: consolidate what a
 person thinks of as one act, and prefer extending an existing tool to adding a
 second one beside it.
@@ -69,7 +69,7 @@ workspace packages.
 
 `register.py` defines a `FunctionBaseConfig` subclass whose `name=` becomes the
 YAML `_type`, and an async `@register_function` that yields a `FunctionInfo`.
-`packages/tavily-web-search/src/register.py` is the worked example.
+`packages/tavily-web-search/src/tavily_web_search/register.py` is the worked example.
 
 - **The description is the contract.** The function's docstring becomes the
   description the model reads; a docstring `Args:` section never reaches it.
@@ -87,9 +87,10 @@ YAML `_type`, and an async `@register_function` that yields a `FunctionInfo`.
   may cite builds `GroundingHit` records and calls `render_grounding_block`
   (`packages/agent/src/agent/common/grounding_block.py`, ADR-0061). It never writes
   `Source:` or `Citation:` lines itself.
-- A new kind of evidence is a `SourceKind`, changed in both
-  `packages/agent/src/agent/common/source_kinds.py` and its TypeScript mirror (the rule in
-  [`AGENTS.md`](../../AGENTS.md#two-rules-that-span-services)).
+- A new kind of evidence is a `SourceKind`, added in
+  `packages/agent/src/agent/common/source_kinds.py` only; the `vocabularies` hook
+  generates the UI's copy (the rule in
+  [`code-conventions.md`](../contributing/code-conventions.md#rules-that-span-services)).
 
 ## Binding it to an agent
 
@@ -102,7 +103,7 @@ functions:
     _type: my_tool        # the config class's name=
     max_results: 10
 
-  shallow_research_agent:  # Piloti, the chat agent
+  shallow_research_agent:  # the agent
     tools:
       - my_tool_instance
 
@@ -139,7 +140,7 @@ functions:
   a result back to its source, and a result it cannot map is never captured as
   a citable source.
 - A conversation that switches the source off does not unbind the tool on
-  Piloti: the call is refused with one sentence the model can repeat, so the
+  the agent: the call is refused with one sentence the model can repeat, so the
   tool payload and its prompt-cache shard stay the same
   (`packages/agent/src/agent/common/data_sources.py`). Deep research drops the tool
   instead, because its workers have no point at which to refuse.
@@ -155,6 +156,6 @@ task be:lint
 Unit-test the client with mocked I/O, and cover both the configured path and
 the missing-key stub. Then run the agent on a question that needs the tool. A
 new retrieval tool changes what shapes an answer, so the answer suite runs
-before and after (the obligation in [`AGENTS.md`](../../AGENTS.md#obligations));
+before and after (the obligation in [`obligations.md`](../contributing/obligations.md));
 the rest of the bar is the
 [definition of done](../contributing/definition-of-done.md).

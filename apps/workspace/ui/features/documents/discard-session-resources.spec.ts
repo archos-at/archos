@@ -1,16 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Discarding an abandoned upload-only chat is ONE server call: the conversation
- * delete, which erases the attachments and the `s_` collection itself.
- *
- * This helper used to fire a collection delete of its own through the v1 proxy,
- * concurrently with the conversation delete. That proxy request authorizes on
- * the conversation row, so whenever the row went first the collection delete
- * was refused and the collection was orphaned. The helper now clears browser
- * state and sends nothing.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const deleteCollection = vi.hoisted(() => vi.fn())

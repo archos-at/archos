@@ -1,5 +1,3 @@
-"""``task langfuse:provision``: what Grid declares in Langfuse, and what it would change (ADR-0089)."""
-
 from __future__ import annotations
 
 import importlib.util
@@ -96,8 +94,6 @@ class TestPlan:
 
 
 class TestCatalog:
-    """The catalog refers to scores by name; a typo would fail only against a live Langfuse."""
-
     def test_queue_scores_are_reviewer_scores(self):
         for queue in QUEUES:
             assert {DEFINED[name].writer for name in queue.score_names} == {"annotation"}
@@ -132,7 +128,6 @@ class TestCatalog:
 
 
 def test_the_rule_provisioned_follows_the_cell_it_runs_in(monkeypatch):
-    """Include-only on purpose_ok:quality_evaluation inside a cell; without one, as before ADR-0167."""
     from agent.common import residency
 
     condition = {
@@ -148,7 +143,6 @@ def test_the_rule_provisioned_follows_the_cell_it_runs_in(monkeypatch):
 
 
 def test_the_advice_policy_judge_runs_only_on_turns_that_carried_a_policy_and_keeps_every_other_filter():
-    """ADR-0174: its own rule, so a turn without hedges is never graded against a policy."""
     from agent.observability.onboarding_scores import ADVICE_POLICY_TRACE_TAG
 
     for residency_on in (False, True):

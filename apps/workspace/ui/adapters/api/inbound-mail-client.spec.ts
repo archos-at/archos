@@ -1,7 +1,3 @@
-/**
- * The E-Mail-Eingang's client calls the routes the agent operations name, and
- * hands the UI a refusal's code so it can say what to change.
- */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ApiRequestError } from './api-error'
 import { fileInboundMails, inboundMailPartContentUrl, listInboundMails } from './inbound-mail-client'

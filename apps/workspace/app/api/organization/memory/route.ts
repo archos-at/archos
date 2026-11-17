@@ -1,19 +1,11 @@
-/**
- * Organization-scoped memory — cross-cutting knowledge shared by every
- * project in the caller's organization. Tenancy comes from the session's
- * organization id; items are never visible across organizations. Any member
- * may read and write org memory (deliberately not admin-gated).
- *
- * Thin handlers; the write is `createOrganizationMemoryItem`
- * (`@/lib/projects/service`), the one an accepted memory proposal uses too.
- */
-
 import { apiRoute, parseJsonBody, parseQuery } from '@/lib/api/handler'
 import { listOrganizationMemory } from '@/lib/projects/memory-service'
 import { createOrganizationMemoryItem } from '@/lib/projects/service'
 import { createOrgMemorySchema } from '@/lib/organizations/organization-wire'
 import { offsetPageOf, nextOffsetCursor } from '@/lib/api/offset-page'
 import { listOrganizationMemoryQuerySchema, toMemoryWireItem } from '@/lib/projects/project-memory-wire'
+import { officeTopicsOf } from '@/lib/projects/office-memory-topics'
+import { pageOfTopic } from '@/lib/memory-topics/page'
 
 export const GET = apiRoute(
   async ({ session, request }) => {
@@ -21,13 +13,18 @@ export const GET = apiRoute(
     const page = offsetPageOf(query)
     const fetched = await listOrganizationMemory(session.organizationId, {
       includeArchived: query.includeArchived === 'true',
-      // The office's notes written from one conversation: the ids an answer's „noted“ chip may offer to take back.
       sourceConversationId: query.conversationId,
-      page,
+      page: query.topic === undefined ? page : undefined,
     })
+    const listed =
+      query.topic === undefined
+        ? { items: fetched.slice(0, page.limit), nextCursor: nextOffsetCursor(page, fetched.length) }
+        : pageOfTopic(fetched, query.topic, page)
+    const topics = await officeTopicsOf(session.organizationId)
     return {
-      items: fetched.slice(0, page.limit).map(toMemoryWireItem),
-      nextCursor: nextOffsetCursor(page, fetched.length),
+      items: listed.items.map(toMemoryWireItem),
+      nextCursor: listed.nextCursor,
+      topics,
     }
   },
   {

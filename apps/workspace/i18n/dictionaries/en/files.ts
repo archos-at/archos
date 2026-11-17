@@ -1,21 +1,15 @@
-/** files namespace — populated during component i18n. */
 export const files = {
+  baseKnowledge: { label: 'Office standard', open: 'Open as an office standard: edition, licence, last check' },
   uploadZone: {
     clickToUpload: 'Click to upload',
     orDragAndDrop: ' or drag and drop',
-    /** `size` is formatted with its unit ("100 MB"); the limit is per file. */
     maxSize: 'Up to {size} per file',
     accepts: 'Accepts: {types}',
     dropAnywhere: 'Or drop files anywhere on this page.',
     maxSizeShort: 'max. {size} per file',
   },
-  // The upload tray. Wording follows the surface's one rule: a number is
-  // stated only where one was measured. "Reading" is what the backend does to a
-  // document, and it has no ETA — so the copy says so instead of implying one.
   uploads: {
     region: 'Uploads',
-    // Not an error and nothing to retry: the document is still being read,
-    // the tray has only stopped following it every few seconds.
     stillReading: 'Reading is taking longer than usual and continues in the background.',
     heading: {
       transferringOne: 'Uploading 1 document',
@@ -27,8 +21,6 @@ export const files = {
       mixed: '{ready} added\u00A0· {failed} failed',
       failedOne: '1 document could not be added',
       failedOther: '{count} documents could not be added',
-      // Held back by the content check (ADR-0086): not a failure, nothing to
-      // retry. Never "release", which collides with approving a revision.
       heldOne: '1 document held back',
       heldOther: '{count} documents held back',
       mixedHeld: '{ready} added\u00A0· {held} held back',
@@ -38,11 +30,8 @@ export const files = {
       bytes: '{done} of {total}',
       eta: '{time} left',
       queued: '{count} waiting',
-      // Deliberately not a percentage: reading progress is reported by the
-      // backend in bursts, so any bar drawn from it stalls and then jumps.
       processing: 'Reading. There is no time estimate, so you can keep working.',
       elapsed: '{time} so far',
-      // The browser reports no connection while bytes should be moving.
       offline: 'No connection, waiting. Please keep this page open.',
       settled: '{total} transferred',
     },
@@ -52,9 +41,7 @@ export const files = {
       processing: 'Reading',
       ready: 'Citable',
       unchanged: 'Unchanged – already here',
-      // The content check matched; what it found is listed beneath the row.
       held: 'Held back',
-      // Kept, never read: neither a success nor a failure (as `status.stored`).
       stored: 'Filed',
       canceled: 'Canceled',
       failed: 'Failed',
@@ -64,8 +51,6 @@ export const files = {
       collapse: 'Hide files',
       cancelAll: 'Cancel all',
       cancel: 'Cancel upload of {name}',
-      // Not "cancel upload": the bytes are on the server and the ingest job is
-      // what is stopped. Said as what it is, so the reader knows what ends.
       stop: 'Stop reading {name}',
       retryAll: 'Retry failed',
       retryFile: 'Try again',
@@ -74,47 +59,24 @@ export const files = {
     },
   },
   status: {
-    // "Citable" (not a bare "Ready") answers the one question that matters to a
-    // compliance user: the document is now in Piloti's knowledge and can be
-    // cited in an answer.
     ready: 'Citable',
     processing: 'Reading',
     uploading: 'Uploading',
     failed: 'Failed',
-    // A report Piloti wrote: the file is in the project but deliberately not in
-    // the knowledge base. Neither a success ("Citable" would promise a citation
-    // retrieval cannot make) nor a failure — nothing went wrong.
     stored: 'Filed',
-    // A person stopped the read before it finished: the bytes are here, nothing
-    // was indexed, and nothing went wrong — so never "Failed". Neutral, like
-    // `stored`, and its own word so a reader can tell the two apart.
     cancelled: 'Cancelled',
-    // The content check (ADR-0086) matched: the file is in the project, no
-    // model has seen it, and someone has to decide.
     quarantined: 'Held back',
     unknown: 'Unknown',
-    // Only the office's own uploads: inside one office the queue reads in
-    // order, across offices it takes turns (ADR-0076).
     queuedAhead: '{count, plural, one {Waiting\u00A0· # file ahead} other {Waiting\u00A0· # files ahead}}',
   },
   toast: {
-    // Fired the instant async ingestion finishes and the document becomes
-    // citable — the confirmation the completion moment previously lacked.
     ingestionComplete: '“{name}” is now in {productName}’s knowledge — citable',
     modelReady: '“{name}” has been read. You can now ask about the building.',
   },
-  // Card thumbnail fallbacks: a warm placeholder chip when no thumbnail exists,
-  // and an honest "couldn't load" label for a genuine failure (never a broken
-  // image look). `image` is the generic chip when there is no file extension.
   thumbnail: {
     image: 'Image',
     unavailable: 'Preview unavailable',
   },
-  /**
-   * The Dokumentart where it is stored as an English token (`LABELLED_TAGS` in
-   * lib/documents/tag-vocabulary.ts). The older types are still stored as a
-   * German word and read as themselves.
-   */
   documentTag: {
     correspondence: 'Correspondence',
     developmentPlan: 'Development plan',
@@ -140,11 +102,6 @@ export const files = {
     closePreview: 'Close preview',
     expandPreview: 'Open large preview',
     loadFailed: "Preview couldn't be loaded. You can still download the file below.",
-    /**
-     * Not a failure to retry: the service answers 404 both for a deleted
-     * document and for one this reader may no longer open, and neither changes
-     * by asking again. Said plainly, with the only move that is left.
-     */
     gone: 'This document is no longer available. It may have been deleted, or you may no longer have access to it.',
     goneAction: 'Stop asking about it',
     goneCleared: 'No longer asking about that file.',
@@ -152,15 +109,12 @@ export const files = {
     heldNoPreview:
       "No preview is available while the file is held back. The reasons and the Request review button are in the details.",
     tryAgain: 'Try again',
-    // An office file is shown through a PDF the BFF makes from it (ADR-0070).
     renditionPending: 'Creating PDF preview…',
     renditionNote: 'PDF preview · Original: {name}',
     noInlinePreview: 'No inline preview for this file type. Download the file to view the full document.',
     textTruncated:
       'Only the beginning of this file is shown. Download it to read the whole thing.',
     status: 'Status',
-    // Heading for the rail's one remaining file fact (where it came from),
-    // distinct from "On the pages" (what the VLM saw on each page).
     properties: 'Properties',
     summaryMore: 'Show full summary',
     summaryLess: 'Show less',
@@ -188,7 +142,6 @@ export const files = {
       capturedAt: 'Taken on {when}',
       location: 'Location',
     },
-    /** Where the document stands among its Fassungen (document-fassungen.tsx). Never „plan“: a name does not say what a file is. */
     revision: {
       unlink: 'Remove link',
       timeline: 'All revisions of this document',
@@ -211,7 +164,6 @@ export const files = {
         download: 'Download',
         compareText: 'Compare text with revision {number}',
       },
-      /** The section in the rail (document-fassungen.tsx). Revisions are numbered newest first, across same-name uploads and linked documents; the header says where the NEWEST stands. */
       rail: {
         number: 'Revision {number}',
         dateTag: 'as of {date}',
@@ -228,7 +180,6 @@ export const files = {
           publishYou: 'Next step: publish it',
         },
         whoMore: '{names} or {count} others',
-        /** Only when the name is truly unknown. Never “someone”. */
         someone: 'a team member',
         answer: {
           this: '{productName} answers from this revision.',
@@ -238,7 +189,6 @@ export const files = {
           notYetRead: '{productName} answers from it once it has been read.',
           never: '{productName} does not answer from it.',
         },
-        /** {name} arrives with the date: “Anna Berger · 14 Aug 2026”, kept on one line. */
         act: '{act} by {name}',
         actAnonymous: '{act} on {date}',
         byYou: 'you',
@@ -272,8 +222,6 @@ export const files = {
       showPage: 'Show page {page} in the document',
       showAll: 'Show all {count}',
       showFewer: 'Show fewer',
-      // The drawing types the vision pass names. A type not listed here is
-      // humanized from its key, like the structured vocabulary below.
       segmentTypes: {
         floor_plan: 'Floor plan',
         section: 'Section',
@@ -304,9 +252,6 @@ export const files = {
         processSteps: 'Process',
         provenance: 'Source',
         confidenceValue: 'confidence {level}',
-        // Vocabulary terms. A domain added on the backend brings keys that are
-        // not here yet; the UI humanizes those from the key, so this list is a
-        // courtesy for the domains we ship, never a gate on new ones.
         categories: {
           space: 'Spaces and uses',
           circulation: 'Circulation',
@@ -342,7 +287,6 @@ export const files = {
         },
       },
     },
-    // The facts line under the name names the format, never the MIME type (that is the tooltip).
     formats: {
       pdf: 'PDF',
       word: 'Word document',
@@ -375,42 +319,17 @@ export const files = {
     retryingIngestion: 'Retrying…',
     retryIngestionError: "Reading couldn't be restarted. Please try again.",
     dialogLabel: 'File preview: {name}',
-    // What is known about the file beside the chat, behind the ⓘ in its toolbar.
     peekViews: {
       details: 'Details',
     },
-    // The length, in the facts line under the name in the chat peek.
     pageCount: '{count, plural, one {# page} other {# pages}}',
-    /**
-     * The seam between the conversation and the file. It is a tab stop (the
-     * panel library makes every separator one), so it needs a name — an
-     * unlabelled separator is announced as nothing at all.
-     */
     resizePeek: 'Resize file preview',
-    /**
-     * The CONSEQUENCE of the status badge beside them in the chat peek. The
-     * badge already says what the state is ("Reading", "Failed"); repeating
-     * that in the sentence would spend the one line on the half the reader can
-     * already see. What it cannot see is what the state costs: the answer it is
-     * about to ask for will not use this file.
-     */
     peekIndexingHint: '{productName} cannot cite this file until it has been read.',
     peekFailedHint: 'Reading failed. {productName} cannot cite this file.',
-    /**
-     * The same failure on a document with an earlier revision: the index keeps
-     * that revision's passages, so the file is still citable, just not the new
-     * bytes. Mirrors `ingestionFailedPreviousVersionKept` in the pane.
-     */
     peekFailedPreviousVersionHint:
       'The new file could not be read — {productName} is still citing the previous revision.',
-    /** The way out of that: the enlarged view carries the error and the retry. */
     peekFailedAction: 'Details',
   },
-  /**
-   * Why a document could not be read, by the category
-   * `features/documents/lib/ingest-failure.ts` gives the stored error. The raw
-   * text stays behind `details`.
-   */
   ingestFailure: {
     rendition_failed: "The PDF preview of this file couldn't be created. Try reading it again, or upload it as a PDF.",
     drawing_unreadable:
@@ -427,36 +346,24 @@ export const files = {
     deleted: 'The file was deleted while {productName} was reading it.',
     quarantined:
       'This file contains something your office marks as sensitive. {productName} showed it to no model. An office or project admin reviews it and decides whether it stays or is deleted.',
-    // Found in the text a vision model read off scanned pages (`after_transcription`):
-    // that model saw those pages, no other did.
     quarantinedAfterTranscription:
       'This file contains something your office marks as sensitive, found in the text of scanned pages. A vision model read those pages so they could be checked; no other model saw them. An office or project admin reviews it and decides whether it stays or is deleted.',
-    // The reason is not stored or cannot be read: claim nothing the line above does not show.
     quarantinedUnreadable:
       'The content check held this file back. Its reason is not stored or cannot be read. While it is held back, {productName} shows it to no model. An office or project admin reviews it and decides whether it stays or is deleted.',
-    // The office's screening rules could not be applied: the file was not read at
-    // all and waits like a held one (ADR-0086).
     screening_unavailable:
       "The check for sensitive data couldn't run, so {productName} didn't read this file or show it to any model. Read it again, or an office or project admin decides whether it stays.",
     unknown: "{productName} couldn't read this document, so search can't find it.",
     details: 'Details',
   },
   screening: {
-    // Why a file was held back, by the content check (in the text) or the
-    // name check (in the file or folder name), ADR-0086.
     reasonTerm: '“{term}” in the text',
     reasonIban: 'IBAN {sample}',
     reasonSvnr: 'Social security number {sample}',
     reasonTaxId: 'Tax ID {sample}',
     reasonCard: 'Card number {sample}',
     reasonPages: '{count, plural, one {page {pages}} other {pages {pages}}}',
-    // Spreadsheets and text files have no pages, so a finding has no place to open.
     reasonNoPages: 'no page given',
-    // A rule this build does not know (the job may report a new kind of finding first).
     reasonOther: 'A rule not described here',
-    // How the content check came to the finding: who set the rule, and what a
-    // number had to pass. It lets a reader tell a real account number from an
-    // order number that only looks like one.
     basisTerm: 'This term is on the list your office marked as sensitive.',
     basisIban:
       'The number is laid out like an IBAN and its check digits are valid, so it is no random string of digits. Your office marked account numbers as sensitive.',
@@ -473,11 +380,8 @@ export const files = {
       '{count, plural, one {One more reason is not listed.} other {# more reasons are not listed.}}',
     nameInFile: 'File name contains “{term}”',
     nameInFolder: 'Folder “{segment}” contains “{term}”',
-    // Scanned pages are checked once read (ADR-0086, 2026-10-17): "not checked" was no longer true, "first" is.
     partial: 'Not everything could be checked first: a vision model sees scanned pages, images and drawings before the check.',
     unchecked: 'The content could not be read without a model and was checked by name only.',
-    // A content-check finding, the way a chat source is shown: the page, and on
-    // it, marked, what the office listed as sensitive.
     findingsLabel: 'Where the content check found it',
     findingPage: 'p. {page}',
     showFinding: 'Show the finding on page {page}',
@@ -486,16 +390,13 @@ export const files = {
   browser: {
     folderEmptyTitle: 'This folder is empty',
     folderEmptyDescription: 'Upload documents here, or drop them anywhere on this page.',
-    /** A finger cannot drop on a page. */
     folderEmptyDescriptionTouch: 'Upload documents here.',
-    /** The title while the field filters the files: the query is where the reader is. */
     searchTitle: 'Search: “{query}”',
     searchCount: '{count, plural, one {# match} other {# matches}}',
     noDocumentsTitle: 'No documents yet',
     noDocumentsDescription:
       'Upload your project’s documents: drawings, official notices, expert reports. {productName} reads them and cites them instead of answering from generic guidance.',
     searchPlaceholder: 'Search…',
-    /** The field of a shelf that has the workspace search: typing filters names, Enter searches everything. */
     searchPlaceholderEverything: 'Filter, Enter searches all…',
     searchLabel: 'Search files',
     noMatch: 'No files match “{query}”',
@@ -505,10 +406,8 @@ export const files = {
     clearFilters: 'Clear filters',
     resetSearch: 'Reset search',
     recentlyUploaded: 'Files',
-    /** Empty search when the search matches names only (the folder loads page by page, ADR-0102). */
     noMatchNamesDescription:
       'The search looks at file names. Press Enter to search the contents too, or clear the search to see every file.',
-    /** The end of a large folder's list: the rest arrives as you scroll. */
     loadMore: 'Load more',
     loadingMore: 'Loading more documents…',
     loadMoreFailed: 'More documents could not be loaded.',
@@ -517,13 +416,6 @@ export const files = {
       run: 'Search',
       reset: 'Show all files',
       noResults: 'No semantic matches for “{query}”',
-      /**
-       * A search that could not RUN, held apart from one that ran and found
-       * nothing. The hook fails open to an empty result set — which is right,
-       * it must not crash the pane — and the pane used to render that as "no
-       * matches", telling the reader something about their own corpus that the
-       * app had no way of knowing.
-       */
       failed: 'The search could not be run',
       failedDescription:
         'Something went wrong on the way to the index. Your files are untouched — try the same search again, or go back to all of them.',
@@ -551,8 +443,6 @@ export const files = {
     moveRefusedGone: 'Nothing was moved: that folder no longer exists.',
     nameTaken: '“{parent}” already has a folder named “{name}”.',
     allFiles: 'All Files',
-    // The way up, named. The breadcrumb says where you ARE, which is a map,
-    // and three levels deep the parent is a truncated word mid-row.
     backTo: 'Back to {name}',
     newFolder: 'Create folder',
     newInside: 'Create folder inside',
@@ -564,10 +454,8 @@ export const files = {
     hiddenLevels: '{count, plural, one {# more level} other {# more levels}}',
     movedFolder: '“{name}” moved to “{parent}”.',
     moveFolderError: 'The folder could not be moved. Please try again.',
-    /** Folder access (ADR-0088, ADR-0097): restricting a folder to people. */
     access: {
       menu: 'Access…',
-      /** The lock on a folder: who is on the list only the dialog says. */
       ownList: 'Own access: only the listed people',
       ownListEveryoneReads: 'Own access: all project members read, only the listed people edit',
       openRestricted: 'Open folder “{name}”. {access}',
@@ -599,7 +487,6 @@ export const files = {
         'If who may read changes, {productName} moves the folder’s documents and reads them again. For a large folder that takes a few minutes; meanwhile the documents show as “Reading”.',
       ifcNotice:
         'Folders not every project member may read cannot hold building models (IFC) yet. Keep IFC models in folders everyone may read.',
-      /** The 409 from the IFC guard (ADR-0087): restricting, uploading or moving into a restricted folder. */
       ifcRefused:
         'Building models (IFC) cannot be filed in a folder not everyone may read yet: their building data is not protected by folder access. Keep IFC models in folders everyone may read.',
       readOnlyBadge: 'Read only',
@@ -618,7 +505,6 @@ export const files = {
       forbidden: 'Only project admins can change who may read and edit a folder.',
     },
     describe: 'Description…',
-    /** What belongs in a folder (migration 0145): Piloti files uploads by it. */
     description: {
       title: 'What belongs in “{name}”?',
       hint: 'A sentence or two on what this folder holds. Everyone who opens the folder reads it, and {productName} suggests where an upload belongs by it.',
@@ -632,19 +518,12 @@ export const files = {
       empty: 'Describe what belongs here',
     },
   },
-  /**
-   * Piloti's filing suggestion: the chip on a card, a list row and an upload
-   * row, the popover it opens, and the filing bar that decides per folder.
-   */
   filing: {
     label: 'Filing suggestion from {productName}',
-    /** The chip's accessible name; it shows only the folder's last segment. */
     chip: 'Filing suggestion: {folder}',
     new: 'new',
-    /** Where a file at the top level of a shelf is now, struck through in the popover. */
     rootProject: 'Project folder (top level)',
     rootOffice: 'Office filing (top level)',
-    /** Spoken before the two paths of the popover, which a screen reader cannot see struck through. */
     from: 'Now in',
     to: 'Would move to',
     barHeading: '{count, plural, one {{productName} suggests filing # file} other {{productName} suggests filing # files}}',
@@ -660,7 +539,6 @@ export const files = {
     error: 'That did not work. Please try again.',
     readOnly: 'Only people who may file here can move it.',
   },
-  /** The Papierkorb of a project (ADR-0088). */
   bin: {
     title: 'Bin',
     empty: 'The bin is empty.',
@@ -678,7 +556,6 @@ export const files = {
       project_closed: 'Cannot be restored: the project is closed.',
       no_write: 'Cannot be restored: you may not file in this project.',
     },
-    // The same as a clause of a phone's second line („stays until … · read only“); the whole sentence is in the title.
     restoreBlockedShort: {
       folder_read_only: 'read only',
       project_closed: 'project closed',
@@ -743,7 +620,6 @@ export const files = {
       list: 'List',
     },
   },
-  // Explorer detail view — column headings for the sortable listing.
   selection: {
     start: 'Select',
     nothingToPick: 'No file here to select',
@@ -770,15 +646,12 @@ export const files = {
       relevance: 'Relevance',
       name: 'Name',
       status: 'Status',
-      // The editorial state (Freigabe), beside the ingestion status: the column
-      // that makes bulk approval state visible where bulk work happens.
       approval: 'Approval',
       pages: 'Pages',
       size: 'Size',
       added: 'Added',
     },
   },
-  // The overflow menu every document surface carries.
   actions: {
     reingest: 'Read again',
     move: 'Move to folder',
@@ -793,9 +666,6 @@ export const files = {
       '{productName} reads the file again from scratch, for example to pick up the pictures in Word and PowerPoint files. Until it is done, {productName} keeps answering from what it read before.',
     reingestConfirmAction: 'Read again',
     reingestError: "Reading couldn't be restarted. Please try again.",
-    // Stop a read that has not finished: the bytes stay, nothing was indexed,
-    // and a re-ingest reads them again. Neutral, like `reingest`, never a
-    // destructive red.
     cancel: 'Stop reading',
     cancelling: 'Stopping…',
     cancelled: 'Reading “{name}” stopped',
@@ -843,11 +713,6 @@ export const files = {
     error: 'The document could not be deleted',
     legalHold: 'The document is under a legal hold and cannot be deleted',
   },
-  /**
-   * A ZIP dropped on a shelf. It is unpacked in the browser and then handled as
-   * the folder it contains (`folderUpload.*`), so these are only the sentences
-   * for an archive that gave nothing.
-   */
   zip: {
     reading: 'Reading the ZIP…',
     unreadable: '“{name}” could not be read. Is it a valid ZIP without a password?',
@@ -855,16 +720,9 @@ export const files = {
     tooManyFiles: '“{name}” contains more than {limit} files, so nothing was taken from it. Split it into smaller ZIPs.',
     tooLarge: '“{name}” unpacks to more than {limit}, so nothing was taken from it. Split it into smaller ZIPs.',
   },
-  /**
-   * The folder-upload plan — the dialog a dropped directory tree opens before
-   * anything moves. `folderUpload.*` rather than under `upload.*` because it
-   * describes a PLAN, not the transfer: the words here name what is about to
-   * happen to documents that already exist.
-   */
   folderUpload: {
     title: 'Upload “{name}”?',
     titleGeneric: 'Upload this folder?',
-    // Loose files, at least one of which meets an existing document.
     titleFiles: '{count, plural, one {Upload # file?} other {Upload # files?}}',
     titleFilesGeneric: 'Upload files?',
     destinationFiles: 'The files go into “{folder}”.',
@@ -872,8 +730,6 @@ export const files = {
     compareError: 'Could not compare with what is already here. Nothing was uploaded.',
     planChanged: 'The preview has changed. Nothing was uploaded. Please review it and confirm again.',
     single: {
-      // One dropped file that is a new revision of a document here, by its name
-      // (same name, `update`) or by the name series it continues (`fassung`).
       newRevisionTitle: 'New revision of “{name}”?',
       updateExplain:
         '“{name}” is already here under this name. The new file becomes the current revision; the previous one stays readable under “Revisions and approval”.',
@@ -892,8 +748,6 @@ export const files = {
       confirmSeparate: 'Upload as a separate document',
     },
     destination: 'Its folder structure is recreated inside “{folder}”.',
-    // The re-sync fold: the dropped folder IS the folder they are standing in,
-    // so its contents go in rather than a folder of the same name inside it.
     destinationMerged: 'Its contents go straight into “{folder}” — the folders inside it are matched.',
     planning: 'Comparing with what is already here…',
     counts: {
@@ -903,14 +757,10 @@ export const files = {
       foldersCreated: 'folders created',
       foldersMatched: '{count} matched',
     },
-    // What the project calls the document a row is about to touch, when
-    // somebody has renamed it here and the name in the drop no longer says so.
     alreadyHereAs: 'here as “{name}”',
     archivedMatch: 'archived document',
     refiled:
       '{count, plural, one {# of them is filed elsewhere at the moment and moves to where this folder puts it.} other {# of them are filed elsewhere at the moment and move to where this folder puts them.}}',
-    // The unchanged ones send no bytes, so nothing about the upload would move
-    // them — they are moved on their own, or the tree is not really recreated.
     moving:
       '{count, plural, one {# unchanged document is filed elsewhere and is moved to where this folder puts it.} other {# unchanged documents are filed elsewhere and are moved to where this folder puts them.}}',
     duplicates:
@@ -920,16 +770,10 @@ export const files = {
     collisions: '{count} files share a name with another file in this upload',
     collisionsExplain:
       'A project holds one document per filename, so these are not uploaded. Rename them and drop them again.',
-    // Not uploaded by the name check (ADR-0086): the files do not leave this
-    // computer unless someone uploads one anyway. "Held back" is the content check's.
     excluded: '{count, plural, one {# file not uploaded} other {# files not uploaded}}',
     excludedExplain:
       'Your office marks these terms as sensitive, so these files are not uploaded: they do not leave your computer. If one of them belongs in {productName} after all, tick it.',
     releaseFile: 'Upload anyway',
-    // Files that come in as a new revision of a document already here: by the
-    // same name (ADR-0054) or by a name series under another name (ADR-0099).
-    // One concept, one word, whichever way Piloti recognised it (ADR-0099). Say
-    // document, file, revision: a name with an index does not say what a file is.
     revision: {
       title: '{count, plural, one {# new revision} other {# new revisions}}',
       consequence:
@@ -961,27 +805,16 @@ export const files = {
       excluded: 'Not uploaded',
     },
     confirm: '{count, plural, one {Upload # file} other {Upload # files}}',
-    // The same, when some of them come in as a new revision: the button moves with the boxes.
     confirmWithRevisions:
       '{count, plural, one {Upload # file} other {Upload # files}}, {revisions, plural, one {# as a new revision} other {# as new revisions}}',
-    // Nothing to upload, but the tree still says these belong elsewhere.
     confirmMoveOnly: '{count, plural, one {Move # document} other {Move # documents}}',
     nothingToDo: 'Nothing to upload',
     cancel: 'Cancel',
-    // The summary after the plan has been applied.
     done: '{uploaded, plural, one {# file uploaded} other {# files uploaded}}, {skipped} unchanged.',
     doneMoved: '{uploaded, plural, one {# file uploaded} other {# files uploaded}}, {skipped} unchanged, {moved} moved.',
     foldersError: 'The folders for this upload could not be created. Nothing was uploaded.',
-    // Distinct from `foldersError`: the folders were made and the upload itself
-    // is what went wrong, which is a different thing to retry.
     applyError: 'This folder could not be uploaded completely. Check the list and try again.',
   },
-  /**
-   * The Outlook archive import (ADR-0085): a .pst or .ost sent in parts, then
-   * filed by a background job, one folder per mail.
-   */
-  // The way into the E-Mail-Eingang from Dateien (ADR-0137): the header entry,
-  // its count, the upload menu's address entry and the quiet line above the shelf.
   inboundMail: {
     open: 'Project mail',
     waitingAria: '{count, plural, one {# mail waiting to be filed} other {# mails waiting to be filed}}',
@@ -1000,7 +833,6 @@ export const files = {
       'An archive holds the correspondence of everyone who wrote to this mailbox. Import what the project needs, not a whole mailbox.',
     choose: 'Choose archive…',
     maxSize: 'Up to {size}.',
-    // Touch only: an archive this size is best sent from a desk, on a steady line.
     desktopHint: 'Large archives are best sent from a desk. If the connection drops, pick the same file again and it carries on from there.',
     notAnArchive: '“{name}” is not an Outlook archive (.pst or .ost).',
     tooLarge: '“{name}” is larger than {size}.',
@@ -1085,28 +917,19 @@ export const files = {
   },
   errors: {
     projectClosed: 'This project is closed and read-only. Whoever manages it can reopen it from the notice at the top or in the Overview.',
-    // The transport's messages are English and for logs; the person on site reads
-    // these. A failure with no answer (network, stall, time) can be retried, and
-    // the row offers it.
     uploadFailed: 'The upload failed.',
     uploadNetwork: 'No connection while uploading. Please try again.',
     uploadStalled: 'The connection stopped sending, so the upload was stopped.',
     uploadTimeout: 'The upload took too long.',
-    // The server's size and storage refusals; their own words are for logs
-    // (`lib/upload-failure.ts`).
     uploadTooLarge: '“{name}” is larger than your office may upload.',
     uploadTooLargeLimit: '“{name}” is larger than your office may upload: at most {limit} per file.',
     uploadStorageFull: "Your office's storage is full. Nothing was uploaded.",
-    // Not uploaded by the name check (ADR-0086): on a path with no upload
-    // dialog, such as a chat attachment, or by the server's repeat of it.
     screenedOut:
       '{count, plural, one {One file was not uploaded} other {# files were not uploaded}} because its name contains a term your office marked as sensitive: {files}',
     uploadAnyway: '{count, plural, one {Upload anyway} other {Upload all # anyway}}',
     uploadAnywayHint:
       'The name alone does not decide: {productName} still checks the content after the upload. Your release is logged.',
     screenedOutFile: '“{name}” ({reason})',
-    // The office's list could not be read: without it nothing is sent, not
-    // even against Piloti's suggestion (ADR-0086).
     screeningPolicyUnavailable:
       "Your office's list of sensitive data could not be loaded. Nothing was uploaded. Please try again.",
     validation: {
@@ -1124,14 +947,9 @@ export const files = {
     someUploadsFailed:
       '{failed} of {total} documents could not be uploaded. First reason: {reason}',
     uploadingSkipped: 'Uploading {uploading} {fileLabel}, skipped {skipped} ({summary})',
-    // The file this upload would replace is held back by the content check
-    // (ADR-0086). The state is "held back", the place "quarantine".
     quarantinedReplace:
       '“{name}” would replace a file that is held back and waits in quarantine for review. Once someone allows it through or deletes it, you can upload the new one.',
-    // Another document holds the name. No place and no reason on purpose: it may
-    // be one this person may not see.
     nameTaken: 'Another document already has the name “{name}”. Rename the file and upload it again.',
-    // Somebody filed or deleted the same file while this one was uploading.
     uploadChangedMeanwhile: 'Something changed here while the file was uploading. Please try again.',
     cannotRetryServerFile: 'Cannot retry server-loaded files. Please upload the file again.',
     imageVlmUnavailable:
@@ -1139,29 +957,12 @@ export const files = {
     fileSingular: 'file',
     filePlural: 'files',
   },
-  /**
-   * Provenance — who wrote the bytes. Deliberately its own group and NOT part
-   * of `assignment`: a face says who is responsible for a file, this says who
-   * made it, and the file-native design is explicit that provenance is never
-   * rendered as responsibility. A generated report is an ordinary UNASSIGNED
-   * file, so the footer still says `Unassigned` beside this line.
-   */
-  /**
-   * The Files header's filter/sort menu.
-   *
-   * Replaces the open filter strip: the header already carried a view switch, a
-   * search field and an upload button, and had no room left for the filters
-   * people asked for. The count on the button is the price of hiding them — a
-   * filter nobody can see is worse than a crowded strip.
-   */
-  // The folder brief: what Piloti knows about a folder and everything under it.
   brief: {
     scopeFolder: 'in this folder',
     scopeFolderTree: 'in this folder and its subfolders',
     scopeProject: 'in this project',
     scopeOffice: 'in Office filing',
     headlineAll: '{count, plural, one {The document is read} other {All # documents read}}',
-    /** Everything readable is read, beside documents that never join the knowledge base: “all” says whose. */
     headlineAllOfKnowledge: '{count, plural, one {The one knowledge-base document is read} other {All # knowledge-base documents read}}',
     headlineSome: '{readable} of {count, plural, one {# document} other {# documents}} read',
     headlineNone: '{count, plural, one {The document is not read yet} other {None of the # documents read yet}}',
@@ -1175,12 +976,9 @@ export const files = {
     },
     allRead: 'All read',
     unplacedShort: '{count} without a document type',
-    /** Beside the legend: documents Piloti never reads. Not part of the headline's “of N”. */
     unindexedAside: '{count} more not in the knowledge base',
-    /** Run-in labels of the two chip families under “What this is about”. */
     typesLabel: 'Document type',
     disciplinesLabel: 'Discipline',
-    /** Accessible names of the “Show” buttons: three identical buttons are three different things. */
     showFailed: '{count, plural, one {Show the failed document} other {Show the # failed documents}}',
     showHeld: '{count, plural, one {Show the held-back document} other {Show the # held-back documents}}',
     showUnplaced: '{count, plural, one {Show the document without a document type} other {Show the # documents without a document type}}',
@@ -1191,7 +989,6 @@ export const files = {
     aboutTitle: 'What this is about',
     aboutMore: '+{count}',
     noTypes: '{productName} has not recognized a document type here yet.',
-    /** "What this is about" while only the folder's counts are loaded (ADR-0102). */
     aboutDeferred: 'Document types, disciplines and topics',
     aboutDeferredHint:
       'What {productName} recognized in the documents is kept with each document. For a large folder it is loaded only when you want to see it.',
@@ -1236,15 +1033,12 @@ export const files = {
     sliceClear: 'Back to the folder',
     sliceEmpty: 'Nothing left here.',
   },
-  /** The count on a document's card and row when it has Fassungen under other file names (ADR-0099). */
   revisionBadge: {
     count: '{count, plural, one {# revision} other {# revisions}}',
     countTitle: '{count, plural, one {# revision of this document} other {# revisions of this document}}',
     older: 'Older revision',
-    /** Tooltip of an older revision: what replaced it. {name} is the newer one's file name. */
     olderTitle: 'Replaced by “{name}”',
   },
-  /** Visual comparison of two Fassungen: side by side, overlaid, swiped (fassung-compare/). */
   compare: {
     title: 'Compare revisions',
     olderLabel: 'Older',
@@ -1315,16 +1109,11 @@ export const files = {
     label: 'Filter',
     labelActive: 'Filters ({count} active)',
     reset: 'Reset filters',
-    // The two toggles that WIDEN: retired files are not in the listing at all,
-    // and older revisions are one entry with the current one (ADR-0099). Worded
-    // alike under one heading, so neither reads as a narrowing.
     alsoShowLabel: 'Also show',
     alsoShow: {
       retired: 'Retired',
       olderRevisions: 'Older revisions',
     },
-    // What the reader is missing when type or status emptied the level: the
-    // fact that a filter, and not an empty folder, is the reason.
     emptyTitle: 'No file matches these filters',
     emptyDescription:
       'This folder holds documents, but none matches the current selection. Reset the filters to see everything again.',
@@ -1332,8 +1121,6 @@ export const files = {
     ascending: 'Ascending',
     descending: 'Descending',
     statusLabel: 'Status',
-    // The three questions actually asked, not the ten pipeline states that
-    // differ only in which stage reported them.
     status: {
       failed: 'Failed',
       processing: 'Reading',
@@ -1356,32 +1143,15 @@ export const files = {
   },
   authorship: {
     byAgent: 'Created by {productName}',
-    /** Filter chip beside All · Mine · Unassigned. */
     filter: 'By {productName}',
-    /** The question this filter left unanswered: WHICH files those would be. */
     emptyTitle: '{productName} has filed nothing here yet',
     emptyDescription:
       'This is where the files {productName} wrote itself appear: filed research reports and diagrams. Documents you uploaded do not count, even where {productName} has read them.',
-    /**
-     * Why Ask is disabled on a generated report — and it is disabled, not
-     * hidden, following the pattern the citable-yet case already set. The
-     * difference is that there is no "yet": the report was never indexed, on
-     * purpose, so that the agent cannot cite its own writing back as evidence.
-     */
     notInKnowledge: 'Created by {productName} — not in the knowledge base',
   },
-  /**
-   * Fassungen und Freigabe — the editorial state of a document (ADR-0054).
-   *
-   * A separate vocabulary from `status`, which is where a document is in the
-   * INGESTION pipeline. „Freigegeben" and „Zitierbar" answer different
-   * questions, and the two word lists must not borrow from each other.
-   */
   lifecycle: {
     title: 'Revisions and approval',
-    /** Hover text on the badge; the state word is interpolated. */
     badgeTitle: 'Approval status: {state}',
-    /** The filter chip, beside By Piloti. */
     filter: 'Awaiting approval',
     states: {
       draft: 'Draft',
@@ -1391,38 +1161,21 @@ export const files = {
       published: 'Published',
       rejected: 'Rejected',
       superseded: 'Replaced',
-      /**
-       * NOT "archived". Office filing (Büroablage, once "Archiv") is where a
-       * document is placed so that it BECOMES cross-project office knowledge.
-       * This state is the opposite: the file leaves the working set and its
-       * knowledge-base entries are purged. One word for both would be the same
-       * verb for a thing and its inverse. The column value stays `archived` —
-       * that is wire and database, not the reader's language.
-       */
       archived: 'Retired',
     },
     actions: {
       submit: 'Submit for approval',
       approve: 'Approve',
       requestChanges: 'Request changes',
-      /** The same decision, plus one thing: Piloti writes the next revision. */
       delegateRevision: 'Have {productName} revise it',
       reject: 'Reject',
       publish: 'Publish',
       archive: 'Retire',
-      /** The ⋯ beside “Request changes”: have Piloti revise it, reject. */
       more: 'More decisions',
     },
-    /** Who should approve the revision. Everyone who may is the default. */
     reviewer: {
       every: 'All editors',
     },
-    /**
-     * Submitting for approval is a liability-adjacent act: the submitter names
-     * a reviewer and states the order in one sentence. Both gate the button —
-     * a disabled button with its reason, never a silent refusal or an open
-     * round nobody was told about.
-     */
     submit: {
       reviewerLabel: 'Reviewer',
       reviewerPlaceholder: 'Choose a reviewer',
@@ -1434,38 +1187,19 @@ export const files = {
       selfReviewNote:
         'No other editors — the approval will be recorded as a self-review.',
     },
-    /**
-     * Approving is the office asserting the content, so it is never one click:
-     * the act names its stand (revision + date), the acting person and the
-     * moment, and the checkbox is the signature.
-     */
     approveConfirm: {
       asOf: 'Revision {number} · as of {date}',
       actingWithName: 'Acting: {name} · {date}',
       actingDateOnly: 'Acting: {date}',
       checkbox: 'I approve this revision',
-      // Before the signature, never a block: approving with open points is allowed, missing them is not.
-      // {marks}: “2 open annotations and 12 proposals from Piloti”, as the chip in Files says it.
       openMarks: '{marks} – approve anyway?',
       openMarksLoading: 'Still reading the open annotations …',
       openMarksUnavailable: 'Could not read whether any annotations are open.',
     },
-    /**
-     * Publication is its own act in its own section — never a sibling button
-     * beside approval. Approving asserts the content; publishing makes the
-     * revision the one Piloti answers from: only a published revision is read
-     * into the knowledge base (ADR-0054).
-     */
     publishSection: {
       heading: 'Publication',
       blurb: 'Publishing makes revision {number} the one {productName} answers from.',
     },
-    /**
-     * Archiving is the one act in this section that cannot be taken back from
-     * inside the product: the knowledge-base entries are purged and no route
-     * brings them back. So it stands apart and states its consequences before
-     * it runs — never a fifth button in a row of review decisions.
-     */
     archiveSection: {
       heading: 'Take out of the file list',
       blurb:
@@ -1480,14 +1214,6 @@ export const files = {
         permanent: 'This cannot be undone here.',
       },
     },
-    /**
-     * What a state means for the reader, in one sentence. The state words
-     * („In review", „Approved") are only informative to somebody who knows what
-     * a state changes, and exactly one thing changes: whether Piloti answers
-     * from this revision. Only a published revision is read into the knowledge
-     * base (ADR-0054); when none stands behind the newest one, the sentence
-     * cannot point at it („Alone").
-     */
     meaning: {
       draftLive: 'A draft of a new revision. {productName} keeps answering from the published revision.',
       draftAlone: 'A draft. {productName} answers from it only once it is approved.',
@@ -1509,10 +1235,8 @@ export const files = {
       olderRevision: 'An older revision. {productName} answers from the newer one.',
     },
     comment: {
-      /** Rejecting needs a reason; asking for changes needs the changes. */
       reasonLabel: 'Reason for rejection',
       changesLabel: 'What needs to change',
-      /** Said where the decision is taken, not in a tooltip. */
       delegateNote: '{productName} then drafts the next revision and submits it for approval.',
       placeholder: 'The next revision reads this.',
       cancel: 'Cancel',
@@ -1521,13 +1245,6 @@ export const files = {
       number: 'Revision {number}',
       comparing: 'Loading both revisions…',
       compareFailed: 'The two revisions could not be loaded.',
-      /**
-       * The line diff. No red and no green anywhere in it: chroma belongs to
-       * provenance, and an editorial change is not provenance, so a changed line
-       * is marked by a left rule, a `+`/`−` gutter and its ink weight instead.
-       * `addedLine` / `removedLine` are the screen-reader words behind the two
-       * markers — nothing here may depend on seeing a glyph.
-       */
       diff: {
         heading: 'What changed',
         between: 'Revision {from} → revision {to}',
@@ -1544,8 +1261,6 @@ export const files = {
       submitted: 'Submitted',
       approved: 'Approved',
       published: 'Published',
-      // Refusals leave milestones too: a revision sent back must name who sent
-      // it and when, or the refusal is invisible in the history.
       changesRequested: 'Changes requested',
       rejected: 'Rejected',
       byAt: 'by {name}, {time}',
@@ -1553,9 +1268,7 @@ export const files = {
       someone: 'someone',
     },
     errors: {
-      /** The compare-and-swap lost: somebody decided first, so re-read. */
       conflict: 'Someone decided first. Reloading the current revision.',
-      /** The file has not passed its upload screening yet (ADR-0086). */
       held: 'This file is still being checked. You can submit it once the check is complete.',
       actionFailed: 'That did not go through. Nothing has changed.',
       loadFailed: 'The revision history could not be loaded.',
@@ -1574,9 +1287,6 @@ export const files = {
     emptyDescription:
       'Another filter brings back every file in this folder.',
     responsible: 'Responsible',
-    // One word for one gesture, on all three surfaces: the file pane, the report
-    // card and the inbox row. It names Piloti: „Discuss" alone did not say with
-    // whom, and beside „Ask a colleague" it read as a meeting with the team.
     discuss: 'Discuss with {productName}',
     askColleague: 'Ask a colleague',
     copyLink: 'Copy link',
@@ -1607,8 +1317,6 @@ export const files = {
     unassignError: '“{name}” could not be removed',
     tryAgain: 'Try again',
   },
-  // Annotations: marks at a place on a page, a point or a region, with what is
-  // to be done there (CONTEXT.md „Anmerkung“).
   annotations: {
     section: 'Annotations',
     kind: 'Kind',
@@ -1624,7 +1332,6 @@ export const files = {
       'Set before the current revision arrived. The place may have moved, so it is not drawn.',
     loadError: 'Annotations could not be loaded.',
     retry: 'Try again',
-    // The ways into the review from the preview, and what it shows inline.
     openReview: 'Open review',
     openReviewHint: 'Full screen with annotations',
     annotate: 'Annotate',
@@ -1638,25 +1345,19 @@ export const files = {
     openInReview: 'Open in the review',
     loading: 'Loading annotations',
     readerCount: '{count, plural, one {# annotation} other {# annotations}}',
-    // In Files beside the name: what is still open on the document, on every revision.
     listedOpen: '{count, plural, one {# open annotation} other {# open annotations}}',
     listedOpenForYou: '{count, plural, one {# open annotation} other {# open annotations}}, {mine} for you',
     listedOpenIn: '{marks} in “{name}”',
-    // What the chip itself says, short enough for a card; the tooltip carries the whole sentence.
     listedOpenShort: '{count} open',
     listedOpenShortForYou: '{count} open\u00A0· {mine} for you',
-    // Piloti's proposals nobody took over: counted apart from “open”, as Offene Punkte and the minutes count them.
     listedProposedShort: '{count, plural, one {# proposal} other {# proposals}}',
   },
-  // Open points: the open annotations of every document of a project, for the site meeting.
   openPoints: {
     open: 'Open points',
     title: 'Open points',
     filters: {
       label: 'Filters',
-      // No filter picked: every open point. A chip, so „all“ is a state you can see and press back to.
       all: 'All',
-      // The same predicate as „For you“ in the review and in Files (`isForReader`), so the same words.
       me: 'For you',
       overdue: 'Overdue',
       soon: 'Soon',
@@ -1684,9 +1385,7 @@ export const files = {
       tooMany: 'Too many open points for one set of minutes. Narrow them with a filter.',
       title: 'Open points – {name}',
       fileName: 'Open points – {name}',
-      // Filed in the project: the file's name, {date} as YYYY-MM-DD on the office's calendar.
       filedName: 'Open points – {name} – {date}',
-      // Why “File in the project” is withheld: the minutes quote documents not everyone may open.
       fileRestricted: 'Not possible: some points are on documents not everyone in the project may open. Filed in the project, their text would be readable by all.',
       documents: 'Documents',
       status: {
@@ -1701,15 +1400,12 @@ export const files = {
       },
     },
   },
-  // The review: a document full screen, the annotations on it, the threads
-  // under them, and who is looking with you.
   review: {
     open: 'Open review',
     openAll: 'All {count} in the review',
     othersHere: '{count, plural, one {# other person is looking at this now} other {# other people are looking at this now}}',
     close: 'Close review',
     nothingOpen: 'Nothing open',
-    /** The list button on a phone shows the open count; its name says the chip's whole sentence. */
     listOpen: 'Annotations: {marks}',
     revision: 'Revision {number}',
     offline: 'Connection interrupted',
@@ -1728,7 +1424,6 @@ export const files = {
       region: 'Comment on area',
       ask: 'Ask {productName}',
     },
-    // Under each tool on a touch screen: one word that fits under 56px.
     toolsShort: {
       select: 'Select',
       point: 'Comment',
@@ -1737,7 +1432,6 @@ export const files = {
       chat: 'Say',
     },
     toolsIntroFold: 'Hide labels',
-    // What the tool in hand does next, at the top of the canvas.
     toolHint: {
       point: 'Click the place · Esc cancels',
       region: 'Drag a frame around the detail · Esc cancels',
@@ -1750,9 +1444,6 @@ export const files = {
     },
     popout: 'Open in a new window',
     copyReviewLink: 'Copy link to the review',
-    // Mentioning colleagues on an annotation or in its thread with "@", as in the chat.
-    // Only people who can open the document can be mentioned. Whom the server did not keep is
-    // named without a reason: the folder may be why, or collaboration switched off.
     mentions: {
       othersHeading: 'Can open this document',
       noResultsHint: 'You can mention anyone who can open this document.',
@@ -1761,7 +1452,6 @@ export const files = {
       tooMany: 'Mention at most {max} people at once.',
       peopleFailed: 'Could not load the people. Type "@" again.',
     },
-    // Piloti on the canvas: a box asked about, the answer beside it, and Piloti in a thread.
     piloti: {
       conversationTitle: '{name} · Review',
       ask: 'Ask {productName}',
@@ -1771,7 +1461,6 @@ export const files = {
       replyFailed: '{productName} could not answer.',
       replyingFor: '{productName} is answering … · for {name}',
       workQueued: '{productName} is on it · for {name}',
-      // Why a woken Piloti did not answer, by the class of the stored reason (`wakeEndReasonKind`).
       workFailed: {
         budget: '{productName} could not answer: the usage budget is used up. Whoever manages the organization can raise it.',
         busy: '{productName} did not get to it in time. Ask again later.',
@@ -1800,8 +1489,6 @@ export const files = {
         question: 'Draft a precise query to the consultants about this detail.',
       },
       busy: '{productName} is still answering the previous question.',
-      // While Piloti works, what the person adds goes into the running answer
-      // instead of becoming a new question: Piloti reads it before its next step.
       busySteer: '{productName} is still working: your question goes into the running answer as a note.',
       steerPlaceholder: 'Steer {productName} …',
       steerSend: 'Add',
@@ -1844,7 +1531,6 @@ export const files = {
     onPage: '{name} · page {page}',
     peerPoint: 'is placing an annotation',
     peerRegion: 'is marking a region',
-    // Piloti says on the document whom it writes for (ADR-0105; EU AI Act Art. 50).
     attribution: {
       agentFor: '{productName} · for {name}',
       proposalFor: 'Proposal by {productName} · for {name}',
@@ -1895,7 +1581,6 @@ export const files = {
     replyPlaceholder: 'Reply …',
     send: 'Send',
     sendFailed: 'Could not be sent. Your text is still here.',
-    /** A mark or a reply its author rewords: saved, not sent. */
     saveFailed: 'Could not be saved. Your text is still here.',
     actionFailed: 'That did not work. Please try again.',
     conflict: 'Someone just changed this annotation. You are seeing the current state now.',
@@ -2007,8 +1692,6 @@ export const files = {
       closedTitle: 'Nothing done yet',
       closedBody: 'What is resolved or dismissed collects here.',
     },
-    // The review's annotations as minutes, for a site meeting or to send to
-    // the client: the menu in the review, and the words in the file itself.
     export: {
       button: 'Export minutes',
       scopeLabel: 'Which annotations',
@@ -2056,7 +1739,6 @@ export const files = {
         revisions: {
           current: 'current revision',
           all: 'all revisions',
-          // Closed ones too, of the current revision only: what is still open from earlier ones is in it anyway.
           currentWithOpenFromEarlier: 'current revision, plus what is still open from earlier ones',
         },
         withProposals: 'with {productName}’s proposals',
@@ -2089,7 +1771,6 @@ export const files = {
       },
     },
   },
-  // Sorting the shelf's root into folders (the Advanced menu). One run, one review, one undo.
   rootSort: {
     advanced: 'Advanced',
     menuItem: 'Sort all files into folders…',

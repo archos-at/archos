@@ -1,35 +1,3 @@
-/**
- * How a woken turn ENDED (ADR-0106, amended by ADR-0109): the chat socket
- * posts every headless turn's outcome to `POST /api/internal/turns/outcome`,
- * and this is what the BFF does with it.
- *
- * The BFF detaches from a woken turn once it runs, so `agent_wakes` stayed at
- * `started` for ever. The turn id is the wake id (`wakeTurnId`), so the outcome
- * names its wake. It is mapped to the wake's final word with `endWake`:
- *
- * | Outcome | Wake |
- * |---|---|
- * | `answered`, `handed_off` | `answered` |
- * | `stopped` | `stopped` |
- * | `refused`, `failed` | `failed`, with the reason |
- *
- * When the wake was a DELEGATION, its end hands the mark back, but only while
- * the mark is still delegated by THAT delegation: a person who took it back
- * and delegated it again in between must not lose the second. Then the audit
- * trail records the end (`piloti.wake.ended`, every outcome, the failure's
- * reason included) and `onWakeEnded` tells the attention slice, each once.
- *
- * A turn that is not a wake may be an ask another agent put to Piloti
- * (ADR-0124): its outcome ends the ask (`recordAskOutcome`), by the same id.
- *
- * Idempotent and forgiving: a turn that is neither (a browser's), a
- * conversation that is not the wake's thread, and a wake that already ended
- * settle nothing and say so (`{ settled: false }`), because the socket posts
- * every headless turn and has nothing to do with the answer. A wake still
- * `queued` IS ended: a turn that errors at once can report before the job has
- * marked the wake started, and that end must not be lost (`endWake`).
- */
-
 import 'server-only'
 import { onWakeEnded } from '@/lib/annotations/attention'
 import { auditWakeEnded } from '@/lib/annotations/wake-audit'
@@ -50,10 +18,8 @@ import { announceAgentWork } from '@/lib/annotations/agent-work'
 import { recordAskOutcome } from '@/lib/agent-asks/service'
 import type { TurnOutcomeRequest, TurnOutcomeResponse } from './outcome-types'
 
-/** What the wake records when a turn failed or was refused without saying why. */
 export const DEFAULT_FAILURE_REASON = 'the turn ended without an answer'
 
-/** The wake's final word for a turn's outcome. */
 export function wakeEndOf(request: Pick<TurnOutcomeRequest, 'outcome' | 'reason'>): WakeEnd {
   switch (request.outcome) {
     case 'answered':
@@ -69,12 +35,6 @@ export function wakeEndOf(request: Pick<TurnOutcomeRequest, 'outcome' | 'reason'
 
 const NOT_SETTLED: TurnOutcomeResponse = { settled: false }
 
-/**
- * The wake in one transaction: its end, and the mark handed back when its
- * delegation is still the mark's. The delegation is read first and handed back
- * with a compare-and-swap on its timestamp, so a re-delegation in between
- * (which reads as a different moment) is never cleared.
- */
 async function endInTransaction(
   wake: AgentWakeRow,
   end: WakeEnd
@@ -99,7 +59,6 @@ async function endInTransaction(
   )
 }
 
-/** The wake's document as the person whose act woke Piloti reads it: theirs to write, so theirs to read. */
 async function wakeDocument(wake: AgentWakeRow) {
   try {
     return await findDocumentInOrg(wake.documentId, wake.organizationId, memberReader(wake.actorUserId))
@@ -109,18 +68,12 @@ async function wakeDocument(wake: AgentWakeRow) {
   }
 }
 
-/**
- * After the commit, never failing the outcome: the room re-reads the mark, the
- * audit trail records how the turn ended (`piloti.wake.ended`), attention
- * hears the end.
- */
 async function afterEnd(
   wake: AgentWakeRow,
   end: WakeEnd,
   done: { markNumber: number | null; markText: string | null; handedBack: boolean },
   turnOutcome: TurnOutcomeRequest['outcome']
 ): Promise<void> {
-  // Every end moves the mark's „Piloti arbeitet" line (`agent-work.ts`), handed back or not.
   await announceAgentWork(wake)
   const doc = await wakeDocument(wake)
   auditWakeEnded(
@@ -160,21 +113,13 @@ async function afterEnd(
   }
 }
 
-/**
- * Record how a turn ended. `{ settled: true }` only for the call that closed a
- * `queued` or `started` wake; every other case is `{ settled: false }`.
- */
 export async function recordTurnOutcome(request: TurnOutcomeRequest): Promise<TurnOutcomeResponse> {
-  // The turn names its wake and the wake names the organization, so this one
-  // lookup has no tenant yet; everything after it is that organization's.
   const wake = await withPlatformAccess(
     'turn outcome: the chat socket names a turn by id, before any organization is known',
     () => findWakeById(request.turnId)
   )
-  // Not a wake: the turn may be an ask another agent put to Piloti (ADR-0124).
   if (!wake) return { settled: await recordAskOutcome(request) }
   if (wake.status !== 'started' && wake.status !== 'queued') return NOT_SETTLED
-  // The thread the wake ran in is derived, never stored; a mismatch is a turn that is not this wake's.
   if (request.conversationId !== documentThreadConversationId(wake.documentId, wake.actorUserId)) return NOT_SETTLED
 
   const end = wakeEndOf(request)

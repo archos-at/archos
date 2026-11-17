@@ -29,6 +29,7 @@ afterEach(() => useShellOverlays.setState({ moreSheetOpen: false }))
 
 const flags = {
   canAccessOfficeShelf: true,
+  canAccessOfficeStandards: true,
   canAccessInbox: true,
   showSkills: true,
   canViewOrganization: true,
@@ -51,16 +52,13 @@ describe('PhoneMoreSheet', () => {
 
     const sheet = await screen.findByRole('dialog')
     const links = within(sheet).getAllByRole('link').map((link) => link.getAttribute('data-destination'))
-    expect(links).toEqual(['automation', 'officeShelf', 'search', 'profile', 'memory', 'organization', 'whats-new'])
-    // None of the bar's own tabs is repeated.
+    expect(links).toEqual(['automation', 'officeShelf', 'baseKnowledge', 'search', 'profile', 'memory', 'organization', 'whats-new'])
     for (const name of ['Chat', 'Files', 'Overview']) {
       expect(within(sheet).queryByRole('link', { name })).toBeNull()
     }
     expect(within(sheet).getByRole('button', { name: /sign out/i })).toBeInTheDocument()
   })
 
-  // The founder (2026-11-10): „we might want to move the project selector to
-  // more on mobile“. It was a 44px press in the top band of every page.
   test('inside a project its first row is the project selector, which turns the sheet into the project list and back', async () => {
     const user = userEvent.setup()
     const projects = [
@@ -71,13 +69,11 @@ describe('PhoneMoreSheet', () => {
     act(() => useShellOverlays.getState().setMoreSheetOpen(true))
     const sheet = await screen.findByRole('dialog', { name: 'More' })
 
-    // First among everything pressable in the sheet's body, and a press: white with its edge.
     const selector = sheet.querySelector<HTMLElement>('[data-project-selector]')!
     const body = selector.parentElement!
     expect(body.querySelectorAll('button, a')[0]).toBe(selector)
     expect(selector).toHaveClass('bg-sheet', 'shadow-press', 'min-h-14')
     expect(selector).toHaveAccessibleName('Switch project (current: Wohnbau Seestadt Baufeld D12)')
-    // The name on one line at 16/600, „Switch project“ under it.
     const name = selector.querySelector('.whitespace-nowrap')!
     expect(name).toHaveClass('text-section')
     expect(name).toHaveAttribute('title', 'Wohnbau Seestadt Baufeld D12')

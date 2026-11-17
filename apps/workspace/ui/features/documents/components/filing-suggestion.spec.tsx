@@ -49,7 +49,6 @@ const DOCUMENTS = [
   { id: 'doc_2', name: 'Stellungnahme.pdf' },
 ]
 
-/** Lit or not, as a card asks. */
 function Lit({ id }: { id: string }) {
   return <span data-testid={`lit-${id}`}>{useFilingHighlighted(id) ? 'lit' : 'dark'}</span>
 }
@@ -116,7 +115,6 @@ describe('FilingChip', () => {
     expect(chip()).toHaveTextContent('→ Bescheide')
     expect(chip()).toHaveAttribute('aria-haspopup', 'dialog')
     expect(chip()).toHaveAttribute('aria-expanded', 'false')
-    // Calm: the dashed hairline on the card surface, no fill colour of its own.
     expect(chip().className).toContain('border-dashed')
     expect(chip().className).toContain('bg-card')
     expect(gets).not.toHaveBeenCalled()
@@ -130,7 +128,7 @@ describe('FilingChip', () => {
     expect(newChip.querySelector('[data-slot="agent-glyph"]')?.className).toContain('shrink-0')
   })
 
-  it('draws nothing for a file Piloti has nothing to say about', () => {
+  it('draws nothing for a file the agent has nothing to say about', () => {
     renderSlot(current, { documentId: 'doc_elsewhere' })
     expect(screen.queryByTestId('filing-chip')).not.toBeInTheDocument()
   })
@@ -172,7 +170,6 @@ describe('the popover the chip opens', () => {
     expect(screen.getByTestId('lit-doc_2')).toHaveTextContent('dark')
     await userEvent.click(chip())
     expect(screen.getByTestId('lit-doc_2')).toHaveTextContent('lit')
-    // Its own file is the one the person is looking at.
     expect(screen.getByTestId('lit-doc_1')).toHaveTextContent('dark')
     await userEvent.keyboard('{Escape}')
     expect(screen.getByTestId('lit-doc_2')).toHaveTextContent('dark')
@@ -280,22 +277,18 @@ describe('FilingChip on the card', () => {
     )
     const [withFooter, withoutFooter] = screen.getAllByTestId('file-card-footer')
     const shellOf = (footer: HTMLElement) => footer.parentElement!
-    // The same tile: shell, card button and footer carry the same classes and the same parts.
     expect(shellOf(withFooter).className).toBe(shellOf(withoutFooter).className)
     expect(shellOf(withFooter).children).toHaveLength(shellOf(withoutFooter).children.length)
     expect(screen.getByTestId('with').className).toBe(screen.getByTestId('without').className)
     expect(withFooter.className).toBe(withoutFooter.className)
     expect(withFooter.children).toHaveLength(withoutFooter.children.length)
-    // The chip is in the footer's left slot, and nothing else was added.
     const [lead] = Array.from(withFooter.children)
     expect(lead.children).toHaveLength(1)
     expect(within(withFooter).getByTestId('filing-chip')).toBe(lead.firstElementChild)
     expect(within(withoutFooter).queryByTestId('filing-chip')).not.toBeInTheDocument()
-    // Its margin box is a line of text: 24px tall, minus 4px above and below.
     expect(within(withFooter).getByTestId('filing-chip').className).toMatch(/(^| )h-6( |$)/)
     expect(within(withFooter).getByTestId('filing-chip').className).toMatch(/(^| )-my-1( |$)/)
     expect(document.querySelector('[data-slot="inline-suggestion"]')).toBeNull()
-    // Not inside the card's own button: a button cannot hold a button.
     expect(within(screen.getByTestId('with')).queryByTestId('filing-chip')).not.toBeInTheDocument()
   })
 
@@ -325,7 +318,6 @@ describe('FilingChip in the list', () => {
     expect(document.querySelectorAll('tbody tr')).toHaveLength(2)
     const fileRow = rows.find((row) => row.textContent?.includes('MA37_Bescheid.pdf'))!
     const chipInRow = within(fileRow).getByTestId('filing-chip')
-    // The name line: the flex row holding the name, the Fassung count and the chip.
     expect(within(fileRow).getByText('MA37_Bescheid.pdf').closest('.items-baseline')).toBe(chipInRow.parentElement)
     expect(screen.getAllByTestId('filing-chip')).toHaveLength(1)
   })

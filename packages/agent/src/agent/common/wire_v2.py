@@ -1,62 +1,3 @@
-"""The chat wire, version 2: every frame the chat socket carries, as types (ADR-0068).
-
-The design of record is ``docs/design/chat-wire-v2.md``. This module is the
-contract that design names, and nothing else: no I/O, no agent-runtime import, no
-LangChain import, so the producers in ``agent`` (and ``sources/``) and the
-socket handler in ``agent_host`` all import it without a cycle.
-
-Three layers
-------------
-
-**Bodies** (``*Body``) are what a producer says: a step, a delta, a card, the
-turn's result. A body has a ``type`` and nothing that belongs to the
-connection. The per-turn emitter (``common/turn_emitter.py``) queues bodies.
-
-**Events** are what the socket sends: a body plus the envelope (``v``,
-``conversation_id``, ``turn_id``, ``seq``, ``ts``). Only the handler makes
-events, with :func:`stamp`, because only it owns the turn's sequence counter:
-the heartbeat and the stage frames are its own, and they share the counter
-with everything the workflow yields.
-
-**Client messages** are what the browser sends: ``user_message``,
-``interaction_response``, ``cancel_turn``, ``attach`` and ``steer`` (a note
-for the running turn, read at its next tool-round boundary; it never starts or
-supersedes a turn).
-
-One frame is none of the three: :class:`Hello`, the server's first frame on
-every socket. It belongs to the connection, not to a turn, so it has no
-``conversation_id``, ``turn_id`` or ``seq`` and is not a :data:`WireEvent`. The
-client opens nothing until it arrives: a server that accepts the upgrade and
-never says it speaks v2 (an agent rolled back to the agent runtime's stock socket, which
-ignores ``?v=2``) is otherwise indistinguishable from one that is thinking.
-
-Rules the models carry
-----------------------
-
-* Names are AG-UI's where AG-UI has one (``RUN_STARTED``, ``TEXT_MESSAGE_*``,
-  ``STATE_SNAPSHOT``, ``STEP_*``, ``SUBAGENT_*``, ``RUN_FINISHED``,
-  ``RUN_ERROR``, ``CUSTOM``), and so are their fields, in snake case
-  (``message_id``, ``subagent_run_id``); the ``CUSTOM`` events are told apart
-  by ``name``.
-* ``seq`` is per turn, starts at 1 with ``RUN_STARTED`` and increases by one
-  per event, stage frames after ``RUN_FINISHED`` included. ``seq == 0`` marks an
-  out-of-band ``rejected`` notice, which is never replayed.
-* A frame omits every field at its default and is never ``null`` where a value
-  is absent; the discriminators are always present (:class:`_Model`). The
-  reader's schema restores the defaults. Where absence would be ambiguous there
-  is a separate event instead of a null (``card_refused``, ``answer_retracted``).
-* Nothing raw rides a step. A step is typed data a reader is shown; a tool's
-  input or output never reaches the wire (the Trace-Lanes of a knowledge search
-  travel as a ``sources`` step, built from the records, not scraped from the
-  tool's text).
-
-The TypeScript mirror is ``apps/workspace/ui/adapters/api/wire-v2.ts``. Both are
-held to ``contracts/wire/v2.schema.json`` (generated from this module by
-``scripts/generate_wire_schema.py``) and to the recorded turns under
-``contracts/wire/v2/``: ``packages/agent/tests/common/test_wire_v2.py`` and
-``wire-v2.spec.ts`` validate every fixture, each on its own side.
-"""
-
 from __future__ import annotations
 
 import hashlib
@@ -64,73 +5,24 @@ import json
 from typing import Annotated
 from typing import Any
 from typing import Literal
-from typing import get_args
-from typing import get_origin
 
 from pydantic import BaseModel
 from pydantic import BeforeValidator
-from pydantic import ConfigDict
 from pydantic import Field
-from pydantic import SerializationInfo
-from pydantic import SerializerFunctionWrapHandler
 from pydantic import TypeAdapter
 from pydantic import WithJsonSchema
-from pydantic import model_serializer
 from pydantic import model_validator
 
 from agent.common.source_kinds import LEGACY_SHELF_VALUES
+from agent.common.wire_model import OpenWireModel as _OpenModel
+from agent.common.wire_model import WireModel as _Model
 
-#: The only wire version. There is no ``v: 1`` reader anywhere (ADR-0068).
 WIRE_VERSION: Literal[2] = 2
 
-#: Close code for a socket that asked for another wire version (``?v=`` on the
-#: upgrade). The client maps it to "Piloti was updated, reload".
 CLOSE_CLIENT_OUTDATED = 4426
 
 Scalar = str | int | float | bool
 
-
-def _is_const(annotation: Any) -> bool:
-    return get_origin(annotation) is Literal and len(get_args(annotation)) == 1
-
-
-class _Model(BaseModel):
-    """Closed models: a field the contract does not name is a producer bug.
-
-    A frame omits every field at its default (:func:`to_frame` dumps with
-    ``exclude_defaults``) except the ``const`` ones, which are the discriminators
-    (``v``, ``type``, ``name``, ``kind``) and must always be on the wire. The
-    reader's schema restores the defaults, so the frame stays minimal and still
-    parses to the same value.
-    """
-
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    @model_serializer(mode="wrap")
-    def _keep_consts(self, handler: SerializerFunctionWrapHandler, info: SerializationInfo) -> dict[str, Any]:
-        data = handler(self)
-        if info.exclude_defaults:
-            consts = {
-                name: getattr(self, name) for name, f in type(self).model_fields.items() if _is_const(f.annotation)
-            }
-            data = {**consts, **data}
-        return data
-
-
-class _OpenModel(BaseModel):
-    """A payload whose full contract lives elsewhere (cards, sources, ledger).
-
-    The wire names the fields it routes on and passes the rest through; the
-    owning contract validates the whole (``answerCardSchema``, the citation wire,
-    ``sanitizeAnswerMeta``).
-    """
-
-    model_config = ConfigDict(extra="allow", frozen=True)
-
-
-# ---------------------------------------------------------------------------
-# Payload value types
-# ---------------------------------------------------------------------------
 
 SourceKindKey = Literal["building_law", "office", "project", "web"]
 Channel = Literal["live", "technical"]
@@ -138,8 +30,6 @@ Scope = Literal["chat", "deep"]
 
 
 class TraceLaneSource(_Model):
-    """One document in a lane: identity, the locus that round reached, its shelf."""
-
     name: str = Field(min_length=1, description="Raw file name: the document identity.")
     title: str | None = Field(default=None, description="Display title, omitted when it would repeat `name`.")
     detail: str | None = Field(default=None, description="Locus, e.g. 'Pkt. 3.5.2 p.12'.")
@@ -149,8 +39,6 @@ class TraceLaneSource(_Model):
 
 
 class TraceLane(_Model):
-    """One lane of a search's fan-out: the fine lane and the coarse kind it renders as."""
-
     key: str = Field(min_length=1)
     label: str
     kind: SourceKindKey
@@ -159,8 +47,6 @@ class TraceLane(_Model):
 
 
 class WireSource(_OpenModel):
-    """A cited source (``source_entry_to_wire``). ``number`` is its ``[N]`` in the prose."""
-
     content: str
     number: int | None = Field(default=None, ge=1)
     file_name: str | None = None
@@ -168,38 +54,21 @@ class WireSource(_OpenModel):
 
 
 class KeyedCard(_Model):
-    """A card and its identity key, so a card equal to one already drawn keeps its node."""
-
     key: str = Field(min_length=1, description="card_key(card): stable across the live event and the terminal.")
     card: dict[str, Any] = Field(description="A AnswerCard (cards/models.py); validated by answerCardSchema on render.")
 
 
 def card_key(card: dict[str, Any]) -> str:
-    """The identity of a card: a hash of its canonical JSON.
-
-    The live ``card`` event and the terminal carry the same key for the same
-    card, so the client reconciles by key instead of comparing card trees.
-    """
     canonical = json.dumps(card, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]
 
 
-# ---------------------------------------------------------------------------
-# Herleitung steps: compact, typed, one discriminated union on ``kind``
-# ---------------------------------------------------------------------------
-
-
 class _StepBase(_Model):
-    #: Stable within the turn and chosen by the producer (``status:retrieval:2``,
-    #: ``tool:call_abc``). The same id again REPLACES the row: newest wins.
     id: str = Field(min_length=1, max_length=200)
-    #: Which agent took the step. ``deep`` for in-process deep research.
     scope: Scope = "chat"
 
 
 class StatusStep(_StepBase):
-    """A status line or a technical record (``turn_status.emit_status`` and its siblings)."""
-
     kind: Literal["status"] = "status"
     slot: str = Field(min_length=1, description="e.g. 'synthesis', 'budget', 'decision:rerank'.")
     key: str | None = Field(default=None, description="i18n id (ALL_STATUS_KEYS); absent on technical records.")
@@ -211,8 +80,6 @@ class StatusStep(_StepBase):
 
 
 class RetrievalStep(_StepBase):
-    """One announced retrieval round: where it looks, for what, and the model's own conclusion."""
-
     kind: Literal["retrieval"] = "retrieval"
     round: int = Field(ge=0)
     key: str
@@ -225,8 +92,6 @@ class RetrievalStep(_StepBase):
 
 
 class SourcesStep(_StepBase):
-    """What one evidence tool returned, as lanes. Built from the grounding records, never from text."""
-
     kind: Literal["sources"] = "sources"
     round: int | None = Field(default=None, ge=0)
     tool: str = Field(min_length=1)
@@ -237,8 +102,6 @@ class SourcesStep(_StepBase):
 
 
 class ToolStep(_StepBase):
-    """A tool call ran: its basename and outcome. Never its arguments or its result."""
-
     kind: Literal["tool"] = "tool"
     tool: str = Field(min_length=1)
     status: Literal["running", "ok", "error"] = "running"
@@ -253,8 +116,6 @@ class ToolStep(_StepBase):
 
 
 class SkillStep(_StepBase):
-    """A skill was offered (count only), activated or loaded (``skills/events.py``)."""
-
     kind: Literal["skill"] = "skill"
     phase: Literal["offered", "activated", "loaded"]
     skill: str | None = Field(default=None, description="Absent on the per-turn `offered` record.")
@@ -265,20 +126,11 @@ class SkillStep(_StepBase):
 
 
 class ClarificationStep(_StepBase):
-    """The clarify step started: the one row it contributes before its first question."""
-
     kind: Literal["clarification"] = "clarification"
     max_turns: int = Field(ge=1)
 
 
 class LookStep(_StepBase):
-    """One look that rendered (``look``, ADR-0128): which document, which page, where on it.
-
-    An address, never pixels: the reader's thumbnail is drawn from the
-    document's own preview route (``document_id``, ``revision_id``), so it is
-    authorized exactly like the document. A refused look leaves no step.
-    """
-
     kind: Literal["look"] = "look"
     round: int | None = Field(default=None, ge=0, description="The retrieval round the look ran in.")
     document_name: str = Field(min_length=1, max_length=300, description="The file name.")
@@ -299,8 +151,6 @@ ActionVerb = Literal["search", "list", "read", "look", "lookup", "law", "web", "
 
 
 class ActionCounts(_Model):
-    """What one call found. Each count is absent when the call does not count it."""
-
     hits: int | None = Field(default=None, ge=0, description="Passages or matches returned.")
     documents: int | None = Field(default=None, ge=0, description="Distinct documents the hits are in.")
     searched: int | None = Field(default=None, ge=0, description="Documents searched, the denominator.")
@@ -309,13 +159,6 @@ class ActionCounts(_Model):
 
 
 class ActionStep(_StepBase):
-    """One call of the agent's work, as the reader sees it (ADR-0132): verb, target, outcome, time.
-
-    The tool emits it itself, at start (``running``) and at end, under one id,
-    from the values it already holds: typed and clipped, never its raw input or
-    its text. ``elapsed_ms`` is set on the end row.
-    """
-
     kind: Literal["action"] = "action"
     call_id: str = Field(min_length=1, max_length=64, description="Shared with the sources step this call returned.")
     round: int | None = Field(default=None, ge=0, description="The retrieval round the call ran in.")
@@ -362,14 +205,7 @@ Step = Annotated[
 ]
 
 
-# ---------------------------------------------------------------------------
-# The answer's live state and the turn's result
-# ---------------------------------------------------------------------------
-
-
 class AnswerSnapshot(_Model):
-    """The streamed prose settled (ADR-0066): it REPLACES text, citations and masthead; cards are untouched."""
-
     text: str
     sources: list[WireSource] = Field(default_factory=list)
     answer_meta: dict[str, Any] | None = Field(default=None, description="Absent: the re-gate dropped the masthead.")
@@ -381,21 +217,11 @@ class CitationsRemoved(_Model):
 
 
 class RunHandoff(_Model):
-    """The run a turn commissioned (ADR-0062) and the message it narrates itself in: both or neither."""
-
     run_id: str = Field(min_length=1)
     run_message_id: str = Field(min_length=1)
 
 
 class QuoteStamp(_Model):
-    """The server's check of one quote line ``> „…“ [N]`` (``common/quote_stamps.py``), in document order.
-
-    ``verbatim`` names the passage that holds the wording and the ``[N]`` it
-    carries (absent for a passage read but not cited); ``not_found`` means no
-    retrieved passage holds it; ``unchecked`` means there was nothing to check
-    against, or the span is too short to mean anything.
-    """
-
     text: str = Field(description="The wording between the quote marks, as the final text writes it.")
     status: Literal["verbatim", "not_found", "unchecked"]
     number: int | None = Field(default=None, ge=1)
@@ -407,31 +233,32 @@ class QuoteStamp(_Model):
 
 
 class ConfidenceFinding(_Model):
-    """A statement the answer relies on that its evidence does not back, or contradicts."""
-
     statement: str = Field(max_length=300)
     problem: Literal["unbacked", "contradicted"]
     reason: str = Field(max_length=300)
-    #: The evidence it was checked against, as the check labelled it; ``none`` when nothing addressed it.
     source: str = Field(max_length=200)
 
 
-class ConfidenceCheck(_Model):
-    """What the answer check found (ADR-0139): ``judged``, a level and what holds it down; or ``unavailable``."""
+class ConfidenceUnavailable(_Model):
+    cause: Literal["no_judge", "timeout", "error", "unparseable", "no_reply"]
+    error_type: str | None = Field(default=None, max_length=100)
+    finish_reason: str | None = Field(default=None, max_length=40)
+    truncated: bool = False
+    elapsed_ms: int | None = Field(default=None, ge=0)
+    evidence_chars: int | None = Field(default=None, ge=0)
+    answer_chars: int | None = Field(default=None, ge=0)
 
+
+class ConfidenceCheck(_Model):
     status: Literal["judged", "unavailable"]
     level: Literal["low", "medium", "high"] | None = None
     findings: list[ConfidenceFinding] = Field(default_factory=list)
+    unavailable_reason: ConfidenceUnavailable | None = Field(
+        default=None, json_schema_extra={"x-unknown-as-null": True}
+    )
 
 
 class TurnResult(_Model):
-    """Everything the finished turn delivers; authoritative, and what the server persists.
-
-    It replaces the text once more and takes back what it omits (a card
-    suppressed, a masthead gated out). The persisted row is built from this
-    model and nothing else (``agent_host`` ``persist_turn_result``).
-    """
-
     message_id: str = Field(min_length=1, description="turn.response.answer_message_id(conversation, turn).")
     text: str
     cards: list[KeyedCard] = Field(default_factory=list)
@@ -440,7 +267,9 @@ class TurnResult(_Model):
     answer_meta: dict[str, Any] | None = None
     answer_confidence: Literal["low", "medium", "high"] | None = None
     answer_confidence_reason: str | None = Field(default=None, max_length=300)
-    answer_confidence_capped_reason: Literal["ungrounded", "quote_unverified", "law_unsettled"] | None = None
+    answer_confidence_capped_reason: Literal["ungrounded", "quote_unverified", "law_unsettled", "open_point"] | None = (
+        Field(default=None, json_schema_extra={"x-unknown-as-null": True})
+    )
     routing_decision: Literal["meta", "shallow", "deep", "error"] | None = None
     escalation_reason: str | None = None
     citations_removed: CitationsRemoved | None = None
@@ -450,92 +279,52 @@ class TurnResult(_Model):
     skills_activated: list[str] = Field(default_factory=list)
     skills_hidden: list[str] = Field(default_factory=list)
     retrieval_ledger: list[dict[str, Any]] = Field(default_factory=list)
-    #: One stamp per quote line of ``text``, in document order.
     quote_stamps: list[QuoteStamp] = Field(default_factory=list)
-    #: What the answer check found; absent when the answer graded nothing (ADR-0139).
     confidence_check: ConfidenceCheck | None = None
-    #: Which rule computed ``answer_confidence``: 2 a checked answer (told
-    #: apart from a stored per-sentence turn by ``confidence_check``), 1 the
-    #: answer-level floors.
     answer_confidence_version: Literal[1, 2] | None = None
-    #: A lookup ran and found nothing; the answer is the model's own knowledge
-    #: and says so in a banner. False on every other turn.
     lookup_found_nothing: bool = False
-    #: ADR-0062: the run this turn commissioned instead of answering itself.
     run: RunHandoff | None = None
-    #: The thinking level the answering call RAN at, resolved (the asker's level,
-    #: else the platform's, else the role's configured one). Absent when the turn
-    #: made no answering call or its model sends none. The client records the
-    #: level it asked for, but only the asking tab has that; this reaches
-    #: observers and the persisted row too. A STOPPED turn's result carries the
-    #: level the asker stated instead, or None when they stated none: its graph
-    #: state is gone by then, and a stated level is the one the answering call
-    #: runs at, so the two differ only for a turn that stated none.
-    #: Withheld from the frame only while ``WIRE_V2_ADDITIVE_FIELDS`` is
-    #: set ``off``, the rollback (``agent_host.chat_socket.STAGED_SERVER_FIELDS``);
-    #: the row keeps it.
     reasoning_effort: Literal["none", "minimal", "low", "medium", "high", "xhigh"] | None = None
-
-
-# ---------------------------------------------------------------------------
-# Bodies (what producers say) and events (what the socket sends)
-# ---------------------------------------------------------------------------
 
 
 class Envelope(_Model):
     v: Literal[2] = WIRE_VERSION
     conversation_id: str = Field(min_length=1)
-    #: The id of the user message this turn answers (the client's `message_id`).
     turn_id: str = Field(min_length=1)
     seq: int = Field(ge=0)
-    #: Server clock, epoch milliseconds.
     ts: int = Field(ge=0)
 
 
 class RunStartedBody(_Model):
-    """The turn was admitted. Sent by the handler before any setup I/O: the client's delivery ack."""
-
     type: Literal["RUN_STARTED"] = "RUN_STARTED"
     message_id: str = Field(min_length=1, description="The answer's id; the bubble is keyed by it from now on.")
 
 
 class TextMessageStartBody(_Model):
-    """The first prose of a streamed answering call is about to arrive."""
-
     type: Literal["TEXT_MESSAGE_START"] = "TEXT_MESSAGE_START"
     message_id: str = Field(min_length=1)
 
 
 class TextMessageContentBody(_Model):
-    """Prose, appended. Coalesced by the emitter to at most one per RELAY_WINDOW_S."""
-
     type: Literal["TEXT_MESSAGE_CONTENT"] = "TEXT_MESSAGE_CONTENT"
     message_id: str = Field(min_length=1)
     delta: str = Field(min_length=1)
 
 
 class TextMessageEndBody(_Model):
-    """The envelope's `answer` string closed. A settled snapshot may follow; the terminal will."""
-
     type: Literal["TEXT_MESSAGE_END"] = "TEXT_MESSAGE_END"
     message_id: str = Field(min_length=1)
 
 
 class StateSnapshotBody(_Model):
-    """ADR-0066's settle: the verified, renumbered prose and its sources replace what streamed."""
-
     type: Literal["STATE_SNAPSHOT"] = "STATE_SNAPSHOT"
     snapshot: AnswerSnapshot
 
 
-#: A subagent invocation's handle (AG-UI 1.0 ``SubagentRunId``): minted per
-#: invocation, so two runs of the same subagent carry two values.
 SubagentRunId = Annotated[str, Field(min_length=1, max_length=64)]
 
 
 class StepStartedBody(_Model):
-    """A step with a duration began (a tool call). Instant steps send only STEP_FINISHED."""
-
     type: Literal["STEP_STARTED"] = "STEP_STARTED"
     step: Step
     subagent_run_id: SubagentRunId | None = Field(
@@ -545,8 +334,6 @@ class StepStartedBody(_Model):
 
 
 class StepFinishedBody(_Model):
-    """A step, whole. For a started step it carries the same id and its final state."""
-
     type: Literal["STEP_FINISHED"] = "STEP_FINISHED"
     step: Step
     subagent_run_id: SubagentRunId | None = Field(
@@ -556,15 +343,6 @@ class StepFinishedBody(_Model):
 
 
 class SubagentStartedBody(_Model):
-    """A subagent invocation began inside this turn (AG-UI 1.0 ``SUBAGENT_STARTED``).
-
-    Every step it takes afterwards carries its ``subagent_run_id``, so a reader
-    groups the work without replaying the stream. A subagent it spawns names it
-    as ``parent_subagent_run_id``. An agent run as a separate run (a
-    commissioned research run, ADR-0062) is not a subagent: it is the turn's
-    ``result.run``.
-    """
-
     type: Literal["SUBAGENT_STARTED"] = "SUBAGENT_STARTED"
     subagent_run_id: SubagentRunId
     name: str = Field(min_length=1, max_length=64, description="Which subagent, e.g. 'planner-agent'; reusable.")
@@ -580,19 +358,11 @@ class SubagentStartedBody(_Model):
 
 
 class SubagentFinishedBody(_Model):
-    """The subagent invocation completed (AG-UI 1.0 ``SUBAGENT_FINISHED``; an absent ``outcome`` is success).
-
-    AG-UI's ``outcome: suspended`` is not modelled: no subagent of the agent pauses
-    yet. It arrives with pausing a run to ask the person (ADR-0140).
-    """
-
     type: Literal["SUBAGENT_FINISHED"] = "SUBAGENT_FINISHED"
     subagent_run_id: SubagentRunId
 
 
 class SubagentErrorBody(_Model):
-    """The subagent invocation failed; the turn may go on (AG-UI 1.0 ``SUBAGENT_ERROR``, never ``RUN_ERROR``)."""
-
     type: Literal["SUBAGENT_ERROR"] = "SUBAGENT_ERROR"
     subagent_run_id: SubagentRunId
     message: str = Field(min_length=1, max_length=300, description="For a person to read; never the raw exception.")
@@ -600,23 +370,16 @@ class SubagentErrorBody(_Model):
 
 
 class RunFinishedBody(_Model):
-    """The turn ended with an answer, a refusal, a hand-off to a run, or the asker's Stop."""
-
     type: Literal["RUN_FINISHED"] = "RUN_FINISHED"
     outcome: Literal["answered", "refused", "handed_off", "cancelled"]
     result: TurnResult
 
 
 class RunErrorBody(_Model):
-    """The turn failed. Nothing is persisted; the client asks the server for a finished answer first."""
-
     type: Literal["RUN_ERROR"] = "RUN_ERROR"
     code: Literal["workflow_error", "auth_error", "interaction_expired"]
     message: str
     details: str | None = None
-
-
-# --- CUSTOM (AG-UI's extension point), one model per `name` -----------------
 
 
 class MastheadValue(_Model):
@@ -642,8 +405,6 @@ class HeartbeatValue(_Model):
 
 
 class StageValue(_Model):
-    """A post-answer stage's outcome (``docs/architecture/post-answer-stages.md`` §4)."""
-
     stage: Literal["follow_ups", "memory_reflection"]
     status: Literal["ready", "empty", "failed"]
     payload: dict[str, Any] | None = Field(default=None, description="Only on `ready`.")
@@ -655,8 +416,6 @@ class InteractionOption(_Model):
 
 
 class InteractionRequestValue(_Model):
-    """The turn is waiting for its asker (``prompt_user_input``): a question, maybe with choices."""
-
     interaction_id: str = Field(min_length=1)
     input: Literal["text", "choice"]
     text: str
@@ -671,18 +430,6 @@ class InteractionResolvedValue(_Model):
 
 
 class RejectedValue(_Model):
-    """A client message was refused. Out of band: ``seq == 0``, never replayed, never ends a turn.
-
-    ``of`` is the refused message's ``type``, or ``unknown`` for a frame that is
-    not JSON or names no type this contract has: that is answered too, so a
-    client never waits on silence.
-
-    ``busy`` answers only a ``user_message`` that said ``if_idle``: the
-    conversation runs another turn, and this one would have superseded it.
-    ``steer_limit`` answers a ``steer`` past the turn's cap
-    (``common.steering.MAX_STEERS_PER_TURN``).
-    """
-
     of: Literal["user_message", "interaction_response", "cancel_turn", "attach", "steer", "unknown"]
     code: Literal[
         "auth_expired",
@@ -699,24 +446,15 @@ class RejectedValue(_Model):
 
 
 class SteerReceivedValue(_Model):
-    """A steering note reached the running turn's inbox. ``text`` is the note as the model will read it (masked)."""
-
     steer_id: str = Field(min_length=1, max_length=128)
     text: str = Field(min_length=1)
 
 
 class SteerAppliedValue(_Model):
-    """The turn read the note: it is in the request of the decision numbered ``round`` (from 1)."""
-
     steer_id: str = Field(min_length=1, max_length=128)
     round: int = Field(ge=1)
 
 
-# --- Viewer actions: AG-UI frontend tool calls, allow-listed (ADR-0144) ------
-
-#: The allow-list: the only ways Piloti may move the asker's own document viewer.
-#: Each is a frontend tool in AG-UI's sense: Piloti names it and its arguments,
-#: and the asker's browser runs it on their own screen. No other name parses.
 ViewerActionName = Literal[
     "open_document",
     "highlight_passage",
@@ -725,7 +463,6 @@ ViewerActionName = Literal[
     "focus_ifc_element",
 ]
 
-#: What each action needs beyond the document; :class:`ViewerActionValue` holds a call to it.
 VIEWER_ACTION_REQUIRES: dict[str, tuple[str, ...]] = {
     "open_document": (),
     "highlight_passage": ("page", "passage"),
@@ -734,19 +471,10 @@ VIEWER_ACTION_REQUIRES: dict[str, tuple[str, ...]] = {
     "focus_ifc_element": ("element",),
 }
 
-#: The longest passage a highlight carries: a sentence or two, found on the page by the viewer.
 MAX_VIEWER_PASSAGE_CHARS = 400
 
 
 class ViewerActionArgs(_Model):
-    """Where the viewer goes: a stored document the BFF let this turn see, and the place on it.
-
-    ``document_id`` is a workspace document's id, resolved and checked against
-    the BFF by the tool before the event is sent. The browser reads it again, in
-    the asker's own session, before it moves anything: ``GET /api/documents/{id}``,
-    the read Files and every agent door already use.
-    """
-
     document_id: str = Field(min_length=1, max_length=128)
     document_name: str = Field(min_length=1, max_length=300, description="The file name, for the chat's row.")
     page: int | None = Field(default=None, ge=1, description="The page, from 1.")
@@ -774,20 +502,6 @@ class ViewerActionArgs(_Model):
 
 
 class ViewerActionValue(_Model):
-    """One frontend tool call: AG-UI's ``toolCallId``, ``toolCallName`` and ``args``, whole in one frame.
-
-    AG-UI would carry it as ``TOOL_CALL_CHUNK`` (one frame the client expands to
-    ``TOOL_CALL_START`` / ``ARGS`` / ``END``), with ``TOOL_CALL_RESULT`` optional.
-    This wire keeps every tool out of ``TOOL_CALL_*`` (``docs/design/chat-wire-v2.md``
-    §a), and nothing returns to the model, so the call rides ``CUSTOM`` under
-    AG-UI's field names. Returning the person's "not now" to the model would be
-    the reason to move it to ``TOOL_CALL_*`` (ADR-0144).
-
-    The server writes only a name of the allow-list. The JSON Schema says
-    ``string``, so a page one release older passes over a sixth action instead
-    of refusing the frame; the page holds its own allow-list (``viewer-actions.ts``).
-    """
-
     tool_call_id: str = Field(min_length=1, max_length=64)
     tool_call_name: Annotated[
         ViewerActionName,
@@ -808,29 +522,21 @@ class _CustomBody(_Model):
 
 
 class MastheadBody(_CustomBody):
-    """The masthead above the prose, gated, before the first word. Text unchanged."""
-
     name: Literal["masthead"] = "masthead"
     value: MastheadValue
 
 
 class CardBody(_CustomBody):
-    """One card, the moment its JSON closed. May arrive before its `[[card:N]]` marker."""
-
     name: Literal["card"] = "card"
     value: CardValue
 
 
 class CardRefusedBody(_CustomBody):
-    """The validator refused the card at this index; its place stays empty."""
-
     name: Literal["card_refused"] = "card_refused"
     value: CardRefusedValue
 
 
 class AnswerRetractedBody(_CustomBody):
-    """The streamed call was a tool round: clear its text, citations, masthead and cards."""
-
     name: Literal["answer_retracted"] = "answer_retracted"
     value: EmptyValue
 
@@ -861,31 +567,20 @@ class RejectedBody(_CustomBody):
 
 
 class SteerReceivedBody(_CustomBody):
-    """A ``steer`` was taken into the turn's inbox. Sent by the socket, on the turn's ``seq``."""
-
     name: Literal["steer_received"] = "steer_received"
     value: SteerReceivedValue
 
 
 class SteerAppliedBody(_CustomBody):
-    """The graph spliced the note into its next model request. A note with no ``steer_applied``
-    before the terminal was never read: the client asks it as the next question."""
-
     name: Literal["steer_applied"] = "steer_applied"
     value: SteerAppliedValue
 
 
 class ViewerActionBody(_CustomBody):
-    """The agent proposes to move the asker's document viewer (ADR-0144). Only the asker's live page runs it."""
-
     name: Literal["viewer_action"] = "viewer_action"
     value: ViewerActionValue
 
 
-#: The optional client fields this server reads, as ``<type>.<field>``, named in
-#: the hello. The server reads client messages strictly (``extra="forbid"``), so
-#: a client sends an optional field only to a server whose hello names it: a tab
-#: that outlives a rolling deploy may be talking to a pod one release older.
 ACCEPTED_CLIENT_FIELDS: tuple[str, ...] = (
     "cancel_turn.shown",
     "user_message.posthog_session_id",
@@ -894,9 +589,6 @@ ACCEPTED_CLIENT_FIELDS: tuple[str, ...] = (
     "user_message.trigger",
     "user_message.if_idle",
     "user_message.client_tools",
-    # A whole message type, not a field: a server that does not name it refuses
-    # the frame (``invalid_message``), so the client keeps the note for the next
-    # question instead of sending it.
     "steer",
 )
 
@@ -913,26 +605,11 @@ class HelloValue(_Model):
 
 
 class Hello(_Model):
-    """The server's first frame on every socket, before it reads any client message.
-
-    Sent once the version and the caller have been checked, so it says: this
-    server speaks wire v2 and will answer what you send. A connection event, not
-    a turn's: no ``conversation_id``, ``turn_id`` or ``seq``, never published to
-    the conversation's stream, never replayed. The client sends nothing until it
-    has it, and treats a socket that stays silent, or opens with anything else,
-    as a server that does not speak this wire.
-    """
-
     v: Literal[2] = WIRE_VERSION
     type: Literal["CUSTOM"] = "CUSTOM"
     name: Literal["hello"] = "hello"
-    #: Server clock, epoch milliseconds.
     ts: int = Field(ge=0)
     value: HelloValue
-
-
-# The events: the envelope plus the body. `stamp` is the only constructor the
-# handler uses; tests and fixtures validate through `WIRE_EVENT`.
 
 
 class RunStarted(Envelope, RunStartedBody):
@@ -1120,29 +797,15 @@ _EVENT_OF_BODY: dict[type[BaseModel], type[Envelope]] = {
 
 
 def stamp(body: EventBody, *, conversation_id: str, turn_id: str, seq: int, ts: int) -> Envelope:
-    """The event the socket sends for ``body``: the body under this turn's envelope."""
-    event_type = _EVENT_OF_BODY[type(body)]
-    return event_type(
-        conversation_id=conversation_id,
-        turn_id=turn_id,
-        seq=seq,
-        ts=ts,
-        **{name: getattr(body, name) for name in type(body).model_fields},
-    )
+    fields = {name: getattr(body, name) for name in type(body).model_fields}
+    return _EVENT_OF_BODY[type(body)](conversation_id=conversation_id, turn_id=turn_id, seq=seq, ts=ts, **fields)
 
 
 def to_frame(event: Envelope | Hello) -> dict[str, Any]:
-    """The JSON object the socket writes: defaults omitted (never null), discriminators always present."""
     return event.model_dump(mode="json", exclude_defaults=True)
 
 
-# ---------------------------------------------------------------------------
-# Client -> server
-# ---------------------------------------------------------------------------
-
-
 def _legacy_focus_shelf(value: object) -> object:
-    """Read the shelf's old wire value (``archiv``) as the office shelf. Remove after one release."""
     return LEGACY_SHELF_VALUES.get(value, value) if isinstance(value, str) else value
 
 
@@ -1151,21 +814,10 @@ class _ClientBase(_Model):
     conversation_id: str = Field(min_length=1)
 
 
-#: Rounding slack on the page edge: a box the canvas measured flush with the
-#: edge arrives as 0.30000000000000004 + 0.7 often enough.
 _EDGE_EPSILON = 1e-6
 
 
 class FocusRegion(_Model):
-    """A box on one page of the conversation's document: what the question is about.
-
-    Normalized to the page as it is shown (its own rotation applied), origin
-    top left, so ``x`` and ``w`` are shares of the page's width and ``y`` and
-    ``h`` of its height: the frame an Anmerkung's region uses
-    (``lib/annotations/types.ts``). Drawn on the review canvas; the turn shows
-    the model exactly that crop (``look(region=[x, y, w, h])``).
-    """
-
     page: int = Field(ge=1, description="The page, from 1.")
     x: float = Field(ge=0, le=1, description="Left edge, as a share of the page's width.")
     y: float = Field(ge=0, le=1, description="Top edge, as a share of the page's height.")
@@ -1186,31 +838,12 @@ class FocusRegion(_Model):
 
 
 class TurnTrigger(_Model):
-    """The event that woke this turn, when no person typed it (ADR-0105 draft, §3(b)).
-
-    Set by the BFF, never by a browser: the person whose act is the event holds
-    the socket (their pinned session), and the turn answers where the event
-    happened. For a wake, ``event_id`` is the reply (or assignment) id the job
-    was enqueued for and ``annotation_id`` the Anmerkung it happened on.
-    ``agent_consult`` is a question another agent asked on the person's behalf
-    (ADR-0124): ``event_id`` is the ask's id, and there is no Anmerkung.
-    ``new_document`` is a document that just finished indexing, which the agent
-    checks against the project's other documents unasked (ADR-0130):
-    ``event_id`` is the check's id, and there is no Anmerkung.
-    """
-
     kind: Literal["thread_mention", "thread_reply", "assigned", "agent_consult", "new_document"]
     event_id: str = Field(min_length=1, max_length=128)
     annotation_id: str | None = Field(default=None, min_length=1, max_length=128)
 
 
 class UserMessage(_ClientBase):
-    """A question (or, with ``context_only``, a colleague's line the agent must see but not answer).
-
-    ``type`` stays ``user_message``: the gateway's per-socket turn limiter
-    (``apps/workspace/bff/limits/ws-frames.js``) counts turns by it.
-    """
-
     type: Literal["user_message"] = "user_message"
     message_id: str = Field(min_length=1, max_length=128, description="Becomes the turn_id.")
     text: str = Field(min_length=1)
@@ -1290,8 +923,6 @@ class UserMessage(_ClientBase):
 
 
 class InteractionResponse(_ClientBase):
-    """The asker's answer to an ``interaction_request``: typed text or a chosen option, never both."""
-
     type: Literal["interaction_response"] = "interaction_response"
     turn_id: str = Field(min_length=1)
     interaction_id: str = Field(min_length=1)
@@ -1299,33 +930,19 @@ class InteractionResponse(_ClientBase):
 
 
 class TextAnswer(_Model):
-    """A typed answer. "skip" is only ever typed."""
-
     text: str = Field(min_length=1)
 
 
 class OptionAnswer(_Model):
-    """A chosen option, by the id the ``interaction_request`` gave it."""
-
     option_id: str = Field(min_length=1)
 
 
 class ShownAnswer(_Model):
-    """How much of the answer the asker had on screen when they pressed Stop.
-
-    The first ``chars`` characters (Unicode code points) of the answer's text
-    as the client had folded it through ``seq``. A position, not the text: the
-    server keeps only what the model wrote, and the frame stays a few dozen
-    bytes, which the gateway's frame limiter reads in full (``ws-frames.js``).
-    """
-
     seq: int = Field(ge=0, description="The last seq of the turn the client had folded when Stop was pressed.")
     chars: int = Field(ge=0, description="How many characters of that text were on screen, in code points.")
 
 
 class CancelTurn(_ClientBase):
-    """Stop. Authorised: only the asker (or an internal caller) may cancel a turn."""
-
     type: Literal["cancel_turn"] = "cancel_turn"
     turn_id: str = Field(min_length=1)
     shown: ShownAnswer | None = Field(
@@ -1337,20 +954,10 @@ class CancelTurn(_ClientBase):
     )
 
 
-#: Bound on one steering note: a correction, not a second question.
 MAX_STEER_CHARS = 2000
 
 
 class Steer(_ClientBase):
-    """A note for the running turn, typed while it works („nicht die Tür, die Treppe“).
-
-    Not a turn: it never claims, holds or supersedes the conversation. The turn
-    reads it at its next tool-round boundary and the model decides again with
-    it; a note the turn never read (it arrived during the final call) is the
-    client's to ask as the next question. Only the asker may steer (v1), as
-    only the asker may stop. Sent only to a server whose hello accepts 'steer'.
-    """
-
     type: Literal["steer"] = "steer"
     turn_id: str = Field(min_length=1, description="The running turn (Codex's expectedTurnId).")
     steer_id: str = Field(min_length=1, max_length=128, description="Idempotency key and ack correlation.")
@@ -1361,8 +968,6 @@ class Steer(_ClientBase):
 
 
 class Attach(_ClientBase):
-    """After a reconnect or a reload: replay this turn from ``after_seq`` + 1, then continue live."""
-
     type: Literal["attach"] = "attach"
     turn_id: str = Field(min_length=1)
     after_seq: int = Field(ge=0)
@@ -1379,13 +984,6 @@ HELLO: TypeAdapter[Hello] = TypeAdapter(Hello)
 
 
 def _consts_required(node: Any) -> None:
-    """Mark every ``const`` property required, in place.
-
-    A literal with a default (``type``, ``kind``, ``name``, ``v``) is optional to
-    pydantic's validator but always present on the wire, since nothing drops it
-    when dumping. The schema must say so: zod's ``discriminatedUnion`` reads the
-    discriminator off a required literal, and refuses a defaulted one.
-    """
     if isinstance(node, list):
         for entry in node:
             _consts_required(entry)
@@ -1402,7 +1000,6 @@ def _consts_required(node: Any) -> None:
 
 
 def wire_json_schema() -> dict[str, Any]:
-    """The JSON Schema ``contracts/wire/v2.schema.json`` holds: both unions and the hello, by name."""
     events = WIRE_EVENT.json_schema(ref_template="#/$defs/{model}")
     clients = CLIENT_MESSAGE.json_schema(ref_template="#/$defs/{model}")
     hello = HELLO.json_schema(ref_template="#/$defs/{model}")

@@ -1,11 +1,7 @@
-/**
- * The subagent groups under the Herleitung (AG-UI 1.0 `SUBAGENT_*`), drawn
- * from the recorded turn folded the way the app folds it.
- */
 import { render, screen, within } from '@/test-utils'
 import { describe, expect, test } from 'vitest'
 import type { StoredThinkingStep } from '@/lib/conversations/message-provenance'
-import { foldTurnEvents } from '../../lib/turn-fold'
+import { foldTurnEvents } from '@/lib/turns/turn-fold'
 import { wireEvents } from '@/test-utils/wire-v2-fixtures'
 import { SubagentGroups, subagentGroups } from './SubagentGroups'
 
@@ -26,7 +22,6 @@ describe('subagentGroups', () => {
       ['researcher-agent', 'error'],
       ['writer-agent', 'ok'],
     ])
-    // Its own steps, not its children's: the task call and the round.
     expect(deep.steps.map((step) => step.id)).toEqual(['tool:4f1c', 'status:retrieval:1'])
     expect(deep.children[0].steps.map((step) => step.id)).toEqual(['tool:5a2d'])
   })
@@ -44,7 +39,6 @@ describe('SubagentGroups', () => {
     const groups = within(region).getAllByTestId('subagent-group')
     expect(groups.map((group) => group.dataset.status)).toEqual(['ok', 'ok', 'ok', 'error', 'ok'])
     expect(groups[0]).toHaveTextContent('Deep research')
-    // The default matcher collapses the no-break space the count is written with.
     expect(within(groups[0]).getByText('2 steps')).toBeInTheDocument()
     expect(groups[3]).toHaveTextContent('Research')
     expect(groups[3]).toHaveTextContent('failed')

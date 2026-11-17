@@ -1,48 +1,18 @@
-/**
- * Catalog of the platform-tunable retrieval counts (Platform → Retrieval).
- *
- * Source of truth for which counts the platform owner may tune, their boot
- * defaults (the values the workflow YAML / tool constants ship with), and
- * their accepted ranges. Mirrored by `_BOUNDS`/`_ALLOWED_VALUES` in the
- * backend's `packages/agent/src/agent/common/retrieval_settings.py`; parity is pinned by
- * `apps/workspace/tests/fixtures/retrieval_settings_catalog.json` on both sides, so a key
- * added here without the backend bound fails in CI.
- *
- * Values are global (platform-level, no org layer) and reach the backend via
- * `GET /api/internal/retrieval-settings`; the backend TTL-caches them and
- * falls back to the YAML/constant default when the BFF is unreachable.
- */
-
 export interface RetrievalSettingDefinition {
-  /** Dotted setting key, e.g. `knowledge.top_k`. */
   key: string
-  /** Boot default — what the tool uses when no platform row exists. */
   defaultValue: number
-  /** Inclusive bounds. */
   min: number
   max: number
-  /**
-   * When set, only these discrete values are accepted (e.g. the RIS API
-   * rejects page sizes outside {10, 20, 50, 100}). Takes precedence over
-   * min/max validation.
-   */
   allowedValues?: readonly number[]
-  /** Short German label for the admin form. */
   label: string
-  /** One-line German explanation shown under the field. */
   description: string
 }
 
 const RIS_PAGE_SIZES = [10, 20, 50, 100] as const
-/** An on/off setting: 0 off, 1 on. */
 const SWITCH_VALUES = [0, 1] as const
 
 export const RETRIEVAL_SETTINGS: readonly RetrievalSettingDefinition[] = [
   {
-    // Not a retrieval count either: an on/off switch (1 = on) the backend reads
-    // through the same pull. Off, the answering call does not stream and the
-    // answer arrives whole with the terminal frame, the turn as it was before
-    // ADR-0066. The form draws a 0/1 entry as a switch.
     key: 'chat.answer_streaming',
     defaultValue: 1,
     min: 0,
@@ -53,10 +23,6 @@ export const RETRIEVAL_SETTINGS: readonly RetrievalSettingDefinition[] = [
       'An: die Antwort erscheint Wort für Wort, während das Modell sie schreibt. Aus: sie erscheint vollständig, sobald sie fertig ist; die Herleitung läuft in beiden Fällen live. Gilt ab der nächsten Frage, spätestens nach einer Minute.',
   },
   {
-    // Not a retrieval count, but exactly this catalog's shape: one bounded
-    // platform-wide integer the backend reads through the same internal pull.
-    // 0 = off, which is the default — measurement never degrades a slice of
-    // answers unless an operator asks for it. See lib/platform-lessons/holdout.ts.
     key: 'lessons.holdout_pct',
     defaultValue: 0,
     min: 0,
@@ -154,7 +120,6 @@ export const RETRIEVAL_SETTING_KEYS: readonly string[] = RETRIEVAL_SETTINGS.map(
 
 const BY_KEY = new Map(RETRIEVAL_SETTINGS.map((setting) => [setting.key, setting]))
 
-/** An on/off setting, drawn as a switch rather than a number. */
 export const isSwitchSetting = (definition: Pick<RetrievalSettingDefinition, 'allowedValues'>): boolean =>
   definition.allowedValues?.length === 2 && definition.allowedValues[0] === 0 && definition.allowedValues[1] === 1
 
@@ -162,18 +127,12 @@ export function getRetrievalSettingDefinition(key: string): RetrievalSettingDefi
   return BY_KEY.get(key)
 }
 
-/** `{key: defaultValue}` for every catalog entry — the boot state of the form. */
 export function retrievalSettingDefaults(): Record<string, number> {
   const defaults: Record<string, number> = {}
   for (const setting of RETRIEVAL_SETTINGS) defaults[setting.key] = setting.defaultValue
   return defaults
 }
 
-/**
- * Validate one value against the catalog entry. Returns an error message
- * (German, shown in the form) or null when valid. Non-integers are rejected —
- * every count is a whole number of chunks/results.
- */
 export function validateRetrievalSettingValue(key: string, value: number): string | null {
   const definition = getRetrievalSettingDefinition(key)
   if (!definition) return `Unbekannte Einstellung: ${key}`

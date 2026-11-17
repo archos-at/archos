@@ -1,31 +1,7 @@
-/**
- * Research Runs API Client
- *
- * Lists deep research async jobs ("research runs") for a project via the job
- * proxy (app/api/jobs/async/[...path]/route.ts), which forwards to the
- * backend's /v1/jobs/async/jobs endpoint.
- *
- * The project is named by `projectId`, never by its collection: the proxy
- * checks the caller may chat in that project, signs it, and filters the
- * backend's listing to it (ADR-0084). The backend then lists the caller's own
- * runs plus the project's. A collection name sent from here was a project
- * nobody had checked, so the backend could only ever answer with the caller's
- * own runs in it.
- *
- * Browser only: the proxy is where the project is checked, and there is no
- * second path to the backend that skips it.
- */
-
 import { ApiRequestError } from './api-error'
 
-// ============================================================
-// Types
-// ============================================================
-
-/** Status values for a research run, as returned by the backend */
 export type ResearchRunStatus = 'submitted' | 'running' | 'completed' | 'failed' | 'cancelled'
 
-/** A single research run summary */
 export interface ResearchRun {
   job_id: string
   status: string
@@ -34,25 +10,18 @@ export interface ResearchRun {
   project_collection: string | null
 }
 
-/** Response shape for listing research runs */
 export interface ListResearchRunsResponse {
   jobs: ResearchRun[]
   total: number
 }
 
-/** Query params accepted by the list endpoint */
 export interface ListResearchRunsParams {
-  /** The project to list, checked and signed by the proxy. */
   projectId?: string
   conversationId?: string
   status?: string
   limit?: number
   offset?: number
 }
-
-// ============================================================
-// Helpers
-// ============================================================
 
 const RESEARCH_RUNS_URL = '/api/jobs/async/jobs'
 
@@ -77,20 +46,12 @@ const getResearchRunsErrorDetails = async (response: Response): Promise<string |
 
 const throwResearchRunsApiError = async (response: Response, context: string): Promise<never> => {
   const details = await getResearchRunsErrorDetails(response)
-  // ApiRequestError carries the HTTP status so consumers can classify the
-  // failure structurally instead of parsing the message text.
   throw new ApiRequestError(
     `${context}: ${response.status}${details ? ` - ${details}` : ''}`,
     response.status
   )
 }
 
-/**
- * Minimal runtime shape validation for the list response. The proxy forwards
- * backend JSON verbatim, so guard against malformed payloads instead of
- * trusting `response.json()` blindly: malformed entries are dropped and a
- * missing `jobs` array is treated as empty.
- */
 const isResearchRun = (value: unknown): value is ResearchRun => {
   if (typeof value !== 'object' || value === null) return false
   const run = value as Record<string, unknown>
@@ -116,14 +77,6 @@ const normalizeListResearchRunsResponse = (data: unknown): ListResearchRunsRespo
   return { jobs, total }
 }
 
-// ============================================================
-// REST API Functions
-// ============================================================
-
-/**
- * List research runs (deep research async jobs), optionally scoped to a
- * project.
- */
 export const listResearchRuns = async (
   params: ListResearchRunsParams = {},
   authToken?: string

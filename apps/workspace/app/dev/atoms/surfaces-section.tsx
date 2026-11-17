@@ -1,11 +1,5 @@
 'use client'
 
-/**
- * Fixture sections for the atoms preview: surfaces (cards, quotes, menus,
- * popovers, tooltips, dialogs, sheets). Surfaces take 10px, floating layers
- * 14px, the controls inside them 6px.
- */
-
 import type { JSX } from 'react'
 import { FileText, Folder, Layers, Pencil, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -63,7 +57,7 @@ export function SurfacesSection(): JSX.Element {
         <div className="flex flex-wrap items-start gap-6">
           <DropdownMenu modal={false} defaultOpen>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline">Aktionen</Button>
+              <Button variant="secondary">Aktionen</Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
               <DropdownMenuLabel>Dokument</DropdownMenuLabel>
@@ -104,7 +98,7 @@ export function SurfacesSection(): JSX.Element {
         <div className="flex flex-wrap gap-3">
           <Dialog>
             <DialogTrigger asChild>
-              <Button variant="outline">Dialog öffnen</Button>
+              <Button variant="secondary">Dialog öffnen</Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
@@ -112,14 +106,14 @@ export function SurfacesSection(): JSX.Element {
                 <DialogDescription>Diese Aktion kann nicht rückgängig gemacht werden.</DialogDescription>
               </DialogHeader>
               <DialogFooter>
-                <Button variant="outline">Abbrechen</Button>
+                <Button variant="secondary">Abbrechen</Button>
                 <Button variant="destructive">Löschen</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
           <Sheet>
             <SheetTrigger asChild>
-              <Button variant="outline">Sheet öffnen</Button>
+              <Button variant="secondary">Sheet öffnen</Button>
             </SheetTrigger>
             <SheetContent>
               <SheetHeader>

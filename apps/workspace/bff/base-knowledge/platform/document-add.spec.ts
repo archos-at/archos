@@ -2,18 +2,12 @@ import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { ApiError } from '@/lib/api/errors'
 import type { UserSession } from '@/lib/auth/types'
 
-/**
- * "Add a document" as a service (`document-add.ts`): the order of the steps and what each refusal says, with the
- * store, the capture and the text calls stubbed. What each step checks itself is the spec of that step.
- */
-
 vi.mock('server-only', () => ({}))
 
 const PDF_SHA = 'a'.repeat(64)
 const TEXT = 'Guideline RL 1 Mechanical resistance and stability, edition April 2019 issued by the institute'
 const db = { works: [] as unknown[], editions: [] as unknown[], drafts: [] as unknown[], held: null as unknown, captures: [] as { captureId: string; text: string | null }[] }
 
-/** A drizzle query that answers rows whatever it is chained with: works when it selects a kind, editions otherwise. */
 function rows(answer: unknown[]): object {
   const query: object = new Proxy({}, { get: (_target, key) => (key === 'then' ? (resolve: (value: unknown[]) => void) => resolve(answer) : () => query) })
   return query
@@ -52,7 +46,6 @@ const session = { userId: 'user_1' } as UserSession
 const RL1 = { id: 'work:xx-rl-1', title: 'Mechanical resistance', kind: 'model_code', identifiers: { designation: 'RL 1' } }
 const URL_BODY = { url: 'https://publisher.example/files/rl-1-2019.pdf', work: { workKey: 'xx-rl-1' }, label: 'April 2019', inForceFrom: null, licenceClass: 'public_open' as const }
 
-/** The capture the platform takes: the PDF at the URL, with `text`; it lands in the draft as a later call finds it. */
 function captures(text: string | null = TEXT, contentType = 'application/pdf') {
   calls.capture.mockImplementation(async (_session: unknown, changeRequestId: string, body: { url: string; basis: string; sourceId?: string }) => {
     const view = { captureId: `11111111-1111-4111-8111-11111111111${db.captures.length}`, changeRequestId, basis: body.basis, sourceId: body.sourceId ?? null, url: body.url, finalUrl: null, contentType, sha256: PDF_SHA }

@@ -8,6 +8,7 @@ import { orgPhoneTabs, projectPhoneTabs } from './phone-tabs'
 
 const ALL: MoreFlags = {
   canAccessOfficeShelf: true,
+  canAccessOfficeStandards: true,
   canAccessInbox: true,
   showSkills: true,
   canViewOrganization: true,
@@ -46,16 +47,13 @@ describe('moreDestinations: what "Mehr" lists', () => {
 
   test('in a project it lists the rail sections without a tab, gated as the rail gates them', () => {
     const keys = (flags: MoreFlags) => moreDestinations('p1', '/app/projects/p1/chat', flags).map((d) => d.key)
-    // Suche is listed: the chat and Alle Dateien have no search on their title's line, so „Mehr“ is where it
-    // is on every page.
-    expect(keys(ALL)).toEqual(['automation', 'officeShelf', 'search', 'profile', 'memory', 'organization', 'platform', 'whats-new'])
+    expect(keys(ALL)).toEqual(['automation', 'officeShelf', 'baseKnowledge', 'search', 'profile', 'memory', 'organization', 'platform', 'whats-new'])
     expect(keys(NONE)).toEqual(['search', 'profile', 'memory', 'whats-new'])
     expect(keys({ ...ALL, showSkills: false })).not.toContain('automation')
     expect(keys({ ...ALL, canAccessOfficeShelf: false })).not.toContain('officeShelf')
+    expect(keys({ ...ALL, canAccessOfficeStandards: false })).not.toContain('baseKnowledge')
   })
 
-  // The rail keeps the project's sections and the organisation's doorways
-  // apart; „Mehr" listed them in one „Bereiche" group.
   test('groups the places as the rail does: the project’s, then the organisation’s', () => {
     const groups = Object.fromEntries(moreDestinations('p1', '/app/projects/p1/chat', ALL).map((d) => [d.key, d.group]))
     expect(groups).toMatchObject({ automation: 'project', officeShelf: 'organization', organization: 'account', profile: 'account', 'whats-new': 'help' })

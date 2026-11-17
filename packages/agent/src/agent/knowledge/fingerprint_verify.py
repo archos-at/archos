@@ -1,25 +1,3 @@
-"""Check each fingerprint value the closed-project reading proposes against its own quote (ADR-0064 use 12).
-
-The fingerprint pen (``project_experience.extract_fingerprint``) answers the
-intake's closed vocabularies — Bundesland, Bauweise, uses, kind of work, the
-OIB edition — each with a quote, and code already checks that the quote is in
-the text the pen read. Code cannot check that the quote SAYS the value: a pen
-that cites „Brettsperrholz-Decken über dem Stahlbeton-Sockel" for Bauweise
-„Massivbau", or „Baubehörde Wien" for a project in Niederösterreich, passes
-every check today and becomes a suggestion the similarity ranking reads
-(ADR-0096: a suggestion ranks until a person corrects it).
-
-So one ``stated`` noul per proposed token asks the decision model exactly
-that, over the quote and the value, nothing else. A token it rejects is not
-suggested; a value with no token left is dropped. A token it could not judge
-stays, so a decision model that is down leaves the reading as it was.
-
-The Gebäudeklasse is not checked. The pen may derive it from heights and
-floors (``docs/roadmap/office-experience.md``: arithmetic, not a classifier's
-job), and a quote that gives the heights does not state the class in words: the
-check would drop exactly the derivations the pen is there for.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -34,29 +12,14 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-#: The decision slot (``status:decision:experience_verify``, ``decide.experience_verify``).
 SLOT = "experience_verify"
 
-#: p(stated) below which a proposed token is not suggested: only a clear
-#: contradiction. Measured (``decision_eval_office.py verify``, 10 Oct 2026, 32
-#: hand-labelled quotes from the fixture office, 17 stating their value): no
-#: quote stating a wrong value scored above 0.32, but quotes that state the
-#: value only through what a reader knows scored low — „Stadtgemeinde
-#: Mödling" for Niederösterreich 0.24, „Klassenräume" for Bildung 0.19 in one
-#: run and 0.14 in the next. At 0.5 the check dropped 5-6 of 17 correct values.
-#: At 0.1 it keeps all 17 in both runs and still rejects the pen's realistic
-#: slips (5-6 of 15): Holzbau quoted as Massivbau 0.04, the 2019 edition offered
-#: as 2015 0.05, a factory hall offered as housing 0.03.
 STATED_THRESHOLD = 0.1
 
-#: Keys the check leaves to the pen: their value may be derived, not stated.
-#: ``gebaeudeklasse`` is the name a BFF that has not rolled yet still sends.
 UNCHECKED_KEYS = frozenset({"building_class", "gebaeudeklasse"})
 
-#: How many of a value's quotes the decider reads.
 MAX_QUOTES = 3
 
-#: The facts as a German reader names them; the state carries the user's language, the question English.
 FACT_LABELS = {
     "federal_state": "Bundesland",
     "construction_method": "Bauweise",
@@ -64,7 +27,6 @@ FACT_LABELS = {
     "work_type": "Art des Vorhabens",
     "oib_edition": "OIB-Richtlinien-Ausgabe, nach der geplant wurde",
 }
-# The German keys a BFF that has not rolled yet still sends.
 FACT_LABELS.update(
     {
         "bundesland": FACT_LABELS["federal_state"],
@@ -118,12 +80,6 @@ def verify_fingerprint(
     organization_id: str | None = None,
     fact_labels: Mapping[str, str] | None = None,
 ) -> list[FingerprintValue]:
-    """The values whose quotes state them; unchecked keys and undecided tokens kept. Never raises.
-
-    ``fact_labels`` names a key's fact as a German reader would, for keys
-    :data:`FACT_LABELS` does not know: the project intake checks any select
-    question of the wizard, and hands over the question's own label.
-    """
     asked: list[tuple[int, str]] = []
     states: list[dict[str, Any]] = []
     for index, value in enumerate(values):

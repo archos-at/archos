@@ -1,30 +1,15 @@
-/**
- * The knowledge context of a turn from what the BFF read (design §5.5 steps
- * 1 to 6, §4.6, ADR-0173). Pure: `./load.ts` reads the inputs, a spec writes
- * them by hand ("paper" fixtures, `evals/base-knowledge/edge_cases.yaml`).
- *
- * The gate fails closed at every step: no home country, no site, a country not
- * entitled, records that could not be read or hit their bound, a node with no
- * coverage record. Only a gate of `open` or better carries uses, and at `open`
- * a binding role is `uncurated` and every other role is information. Freshness
- * degrades the label: past its kind's target an edition is `check_overdue`,
- * past twice the target (or never checked) `unchecked_since`, and an uncurated
- * binding edition becomes information. A work that attaches to the office's
- * seat or the client, not the site, is information (E40). Nothing here depends
- * on a country: adding one adds records.
- */
-
 import { chainAt, resolveChain, roleRank } from '../chain/resolve'
 import { MAX_SOURCE_REFS } from '../chain/source-refs'
 import type { BuildingScope } from '../rulesets/applicability'
 import type { GraphEdition, KnowledgeGraph, ResolvedChain } from '../chain/graph'
-import { nameOf, renderChainText, keyOfUse, type UseNotes } from '../chain/text'
+import { nameOf, renderChainText, keyOfUse, roleSinceOf, type UseNotes } from '../chain/text'
 import { PLATFORM_FRESHNESS_DAYS } from '../platform/freshness'
 import type { ConnectingFactor, CoverageLevel, EditionRole, KnowledgeWorkKind } from '../wire/vocab'
 import {
   GATE_STATES,
   MAX_CONTEXT_TEXT_CHARS,
   MAX_CONTEXT_USES,
+  MAX_ISSUER_CHARS,
   type ContextUse,
   type Gate,
   type GateState,
@@ -41,45 +26,29 @@ export interface SiteLeaf {
 }
 
 export interface ContextInputs {
-  /** The office's home country; null when the office was never placed. */
   homeCountry: string | null
-  /** Every country the office is entitled to, its home included. */
   entitled: ReadonlySet<string>
-  /** The site's leaves; empty when the project states none or there is no project. */
   sites: readonly SiteLeaf[]
-  /** The graph read for the first leaf; null when it could not be read. */
   graph: KnowledgeGraph | null
-  /** A read hit its safety bound: what was left out reads as nothing, so the turn uses none of it. */
   truncated: boolean
-  /** The day the turn resolves at: today in the office's zone, or a procedure's reference day. */
   date: string
-  /** Why `date` is what it is: `filed_on` is an assumption the chain text states; anything else is today. */
   dateBasis?: ProcedureContext['referenceDates'][string]['basis']
   now: Date
   procedures: readonly ProcedureContext[]
-  /** The newest stable release sequence per pack. */
   packSeqs: Readonly<Record<string, number>>
-  /** The project's buildings, read by each edition's scope (ADR-0178); null or absent narrows nothing. */
   building?: BuildingScope | null
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
-/** The country a territory id names: `AT` of `AT-6` and of `AT:gkz:60101`. */
 export function countryOf(territoryId: string): string | null {
   return /^([A-Z]{2})(?:$|[-:])/.exec(territoryId)?.[1] ?? null
 }
 
-/** The weaker of two gate states: the order of `GATE_STATES`. */
 export function weakerGate(a: GateState, b: GateState): GateState {
   return GATE_STATES.indexOf(a) <= GATE_STATES.indexOf(b) ? a : b
 }
 
-/**
- * The coverage that holds at a leaf: the nearest node of its own country on
- * the chain that states one. A union (`EU`) never lends its coverage to a
- * member. Null when none states one.
- */
 export function coverageAt(
   graph: KnowledgeGraph,
   chain: readonly string[],
@@ -110,7 +79,6 @@ function refusal(state: GateState, inputs: ContextInputs, leaves: Leaf[], retrie
 
 type Freshness = Pick<ContextUse, 'freshness' | 'lastCheckedAt'> & { stale: boolean; overdue: boolean }
 
-/** How current an edition is by the platform's newest check of it; law read live is current by definition. */
 export function freshnessOf(kind: KnowledgeWorkKind, edition: GraphEdition | undefined, now: Date): Freshness {
   if (!edition) return { freshness: 'current', lastCheckedAt: null, stale: false, overdue: false }
   const check = edition.lastCheck ?? null
@@ -125,9 +93,6 @@ export function freshnessOf(kind: KnowledgeWorkKind, edition: GraphEdition | und
 
 type ResolvedUse = ReturnType<typeof resolveChain>['uses'][number]
 
-const isoDay = (value: string | null | undefined): string | null => (value && /^\d{4}-\d{2}-\d{2}/.test(value) ? value.slice(0, 10) : null)
-
-/** The instrument that declares a use binding: the last step of its route, when that step is a relation. */
 export function routeOf(graph: KnowledgeGraph, use: Pick<ResolvedUse, 'route'>): UseRoute | null {
   const last = use.route.at(-1)
   if (!last || last.via !== 'relation') return null
@@ -141,17 +106,8 @@ export function routeOf(graph: KnowledgeGraph, use: Pick<ResolvedUse, 'route'>):
   }
 }
 
-/** The first day a binding role holds from: the edition's entry into force, and for a route the declaring relation's too (the later one). */
-export function roleSinceOf(graph: KnowledgeGraph, use: Pick<ResolvedUse, 'route'>, edition: GraphEdition | undefined): string | null {
-  const last = use.route.at(-1)
-  const relation = last?.via === 'relation' ? graph.relations.find((candidate) => candidate.id === last.relationId) : undefined
-  const days = [isoDay(edition?.inForceFrom), isoDay(relation?.validFrom)].filter((day): day is string => day !== null)
-  return days.sort().at(-1) ?? null
-}
-
 const siteOnly = (factors: readonly ConnectingFactor[]): boolean => factors.length === 1 && factors[0] === 'site'
 
-/** One resolved use, with the coverage qualifier, the freshness degradation and the connecting factor applied. */
 function contextUse(
   graph: KnowledgeGraph,
   use: ReturnType<typeof resolveChain>['uses'][number],
@@ -166,12 +122,10 @@ function contextUse(
   let role: EditionRole = use.role
   let qualifier: ContextUse['qualifier'] = use.qualifier
   if (!siteOnly(connectsBy)) {
-    // HOAI, VgV: the site's chain alone never makes it bind (E40).
     role = 'information'
     qualifier = null
     labels.push('depends_on_connecting_factor')
   } else if (coverage === 'open') {
-    // Nobody curated this node: law is binding only as uncurated, everything else is information (design §4.6).
     if (role === 'binding' && qualifier === null) {
       qualifier = 'uncurated'
       labels.push('uncurated_source')
@@ -183,7 +137,6 @@ function contextUse(
   if (fresh.overdue) labels.push('check_overdue')
   if (fresh.stale) {
     labels.push('unchecked_since')
-    // Past twice its target an uncurated binding edition no longer binds (E28).
     if (role === 'binding' && qualifier === 'uncurated') {
       role = 'information'
       qualifier = null
@@ -205,6 +158,7 @@ function contextUse(
     corpusFiles: [...(edition?.corpusFiles ?? [])],
     designation: work.designation ? nameOf(work.designation) : null,
     editionLabel: edition?.label ? nameOf(edition.label) : null,
+    issuer: work.issuer ? nameOf(work.issuer).slice(0, MAX_ISSUER_CHARS) : null,
     sourceRefs: [...(work.sourceRefs ?? [])].slice(0, MAX_SOURCE_REFS),
     sourceUrl: edition?.sourceUrl ?? null,
     language: edition?.text?.language ?? null,
@@ -213,12 +167,6 @@ function contextUse(
   }
 }
 
-/**
- * The chain text of a resolution in the roles the context gives each use: the
- * open-coverage, freshness and connecting-factor corrections reach the words
- * the agent reads, so the block and the uses never disagree. Null where no
- * law binds in its own territory by the records: there is no chain to read.
- */
 function textOf(graph: KnowledgeGraph, resolved: ResolvedChain, uses: readonly ContextUse[], leafId: string, onFilingDay: boolean): string | null {
   const corrected = new Map(uses.map((use) => [keyOfUse(use), use]))
   const named = resolved.uses.flatMap((use) => {
@@ -226,13 +174,11 @@ function textOf(graph: KnowledgeGraph, resolved: ResolvedChain, uses: readonly C
     return context ? [{ ...use, role: context.role }] : []
   })
   const lawHere = named.some((use) => use.role === 'binding' && use.route.length === 1 && use.route[0]?.via === 'territory')
-  // A law whose edition is undetermined still reaches the turn: its "Not determined here" line says so, never silence.
   if (!lawHere && resolved.undetermined.length === 0) return null
   const notes = new Map<string, UseNotes>([...corrected].map(([key, use]) => [key, use]))
   return capText(renderChainText(graph, { ...resolved, uses: named }, graph.territories.get(leafId)?.name ?? leafId, notes, onFilingDay))
 }
 
-/** The text within the wire's bound (`MAX_CONTEXT_TEXT_CHARS`): cut at a line, with a note saying so. */
 export function capText(text: string): string {
   if (text.length <= MAX_CONTEXT_TEXT_CHARS) return text
   const note = '\n[The rest of the building law at this site is cut; ask about one instrument by name.]'
@@ -240,17 +186,14 @@ export function capText(text: string): string {
   return `${cut.slice(0, Math.max(cut.lastIndexOf('\n'), 0))}${note}`
 }
 
-/** The countries a site's chain reads from the shared corpus: its own, and a union the graph let it read. */
 function retrievalOf(graph: KnowledgeGraph, chain: readonly string[], country: string): string[] {
   const unions = chain.filter((id) => /^[A-Z]{2}$/.test(id) && id !== country && graph.territories.get(id)?.kind === 'union')
   return sorted([country, ...unions])
 }
 
-/** The knowledge context of a turn. */
 export function resolveKnowledgeContext(inputs: ContextInputs): KnowledgeContext {
   if (!inputs.homeCountry) return refusal('organization_unplaced', inputs, [], [])
   const first = inputs.sites[0]
-  // No site: the turn may read what the office is entitled to, and the answer asks for the place (E04).
   if (!first) return refusal('site_unknown', inputs, [], sorted(inputs.entitled), 'no_site')
   const country = countryOf(first.territoryId)
   if (!country) return refusal('site_unknown', inputs, [], sorted(inputs.entitled), 'no_territory')
@@ -275,12 +218,9 @@ export function resolveKnowledgeContext(inputs: ContextInputs): KnowledgeContext
     text: null,
     retrieval: { countries: retrieval },
   }
-  // `none` holds territories only: "Für <Land> sind keine Grundlagen hinterlegt".
   if (coverage === 'none') return base
   const resolved = resolveChain(graph, first.territoryId, inputs.date, inputs.building ?? null)
   const uses = resolved.uses.map((use) => contextUse(graph, use, coverage, inputs)).filter((use): use is ContextUse => use !== null)
-  // The text words every use; the wire carries the first, binding and shortest route first. `contextUse` may
-  // demote a use (one that connects by the client informs), so the cut is made on the final roles, kept stable.
   const carried = [...uses].sort((a, b) => roleRank(a.role) - roleRank(b.role))
   return {
     ...base,

@@ -1,16 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * A secret is write-only through the agent door (ADR-0122, "Sensitive
- * operations"). The organization's LLM provider key goes in through
- * `organization-llm-credential-create` and never comes back out: not in a
- * result, not in a refusal, not in the telemetry the door records. The
- * operations run here as they do for an external agent, through
- * `runOperation`, the catalog entry and the real route; only the credential
- * service (it talks to the provider and the vault) is a stand-in, and the
- * answer it gives is built by the real `toView`.
- */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/llm-credentials/service', async (importOriginal) => ({
@@ -21,8 +11,6 @@ vi.mock('@/lib/llm-credentials/service', async (importOriginal) => ({
   verifyOrgCredential: vi.fn(),
 }))
 vi.mock('./telemetry', () => ({ recordOperationCalled: vi.fn(), recordCapabilityMissing: vi.fn() }))
-// The scope is not enforced by WorkOS yet, so no principal sees these; the visibility guards
-// have their own spec (policy.spec.ts). Here the question is only what comes back.
 vi.mock('./policy', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./policy')>()
   const { findOperation } = await import('./catalog')
@@ -51,11 +39,11 @@ const CREDENTIAL_ID = '6a0c1f0e-6a52-4d7e-9a43-1b2f3c4d5e6f'
 const principal: AgentPrincipal = {
   actor: 'external_agent',
   clientId: 'client_claude',
-  scopes: ['piloti:sensitive'],
+  scopes: ['documents:sensitive'],
   sensitiveOptIns: ['secret'],
   session: {
     userId: 'user_1',
-    email: 'a@piloti.test',
+    email: 'a@example.test',
     name: null,
     accessToken: '',
     organizationId: 'org_1',
@@ -89,7 +77,6 @@ function storedRow(): OrgLlmCredential {
   } as unknown as OrgLlmCredential
 }
 
-/** Everything the door produced for the call: the result and every telemetry event. */
 function emitted(result: unknown): string {
   return JSON.stringify([result, vi.mocked(recordOperationCalled).mock.calls])
 }

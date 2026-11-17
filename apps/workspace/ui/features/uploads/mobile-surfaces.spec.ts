@@ -1,13 +1,4 @@
 // @disk-inputs: ui/features/documents/components/mail-import-dialog.tsx, ui/features/documents/components/office-shelf-workspace.tsx, ui/features/documents/components/upload-tray.tsx, ui/features/uploads/components/upload-history.tsx
-/**
- * Source ratchets for the upload surfaces on a 393px phone.
- *
- * Each of these was a measured defect (the Archiv header 627px wide in a 393px
- * card, a running import row that rendered only a spinner, a file name cut at
- * its end so two Fassungen read alike). None shows in jsdom, which has no
- * layout, so the class that fixed each is held in the source: the next edit that
- * reintroduces the cause fails here instead of on somebody's phone.
- */
 
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
@@ -26,12 +17,14 @@ describe('Archiv header', () => {
     expect(group).not.toBeNull()
     const open = source.lastIndexOf('<div', group!.index)
     const classes = source.slice(open, group!.index)
-    expect(classes).toContain('max-w-full')
+    expect(classes).toContain('min-w-0')
     expect(classes).not.toMatch(/\bshrink-0\b/)
   })
 
-  it('puts the controls on their own full-width line on a phone', () => {
-    expect(source).toMatch(/max-sm:w-full/)
+  it('puts the controls in a row of their own under the title, at every width', () => {
+    const row = source.indexOf('<SectionToolRow className')
+    expect(row).toBeGreaterThan(source.indexOf('<PageHeader'))
+    expect(source.indexOf('data-testid="office-shelf-controls"')).toBeGreaterThan(row)
   })
 })
 

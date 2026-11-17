@@ -1,4 +1,4 @@
-# Click-Dummy Overhaul Spec — "Ask Piloti v6" → GRID
+# Click-Dummy Overhaul Spec — the v6 click dummy
 
 **Status:** Accepted working spec (2026-07-17). Owner: product/frontend.
 **Sources:** the team's click dummy `Ask_Piloti_v6_standalone2.html` (external, not in
@@ -15,16 +15,16 @@ is fair game.
 
 ## 1. What the click dummy is
 
-A German-language, project-centric workspace. The project shell's navigation holds Frag Piloti (chat), Workflows, Dateien, Archiv and Historie:
+A German-language, project-centric workspace. The project shell's navigation holds Frag den Agenten (chat), Workflows, Dateien, Archiv and Historie:
 
 - **Home = Projektübersicht** (no sidebar): project-card grid (name, address,
   Aktiv/Abgeschlossen chip, last activity, per-card settings) + a full-width
   **Archiv** entry card. Top bar: wordmark, "Organisation" button, avatar menu.
 - **Project shell** (sidebar, collapsible to icon rail): project switcher popover,
-  nav **Frag Piloti / Workflows / Dateien / Archiv / Historie**, bottom
+  nav **Frag den Agenten / Workflows / Dateien / Archiv / Historie**, bottom
   **Einstellungen** + user footer. Org-scoped screens (Archiv without project,
   org settings) render with a neutral top bar instead of the sidebar.
-- **Frag Piloti**: greeting empty state; composer with **scope picker**
+- **Frag den Agenten**: greeting empty state; composer with **scope picker**
   (project vs. all projects), **Datengrundlage picker** (RIS / BO Wien / OIB /
   Projektunterlagen / Büroarchiv / Websuche with count badge), **Deep-Research
   toggle**, source-preset **shortcut chips**. Thread = breadcrumb
@@ -34,7 +34,7 @@ A German-language, project-centric workspace. The project shell's navigation hol
   sketch ("Umsetzung im Entwurf"), "Belegt durch" chip row, thumbs feedback.
 - **Dateien**: folder chips + card grid with **content-aware thumbnails**
   (Grundriss/Schnitt/Lageplan/Doc/Bescheid/Foto), one-line AI description per
-  file, name search; preview modal with **"Von Piloti indexiert"** panel
+  file, name search; preview modal with **"Vom Agenten indexiert"** panel
   (AI summary, key-value props, **editable tags**).
 - **Archiv** (org scope): four Ablage-Ordner + a **detail library** — theme
   filter chips incl. **user-created categories**, detail cards (number D-204…,
@@ -156,9 +156,9 @@ paired with icon + label so color is never the only carrier (a11y).
    reopened answered states. Ours is a view over the existing
    conversations + research-runs store (server truth, FB-10) — one model,
    two surfaces (page + panel).
-9. **Wordmark "Piloti".** Originally the pilot office's colloquial name (see
+9. **Wordmark.** Originally the pilot office's colloquial name (see
    `docs/audit/feedback-backlog.md`). Since decided (2026-07-17, §8 item 1): the
-   user-facing wordmark IS **Piloti**; GRID stays the internal/platform name.
+   user-facing wordmark IS **the product name**; the internal platform name stays as it is.
 10. **No mobile, no loading/error/empty states, no a11y semantics.** The
     dummy is a happy-path desktop demo (fixed 720px thread, 3-col grids).
     Our current shell is responsive with drawer nav and skeletons — that
@@ -207,7 +207,7 @@ paired with icon + label so color is never the only carrier (a11y).
 | Dummy | Current state | Verdict |
 |---|---|---|
 | Home project grid + Archiv card | `/app/projects` grid exists (create, soft-delete, restore) | Restyle; add status chip, last-activity, per-card settings, Archiv entry card |
-| Sidebar: Frag Piloti/Workflows/Dateien/Archiv/Historie + Einstellungen | Overview/Chat/Files/Knowledge/Research/Workflows/Members | **Re-cut nav** (FB-9): Chat, Files, Workflows*, Archiv*, History, Settings. Research merges into history (FB-10). Overview+Members fold into Settings |
+| Sidebar: Frag den Agenten/Workflows/Dateien/Archiv/Historie + Einstellungen | Overview/Chat/Files/Knowledge/Research/Workflows/Members | **Re-cut nav** (FB-9): Chat, Files, Workflows*, Archiv*, History, Settings. Research merges into history (FB-10). Overview+Members fold into Settings |
 | Composer: scope/sources/deep-research/shortcuts | DataSourcesPanel exists; deep research auto-escalates; no scope UI; no shortcuts | Restyle composer; sources chip = existing panel; scope picker display-only; DR toggle = intent hint; shortcut chips = data-source presets |
 | Herleitung trace | ChatThinking (per-turn steps) + ResearchPanel (Tasks/Thinking/Report) | **Shipped (source-hero):** `docs/specs/2026-07-18-herleitung-source-hero-design.md` at `56ee3329` — bar + per-doc source cards; full stage spine/gaps deferred |
 | Folgewege branch picker | HITL `system_interaction` (choice prompts) exists, plainly styled | Restyle as branch cards when backend sends decision-class interactions (part of §7 contract, UI shell can come earlier) |
@@ -346,7 +346,7 @@ deep-research DAG (graph lib) that must not drop ResearchPanel capabilities
 ## 8. Open questions (need humans)
 
 1. Product name/wordmark: DECIDED (2026-07-17): user-facing brand is
-   **Piloti**; internal/platform name stays GRID (env vars, headers, CSS
+   **the product name**; internal/platform name stays as it is (env vars, headers, CSS
    variables, storage keys, DB identifiers, repo/product-platform name are
    untouched). Single source of truth: `apps/workspace/bff/brand.ts`.
 2. `sourceColors`: spec says keep (§1) — confirm with design.
@@ -370,7 +370,7 @@ confusing third way to do the same thing.
 **Decision.** The project profile is shown in **one** place and edited in
 **one** place:
 - **Display:** the single profile card on Settings is the `ProjectBrief`
-  (facts, AI summary, focus areas, Piloti's assumptions, and the open gaps).
+  (facts, AI summary, focus areas, the agent's assumptions, and the open gaps).
   The duplicate `Projektparameter` field card was removed.
 - **Editor:** the guided **intake wizard** is the only editor (Settings links
   to it once via "Briefing bearbeiten"). Its assumptions/gaps surfacing and
@@ -379,7 +379,7 @@ confusing third way to do the same thing.
   — building class, use, and floor count drive which OIB standards apply — so
   editing them one field at a time on Settings would bypass the wizard's
   consistency check and let the profile desync. Right tool for the job: the
-  card is "what Piloti thinks this project is"; the wizard is "change it."
+  card is "what the agent thinks this project is"; the wizard is "change it."
 - `ProjectBrief` gained a `canEdit` gate so viewers get a read-only brief.
 
 Follow-up (optional): the surviving profile card could take the dummy's
@@ -400,7 +400,7 @@ on every visit. And every gate was `role === 'project-admin'`, a role-name check
 **Decision.** The pinned rail entry is the project's hub, labelled **Overview**
 (the `/settings` URL and the `g s` jump are kept). It opens on a **bento
 dashboard** (`components/ui/bento.tsx`, `features/projects/components/overview/`):
-a hero (name, brief summary, Ask Piloti / Files / briefing; rename and delete in
+a hero (name, brief summary, Ask the agent / Files / briefing; rename and delete in
 its menu) and one live tile per section, each with its headline number and a
 link into the section. The briefing and the applicable OIB-Richtlinien were a
 section and two tiles in the first cut and were taken out again: they did not
@@ -419,7 +419,7 @@ and is its own route under `/app/projects/[id]/settings`:
 |---|---|---|
 | Overview (bare `/settings`) | Where does this project stand? Dashboard; rename and delete in the hero menu | view; menu `project:manage` |
 | Members | Who works here, in which role? | `project:members:manage` (section and tile hidden otherwise) |
-| Memory | What has Piloti learned here? | view; controls `project:memory:write` |
+| Memory | What has the agent learned here? | view; controls `project:memory:write` |
 | Usage & budget | What has it cost, what stops it? Replaces Insights | `project:manage` or org budget admin |
 | Documents & index | Who brought which files in, can everyone reach them, is the index current? | view; reindex `project:documents:write` |
 | Similar projects | Which closed projects were most like this one, and what did they decide and get told? (ADR-0094) | view; each reference filtered by the reader's own access |

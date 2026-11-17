@@ -1,8 +1,3 @@
-/**
- * Copy of /llms.txt, the short plain-text summary of the site for answer engines
- * (src/pages/llms.txt.ts). German first, one English block. `{name}` is the brand name,
- * filled by `withName`. The page list reuses each page's own title and description.
- */
 const de = {
   summary:
     '{name} ist der Workspace für Architekturbüros. Pläne, Modelle, Unterlagen und Bürowissen liegen an einem Ort. {name} durchsucht Baurecht, vergleicht Planstände und prüft Modelle. Planer:innen entwerfen und entscheiden. {name} erzeugt keine Entwürfe.',

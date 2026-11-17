@@ -6,7 +6,7 @@ lookalike.**
 
 The project card is part of the design language, not one page's component. It is
 the click-dummy's Projektübersicht card (spec §1/§3) and it is what "a project,
-listed" looks like everywhere in Piloti: a subtle-surface body carrying a raised
+listed" looks like everywhere in the app: a subtle-surface body carrying a raised
 white plate with the name, the status chip and the location line, and a quiet meta
 strip underneath with the timestamp and a shortcut to the project's Übersicht.
 

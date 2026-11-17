@@ -1,13 +1,3 @@
-"""Tests for the per-run completion-token budget cap (backlog T4-4).
-
-Covers: defensive env-var parsing, completion-token extraction from both
-LangChain usage-metadata shapes, ceiling enforcement deferred to the *next*
-LLM call (never aborting one already in flight), thread-safe accumulation
-across "concurrent worker" callback copies sharing one tracker, and that the
-handler actually propagates its exception through LangChain's callback
-dispatch (``raise_error``).
-"""
-
 from __future__ import annotations
 
 import threading
@@ -133,7 +123,6 @@ class TestBudgetTracker:
         assert exc_info.value.used == 1001
 
     def test_exact_ceiling_does_not_exceed(self):
-        """The ceiling is a cap, not a trigger: usage == ceiling must not abort the next call."""
         tracker = _BudgetTracker(ceiling=1000)
         tracker.add_completion_tokens(1000)
         tracker.check()  # must not raise
@@ -151,11 +140,6 @@ class TestBudgetTracker:
         assert tracker.completion_tokens == 0
 
     def test_concurrent_accumulation_is_thread_safe(self):
-        """Simulates up to max_research_concurrency (6) researcher workers all
-        reporting usage through their own BudgetGuardCallback copy that share
-        one tracker -- the accumulated total must equal the exact sum with no
-        lost updates from concurrent access.
-        """
         tracker = _BudgetTracker(ceiling=10**9)  # effectively disabled ceiling, just testing accumulation
         workers = 6
         adds_per_worker = 2000
@@ -176,9 +160,6 @@ class TestBudgetTracker:
 
 class TestBudgetGuardCallback:
     def test_raise_error_flag_set(self):
-        """Required for LangChain's callback manager to propagate the exception
-        instead of logging and swallowing it (handle_event only re-raises when
-        handler.raise_error is True)."""
         callback = BudgetGuardCallback(_BudgetTracker(ceiling=100))
         assert callback.raise_error is True
 
@@ -194,10 +175,7 @@ class TestBudgetGuardCallback:
         callback.on_llm_start(serialized={}, prompts=["hi"])  # must not raise
 
     def test_in_flight_call_completes_before_abort(self):
-        """The call that pushes usage over the ceiling is never interrupted
-        mid-generation -- only the *next* on_llm_start call aborts."""
         callback = BudgetGuardCallback(_BudgetTracker(ceiling=100))
-        # This on_llm_end pushes tokens well past the ceiling but must not raise itself.
         callback.on_llm_end(_result_with_usage_metadata(500))
         assert callback.completion_tokens == 500
 
@@ -211,14 +189,9 @@ class TestBudgetGuardCallback:
             callback.on_chat_model_start(serialized={}, messages=[[]])
 
     def test_shared_tracker_across_copies_enforces_job_wide_ceiling(self):
-        """for_new_run isn't implemented, but worker code paths that DO call it
-        (e.g. tools/research.py's per-researcher-worker callback refresh) must
-        still enforce one ceiling for the whole job if constructed to share a
-        tracker explicitly."""
         tracker = _BudgetTracker(ceiling=100)
         orchestrator_cb = BudgetGuardCallback(tracker)
         worker_cb = BudgetGuardCallback(tracker)  # shares the same tracker, as create_budget_guard_callback's
-        # single instance does when passed through unchanged to concurrent workers.
 
         orchestrator_cb.on_llm_end(_result_with_usage_metadata(60))
         worker_cb.on_llm_end(_result_with_usage_metadata(60))
@@ -232,9 +205,6 @@ class TestBudgetGuardCallback:
 
 class TestBudgetGuardCallbackPropagatesThroughLangChain:
     def test_handle_event_reraises_budget_exceeded(self):
-        """Integration check that langchain_core.callbacks.manager.handle_event
-        actually re-raises our exception (raise_error=True), the exact
-        mechanism run_agent_job relies on to abort the job."""
         callback = BudgetGuardCallback(_BudgetTracker(ceiling=10))
         callback.on_llm_end(_result_with_usage_metadata(50))
 
@@ -242,9 +212,6 @@ class TestBudgetGuardCallbackPropagatesThroughLangChain:
             handle_event([callback], "on_llm_start", None, {}, ["prompt"])
 
     def test_handle_event_swallows_other_handlers_without_raise_error(self):
-        """Sanity check on the opposite: a handler WITHOUT raise_error=True
-        must not propagate, confirming the flag -- not some other mechanism --
-        is what makes the budget guard's abort actually work."""
 
         class NonRaisingHandler:
             raise_error = False

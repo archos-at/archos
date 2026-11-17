@@ -1,12 +1,3 @@
-"""The engine's vocabulary, written where the agent's tests can read it without the engine.
-
-The agent spells the engine's enums out (``agent/tools/bim/measure_vocab.py``)
-so plugin discovery does not import IfcOpenShell. Its tests pin that copy, but
-the agent's suite runs without the engine, so they read the names from
-``fixtures/vocabulary.json`` instead. This test keeps that file the engine's
-own: it fails when an enum or a tool changes, and ``UPDATE_FIXTURES=1`` rewrites it.
-"""
-
 from __future__ import annotations
 
 import json

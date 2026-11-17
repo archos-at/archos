@@ -1,12 +1,3 @@
-"""Decisions inside a search (ADR-0064): the judge's yes/no, the reranker, the flag.
-
-The client is mocked at the seam the knowledge layer imports it through, so
-what is pinned is the contract: a sufficient head costs no judge call, an
-insufficient or absent decision runs the judge as before, a flagged passage
-is recorded and never dropped, and the jev reranker sorts by probability with
-unscored candidates last and in order.
-"""
-
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -47,7 +38,6 @@ class _FakeLLM:
 
 @pytest.fixture
 def client():
-    """The decision client as the knowledge layer sees it."""
     with patch.object(kl_decisions, "_client") as factory:
         fake = SimpleNamespace(
             noul=lambda instructions, *, true, false: {"type": "noul", "instructions": instructions},
@@ -158,8 +148,6 @@ class TestTheJevReranker:
 
 
 class TestTheCoverageCheck:
-    """ "Coverage: insufficient" is claimed on a complete "no", and on nothing less."""
-
     async def test_every_passage_below_the_threshold_is_a_gap(self, client):
         client.decide_many.return_value = [_decision(answers=0.2), _decision(answers=0.31)]
         gap = await judge_coverage("q", [_chunk("a"), _chunk("b", "c2")], threshold=0.55, widened=True)
@@ -178,7 +166,6 @@ class TestTheCoverageCheck:
         assert await judge_coverage("q", [_chunk("a"), _chunk("b", "c2")], threshold=0.55, widened=True) is None
 
     async def test_a_passage_the_decider_did_not_answer_claims_nothing(self, client):
-        """Missing evidence is never read as an absent answer."""
         client.decide_many.return_value = [_decision(answers=0.1), None]
         assert await judge_coverage("q", [_chunk("a"), _chunk("b", "c2")], threshold=0.55, widened=True) is None
         client.decide_many.return_value = [_decision(answers=0.1), _decision(other=0.9)]
@@ -193,10 +180,6 @@ class TestTheCoverageCheck:
         client.decide_many.assert_not_called()
 
     async def test_it_asks_only_the_answers_question_over_the_whole_delivered_pool(self, client):
-        """The first pass already screened for instruction-like text; asking twice records it twice.
-
-        The whole pool, not the judge's head of 12: the block says "none of the
-        N", and a default search delivers 16."""
         client.decide_many.side_effect = lambda states, questions, **_: [_decision(answers=0.1)] * len(states)
         gap = await judge_coverage("q", [_chunk(str(i), str(i)) for i in range(16)], threshold=0.55, widened=False)
         states, questions = client.decide_many.call_args.args

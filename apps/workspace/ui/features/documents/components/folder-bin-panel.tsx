@@ -1,16 +1,5 @@
 'use client'
 
-/**
- * A project's Papierkorb (ADR-0088): the folders deleted in it and the
- * documents sent there on their own, who deleted each and when, when its purge
- * runs, and what the reader may do — restore (a folder with its access, its
- * subfolders and documents; a document to the folder it came from), and
- * „Endgültig löschen" for project admins.
- *
- * Only folders the reader may read are listed; the server filters, and checks
- * every action again.
- */
-
 import { fileExtensionLabel } from '../document-kind'
 import { useCallback, useState, type JSX } from 'react'
 import { AlertTriangle, Folder, MoreHorizontal, RefreshCw, RotateCcw, Trash2 } from 'lucide-react'
@@ -38,7 +27,6 @@ import { FOLDER_NAME_TAKEN_REASON } from '@/lib/projects/folder-bin-codes'
 
 export interface FolderBinPanelProps {
   projectId: string
-  /** The listing the page read on the server; the panel re-reads after every action. */
   initial: FolderBinListing | null
 }
 
@@ -79,7 +67,6 @@ export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX
   const restore = async (entry: FolderBinEntry): Promise<void> => {
     setBusyId(entry.folderId)
     try {
-      // A document binned on its own goes back to its folder, not as a folder of its own.
       const restored = entry.document
         ? await restoreDocument(entry.document.id)
         : await restoreFolder(projectId, entry.folderId)
@@ -142,16 +129,11 @@ export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX
       {listing.entries.length === 0 ? (
         <EmptyState variant="bare" icon={Trash2} title={t('bin.empty')} description={t('bin.emptyHint')} />
       ) : (
-        // Rows on the page, no box, a hairline between two; they bleed by their inset so the glyphs stand on the edge.
-        // 880px of text at most: across the 1216px column the restore press stood a screen's width from the name.
         <ul className="-mx-4 flex max-w-[calc(880px+2rem)] flex-col">
           {listing.entries.map((entry) => {
             const meta = binMetaLine(entry, t, date)
             return (
-              // A row is a name and one meta line, 56px (paper on a desk: never three lines at desk width). The one
-              // visible action stands on the column's right edge, a raised press; on a phone it is a 44px glyph on the
-              // name's line.
-              <Item key={entry.folderId} as="li" className={`group/row items-center gap-3 rounded-surface py-2.5 hover:bg-desk [--row-end:16px] [--row-text:60px] ${ROW_HAIRLINE}`} /* the line from the name (16px inset, 32px column, 12px gap) */ data-testid={`bin-entry-${entry.folderId}`}>
+              <Item key={entry.folderId} as="li" className={`group/row items-center gap-3 rounded-surface py-2.5 hover:bg-hover [--row-end:16px] [--row-text:60px] ${ROW_HAIRLINE}`} /* the line from the name (16px inset, 32px column, 12px gap) */ data-testid={`bin-entry-${entry.folderId}`}>
                 {/* The list's 32px column: a document's format in words, as the file list writes it, a folder's glyph. */}
                 <ItemMedia className="h-5 w-8 justify-start self-start" /* on the edge and on the name's line */>
                   {entry.document ? (
@@ -264,11 +246,6 @@ export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX
   )
 }
 
-/**
- * A row's one meta line: what a folder holds (a document's format column already says what it is), who deleted it and
- * when, and when it goes or what is happening to it. Lower case after the first clause; the row capitalises its first
- * letter.
- */
 function binMetaLine(
   entry: FolderBinEntry,
   t: Translator,
@@ -288,8 +265,6 @@ function binMetaLine(
   const fate =
     entry.status === 'purging' ? t('bin.purging') : entry.status === 'failed' ? t('bin.failed') : t('bin.purgeOn', { date: date(entry.purgeAfter) })
   const lead = [contents, deleted].filter(Boolean).join(CLAUSE_JOIN)
-  // A phone's two lines: what it holds (a document: when it was deleted), then what stays and by whom, or why it
-  // cannot come back.
   const blocked = !entry.canRestore && entry.restoreBlocked ? t(`bin.restoreBlockedShort.${entry.restoreBlocked}`) : null
   const phone = [
     [contents ?? t('bin.deletedOn', { date: date(entry.deletedAt) })],
@@ -298,13 +273,8 @@ function binMetaLine(
   return { text: `${lead}${CLAUSE_JOIN}${fate}`, lead, fate, phone }
 }
 
-/**
- * The restore press: on a fine pointer a ghost glyph at rest (no fill, no edge, muted), the raised labelled press while
- * its row is hovered or holds focus; on a coarse pointer the 44px glyph with its edge, as there is no hover.
- */
 const RESTORE_PRESS =
   'pointer-coarse:size-11 pointer-coarse:px-0 pointer-fine:w-8 pointer-fine:px-0 pointer-fine:text-muted-foreground pointer-fine:shadow-none pointer-fine:bg-transparent pointer-fine:group-hover/row:w-auto pointer-fine:group-hover/row:px-3.5 pointer-fine:group-hover/row:text-foreground pointer-fine:group-hover/row:bg-sheet pointer-fine:group-hover/row:shadow-press pointer-fine:group-focus-within/row:w-auto pointer-fine:group-focus-within/row:px-3.5 pointer-fine:group-focus-within/row:text-foreground pointer-fine:group-focus-within/row:bg-sheet pointer-fine:group-focus-within/row:shadow-press dark:pointer-fine:group-hover/row:bg-transparent dark:pointer-fine:group-focus-within/row:bg-transparent'
 
 
-/** The listing's container and edges (1280px, 32px; 16px on a phone), as every Dateien tab keeps them. */
 const BIN_PAGE = 'flex listing-container flex-col gap-6 px-4 pb-4 md:px-8' // starts under the tabs, as every tab

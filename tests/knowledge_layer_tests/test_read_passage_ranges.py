@@ -1,15 +1,3 @@
-"""Ranged reads: ``read_passage(document, pages="4-6")`` and the cursor that continues one.
-
-What is pinned:
-
-* ``pages`` parses the spellings a model sends and refuses the rest with the call to make;
-* the neighbouring chunks' overlap is delivered once, and no chunk loses text of its own;
-* a read over the size cap stops at a chunk boundary and ends with a cursor, and the cursor continues
-  without repeating or skipping a chunk;
-* a cursor names a position in ONE document: another document's, a mangled one and a forged one are
-  refused, and no cursor changes which collection or scope a read runs in.
-"""
-
 from __future__ import annotations
 
 import base64
@@ -23,13 +11,13 @@ from knowledge_layer.read_passage import LABEL_FILTERS
 from knowledge_layer.read_passage import RangeRefused
 from knowledge_layer.read_passage import ReadCursor
 from knowledge_layer.read_passage import ReadPassageConfig
+from knowledge_layer.read_passage import _chunk_position
+from knowledge_layer.read_passage import _parse_pages
+from knowledge_layer.read_passage import _range_order
+from knowledge_layer.read_passage import _without_overlap
 from knowledge_layer.read_passage import decode_cursor
 from knowledge_layer.read_passage import encode_cursor
 from knowledge_layer.read_passage import read_passage
-from knowledge_layer.read_passage.tool import _chunk_position
-from knowledge_layer.read_passage.tool import _parse_pages
-from knowledge_layer.read_passage.tool import _range_order
-from knowledge_layer.read_passage.tool import _without_overlap
 from knowledge_layer.register import KnowledgeRetrievalConfig
 
 from agent.common.source_kinds import Shelf
@@ -78,7 +66,6 @@ def _chunk(
 
 
 def _at(page: int, ordinal: int, file_name: str = REPORT) -> tuple:
-    """The cursor position of a ``_chunk(page, ordinal)``: no section structure, numbered."""
     return (page, 0, 0, 0, 0, ordinal, f"{file_name}-{page}-{ordinal}")
 
 
@@ -86,8 +73,6 @@ SENTENCE = "Der Fluchtweg darf an keiner Stelle länger als vierzig Meter sein u
 
 
 class _Retriever:
-    """A retriever that reads by filter: it records every call and honours ``start_from``."""
-
     def __init__(self, chunks: list[Chunk]):
         self.chunks = chunks
         self.calls: list[dict] = []
@@ -182,8 +167,6 @@ class TestWithoutOverlap:
         assert (trimmed[1].chunk_id, trimmed[1].page_number) == (second.chunk_id, second.page_number)
 
     def test_a_section_chunk_is_cut_after_its_breadcrumb_and_keeps_it(self):
-        # Before: the repeat was looked for at the very head of the text, which is the breadcrumb,
-        # so the overlap of every section cut in two was read twice.
         first = _chunk(2, 3, f"3 Decke\n\nEinleitung zur Decke. {SENTENCE}")
         second = _chunk(3, 4, f"3 Decke\n\n{SENTENCE} Danach folgt die Bekleidung.")
         for chunk, part in ((first, 1), (second, 2)):
@@ -297,7 +280,6 @@ class TestRangedRead:
 
 class TestCursor:
     def _long_document(self) -> list[Chunk]:
-        # 10 chunks of 5,000 characters: four fit under the 24,000 cap.
         return [_chunk(1 + index // 2, index, f"Abschnitt {index}. " + "x" * 5_000) for index in range(10)]
 
     @pytest.mark.asyncio
@@ -331,7 +313,6 @@ class TestCursor:
 
     @pytest.mark.asyncio
     async def test_a_cut_between_unnumbered_chunks_of_one_page_loses_none(self, harness):
-        # Three unnumbered chunks of one page; the chunk id orders them, so a cut may fall between them.
         chunks = [_chunk(1, 0, "Erster. " + "x" * 20_000)]
         for tail in "abc":
             chunk = _chunk(2, 0, f"Gleichstand {tail}. " + "y" * 3_000)
@@ -392,7 +373,6 @@ class TestCursor:
 
     @pytest.mark.asyncio
     async def test_a_cursor_cannot_move_the_read_to_another_collection(self, harness):
-        """The collection a cursor names must be one the document resolves to in THIS turn's scope."""
         retriever = harness([_chunk(1, 0, "Eins.")])
         token = encode_cursor(ReadCursor(REPORT, "proj_somebody_else", _at(1, 0), None))
 
@@ -429,12 +409,6 @@ class TestRepeatGuard:
 
 
 class _FilteringRetriever(_Retriever):
-    """A retriever that applies the range filters as the store does, ordering and cutting like ``reads.fetch``.
-
-    ``legacy=True`` stands for a document written before ``reading_order`` existed: a range on that
-    field admits none of its points, while the ``page_label`` family does.
-    """
-
     def __init__(self, chunks: list[Chunk], legacy: bool = False):
         super().__init__(chunks)
         self.legacy = legacy
@@ -468,7 +442,6 @@ def _sections(text: str) -> list[str]:
 class TestContinuationLosesNothing:
     @pytest.mark.asyncio
     async def test_a_table_part_filed_after_a_later_text_chunk_is_still_read(self, harness, monkeypatch):
-        """Page 1 sorts [text 4, text 5, table part 3]: the cut after text 4 must not drop table part 3."""
         table = _chunk(1, 3, "Abschnitt Tabelle. " + "t" * 3_000)
         table.metadata["table_part"] = 2
         chunks = [
@@ -526,7 +499,6 @@ class TestLegacyDocument:
 class TestLookBackFillsTheFetch:
     @pytest.mark.asyncio
     async def test_a_range_behind_a_full_look_back_window_is_still_read(self, harness, monkeypatch):
-        """170 chunks on the eight look-back pages fill the 160-chunk fetch; the range itself must still come back."""
         look_back = [_chunk(1 + index % 8, 100 + index, f"Vorlauf {index}.") for index in range(170)]
         wanted = [_chunk(9, 900, "Abschnitt neun."), _chunk(9, 901, "Abschnitt neunB.")]
         retriever = _FilteringRetriever(look_back + wanted)

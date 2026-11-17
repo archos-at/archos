@@ -1,13 +1,5 @@
 'use client'
 
-/**
- * The sections of one country's page (Platform → Länder → a country), in the
- * order the work runs: overview, works and editions with their texts, sources,
- * rules, review, quality. Each reads a route the platform door also offers, and
- * each empty state says what to do. Every change goes through a change request:
- * a text is attached inside a draft, never uploaded beside one.
- */
-
 import type { JSX } from 'react'
 import { useState } from 'react'
 import Link from 'next/link'
@@ -29,11 +21,10 @@ import type { Load } from './use-platform-json'
 
 const AGENTS_HREF = '/app/platform/agents'
 
-/** Where to go when nothing is there yet: the operator's own assistant on the platform door proposes records. */
 function ConnectAssistant(): JSX.Element {
   const t = useTranslations(platformCopy)
   return (
-    <Button asChild size="sm" variant="outline">
+    <Button asChild size="sm" variant="secondary">
       <Link href={AGENTS_HREF}>
         <Plug className="size-3.5" aria-hidden />
         {t('countryPages.connectAssistant')}
@@ -98,7 +89,6 @@ export function OverviewSection({
   )
 }
 
-/** The texts grouped by work, then edition: what offices read, and what a draft still holds. */
 function byWork(texts: readonly TextPlacementView[]): { work: string; editions: { edition: string; texts: TextPlacementView[] }[] }[] {
   const works = new Map<string, Map<string, TextPlacementView[]>>()
   for (const text of texts) {
@@ -148,7 +138,7 @@ export function WorksSection({
               {drafts.map((draft) => (
                 <li key={draft.id} className="flex items-center justify-between gap-3">
                   <span className="font-medium">{draft.title}</span>
-                  <Button size="sm" variant="outline" onClick={() => onOpen(draft.id)}>
+                  <Button size="sm" variant="secondary" onClick={() => onOpen(draft.id)}>
                     {t('countryPages.works.attach')}
                   </Button>
                 </li>
@@ -331,7 +321,7 @@ export function ReviewSection({
                           {t('countryPages.review.records', { count: request.revisionCount })}
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button size="sm" variant={group === 'waiting' ? 'default' : 'outline'} onClick={() => onOpen(request.id)}>
+                          <Button size="sm" variant={group === 'waiting' ? 'default' : 'secondary'} onClick={() => onOpen(request.id)}>
                             {t(`countryPages.review.open.${group}`)}
                           </Button>
                         </TableCell>

@@ -1,56 +1,5 @@
 'use client'
 
-/**
- * Herleitung dev preview: renders the REAL ChatThinking (reasoning trace)
- * expanded, with fixture steps/sources/citations, so the redesigned graph can be
- * reviewed and screenshotted. Not linked
- * anywhere and 404s outside development.
- *
- * The desktop instance is wrapped in the SAME `w-[680px] max-w-full` box the
- * real thread uses (ChatArea's assistant-side spine). Without that the preview
- * rendered ~90px wider than production and made the fan-out look like it fitted
- * when in the real chat it did not.
- *
- * `?variant=` selects the captured scenario:
- *   - (none)   → framing → parallel sources → assessment (findings converge).
- *   - dense    → a research-heavy turn (9 documents across 5 lanes): more
- *     sources than fit in one row, so the fan packs into stacked COLUMNS
- *     instead of degrading to a single vertical chain.
- *   - branches → a long question and NO findings: a tall framing node over the
- *     sources and no assessment below them, which exercises the measured,
- *     content-driven layout (tall nodes must not overlap). The name is kept for
- *     the captures that link it; ChatThinking draws no branches node (a choice
- *     prompt is its own card in the thread, not part of the graph).
- *   - live     → a turn mid-stream: completed steps + an in-progress web search,
- *     so the live activity phrase, executed-step chips (with the running pulse)
- *     and the elapsed pill all render. The connectors into the newest row stay
- *     still: the header's shimmer is the one ambient motion.
- *   - spine    → TWO retrieval rounds: the fan becomes a spine of checkpoints,
- *     each owning the files that fetch returned. Both layers open, because
- *     folding half of a comparison hides the comparison.
- *   - spine-folded → THREE rounds, which is where the graph stops being a shape
- *     and becomes a scroll: the older two layers arrive folded to their counts
- *     and the newest is open. Neither folded caption names a query (PF-12).
- *   - work     → the approved 2026-10 Herleitung (ADR-0132): the decision's
- *     prefetch (no row, its OIB-RL 2 in the first fan), step 1 with a literal
- *     search, a folder and a search that found nothing, step 2 reading and
- *     looking at the plan sheet; uncited documents fold into one dashed card,
- *     and „Grundlagen · Entwurf“ closes it. Tap a row or a card to link them.
- *   - work-live → the same turn mid-step 2: the look still runs.
- *   - folded   → the same turn with the panel closed: counts and one warning.
- *   - no-research → a turn that looked nothing up: one line, no graph.
- *   - failed   → a failed RIS call beside a search that worked.
- *   - single-read → one read, cited: the header is the Herleitung.
- *   - many-calls → eleven calls in one step: ×7, worst first, „+N weitere“.
- *   - phone    → the work turn at 380 px and 320 px.
- *   - fs       → the filesystem verbs (ADR-0133): a folder, a name pattern and
- *     a literal search side by side, then two reads and a citable grep.
- *   - fs-edges → every outcome of those verbs that is not a plain hit: a
- *     literal search without a hit, one that could not search everything, a
- *     folder that is not there, a guessed path, the places themselves.
- *   Both fs variants also render at 320 px.
- */
-
 import { useEffect, useState } from 'react'
 import { notFound } from 'next/navigation'
 import { ChatThinking } from '@/features/chat/components/ChatThinking'
@@ -71,6 +20,8 @@ import {
   singleReadCitations,
   singleReadScene,
 } from '@/test-utils/work-list-scenes'
+import { mapServerMessageToChatMessage } from '@/features/chat/lib/server-message-mapper'
+import { ASKED_BACK, CITED_QUESTION, UNBACKED, type StoredAnswer } from '../_fixtures/stored-answers'
 
 const step: StoredThinkingStep = {
   id: 'kb',
@@ -114,14 +65,6 @@ const step: StoredThinkingStep = {
   ],
 }
 
-/**
- * What the ANSWER cited, as opposed to what retrieval merely returned.
- *
- * These name the same documents the lanes above hold, so the fan-out can mark
- * which cards became `[1]` and `[2]` and leave the rest reading "gelesen, nicht
- * verwendet" — the distinction the trace could not draw while it was built from
- * the retrieval half alone.
- */
 const citations: CitationSource[] = [
   {
     id: 'c1',
@@ -166,10 +109,6 @@ const defaultCommon = {
   messageFiles: [{ id: 'f1', fileName: 'Grundriss_EG.pdf' }],
 }
 
-// Dense scenario: what a real Tiefenrecherche turn looks like — nine documents
-// across five lanes. This is the case the old layout got wrong: the single-row
-// fan needed ~1.4k px, did not fit the 680px thread column, and collapsed the
-// whole graph into one vertical list. It must now pack into stacked columns.
 const denseStep: StoredThinkingStep = {
   ...step,
   id: 'kb-dense',
@@ -227,18 +166,6 @@ const denseCommon = {
   steps: [denseStep],
 }
 
-// ── the spine, and its folds ────────────────────────────────────────────────
-// Two or more retrieval rounds turn the fan into a SPINE: a checkpoint, the
-// files THAT fetch returned, then the next checkpoint. Each layer folds to its
-// count, and a spine of three or more arrives with everything but the newest
-// layer folded (`SPINE_FOLD_THRESHOLD`).
-//
-// The steps are stored v2 rows: the round stamp on each hit is what joins it
-// to its fetch, and the `reason` is the model's own conclusion — never the
-// query (PF-12), which is why every `query` below is a string the graph must
-// not show.
-
-/** One `retrieval` step: the checkpoint that caused fetch N. */
 const retrievalStep = (index: number, query: string, reason: string): StoredThinkingStep => ({
   id: `status:retrieval:${index}`,
   userMessageId: 'msg-1',
@@ -254,7 +181,6 @@ const retrievalStep = (index: number, query: string, reason: string): StoredThin
   timestamp: '2024-01-15T14:30:00Z',
 })
 
-/** ONE `sources` row carrying every round's hits: the per-hit `round` stamp is the join. */
 const mergedHits = (
   rounds: ReadonlyArray<
     ReadonlyArray<{ name: string; detail: string; lane: 'law' | 'project' | 'office' }>
@@ -330,9 +256,6 @@ const spineCommon = (roundCount: number) => ({
     'Reichen die beiden Rettungswege im Regelgeschoss, wenn der nördliche Treppenraum kein Sicherheitstreppenhaus ist?',
 })
 
-// Long-question scenario: NO findings, so the sources end the graph. The long
-// question makes the framing node tall, and the measured layout must place the
-// rows below it without overlap.
 const branchesCommon = {
   steps: [step],
   isThinking: false as const,
@@ -343,10 +266,6 @@ const branchesCommon = {
   escalationReason: 'shallow→deep',
 }
 
-// Live scenario: a turn mid-stream — the KB hit and an in-progress web
-// search. Exercises the live activity phrase (shown only
-// while the step actually runs), the executed-step chips
-// with the running pulse, and the elapsed-time pill.
 const liveCommon = {
   steps: [
     { ...step, id: 'kb' },
@@ -365,7 +284,6 @@ const liveCommon = {
   enabledDataSources: defaultCommon.enabledDataSources,
 }
 
-// Work-list scenarios (ADR-0132): folded from wire steps by the app's own fold.
 const workCommon = {
   ...defaultCommon,
   steps: foldScene(mockupScene()),
@@ -423,13 +341,27 @@ const manyCallsCommon = {
   userQuestion: 'Prüf bitte alle Pläne auf die Brandabschnitte der Garage.',
 }
 
+const storedCommon = ({ question, answer }: StoredAnswer) => {
+  const message = mapServerMessageToChatMessage(answer)
+  return {
+    steps: [],
+    isThinking: false as const,
+    defaultOpen: false,
+    userQuestion: question,
+    answerConfidence: message?.answerConfidence,
+    citations: message?.citations,
+    confidenceCheck: message?.confidenceCheck,
+    answerText: message?.content,
+    answerId: message?.id,
+    retrievalLedger: message?.retrievalLedger,
+  }
+}
+
 export default function DerivationPreviewPage() {
   if (process.env.NODE_ENV !== 'development') {
     notFound()
   }
 
-  // Read the requested variant after mount (not during render) so the fixture is
-  // stable and screenshot-deterministic.
   const [variant, setVariant] = useState<string | null>(null)
   useEffect(() => {
     setVariant(new URLSearchParams(window.location.search).get('variant'))
@@ -447,6 +379,12 @@ export default function DerivationPreviewPage() {
             ? foldedCommon
             : variant === 'no-research'
               ? noResearchCommon
+              : variant === 'unbacked'
+                ? storedCommon(UNBACKED)
+                : variant === 'asked-back'
+                  ? storedCommon(ASKED_BACK)
+                  : variant === 'cited-question'
+                    ? storedCommon(CITED_QUESTION)
               : variant === 'failed'
                 ? failedCommon
                 : variant === 'single-read'
@@ -479,6 +417,12 @@ export default function DerivationPreviewPage() {
             ? '/dev/derivation?variant=folded — panel closed: counts and the one warning'
             : variant === 'no-research'
               ? '/dev/derivation?variant=no-research — answered without research'
+              : variant === 'unbacked'
+                ? '/dev/derivation?variant=unbacked — stored answer, two statements unbacked'
+                : variant === 'asked-back'
+                  ? '/dev/derivation?variant=asked-back — stored answer that asks for the site'
+                  : variant === 'cited-question'
+                    ? '/dev/derivation?variant=cited-question — cited answer closing with a question'
               : variant === 'failed'
                 ? '/dev/derivation?variant=failed — a failed RIS call'
                 : variant === 'single-read'

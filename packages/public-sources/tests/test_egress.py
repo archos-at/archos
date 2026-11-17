@@ -1,5 +1,3 @@
-"""The guard: hosts at every hop, public addresses after DNS, only the headers that may leave."""
-
 from __future__ import annotations
 
 import socket
@@ -69,8 +67,6 @@ async def test_the_connection_goes_to_the_address_the_guard_checked():
 
 
 async def test_the_guarded_transport_uses_the_public_only_backend():
-    # httpx takes no network backend, so GuardedTransport replaces its pool. If an
-    # httpx upgrade renames the pool, this request would connect to loopback.
     backend = PublicOnlyBackend(resolver=await _resolver_to("127.0.0.1"))
     async with httpx.AsyncClient(transport=GuardedTransport(backend)) as client:
         with pytest.raises(EgressRefused, match="non-public"):
@@ -120,9 +116,6 @@ async def test_only_reads_leave():
             await client.delete("https://law.example.org/bo.html")
 
 
-# --- The fixed safety point (build-split S6): every internal destination is refused
-# --- after DNS, on the first request and on a redirect, at the address actually dialled.
-
 _REFUSED_AFTER_DNS = {
     "loopback": "127.0.0.1",
     "loopback_v6": "::1",
@@ -158,8 +151,6 @@ async def test_an_allowed_host_that_resolves_internally_is_refused_before_connec
 
 
 async def test_a_redirect_to_an_allowed_host_that_resolves_internally_is_refused_at_that_hop():
-    # The host list cannot catch this one: the redirect stays on a listed host,
-    # whose DNS now answers with the metadata address. The dial is what refuses.
     source = parse_source(html_source(hosts=["law.example.org", "files.example.org"]))
     answers = {"law.example.org": ["93.184.216.34"], "files.example.org": ["169.254.169.254"]}
     redirect = b"HTTP/1.1 302 Found\r\nLocation: https://files.example.org/bo.html\r\nContent-Length: 0\r\n\r\n"
@@ -172,7 +163,6 @@ async def test_a_redirect_to_an_allowed_host_that_resolves_internally_is_refused
 
 
 async def test_a_lookup_that_fails_is_a_connect_error_not_a_refusal():
-    """A DNS failure is a transport failure every caller already retries, never an OSError past httpcore."""
 
     async def failing(host, port):
         raise socket.gaierror(socket.EAI_AGAIN, "Temporary failure in name resolution")
@@ -183,8 +173,6 @@ async def test_a_lookup_that_fails_is_a_connect_error_not_a_refusal():
 
 
 async def test_the_resolved_address_is_the_one_dialled_not_a_second_lookup():
-    # Pinning: one resolution decides both the check and the connection, so a
-    # name that answers public first and private second cannot slip through.
     answers = iter([["93.184.216.34"], ["10.0.0.5"]])
     inner = _Recorder()
 
@@ -198,7 +186,6 @@ async def test_the_resolved_address_is_the_one_dialled_not_a_second_lookup():
 
 
 async def test_every_checked_address_is_tried_in_order_when_the_first_does_not_answer():
-    # An AAAA answered first must not strand a pod that has no IPv6 route.
     tried: list[str] = []
 
     class _V4Only(httpcore.AsyncNetworkBackend):

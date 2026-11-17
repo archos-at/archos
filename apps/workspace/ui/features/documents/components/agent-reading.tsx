@@ -19,25 +19,6 @@ import { DocumentDossier } from './document-dossier'
 const TYPE_SET = new Set<string>(DOCUMENT_TYPE_TAGS)
 const DISCIPLINE_SET = new Set<string>(DISCIPLINE_TAGS)
 
-/**
- * What Piloti took a citable document to be: how much of it was read, what
- * kinds of content it found, and the document type and disciplines it assigned
- * — as Piloti's statement, with a way to correct it.
- *
- * ## Why this replaced an always-open tag editor
- *
- * The rail used to show the tags as a form: removable chips and a dashed
- * „+ Schlagwort" field on every document. A form is something a person is
- * expected to fill in, and feld72 read it exactly that way — „müssen wir die
- * Schlagworte für jede Datei selbst anlegen?" (Jour fixe, 2026-10-09). They do
- * not: Piloti assigns them on every upload. So the tags are now presented as
- * what they are, Piloti's reading of the file, and the editor opens only when
- * a person asks to correct it. A correction is kept as theirs — a re-read no
- * longer writes the classifier's guess back over it.
- *
- * When Piloti found no type, it says so plainly instead of drawing an empty
- * field, and offers the same correction as „Zuordnen".
- */
 export function AgentReading({
   file,
   canManage,
@@ -48,27 +29,17 @@ export function AgentReading({
   file: FileItem
   canManage: boolean
   onTagsUpdated?: (fileId: string, tags: string[], topics?: string[]) => void
-  /** The project the document is in: its references resolve to the project's documents. */
   projectId?: string
-  /** The resolved references, where the caller already holds them (a preview); else read from the project. */
   dossierLinks?: DocumentLinks | null
 }): JSX.Element {
   const t = useTranslations(filesCopy)
   const { locale } = useLocale()
   const [correcting, setCorrecting] = useState(false)
-  // The rail is reused across files; a correction in progress belongs to one.
   useEffect(() => setCorrecting(false), [file.id])
-  /**
-   * The tags this reader just saved, until the caller's `file` carries them.
-   * Not every surface that mounts the rail feeds `onTagsUpdated` back into the
-   * file it passes, and the chips must not snap back to the old reading the
-   * moment „Fertig" closes the editor.
-   */
   const [saved, setSaved] = useState<string[] | null>(null)
   const incomingKey = (file.tags ?? []).join('\u0000')
   useEffect(() => setSaved(null), [file.id, incomingKey])
 
-  /** The same for topics, saved beside the tags. */
   const [savedTopics, setSavedTopics] = useState<string[] | null>(null)
   const incomingTopicsKey = (file.topics ?? []).join('\u0000')
   useEffect(() => setSavedTopics(null), [file.id, incomingTopicsKey])
@@ -85,7 +56,6 @@ export function AgentReading({
       {file.capture && <CaptureLine capture={file.capture} />}
 
       {correcting ? (
-        // White on the card's grey, as anything on a grey surface is: a dashed box was a line around a form.
         <div className="flex flex-col gap-2 rounded-control bg-background p-2.5" data-testid="agent-reading-editor">
           <DocumentTagsEditor
             fileId={file.id}
@@ -135,7 +105,6 @@ export function AgentReading({
             </p>
           )}
           {canManage && (
-            // Tonal, white on the reading's grey: it changes the reading, and a muted link read as part of the facts.
             <Button
               type="button"
               variant="secondary"
@@ -155,16 +124,11 @@ export function AgentReading({
   )
 }
 
-/** „12 Seiten gelesen · Text, Tabellen, Zeichnungen" — or null when the listing says neither. */
 function readingFacts(file: FileItem, locale: string, t: ReturnType<typeof useTranslations>): string | null {
   const parts: string[] = []
-  // The coverage line says how many pages were read, and how many not; the
-  // bare page count beside it would say it twice.
   if (!file.coverage && typeof file.pageCount === 'number' && file.pageCount > 0) {
     parts.push(t('brief.pages', { count: file.pageCount, formatted: file.pageCount.toLocaleString(locale) }))
   }
-  // Content kinds only when there is something beyond plain text: a lone
-  // "Text" is noise on the text-only documents that dominate a project.
   const kinds = file.contentTypes ?? []
   if (kinds.some((content) => content !== 'text')) {
     parts.push(kinds.map((content) => t(`preview.contentTypeNames.${content}`)).join(', '))
@@ -172,11 +136,6 @@ function readingFacts(file: FileItem, locale: string, t: ReturnType<typeof useTr
   return parts.length > 0 ? parts.join(CLAUSE_JOIN) : null
 }
 
-/**
- * When, and with what, a photo was taken — from the camera, not the upload —
- * and a link to where, for the people who may open the file. The position is
- * shown here and nowhere a model reads it (`photo_facts.py`).
- */
 function CaptureLine({ capture }: { capture: PhotoCapture }) {
   const t = useTranslations(filesCopy)
   const { locale } = useLocale()
@@ -210,11 +169,6 @@ function CaptureLine({ capture }: { capture: PhotoCapture }) {
   )
 }
 
-/**
- * The camera's local time as it wrote it. EXIF time has no zone unless the
- * camera added an offset, so the clock is shown as read rather than converted
- * through the reader's zone — a photo taken at 10:32 on site says 10:32.
- */
 function formatCapturedAt(iso: string, locale: string): string {
   const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(iso)
   if (!match) return iso
@@ -224,7 +178,6 @@ function formatCapturedAt(iso: string, locale: string): string {
   return `${dayLabel}, ${hour}:${minute}`
 }
 
-/** Words joined by a middot that stays with the word before it, so a wrapped line never begins with one. */
 function WordRun({ words, className, inline = false }: { words: string[]; className?: string; inline?: boolean }): JSX.Element {
   const run = words.map((word, index) => (
     <span key={word}>

@@ -1,16 +1,5 @@
 'use client'
 
-/**
- * The Steckbrief tile (ADR-0091): where, when and with whom, as the overview's
- * other tiles show what they measure. The period is the figure, the address its
- * caption, and the people involved are listed below.
- *
- * It is a summary; nothing is edited on the dashboard. „Bearbeiten" opens the
- * editor in a dialog (`project-record-editor.tsx`). Whoever may not edit gets
- * „Alle ansehen" instead, when the tile cannot show everyone or when they may
- * still erase a person.
- */
-
 import { useState, type JSX } from 'react'
 import { useRouter } from 'next/navigation'
 import { IdCard, Pencil } from 'lucide-react'
@@ -30,7 +19,6 @@ export interface ProjectRecordProps {
   span?: BentoSpan
 }
 
-/** How many people the tile names before it counts the rest. */
 const SHOWN = 6
 
 export function ProjectRecord({ projectId, projectRecord, span = 'wide' }: ProjectRecordProps): JSX.Element {
@@ -43,7 +31,6 @@ export function ProjectRecord({ projectId, projectRecord, span = 'wide' }: Proje
   const former = projectRecord.people.filter((person) => person.kind === 'former').length
 
   const action =
-    // A closed project's manager may still erase a person, so the dialog opens for them too.
     projectRecord.canEdit || projectRecord.canErase || hidden > 0 ? (
       <Button variant="ghost" size="sm" onClick={() => setOpen(true)}>
         {projectRecord.canEdit && <Pencil className="size-3.5" aria-hidden />}
@@ -118,7 +105,7 @@ export function ProjectRecord({ projectId, projectRecord, span = 'wide' }: Proje
           </section>
           <DialogFooter className="items-center sm:justify-between">
             <p className="text-muted-foreground text-xs">{t('projectRecord.privacy')}</p>
-            <Button variant="outline" onClick={() => setOpen(false)}>
+            <Button variant="secondary" onClick={() => setOpen(false)}>
               {t('projectRecord.done')}
             </Button>
           </DialogFooter>

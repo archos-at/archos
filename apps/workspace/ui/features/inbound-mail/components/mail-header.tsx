@@ -1,22 +1,5 @@
 'use client'
 
-/**
- * The head of one held mail, built so the detail opens on the mail itself
- * (the owner's review, 2026-10-27): the subject, then who it is from (name
- * and address, never one without the other), then one muted line with how far
- * the sender's domain is confirmed and when it arrived, then the flags that
- * change what filing needs. Everything else is evidence a person needs now and
- * then, and sits behind „Details“ at the end of that line: when it was sent, every
- * recipient, the original `.eml` with its warning, and the date it stops
- * waiting. Trust is never folded away, and the expiry comes forward into the
- * header in its last week (`expiryShownInline`).
- *
- * The original is downloaded through a fetch, so a refusal (the whole message
- * is scanned again on every request, D6) arrives as a sentence, not as a JSON
- * file in the downloads folder. Its warning stands beside the button: it
- * opens in a mail program, which loads images from outside.
- */
-
 import type { JSX } from 'react'
 import { useState } from 'react'
 import { toast } from 'sonner'
@@ -41,7 +24,6 @@ export interface MailHeaderProps {
   view: InboundMailView
   forwarded: ForwardedOrigin | null
   originalUrl: string
-  /** Now, to decide whether the expiry is close; a preview pins it. */
   now?: number
 }
 
@@ -72,14 +54,13 @@ export function MailHeader({ view, forwarded, originalUrl, now }: MailHeaderProp
       open={detailsOpen}
       onOpenChange={(open) => {
         setDetailsOpen(open)
-        // Whether the evidence behind „Details“ is still wanted, now that the header no longer shows it.
         if (open) capturePosthog('inbound_mail_details_opened', { status: view.status, risk_level: view.riskLevel })
       }}
       asChild
     >
       <header className="flex flex-col gap-2" data-testid="mail-header">
         {/* 16px on a phone, under the page's own title, which it must not outrank; 18px on a desk. */}
-        <h2 className="text-section sm:text-pane-title [overflow-wrap:anywhere]" title={view.subject ?? undefined} /* the pane title, 20/28/600; 16/24/600 on a phone */>
+        <h2 className="text-section font-medium sm:text-pane-title [overflow-wrap:anywhere]" title={view.subject ?? undefined} /* the pane title, 18/26/500; 16/24/500 on a phone */>
           {subject}
         </h2>
         {/* Who on the first line; how far the domain is confirmed, when it arrived and the way to the rest on the second,
@@ -87,7 +68,6 @@ export function MailHeader({ view, forwarded, originalUrl, now }: MailHeaderProp
             name (on a phone a line of its own). Both wrap on a phone, never truncate. */}
         <div className="flex flex-col gap-1" data-testid="mail-header-line">
           {view.sender && (
-            // The name in ink, the address beside it muted, no ‹ › around it: the tone tells them apart.
             <span className="text-foreground min-w-0 text-sm [overflow-wrap:anywhere]" data-testid="mail-header-from">
               {senderDisplayName(view.sender)} <span className="text-muted-foreground">{view.sender.address}</span>
             </span>

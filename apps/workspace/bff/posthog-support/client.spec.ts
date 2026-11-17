@@ -58,7 +58,6 @@ interface Call {
   body: unknown
 }
 
-/** A fetch that answers by route and records every call. */
 function fakeFetch(route: (call: Call) => Response | Promise<Response>) {
   const calls: Call[] = []
   const impl = vi.fn<typeof fetch>(async (input, init) => {
@@ -140,9 +139,8 @@ describe('listFeedbackTickets', () => {
       json(200, {
         count: 3,
         results: [
-          // The shape seen in real data.
           row({
-            assignee: { id: 388858, type: 'user', user: { email: 'matthias@piloti.test' }, role: null },
+            assignee: { id: 388858, type: 'user', user: { email: 'matthias@example.test' }, role: null },
             message_count: 2,
             unread_team_count: 1,
             last_message_at: '2026-10-20T09:30:00Z',
@@ -156,13 +154,12 @@ describe('listFeedbackTickets', () => {
     const { tickets } = await listFeedbackTickets(config, { limit: 10, offset: 0 }, impl)
 
     expect(tickets[0]).toMatchObject({
-      assignee: { type: 'user', id: 388858, email: 'matthias@piloti.test' },
+      assignee: { type: 'user', id: 388858, email: 'matthias@example.test' },
       messageCount: 2,
       unreadTeamCount: 1,
       lastActivityAt: '2026-10-20T09:30:00Z',
     })
     expect(tickets[1]?.assignee).toEqual({ type: 'role', id: 'role-1', name: 'Support' })
-    // An assignee it cannot read is unassigned, never a lost row.
     expect(tickets[2]?.assignee).toBeNull()
   })
 
@@ -338,10 +335,8 @@ describe('openFeedbackTicket', () => {
       `POST ${WIDGET}`,
       `PATCH ${TICKETS}ticket-1/`,
     ])
-    // The widget token is public: reading it sends no key.
     expect(calls[0].headers.authorization).toBeUndefined()
     expect(calls[1].headers['x-conversations-token']).toBe('wt_1')
-    // Allowed domains are checked on this call: it carries the app's origin.
     expect(calls[1].headers.origin).toBe('https://app.piloti.at')
     expect(calls[1].headers.authorization).toBeUndefined()
     expect(calls[1].body).toEqual({
@@ -465,7 +460,6 @@ describe('replyAsCustomer', () => {
       widget_session_id: 'widget-session-1',
       distinct_id: 'user_01',
     })
-    // A reply is a message, not a new ticket: nothing is tagged.
     expect(calls.some((c) => c.method === 'PATCH')).toBe(false)
   })
 
@@ -521,7 +515,6 @@ describe('listFeedbackTicketsOf', () => {
     expect(JSON.parse(url.searchParams.get('tags_all') ?? '')).toEqual(['piloti-feedback'])
     expect(url.searchParams.get('order_by')).toBe('-updated_at')
     expect(url.searchParams.get('limit')).toBe('20')
-    // An old open case keeps its status whatever window the list defaults to.
     expect(url.searchParams.get('date_from')).toBe('all')
     expect(tickets.map((t) => t.id)).toEqual(['0b6c3b1e-1111-4000-8000-000000000001'])
   })
@@ -543,14 +536,13 @@ describe('listFeedbackTicketsOf', () => {
   })
 
   test("reads the list's real shape: tags absent there, assignee an object", async () => {
-    // What PostHog's list served on 2026-10-22: no `tags` key, `assignee` an object or null.
     const listed = {
       id: '01a16472-681c-0000-78ba-36da14503edf',
       ticket_number: 4,
       status: 'new',
       priority: null,
       channel_source: 'widget',
-      assignee: { id: 388858, type: 'user', user: { email: 'owner@piloti.test' }, role: null },
+      assignee: { id: 388858, type: 'user', user: { email: 'owner@example.test' }, role: null },
       last_message_text: 'hmm wir schauen uns das genauer an',
       message_count: 2,
       unread_team_count: 0,

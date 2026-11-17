@@ -1,11 +1,3 @@
-"""The return format IS the contract: a law lookup's output must parse as evidence.
-
-The SAME reader the knowledge layer's hits go through reads the block, and what
-comes out carries a citation key, a Punkt and ``doc_class="law"``, both off the
-records the renderer filed and, on a replayed turn, off the text alone. Ported
-from the RIS tool's suite (``test_ris_lookup_format``) onto XA's statute portal.
-"""
-
 from __future__ import annotations
 
 import json
@@ -36,13 +28,11 @@ async def test_the_block_carries_every_field_the_grounding_grammar_needs():
 
     assert "--- Result 1 ---" in output
     assert "Source: Building Code" in output
-    # The whole law's URL is not a citation, and printed it was copied as one.
     assert "Source URL:" not in output and xa.CODE_URL not in output
     assert "Collection: xa/National" in output
     assert "Shelf: base" in output
     assert "Dokumentart: law — " in output
     assert "Punkt: § 63 para 1" in output
-    # The record's note for a consolidated text, on its own header line.
     assert "Consolidated text, not the authentic promulgation." in output
     assert "Citation: Building Code, § 63 para 1" in output
     assert "Content Type: text" in output
@@ -52,7 +42,6 @@ async def test_the_block_carries_every_field_the_grounding_grammar_needs():
 
 
 async def test_the_knowledge_parser_reads_it_as_evidence():
-    """The records the renderer filed, read back: the named part, then the whole provision under its own key."""
     output = await _ask()
 
     entries = extract_sources_from_tool_result("law_lookup", output)
@@ -67,11 +56,6 @@ async def test_the_knowledge_parser_reads_it_as_evidence():
 
 
 async def test_a_replayed_turn_reads_the_same_sources_off_the_text():
-    """A turn replayed from storage holds the text without the records: the text parser must read it too.
-
-    Under its own name (``law_lookup``, the binding's default and the name step 4b renames the model tool
-    to), not only under ``ris_lookup``, which the parser registry knew first.
-    """
     from agent.citations.text_parsers import parser_for
     from agent.common.grounding_block import begin_grounding_capture
     from agent.common.grounding_block import end_grounding_capture
@@ -93,7 +77,6 @@ async def test_a_replayed_turn_reads_the_same_sources_off_the_text():
 
 
 async def test_only_the_named_part_is_returned():
-    """``para 1`` means part 1: the parts after it stay out of the passage."""
     body = xa.body_of(await _ask())
 
     assert "A permit application carries" in body
@@ -101,7 +84,6 @@ async def test_only_the_named_part_is_returned():
 
 
 async def test_the_lane_is_the_legal_source_lane_not_unknown():
-    """``doc_class`` is what the lane fan-out reads first, so the chip is law, not Web."""
     output = await _ask(instrument="§ 63 Building Code")
 
     lanes = json.loads(output.split("## Trace-Lanes\n", 1)[1].strip())
@@ -112,7 +94,6 @@ async def test_the_lane_is_the_legal_source_lane_not_unknown():
 
 @pytest.mark.xfail(strict=True, reason="PORTED.md observation 2: a law hit's lane is keyed to RIS for any source")
 async def test_a_law_hit_s_lane_is_not_named_for_another_country_s_source():
-    """XA's statute is no RIS text: once the lane comes from the record, this passes and the mark goes."""
     output = await _ask(instrument="§ 63 Building Code")
 
     lanes = json.loads(output.split("## Trace-Lanes\n", 1)[1].strip())
@@ -121,7 +102,6 @@ async def test_a_law_hit_s_lane_is_not_named_for_another_country_s_source():
 
 
 async def test_a_named_provision_arrives_whole():
-    """Cut at the chunk bound, a named provision cost three lookups in the answer suite."""
     parts = "\n".join(f"({index}) " + "Text " * 100 for index in range(1, 12))
     output = await _ask(f"Permit application\n§ 63. {parts}\n(12) Last part.", instrument="§ 63 Building Code")
 
@@ -130,17 +110,14 @@ async def test_a_named_provision_arrives_whole():
 
 
 async def test_a_named_provision_is_still_bounded():
-    """Longer than the provision bound, it is cut on a part and says so."""
     long_parts = "\n".join(f"({index}) " + "Text " * 200 for index in range(1, 12))
     output = await _ask(f"Permit application\n§ 63. {long_parts}", instrument="Building Code", question=_NAMED)
 
     assert len(xa.body_of(output)) <= SECTION_MAX_CHARS
-    # The producer's own truncation marker, which the parser strips back off.
     assert "... [truncated]" in output
 
 
 async def test_a_named_part_comes_with_its_whole_provision():
-    """Asked for part 2 alone, the agent came back for parts 4, 5 and 3 one lookup at a time."""
     output = await _ask()
 
     assert _SECOND_PART not in xa.body_of(output, 1)

@@ -16,16 +16,6 @@ import { projects } from './projects'
 
 const list = (values: readonly string[]) => sql.raw(values.map((value) => `'${value}'`).join(', '))
 
-/**
- * `project_intakes` — a project's reading of its own documents, one row per
- * project (migration 0144, ADR-0111; `docs/design/agentic-project-intake.md`).
- *
- * The values a reading finds live on the profile as suggestions with evidence;
- * this row is the reading's bookkeeping. The jsonb columns are the contract's
- * shapes (`lib/project-intake/types.ts`), parsed on every read. The CHECKs
- * carry the lifecycle: a closing intent exactly in `closing` mode, a job
- * whenever a reading runs, and the completion exactly when `completed`.
- */
 export const projectIntakes = pgTable(
   'project_intakes',
   {
@@ -34,29 +24,18 @@ export const projectIntakes = pgTable(
     projectId: uuid('project_id').notNull(),
     createdBy: text('created_by').notNull(),
     mode: text('mode').$type<IntakeMode>().notNull().default('active'),
-    /** The person's „Worum geht es?", at most 500 characters. */
     description: text('description'),
     location: jsonb('location').$type<GeocodeResult>(),
     closing: jsonb('closing').$type<ClosingIntent>(),
     status: text('status').$type<IntakeStatus>().notNull().default('waiting'),
-    /** The current or last reading's research job. */
     jobId: text('job_id'),
-    /** Whose upload or click started the reading; the run acts as them (ADR-0108). */
     requestedBy: text('requested_by'),
     traceId: text('trace_id'),
-    /** A trigger arrived during a reading: read again when it finishes. */
     rerunRequested: boolean('rerun_requested').notNull().default(false),
     documentsRead: jsonb('documents_read').$type<DocumentRead[]>().notNull().default(sql`'[]'::jsonb`),
     dismissed: jsonb('dismissed').$type<DismissedValue[]>().notNull().default(sql`'[]'::jsonb`),
-    /**
-     * The file names the current or last reading opened, as the run reported
-     * them while reading (migration 0157): the setup page's live „x von y
-     * gelesen". Emptied at a claim; never what decides the next reading's
-     * unread files, which is `documentsRead`, written at the finish.
-     */
     readingFiles: jsonb('reading_files').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
     counts: jsonb('counts').$type<IntakeCounts>(),
-    /** The agent's closing sentence. */
     summary: text('summary'),
     startedAt: timestamp('started_at', { withTimezone: true }),
     finishedAt: timestamp('finished_at', { withTimezone: true }),

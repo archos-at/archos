@@ -36,12 +36,7 @@ collector, so nothing is exported there and every meter is a no-op.
 
 | Metric | Attributes | From |
 |---|---|---|
-| `grid.queue.depth` | `queue`, `status` | Every claim queue: `ingest` (`common/claim_queue.py`). Research and the BFF's jobs run on Hatchet (ADR-0150) and report their queues in Hatchet's own dashboard. Read from the table by every replica, so chart it with `max` |
-| `grid.queue.oldest_age_seconds` | `queue` | The same queues; `max` as well. Absent while nothing is queued |
 | `knowledge_context.unavailable` | none | The BFF, once per chat turn whose knowledge context could not be read (ADR-0173); since ADR-0175 every turn reads one, and such a turn withholds retrieval, law lookup and classification. Not counted: a failed read of an operation (`project-base-get`, `-confirm`, `classification-evaluate`), of a page (the intake's Steckbrief and its derivations, `project-profile-get`, every few seconds while open) or of a background run; each answers or carries `knowledge_unavailable` instead of an error and logs `knowledge_context_page_read=false`, never the alert's line. Any count is the `knowledge_context_available` alert's condition, a row for the Anwendung area |
-| `grid.queue.claim_latency_ms` | `queue` | One claim round trip |
-| `grid.queue.job_duration_seconds` | `queue`, `kind` | One claimed job, to its end or its give-back |
-| `grid.queue.dead_total` | `queue` | Jobs moved to dead |
 | `grid.provider.limit` | `scope`, and `model` for a per-model limit | The fleet's adaptive limit of model calls in flight (`common/provider_limiter.py`, ADR-0081) |
 | `grid.provider.inflight` | | Model calls holding a slot in this process |
 | `grid.provider.wait_seconds` | `class` | Time a call waited for a slot, by priority class |
@@ -123,7 +118,9 @@ either is missing.
 One alert in PostHog, **Platform health (prod)**, on the insight
 [`tqqimEor`](https://eu.posthog.com/project/269895/insights/tqqimEor) on the
 [Platform health (prod)](https://eu.posthog.com/project/269895/dashboard/1040252)
-dashboard. The insight is a SQL query over `posthog.metrics` that evaluates
+dashboard. The insight is a SQL query over `posthog.metrics`, kept in
+[`deploy/posthog/alerts/platform-health.sql`](../../deploy/posthog/alerts/platform-health.sql)
+(edit the file, then paste it into the insight), that evaluates
 one row per rule and folds them into a single row: `rule` lists every rule
 that fired, each prefixed by its area and naming what breaks it, and `breach`
 counts them. The alert fires when `breach` is above 0, and its notification
@@ -136,16 +133,26 @@ It used to be five alerts, one per area. The plan allows five insight alerts
 in total, and support and costs need two of them
 ([`deploy/posthog/README.md`](../../deploy/posthog/README.md#alerts)), so the
 five areas are now rows of one query. The per-area insights below stay on the
-dashboard for reading; their SQL is what the merged query wraps, so a
-threshold changes in both.
+dashboard for reading, one row per rule. Each holds its area's block of the file,
+the part inside `SELECT concat('[<area>] ', rule) AS rule, breach FROM (…)`,
+under a three-line comment naming it, so a threshold changes in the file first
+and is pasted into both. Joined bare, these blocks read 23 to 50 GiB each on
+2026-11-17; narrowed, 0.02 to 0.13 GiB.
+
+A check reads about 0.3 GiB (2026-11-17). Every label lookup joins a
+`metric_series` subquery cut to the hours the rule reads, `prod` and the
+metric names. Joined bare, `metric_series` (one row per series and hour, 30
+days, every stack) was read whole once per reference: 75 GiB a check on
+2026-11-05, and PostHog's 139.7 GiB per-query limit on 2026-11-14
+([`gotchas.md`](../contributing/gotchas.md)).
 
 | Area (prefix, per-area insight) | Rules |
 |---|---|
-| Workloads ([`EHKZOYDv`](https://eu.posthog.com/project/269895/insights/EHKZOYDv)) | A container restarted 3+ times in an hour; a pod Pending or Failed for 15 min; a Deployment, StatefulSet or DaemonSet below its desired count for 15 min; a node not Ready or under memory, disk or PID pressure; a PVC over 85% full; a container above 90% of its memory limit for 15 min |
+| Workloads ([`EHKZOYDv`](https://eu.posthog.com/project/269895/insights/EHKZOYDv)) | A container restarted 3+ times in an hour; a pod Pending or Failed for 15 min, except a Job's pod, which counts only when Pending for the whole hour (a failed Job is Infrastructure incidents' `[Jobs]` rule; a failed kopia maintenance pod kept this firing for four hours on 2026-11-05 after its retry had succeeded); a Deployment, StatefulSet or DaemonSet below its desired count for 15 min; a node not Ready or under memory, disk or PID pressure; a PVC over 85% full; a container above 90% of its memory limit for 15 min |
 | Hintergrundjobs ([`cc8ZCJlX`](https://eu.posthog.com/project/269895/insights/cc8ZCJlX)) | A queue's oldest job waiting 30+ min for 15 min; any job moved to dead; any KEDA ScaledObject error (a trigger it cannot read); an HPA pinned at its maximum for 30 min |
 | Datenbanken ([`66kuIQ3u`](https://eu.posthog.com/project/269895/insights/66kuIQ3u)) | A Postgres exporter reporting down; a replica 60+ s behind for 15 min; PgBouncer clients waiting for 15 min; a Qdrant peer down for 15 min; the rate-limit or Langfuse Dragonfly over 90% of its memory (the cache evicts by design); the Langfuse queue evicting anything (lost traces) |
 | Anwendung ([`Z7X5CRIF`](https://eu.posthog.com/project/269895/insights/Z7X5CRIF)) | The BFF answering 5%+ with 5xx over an hour of 200+ requests; a Node event loop's p99 delay above 0.5 s for 15 min; 30+ provider 429s in an hour |
-| Telemetrie ([`CFVybMF0`](https://eu.posthog.com/project/269895/insights/CFVybMF0)) | No metric labelled `prod` from `grid-ui`, `grid-bff-jobs` or `grid-purger` in 20 min; one of them silent for 20 min after it had sent; cluster state silent for 20 min; a node the cluster lists whose agent is silent |
+| Telemetrie ([`CFVybMF0`](https://eu.posthog.com/project/269895/insights/CFVybMF0)) | No metric labelled `prod` from `grid-ui`, `grid-bff-jobs` or `grid-purger` in 20 min; one of them silent for 20 min after it had sent in the last 24 h; cluster state silent for 20 min; a node the cluster lists whose agent is silent |
 
 Telemetrie is the area that reads silence as a failure. The others read a
 missing metric as healthy, so without it an exporter that died would look like
@@ -153,7 +160,9 @@ a quiet night. Its first rule was added on 2026-10-27: the other heartbeat
 rules only notice a service that sent and then stopped, so a production that
 never sent anything (metrics export not yet deployed there) looked healthy for
 a week. It watches the Node tiers, which report their runtime every 30 s, not
-the Python ones, which may export nothing while idle.
+the Python ones, which may export nothing while idle. Until 2026-11-17 the live
+query named `grid-skill-scheduler`, which no service sends as, in place of
+`grid-bff-jobs`, so a silent jobs tier went unnoticed.
 
 A rule that names a metric the cluster never sends returns `breach = 0`
 forever, so once production sends metrics, open the insight and look for the

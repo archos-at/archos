@@ -1,10 +1,5 @@
 import { char, date, doublePrecision, integer, pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core'
 
-/**
- * Official address registers imported into the cell (migration 0210, ADR-0172).
- * Platform tables: every tenant reads them, only the platform role writes them.
- * A lookup reads the release whose `status` is `active` (one per register).
- */
 export const ADDRESS_REGISTER_RELEASE_STATUSES = ['loading', 'active', 'retired'] as const
 export type AddressRegisterReleaseStatus = (typeof ADDRESS_REGISTER_RELEASE_STATUSES)[number]
 

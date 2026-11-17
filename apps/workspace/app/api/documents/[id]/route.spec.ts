@@ -57,7 +57,6 @@ const read = (id: string) =>
     params: Promise.resolve({ id }),
   })
 
-// A link to a document the paged Files level has not loaded (ADR-0102).
 describe('GET /api/documents/[id]', () => {
   beforeEach(() => vi.clearAllMocks())
 
@@ -68,7 +67,7 @@ describe('GET /api/documents/[id]', () => {
 
     expect(response.status).toBe(200)
     expect((await response.json()).document).toEqual(
-      JSON.parse(JSON.stringify({ ...toDocumentWireRow(LISTED, { versionCount: 3, state: 'published' }), projectId: 'proj-1' })),
+      JSON.parse(JSON.stringify({ ...toDocumentWireRow(LISTED, { versionCount: 3, state: 'published' }), baseKnowledgeEntryId: null, projectId: 'proj-1' })),
     )
     expect(getListedDocument).toHaveBeenCalledWith(expect.objectContaining({ userId: 'user-1' }), 'doc-1')
   })

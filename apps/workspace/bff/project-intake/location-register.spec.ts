@@ -42,7 +42,6 @@ function register(
   const mode = options.mode ?? 'active'
   const needs = computeNeeds(profile, projectIntakeDefinitionV1, { mode, dismissed: [], records: AT_SETUP_RECORDS })
   const view = locationRegisterFor({ profile, location: options.location ?? null, mode, needs, records: AT_SETUP_RECORDS })
-  // Every answer is what the wire carries.
   expect(locationRegisterViewSchema.parse(view)).toEqual(view)
   return view
 }
@@ -53,7 +52,6 @@ const request = (view: ReturnType<typeof register>, determinant: string) =>
 
 const AT_NEW_BUILD = { country: 'at', work_type: ['new_build'] }
 
-/** Austria's register: the determinant entries of its shipped `fact_sources` record. */
 const AT_SOURCES = (() => {
   const values = AT_FACT_SOURCES_VALUES
   if (values.body.kind !== 'fact_sources') throw new Error('a fact_sources record')
@@ -61,7 +59,6 @@ const AT_SOURCES = (() => {
 })()
 const LOCATION_ENTRIES = AT_SOURCES.filter((entry) => entry.determinant)
 
-/** The Länder Austria's fact definitions list, by territory. */
 const AT_LANDS = new Map(
   ((AT_FACT_DEFINITIONS_VALUES.body.kind === 'fact_definitions' ? AT_FACT_DEFINITIONS_VALUES.body.payload.subdivisions?.options : undefined) ?? []).map((option) => [option.territoryId, option.token])
 )
@@ -98,7 +95,6 @@ describe('locationRegisterFor', () => {
     const view = register(profileWith({ site_address: 'Hauptplatz 1, Irgendwo' }))
     expect(view.federalState).toBeNull()
     expect(view.questions.map((need) => need.key)).toEqual(['federal_state', 'work_type'])
-    // No country, no country's documents: Austria's would be a guess (ADR-0169).
     expect(view.documentRequests).toEqual([])
   })
 
@@ -113,9 +109,7 @@ describe('locationRegisterFor', () => {
     const view = locationRegisterFor({ profile, location: null, mode: 'active', needs, records: THREE_COUNTRIES })
     expect(locationRegisterViewSchema.parse(view)).toEqual(view)
     expect(view.federalState).toBe('bavaria')
-    // The record's entry without a determinant (the storeys) is asked only when a decision waits for it.
     expect(view.documentRequests.map((entry) => entry.document)).toEqual(['Bebauungsplan der Gemeinde (BY)'])
-    // Without Germany's record, nothing: no Austrian document stands in.
     expect(register(profile).documentRequests).toEqual([])
   })
 

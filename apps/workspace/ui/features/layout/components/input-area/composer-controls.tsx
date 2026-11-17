@@ -52,7 +52,7 @@ export function ComposerControls({ controller }: { controller: InputAreaControll
         </AnimatePresence>
 
         <div className="contents">
-          {/* Datenbasis — the one control for WHERE Piloti may look.
+          {/* Datenbasis — the one control for WHERE the agent may look.
                   WITHHELD for now (product decision, 2026-08): the picker is
                   commented out rather than deleted so it can return. While it is
                   hidden, every turn goes out with the fetch default — every
@@ -93,12 +93,6 @@ export function ComposerControls({ controller }: { controller: InputAreaControll
               <Button
                 variant="ghost"
                 size="sm"
-                // Redundant with the inline file chips (status + retry + remove)
-                // on a narrow composer — hidden on mobile so the action row
-                // stays one clean line; the FileSourcesTab dialog it opens
-                // (browse + upload zone) remains available on wider viewports.
-                // Mobile reaches the same dialog via the "manage" text entry
-                // under the chip strip.
                 className="text-muted-foreground hidden h-8 rounded-lg px-2.5 sm:inline-flex pointer-coarse:h-11"
                 disabled={controller.cannotContribute || !controller.knowledgeLayerAvailable}
                 onClick={() => controller.setManageFilesOpen(true)}
@@ -126,7 +120,7 @@ export function ComposerControls({ controller }: { controller: InputAreaControll
               disabled={controller.cannotContribute}
             />
 
-            {/* How hard Piloti thinks, for this chat. A HITL response is
+            {/* How hard the agent thinks, for this chat. A HITL response is
                         not a question, so the dial has nothing to say there. It is
                         hidden rather than unmounted: it keeps its box, so the
                         buttons to its right do not shift when a prompt arrives. */}
@@ -190,33 +184,8 @@ export function ComposerControls({ controller }: { controller: InputAreaControll
             <Button
               size="icon"
               className={cn(
-                // Ink, in both states. The armed button used to fill
-                // with `accent-pop`, to mark readiness — but the
-                // disabled/armed pair already reads as readiness
-                // (the control goes from muted to solid and becomes
-                // pressable), so the colour was carrying a distinction
-                // the contrast had already made, in a hue this product
-                // uses elsewhere to mean provenance.
-                //
-                // The press is the Button atom's CSS dip, taken to 0.96
-                // because this is the screen's primary action. The atom
-                // runs it on `--motion-snap` with an ease-out, which IS
-                // `springPress` (ζ = 1, no overshoot, settled in ~126ms;
-                // see button.tsx), and flattens it under reduced motion.
-                // Not motion's `whileTap`: that injects tabindex="0", and
-                // the old `motion.div` wrapper using it dipped to 0.94 ON
-                // TOP of the atom's own dip, then had to undo the tab stop.
-                //
-                // `relative`: popLayout pops the leaving glyph out to
-                // `position: absolute`, and it must stay centred in this
-                // box while the new one arrives.
                 'relative size-9 rounded-lg shadow-md active:scale-[0.96]'
               )}
-              // `isStreaming` is the LOCAL store's turn flag and a viewer
-              // never starts a local turn, so the stop gate is belt and
-              // braces rather than a demonstrated hole — but cancelling
-              // somebody else's turn is the most consequential thing on
-              // this row, and it was the one control here with no gate.
               disabled={
                 controller.showStop
                   ? controller.cannotContribute
@@ -246,12 +215,6 @@ export function ComposerControls({ controller }: { controller: InputAreaControll
                   key={controller.sendGlyph}
                   data-glyph={controller.sendGlyph}
                   className="inline-flex"
-                  // An icon swap: ≤ 16px of scale travel, so springSnap's
-                  // tick of overshoot lands inside the pixel budget. The
-                  // opacity is a tween (opacity never springs), and the
-                  // leaving glyph goes at once on motionQuickExit.
-                  // Under reduced motion both are motionInstant: the
-                  // glyph simply changes.
                   initial={{ opacity: 0, scale: 0.6 }}
                   animate={{ opacity: 1, scale: 1, transition: controller.glyphEnter }}
                   exit={{ opacity: 0, scale: 0.6, transition: controller.glyphExit }}
@@ -271,25 +234,13 @@ export function ComposerControls({ controller }: { controller: InputAreaControll
 
         {/* Who this message goes to — ALWAYS, whenever collaboration exists at
                   all. The point of it being unconditional: if it only appeared in the
-                  unusual case, "Piloti is next" would remain something the user has to
+                  unusual case, "the agent is next" would remain something the user has to
                   infer from an absence. Borderless on purpose — it is a statement
                   standing among buttons, and must not read as one. */}
         {controller.canCollaborate && (
           <AddresseeIndicator
             mentions={controller.activeMentions}
             awaitingHuman={controller.threadAwaitsHuman}
-            // Only where there is somebody to mention: a solo thread grows no
-            // collaboration furniture (spec NF-8).
-            // Offered wherever collaboration is available — including a PRIVATE
-            // thread, because mentioning somebody is how a thread starts being
-            // shared (the picker offers "Wird eingeladen"). This is the discovery
-            // path into the feature, not a reward for already having used it.
-            //
-            // But NOT to someone who may not write here. A screenshot of the
-            // read-only composer caught this: the whole control row was dimmed
-            // and this one link sat above "Sie können hier mitlesen", live and
-            // underlined, offering to type an `@` into a disabled textarea.
-            // Same class as the paperclip and the Datengrundlage popover.
             onMentionSomeone={
               controller.cannotContribute ? undefined : controller.handleMentionSomeone
             }

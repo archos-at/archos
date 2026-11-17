@@ -1,32 +1,14 @@
 'use client'
 
-/**
- * The budget meter, shared by the organization's Usage & budgets card and a
- * project's usage section, so "how close is this to being stopped" reads the
- * same in both. The rationale for its form (a meter, not a chart; fill colour
- * carries severity, never identity) is in `organization/budget-usage-card.tsx`.
- *
- * Its colours are the `--spend-meter*` tokens, scoped by the `spend-viz`
- * class: a caller wraps it in an element carrying that class.
- */
-
 import type { FC } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import { useTranslations } from '@/i18n'
 import { organizationCopy } from '@/i18n/namespaces/organization'
 
-/**
- * Spend against one limit. The track IS the limit, so "how full" is literal
- * rather than a rescaled proportion; once spend passes the limit the track has
- * to grow to hold it, and a tick marks where the limit sat. The tick only ever
- * appears in the over state, where the sentence underneath explains it — an
- * unlabelled reference line is furniture the reader has to guess at.
- */
 export const BudgetMeter: FC<{
   title: string
   total: number
   limit: number | null
-  /** Number plus unit word, in the organization's unit. */
   formatAmount: (value: number) => string
 }> = ({ title, total, limit, formatAmount }) => {
   const t = useTranslations(organizationCopy)

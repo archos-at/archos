@@ -1,20 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the organization's zero-data-retention controls. Renders the
- * REAL section in every state an admin can meet, with fixtures and no backend:
- *
- *  - on, every task covered;
- *  - on, a task whose inherited platform default has no ZDR endpoint (and one
- *    whose default model could not be resolved);
- *  - on, but the ZDR list could not be read (status unknown, never "all clear");
- *  - off (the persistent banner);
- *  - not applicable: the org's own key on a provider other than OpenRouter.
- *
- * Toggling here calls the real API and fails outside a signed-in session; the
- * preview is for the states, not the round trip. 404s outside development.
- */
-
 import type { JSX } from 'react'
 import { notFound } from 'next/navigation'
 import { ZdrGroupNotice, ZdrPolicySection, type ZdrCoverage } from '@/app/app/(shell)/organization/zdr-policy-section'

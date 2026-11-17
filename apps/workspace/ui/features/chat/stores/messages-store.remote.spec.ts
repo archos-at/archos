@@ -1,16 +1,8 @@
-/**
- * `insertRemoteMessages` — the store half of the ADR-0033 seam.
- *
- * Kept in its own file rather than folded into the 2 800-line `store.spec.ts`,
- * because what is being pinned down here is one narrow contract: messages that
- * came FROM the server splice in without disturbing anything that belongs to this
- * client's turn. Every existing action's behaviour is covered where it already is.
- */
-
 import { describe, test, expect, beforeEach, vi } from 'vitest'
 import { useChatStore } from '../store'
 import type { ChatMessage, Conversation } from '../types'
 import type { MessagesSlice } from './messages-store'
+import { PRODUCT_NAME } from '@/lib/brand'
 
 const mockLayoutState = vi.hoisted(() => ({
   enabledDataSourceIds: ['web_search'],
@@ -69,11 +61,6 @@ const seed = (messages: ChatMessage[]): Conversation => {
 const messagesNow = (): ChatMessage[] =>
   useChatStore.getState().conversations.find((c) => c.id === CONVERSATION_ID)?.messages ?? []
 
-/**
- * Direct handle on the action. It is declared on the messages slice rather than on
- * the shared `ChatActions` union (features/chat/types.ts), so the cast lives here
- * exactly as it does at the hook's single call site.
- */
 const insertRemoteMessages = (
   conversationId: string,
   messages: ChatMessage[],
@@ -108,14 +95,11 @@ describe('insertRemoteMessages', () => {
   })
 
   test('skips ids already present — an echo of our own write renders once', () => {
-    // The push channel hands your own message back to you. Without dedup this is
-    // the double-render ADR-0033 §5 exists to prevent.
     seed([message('m1', { content: 'my optimistic echo' })])
 
     insertRemoteMessages(CONVERSATION_ID, [message('m1', { content: 'the persisted copy' })])
 
     expect(messagesNow()).toHaveLength(1)
-    // The LOCAL object survives: it carries turn state the server never stored.
     expect(messagesNow()[0].content).toBe('my optimistic echo')
   })
 
@@ -126,7 +110,7 @@ describe('insertRemoteMessages', () => {
       message('m1', {
         authorUserId: 'user_anna',
         authorName: 'Anna Berger',
-        mentions: [{ targetId: 'agent:piloti', display: 'Piloti' }],
+        mentions: [{ targetId: 'agent:piloti', display: PRODUCT_NAME }],
         addressees: { agent: true, users: [] },
       }),
     ])
@@ -134,7 +118,7 @@ describe('insertRemoteMessages', () => {
     const stored = messagesNow()[0]
     expect(stored.authorUserId).toBe('user_anna')
     expect(stored.authorName).toBe('Anna Berger')
-    expect(stored.mentions).toEqual([{ targetId: 'agent:piloti', display: 'Piloti' }])
+    expect(stored.mentions).toEqual([{ targetId: 'agent:piloti', display: PRODUCT_NAME }])
     expect(stored.addressees).toEqual({ agent: true, users: [] })
   })
 
@@ -150,7 +134,6 @@ describe('insertRemoteMessages', () => {
     const ended = { ...live, status: 'failed' as const, updatedAt: at(5).toISOString() }
     seed([message('run', { role: 'assistant', runLedger: live })])
 
-    // An older server copy (a poll that raced a live flush) changes nothing.
     insertRemoteMessages(CONVERSATION_ID, [message('run', { role: 'assistant', runLedger: { ...live, updatedAt: at(0).toISOString() } })])
     expect(messagesNow()[0].runLedger).toEqual(live)
 
@@ -176,7 +159,6 @@ describe('insertRemoteMessages', () => {
     insertRemoteMessages(CONVERSATION_ID, [message('m1')])
 
     expect(messagesNow()).toBe(before)
-    // No conversation rebuild either, so no re-render and no reshuffled session list.
     expect(useChatStore.getState().currentConversation).toBe(conversation)
   })
 
@@ -194,7 +176,6 @@ describe('insertRemoteMessages', () => {
     expect(state.isStreaming).toBe(true)
     expect(state.isLoading).toBe(true)
     expect(state.currentUserMessageId).toBe('m1')
-    // These messages came FROM the server; mirroring them back would be a loop.
     expect(mockConversationsClient.createMessage).not.toHaveBeenCalled()
     expect(mockConversationsClient.createMessages).not.toHaveBeenCalled()
   })
@@ -203,7 +184,6 @@ describe('insertRemoteMessages', () => {
     seed([message('m1')])
     const before = useChatStore.getState().conversations[0].updatedAt
 
-    // Resolving an author name on a message already on screen is not new activity.
     insertRemoteMessages(CONVERSATION_ID, [message('m1', { authorName: 'Anna Berger' })])
     expect(useChatStore.getState().conversations[0].updatedAt).toBe(before)
 

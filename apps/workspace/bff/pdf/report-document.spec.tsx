@@ -1,17 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * What the endpoint makes of a body.
- *
- * The contract this file guards is a compatibility one: `{ markdown }` shipped
- * first and is still all `useDownloadPdfRoute` sends, so the plain path is
- * asserted first and in the most detail. Everything else is additive, and the
- * rule for all of it is the one `answer-document.ts` states — a fact the caller
- * did not send produces no section, and never a placeholder. A date invented
- * for a document that never carried one is the failure mode worth a spec of its
- * own, because it is the one nobody catches by reading the PDF.
- */
 
 import React from 'react'
 import { renderToBuffer } from '@react-pdf/renderer'
@@ -20,13 +9,11 @@ import type { DocBlock } from '@/lib/answer-export/blocks'
 import { ReportPDF } from './ReactPdfDocument'
 import { documentSections, hasContent, pdfRequestSchema } from './report-document'
 
-/** Every heading in a body, as `level: text`. */
 const headings = (blocks: DocBlock[]): string[] =>
   blocks
     .filter((block): block is Extract<DocBlock, { kind: 'heading' }> => block.kind === 'heading')
     .map((block) => `${block.level}: ${block.text}`)
 
-/** All the text in a body, flattened — for "did this survive at all" checks. */
 const allText = (blocks: DocBlock[]): string =>
   blocks
     .map((block) => {
@@ -54,7 +41,6 @@ const parse = (body: unknown) => {
   return result.data
 }
 
-/** The English cap sentence, written out: a cap mapped to another key would print another sentence. */
 const LAW_UNSETTLED_EN = 'which edition of the building law binds at this site is not yet settled by reviewed records'
 
 describe('the confidence cap', () => {
@@ -100,8 +86,6 @@ describe('the markdown-only contract', () => {
   })
 
   it('does not wrap the report in an "Answer" heading', () => {
-    // A report IS the document; a section heading announcing the whole file
-    // states a structure the report does not have.
     expect(headings(sections.body)).not.toContain('2: Answer')
   })
 
@@ -111,10 +95,7 @@ describe('the markdown-only contract', () => {
 
   it('turns the written sources section into a real reference list', () => {
     expect(headings(sections.body)).toContain('2: Sources')
-    // The entry survives with its address, so the `[1]` left in the prose still
-    // points at something.
     expect(allText(sections.body)).toContain('https://www.oib.or.at/rl2.pdf')
-    // …and the raw "## Quellen" prose is gone, rather than being stated twice.
     expect(headings(sections.body)).not.toContain('3: Quellen')
   })
 
@@ -172,8 +153,6 @@ describe('the richer contract', () => {
   })
 
   it('renders the cards through the shape-walker, not through a card renderer here', () => {
-    // The card's title and its check both reached the body without this module
-    // knowing what a `stair_diagram` is.
     expect(allText(sections.body)).toContain('Haupttreppe')
     expect(allText(sections.body)).toContain('18.2')
   })
@@ -202,7 +181,6 @@ describe('what the endpoint refuses', () => {
   })
 
   it('accepts fields it does not know rather than failing the export', () => {
-    // A client one deploy ahead must still get its PDF.
     expect(pdfRequestSchema.safeParse({ markdown: '# Titel', somethingNew: 42 }).success).toBe(true)
   })
 })

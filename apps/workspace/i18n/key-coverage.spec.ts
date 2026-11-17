@@ -3,26 +3,6 @@
  * @vitest-environment node
  */
 
-/**
- * The guard that keeps translation keys resolvable.
- *
- * `Translator` is `(key: string, …) => string`. The key is a plain string, so
- * the compiler cannot tell `common.actions.cancel` from `common.cancel`, and a
- * miss does not throw — `createTranslator` falls back to the key itself and
- * warns only when `NODE_ENV !== 'production'`. A typo therefore ships a literal
- * dot-path into the UI: the delete-project dialog rendered a button labelled
- * "common.cancel" for exactly this reason, and `SectionCard`'s empty-state
- * fallback pointed at `platform.empty.title`, which did not exist.
- *
- * Locale-to-locale drift is already impossible — each German namespace is
- * annotated `typeof en.<ns>`, so a missing key is a compile error. This is the
- * other half: that the keys the CODE asks for exist in the dictionary at all.
- *
- * Same shape as `authz-coverage.spec.ts`, `rls-coverage.spec.ts` and the
- * exhaustive `CARD_INTERACTIVITY` map — the reminder is a failing build rather
- * than a review comment, and it lists the offenders by name.
- */
-
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -35,10 +15,6 @@ import { SOURCE_DIRS } from '@/test-utils/source-tree'
 
 const I18N_DIR = join(process.cwd(), 'i18n')
 
-/**
- * Every `.ts`/`.tsx` under `src`, minus this directory — the dictionaries and
- * the translator itself legitimately mention keys without calling `t`.
- */
 function sourceFiles(dir?: string, found: string[] = []): string[] {
   if (!dir) return SOURCE_DIRS.flatMap((root) => sourceFiles(join(process.cwd(), root)))
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -53,15 +29,6 @@ function sourceFiles(dir?: string, found: string[] = []): string[] {
   return found
 }
 
-/**
- * Translator variables in a file, mapped to the key path they were bound to.
- *
- * Catches `useTranslations(chatCopy)`, the server-side
- * `await getTranslations(chatCopy)` and `getStoreTranslator(chatCopy)`, each
- * with an optional scope (`useTranslations(searchCopy, 'filters')` binds
- * `search.filters`). A namespace module exports `<name>Copy`, so the name is
- * read off the identifier.
- */
 function translatorBindings(source: string): Map<string, string> {
   const bindings = new Map<string, string>()
   const call =
@@ -72,11 +39,6 @@ function translatorBindings(source: string): Map<string, string> {
   return bindings
 }
 
-/**
- * Every fully-literal key reference in the file, fully qualified.
- *
- * Single quotes only, which is all prettier lets this codebase write.
- */
 function referencedKeys(source: string, bindings: Map<string, string>): string[] {
   const keys: string[] = []
   for (const [variable, namespace] of bindings) {
@@ -88,15 +50,6 @@ function referencedKeys(source: string, bindings: Map<string, string>): string[]
   return keys
 }
 
-/**
- * The static head of every computed key, fully qualified.
- *
- * A key like `t(\`roles.${role}\`)` cannot be resolved whole — the suffix is a
- * runtime value. Its PREFIX can be: `roles` must exist and must be a group of
- * strings rather than a leaf. That catches the failure that actually happens to
- * a computed key (the group was renamed or moved), without guessing at which
- * members it should have.
- */
 function referencedKeyPrefixes(source: string, bindings: Map<string, string>): string[] {
   const prefixes: string[] = []
   for (const [variable, namespace] of bindings) {
@@ -154,8 +107,6 @@ describe('translation keys resolve against the dictionary', () => {
   })
 
   it('is actually looking at the call sites', () => {
-    // Guards the guard: a regex that silently stops matching would make the
-    // assertions above pass over nothing at all.
     expect(checked).toBeGreaterThan(1500)
     expect(prefixesChecked).toBeGreaterThan(50)
   })
@@ -174,7 +125,6 @@ describe('every namespace has its module', () => {
   it('holds the same copy as the dictionary, in every locale', () => {
     for (const [, namespace] of exported) {
       const name = namespace.name as keyof typeof en
-      // The source with the product's name filled in, as `defineNamespace` hands it out.
       expect(namespace.messages.en, name).toStrictEqual(withProductName(en[name]))
       expect(namespace.messages.de, name).toStrictEqual(withProductName(de[name]))
     }

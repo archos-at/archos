@@ -1,10 +1,3 @@
-/**
- * Add an uploaded PDF to a country in one call. Multipart: `file`, and the
- * fields of `uploadDocumentFields` (`work` as JSON). Its records quote the
- * title lines the person copied from it, which the reviewer checks against
- * where it is published.
- */
-
 import { parseFormData } from '@/lib/api/handler'
 import { BadRequestError, UnprocessableError } from '@/lib/api/errors'
 import { platformApiRoute } from '@/lib/api/platform-handler'

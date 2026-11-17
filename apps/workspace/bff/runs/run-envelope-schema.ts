@@ -1,9 +1,3 @@
-/**
- * The run-envelope wire schemas as JSON Schema, for the Python worker
- * (ADR-0055). Generated from `run-envelope-types.ts` into
- * `tests/fixtures/run-envelope.schema.json`.
- */
-
 import { jsonSchemaDocument, type JsonSchemaNode } from '@/lib/api/zod-json-schema'
 import { runEnvelopeErrorSchema, runEnvelopeRequestSchema, runEnvelopeResponseSchema } from './run-envelope-types'
 

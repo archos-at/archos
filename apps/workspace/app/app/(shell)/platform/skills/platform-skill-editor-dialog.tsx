@@ -1,25 +1,5 @@
 'use client'
 
-/**
- * The curated-skill editor: the org authoring dialog, pointed at the platform
- * catalogue.
- *
- * A curated skill is not a privileged shape — it is the same agentskills.io
- * document as one an organization writes, with the same name rules, the same
- * description budget, the same `grid-agents` / `grid-cards` controls, the same
- * live SKILL.md preview and the same reviewer. So this is a thin adapter over
- * `SkillEditorDialog` rather than a second editor: two copies would fork the
- * authoring experience, and the copy used less often is the one that rots.
- *
- * Only two things differ, and both go through the `persistence` seam:
- *
- *   where it saves     `/api/platform/skills`, not this org's toolbox.
- *   the master switch  Here it means PUBLISHED — visible to every organization
- *                      — not "enabled for us". An org still has to switch the
- *                      skill on for itself; publishing offers, it does not
- *                      impose.
- */
-
 import type { JSX } from 'react'
 import { useMemo } from 'react'
 import { SkillEditorDialog, type SkillPersistence } from '@/features/skills/components/skill-editor-dialog'
@@ -37,22 +17,11 @@ import {
 interface PlatformSkillEditorDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  /** The curated skill being edited, or null when adding one. */
   skill: PlatformSkillItem | null
-  /** The platform categories on offer in the pickers. */
   categories?: SkillCategoryListItem[]
   onSaved: () => void
 }
 
-/**
- * A catalogue row in the shape the shared editor reads.
- *
- * `id` is deliberately dropped rather than passed through. The editor's default
- * persistence would use it against `/api/skills/{id}` — this org's toolbox —
- * and a platform owner editing the fleet's copy must never be one forgotten
- * prop away from writing a tenant row instead. The `persistence` below is what
- * carries the real id.
- */
 function toEditorSkill(skill: PlatformSkillItem): SkillListItem {
   return {
     id: null,
@@ -81,9 +50,6 @@ export function PlatformSkillEditorDialog({
   const persistence = useMemo<SkillPersistence>(
     () => ({
       save: async (input, published) => {
-        // The picker reads null as unsorted. The create schema takes no null
-        // (omitted means unsorted there); the patch schema takes an explicit
-        // null to unassign.
         const base = {
           name: input.name,
           description: input.description,
@@ -114,9 +80,6 @@ export function PlatformSkillEditorDialog({
         create: t('skills.createSuccess'),
         edit: t('skills.updateSuccess'),
       },
-      // Without this the confirmation would describe an org toolbox and the
-      // jobs a tenant's deletion leaves running — true there, wrong in front
-      // of somebody removing a skill from the whole fleet.
       deleteCopy: {
         title: t('skills.deleteTitle'),
         description: t('skills.deleteDescription', { name: skill?.name ?? '' }),

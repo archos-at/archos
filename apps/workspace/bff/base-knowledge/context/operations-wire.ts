@@ -1,12 +1,6 @@
-/**
- * The wire of the knowledge context's operations (ADR-0173, design §4.5):
- * `coverage-get`, `base-knowledge-report`, `project-base-get` and
- * `project-base-confirm`. Shared by the routes and the agent catalog, so the
- * contract is written once (ADR-0055). English, one word per concept.
- */
-
 import { z } from 'zod'
 import { projectLawSchema } from '../wire/project-law'
+import { queryDay } from '../wire/time'
 import { COVERAGE_LEVELS } from '../wire/vocab'
 import { knowledgeContextSchema } from './wire'
 
@@ -23,7 +17,6 @@ export const coverageNodeSchema = z
     territoryId: z.string(),
     name: z.string(),
     kind: z.string(),
-    /** The coverage this node states; null inherits from its parent. */
     level: z.enum(COVERAGE_LEVELS).nullable(),
     municipalLaw: z.boolean().nullable(),
   })
@@ -35,9 +28,7 @@ export const coverageViewSchema = z
       z
         .object({
           countryId,
-          /** The country's own coverage; `none` when no node states one. */
           level: z.enum(COVERAGE_LEVELS),
-          /** The nodes below it that state a coverage of their own. */
           nodes: z.array(coverageNodeSchema).max(500),
         })
         .strict(),
@@ -57,12 +48,18 @@ export const baseKnowledgeReportBodySchema = z
 
 export const baseKnowledgeReportResultSchema = z.object({ changeRequestId: z.uuid(), status: z.literal('draft') }).strict()
 
+export const projectBaseQuerySchema = z
+  .object({
+    asOf: queryDay
+      .optional()
+      .describe('Resolve on this day instead: which editions bound at the site on a day a question names, e.g. a submission on 2026-10-01.'),
+  })
+  .strict()
+
 export const projectBaseViewSchema = z
   .object({
     context: knowledgeContextSchema,
-    /** The law at the site, with designations and editions: what a person reads of the context. */
     law: projectLawSchema,
-    /** The newest base a person confirmed for this project (the Steckbrief); null when none was. */
     confirmed: z
       .object({ id: z.uuid(), confirmedAt: z.string(), confirmedBy: z.string(), packSeqs: z.record(z.string(), z.number()) })
       .strict()
@@ -85,6 +82,7 @@ export type CoverageQuery = z.infer<typeof coverageQuerySchema>
 export type CoverageView = z.infer<typeof coverageViewSchema>
 export type BaseKnowledgeReportBody = z.infer<typeof baseKnowledgeReportBodySchema>
 export type BaseKnowledgeReportResult = z.infer<typeof baseKnowledgeReportResultSchema>
+export type ProjectBaseQuery = z.infer<typeof projectBaseQuerySchema>
 export type ProjectBaseView = z.infer<typeof projectBaseViewSchema>
 export type { ProjectLaw, ProjectLawUse } from '../wire/project-law'
 export type ProjectBaseConfirmBody = z.infer<typeof projectBaseConfirmBodySchema>

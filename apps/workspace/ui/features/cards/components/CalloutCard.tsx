@@ -1,41 +1,5 @@
 'use client'
 
-/**
- * CalloutCard — one framed remark, for the sentence that must not drown.
- *
- * The smallest card in the set and the only one with no domain in it: a
- * Land-specific deviation, a Frist, an easily-missed condition. Inside a
- * paragraph such a sentence reads at exactly the weight of the sentence beside
- * it — which is the one weight it must not have — so it gets a frame, its
- * kind written in its own tone and an icon well to scan to. No accent edge:
- * side stripes are discouraged (design-language.md, "Emphasis without a
- * stripe"); the well and the word carry the tone.
- *
- * The kind is ALWAYS written out („Hinweis", „Achtung", „Frist", „Tipp") next
- * to the tint. Colour alone would leave a reader who cannot separate the four
- * hues with a coloured box and no idea whether it is a tip or a trap — and the
- * whole point of the card is that this one sentence lands.
- *
- * THREE MUTED TIERS, not four hues (`TONES`): Hinweis is the neutral aside
- * (no wash, subdued eyebrow — petrol was considered for the eyebrow and
- * rejected to hold the viewport's hue budget); Frist is the one warm constant
- * (amber wash + clock); Achtung is brick red (wash + triangle). Tipp renders on the neutral tier: a second green would collide
- * with the takeaways' distillation marker, and the bulb + the written word
- * still triple-code it. No new alarm colors beyond these two.
- *
- * `detail` is a disclosure, not a second paragraph: the background is one click
- * away rather than doubling the height of a card whose value is being small.
- * Local `useState` only — nothing is committed, so there is nothing to persist
- * (`presentational` in CARD_INTERACTIVITY).
- *
- * THE WIDTH CAP is the card's mark (`docs/design/answer-card-charter.md` §A5:
- * "the only card narrower than the column"). A remark that spans the whole
- * column reads as a section of the answer; one that stops short of it reads as
- * an aside, which is exactly what it is. `46ch` is a measure rather than a
- * pixel width, so it stays an aside whatever the column does, and on a phone
- * the column is narrower than the cap and nothing binds.
- */
-
 import { useState, type FC } from 'react'
 import { AlertTriangle, CalendarClock, ChevronDown, Info, Lightbulb, type LucideIcon } from 'lucide-react'
 import { Card } from '@/components/ui/card'
@@ -52,35 +16,18 @@ interface CalloutCardProps {
   text: string
   title?: string | null
   detail?: string | null
-  /**
-   * Render as an ASIDE in the answer's own flow: the icon well and the kind
-   * word stay (they are the identity), the frame and the ground go. This is how the envelope's native `callout` field renders —
-   * beside the paragraph its `[[callout]]` marker anchors it to, or after the
-   * prose — an emphasized remark IN the answer, not a box ON it. The framed
-   * default remains for stored threads whose callout arrived as a card.
-   */
   flat?: boolean
 }
 
 interface CalloutTone {
-  /** The kind in words — the carrier of the signal; the tint only reinforces it. */
   label: (t: Translator) => string
   icon: LucideIcon
-  /** Ink for the eyebrow. */
   ink: string
-  /** The well behind the icon — the shared `StatCardIcon` tint pair. */
   iconTone: StatCardIconTone
-  /**
-   * The muted wash behind the eyebrow pill: the tier's hue at ~6-7% via
-   * `color-mix`, never a fill behind running text (the body stays on the
-   * shell ground). Empty for the neutral tier, which keeps the eyebrow bare.
-   */
   wash: string
 }
 
-/** Amber at 7% — the Frist wash, the one warm constant. */
 const AMBER_WASH = 'bg-[color-mix(in_oklch,var(--source-office)_7%,transparent)]'
-/** Brick red at 6% — the Achtung wash. */
 const RED_WASH = 'bg-[color-mix(in_oklch,var(--signal-error)_6%,transparent)]'
 
 const TONES: Record<AnswerCalloutKind, CalloutTone> = {
@@ -105,10 +52,6 @@ const TONES: Record<AnswerCalloutKind, CalloutTone> = {
     iconTone: 'warning',
     wash: AMBER_WASH,
   },
-  // Deliberately the neutral tier, not a fourth hue: Tipp in success green
-  // would put a second green beside the takeaways' distillation marker with a
-  // different meaning, and the viewport's chromatic budget is spent already
-  // (takeaway green, Frist amber, Achtung red, evidence lane tint).
   tip: {
     label: (t) => t('cards.callout.tip'),
     icon: Lightbulb,
@@ -121,9 +64,6 @@ const TONES: Record<AnswerCalloutKind, CalloutTone> = {
 export const CalloutCard: FC<CalloutCardProps> = ({ kind, text, title, detail, flat = false }) => {
   const t = useTranslations(chatCopy)
   const [open, setOpen] = useState(false)
-  // `?? TONES.note`, because `kind` arrives through a `z.any()`-typed union
-  // member: an unknown value must render as a neutral remark rather than crash
-  // the whole answer's card block.
   const tone = TONES[kind] ?? TONES.note
   const Icon = tone.icon
 
@@ -151,11 +91,6 @@ export const CalloutCard: FC<CalloutCardProps> = ({ kind, text, title, detail, f
             <Collapsible open={open} onOpenChange={setOpen}>
               <CollapsibleTrigger
                 className={cn(
-                  // `touch-target` rather than real padding: this is a caption-sized
-                  // disclosure sitting directly under the card's body text, and adding
-                  // 20px of vertical padding to reach the floor would open a visible gap
-                  // in the card on phones only. The utility widens the CATCHMENT to 44px
-                  // and leaves the drawn control exactly where the card's rhythm puts it.
                   '-ml-1 mt-1 inline-flex items-center gap-1 rounded px-1 py-0.5 touch-target',
                   'card-caption font-medium text-muted-foreground',
                   'transition-colors duration-quick ease-out hover:text-foreground',
@@ -186,9 +121,6 @@ export const CalloutCard: FC<CalloutCardProps> = ({ kind, text, title, detail, f
 
   if (flat) {
     return (
-      // The icon well and the kind word carry the tone; the tier's wash rides
-      // the kind pill, so the flat register keeps the same marker as the
-      // framed one without filling behind the remark.
       <div className="max-w-[46ch] py-1 pr-1">{body}</div>
     )
   }

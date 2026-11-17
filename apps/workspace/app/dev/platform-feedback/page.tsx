@@ -1,28 +1,5 @@
 'use client'
 
-/**
- * Dev preview for Platform → Feedback — the real `FeedbackTriage` with an
- * in-memory client, so the list, the filters, a deep-linked report and a
- * status change can be reviewed and screenshotted without a backend. 404s
- * outside development.
- *
- *   /dev/platform-feedback               an owner who may triage
- *   /dev/platform-feedback?focus=f2      as reached from an inbox row
- *   /dev/platform-feedback?readonly=1    Platform Support: view only
- *   /dev/platform-feedback?empty=1       nothing new
- *   /dev/platform-feedback?source=local  PostHog not configured or unreachable: the local log
- *   /dev/platform-feedback?stranger=1    the reader has no PostHog login: „Meine" says why it is empty
- *   /dev/platform-feedback?lang=en       English (German is the default)
- *
- * The page opens on the active cases: one unassigned bug the team owes an
- * answer on, one idea with a colleague waiting on the reporter, one question
- * assigned to the reader. „Übernehmen" assigns the row to the reader. The
- * reader is `you@piloti.test`.
- *
- * The PostHog list always carries one report whose ticket failed to open
- * (`unticketed`), so the "not in PostHog yet" section is in every capture.
- */
-
 import type { JSX } from 'react'
 import * as React from 'react'
 import { useSearchParams } from 'next/navigation'
@@ -151,7 +128,6 @@ const SEED: ProductFeedbackReportView[] = [
   },
 ]
 
-/** A report whose ticket failed to open: shown apart while PostHog is read. */
 const UNTICKETED: ProductFeedbackReportView = {
   id: 'f5',
   kind: 'bug',
@@ -171,11 +147,6 @@ const UNTICKETED: ProductFeedbackReportView = {
 const byNewest = (a: ProductFeedbackReportView, b: ProductFeedbackReportView): number =>
   b.createdAt.localeCompare(a.createdAt)
 
-/**
- * An in-memory stand-in for the BFF. `posthog` lists the tickets and keeps the
- * unticketed report apart; `local` is the fallback, every report newest first
- * with no ticket and no counts.
- */
 function memoryClient(
   empty: boolean,
   source: ProductFeedbackListResponse['source'],
@@ -253,7 +224,6 @@ function memoryClient(
   }
 }
 
-/** The real page's header, so the capture shows the card in its context. */
 function PreviewHeader(): JSX.Element {
   const t = useTranslations(platformCopy)
   return (

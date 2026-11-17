@@ -1,20 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The proposed-change routes and their service, driven through the TYPED
- * CLIENT (ADR-0055): the card uses the same functions, so a path or a field the
- * two disagreed on would fail here.
- *
- * The repository is an in-memory fake that keeps the compare-and-swap honest
- * (a transition from anything but `proposed`, or past a live claim, finds no
- * row) and checks every row against the CHECKs of migration 0140. The
- * document, folder, assignment, memory and profile services are mocked at
- * their seams; what is under test is that applying calls THEM, with the
- * deciding person's session, in order, resolving names and paths the way the
- * browser did, and records each item's outcome; and that each kind is decided
- * with the right its own service writes with.
- */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -70,7 +56,6 @@ vi.mock('@/lib/conversations/temporary-repository', () => ({
   updateConversationTemporaryInOrg: vi.fn(),
 }))
 vi.mock('@/i18n/server', () => ({ getLocale: vi.fn(async () => 'de') }))
-// Every spec here clicks as the same person; the mutation budget is not under test.
 vi.mock('@/lib/limits/enforce', async (original) => ({
   ...(await original<typeof import('@/lib/limits/enforce')>()),
   enforceLimit: vi.fn(async () => undefined),
@@ -143,7 +128,7 @@ const ROUTES: Array<{ pattern: RegExp; method: string; handler: Handler }> = [
 ]
 
 const run = async (path: string, init?: RequestInit) => {
-  const url = new URL(path, 'https://grid.test')
+  const url = new URL(path, 'https://example.test')
   const method = init?.method ?? 'GET'
   const route = ROUTES.find((entry) => entry.pattern.test(url.pathname) && entry.method === method)
   if (!route) throw new Error(`no route for ${method} ${url.pathname}`)
@@ -186,7 +171,6 @@ const row = (extra: Partial<ProposedChangeRow> = {}): ProposedChangeRow => ({
   ...extra,
 })
 
-/** The migration's CHECKs, held against every row the fake stores. */
 function assertChecks(stored: ProposedChangeRow): void {
   const decided = stored.status !== 'proposed'
   expect(decided, 'proposed_changes_decision_complete').toBe(stored.decidedBy !== null)
@@ -199,7 +183,6 @@ function assertChecks(stored: ProposedChangeRow): void {
   if (stored.applyingBy !== null) expect(stored.status, 'proposed_changes_claim_while_proposed').toBe('proposed')
 }
 
-/** An in-memory `proposed_changes` with the repository's compare-and-swap. */
 let store: Map<string, ProposedChangeRow>
 const put = (next: ProposedChangeRow) => {
   assertChecks(next)
@@ -266,7 +249,6 @@ beforeEach(() => {
   vi.mocked(resolveProjectDocumentsByName).mockImplementation(async (_session, _project, names) =>
     names.flatMap((name) => {
       if (name.toLowerCase() === 'grundriss eg.pdf') {
-        // A re-upload under the same name: the newer row is the one meant.
         return [listed('doc_old', 'Grundriss EG.pdf', '2026-01-01T08:00:00Z'), listed('doc_eg', 'grundriss eg.PDF')]
       }
       if (name === 'Schnitt A-A.pdf') return [listed('doc_aa', 'Schnitt A-A.pdf')]
@@ -280,7 +262,6 @@ beforeEach(() => {
   }))
 })
 
-/** The decider may read the project but not write it. */
 const readOnly = () =>
   vi.mocked(requireProjectAccess).mockImplementation(async (_session, _project, permission) => {
     if (permission === 'project:view') return { role: 'project-viewer', closed: false, readsBecauseClosed: false }
@@ -570,7 +551,6 @@ describe('POST /api/proposals/[id]/dismiss', () => {
   })
 })
 
-/** The side effects run unawaited after the commit; let them settle. */
 const afterCommit = () => vi.waitFor(() => expect(publishProposalDecided).toHaveBeenCalled())
 
 describe('what follows a decision (live card, inbox, Langfuse)', () => {
@@ -678,7 +658,6 @@ describe('createProposal — the inbox is told', () => {
       originConversationId: CONVERSATION,
       onBehalfOf: 'user_2',
       summary: 'Grundriss EG.pdf, Schnitt A-A.pdf +1',
-      // Which change it proposes, so the inbox titles it („Piloti schlägt einen neuen Ablageort vor").
       variant: 'move',
     })
   })
@@ -723,7 +702,6 @@ const profileRow = (extra: Partial<ProposedChangeRow> = {}) => row({ kind: 'proj
 const memoryItem = (id: string) => ({ id }) as Partial<ProjectMemoryItem> as ProjectMemoryItem
 const patched = (extra: Partial<PatchedProjectProfile> = {}) => ({ ...extra }) as PatchedProjectProfile
 
-/** The reader holds `project:view` and exactly these rights; any-of lists pass on one of them. */
 const holding = (...held: string[]) =>
   vi.mocked(requireProjectAccess).mockImplementation(async (_session, _project, permission) => {
     const wanted: readonly string[] = Array.isArray(permission) ? permission : [permission]
@@ -830,7 +808,6 @@ describe('applying a memory note', () => {
       supersedesContent: NOTE.supersedes,
     })
     expect(createOrganizationMemoryItem).not.toHaveBeenCalled()
-    // The scope recorded is the one the decider chose, not the one Piloti asked for.
     expect(proposal.results).toEqual([expect.objectContaining({ ok: true, itemId: 'mem_project', scope: 'project' })])
   })
 
@@ -881,7 +858,6 @@ describe('applying a memory note', () => {
     expect(createOrganizationMemoryItem).not.toHaveBeenCalled()
     expect(store.get(ID)).toMatchObject({ status: 'proposed', applyingBy: null, applyingSince: null })
 
-    // Switched back, the same proposal is accepted.
     const { proposal } = await applyProposal(ID, run)
     expect(proposal.status).toBe('applied')
   })
@@ -1052,7 +1028,6 @@ describe('createProposal — every kind, once per card', () => {
 describe('the audit trail of a proposal', () => {
   const MESSAGE = '9a0b1c2d-3e4f-4a5b-8c6d-7e8f9a0b1c2d'
   const audited = (): AuditEventInput[] => vi.mocked(recordAuditEvent).mock.calls.map(([input]) => input)
-  // Whatever was emitted, WorkOS would accept: every target type and key is registered.
   afterEach(() => {
     for (const [input] of vi.mocked(recordAuditEvent).mock.calls) expectRegistered(input)
   })
@@ -1067,7 +1042,7 @@ describe('the audit trail of a proposal', () => {
     vi.mocked(findConversationInOrg).mockResolvedValue({ id: CONVERSATION } as Partial<Conversation> as Conversation)
   })
 
-  it('records an apply once, as the decider, with how it went and for whom Piloti proposed it', async () => {
+  it('records an apply once, as the decider, with how it went and for whom the agent proposed it', async () => {
     vi.mocked(resolveProjectDocumentsByName).mockImplementation(async (_s, _p, names) =>
       names.includes('Schnitt A-A.pdf') ? [listed('doc_aa', 'Schnitt A-A.pdf')] : []
     )
@@ -1076,7 +1051,7 @@ describe('the audit trail of a proposal', () => {
 
     expect(audited()).toEqual([
       {
-        action: 'piloti.proposal.decided',
+        action: 'agent.proposal.decided',
         organizationId: 'org_1',
         actor: { userId: 'user_1', email: 'anna@example.test' },
         targetType: 'proposed_change',
@@ -1094,7 +1069,6 @@ describe('the audit trail of a proposal', () => {
         },
       },
     ])
-    // Names and paths of the payload stay out.
     expect(JSON.stringify(audited())).not.toMatch(/Grundriss|Schnitt|Einreichung/)
   })
 
@@ -1125,7 +1099,7 @@ describe('the audit trail of a proposal', () => {
     expect(recordAuditEvent).not.toHaveBeenCalled()
   })
 
-  it('records a filed proposal once, as the person Piloti acted for, and a repeated card not again', async () => {
+  it('records a filed proposal once, as the person the agent acted for, and a repeated card not again', async () => {
     vi.mocked(insertProposedChange).mockResolvedValueOnce({ row: row({ onBehalfOf: 'user_1' }), created: true })
     await createProposal(SESSION as never, {
       projectId: PROJECT,
@@ -1147,7 +1121,7 @@ describe('the audit trail of a proposal', () => {
 
     expect(audited()).toEqual([
       {
-        action: 'piloti.proposal.created',
+        action: 'agent.proposal.created',
         organizationId: 'org_1',
         actor: { userId: 'user_1', email: 'anna@example.test' },
         targetType: 'proposed_change',

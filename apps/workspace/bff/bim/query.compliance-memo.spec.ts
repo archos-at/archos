@@ -1,13 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The compliance memo across a same-name re-upload.
- *
- * A re-upload keeps the document id (`shelf-upload.ts`), and `startBimModel`
- * upserts on the document, so the corrected file is judged under the SAME model
- * id. A memo keyed on that id alone keeps reporting the previous file's verdicts.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { clearComplianceCache } from './compliance-cache'
@@ -17,7 +10,6 @@ import type { BimElement, BimModelSummary } from './types'
 
 vi.mock('server-only', () => ({}))
 vi.mock('@/lib/project-intake/setup-records', async () => ({
-  // The records an operator publishes for Austria, as `readSetupRecords` hands them over (the database read is its own spec).
   readSetupRecords: async () => (await import('@/lib/project-intake/at-setup.fixtures')).AT_SETUP_RECORDS,
 }))
 
@@ -29,12 +21,10 @@ const repository = vi.hoisted(() => ({
 }))
 vi.mock('./repository', () => repository)
 
-// OIB rules judge only a project placed in Austria (ADR-0169); one in no project gets no verdicts.
-vi.mock('@/lib/projects/repository', async () => {
-  const { placedProfile } = await import('@/lib/project-intake/setup-countries.fixtures')
-  return { findProjectProfileInOrg: vi.fn(async () => ({ profile: placedProfile({ country: 'at' }) })) }
+vi.mock('@/lib/base-knowledge/context/service', async () => {
+  const { contextAt, contextUse } = await import('./rule-basis.fixtures')
+  return { contextForPage: vi.fn(async () => contextAt('AT-9', 'core', [contextUse('OIB-Richtlinie 2', 'Ausgabe Mai 2023')])) }
 })
-vi.mock('@/lib/project-intake/repository', () => ({ findProjectIntake: vi.fn(async () => null) }))
 
 const { bimQuerySchema, runBimQuery } = await import('./query')
 
@@ -62,7 +52,6 @@ const wall = (fireRating: string): BimElement => ({
   quantities: {},
 })
 
-// The storey is what picks the row of OIB 2 Tabelle 1b; without it the rule stands down.
 const SUMMARY = {
   storeys: [{ globalId: 's-eg', expressId: 2, name: 'Erdgeschoss', elevation: 0, elementCount: 1 }],
   units: {},
@@ -85,7 +74,6 @@ const header = (updatedAt: string): BimModelHeader => ({
   updatedAt: new Date(updatedAt),
 })
 
-/** The model as `completeBimModel` leaves it: one write sets both. */
 const extracted = (fireRating: string, updatedAt: string): void => {
   repository.findBimModelById.mockResolvedValue(header(updatedAt))
   repository.loadBimRuleInputs.mockResolvedValue(

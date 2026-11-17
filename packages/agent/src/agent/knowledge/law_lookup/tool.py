@@ -1,10 +1,3 @@
-"""The agent-runtime function: config, description, and the stages in order.
-
-Nothing is decided here. Every bound, every fallback and every sentence the
-model reads lives in the stage that owns it, and every word of the source in
-its record; this module says what the tool takes and which stage runs next.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -16,6 +9,9 @@ from agent.common.action_outcome import ActionOutcome
 from agent.common.action_rows import ActionRow
 from agent.knowledge.law_lookup.address import parse_address
 from agent.knowledge.law_lookup.as_of import as_of_error
+from agent.knowledge.law_lookup.as_of import reads_today
+from agent.knowledge.law_lookup.as_of import today
+from agent.knowledge.law_lookup.as_of import today_note
 from agent.knowledge.law_lookup.cache import ttl_seconds
 from agent.knowledge.law_lookup.candidates import Search
 from agent.knowledge.law_lookup.candidates import collect_candidates
@@ -29,6 +25,7 @@ from agent.knowledge.law_lookup.passages import build_passages
 from agent.knowledge.law_lookup.picker import make_picker
 from agent.knowledge.law_lookup.planner import make_planner
 from agent.knowledge.law_lookup.render import format_passages
+from agent.knowledge.law_lookup.render import unread_versions
 from agent.knowledge.law_lookup.source import LawSource
 from agent.knowledge.law_lookup.source import law_source
 from agent.knowledge.law_lookup.telemetry import capture_passages
@@ -49,13 +46,10 @@ from nat.plugin_api import register_function
 
 logger = logging.getLogger(__name__)
 
-#: Sources (revisions) one bound tool keeps clients for; the oldest is let go past it.
 _MAX_BOUND = 16
 
 
 class LawLookupToolConfig(FunctionBaseConfig, name="law_lookup"):
-    """One law source, read through its record: question in, citable passages out."""
-
     source: str = Field(
         description=(
             "The repository record (configs/sources/, by id) read when no released record reaches the turn; "
@@ -106,8 +100,6 @@ async def law_lookup(tool_config: LawLookupToolConfig, builder: Builder):
         application: str = "",
         as_of: str = "",
     ) -> str:
-        # `conclusion` is deliberately unread: it is the derivation's checkpoint slot, read
-        # off the CALL; a tool that acted on it would turn a transparency field into a control channel.
         return await lookup.call(question, jurisdiction, instrument, application, as_of)
 
     try:
@@ -118,25 +110,19 @@ async def law_lookup(tool_config: LawLookupToolConfig, builder: Builder):
 
 @dataclass
 class _Bound:
-    """One source as one call reads it: the source, its client, its search, its picker."""
-
     law: LawSource
     client: object
     search: Search
     picker: object
-    #: ``turn`` (the released record the turn carries) or ``repository`` (the fallback file), and the revision.
     origin: str = ""
     revision: str = ""
 
 
 class _Lookup:
-    """One bound tool: its config, and each source it has read, built once per revision."""
-
     def __init__(self, config: LawLookupToolConfig, llms) -> None:
         self.config, self.llms = config, llms
         self.ttl = ttl_seconds(config.cache_ttl_days)
         self.bound: dict[str, _Bound] = {}
-        #: Let go of past the cap, closed with the tool.
         self.retired: list[_Bound] = []
 
     def _bind(self, key: str, law: LawSource, origin: str, revision: str) -> _Bound:
@@ -152,7 +138,6 @@ class _Lookup:
         return self.bound[key]
 
     def for_turn(self) -> tuple[_Bound, str]:
-        """The source this turn reads, and a note when the turn's own source could not be carried or read."""
         chosen = turn_source()
         if chosen is not None:
             try:
@@ -185,41 +170,48 @@ class _Lookup:
         outcome = ActionOutcome()
         row = ActionRow("law", query=question, target=(instrument or "").strip())
         try:
-            result = await self._answer(bound, question, jurisdiction, instrument, application, outcome, as_of)
+            result = await self._answer(bound, question, jurisdiction, instrument, application, outcome, as_of, note)
         except BaseException:
             row.finish("error")
             raise
         outcome.settle(row)
-        return f"{note}\n{result}" if note else result
+        return result
 
     async def _answer(
-        self, bound: _Bound, question, jurisdiction, instrument, application, outcome: ActionOutcome, as_of: str
+        self,
+        bound: _Bound,
+        question,
+        jurisdiction,
+        instrument,
+        application,
+        outcome: ActionOutcome,
+        as_of: str,
+        note: str,
     ) -> str:
         law, tool = bound.law, self.config.tool_name
         address = parse_address(question, instrument, jurisdiction, law)
-        trace = LookupTrace(collection=application, as_of=as_of)
+        now = today()
+        current = bool(as_of) and reads_today(as_of, now)
+        trace = LookupTrace(
+            collection=application, as_of="" if current else as_of, as_of_today=as_of if current else ""
+        )
         trace.source, trace.source_revision, trace.source_origin = law.source.id, bound.revision, bound.origin
-        trace.candidates = await collect_candidates(bound.search, question, address, trace, as_of)
+        trace.candidates = await collect_candidates(bound.search, question, address, trace, trace.as_of)
         documents = await fetch_documents(bound.client, trace.candidates, trace, self.ttl)
         selections = await select_passages(bound.picker, question, address, documents, trace, law)
         passages = build_passages(selections, address, law)
         ingested = await ingest_documents(documents, self.config.ingest_into_knowledge, law, self.ttl)
         emit_lookup_span(question, address, trace, passages, tool)
         outcome.hits = len(passages)
+        notes = [line for line in (note, today_note(as_of, now) if current else "") if line]
         if not passages:
-            return miss_message(question, address, trace, law)
+            return "\n".join([*notes, miss_message(question, address, trace, law)])
         capture_passages(passages)
-        return format_passages(passages, ingested, address, law, tool)
+        notes += unread_versions(trace, law)
+        return format_passages(passages, ingested, address, law, tool, notes)
 
 
 async def _resolve_llms(tool_config: LawLookupToolConfig, builder: Builder):
-    """What builds a source's search planner and provision picker from the configured model, or None.
-
-    One configured model serves both: they are the same kind of bounded
-    structured-output call. A model that cannot be resolved is not fatal: the
-    live search then uses the caller's own words and the picker only answers a
-    named provision.
-    """
     if not tool_config.planner_llm:
         return None
     try:

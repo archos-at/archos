@@ -1,34 +1,5 @@
 'use client'
 
-/**
- * „Mein Feedback" — the reporter's side of every report they sent, as a support
- * inbox in a modal: their cases on the left, active ones first, each with where
- * it stands, and on the right the conversation on one of them with the Piloti
- * team, or the form for a new report („Neues Feedback", `FeedbackForm`). After
- * sending, the new case is selected in the list with its thread open. An office
- * admin (`org:settings:manage`) also gets „Unser Büro": every case anyone in the
- * organization filed, each thread read-only, because only the reporter's own
- * conversations session can answer.
- *
- * Two panes side by side where `md:` holds (a phone on its side does not); one
- * pane at a time below it, the detail with a back step to the list. On a phone
- * the dialog takes the whole screen (`fullScreenOnMobile`) and follows the
- * visual viewport (`useFitToVisualViewport`), so the reply box sits on the iOS
- * keyboard instead of under it.
- *
- * The team answers in PostHog Support; the BFF reads the ticket and hands the
- * thread over (`GET /api/feedback/reports/[id]/messages`), and the reporter's
- * answer goes back onto the ticket (ADR-0118, amended). No PostHog widget is
- * involved: this modal is the whole conversation surface. While it shows a
- * thread it re-reads it every {@link THREAD_POLL_MS}, so a reply sent while the
- * reporter is looking arrives without a reload.
- *
- * The thread is a two-party chat built from the chat's parts: `UserMessage`
- * with an author for each side (the team on the left), and the thread reply box
- * (`Composer`): Enter sends, the phone's action key says so, Send keeps the
- * keyboard up.
- */
-
 import type { JSX } from 'react'
 import * as React from 'react'
 import { ArrowLeft, ChevronRight, MessagesSquare, Plus } from 'lucide-react'
@@ -77,18 +48,13 @@ import {
 import { FeedbackCaseStatus, feedbackCaseState } from './feedback-atoms'
 import { FEEDBACK_KIND_ICONS, FeedbackForm, FIT_VIEWPORT } from './feedback-form'
 
-/** How often an open thread is re-read for a reply that arrived meanwhile. */
 export const THREAD_POLL_MS = 20_000
 
-/** The calls the modal makes; previews and specs inject their own. */
 export interface FeedbackThreadsApi {
-  /** One page of the member's own reports; `cursor` is the previous page's `nextCursor`. */
   list: (cursor?: string) => Promise<OwnProductFeedbackListResponse>
-  /** One page of the office's reports (office admins only). */
   office: (cursor?: string) => Promise<OwnProductFeedbackListResponse>
   thread: (id: string) => Promise<OwnProductFeedbackThread>
   reply: (id: string, message: string) => Promise<ReplyToFeedbackResult>
-  /** Files a new report from the „Neues Feedback" pane. */
   submit: (request: SubmitProductFeedbackRequest) => Promise<SubmitProductFeedbackResult>
 }
 
@@ -100,31 +66,21 @@ const LIVE_API: FeedbackThreadsApi = {
   submit: submitProductFeedback,
 }
 
-/** Whose cases the list shows. */
 export type FeedbackScope = 'mine' | 'office'
 
 export interface FeedbackThreadsDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  /** A thread to open straight away (from a link, an inbox row); the list otherwise. */
   initialReportId?: string | null
-  /** Open on the form for a new report, with this kind chosen („Feedback senden"). Beats `initialReportId`. */
   initialCompose?: ProductFeedbackKind | null
-  /** Whose cases the list opens on; one's own unless asked. */
   initialScope?: FeedbackScope
-  /** Shown in the form's contact hint, so the reporter knows where a reply goes. */
   userEmail?: string | null
-  /** Told whenever the modal learns how many threads have news, so the shell's dot follows. */
   onUpdatedCount?: (count: number) => void
   api?: FeedbackThreadsApi
 }
 
 type Load<T> = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; value: T }
 
-/**
- * What the detail pane shows. `draft` numbers each new form, so a second
- * „Neues Feedback" starts blank and captures the page anew.
- */
 type Pane =
   | { view: 'none' }
   | { view: 'thread'; reportId: string; justSent: boolean }
@@ -152,18 +108,13 @@ export function FeedbackThreadsDialog({
   const tCommon = useTranslations(commonCopy)
   const [pane, setPane] = React.useState<Pane>(() => startPane(initialReportId, initialCompose))
   const [scope, setScope] = React.useState<FeedbackScope>(initialScope)
-  // Bumped after a send, so the list reads again and holds the new case.
   const [listVersion, setListVersion] = React.useState(0)
   const [sending, setSending] = React.useState(false)
-  // Learned from the first page of one's own: the server decides, the switch follows.
   const [canViewOffice, setCanViewOffice] = React.useState(false)
   const [panel, setPanel] = React.useState<HTMLDivElement | null>(null)
-  // Only the full-screen phone dialog is moved with the keyboard; the centred
-  // card on a tablet would be pushed half off the top by it.
   const phone = useMediaQuery(PHONE_QUERY)
   useFitToVisualViewport(open && phone ? panel : null)
 
-  // Every opening starts where the caller asked: the form, a named thread or a list.
   React.useEffect(() => {
     if (!open) return
     setPane(startPane(initialReportId, initialCompose))
@@ -189,7 +140,6 @@ export function FeedbackThreadsDialog({
     <Dialog
       open={open}
       onOpenChange={(next) => {
-        // Closing mid-send would drop the only confirmation the reporter gets.
         if (!next && sending) return
         onOpenChange(next)
       }}
@@ -198,8 +148,6 @@ export function FeedbackThreadsDialog({
         ref={setPanel}
         fullScreenOnMobile
         closeLabel={tCommon('actions.close')}
-        // `p-0` and `flex` hand the layout to the panes, so the dialog's own
-        // safe area is stated here and in each pane's header and foot.
         className="flex h-[min(48rem,calc(100dvh-2rem))] flex-col gap-0 overflow-hidden p-0 phone:pr-[env(safe-area-inset-right)] phone:pl-[env(safe-area-inset-left)] sm:max-w-xl md:max-w-5xl"
         data-testid="feedback-threads"
       >
@@ -215,7 +163,6 @@ export function FeedbackThreadsDialog({
                   {office ? t('threads.officeDescription') : t('threads.description')}
                 </DialogDescription>
               }
-              // On the phone's single pane the close button sits over this header.
               className="max-md:pr-14"
             >
               <div className="flex items-center gap-2">
@@ -232,7 +179,7 @@ export function FeedbackThreadsDialog({
                   </Tabs>
                 )}
                 <Button
-                  variant="outline"
+                  variant="secondary"
                   size="sm"
                   onClick={compose}
                   className={cn(!canViewOffice && 'flex-1')}
@@ -290,7 +237,6 @@ export function FeedbackThreadsDialog({
               </>
             )}
             {pane.view === 'none' && (
-              // Only beside the list (`md:`): below it the list is the screen.
               <div className="flex flex-1 items-center justify-center p-6">
                 <EmptyState
                   icon={MessagesSquare}
@@ -307,12 +253,6 @@ export function FeedbackThreadsDialog({
   )
 }
 
-/**
- * The bar on top of a pane: a back step on the single-pane phone layout, the
- * heading and a line under it, and whatever the pane adds below. Its row is
- * centred on the dialog's close button (32px from the top), so back, title and
- * close read as one bar; on the right pane it keeps clear of that button.
- */
 function PaneHeader({
   heading,
   description,
@@ -358,9 +298,6 @@ function PaneHeader({
   )
 }
 
-// ── The list ─────────────────────────────────────────────────────────────────
-
-/** Most recent activity first, within a group. */
 const byActivity = (a: OwnProductFeedbackSummary, b: OwnProductFeedbackSummary): number =>
   b.lastActivityAt.localeCompare(a.lastActivityAt)
 
@@ -375,7 +312,6 @@ function CaseList({
 }: {
   scope: FeedbackScope
   api: FeedbackThreadsApi
-  /** The case whose thread is open beside the list. */
   selectedId: string | null
   onSelect: (id: string) => void
   onNewFeedback: () => void
@@ -393,7 +329,6 @@ function CaseList({
     try {
       const value = await read()
       setLoad({ kind: 'ready', value })
-      // The first page holds the newest reports, and with them every recent reply.
       onUpdatedCount?.(value.updatedCount)
       onCanViewOffice?.(value.canViewOffice)
     } catch {
@@ -438,8 +373,6 @@ function CaseList({
   }
   if (load.value.reports.length === 0) {
     return (
-      // The padding is the wrapper's: `EmptyState` is `w-full`, and a margin
-      // on it pushed the card 48px past a phone's right edge.
       <div className="p-4">
         <EmptyState
           icon={MessagesSquare}
@@ -534,7 +467,6 @@ function CaseRow({
           type="button"
           onClick={onSelect}
           className="w-full"
-          // The open thread beside the list (`Item`'s selected tint).
           aria-current={selected || undefined}
           data-testid={`feedback-thread-${report.id}`}
         >
@@ -567,20 +499,11 @@ function CaseRow({
   )
 }
 
-// ── One thread ───────────────────────────────────────────────────────────────
-
-/** How many of the reporter's messages the server holds: the mark a sent reply is counted against. */
 const reporterMessages = (thread: OwnProductFeedbackThread): number =>
   thread.messages.filter((message) => message.author === 'reporter').length
 
-/**
- * A reply that went out but that PostHog does not list yet. Shown at the end of
- * the thread until the server holds more of the reporter's messages than it
- * did when it was sent, so a message never flickers out after Send.
- */
 interface Echo {
   message: OwnProductFeedbackMessage
-  /** The server's count of the reporter's messages when this was sent. */
   baseline: number
 }
 
@@ -592,7 +515,6 @@ function ThreadView({
   onNewFeedback,
 }: {
   reportId: string
-  /** The report was filed from the form a moment ago: the thread says it arrived. */
   justSent: boolean
   api: FeedbackThreadsApi
   onBack: () => void
@@ -609,7 +531,6 @@ function ThreadView({
       try {
         setLoad({ kind: 'ready', value: await api.thread(reportId) })
       } catch {
-        // A failed background re-read keeps what is on screen.
         if (!quiet) setLoad({ kind: 'error' })
       }
     },
@@ -667,8 +588,6 @@ function ThreadView({
             )}
           </h2>
         }
-        // Where the case stands and when it last moved; on a colleague's
-        // case, whose it is. Never the list's generic blurb.
         description={
           <div className="text-muted-foreground flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs">
             {thread ? (
@@ -714,7 +633,6 @@ function ThreadView({
   )
 }
 
-/** What `Composer` throws when the reply did not go, so it keeps the text and says why. */
 class ReplyNotSent extends Error {
   constructor(readonly reason: 'rate-limited' | 'failed') {
     super(reason)
@@ -729,7 +647,6 @@ function ThreadMessages({
   onNewFeedback,
 }: {
   thread: OwnProductFeedbackThread
-  /** The thread's messages and any reply PostHog does not list yet. */
   messages: OwnProductFeedbackMessage[]
   justSent: boolean
   onReply: (message: string) => Promise<ReplyToFeedbackResult>
@@ -739,30 +656,19 @@ function ThreadMessages({
   const contentRef = React.useRef<HTMLDivElement>(null)
   const answered = messages.some((message) => message.author === 'team')
   const mine = thread.report.mine
-  // A mouse or a keyboard came here to write: the box takes the focus. Under a
-  // finger it waits for the tap, or the keyboard covers the thread at once.
   const [focusComposer] = React.useState(() => !isCoarsePointer())
 
-  // The newest message is the one to read: keep the end of the thread in view
-  // as messages arrive. The viewport itself, to its very bottom: an anchor
-  // scrolled into view stopped short of the list's own padding.
   React.useLayoutEffect(() => {
     const viewport = contentRef.current?.closest<HTMLElement>('[data-radix-scroll-area-viewport]')
     if (viewport) viewport.scrollTop = viewport.scrollHeight
   }, [messages.length])
 
-  // And when the pane gets shorter (the keyboard comes up, the box grows a
-  // line) while the reader is at the end, the end stays in view: a resize keeps
-  // `scrollTop`, so the newest message would slide under the composer.
   React.useEffect(() => {
     const viewport = contentRef.current?.closest<HTMLElement>('[data-radix-scroll-area-viewport]')
     if (!viewport || typeof ResizeObserver === 'undefined') return
     let atEnd = true
     let height = viewport.clientHeight
     const onScroll = (): void => {
-      // Only the reader's own scrolling says where they are. The browser's
-      // scroll anchoring also scrolls when the pane shrinks, before the
-      // observer below hears of it, and that must not count as leaving the end.
       if (viewport.clientHeight !== height) return
       atEnd = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 24
     }
@@ -771,8 +677,6 @@ function ThreadMessages({
       if (atEnd) viewport.scrollTop = viewport.scrollHeight
     })
     viewport.addEventListener('scroll', onScroll, { passive: true })
-    // Both boxes: the pane shrinking, and the thread re-flowing inside it
-    // (a narrower column once the scrollbar appears wraps every bubble anew).
     observer.observe(viewport)
     if (contentRef.current) observer.observe(contentRef.current)
     return () => {
@@ -787,7 +691,7 @@ function ThreadMessages({
       <ScrollArea className={cn('min-h-0 flex-1', FIT_VIEWPORT)}>
         <div ref={contentRef} className="flex flex-col gap-4 p-4" data-testid="feedback-thread-messages" data-chat-surface="feedback">
           {/* The chat's own attributed message: the header names who spoke
-              (you, a colleague, or the team member). Unlike the Piloti chat
+              (you, a colleague, or the team member). Unlike the agent's chat
               this is a two-party conversation, so the team speaks from the left. */}
           {messages.map((message, index) => {
             const previous = messages[index - 1]
@@ -798,8 +702,6 @@ function ThreadMessages({
                 content={message.content}
                 timestamp={message.createdAt}
                 grouped={sameSpeaker}
-                // Two parties, two sides: the reporter on the right as in any
-                // messenger, the team on the left (UserMessage's `side`).
                 side={message.author === 'team' ? 'start' : 'end'}
                 author={
                   message.author === 'reporter'
@@ -808,8 +710,6 @@ function ThreadMessages({
                       : { userId: 'feedback-reporter', name: reporter }
                     : {
                         userId: `piloti-team:${message.authorName ?? ''}`,
-                        // „Matthias, Piloti-Team": the comma keeps the disc's
-                        // initials on the person (MP), where „·" made them „M·".
                         name: message.authorName ? t('threads.teamMember', { name: message.authorName }) : t('threads.team'),
                       }
                 }
@@ -847,7 +747,7 @@ function ThreadMessages({
         ) : mine ? (
           <div className="flex flex-col items-start gap-3 px-2 py-1">
             <p className="text-muted-foreground text-sm text-pretty">{t('threads.cannotReply')}</p>
-            <Button variant="outline" size="sm" onClick={onNewFeedback}>
+            <Button variant="secondary" size="sm" onClick={onNewFeedback}>
               {t('threads.send')}
             </Button>
           </div>
@@ -863,7 +763,6 @@ function ThreadMessages({
   )
 }
 
-/** A line about the thread rather than in it: the waiting and offline notes. */
 function ThreadNote({ children, testId }: { children: string; testId?: string }): JSX.Element {
   return <p data-testid={testId} className="text-muted-foreground mx-auto max-w-xs py-2 text-center text-xs text-pretty">{children}</p>
 }

@@ -1,11 +1,3 @@
-"""The two seams every model call passes take a provider slot (ADR-0081).
-
-``test_provider_limiter`` proves the limiter; this proves it is wired in: a chat
-call holds a slot for exactly as long as the call or its stream lasts, in the
-class of the task that made it, and an OpenRouter HTTP request waits for one,
-records a 429 and gives the slot back with the response.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -56,12 +48,7 @@ def waiting(store, cls: str) -> int:
     return store.zcard(pl._keys(pl.POOL)["tickets"][pl.CLASSES.index(cls)])
 
 
-# ------------------------------------------------------------- the chat seam
-
-
 class OpenRouterChatModel(StrictProviderChatModel):
-    """A chat model on the OpenRouter key that records what the pool held while it ran."""
-
     openai_api_base: str = "https://openrouter.ai/api/v1"
     model_name: str = "vendor/model"
     held_while_running: list[int] = Field(default_factory=list)
@@ -124,7 +111,6 @@ async def test_a_stream_the_consumer_abandons_gives_its_slot_back(store):
     await anext(stream)
     assert held(store) == 1
     await stream.aclose()
-    # LangChain does not close the model's own generator; the loop finalises it.
     for _ in range(20):
         await asyncio.sleep(0.01)
         if held(store) == 0:
@@ -174,9 +160,6 @@ def test_a_model_off_the_openrouter_key_is_not_limited(store):
 def test_the_reply_of_a_limited_call_is_unchanged(store):
     llm = chat_model(store, responses=[AIMessage(content="Vier Meter.")])
     assert llm.invoke(MESSAGES).content == "Vier Meter."
-
-
-# ------------------------------------------------------- the HTTP transport
 
 
 def mocked(client, handler):
@@ -306,9 +289,6 @@ async def test_the_async_transport_records_a_429(store, monkeypatch):
     assert model_limit(store, "m") == 16
 
 
-# ------------------------------------------------------------ entry points
-
-
 def test_a_chat_turn_runs_in_the_chat_class():
     from agent.turn import admission
 
@@ -351,7 +331,6 @@ def test_a_dispatched_ingest_job_runs_in_the_class_of_its_priority():
     def job(config: dict) -> PreparedIngestJob:
         return PreparedIngestJob(job_id="j", status=None, file_paths=[], collection_name="c", config=config)
 
-    # The priority POST /v1/ingest put on the job config is the one the limiter sees.
     ingest_execution.run_job(Ingestor(), job({"priority": "bulk"}), None)
     ingest_execution.run_job(Ingestor(), job({"priority": "interactive"}), None)
     ingest_execution.run_job(Ingestor(), job({}), None)  # a job from before priorities existed

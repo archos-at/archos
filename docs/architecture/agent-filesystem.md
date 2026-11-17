@@ -1,6 +1,6 @@
-# Piloti's filesystem: how Piloti reads the office's documents
+# The agent's filesystem: how the agent reads the office's documents
 
-> The living design for the read side of Piloti's filesystem: the paths, the four
+> The living design for the read side of the agent's filesystem: the paths, the four
 > tools beside ranked search, what each kind of document looks like through them,
 > and how citations, privacy and the Herleitung carry through. The decisions are
 > [ADR-0133](../adr/0133-piloti-reads-the-estate-through-standard-filesystem-tools.md)
@@ -17,7 +17,7 @@
 ## The north star
 
 A planner asks „Steht im Brandschutzkonzept irgendwo etwas zu Sprinklern, und wo
-genau steht der Fluchtweg?“ Piloti answers the way a colleague who knows the
+genau steht der Fluchtweg?“ The agent answers the way a colleague who knows the
 drive would: one round in which it lists the project, searches the wording
 „Sprinkler“ and „Fluchtweg“ across every shelf the planner may see, and reads the
 three pages the second search hit, all at once. The answer says that „Sprinkler“
@@ -37,8 +37,8 @@ with the reason. The design text stays as written; this section is the delta.
 | Piece | Where |
 |---|---|
 | Paths, mounts, canonical form, `call_mount` | `packages/agent/src/agent/common/estate_paths.py` |
-| The read-only async backend (rows, resolution, rendering) | `packages/knowledge-layer/src/estate/backend.py` (`EstateBackend`) |
-| Stored page text and the chunk rebuild | `packages/knowledge-layer/src/stored_pages.py` |
+| The read-only async backend (rows, resolution, rendering) | `packages/knowledge-layer/src/knowledge_layer/estate/backend.py` (`EstateBackend`) |
+| Stored page text and the chunk rebuild | `packages/knowledge-layer/src/knowledge_layer/stored_pages.py` |
 | The tools, the `CompositeBackend`, the `/drafts/` route | `packages/agent/src/agent/tools/documents/filesystem.py`, `tools.py` |
 | Citations on `ToolMessage.artifact` | `packages/agent/src/agent/common/citation_collector.py`; read first by `extract_sources_from_tool_result` |
 | `ToolStep.mount` | `common/wire_v2.py`, `action_rows.ToolStepCallback`; the UI's `executed-steps.ts` |
@@ -46,16 +46,16 @@ with the reason. The design text stays as written; this section is the delta.
 
 Departures, each with its reason:
 
-1. **Scope comes from the turn's context, not `get_runtime().context`.** Piloti's loop is
+1. **Scope comes from the turn's context, not `get_runtime().context`.** The agent's loop is
    its own LangGraph graph with no `context_schema`; the turn's scope already travels in
    the per-turn context every knowledge-layer tool reads (`_resolve_scoped_collections`,
    the inventory, `may_name`). The backend reads exactly that, so one instance built at
    boot serves every turn and tenant (pinned by `test_estate_read.py::TestTenancy`).
-2. **No outermost `awrap_tool_call`.** Piloti binds the tools into its own tool node, as
+2. **No outermost `awrap_tool_call`.** The agent binds the tools into its own tool node, as
    the draft verbs were, so no middleware chain runs around them. The per-call collector
    opens inside the tool wrapper (`filesystem.estate_message`), which is the same seam one
    level down: each call is its own task, so parallel calls keep separate collectors.
-   Eviction does not run in Piloti's tool node either; `artifacts_root` is still
+   Eviction does not run in the agent's tool node either; `artifacts_root` is still
    `/drafts/` for any caller that mounts the middleware.
 3. **The `/drafts/` route re-prefixes its keys** (`filesystem._DraftRoute`). The composite
    strips the route prefix before it asks a routed backend, and every stored draft, its
@@ -91,7 +91,7 @@ signed by the repeat-fetch guard, never refused by a data-source toggle, and its
 wire is `skills`. Routes: default the estate, `/drafts/` the draft store, `/skills/` the skills.
 
 **Slice 3, `ls` and `glob`, folder cards as `README.md`** (built).
-`packages/knowledge-layer/src/estate/listing.py` renders over the listable rows only, so a
+`packages/knowledge-layer/src/knowledge_layer/estate/listing.py` renders over the listable rows only, so a
 restricted folder is neither named nor counted, and `ls` of it answers as a folder that does not
 exist does. `README.md` in every folder is the tier-0 card `list_files(view="tree")` builds, with
 the tier-1 abstract the folder-card worker wrote; a real document of that name keeps it. Herleitung
@@ -107,7 +107,7 @@ verb `list` with file and folder counts. `list_files` stays bound as the alias.
 3. **Deferred: the mount digest in the prompt.** It is a turn-context block, and the prompt is
    slice 6's; the one prompt line that named `list_files(name_contains=…)` now names `glob`.
 
-**Slice 4, `grep` under its own name** (built). `packages/knowledge-layer/src/estate/grep.py`:
+**Slice 4, `grep` under its own name** (built). `packages/knowledge-layer/src/knowledge_layer/estate/grep.py`:
 stage 1 is the index's literal scan (`retriever.find_text`, the scan `knowledge_search(match=…)`
 runs, with slice 1's fixed counts), stage 2 recounts each candidate on its stored pages (up to 20
 documents within 3 s) and otherwise on its chunks' own text. `content` returns one grounding
@@ -143,12 +143,12 @@ the evidence tool surface went from 5,560 to 3,111 tokens per call (o200k).
 | Piece | Where |
 |---|---|
 | The descriptions, bare schema fields, `conclusion` on `grep` and `read_file` | `packages/agent/src/agent/tools/documents/tools.py` (`_ESTATE_DESCRIPTIONS`), `filesystem.py` |
-| `knowledge_search` (ranked only, `path`) and `list_files` (no tree view) where the estate is read | `packages/knowledge-layer/src/chat_binding.py`, applied in `agents/piloti/register._chat_bound` only when `filesystem` is set (`estate_paths.reads_the_estate`) |
+| `knowledge_search` (ranked only, `path`) and `list_files` (no tree view) where the estate is read | `packages/knowledge-layer/src/knowledge_layer/chat_binding.py`, applied in `core/register._chat_bound` only when `filesystem` is set (`estate_paths.reads_the_estate`) |
 | A retired argument is an error that names it and its replacement | the chat schemas forbid unknown arguments; `packages/agent/src/agent/common/retired_calls.py` adds the replacement in `tool_errors.render_tool_error` |
 | Shared hints state facts and name no tool | `read_passage/tool.py`, `register.py`, `browse/tool.py`, `document_groups.py`, `chunk_noise.py`, `vector_store/folders.py`, `already_read.py`, `revision_diff.py` |
 | A citation written as a path resolves to its key | `citations/citation_keys.py::citation_key_of_path` |
 | The coverage line and the `Herkunft:` line say what they mean | `common/grounding_block.COVERAGE_GAP_NOTE`, `AGENT_DOCUMENT_NOTE` |
-| The literal prefetch of a quoted term or a code | `agents/piloti/decisions._corpus_prefetch`: a `grep` with `output_mode="content"` on the shelf's mount, narrowed to the open document by `glob` |
+| The literal prefetch of a quoted term or a code | `core/decisions._corpus_prefetch`: a `grep` with `output_mode="content"` on the shelf's mount, narrowed to the open document by `glob` |
 
 Departures, each with its reason:
 
@@ -202,7 +202,7 @@ The UI's words are `chat.thinking.work.place*`; the `/dev/derivation` variants `
 Not mounted: other projects (`project_lookup`, ADR-0094, because the BFF records a
 cross-project hand-out first), RIS (a live API with no tree; `law_lookup`), the web.
 If the MCP door later serves this projection to outside agents, which span
-projects, it uses `/projects/<project id>/…`, and `/project/` is Piloti's alias for
+projects, it uses `/projects/<project id>/…`, and `/project/` is the agent's alias for
 the turn's one.
 
 **Path rules.**
@@ -230,7 +230,7 @@ the turn's one.
   the listable one wins. The same name on two shelves is two paths, which is what
   the qualified citation key already says (`x.pdf (Büroablage), p.9`).
 - **Agent-filed documents** (`filename = 'piloti/<name>'`) appear as `<name>` in
-  their folder; no `piloti/` directory exists.
+  their folder; the prefix is never shown as a directory.
 - **Matching** for `glob` and resolution is case-insensitive, NFC, and folds ä→ae,
   ß→ss (the existing `browse.fold`), so `Plaene` finds `Pläne`.
 - **Canonical form.** Absolute POSIX paths only; `..`, percent-encoding and a
@@ -531,7 +531,7 @@ Pinned to an exact version: 0.7.30 installs on today's LangChain stack, 0.7.32 n
 
 | Piece | Ours | Deep Agents, reused |
 |---|---|---|
-| Tool names, base schemas, path validation, pagination header, truncation | | `FilesystemMiddleware`'s tools, built and bound into Piloti's tool node as the draft verbs are |
+| Tool names, base schemas, path validation, pagination header, truncation | | `FilesystemMiddleware`'s tools, built and bound into the agent's tool node as the draft verbs are |
 | `mode`, `stemmed`, `context` on `grep`; `pages`, `clause` on `read_file` | schema subclasses and a short wrapper around the stock coroutine; extra arguments travel in a `ContextVar`, because `CompositeBackend.agrep` forwards only `pattern, path, glob, max_count` | `GrepSchema`, `ReadFileSchema` |
 | Result text of `read_file` and `grep` content | grounding blocks, rendered by us | |
 | Search, scope, tenancy, page text, the scoped lookup | an async read-only `BackendProtocol` implementation over the knowledge layer and ADR-0134's store; tenant and scope from `get_runtime().context` | `BackendProtocol`, `slice_read_response`, `ReadResult` invariants |
@@ -577,7 +577,7 @@ our own caching stays), the general-purpose subagent, `write_todos`.
 | `knowledge_search` (meaning) | stays, with `path` |
 | `look`, `law_lookup`, `web_search_tool`, `ifc_query`, `ifc_measure`, `project_lookup`, `workspace__*`, `canvas__*` and the write tools | stay |
 
-Since slice 6 `read_passage` and the literal `knowledge_search` are off Piloti's chat binding
+Since slice 6 `read_passage` and the literal `knowledge_search` are off the agent's chat binding
 where the estate is read. A `read_passage` call is answered by the tool node's own error, which
 names the tools there are; a retired argument (`match`, `stemmed`, `context`, `view`, `depth`) is
 rejected by the schema with its replacement named (`common/retired_calls.py`). `list_files` keeps

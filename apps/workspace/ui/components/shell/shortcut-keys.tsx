@@ -1,12 +1,5 @@
 'use client'
 
-/**
- * Renders a shortcut's notation from {@link KeySegment}s as shared {@link Kbd}
- * keycaps. One renderer for the cheatsheet, the command palette, and picker
- * footers — so a chord / leader / alternative / range never gets a second
- * homemade `<kbd>`.
- */
-
 import * as React from 'react'
 
 import { Kbd, KbdGroup } from '@/components/ui/kbd'
@@ -14,12 +7,6 @@ import { useTranslations } from '@/i18n'
 import { shortcutsCopy } from '@/i18n/namespaces/shortcuts'
 import { MOD, modifierLabel, type KeySegment } from './shortcuts'
 
-/**
- * The `'mod'` keycap's label, the one every shortcut hint shows: `⌘` on Apple
- * platforms, else the control key as the reader's keyboard prints it („Strg“
- * in German, „Ctrl“ in English). A surface never spells it itself, so a search
- * field and the palette beside it cannot name one key two ways.
- */
 export function useModifierLabel(): string {
   const t = useTranslations(shortcutsCopy, 'cheatsheet')
   const [apple, setApple] = React.useState(false)

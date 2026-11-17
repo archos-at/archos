@@ -16,28 +16,16 @@ import { useRoomSelector } from '../../hooks/use-document-room'
 import { MarkBody } from './mark-body'
 import { markInk } from './review-page-layer'
 import { hasLiveMarks, openMarksShortLabel } from '../open-marks-chip'
+import { isAgentKind } from '@/lib/agent-kind'
 
-/** Live marks the rail shows before it sends the reader into the review for the rest. */
 const PREVIEWED = 3
 
-/**
- * „Anmerkungen" in the opened document's rail: how much is open, the first few
- * marks, and the door into the focused review, which is where marks are set,
- * discussed and closed. The rail only tells; the review is where the work
- * happens, so the rail never grows a form.
- *
- * The section stands while the list loads and when it could not be read, the
- * way the review's own list does: a rail section that appears a second late,
- * or never when the read failed, says nothing about whether the document has
- * marks at all.
- */
 export function AnnotationsSummary({
   review,
   onOpenReview,
   className,
 }: {
   review: DocumentReview
-  /** Open the review, at one mark when given. */
   onOpenReview: (annotationId?: string) => void
   className?: string
 }): JSX.Element {
@@ -45,7 +33,7 @@ export function AnnotationsSummary({
   const live = review.annotations.filter(isLive)
   const others = useRoomSelector(
     review.room,
-    (peers) => new Set(peers.filter((state) => state.peer.kind !== 'piloti').map((state) => state.peer.userId)).size
+    (peers) => new Set(peers.filter((state) => !isAgentKind(state.peer.kind)).map((state) => state.peer.userId)).size
   )
   const ready = review.load === 'ready'
   return (
@@ -53,7 +41,6 @@ export function AnnotationsSummary({
       label={t('annotations.section')}
       icon={MessageSquareText}
       action={
-        // „2 offen · 12 Vorschläge": Piloti's untaken proposals are not counted as open, as in Dateien.
         ready && hasLiveMarks(review.counts) ? <CountPill>{openMarksShortLabel(t, review.counts)}</CountPill> : undefined
       }
       className={className}
@@ -87,7 +74,7 @@ export function AnnotationsSummary({
               type="button"
               data-testid="annotations-summary-row"
               onClick={() => onOpenReview(annotation.id)}
-              className="hover:bg-accent border-border/60 flex w-full items-start gap-2.5 border-t px-3 py-2.5 text-left first:border-t-0"
+              className="hover:bg-hover border-border/60 flex w-full items-start gap-2.5 border-t px-3 py-2.5 text-left first:border-t-0"
             >
               <CommentPin
                 as="span"

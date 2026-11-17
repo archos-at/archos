@@ -158,6 +158,16 @@ tasks:
     cmds:
       - '{{.RELNOTES}} publish {{.CLI_ARGS}}'
 
+  baselines:tighten:
+    desc: Lower every shrink-only ratchet baseline to the tree, so a gain cannot be spent again
+    cmds:
+      # A shrink passes the checks on its own (it is the direction we want), so
+      # nothing forces a baseline down in the PR that earned it. Run this to lock
+      # the gain in: each `--update` only lowers or removes entries, never raises
+      # one. Commit the ci/*baseline*.json it rewrites.
+      - for: [check_file_size, check_nesting, check_comments, check_brand_names, check_brand_prose, check_country_in_code]
+        cmd: '{{.VENV_BIN}}/python{{.EXE}} scripts/{{.ITEM}}.py --update'
+
   lint:repo:
     desc: pre-commit across the whole repo, plus the agent-skill lockfile — the same scope CI lints
     cmds:

@@ -13,6 +13,10 @@ const ENTRY: BaseKnowledgeEntry = {
   status: 'confirmed',
   proposedBy: 'person',
   confirmedBy: 'user_1',
+  confirmedByName: null,
+  folderId: null,
+  workId: 'work_1',
+  editions: [],
   textUse: 'used',
   aiProcessingAttestedAt: '2026-11-01T00:00:00.000Z',
   createdAt: '2026-11-01T00:00:00.000Z',
@@ -22,6 +26,8 @@ const ENTRY: BaseKnowledgeEntry = {
     designation: 'ÖNORM B 1600:2017',
     editionLabel: '2017',
     issuedOn: null,
+    inForceFrom: null,
+    inForceTo: null,
     territoryIds: [],
     issuer: 'Austrian Standards',
     addressees: [],
@@ -38,6 +44,8 @@ const ENTRY: BaseKnowledgeEntry = {
 describe('the data of an answer’s label on an office copy', () => {
   it('carries what "Norm, Büroexemplar Ausgabe 2017, zuletzt geprüft am 12.09.2026" is made of', () => {
     expect(officeAnswerLabel(ENTRY, projectTerritory({ federalState: 'vienna' }, AT_SUBDIVISIONS))).toEqual({
+      editionId: 'edition_1',
+      workId: 'work_1',
       documentId: 'doc_1',
       fileName: 'ÖNORM B 1600.pdf',
       kind: 'technical_standard',
@@ -48,9 +56,21 @@ describe('the data of an answer’s label on an office copy', () => {
       role: 'requirement_source',
       lastCheckedOn: '2026-09-12',
       checkOverdue: false,
+      freshness: 'current',
       textUse: 'used',
       directive: null,
     })
+  })
+
+  it('says how current the check leaves it, in the platform’s words', () => {
+    const territory = projectTerritory({}, AT_SUBDIVISIONS)
+    const checked = (result: 'current' | 'newer_known' | 'withdrawn', overdue: boolean) => ({
+      ...ENTRY,
+      freshness: { ...ENTRY.freshness, overdue, lastCheck: { ...ENTRY.freshness.lastCheck!, result } },
+    })
+    expect(officeAnswerLabel(checked('current', true), territory).freshness).toBe('check_due')
+    expect(officeAnswerLabel(checked('newer_known', true), territory).freshness).toBe('newer_known')
+    expect(officeAnswerLabel(checked('withdrawn', true), territory).freshness).toBe('superseded')
   })
 
   it('makes a commentary interpretation and gives a directive its verdict for the project', () => {

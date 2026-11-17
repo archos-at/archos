@@ -1,13 +1,9 @@
-/** The research workspace: chat shell, panels, and deep-research detail views. */
 export const research = {
   dismissError: 'Dismiss error',
 
-  // Shared empty-state helper shown across the deep-research detail tabs
-  // (Thinking, Thought Traces, Tool Calls, Agents, Files).
   detailsHelp:
     'These details appear during active research and may not be available for completed reports.',
 
-  // Label for a run whose chat has no local title (headless/CLI jobs).
   runsList: {
     untitledRun: 'Deep research run',
   },
@@ -16,27 +12,17 @@ export const research = {
     ariaMessages: 'Chat messages',
     loading: 'Loading conversation',
     scrollToLatest: 'Scroll to latest',
-    // A quiet line above the composer instead of an error card in the thread:
-    // the page reconnects on its own, and the reader has nothing to do.
-    // Offline, a locked phone, or a server out of reach: a running answer is
-    // not lost, it carries on once the connection is back.
     connection: {
       lost: 'Connection lost · {productName} carries on as soon as it is back',
       restored: 'Reconnected',
     },
     status: {
       thinking: 'Thinking …',
-      // Once, politely, when the answer is all on screen.
       answerReady: 'Answer ready',
-      // With the answer's gist: its verdict, or its first sentence.
       answerReadyWith: 'Answer ready: {gist}',
-      // The reader stopped the answer.
       stopped: 'Stopped',
-      // The turn failed; the error card below says how.
       failed: 'Failed',
-      // The turn commissioned a run: its work has only begun.
       handedOff: 'Task created',
-      // Piloti did not take the question on; the banner says why.
       refused: 'Not handled',
     },
     loggedOutTitle: '{productName} opens after your organization is verified.',
@@ -52,7 +38,6 @@ export const research = {
     cannotCreateActive: 'Cannot create a new session while the current session is active',
     newChat: 'New chat',
     toggleSessions: 'Chat history',
-    /** The history door's visible word, beside its glyph at every width (one word with the rail's „Alle Chats“). */
     historyDoor: 'Chats',
     signInToView: 'Sign in to view your chat history',
     sessions: 'Sessions',
@@ -60,10 +45,8 @@ export const research = {
     signInToManage: 'Sign in to manage data sources',
     sources: 'Sources',
     research: 'Research',
-    /** Trigger for the thread menu that holds every non-primary header action. */
     moreActions: 'More actions',
     renameSession: 'Rename chat',
-    /** The persistent "still working" signal while a run is going in the thread. */
     researching: 'Researching',
   },
 
@@ -74,14 +57,6 @@ export const research = {
     retryAria: 'Retry loading data sources',
   },
 
-  /**
-   * Datenbasis — the composer control for WHERE Piloti may look.
-   *
-   * One name for one thing: this object retires the four competing labels the
-   * same surface used to carry. Tense is meaning here — the control speaks only
-   * in the present/permissive ("may search"); what was actually used is the
-   * Herleitung's job to report, never this control's.
-   */
   sourceBasis: {
     label: 'Data basis',
     triggerAria: 'Data basis: {summary}. Opens the picker.',
@@ -101,25 +76,18 @@ export const research = {
     emptyBody:
       'No external sources are enabled for this project right now. {productName} searches your project documents.',
     toggleAria: 'Allow {name}',
-    /** Stratum wordmarks — always shown together with their icon and colour. */
     strata: {
       law: 'Building law',
       office: 'Office filing',
       project: 'Project knowledge',
       auto: 'Web',
     },
-    /** Presets in the picker footer — "All" makes the normal case nameable. */
     presets: {
       all: 'All sources',
       law: 'Building law & guidelines',
       project: 'Project documents',
       office: 'Office filing',
     },
-    /**
-     * The knowledge layer is not a toggleable source — it rides along on every
-     * turn. It is listed here instead of being filtered away and skewing the
-     * count.
-     */
     knowledge: {
       projectName: 'Project knowledge',
       projectDescription: 'Your project documents in this project.',
@@ -167,12 +135,9 @@ export const research = {
     statusIngesting: 'Reading',
     statusAvailable: 'Available',
     statusError: 'Error',
-    // Held back by the content check (ADR-0086); never "released", that word is for a revision.
     statusHeld: 'Held back',
-    // Kept, never read: Piloti cannot answer from it, nothing failed.
     statusStored: 'Filed',
     statusDeleting: 'Deleting...',
-    // As in the upload tray (`uploads.row.canceled`, `uploads.actions.dismiss`).
     statusCanceled: 'Canceled',
     dismiss: 'Dismiss {title}',
     expiryPending: 'Deletion Pending - Reupload',
@@ -208,12 +173,6 @@ export const research = {
   },
 
   inputArea: {
-    /**
-     * Clearing the composer's file subject ends two things at once — the
-     * retrieval focus and the open viewer — so it is the one control in the
-     * file flow that cannot be walked back by pressing it again. The toast
-     * carries the way back.
-     */
     subjectCleared: 'No longer asking about that file.',
     subjectClearedUndo: 'Undo',
     aiDisclosure:
@@ -224,8 +183,6 @@ export const research = {
     pleaseWait: 'Please wait...',
     typeAhead: 'Type your next question …',
     typeAheadHint: 'You can send once the answer is finished.',
-    // While Piloti works on the reader's own question: Enter sends the text
-    // into the running answer as steering, not as a new question.
     steer: 'Steer {productName} …',
     steerHint: 'Enter adds to the running answer; {productName} reads it before its next step.',
     steerChip: 'steering',
@@ -240,7 +197,6 @@ export const research = {
     uploadNotAvailable: 'File upload not available',
     attachFiles: 'Attach files',
     uploadDisabledBusy: 'File upload disabled during active operations',
-    // Said over the chat while a dragged file cannot be attached right now.
     dropRefusedReadOnly: 'You can read this chat but not add files to it.',
     dropRefusedAnswering: '{productName} is answering. Attach files once the answer is complete.',
     dropRefusedQuestion: 'Answer {productName}’s question first, then attach files.',
@@ -273,25 +229,17 @@ export const research = {
 
   sessionsPanel: {
     title: 'Chat history',
-    /** The sheet's close control (grabber pill + desktop X). */
     close: 'Close chat history',
-    /** Shown beside the title so the panel states its own size. */
     countLabel: '{count, plural, one {# chat} other {# chats}}',
     countLabelOne: '1 chat',
-    // Chats persist server-side (Postgres via /api/conversations) for every
-    // chat, unconditionally — this line must never claim they live in the
-    // browser, and must never advise deleting chats to free local space:
-    // deleting a chat deletes the server copy too.
     syncedNote:
       'Chats are saved to your workspace and available on any device. Research reports may expire on the server.',
     deleteAllDisabled: 'Delete all chats in this project (disabled)',
     deleteAll: 'Delete all chats in this project',
     cannotDeleteBusy: 'Cannot delete while operations are in progress',
     deleteAllButton: 'Delete all chats',
-    /** Stop action for a stuck deep-research run (chat row, run row). */
     stopResearch: 'Stop research',
     stopResearchTitle: 'Stop this research run',
-    /** Stopping cancels server-side work that cannot be resumed (shared ConfirmDialog, warning tone). */
     stopConfirmTitle: 'Stop research?',
     stopConfirmBody:
       'The running research will be cancelled and cannot be resumed. Partial progress so far stays visible in the research panel.',
@@ -303,20 +251,17 @@ export const research = {
     searchPlaceholder: 'Search chats',
     searchAria: 'Search chats',
     clearSearch: 'Clear search',
-    /** Live result count under the search field while a query is active. */
     searchResults: '{count} of {total} chats',
     noMatching: 'No matching chats',
     noMatchingDescription: 'Nothing in this project matches “{query}”.',
     noSessions: 'No chats yet',
     noSessionsDescription: 'Your chats with {productName} in this project will be listed here.',
-    /** Explains why every row is dimmed and unclickable mid-answer. */
     navigationBlocked:
       '{productName} is still answering. Starting or switching chats is paused until it finishes.',
     today: 'Today',
     yesterday: 'Yesterday',
     editTitle: 'Edit chat title',
     untitledSession: 'Untitled chat',
-    /** Row menu on touch (no hover): the button's name. */
     rowActions: 'Actions for "{title}"',
     renameDisabled: 'Rename chat (disabled)',
     rename: 'Rename chat',
@@ -328,26 +273,19 @@ export const research = {
     chatSession: 'Chat',
     sessionLabelBusy: 'Chat: {title} (processing in progress)',
     sessionLabel: 'Chat: {title}',
-    /** Same row, plus the state its leading icon depicts. */
     sessionLabelWithStatus: 'Chat: {title} — {status}',
-    /** A temporary chat's row (ADR-0180): the mark's tooltip, and the row's label with it. */
     temporaryMark: 'Temporary chat: nothing from it is kept.',
     sessionLabelTemporary: '{label} (temporary chat, nothing from it is kept)',
-    // FB-10: Deep Research section folded into the sessions panel. The count
-    // rides in a CountPill beside the heading, not in the string.
     deepResearchHeading: 'Deep Research',
     deepResearchChip: 'Deep Research',
     deepResearchRunLabel: 'Open deep research run: {label} — {status}',
-    /** Scope filter over the one list — chats, runs, or both. */
     filterAria: 'Filter history',
     filterAll: 'All',
     filterChats: 'Chats',
     filterResearch: 'Deep Research',
-    /** A failed runs fetch says so — an empty section would misreport it. */
     researchLoadFailed: 'Deep-research runs could not be loaded.',
     noRuns: 'No deep research runs yet',
     noRunsDescription: 'Deep research runs from this project will be listed here.',
-    /** A run's state, in words — the icon alone made "failed" and "ready" look alike. */
     runStatus: {
       running: 'Running',
       completed: 'Report ready',

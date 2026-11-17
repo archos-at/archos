@@ -1,18 +1,3 @@
-"""„Ausmisten" at a project's close: which documents could go (ADR-0092).
-
-The BFF (``lib/projects/cleanup-service.ts``) sends what the index already
-holds about the documents the person closing may read and write: names, folder
-paths, types, tags, the summary ingestion wrote, the editorial state. No
-document content, so nothing reaches the model that ingestion did not already
-send. The model proposes working copies, superseded drafts, duplicates,
-temporary files and never-published drafts; the BFF merges its answer with the
-rule-based candidates, and a person decides about every item.
-
-Fails soft: no credential, an upstream error or an answer that does not parse
-returns an empty proposal with ``error`` set, and the BFF falls back to its
-rules. An id the model invents is dropped.
-"""
-
 import asyncio
 import json
 import logging
@@ -51,7 +36,6 @@ SYSTEM_PROMPT = (
 
 
 def _document_line(document: CleanupDocumentFacts) -> dict[str, object]:
-    """One document as the model sees it: only the keys that carry something."""
     fields: dict[str, object] = {
         "id": document.id,
         "file": document.filename,
@@ -67,11 +51,6 @@ def _document_line(document: CleanupDocumentFacts) -> dict[str, object]:
 
 
 def parse_candidates(content: str, known_ids: set[str]) -> list[CleanupCandidate] | None:
-    """The model's candidates, or None when the answer is not the JSON asked for.
-
-    Tolerates a fenced block; drops an id the input did not name, a duplicate id,
-    and an empty reason, and maps an unknown category to ``other``.
-    """
     text = content.strip()
     if text.startswith("```"):
         text = text.strip("`")
@@ -104,7 +83,6 @@ def parse_candidates(content: str, known_ids: set[str]) -> list[CleanupCandidate
 
 
 def add_cleanup_proposal_routes(router: APIRouter) -> None:
-    """Register the cleanup-proposal endpoint."""
 
     @router.post(
         "/v1/cleanup-proposal",
@@ -143,7 +121,6 @@ def add_cleanup_proposal_routes(router: APIRouter) -> None:
         headers = {"Content-Type": "application/json", "Authorization": f"Bearer {cred.api_key}"}
 
         try:
-            # A person waits on the close dialog, so the call queues as interactive (ADR-0081).
             async with (
                 observed_generation(
                     "cleanup-proposal", model=cred.model, messages=payload.get("messages")

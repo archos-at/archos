@@ -1,13 +1,3 @@
-"""Collection metadata keys lost their ``aiq:`` prefix (ADR-0145 row 10d); for one release both are written.
-
-A collection made before the rename holds its embedder's identity, its BM25
-length and the import marker only under ``aiq:``. Reading it as foreign would
-refuse every write and query, so the old key is read where the new one is
-missing; every write carries both, so a process of the previous release still
-finds its own; and the copy to the bare names runs on its own, the first time a
-process makes sure of the collection.
-"""
-
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -19,8 +9,6 @@ LEGACY = {"aiq:embed_fingerprint": "fp", "aiq:embed_model": "model", "aiq:bm25_l
 
 
 class FakeClient:
-    """The two calls the adoption makes, with Qdrant's merge of the metadata."""
-
     def __init__(self, metadata):
         self.metadata = dict(metadata)
         self.updates = []

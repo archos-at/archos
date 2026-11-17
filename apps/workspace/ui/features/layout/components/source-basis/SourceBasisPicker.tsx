@@ -1,30 +1,3 @@
-/**
- * SourceBasisPicker — the body of the Datenbasis popover.
- *
- * Replaces `SourcesPopoverContent`, which nested cards three deep
- * (`bg-popover` → `rounded-xl bg-card` toggle-all → N × `rounded-2xl bg-card`
- * rows), hid the knowledge layer entirely, and put its only honest sentence in
- * a footnote under the fold.
- *
- * What changed, and why:
- *
- * - **The honest sentence is first.** A `Field` + `FieldDescription` at the top
- *   says what this control does *and* what it does not do: it sets where Piloti
- *   may look; what it actually used is the Herleitung's job to report.
- * - **"Immer dabei" is a real section.** The knowledge layer rides on every turn
- *   whether or not it is drawn, so it is drawn — non-interactive, with a Chip
- *   where the Switch would be. It used to be invisible, which is precisely how
- *   the trigger's count came to be wrong.
- * - **One list, not a stack of cards.** `ItemList` + `Item`, hairline divided.
- * - **The scroll region fades.** `scroll-fade-bottom` on the scroll container so
- *   a half-clipped row reads as "more below" rather than as broken chrome.
- * - **The presets are permanent and live outside the fade.** They used to render
- *   only on an empty thread — the informative, colour-coded control was
- *   onboarding-only while the naked integer lasted forever. Backwards. "Alle
- *   Quellen" is one of the options, so the default all-on state is a named
- *   choice rather than an accident.
- */
-
 'use client'
 
 import { type FC, useCallback, useMemo } from 'react'
@@ -50,9 +23,7 @@ import { iconForTint } from '../SourceSignalChip'
 import { SourceBasisRow } from './SourceBasisRow'
 import { buildSourceBasis, hasNoExternalSources, summariseBasis } from './source-basis-model'
 
-/** Preset order in the footer, authority-descending after the "everything" option. */
 const PRESETS: readonly SourcePresetId[] = ['law', 'office', 'project']
-/** Sentinel value for the "Alle Quellen" option — not a preset id in the store. */
 const ALL = 'all'
 
 export const SourceBasisPicker: FC = () => {
@@ -106,15 +77,8 @@ export const SourceBasisPicker: FC = () => {
     [toggleDataSource, enabledDataSourceIds, saveDataSourcesToConversation]
   )
 
-  /**
-   * A preset click is one write: which preset is named AND which ids it stands
-   * for. "Alle Quellen" is the null preset with every id — the same state a
-   * fresh fetch produces, now reachable by name.
-   */
   const handlePreset = useCallback(
     (value: string) => {
-      // Radix hands back '' when the pressed item is deselected. Re-pressing the
-      // active preset is not "select nothing" — it is "go back to everything".
       const sources = availableDataSources ?? []
       const allIds = sources.map((s) => s.id)
       if (!value || value === ALL) {
@@ -164,7 +128,7 @@ export const SourceBasisPicker: FC = () => {
               <span className="block">{t('dataSources.unableToLoad')}</span>
               <span className="block text-xs">{dataSourcesError}</span>
               <Button
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 onClick={() => fetchDataSources()}
                 aria-label={t('dataSources.retryAria')}

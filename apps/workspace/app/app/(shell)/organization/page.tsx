@@ -1,24 +1,9 @@
-/**
- * Organization → overview. Who this organization is (WorkOS truth) and the
- * app-side settings that shape how it behaves for everyone in it.
- *
- * The chrome, the back link and the section nav live in the shared `layout.tsx`;
- * this page only names its section and renders it. The organization tier used to
- * be one page stacking seven unrelated admin domains in a single scrolling
- * column — each is now its own route, and this one keeps the identity of the org
- * itself.
- *
- * Both reads are best-effort on purpose: a WorkOS outage or a database hiccup
- * must degrade one card into a dash or a "could not load" note, never take down
- * the section. Everything here is admin-only; a plain member sees no identifier
- * at all, only a pointer at who can change the rest, rather than a blank page.
- */
-
 import { chatEffortFromSettings } from '@/lib/reasoning-settings/catalog'
 import type { JSX } from 'react'
 import { Building2, FileDown, GraduationCap, Globe, Library, Mail, MessageSquareText, ShieldAlert, Users } from 'lucide-react'
 import { withPageSession } from '@/lib/auth/require-auth'
 import { isOrgAdmin } from '@/lib/authz/organizations'
+import { isOfficeStandardsEnabled } from '@/lib/authz/feature-flags'
 import {
   getOrganizationOverview,
   getOrgSettings,
@@ -27,7 +12,8 @@ import {
 import { getOrgInstructions } from '@/lib/org-instructions/service'
 import { retentionDaysFromSettings } from '@/lib/download-log/kinds'
 import { OfficeConventionsCard } from '@/features/organization/components/office-conventions-card'
-import { BaseKnowledgeCard } from '@/features/organization/components/base-knowledge-card'
+import Link from 'next/link'
+import { Button } from '@/components/ui/button'
 import { DownloadLogRetentionForm } from '@/features/organization/components/download-log-retention-form'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -46,9 +32,6 @@ export default async function OrganizationOverviewPage(): Promise<JSX.Element> {
 
     const admin = isOrgAdmin(session)
 
-    // Non-admins see no identifier: the raw organization id is an internal
-    // handle, not a display name, so it stays out of the member view. No
-    // org-scoped read happens for them either, so nothing new is exposed.
     if (!admin) {
       return (
         <div className="flex flex-col gap-6">
@@ -70,15 +53,12 @@ export default async function OrganizationOverviewPage(): Promise<JSX.Element> {
       )
     }
 
-    // Live overview is best-effort — never block the section on a WorkOS hiccup.
     let overview: OrganizationOverview | null = null
     try {
       overview = await getOrganizationOverview(session.organizationId)
     } catch {
       overview = null
     }
-    // app-side settings are best-effort too — a database hiccup must degrade this
-    // one card (a "could not load" note) rather than crash the whole section.
     let settings: Awaited<ReturnType<typeof getOrgSettings>> | null = null
     let settingsError = false
     try {
@@ -86,8 +66,6 @@ export default async function OrganizationOverviewPage(): Promise<JSX.Element> {
     } catch {
       settingsError = true
     }
-    // Same posture for the instruction block, and a SEPARATE read: it is a
-    // different row, and a failure on one card must not take the other down.
     let instructions: Awaited<ReturnType<typeof getOrgInstructions>> | null = null
     let instructionsError = false
     try {
@@ -250,18 +228,25 @@ export default async function OrganizationOverviewPage(): Promise<JSX.Element> {
             <OfficeConventionsCard />
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Library className="size-4 text-muted-foreground" aria-hidden />
-              {t('baseKnowledge.title')}
-            </CardTitle>
-            <CardDescription>{t('baseKnowledge.description')}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <BaseKnowledgeCard />
-          </CardContent>
-        </Card>
+        {/* Only for an office with its own standards (`office-standards`). */}
+        {isOfficeStandardsEnabled(session) && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Library className="size-4 text-muted-foreground" aria-hidden />
+                {t('baseKnowledge.title')}
+              </CardTitle>
+              <CardDescription>{t('baseKnowledge.description')}</CardDescription>
+            </CardHeader>
+            {/* The standards have a place of their own now, beside the Büroablage;
+                a settings card was where nobody looked for documents. */}
+            <CardContent>
+              <Button asChild variant="secondary" size="sm">
+                <Link href="/app/base-knowledge">{t('baseKnowledge.open')}</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        )}
       </div>
     )
   })

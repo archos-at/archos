@@ -1,44 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the citation viewer: what a clicked citation opens onto.
- *
- * Renders the REAL components against a real PDF — built byte by byte in the
- * browser below, so the route needs no backend, no corpus file and no network.
- * That matters more here than on other previews: everything on this surface is
- * computed from pdf.js's text layer, so a fixture that faked the document would
- * fake the very thing being shown.
- *
- * Four variants, because the surface has four claims to make and no single
- * frame carries them:
- *
- *   (default)  the arrival pulse and the resting mark, side by side. The pulse
- *              is frozen mid-swell with a negative animation delay, so the
- *              screenshot is deterministic instead of catching whatever frame
- *              the harness happened to reach.
- *   `text`     the text layer, made visible. It ships transparent — its job is
- *              that a drag selects the sentence — so the only way to SEE
- *              whether it lines up with the glyphs it sits over is to paint it.
- *   `citation` the whole dialog: header, Fundstellen rail, document, mark.
- *   `single`   the same dialog for a document read at ONE page, which is a
- *              rail too. It used to be a differently shaped dialog.
- *   `plan`     a plan sheet cited for two depictions of a Sitztreppe: the
- *              dialog marks the Grundriss and the Schnitt by their boxes
- *              rather than searching the sheet for text (issue #433).
- *   `states`   the viewer's own states: search with hits and the page rail,
- *              the chat peek's width, a document that cannot be opened, and
- *              an encrypted one asking for its password.
- *   `enlarged` the plain enlarged viewer the knowledge pages and the Files
- *              preview's expand button open.
- *   `quote`    the dialog with a passage the READER selected, and the offer
- *              that turns it into a citation. Driven by selecting a range and
- *              releasing the pointer — the same path a drag takes — because a
- *              screenshot of a resting page cannot show an affordance that
- *              only exists while something is selected.
- *
- * Not linked from anywhere and 404s outside development.
- */
-
 import { useEffect, useState, type FC } from 'react'
 import { notFound, useSearchParams } from 'next/navigation'
 import { PdfDocumentView } from '@/features/knowledge/components/pdf-document-view'
@@ -105,12 +66,6 @@ const PAGES: readonly (readonly PdfLine[])[] = [
   ],
 ]
 
-/**
- * The passage the citation points at — deliberately quoted the way a retriever
- * would hand it over rather than the way the page prints it: the line break
- * between "Nutzungs-" and "einheit" is gone, and so is the one inside the
- * sentence. Recovering it anyway is the whole job of `passage-highlight.ts`.
- */
 const CITED_PASSAGE =
   'Die beiden voneinander unabhängigen Fluchtwege je Nutzungseinheit sind während der gesamten Bauführung freizuhalten.'
 
@@ -119,12 +74,6 @@ const PLAN_TITLE = 'Einreichplan Erdgeschoss'
 const PLAN_WIDTH = 842
 const PLAN_HEIGHT = 595
 
-/**
- * One A3-landscape sheet, drawn with real vector paths: a Grundriss with a
- * Sitztreppe on the left, a Schnitt through it on the right, a title block.
- * Its geometry is in PDF points, bottom-left origin; {@link PLAN_REGIONS} are
- * the same boxes normalised top-left, as the backend states them.
- */
 const planContent = (): string => {
   const ops: string[] = ['0 0 0 RG']
   const rect = (x: number, y: number, w: number, h: number, width = 0.8) =>
@@ -134,7 +83,6 @@ const planContent = (): string => {
   const text = (x: number, y: number, size: number, value: string, bold = false) =>
     ops.push(`BT /${bold ? 'F2' : 'F1'} ${size} Tf 1 0 0 1 ${x} ${y} Tm (${pdfString(value)}) Tj ET`)
 
-  // Grundriss EG: outer walls, two rooms, the Sitztreppe as eleven risers.
   rect(60, 90, 380, 400, 2.4)
   line(60, 300, 250, 300, 1.2)
   line(250, 90, 250, 300, 1.2)
@@ -147,7 +95,6 @@ const planContent = (): string => {
   text(285, 466, 9, 'Sitztreppe')
   text(60, 505, 12, 'Grundriss EG  1:100', true)
 
-  // Schnitt A-A: the same stair, stepped, in section.
   line(500, 260, 800, 260, 1.6)
   line(500, 430, 800, 430, 1.6)
   for (let step = 0; step < 8; step += 1) {
@@ -158,7 +105,6 @@ const planContent = (): string => {
   }
   text(500, 445, 12, 'Schnitt A-A  1:100', true)
 
-  // Title block.
   rect(600, 40, 220, 70, 0.8)
   text(612, 88, 10, 'Zubau Volksschule Nord', true)
   text(612, 70, 9, 'Einreichplan  Plan-Nr. EP-02')
@@ -180,7 +126,6 @@ const buildPlanPdf = (): Uint8Array<ArrayBuffer> => {
   return assemblePdf(objects)
 }
 
-/** A box in PDF points (bottom-left origin) as the backend states it: 0-1, top-left. */
 const planBox = (x0: number, y0: number, x1: number, y1: number): [number, number, number, number] => [
   +(x0 / PLAN_WIDTH).toFixed(4),
   +(1 - y1 / PLAN_HEIGHT).toFixed(4),
@@ -188,10 +133,6 @@ const planBox = (x0: number, y0: number, x1: number, y1: number): [number, numbe
   +(1 - y0 / PLAN_HEIGHT).toFixed(4),
 ]
 
-/**
- * The two depictions the vision model boxed on the sheet, with a little of the
- * approximation a real box has: each one takes in its own heading.
- */
 const PLAN_REGIONS = [
   { box: planBox(48, 80, 452, 522), label: 'Grundriss EG' },
   { box: planBox(490, 250, 810, 462), label: 'Schnitt A-A' },
@@ -222,7 +163,6 @@ const PLAN_SOURCES: CitationSource[] = [
   },
 ]
 
-/** One wire source — one LOCUS of the document, the shape the backend sends. */
 const locus = (page: number, snippet: string, number?: number): CitationSource => ({
   id: `bescheid-${page}`,
   content: `[KB] ${FILE_NAME}, p.${page}\n${snippet}`,
@@ -242,11 +182,6 @@ const locus = (page: number, snippet: string, number?: number): CitationSource =
   timestamp: new Date('2026-07-28T14:30:00'),
 })
 
-/**
- * A document the turn read at three pages, and one it read at a single page.
- * The third locus carries no `[N]`: retrieval surfaced it and the answer passed
- * over it, which the rail says rather than hides.
- */
 const READ_AT_THREE = [
   locus(1, CITED_PASSAGE, 1),
   locus(2, 'Die Rauchableitung des Stiegenhauses wurde durch den Brandschutzsachverständigen geprüft und für ausreichend befunden.', 2),
@@ -255,16 +190,6 @@ const READ_AT_THREE = [
 
 const READ_AT_ONE = [locus(1, CITED_PASSAGE, 1)]
 
-/**
- * Select a sentence on the open page, the way a reader's drag would.
- *
- * The harness captures a page at rest, and the quote offer exists only while a
- * selection does — so without this the one affordance the text layer was built
- * for would appear in no committed screenshot. It waits for the run to be in the
- * DOM rather than sleeping: how long pdf.js takes to lay out a page depends on
- * whether this route was compiled already, and a fixed delay silently captures
- * the wrong frame when it loses that race.
- */
 const SelectOnLoad: FC<{ contains: string }> = ({ contains }) => {
   useEffect(() => {
     let attempts = 0
@@ -293,12 +218,6 @@ const SelectOnLoad: FC<{ contains: string }> = ({ contains }) => {
   return null
 }
 
-/**
- * Open the in-document search and type `query` into it, the way a reader
- * would: Cmd+F on the document, then the word. Retries until the document
- * has pages, for the same reason `SelectOnLoad` does. Scoped to the element
- * marked `data-search-on-load`, so the other panes on the page stay as they are.
- */
 const SearchOnLoad: FC<{ query: string }> = ({ query }) => {
   useEffect(() => {
     let attempts = 0
@@ -326,7 +245,6 @@ const SearchOnLoad: FC<{ query: string }> = ({ query }) => {
   return null
 }
 
-/** Serve fixture bytes as a blob URL for the life of the component. */
 const useBlobUrl = (build: () => Uint8Array<ArrayBuffer>): string | null => {
   const [url, setUrl] = useState<string | null>(null)
   useEffect(() => {
@@ -339,13 +257,6 @@ const useBlobUrl = (build: () => Uint8Array<ArrayBuffer>): string | null => {
 
 const buildPermitDecision = (): Uint8Array<ArrayBuffer> => buildPdf(PAGES)
 
-/**
- * `?variant=states`: the viewer's own states side by side, each in the frame a
- * real host gives it. Search running over the Bescheid in a wide stage (page
- * rail showing); the same document at the chat peek's width, where the rail
- * and the page arrows give way; a document pdf.js cannot open; and an
- * encrypted one asking for its password (`piloti`).
- */
 const StatesPreview = () => {
   const permitDecision = useBlobUrl(buildPermitDecision)
   const locked = useBlobUrl(encryptedPdf)
@@ -375,11 +286,6 @@ const StatesPreview = () => {
   )
 }
 
-/**
- * `?variant=enlarged`: the plain enlarged viewer, as the knowledge pages and
- * the Files preview's expand button open it — no citation, no rail of
- * Fundstellen, the document and its controls.
- */
 const EnlargedPreview = () => {
   const permitDecision = useBlobUrl(buildPermitDecision)
   return permitDecision ? (
@@ -387,7 +293,6 @@ const EnlargedPreview = () => {
   ) : null
 }
 
-/** The real dialog, mounted open, over the fixture document. */
 const DialogPreview = ({
   sources,
   src,
@@ -397,7 +302,6 @@ const DialogPreview = ({
   sources: CitationSource[]
   src: string
   fileName?: string
-  /** A project upload resolves through its `documents` row, not the base corpus. */
   storedDocuments?: StoredDocumentRef[]
 }) => {
   const [document] = buildCitationModel({ citations: sources })
@@ -422,7 +326,6 @@ const DialogPreview = ({
   )
 }
 
-/** The plan sheet, served the way the other variants serve theirs. */
 const PlanPreview = () => {
   const [src, setSrc] = useState<string | null>(null)
   useEffect(() => {

@@ -3,16 +3,6 @@ import * as React from 'react'
 
 import { cn } from '@/lib/utils'
 
-/**
- * The five feedback tones as INK, for marks that are filled rather than tinted.
- * A chip carries a tone as a tint pair (`chip.tsx`); a swatch and a meter
- * segment are solid, so they read the tone's text colour and fill with it
- * (`bg-current`). One table, so a retune of a feedback token moves both.
- */
-/**
- * `ink` and `inkSoft` are the normal case's tones: what is done and what is
- * under way, in ink. Colour is for what departs from it (`warning`, `destructive`).
- */
 export type MeterTone = 'success' | 'info' | 'warning' | 'destructive' | 'muted' | 'ink' | 'inkSoft'
 
 export const TONE_INK: Record<MeterTone, string> = {
@@ -21,17 +11,10 @@ export const TONE_INK: Record<MeterTone, string> = {
   warning: 'text-warning',
   destructive: 'text-error',
   muted: 'text-muted-foreground/45',
-  // Opaque, both: the meter stacks full-width segments, and a translucent one shows the colour under it.
   ink: 'text-muted-foreground',
   inkSoft: 'text-[color-mix(in_oklab,var(--muted-foreground)_40%,var(--muted))]',
 }
 
-/**
- * The status mark of the design language: a 10px square in the tone's ink,
- * always beside a word. Colour alone never carries the meaning, so this has no
- * label of its own and is hidden from assistive technology — the word beside
- * it is what is read.
- */
 export function ToneSwatch({ tone, className }: { tone: MeterTone; className?: string }): JSX.Element {
   return (
     <span
@@ -50,26 +33,11 @@ export interface MeterSegment {
 
 export interface SegmentMeterProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'role'> {
   segments: readonly MeterSegment[]
-  /**
-   * What the bar says, in words — required, because a row of coloured lengths
-   * is not something a screen reader can describe. Typically the same sentence
-   * the surface prints beside it.
-   */
   label: string
 }
 
-/**
- * The narrowest a drawn segment may be, as a share of the track: a state with
- * one file in a thousand still shows as a sliver rather than vanishing (3% is
- * about 4px on the folder brief's track).
- */
 const MIN_SHARE = 0.03
 
-/**
- * Where each drawn segment ENDS along the track, as a share of it: cumulative,
- * with every segment held to at least `MIN_SHARE` and the last one ending at
- * exactly 1, so rounding can never leave a gap at the end or push past it.
- */
 export function segmentEnds(values: readonly number[]): number[] {
   const total = values.reduce((sum, value) => sum + value, 0)
   if (total <= 0 || values.length === 0) return []
@@ -82,19 +50,6 @@ export function segmentEnds(values: readonly number[]): number[] {
   })
 }
 
-/**
- * A single bar split into proportional segments: how a whole divides into
- * states (read / being read / failed). Zero-valued segments are not drawn; an
- * all-zero meter is an empty track, never a full one.
- *
- * Every segment is a full-width layer scaled from the left edge to where it
- * ends (`scaleX`), drawn first-on-top, so each one shows only between its
- * neighbour's end and its own. A change of counts is therefore a TRANSFORM
- * transition, which the compositor runs; it was a `flex-grow` transition,
- * which re-ran layout every frame. The hairline between two segments rides on
- * its own layer, translated to the boundary (a scaled element would scale its
- * hairline too).
- */
 export function SegmentMeter({ segments, label, className, ...props }: SegmentMeterProps): JSX.Element {
   const drawn = segments.filter((segment) => segment.value > 0)
   const ends = segmentEnds(drawn.map((segment) => segment.value))

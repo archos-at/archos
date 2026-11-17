@@ -1,9 +1,3 @@
-"""The upload screen's rules: terms, the three detectors, and the reason it writes.
-
-Pure functions, no job. The job half (that a match stops the file before any
-model call) is ``test_upload_screening_ingestion.py``.
-"""
-
 from __future__ import annotations
 
 import json
@@ -37,11 +31,6 @@ def _kinds(text: str, rules: ScreeningRules) -> list[str]:
 def _payload(error: str) -> dict:
     assert error.startswith(QUARANTINED_PREFIX)
     return json.loads(error[len(QUARANTINED_PREFIX) :])
-
-
-# =============================================================================
-# Rules from the job config
-# =============================================================================
 
 
 class TestFromConfig:
@@ -79,7 +68,6 @@ class TestFromConfig:
             }
         )
         assert rules is not None
-        # One folded form, one term: the first spelling stands.
         assert rules.terms == ("Gehaltsübersicht", "Honorar")
         assert rules.detectors == ("iban", "credit_card")
 
@@ -91,11 +79,6 @@ class TestFromConfig:
     def test_at_most_two_hundred_terms(self):
         rules = ScreeningRules.from_config({"content_terms": [f"Begriff{n:03d}" for n in range(250)]})
         assert rules is not None and len(rules.terms) == screening.MAX_TERMS
-
-
-# =============================================================================
-# Terms
-# =============================================================================
 
 
 class TestTerms:
@@ -164,7 +147,6 @@ class TestTerms:
         verdict = screen_pages(pages, rules)
 
         gehalt, lohn = verdict.reasons
-        # Every page, not the first ten: each is a place a reviewer opens the document at.
         assert (gehalt.term, gehalt.count, gehalt.pages) == ("Gehalt", 26, list(range(1, 14)))
         assert gehalt.pages_truncated is False
         assert (lohn.term, lohn.count, lohn.pages) == ("Lohn", 1, [])
@@ -173,11 +155,6 @@ class TestTerms:
     def test_clean_text_is_no_match(self):
         verdict = screen_pages([(1, "Brandschutzkonzept, Fluchtweglänge 40 m.")], _rules(["Gehalt"], ["iban"]))
         assert not verdict.matched and verdict.reasons == []
-
-
-# =============================================================================
-# Detectors
-# =============================================================================
 
 
 class TestIban:
@@ -342,11 +319,6 @@ def test_a_detector_not_switched_on_is_not_run():
     assert _kinds(f"{_IBAN_AT} 1237 010180", _rules(["Gehalt"])) == []
 
 
-# =============================================================================
-# The reason a quarantined file carries
-# =============================================================================
-
-
 class TestQuarantineError:
     def test_the_shape_is_the_contract(self):
         rules = _rules(["Gehaltsabrechnung"], ["iban", "at_svnr", "credit_card"])
@@ -395,7 +367,6 @@ class TestQuarantineError:
         assert len(_payload(quarantine_error(verdict))["reasons"]) == 10
 
     def test_it_fits_two_thousand_characters_and_stays_json(self):
-        # Longer than any term the rules let through: the cap must hold anyway.
         long_terms = [f"{n:02d}" + "ä" * 298 for n in range(10)]
         verdict = ScreeningVerdict(
             reasons=[Reason(kind="term", term=term, count=999, pages=list(range(1, 11))) for term in long_terms]
@@ -410,8 +381,6 @@ class TestQuarantineError:
         assert payload["checked"] == "full"
 
     def test_pages_are_cut_from_the_widest_reason_first_and_every_reason_stays(self):
-        # Ten reasons on fifty pages each cannot all fit: pages give way before
-        # any reason does, the widest first, and each cut reason says so.
         terms = [f"Begriff{n:02d}" + "x" * 30 for n in range(9)]
         reasons = [Reason(kind="term", term=term, count=50, pages=list(range(1, 51))) for term in terms]
         reasons.append(Reason(kind="iban", count=1, pages=[7], sample="AT61 •••• •••• •••• 3201"))
@@ -426,10 +395,8 @@ class TestQuarantineError:
             assert reason["pages_truncated"] is True
             assert reason["pages"] == list(range(1, len(reason["pages"]) + 1))
             assert len(reason["pages"]) >= 1
-        # The narrow reason was never the widest, so it keeps its page and no mark.
         assert payload["reasons"][9]["pages"] == [7]
         assert "pages_truncated" not in payload["reasons"][9]
-        # Cut evenly: no reason lists more than one page beyond another.
         widths = [len(reason["pages"]) for reason in payload["reasons"][:9]]
         assert max(widths) - min(widths) <= 1
 
@@ -474,11 +441,6 @@ class TestDocumentPages:
         assert pages == [(3, "a"), (4, "b"), (None, "c"), (None, "d")]
 
 
-# =============================================================================
-# A match split across a page break
-# =============================================================================
-
-
 def _paged(*bodies: str, footer: str = "Seite {n} von {total}") -> list[tuple[int, str]]:
     total = len(bodies)
     return [(n, f"Projekt Wohnbau Nord\n{body}\n{footer.format(n=n, total=total)}") for n, body in enumerate(bodies, 1)]
@@ -502,8 +464,6 @@ class TestAcrossPages:
         assert (reason.count, reason.pages) == (1, [1])
 
     def test_two_pages_join_without_furniture_to_go_by(self):
-        # Fewer than three pages give no repetition, so nothing is taken for
-        # furniture; a plain split across the break is still read whole.
         stream = [(1, "Konto DE89 3704 0044"), (2, "0532 0130 00")]
         [reason] = screen_pages(stream, _rules(detectors=["iban"]), stream=stream).reasons
         assert reason.pages == [1, 2]

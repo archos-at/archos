@@ -17,7 +17,6 @@ import {
   type FinishedIngest,
 } from './ingest-events'
 
-/** The properties of the nth captured event (0-based). */
 const propertiesOf = (n: number): Record<string, unknown> =>
   (captureServer.mock.calls[n] as unknown as [{ properties: Record<string, unknown> }])[0].properties
 
@@ -145,7 +144,6 @@ describe('announceIngestsFinished', () => {
       pages_not_read: 1,
       pages_over_render_cap: 0,
       rasters_over_cap: 2,
-      // A failed file has no listing; its page count comes from the job's coverage.
       page_count: 1,
     })
     expect(propertiesOf(0)).not.toHaveProperty('ocr_s')

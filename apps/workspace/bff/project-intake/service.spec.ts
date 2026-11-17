@@ -1,28 +1,11 @@
 /**
  * @vitest-environment node
  */
-/**
- * The project intake service (ADR-0111), with every seam it reaches through
- * mocked: the intake repository, the profile's one door
- * (`patchProjectProfile`), the readable files, the masking policy, the
- * submission, the inbox and the score. `computeNeeds` and the building class
- * rule are mocked too: what is under test is what the service does with their
- * answers, not the answers.
- *
- * Pinned here: what a recorded value becomes (each refusal, a new suggestion
- * with its quote masked, a corroboration, a contradiction on a confirmed fact,
- * the derived class and never over a confirmed one); a stale job is refused; a
- * lost optimistic lock is planned again, three times at most; what each
- * decision writes and which are scored; a reading starts single-flight and a
- * failed submission fails it; finishing records what was read by content and
- * starts a queued rerun; finishing the review closes a past project.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
 vi.mock('@/lib/project-intake/setup-records', async () => ({
-  // The records an operator publishes for Austria, as `readSetupRecords` hands them over (the database read is its own spec).
   readSetupRecords: async () => (await import('@/lib/project-intake/at-setup.fixtures')).AT_SETUP_RECORDS,
 }))
 vi.mock('@/lib/authz/projects', () => ({ requireProjectAccess: vi.fn() }))
@@ -42,7 +25,6 @@ vi.mock('./repository', () => ({
 }))
 vi.mock('@/lib/projects/repository', () => ({ findProjectInOrg: vi.fn(), findProjectProfileInOrg: vi.fn() }))
 vi.mock('@/lib/projects/service', () => ({ setProjectStatus: vi.fn() }))
-// The project's knowledge context: Austria's records name law here unless a case says otherwise.
 const { contextForPage } = vi.hoisted(() => ({ contextForPage: vi.fn() }))
 vi.mock('@/lib/base-knowledge/context/service', () => ({ contextForPage }))
 const contextWith = (state: 'core' | 'not_entitled') => ({
@@ -204,7 +186,6 @@ function useProfile(next: ProjectProfile) {
   )
 }
 
-/** The operations of the n-th profile write. */
 const written = (call = 0): ProjectProfilePatchOperation[] => vi.mocked(patchProjectProfile).mock.calls[call][2]
 const op = (path: string, call = 0) => written(call).find((operation) => operation.path === path)
 
@@ -232,8 +213,6 @@ beforeEach(() => {
   vi.mocked(patchProjectProfile).mockResolvedValue({} as Partial<PatchedProjectProfile> as PatchedProjectProfile)
   useProfile(emptyProfile())
 })
-
-// ---------------------------------------------------------------------------
 
 describe('recordIntakeValues — what a value becomes', () => {
   it('refuses a job that is not the current reading, 409 stale-reading, before reading anything else', async () => {
@@ -286,7 +265,6 @@ describe('recordIntakeValues — what a value becomes', () => {
   })
 
   it('takes a value whose question is not asked yet: the Wohnungen before the Nutzungen that open them, in any order', async () => {
-    // computeNeeds (mocked) lists neither: no answer opens their questions yet.
     const { results } = await recordIntakeValues(SESSION, PROJECT, JOB, [
       value('dwelling_units@bldg1@residential', 12),
       value('uses@bldg1', ['residential']),
@@ -420,7 +398,6 @@ describe('recordIntakeValues — what a value becomes', () => {
     expect(op('/assumptions/building_class@bldg1')).toBeUndefined()
   })
 
-  // Defect 5 (design 2.2): the OIB building class was derived for a project in any country.
   it.each([['placed outside Austria', 'de'], ['nothing places', null]])(
     'derives no building class for a project %s',
     async (_label, country) => {
@@ -505,7 +482,6 @@ describe('recordIntakeValues — what a value becomes', () => {
 
     expect(results).toEqual([{ key: 'building_type@bldg1', outcome: 'suggested' }])
     expect(patchProjectProfile).toHaveBeenCalledTimes(2)
-    // The profile was read again for the second plan (once per attempt; the screen does not read it).
     expect(findProjectProfileInOrg).toHaveBeenCalledTimes(2)
   })
 
@@ -518,8 +494,6 @@ describe('recordIntakeValues — what a value becomes', () => {
     expect(patchProjectProfile).toHaveBeenCalledTimes(MAX_WRITE_ATTEMPTS)
   })
 })
-
-// ---------------------------------------------------------------------------
 
 describe('withdrawIntakeValues — a reading takes back its own suggestion', () => {
   const suggested = (readingId?: string) => ({
@@ -598,7 +572,6 @@ describe('withdrawIntakeValues — a reading takes back its own suggestion', () 
     await withdrawIntakeValues(SESSION, PROJECT, JOB, ['building_type@bldg1'])
     expect(addIntakeDismissed).not.toHaveBeenCalled()
 
-    // The next reading, on the profile the withdrawal left; a person dismissed another value meanwhile.
     useProfile(emptyProfile())
     vi.mocked(findProjectIntake).mockResolvedValue(
       intake({ jobId: 'intake-job-2', dismissed: [{ key: 'building_position@bldg1', value: 'attached' }] })
@@ -648,8 +621,6 @@ describe('intakeNeeds', () => {
     expect((await intakeNeeds(SESSION, PROJECT, JOB)).unreadFiles).toEqual(['Einreichplan.pdf', 'Baubeschreibung.pdf'])
   })
 })
-
-// ---------------------------------------------------------------------------
 
 describe('reportIntakeProgress — the files a running reading has opened', () => {
   it('stores the names once each, trimmed, for the current reading only', async () => {
@@ -726,8 +697,6 @@ describe('finishIntakeReading', () => {
     )
   })
 })
-
-// ---------------------------------------------------------------------------
 
 describe('startIntakeRun', () => {
   it('claims the reading under a minted job id first, then submits it as the reader', async () => {
@@ -819,8 +788,6 @@ describe('runIntakeReadSlice — the upload trigger as a BFF job', () => {
     expect(submitIntakeRun).not.toHaveBeenCalled()
   })
 })
-
-// ---------------------------------------------------------------------------
 
 describe('applyIntakeDecisions', () => {
   const suggested = (value: string | number, extra = {}) => ({
@@ -917,8 +884,6 @@ describe('applyIntakeDecisions', () => {
   })
 })
 
-// ---------------------------------------------------------------------------
-
 describe('completeIntake', () => {
   beforeEach(() => {
     vi.mocked(completeProjectIntake).mockResolvedValue(
@@ -959,8 +924,6 @@ describe('completeIntake', () => {
     expect(completeProjectIntake).not.toHaveBeenCalled()
   })
 })
-
-// ---------------------------------------------------------------------------
 
 describe('getIntakeView', () => {
   it('fails a reading the worker never reported back on, once it is older than 30 minutes', async () => {
@@ -1014,8 +977,6 @@ describe('getIntakeView', () => {
     await expect(getIntakeView(SESSION, PROJECT)).rejects.toBeInstanceOf(NotFoundError)
   })
 })
-
-// ---------------------------------------------------------------------------
 
 describe('settleIntakeOutcome', () => {
   it('fails a reading whose job failed, and queues a rerun asked for meanwhile', async () => {

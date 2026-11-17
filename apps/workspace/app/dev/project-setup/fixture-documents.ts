@@ -1,11 +1,3 @@
-/**
- * The project's documents for the preview, so a document chip can be clicked
- * and the viewer opens at its page with the quote marked, as it does in the
- * app. The page has no API behind it, so the three routes the chip's path
- * calls (`by-name`, `preview`, `file`) are answered here, from the quotes the
- * fixtures cite; everything else goes to the real `fetch`.
- */
-
 import type { IntakeView, ProfileEvidence } from '@/lib/project-intake/types'
 import { buildPdf, type PdfLine } from '../_fixtures/sample-pdf'
 
@@ -13,7 +5,6 @@ type DocumentEvidence = Extract<ProfileEvidence, { kind: 'document' }>
 
 const idOf = (fileName: string): string => `dev-${fileName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`
 
-/** A quote as printed lines of about sixty characters. */
 function wrap(text: string): PdfLine[] {
   const lines: PdfLine[] = []
   let line = ''
@@ -38,7 +29,6 @@ function documentEvidenceOf(view: IntakeView): DocumentEvidence[] {
   return evidence.filter((entry): entry is DocumentEvidence => entry.kind === 'document')
 }
 
-/** One PDF per file name: its quotes on the pages the evidence names, filler elsewhere. */
 function pdfsOf(view: IntakeView): Map<string, Uint8Array<ArrayBuffer>> {
   const byFile = new Map<string, DocumentEvidence[]>()
   for (const entry of documentEvidenceOf(view)) {
@@ -64,7 +54,6 @@ const json = (body: unknown): Response =>
 
 let installed = false
 
-/** Answer the document routes from the fixtures. Safe to call again. */
 export function installFixtureDocuments(view: IntakeView): void {
   if (installed || typeof window === 'undefined') return
   installed = true

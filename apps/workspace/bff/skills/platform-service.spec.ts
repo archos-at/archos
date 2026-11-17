@@ -38,6 +38,7 @@ vi.mock('./skill-category-repository', () => ({
 import * as repository from './platform-repository'
 import * as categoryRepository from './skill-category-repository'
 import { findPlatformSkill } from './platform-skills'
+import { LEGACY_PLATFORM_SKILL_NAMES } from './legacy-brand-names'
 import { ConflictError, NotFoundError } from '@/lib/api/errors'
 import type { PlatformSkillRow } from '@/lib/db/schema/platform-skills'
 import {
@@ -134,11 +135,6 @@ describe('createPlatformSkill', () => {
     )
   })
 
-  /**
-   * There is one delivery now, and this is where it is written down: a curated
-   * skill is OFFERED. Migration 0088 retired `standard`, the tier that forced
-   * a skill onto every run and gave no organization a choice.
-   */
   it('creates an OFFER, the only delivery there is', async () => {
     vi.mocked(repository.insertPlatformSkillRow).mockImplementation(async (values) =>
       makeRow(values as Partial<PlatformSkillRow>)
@@ -161,14 +157,17 @@ describe('createPlatformSkill', () => {
     expect(repository.insertPlatformSkillRow).not.toHaveBeenCalled()
   })
 
-  /**
-   * The rule that protects deep research from the dashboard.
-   *
-   * A curated skill sharing a name with the pipeline's machinery would shadow
-   * that machinery in the backend resolver for every org that switched the
-   * curated one on — silently replacing how a report gets written with whatever
-   * was typed here. The catalogue is the wrong place to discover that.
-   */
+  it('conflicts on a new name whose stored row still carries the old one', async () => {
+    const [legacy, current] = Object.entries(LEGACY_PLATFORM_SKILL_NAMES)[0]!
+    vi.mocked(repository.findPlatformSkillRowByName).mockImplementation(async (name) =>
+      name === legacy ? makeRow({ name: legacy }) : null
+    )
+    await expect(
+      createPlatformSkill({ name: current, description: 'd', body: 'b' }, author)
+    ).rejects.toBeInstanceOf(ConflictError)
+    expect(repository.insertPlatformSkillRow).not.toHaveBeenCalled()
+  })
+
   it('refuses a name that belongs to a builtin', async () => {
     vi.mocked(findPlatformSkill).mockReturnValue({
       name: 'long-form-report-writer',
@@ -235,23 +234,12 @@ describe('updatePlatformSkill', () => {
     expect(skill.description).toBe('new')
   })
 
-  /**
-   * Publishing is the only move left that changes who runs a skill, and it does
-   * not touch the document: a published skill is the same SKILL.md as the draft
-   * it was a moment ago.
-   *
-   * There is no promotion to promote to. `delivery` used to move a row between
-   * `offer` and `standard`, and the promotion took the choice away from every
-   * organization on the platform; 0088 retired the tier.
-   */
   it('publishes without touching the document', async () => {
     vi.mocked(repository.findPlatformSkillRow).mockResolvedValue(makeRow({ published: false }))
     vi.mocked(repository.updatePlatformSkillRow).mockResolvedValue(makeRow({ published: true }))
     const { skill } = await updatePlatformSkill('ps-1', { published: true })
     expect(skill.published).toBe(true)
     expect(skill.delivery).toBe('offer')
-    // The body, description and metadata are not in the patch: nothing about the
-    // instruction itself changes when its audience does.
     const [, patch] = vi.mocked(repository.updatePlatformSkillRow).mock.calls[0]
     expect(patch).not.toHaveProperty('body')
     expect(patch).not.toHaveProperty('description')

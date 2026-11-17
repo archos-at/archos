@@ -59,7 +59,6 @@ describe('research runs client', () => {
     const parsed = new URL(url, 'https://grid.example')
     expect(parsed.pathname).toBe('/api/jobs/async/jobs')
     expect(parsed.searchParams.get('projectId')).toBe('project-1')
-    // A collection name is a project nobody checked; it never leaves the client.
     expect(parsed.searchParams.has('project_collection')).toBe(false)
     expect(parsed.searchParams.get('status')).toBe('running')
     expect(parsed.searchParams.get('limit')).toBe('20')
@@ -88,7 +87,6 @@ describe('research runs client', () => {
         project_collection: null,
       },
     ])
-    // total from the backend is passed through when numeric
     expect(response.total).toBe(5)
   })
 

@@ -247,7 +247,7 @@
       "get": {
         "operationId": "project-base-get",
         "summary": "Read a project’s base knowledge: gate, chain, editions and their roles",
-        "description": "What answers about the project’s site rest on: the gate (organization_unplaced, site_unknown, not_entitled, knowledge_unavailable, or coverage none to full), each leaf’s chain, every edition with its role, qualifier and freshness, the procedures, the packs with their release sequence, and the newest confirmation; and `law`: the gate and each edition the context names with its role, qualifier, designation and edition label, empty where the gate refuses. Needs project:view.",
+        "description": "What answers about the project’s site rest on: the gate (organization_unplaced, site_unknown, not_entitled, knowledge_unavailable, or coverage none to full), each leaf’s chain, every edition with its role, qualifier and freshness, the procedures, the packs with their release sequence, and the newest confirmation; and `law`: the gate and each edition the context names with its role, qualifier, designation and edition label, empty where the gate refuses. It resolves on the turn’s day (today, or a filing day that has come); `asOf` resolves it on another day, so a question naming a day (a submission on 1 October) reads the editions binding at the site that day, labelled with it. Needs project:view.",
         "tags": [
           "projects"
         ],
@@ -261,6 +261,17 @@
               "description": "The project id, from project-list."
             },
             "description": "The project id, from project-list."
+          },
+          {
+            "name": "asOf",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "Resolve on this day instead: which editions bound at the site on a day a question names, e.g. a submission on 2026-10-01.",
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "description": "Resolve on this day instead: which editions bound at the site on a day a question names, e.g. a submission on 2026-10-01."
           }
         ],
         "responses": {
@@ -626,6 +637,7 @@
                     "default": "piloti",
                     "type": "string",
                     "enum": [
+                      "agent",
                       "piloti",
                       "self"
                     ]
@@ -1736,7 +1748,7 @@
       "post": {
         "operationId": "project-memory-create",
         "summary": "Add a memory item",
-        "description": "Writes one memory item: `kind`, `content` (max 2000 characters), optional `confidence` and `pinned`. Answers `{ item }` with its id. Needs project:memory:write. Check project-memory-list first so you do not repeat an item.",
+        "description": "Writes one memory item: `kind`, `content` (max 2000 characters), optional `confidence`, `pinned`, `topic`. Answers `{ item }` with its id. Needs project:memory:write. Check project-memory-list first so you do not repeat an item.",
         "tags": [
           "projects"
         ],
@@ -1784,6 +1796,18 @@
                   },
                   "pinned": {
                     "type": "boolean"
+                  },
+                  "topic": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "1–3 words in the person's language; reuse a topic. null: none."
                   }
                 },
                 "required": [
@@ -1830,7 +1854,7 @@
       "get": {
         "operationId": "project-memory-list",
         "summary": "List a project’s memory items",
-        "description": "The facts, decisions and notes ARCHOS keeps for the project, pinned first then newest, as `{ items, nextCursor }` (`limit` default 50; pass `nextCursor` as `cursor`). Pass `includeArchived: \"true\"` for archived ones, or `conversationId` for those noted in one conversation. Item ids feed project-memory-update and project-memory-delete.",
+        "description": "The facts, decisions and notes ARCHOS keeps for the project, pinned first then newest, as `{ items, nextCursor }` (`limit` default 50; pass `nextCursor` as `cursor`). Pass `includeArchived: \"true\"` for archived ones, or `conversationId` for those noted in one conversation. `topics` counts the caller’s active items. Item ids feed project-memory-update and project-memory-delete.",
         "tags": [
           "projects"
         ],
@@ -1860,6 +1884,17 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "topic",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "This topic only; empty: none.",
+              "type": "string",
+              "maxLength": 200
+            },
+            "description": "This topic only; empty: none."
           },
           {
             "name": "limit",
@@ -1983,7 +2018,7 @@
       "patch": {
         "operationId": "project-memory-update",
         "summary": "Edit a memory item",
-        "description": "Changes any of a memory item’s kind, content, status, confidence, verification or pinned flag; at least one field. Set `status` to `dismissed` or `superseded` rather than deleting when the item was only wrong for now. `itemId` is from project-memory-list. Answers `{ item }`.",
+        "description": "Changes any of a memory item’s kind, content, status, confidence, verification, pinned flag or `topic`; at least one field. Set `status` to `dismissed` or `superseded` rather than deleting when the item was only wrong for now. `itemId` is from project-memory-list. Answers `{ item }`.",
         "tags": [
           "projects"
         ],
@@ -2057,6 +2092,18 @@
                   },
                   "pinned": {
                     "type": "boolean"
+                  },
+                  "topic": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "1–3 words in the person's language; reuse a topic. null: none."
                   }
                 }
               }
@@ -2090,6 +2137,101 @@
         },
         "x-mcp-annotations": {
           "title": "Edit a memory item",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/projects/{id}/memory/topics": {
+      "patch": {
+        "operationId": "project-memory-topic-rename",
+        "summary": "Rename or merge a memory topic",
+        "description": "Moves the shelf’s items from topic `from` to `to`; an existing `to` merges, `to: null` ungroups. Answers `{ moved }`. Only items the caller can see and edit. Needs project:memory:write.",
+        "tags": [
+          "projects"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The project id, from project-list."
+            },
+            "description": "The project id, from project-list."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "from": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "Topic to rename. null: no topic."
+                  },
+                  "to": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "New name; an existing one merges. null: none."
+                  }
+                },
+                "required": [
+                  "from",
+                  "to"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Rename or merge a memory topic",
           "readOnlyHint": false,
           "destructiveHint": false,
           "idempotentHint": true,
@@ -15786,7 +15928,7 @@
       "get": {
         "operationId": "conversation-message-list",
         "summary": "Read the messages of a conversation",
-        "description": "The newest messages of a conversation, oldest first within the page; earlier ones through `nextCursor`. Each has id, role, content, author, time and mentions; `include` adds citations, steps or metadata. Message ids feed conversation-message-changes.",
+        "description": "The newest messages of a conversation, oldest first within the page; earlier ones through `nextCursor`. Each has id, role, content, author, time and mentions; an assistant’s content is plain Markdown, with its cards and project values resolved. `include` adds citations, steps or metadata. Message ids feed conversation-message-changes.",
         "tags": [
           "conversations"
         ],
@@ -17721,12 +17863,12 @@
                 "mail_import.completed",
                 "mail_import.failed",
                 "document.new_revision",
-                "piloti.work_done",
-                "piloti.work_failed",
-                "piloti.asks_you",
-                "piloti.proposal_waiting",
-                "piloti.intake_ready",
-                "piloti.revision_checked",
+                "agent.work_done",
+                "agent.work_failed",
+                "agent.asks_you",
+                "agent.proposal_waiting",
+                "agent.intake_ready",
+                "agent.revision_checked",
                 "annotation.assigned_to_you",
                 "annotation.activity",
                 "annotation.mentioned",
@@ -18020,7 +18162,7 @@
       "post": {
         "operationId": "personal-memory-create",
         "summary": "Add a personal memory note",
-        "description": "Keeps one note about the person themself: `kind` and `content`, optional `pinned`. A note about a project belongs in project-memory-create, never here. A note that says what an existing one says is that note, returned again. Answers `{ item, created }`: 201 with `created: true` for a new note, 200 with `created: false` for the note already held. 400 when the content holds a secret (a password, an API key, an account or identity number) or no letter or digit.",
+        "description": "Keeps one note about the person themself: `kind` and `content`, optional `pinned` and `topic`. A note about a project belongs in project-memory-create, never here. A note that says what an existing one says is that note, returned again. Answers `{ item, created }`: 201 with `created: true` for a new note, 200 with `created: false` for the note already held. 400 when the content holds a secret (a password, an API key, an account or identity number) or no letter or digit.",
         "tags": [
           "collaboration"
         ],
@@ -18048,6 +18190,18 @@
                   "pinned": {
                     "description": "A pinned note reaches every turn first.",
                     "type": "boolean"
+                  },
+                  "topic": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "1–3 words in the person's language; reuse a topic. null: none."
                   }
                 },
                 "required": [
@@ -18094,7 +18248,7 @@
       "get": {
         "operationId": "personal-memory-list",
         "summary": "List the person’s personal memory",
-        "description": "The notes kept about the person themself (how they want answers, their role and recurring topics), pinned first then newest, as `{ items, nextCursor }`. Only this person reads these notes: no colleague and no administrator of the organization sees them. Item ids feed personal-memory-update and personal-memory-delete.",
+        "description": "The notes kept about the person themself (how they want answers, their role and recurring topics), pinned first then newest, as `{ items, nextCursor }`. Only this person reads these notes: no colleague and no administrator of the organization sees them. `topics` counts all the person’s notes. Item ids feed personal-memory-update and personal-memory-delete.",
         "tags": [
           "collaboration"
         ],
@@ -18131,6 +18285,17 @@
               "maxLength": 255
             },
             "description": "Only the notes saved from this conversation. Each note names the answer it was saved under in `sourceMessageId`."
+          },
+          {
+            "name": "topic",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "This topic only; empty: none.",
+              "type": "string",
+              "maxLength": 200
+            },
+            "description": "This topic only; empty: none."
           }
         ],
         "responses": {
@@ -18223,7 +18388,7 @@
       "patch": {
         "operationId": "personal-memory-update",
         "summary": "Edit a personal memory note",
-        "description": "Changes any of a personal note’s kind, content or pinned flag; at least one field. `itemId` is from personal-memory-list. 409 when another note of the person already says the new content. Answers `{ item }`.",
+        "description": "Changes any of a personal note’s kind, content, pinned flag or `topic`; at least one field. `itemId` is from personal-memory-list. 409 when another note of the person already says the new content. Answers `{ item }`.",
         "tags": [
           "collaboration"
         ],
@@ -18262,6 +18427,18 @@
                   },
                   "pinned": {
                     "type": "boolean"
+                  },
+                  "topic": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "1–3 words in the person's language; reuse a topic. null: none."
                   }
                 }
               }
@@ -18295,6 +18472,150 @@
         },
         "x-mcp-annotations": {
           "title": "Edit a personal memory note",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/user/memory/topics": {
+      "delete": {
+        "operationId": "personal-memory-topic-delete",
+        "summary": "Delete a personal memory topic and its notes",
+        "description": "Deletes every personal note on topic `name` (from personal-memory-list), for good; it cannot be undone. Answers `{ removed }`. To keep the notes, use personal-memory-topic-rename with `to: null`.",
+        "tags": [
+          "collaboration"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "description": "Topic to remove, as topics names it; its notes are deleted."
+                  }
+                },
+                "required": [
+                  "name"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Delete a personal memory topic and its notes",
+          "readOnlyHint": false,
+          "destructiveHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      },
+      "patch": {
+        "operationId": "personal-memory-topic-rename",
+        "summary": "Rename or merge a personal memory topic",
+        "description": "Moves the person’s notes from topic `from` to `to`; an existing `to` merges, `to: null` ungroups. Answers `{ moved }`.",
+        "tags": [
+          "collaboration"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "from": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "Topic to rename. null: no topic."
+                  },
+                  "to": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "New name; an existing one merges. null: none."
+                  }
+                },
+                "required": [
+                  "from",
+                  "to"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Rename or merge a personal memory topic",
           "readOnlyHint": false,
           "destructiveHint": false,
           "idempotentHint": true,
@@ -21624,6 +21945,141 @@
         }
       }
     },
+    "/api/base-knowledge/bulk": {
+      "post": {
+        "operationId": "base-knowledge-bulk",
+        "summary": "Check, move or remove many base-knowledge entries at once",
+        "description": "One action over up to 50 entries: `check` records a check with its result, `move` files them into a folder from base-knowledge-folder-list, `remove` deletes them and their documents. Answers one result per entry; a refused entry does not stop the others. Needs org:office_shelf:manage.",
+        "tags": [
+          "knowledge"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "entryIds": {
+                    "minItems": 1,
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 120
+                    },
+                    "description": "From base-knowledge-list; at most 50."
+                  },
+                  "action": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "const": "check"
+                          },
+                          "result": {
+                            "type": "string",
+                            "enum": [
+                              "current",
+                              "newer_known",
+                              "withdrawn",
+                              "source_unreachable"
+                            ],
+                            "description": "current: still the edition in force."
+                          },
+                          "note": {
+                            "description": "Where it was checked.",
+                            "type": "string",
+                            "maxLength": 1000
+                          }
+                        },
+                        "required": [
+                          "type",
+                          "result"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "const": "move"
+                          },
+                          "folderId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "description": "From base-knowledge-folder-list."
+                          }
+                        },
+                        "required": [
+                          "type",
+                          "folderId"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "const": "remove"
+                          }
+                        },
+                        "required": [
+                          "type"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ],
+                    "discriminator": {
+                      "propertyName": "type"
+                    }
+                  }
+                },
+                "required": [
+                  "entryIds",
+                  "action"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Check, move or remove many base-knowledge entries at once",
+          "readOnlyHint": false,
+          "destructiveHint": true,
+          "idempotentHint": false,
+          "openWorldHint": false
+        }
+      }
+    },
     "/api/base-knowledge/{entryId}/checks": {
       "post": {
         "operationId": "base-knowledge-check-record",
@@ -21788,6 +22244,32 @@
                       }
                     ]
                   },
+                  "inForceFrom": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "When this edition took effect; null: from issuedOn."
+                  },
+                  "inForceTo": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "When it stopped applying, if withdrawn; a later edition ends it by itself."
+                  },
                   "territoryIds": {
                     "maxItems": 20,
                     "type": "array",
@@ -21891,11 +22373,87 @@
         }
       }
     },
+    "/api/base-knowledge/{entryId}/editions": {
+      "post": {
+        "operationId": "base-knowledge-edition-add",
+        "summary": "Upload a newer edition of a base-knowledge entry",
+        "description": "Uploads the newer edition into the entry’s folder as a second edition of the same work (its edition read from the file name), proposed until a person confirms it. Answers then take the edition in force on the project’s reference day; the earlier entry stays for projects filed before, with a check that found a newer edition. Send `body.files[0]` as { name, mimeType, contentBase64 }. Needs org:office_shelf:manage.",
+        "tags": [
+          "knowledge"
+        ],
+        "parameters": [
+          {
+            "name": "entryId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120,
+              "description": "From base-knowledge-list."
+            },
+            "description": "From base-knowledge-list."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "A multipart form: the file in the `file` part, the route’s text fields as their own parts. Over MCP send body.files[0] = { name, mimeType, contentBase64 } and body.fields instead.",
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                },
+                "required": [
+                  "file"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Upload a newer edition of a base-knowledge entry",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        }
+      }
+    },
     "/api/base-knowledge/editions/as-of": {
       "get": {
         "operationId": "base-knowledge-edition-as-of",
         "summary": "Which edition of a law or norm applied on a date or to a permit procedure",
-        "description": "Answers \"what applied when this was submitted\" with the edition named. Ask by `asOf`, by `projectId` and `procedureId` (profile facts filed_on@p1, decided_on@p1, …), or by giving the procedure. The node’s reference-date rule and the editions’ transitions decide. `undetermined` says what is missing; an unknown date is never taken as today. An edition’s `inForceTo` is the first day it no longer holds (exclusive), not its last day.",
+        "description": "Answers \"what applied when this was submitted\" with the edition named. Ask by `asOf`, by `projectId` and `procedureId` (profile facts filed_on@p1, decided_on@p1, …), or by giving the procedure. The node’s reference-date rule and the editions’ transitions decide. `undetermined` says what is missing; an unknown date is never taken as today. An edition’s `inForceTo` is the first day it no longer holds (exclusive), not its last day. It reads the work’s own editions: which edition a law made binding at a project’s site on a day (a guideline or standard a law names) is project-base-get with `asOf`.",
         "tags": [
           "knowledge"
         ],
@@ -22030,6 +22588,146 @@
         },
         "x-mcp-annotations": {
           "title": "Which edition of a law or norm applied on a date or to a permit procedure",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/base-knowledge/folders": {
+      "post": {
+        "operationId": "base-knowledge-folder-create",
+        "summary": "Create a folder for the office’s base knowledge",
+        "description": "Creates a folder under the base-knowledge root (created on first use) or under one of its folders, e.g. by trade or by standards body. Refused when a sibling has the name. Needs org:office_shelf:manage.",
+        "tags": [
+          "knowledge"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 255,
+                    "description": "e.g. a trade, a topic or a standards body."
+                  },
+                  "parentId": {
+                    "description": "A folder from base-knowledge-folder-list; omit for the top level.",
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "description": {
+                    "description": "What belongs in it, in the office’s words.",
+                    "type": "string",
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "name"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Create a folder for the office’s base knowledge",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        }
+      },
+      "get": {
+        "operationId": "base-knowledge-folder-list",
+        "summary": "List the folders of the office’s base knowledge",
+        "description": "The base-knowledge root folder on the office shelf (`rootId`, null until first used) and every folder below it. They are office shelf folders: rename or delete one with office-shelf-folder-update or -delete; the root keeps its name and place. Any member may read.",
+        "tags": [
+          "knowledge"
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 200,
+              "description": "Default and max 200.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            },
+            "description": "Default and max 200."
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "The previous page’s `nextCursor`.",
+              "type": "string",
+              "pattern": "^\\d{1,5}$"
+            },
+            "description": "The previous page’s `nextCursor`."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "List the folders of the office’s base knowledge",
           "readOnlyHint": true,
           "destructiveHint": false,
           "idempotentHint": true,
@@ -22222,6 +22920,32 @@
                       }
                     ]
                   },
+                  "inForceFrom": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "When this edition took effect; null: from issuedOn."
+                  },
+                  "inForceTo": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "When it stopped applying, if withdrawn; a later edition ends it by itself."
+                  },
                   "territoryIds": {
                     "maxItems": 20,
                     "type": "array",
@@ -22398,7 +23122,7 @@
       "get": {
         "operationId": "base-knowledge-list",
         "summary": "List the office’s base knowledge: its standards, commentaries and directives",
-        "description": "An entry is an office shelf document read as base knowledge: `values`, `status` (proposed until confirmed), `textUse` and `freshness`. Only confirmed entries reach answers. Any member may read.",
+        "description": "An entry is an office shelf document read as base knowledge: `values`, `status` (proposed until confirmed), `textUse` and `freshness`. Narrow by `folderId` (with its subfolders), `attention`, `kind` or `q`; `counts` are the folder’s before those narrow it. Proposals and checks due come first. Only confirmed entries reach answers. Any member may read.",
         "tags": [
           "knowledge"
         ],
@@ -22426,6 +23150,59 @@
               "maxLength": 120
             },
             "description": "Part of a designation or title."
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "Part of a designation, title or file name.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120
+            },
+            "description": "Part of a designation, title or file name."
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "technical_standard",
+                "guideline",
+                "commentary",
+                "authority_directive",
+                "statute"
+              ]
+            }
+          },
+          {
+            "name": "attention",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "proposed: to confirm; check_due: never checked, overdue or last found not current; metadata_only: text not used.",
+              "type": "string",
+              "enum": [
+                "proposed",
+                "check_due",
+                "metadata_only"
+              ]
+            },
+            "description": "proposed: to confirm; check_due: never checked, overdue or last found not current; metadata_only: text not used."
+          },
+          {
+            "name": "folderId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "A folder from base-knowledge-folder-list: its entries and those of its subfolders.",
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "A folder from base-knowledge-folder-list: its entries and those of its subfolders."
           },
           {
             "name": "limit",
@@ -22546,6 +23323,32 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "inForceFrom": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "When this edition took effect; null: from issuedOn."
+                  },
+                  "inForceTo": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "When it stopped applying, if withdrawn; a later edition ends it by itself."
                   },
                   "territoryIds": {
                     "maxItems": 20,
@@ -22756,7 +23559,7 @@
                     "format": "binary"
                   },
                   "folderId": {
-                    "description": "From office-shelf-folder-list; omit for the root.",
+                    "description": "From base-knowledge-folder-list; omit for the base-knowledge root folder.",
                     "type": "string"
                   }
                 },
@@ -25745,6 +26548,18 @@
                   },
                   "pinned": {
                     "type": "boolean"
+                  },
+                  "topic": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "1–3 words in the person's language; reuse a topic. null: none."
                   }
                 },
                 "required": [
@@ -25791,7 +26606,7 @@
       "get": {
         "operationId": "organization-memory-list",
         "summary": "List organization memory",
-        "description": "The knowledge shared by every project of the organization (kind, content, status, confidence, pinned), pinned first then newest, a page of `limit` (default 50) with `nextCursor`. Any member may read. Item ids feed organization-memory-update and organization-memory-delete.",
+        "description": "Knowledge shared by every project of the organization (kind, content, status, confidence, pinned), pinned, then newest, a `limit` (default 50) page with `nextCursor`. `topics` counts active items; `topic` filters. Any member reads. Ids feed organization-memory-update and organization-memory-delete.",
         "tags": [
           "organization"
         ],
@@ -25801,26 +26616,37 @@
             "in": "query",
             "required": false,
             "schema": {
-              "description": "\"true\" also returns archived items.",
+              "description": "\"true\" includes archived.",
               "type": "string",
               "enum": [
                 "true",
                 "false"
               ]
             },
-            "description": "\"true\" also returns archived items."
+            "description": "\"true\" includes archived."
           },
           {
             "name": "conversationId",
             "in": "query",
             "required": false,
             "schema": {
-              "description": "Only the notes written from this conversation.",
+              "description": "This conversation only.",
               "type": "string",
               "minLength": 1,
               "maxLength": 255
             },
-            "description": "Only the notes written from this conversation."
+            "description": "This conversation only."
+          },
+          {
+            "name": "topic",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "This topic only; empty: none.",
+              "type": "string",
+              "maxLength": 200
+            },
+            "description": "This topic only; empty: none."
           },
           {
             "name": "limit",
@@ -25934,7 +26760,7 @@
       "patch": {
         "operationId": "organization-memory-update",
         "summary": "Edit an organization memory item",
-        "description": "Changes fields of one organization memory item (kind, content, status, confidence, verification, pinned). At least one field is required. The id comes from organization-memory-list.",
+        "description": "Changes fields of one organization memory item (kind, content, status, confidence, verification, pinned, or `topic`). At least one field is required. The id comes from organization-memory-list.",
         "tags": [
           "organization"
         ],
@@ -25998,6 +26824,18 @@
                   },
                   "pinned": {
                     "type": "boolean"
+                  },
+                  "topic": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "1–3 words in the person's language; reuse a topic. null: none."
                   }
                 }
               }
@@ -29152,9 +29990,85 @@
       "get": {
         "operationId": "platform-knowledge-base-get",
         "summary": "See the whole base corpus, released or not",
-        "description": "The whole base corpus store with each document’s indexing state: `{ collectionName, summary, files: [{ fileName, state, chunkCount, docClass, displayTitle, ... }] }`. It includes documents no release marked and documents a rollback withdrew, which no organization reads. Which country reads a document is in platform-knowledge-text-list.",
+        "description": "The whole base corpus store with each document’s indexing state: `{ collectionName, summary, files: [{ fileName, state, chunkCount, docClass, displayTitle, ... }] }`. It includes documents no release marked and documents a rollback withdrew, which no organization reads. Which country reads a document is in platform-knowledge-text-list. The whole store with summaries is longer than one result: narrow it with `nameContains` and `countryId` (or `none`), leave out the summaries with `brief: true`, and page with `limit` and `cursor` (`matched`, `nextCursor`).",
         "tags": [
           "platform"
+        ],
+        "parameters": [
+          {
+            "name": "nameContains",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "Only files whose name contains this text, ignoring case.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "description": "Only files whose name contains this text, ignoring case."
+          },
+          {
+            "name": "countryId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "Only the files a release marked with this country (ISO 3166-1 alpha-2), or `none` for the files no release marked.",
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Z]{2}$"
+                },
+                {
+                  "const": "none"
+                }
+              ]
+            },
+            "description": "Only the files a release marked with this country (ISO 3166-1 alpha-2), or `none` for the files no release marked."
+          },
+          {
+            "name": "brief",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "true leaves out each file’s summary, which is most of the answer’s length.",
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "true",
+                    "false"
+                  ]
+                }
+              ]
+            },
+            "description": "true leaves out each file’s summary, which is most of the answer’s length."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "At most this many files (up to 500).",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            },
+            "description": "At most this many files (up to 500)."
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "nextCursor of the previous answer.",
+              "type": "string",
+              "pattern": "^\\d{1,6}$"
+            },
+            "description": "nextCursor of the previous answer."
+          }
         ],
         "responses": {
           "200": {
@@ -29549,7 +30463,7 @@
       "get": {
         "operationId": "platform-knowledge-change-request-get",
         "summary": "Read a change request with its claims, verdicts, approvals and releases",
-        "description": "Each record’s newest revision in the request, every claim (a body field) with the newest verdict on it, the approvals (with the reason of one given alone), and the release moves. `approval` is four_eyes, or single when its author approved it alone; then `secondReview` says whether another person’s review is due, confirmed or disputed.",
+        "description": "Each record’s newest revision in the request, every claim (a body field) with the newest verdict on it, the approvals (with the reason of one given alone), and the release moves. `approval` is four_eyes, or single when its author approved it alone; then `secondReview` says whether another person’s review is due, confirmed or disputed. `warnings` names what the request would release that nothing refuses: read each to the person before they approve or publish.",
         "tags": [
           "platform"
         ],
@@ -30249,8 +31163,8 @@
     "/api/platform/knowledge/documents/{fileName}": {
       "delete": {
         "operationId": "platform-knowledge-document-delete",
-        "summary": "Delete an uploaded base-corpus document",
-        "description": "Removes an admin-uploaded PDF from the shared base corpus for every organization: source file, registry entry and indexed chunks. It cannot be undone, and repo-shipped corpus files cannot be deleted. The file name comes from the corpus listing.",
+        "summary": "Delete a base-corpus document",
+        "description": "Removes a PDF from the shared base corpus for every organization: stored file, registry entry and indexed chunks. It cannot be undone. A file a platform record names as its text is refused (409) until that request is rolled back or rejected. The file name comes from platform-knowledge-base-get.",
         "tags": [
           "platform"
         ],
@@ -30292,7 +31206,7 @@
           }
         },
         "x-mcp-annotations": {
-          "title": "Delete an uploaded base-corpus document",
+          "title": "Delete a base-corpus document",
           "readOnlyHint": false,
           "destructiveHint": true,
           "idempotentHint": true,
@@ -32441,6 +33355,10 @@
                                                     "label"
                                                   ],
                                                   "additionalProperties": false
+                                                },
+                                                "assumedWhenUnstated": {
+                                                  "type": "string",
+                                                  "pattern": "^[a-z][a-z0-9_]{0,63}$"
                                                 }
                                               },
                                               "required": [

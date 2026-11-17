@@ -1,12 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The dispatcher's bytes: binary answers out (inline, too large, redirect) and
- * the two upload encodings in (multipart form, raw octet-stream). The routes
- * here are stand-ins that echo what they received; the real upload routes are
- * held to the same form by their own `agent-upload.spec.ts`.
- */
 import { describe, expect, it } from 'vitest'
 import {
   MAX_INLINE_BYTES,
@@ -25,7 +19,7 @@ import { z } from 'zod'
 
 const session = {
   userId: 'user_1',
-  email: 'a@piloti.test',
+  email: 'a@example.test',
   name: null,
   accessToken: '',
   organizationId: 'org_1',
@@ -141,7 +135,6 @@ describe('a JSON or text answer too large to read (M6)', () => {
     const stream = new ReadableStream<Uint8Array>({
       pull(controller) {
         pulled += 1
-        // An answer with no end: only the cap stops it.
         controller.enqueue(chunk)
       },
     })
@@ -194,8 +187,6 @@ describe('If-Match', () => {
 
 describe('what reaches the route', () => {
   it('is the agent\'s input, not what the operation\'s schema made of it', async () => {
-    // organization-download-log-list's query schema turns `from`/`to` into Dates. Forwarding that parsed copy
-    // sent `2026-10-01T00:00:00.000Z` where the route parses YYYY-MM-DD, and every call with a day range was a 400.
     const real = findOperation('organization-download-log-list')!
     let query: string | null = null
     const op = { ...real, load: async () => ({ GET: async (request: Request) => ((query = new URL(request.url).search), Response.json({ rows: [] })) }) }

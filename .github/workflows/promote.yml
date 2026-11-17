@@ -1,0 +1,204 @@
+name: Promote to prod
+
+# Opens the promotion pull request from a develop commit to `prod`, the steps
+# docs/deployment/cd.md ("Promoting to prod") used to give as hand git:
+#
+#   1. pick the commit: the input, or the newest commit on develop's
+#      first-parent line whose `CI OK` passed and that staging ran (the commit
+#      status `deploy/staging`, which deploy.yml sets after its smoke check);
+#   2. check GHCR has its images (verify-image-tag.sh), the CMS's too when
+#      prod runs the CMS;
+#   3. branch `release/promote-<short>` from it and merge `origin/prod` into it
+#      with `-s ours`: the tree is develop's, the history joins prod's;
+#   4. write deploy/pulumi/Pulumi.prod.yaml: develop's, with what prod changed
+#      on its own branch since the last promotion, and the `imageTag` line
+#      pinned to `sha-<commit>` (promote-stack-file.sh, which says why it is a
+#      three-way merge);
+#   5. push, and open the pull request to `prod`, listing the migrations and
+#      release notes it brings.
+#
+# Merging that pull request is the deploy: the push to `prod` runs deploy.yml's
+# `deploy-prod`, behind the `production` reviewers and the downgrade guard.
+#
+# CI on the promotion branch. `prod` is no pull_request target of ci.yml; the
+# branch gets `CI OK` from its push run (ci.yml runs on `release/**`), which
+# branch protection on `prod` requires. A push made with GITHUB_TOKEN starts no
+# workflow, so the push uses the repository secret `RELEASE_PAT` (the one
+# release-notes.yml pushes with) when it is set. It needs Contents: write and
+# Workflows: write (the merge commit carries develop's `.github/workflows/`
+# next to prod's), and Pull requests: write to open the pull request; without
+# the last, the pull request is opened with GITHUB_TOKEN. Without the secret,
+# everything here still runs, and the summary says the one step left: push one
+# commit to the branch by hand so CI runs.
+
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: >-
+          The develop commit to promote (40 hex). Empty: the newest commit on
+          develop's first-parent line whose CI passed and that staging runs or ran.
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  packages: read # verify-image-tag.sh
+  checks: read # `CI OK` of a candidate commit
+  statuses: read # `deploy/staging` of a candidate commit
+  pull-requests: write # open the promotion pull request (without RELEASE_PAT)
+
+concurrency:
+  group: promote
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    name: Open the promotion pull request
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      # The workflow file of the branch it is dispatched from runs, with the
+      # repository's secrets: only develop's.
+      - name: Guard dispatch to develop
+        if: ${{ github.ref != 'refs/heads/develop' }}
+        run: |
+          echo "::error::dispatch Promote to prod from develop, not '$GITHUB_REF'."
+          exit 1
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: develop
+          fetch-depth: 0
+          filter: blob:none
+          token: ${{ secrets.RELEASE_PAT || github.token }}
+
+      - name: Pick the commit
+        env:
+          INPUT_SHA: ${{ inputs.sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git fetch -q origin prod develop
+          if [ -n "$INPUT_SHA" ]; then
+            [[ "$INPUT_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::sha must be 40 hex, not '$INPUT_SHA'"; exit 1; }
+            sha="$INPUT_SHA"
+          else
+            sha=""
+            for c in $(git rev-list --first-parent --max-count=60 origin/develop); do
+              ci="$(gh api "repos/$GITHUB_REPOSITORY/commits/$c/check-runs?check_name=CI%20OK" \
+                --jq '[.check_runs[] | select(.conclusion == "success")] | length')"
+              [ "$ci" -gt 0 ] || continue
+              staged="$(gh api "repos/$GITHUB_REPOSITORY/commits/$c/statuses?per_page=100" \
+                --jq '[.[] | select(.context == "deploy/staging" and .state == "success")] | length')"
+              [ "$staged" -gt 0 ] || continue
+              sha="$c"
+              break
+            done
+            [ -n "$sha" ] || {
+              echo "::error::no commit in develop's last 60 has a green CI OK and the deploy/staging status. Dispatch again with sha set to a develop commit CI passed and staging ran."
+              exit 1
+            }
+          fi
+          git merge-base --is-ancestor "$sha" origin/develop || { echo "::error::$sha is not on develop"; exit 1; }
+          echo "SHA=$sha" >> "$GITHUB_ENV"
+          echo "SHORT=${sha:0:9}" >> "$GITHUB_ENV"
+          echo "BRANCH=release/promote-${sha:0:9}" >> "$GITHUB_ENV"
+          echo "promoting $(git log -1 --format='%h %s' "$sha")"
+
+      - name: Refuse a branch that exists
+        run: |
+          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null; then
+            echo "::error::$BRANCH exists already. Use its pull request, or delete the branch and dispatch again."
+            exit 1
+          fi
+
+      - name: Build the promotion branch
+        run: |
+          set -euo pipefail
+          file=deploy/pulumi/Pulumi.prod.yaml
+          tmp="$RUNNER_TEMP/promote"
+          mkdir -p "$tmp"
+          git show "origin/prod:$file" > "$tmp/prod"
+          git show "$SHA:$file" > "$tmp/develop"
+          # The base is develop's file at the commit prod runs: the commit its
+          # pin names. Fetched by sha: after the rewrite of 2026-10 that
+          # commit is on no branch, and GitHub serves it by sha all the same.
+          running="$(sed -n -E 's/^  [a-z-]*:imageTag: *sha-([0-9a-f]{40}).*/\1/p' "$tmp/prod")"
+          [ -n "$running" ] || { echo "::error::prod's $file pins no sha- tag; write this promotion's file by hand."; exit 1; }
+          git cat-file -e "$running^{commit}" 2>/dev/null || git fetch -q origin "$running"
+          git show "$running:$file" > "$tmp/base"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -q -c "$BRANCH" "$SHA"
+          git merge -q -s ours origin/prod -m "chore(release): merge prod into the promotion of develop $SHORT"
+          deploy/pulumi/scripts/promote-stack-file.sh "$tmp/base" "$tmp/develop" "$tmp/prod" "sha-$SHA" > "$file"
+          grep -qxE "  [a-z-]+:imageTag: sha-$SHA" "$file" || { echo "::error::the pin did not land in $file"; exit 1; }
+          git diff --stat origin/prod -- "$file"
+          git commit -q -am "chore(release): pin prod to develop $SHORT"
+
+      - name: Verify the images exist
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cms="$(sed -n 's/^  [a-z-]*:cmsEnabled: *//p' deploy/pulumi/Pulumi.prod.yaml | tr -d "\"'")"
+          CMS_ENABLED="$cms" deploy/pulumi/scripts/verify-image-tag.sh "$GITHUB_REPOSITORY_OWNER" "sha-$SHA"
+
+      - name: Push
+        run: git push -q origin "HEAD:refs/heads/$BRANCH"
+
+      - name: Open the pull request
+        env:
+          PAT: ${{ secrets.RELEASE_PAT }}
+          GH_TOKEN: ${{ secrets.RELEASE_PAT || github.token }}
+          FALLBACK_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          body="$RUNNER_TEMP/body.md"
+          migrations="$(git diff --name-only --diff-filter=A origin/prod "$SHA" -- apps/workspace/migrations \
+            | grep -E '/[0-9]{4}_[^/]*\.sql$' | grep -v '\.down\.sql$' | sed 's|.*/|- `|; s|$|`|' || true)"
+          notes="$(git diff --name-only --diff-filter=A origin/prod "$SHA" -- releasenotes/notes \
+            | sed 's|.*/|- `|; s|$|`|' || true)"
+          {
+            echo "Promotes develop \`$SHA\` to prod. Merging deploys it (\`deploy-prod\`, behind the \`production\` reviewers)."
+            echo
+            echo "\`deploy/pulumi/Pulumi.prod.yaml\` pins \`sha-$SHA\` and keeps what prod changed on its own branch since the last promotion:"
+            echo
+            echo '```diff'
+            git diff origin/prod HEAD -- deploy/pulumi/Pulumi.prod.yaml | sed -n '/^@@/,$p' | head -200
+            echo '```'
+            echo
+            echo "## Migrations it brings"
+            echo
+            echo "${migrations:-None.}"
+            echo
+            echo "The deploy builds the indexes in \`ONLINE_INDEXES\` online first (\`deploy/pulumi/src/app/online-indexes-job.ts\`); every other lock a migration takes is held until the whole batch commits (docs/deployment/kubernetes.md §3c)."
+            echo
+            echo "## Release notes it brings"
+            echo
+            echo "${notes:-None.}"
+            echo
+            echo "Opened by the Promote to prod workflow (\`.github/workflows/promote.yml\`)."
+          } > "$body"
+          title="chore(release): promote develop $SHORT to prod"
+          if ! url="$(gh pr create --base prod --head "$BRANCH" --title "$title" --body-file "$body")"; then
+            [ -n "$PAT" ] || exit 1
+            echo "::warning::RELEASE_PAT could not open the pull request (it needs Pull requests: write); opening it with GITHUB_TOKEN"
+            url="$(GH_TOKEN="$FALLBACK_TOKEN" gh pr create --base prod --head "$BRANCH" --title "$title" --body-file "$body")"
+          fi
+          {
+            echo "## Promotion pull request"
+            echo
+            echo "$url"
+            echo
+            if [ -z "$PAT" ]; then
+              echo "**One step left.** Without the \`RELEASE_PAT\` secret the branch was pushed with GITHUB_TOKEN, which starts no workflow, so CI has not run on it and \`CI OK\` will not appear. Push one commit to it to start CI:"
+              echo
+              echo '```bash'
+              echo "git fetch origin $BRANCH && git switch $BRANCH && git commit --allow-empty -m 'ci: run CI on the promotion' && git push"
+              echo '```'
+            else
+              echo "CI runs on the branch's push (ci.yml, \`release/**\`); merge once \`CI OK\` is green."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

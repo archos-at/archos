@@ -1,24 +1,3 @@
-/**
- * The search's providers beside the documents (ADR-0136, docs/design/
- * document-search.md "What everything covers"): annotations, folders, projects
- * and conversations. Each takes the reach the search computed once and asks no
- * gate of its own, so the kinds cannot disagree about what a person may read.
- *
- * | Kind         | Matched on                   | Who sees it |
- * |--------------|------------------------------|-------------|
- * | annotation   | body and replies             | annotations on documents the documents' predicate lets through: the reach and the document filters |
- * | folder       | name, description            | living folders on a shelf in reach, not hidden from the reader |
- * | project      | name, site address           | the projects in reach |
- * | conversation | title, topic tags            | the conversation list's own rule over the projects in reach, minus withheld content |
- *
- * Folders, projects and conversations carry nothing a document filter asks
- * about, so the search sets them aside while one is set (`setAsideKinds` in
- * `./search-wire.ts`) rather than list rows the filter never touched.
- *
- * Message bodies are not searched: a message can quote a restricted folder the
- * reader is not cleared for, which needs its own provider and test.
- */
-
 import { projectSiteAddress } from '@/lib/projects/site-address'
 import 'server-only'
 import type { AuthorizedSession } from '@/lib/auth/types'
@@ -48,7 +27,6 @@ import {
   type ProjectHit,
 } from './search-wire'
 
-/** The longest excerpt a hit carries. */
 export const EXCERPT_MAX = 200
 
 interface Found<T> {
@@ -63,11 +41,6 @@ const pageOf = (page: ProviderPage) => ({
 
 const fold = (value: string) => value.normalize('NFC').toLocaleLowerCase().trim()
 
-/**
- * The annotations whose body or a reply carries `text` (or every one, by the
- * filters, without text), on documents `documents` admits: the reach and the
- * document filters, as the documents section reads them.
- */
 export async function searchAnnotations(
   reach: SearchReach,
   text: string | null,
@@ -112,7 +85,6 @@ export async function searchAnnotations(
   return { hits, total }
 }
 
-/** The folders in reach whose name or description carries `text`. */
 export async function searchFolders(
   reach: SearchReach,
   text: string,
@@ -133,16 +105,10 @@ export async function searchFolders(
   return { hits, total }
 }
 
-/** The site address on a project's profile, as stored: the confirmed one, else the typed one. */
 export function projectAddress(project: ReachedProject['project']): string | null {
   return projectSiteAddress(project)
 }
 
-/**
- * The projects in reach whose name or site address carries `text`: in memory,
- * since the reach already holds every project row. A name match first, then
- * by name. Pure.
- */
 export function searchProjects(
   reach: SearchReach,
   text: string,
@@ -173,10 +139,6 @@ export function searchProjects(
   return { hits, total: Math.min(matched.length, SEARCH_TOTAL_CAP) }
 }
 
-/**
- * The topic tag keys a text names: the key itself, a legacy key, or the label
- * a person reads in either language ("Brandschutz", "fire safety"). Pure.
- */
 export function conversationTagsNamedBy(text: string): string[] {
   const term = fold(text)
   if (term.length < 3) return []
@@ -195,12 +157,6 @@ export function conversationTagsNamedBy(text: string): string[] {
   )
 }
 
-/**
- * Where a conversation search looks for a scope. The whole office: every
- * project in reach and the rows with no project, judged as the list judges
- * them. A project: that project's rows only. A folder or the office shelf: no
- * conversation lives there.
- */
 export function conversationReachOf(reach: SearchReach): ConversationReach {
   if (reach.narrowedToProjects) {
     return { projectIds: reach.projects.map((reached) => reached.project.id), withoutContainer: false }
@@ -217,12 +173,6 @@ export function conversationReachOf(reach: SearchReach): ConversationReach {
   return { projectIds: [], withoutContainer: false }
 }
 
-/**
- * The conversations the caller may see whose title or topic tags carry `text`.
- * A conversation whose content is withheld from the caller (ADR-0088) is
- * dropped before anything is reported: its title and tags were written from
- * that content, so a match on them would name it.
- */
 export async function searchConversations(
   session: AuthorizedSession,
   reach: SearchReach,

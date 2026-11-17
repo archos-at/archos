@@ -1,14 +1,3 @@
-/**
- * The shapes of the What's new page (`whats-new-list.tsx`): a week as a dated entry with its rail,
- * a section of changes, and the changes of one product area. They know the layout and nothing of
- * the release notes; the organism decides what goes in each.
- *
- * The page is a timeline rather than a stack of cards. A real week holds about a hundred changes of
- * two or three lines each, and a card around that many paragraphs is a wall with a border. So a
- * week is told from the next by a hairline and whitespace, its date stays in view beside it while
- * its changes scroll, and an area is named once for all of its changes, not on every row.
- */
-
 import type { ComponentProps, JSX, ReactNode } from 'react'
 import { ChevronRight } from 'lucide-react'
 
@@ -16,11 +5,6 @@ import { HorizontalScroll } from '@/components/ui/horizontal-scroll'
 import { CountPill } from '@/components/ui/count-pill'
 import { cn } from '@/lib/utils'
 
-/**
- * The row of area filters. Thirteen chips wrap to seven rows on a phone and push the first week
- * off the screen, so there they are one row that scrolls sideways, its cut edge faded; from `sm`
- * they wrap.
- */
 export function AreaFilterRow({ children, 'aria-label': label }: { children: ReactNode; 'aria-label': string }): JSX.Element {
   return (
     <HorizontalScroll aria-label={label} className="-my-1 py-1">
@@ -29,16 +13,10 @@ export function AreaFilterRow({ children, 'aria-label': label }: { children: Rea
   )
 }
 
-/** The list of weeks: a hairline and air between one week and the next. */
 export function WeekTimeline({ className, ...props }: ComponentProps<'div'>): JSX.Element {
   return <div className={cn('divide-y [&>*]:py-10 [&>*:first-child]:pt-2 [&>*:last-child]:pb-2', className)} {...props} />
 }
 
-/**
- * One week: its rail (the date and what it holds) beside its content. From `lg` the rail is a
- * column that stays under the top edge while the week scrolls past, so a reader deep in a long
- * week still sees which one it is; below that it is the week's heading block.
- */
 export function WeekEntry({
   rail,
   children,
@@ -53,12 +31,10 @@ export function WeekEntry({
   )
 }
 
-/** The week's name: its dates, or its version. */
 export function WeekHeading({ className, ...props }: ComponentProps<'h2'>): JSX.Element {
   return <h2 className={cn('text-base font-medium text-balance', className)} {...props} />
 }
 
-/** What the week holds, by section: a row on a phone, a column in the rail. */
 export function WeekTally({ className, ...props }: ComponentProps<'ul'>): JSX.Element {
   return (
     <ul
@@ -77,15 +53,10 @@ export function WeekTallyItem({ count, children }: { count: number; children: Re
   )
 }
 
-/** The week in a few sentences: the one thing on the entry set larger than a change. */
 export function WeekLede({ className, ...props }: ComponentProps<'p'>): JSX.Element {
   return <p className={cn('text-answer max-w-prose leading-relaxed text-pretty', className)} {...props} />
 }
 
-/**
- * A fold: a native `<details>`, so it works before the page hydrates, the browser's find-in-page
- * opens it, and a keyboard reaches it as a button. `label` is the line that stays visible.
- */
 export function Fold({
   label,
   children,
@@ -106,12 +77,10 @@ export function Fold({
   )
 }
 
-/** The sections of an open week, one under the other. */
 export function ChangeSections({ className, ...props }: ComponentProps<'div'>): JSX.Element {
   return <div className={cn('flex flex-col gap-8', className)} {...props} />
 }
 
-/** A section's heading with how many changes it has. The count sits beside the heading, not in its name. */
 export function ChangeSectionHeader({ count, children }: { count: number; children: ReactNode }): JSX.Element {
   return (
     <div className="flex items-center gap-2 border-b pb-2">
@@ -121,16 +90,10 @@ export function ChangeSectionHeader({ count, children }: { count: number; childr
   )
 }
 
-/** The areas of one section: a hairline between one area's changes and the next. */
 export function AreaGroups({ className, ...props }: ComponentProps<'div'>): JSX.Element {
   return <div className={cn('divide-y', className)} {...props} />
 }
 
-/**
- * The changes of one product area. The area is named once, in a gutter beside its changes from
- * `sm` and above them on a phone; without a label (a page already narrowed to one area) the
- * changes take the whole width.
- */
 export function AreaGroup({ label, children }: { label?: ReactNode; children: ReactNode }): JSX.Element {
   if (!label) return <div className="py-4">{children}</div>
   return (
@@ -141,7 +104,6 @@ export function AreaGroup({ label, children }: { label?: ReactNode; children: Re
   )
 }
 
-/** The changes themselves: body text at a readable measure, one paragraph each. */
 export function ChangeList({ className, ...props }: ComponentProps<'ul'>): JSX.Element {
   return <ul className={cn('flex flex-col gap-3', className)} {...props} />
 }

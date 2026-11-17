@@ -1,44 +1,3 @@
-"""A plan the AGENT can look at — raster, labelled, and able to isolate.
-
-## Why this exists next to `ifcopenshell.draw`
-
-`tools.draw` already produces a floor plan, and it produces SVG. SVG is the
-right format for a human: it scales, it prints, the frontend can hand it to a
-browser. It is the wrong format for the model, and the gap is not cosmetic —
-the agent generates a drawing it cannot see. It gets back a file path and a
-byte count, which tells it nothing it did not already know.
-
-A multimodal content block needs a RASTER behind its data URL, and the obvious
-bridge — `cairosvg` — is not in this image and pulls native cairo, pango and
-libffi behind it to serve one call. So the plan is drawn here directly, from the
-same triangles every operator measures, with Pillow (already a dependency, pure
-wheels).
-
-That turned out to be the better trade for a second reason. `draw` renders the
-whole storey and nothing else; what an agent actually needs is usually *this
-window in that wall* — the ability to **isolate**, which is what a person does
-in a viewer before they answer. `highlight` does that, and it is the parameter
-this module exists for as much as the raster is.
-
-## What a plan here is
-
-A horizontal CUT at 1.2 m above the storey datum, which is where a floor plan is
-cut by convention and, more usefully, where doors and windows are: an element
-sliced at that height shows its openings as gaps, and a footprint projection
-does not. Spaces are filled from their own footprint and labelled with name and
-measured area, because a plan whose rooms are unnamed cannot settle "which room
-did you mean".
-
-## What it is not
-
-It is not a source of numbers, and the caption says so where the model will read
-it. Every dimension in this package is available from an operator that states
-its own tolerance; a pixel measured off a raster states nothing. The drawing is
-for *orientation and identification* — which element is meant, does this
-arrangement look the way the numbers imply — and both of those are things a
-picture does better than any table.
-"""
-
 from __future__ import annotations
 
 import io
@@ -51,47 +10,18 @@ import numpy as np
 from .model import AIR_TYPES
 from .model import SpatialModel
 
-#: Height above the storey datum at which the plan is cut, metres.
-#:
-#: 1.2 m is the drafting convention, and it is convention for a reason that
-#: matters here: it passes through every door and almost every window, so their
-#: openings appear as gaps in the wall. A footprint projection — the cheaper
-#: thing to build — shows a solid wall with no openings at all, which is the one
-#: feature an agent looking at a plan is most likely to be asking about.
 CUT_ABOVE_STOREY = 1.2
 
-#: The most pixels this module will allocate for one plan.
-#:
-#: The height of a plan is not a parameter — it falls out of the model's own
-#: aspect ratio, and an IFC file is untrusted input. Measured on this image with
-#: ``Image.new("RGB", …)``: the sample house's default plan is 1400 × 702 px and
-#: costs 4 MB; a 400 m × 2 m gallery (a real shape — a noise barrier, a covered
-#: walkway, a tunnel section) derives a height of 260 942 px at the same width,
-#: which is 365 megapixels and **1.41 GB** of RGB before a single line is drawn.
-#: Pillow's own ``MAX_IMAGE_PIXELS`` (89 MP) does not help: it guards decoding,
-#: not ``Image.new``, and the 365 MP allocation above went through it silently.
-#:
-#: 40 MP costs 171 MB resident, measured the same way. That is affordable in a
-#: worker that also holds a parsed model, and it is 40× the largest plan anything
-#: in this package actually asks for.
 MAX_RASTER_PIXELS = 40_000_000
 
-#: The widest canvas a caller may ask for. ``tools.view`` never passes
-#: ``width_px`` at all, so anything above this is a library caller with a typo or
-#: an argument that came from somewhere it should not have.
 MAX_RASTER_WIDTH = 8_000
 
-#: Below this the scale bar, the caption and the room labels stop being legible,
-#: so a plan smaller than this is not a cheaper plan — it is a useless one.
 _MIN_RASTER_EDGE = 320
 
-#: Pixels reserved under the drawing for the caption and the scale bar.
 _CAPTION_STRIP = 46
 
-#: Anything whose triangles are drawn as background rather than as structure.
 _FURNITURE = {"IfcFurniture", "IfcFurnishingElement", "IfcSystemFurnitureElement"}
 
-#: Drawn from the cut, in draw order. Later entries paint over earlier ones.
 _STRUCTURE = (
     "IfcWall",
     "IfcWallStandardCase",
@@ -109,14 +39,6 @@ _STRUCTURE = (
 
 
 def _font(size: int) -> Any:
-    """A legible font without depending on one being installed.
-
-    Pillow's bitmap default is 11 px, which on a 1400 px plan is a smear the
-    model cannot read — and the point of this module is that the model reads it.
-    ``load_default(size=…)` ships a scalable face inside Pillow (≥10.1), so no
-    system font has to exist in the image; the DejaVu path is tried first only
-    because it hints better, and every failure falls back rather than raising.
-    """
     from PIL import ImageFont
 
     for path in (
@@ -134,12 +56,6 @@ def _font(size: int) -> Any:
 
 
 def _shorten(label: str, limit: int = 34) -> str:
-    """A type name trimmed to something that fits beside a marker.
-
-    `Windows_Sgl_Plain:1810x1210mm:286105` ran off the right edge and across the
-    plan. The tail is the part worth keeping — it carries the size and the
-    instance number — so the head is what gets dropped.
-    """
     label = (label or "").strip()
     return label if len(label) <= limit else "…" + label[-(limit - 1) :]
 
@@ -150,26 +66,7 @@ def _fit_raster(
     span_x: float,
     span_y: float,
 ) -> tuple[int, int, int, float]:
-    """Canvas size and scale, bounded before anything is allocated.
-
-    Returns ``(width, height, margin, scale)``.
-
-    The height of a plan is derived, never given: ``height = span_y * scale``,
-    and ``scale`` comes from the requested width divided by the model's own
-    x-span. So a model that is long and thin sets the height, and an IFC file is
-    untrusted input — a 400 m × 2 m gallery derives 260 942 px of height at the
-    default 1400 px width, which is 1.41 GB of RGB and an OOM-killed worker
-    rather than a refused request (see :data:`MAX_RASTER_PIXELS` for the
-    measurements).
-
-    What gives way is the SCALE, not the drawing. Cropping would produce a
-    picture that is confidently wrong about where the building ends, which is
-    the one failure this module's whole discipline is against; a plan drawn
-    smaller is still a true plan, and the scale bar says by how much.
-    """
     width = max(_MIN_RASTER_EDGE, min(int(width_px), MAX_RASTER_WIDTH))
-    # A margin at or past half the width drives the scale to zero or negative,
-    # which is a divide-by-nothing rather than a small plan.
     margin = max(0, min(int(margin_px), width // 4))
 
     scale = (width - 2 * margin) / span_x
@@ -179,11 +76,6 @@ def _fit_raster(
     if height > ceiling:
         scale = max(ceiling - 2 * margin - _CAPTION_STRIP, 1) / span_y
         height = int(span_y * scale) + 2 * margin + _CAPTION_STRIP
-        # The width follows the shrunken drawing rather than staying where the
-        # caller put it: a 2 m-wide building centred in a 1400 px page is a
-        # thread of ink in an empty sheet, which reads as a broken render.
-        # `width` only ever decreases here, so `width * height` stays under the
-        # ceiling that was computed from the larger width.
         width = max(_MIN_RASTER_EDGE, min(width, int(span_x * scale) + 2 * margin))
     return width, height, margin, scale
 
@@ -199,8 +91,6 @@ _LABEL = (63, 63, 70)
 
 @dataclass(frozen=True)
 class Plan:
-    """A rendered plan and the facts about it worth putting in a caption."""
-
     png: bytes
     width: int
     height: int
@@ -214,18 +104,6 @@ class Plan:
 
 
 def _segments_at_z(triangles: np.ndarray, z: float) -> list[tuple[float, float, float, float]]:
-    """Where a triangle soup crosses the horizontal plane at ``z``.
-
-    Plane-triangle intersection, vectorised over the whole element. A triangle
-    contributes a segment when its vertices straddle the plane; the two crossing
-    edges give the two endpoints by linear interpolation.
-
-    Triangles lying exactly IN the plane are skipped rather than drawn. They are
-    the top face of a slab whose surface happens to coincide with the cut, and
-    drawing them fills the entire storey with ink — which is what a first
-    implementation did to the sample house, producing a solid black page that
-    looked like a rendering failure rather than a bad cut height.
-    """
     if triangles is None or len(triangles) == 0:
         return []
 
@@ -233,7 +111,6 @@ def _segments_at_z(triangles: np.ndarray, z: float) -> list[tuple[float, float, 
     heights = triangles[:, :, 2] - z
     above = heights > 1e-9
     below = heights < -1e-9
-    # Straddles the plane only if it has a vertex strictly on each side.
     crossing = above.any(axis=1) & below.any(axis=1)
     for tri, h in zip(triangles[crossing], heights[crossing]):
         points = []
@@ -253,13 +130,6 @@ def _segments_at_z(triangles: np.ndarray, z: float) -> list[tuple[float, float, 
 
 
 def _footprint_rings(triangles: np.ndarray) -> list[list[tuple[float, float]]]:
-    """A space's plan outline, as polygons ready to fill.
-
-    The union of the XY projection of its down- or up-facing faces — the same
-    measurement `operators._footprint_area` makes, kept as geometry instead of
-    reduced to a number, and taken from whichever side the mesh is wound so an
-    inside-out `IfcSpace` (a Revit IFC2X3 staple) still draws.
-    """
     import shapely
     import shapely.ops
 
@@ -320,19 +190,6 @@ def plan(
     margin_px: int = 48,
     label_rooms: bool = True,
 ) -> Plan | None:
-    """Draw one storey as a PNG the model can be handed directly.
-
-    ``highlight`` outlines the named elements in red and labels them; ``only``
-    restricts the drawing to them entirely. The two answer different questions —
-    "where is this in the building" wants the whole plan with one thing marked,
-    "what does this look like" wants everything else out of the way — and
-    collapsing them into one parameter forces the caller to lose one of them.
-
-    Returns ``None`` when the storey holds nothing drawable, which the caller
-    must report as such: an empty picture is indistinguishable from a broken
-    renderer, and this package's whole discipline is that those two are
-    different findings.
-    """
     from PIL import Image
     from PIL import ImageDraw
 
@@ -349,7 +206,6 @@ def plan(
     )
     cut_z = float(elevation or 0.0) + CUT_ABOVE_STOREY
 
-    # ── collect ─────────────────────────────────────────────────────────────
     structure: list[tuple[str, list[tuple[float, float, float, float]]]] = []
     furniture: list[tuple[float, float, float, float]] = []
     rooms: list[tuple[str, list[list[tuple[float, float]]]]] = []
@@ -363,15 +219,6 @@ def plan(
             continue
         ifc_type = element.is_a()
         own_storey = model.storey_of(element)
-        # The storey filter holds in restricted mode too. `only` used to skip it,
-        # so `plan(storey="Ground Floor", only=[<id on Roof>])` drew that element
-        # at its own world coordinates onto a page captioned „Ground Floor,
-        # Schnitt 1.20 m" — on the sample house the Roof storey's room outline
-        # 09J5N7xMHBfQZeQGAEMota came back as rooms=['Roof'] on the Ground Floor
-        # plan, a room that is 2.5 m above the cut. A drawing is ONE storey at ONE
-        # cut height; an element from another storey drawn on it is a false
-        # statement about where that element is, and `only` selects within the
-        # drawing rather than overriding what the drawing is of.
         if own_storey is not None and own_storey.GlobalId != target.GlobalId:
             continue
 
@@ -404,7 +251,6 @@ def plan(
     if not structure and not rooms:
         return None
 
-    # ── world → pixels ──────────────────────────────────────────────────────
     xs: list[float] = []
     ys: list[float] = []
     for _, segments in structure:
@@ -425,10 +271,6 @@ def plan(
     width_px, height_px, margin_px, scale = _fit_raster(width_px, margin_px, span_x, span_y)
 
     def to_px(x: float, y: float) -> tuple[float, float]:
-        # Y is flipped: IFC +Y runs north and image +Y runs down, so a plan
-        # drawn without the flip is mirrored — and a mirrored plan is worse
-        # than none, because it is confidently wrong about which side a door
-        # is on.
         return (margin_px + (x - min_x) * scale, margin_px + (max_y - y) * scale)
 
     image = Image.new("RGB", (width_px, height_px), _PAPER)
@@ -471,24 +313,15 @@ def plan(
         px, py = to_px(float(centre[0]), float(centre[1]))
         canvas.ellipse([px - 7, py - 7, px + 7, py + 7], outline=_HIGHLIGHT, width=3)
 
-        # OFF the element, not beside it. Placed to the right it ran off the
-        # page; flipped left it printed straight across the red bar it was
-        # labelling — a marker that hides what it marks. So it goes above or
-        # below, whichever is further from the edge, with x clamped so a long
-        # type name cannot leave the canvas either way.
         text = _shorten(model.label(element) or global_id)
         text_width = canvas.textlength(text, font=mark_font)
         label_y = py + 20 if py < height_px / 2 else py - 20
         label_x = min(max(px, margin_px + text_width / 2), width_px - margin_px - text_width / 2)
         canvas.text((label_x, label_y), text, fill=_HIGHLIGHT, anchor="mm", font=mark_font)
 
-    # ── scale bar and north arrow ───────────────────────────────────────────
     _draw_scale_bar(canvas, margin_px, height_px - 30, scale, _font(15))
     north = _true_north_degrees(model)
     if north is not None:
-        # Inset by the arrow's own reach plus the glyph, or the "N" is clipped
-        # by the canvas edge — which reads as a rendering fault rather than as
-        # a north arrow.
         _draw_north_arrow(canvas, width_px - margin_px - 40, margin_px + 40, north, _font(16))
 
     buffer = io.BytesIO()
@@ -508,12 +341,6 @@ def plan(
 
 
 def _draw_scale_bar(canvas: Any, x: int, y: int, scale: float, font: Any) -> None:
-    """A metre bar, because a raster has no units.
-
-    Without it the picture is unscaled and an agent has no way to know whether
-    it is looking at a cupboard or a hall — and the caption's metre figures
-    cannot be tied to anything on the page.
-    """
     for metres in (10, 5, 2, 1):
         if metres * scale <= 220:
             break
@@ -525,12 +352,6 @@ def _draw_scale_bar(canvas: Any, x: int, y: int, scale: float, font: Any) -> Non
 
 
 def _true_north_degrees(model: SpatialModel) -> float | None:
-    """The declared north, or ``None`` — never a guess.
-
-    An invented north arrow is worse than no north arrow: it makes an
-    orientation claim about a file that never made one, on a picture that reads
-    as authoritative.
-    """
     for context in model.file.by_type("IfcGeometricRepresentationContext") or []:
         direction = getattr(context, "TrueNorth", None)
         ratios = getattr(direction, "DirectionRatios", None) if direction else None

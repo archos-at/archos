@@ -3,8 +3,6 @@
  */
 import { describe, expect, it, vi } from 'vitest'
 
-// The office's „Sensible Daten" policy (ADR-0086): here it masks one name and
-// one IBAN, so a spec sees that a quote went through it.
 vi.mock('@/lib/upload-screening/service', () => ({
   maskChatText: vi.fn(async (_org: string, text: string) => ({
     text: text.replaceAll('Maria Huber', '[Name]').replaceAll('AT611904300234573201', '[IBAN]'),

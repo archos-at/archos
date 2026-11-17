@@ -1,4 +1,4 @@
-# Anmerkungen: marks on a document, the Prüfansicht, and Piloti on it
+# Anmerkungen: marks on a document, the Prüfansicht, and the agent on it
 
 An **Anmerkung** is a mark on one page of one Fassung: a point, or a drawn box (a
 *Bereich*). It carries what it says, a running number, optionally a person
@@ -23,22 +23,22 @@ put at any zoom and on any screen.
 The domain rules are CHECK constraints, not service code. A tired contributor
 cannot route around them:
 
-- Only Piloti proposes.
-- A mark by Piloti is `open` only with a person behind it: `accepted_by` is set,
-  by the person who took it over, or by the person who asked Piloti for it.
+- Only the agent proposes.
+- A mark by the agent is `open` only with a person behind it: `accepted_by` is set,
+  by the person who took it over, or by the person who asked the agent for it.
 - A closed mark (`resolved`, `dismissed`) says who closed it and when.
 - A box stays on its page.
 
 `scripts/rls-test-db.sh` refuses each CHECK against a real PostgreSQL, then
 applies the down migration and re-applies the up migration.
 
-Migration `0139_piloti_wakes.sql` adds what wakes Piloti (below, „Events wake
-Piloti“):
+Migration `0139_piloti_wakes.sql` adds what wakes the agent (below, „Events wake
+the agent“):
 
 | Where | Holds | CHECK |
 |---|---|---|
-| `document_annotation_replies.addresses_agent` | the reply addresses Piloti: the composer's @Piloti chip, never read from the text | default false |
-| `document_annotations.delegated_by`, `delegated_at` | Piloti is the delegate, working the mark for this person | both or neither (`…_delegation_complete`); only on an open mark (`…_delegated_while_open`) |
+| `document_annotation_replies.addresses_agent` | the reply addresses the agent: the composer's @agent chip, never read from the text | default false |
+| `document_annotations.delegated_by`, `delegated_at` | The agent is the delegate, working the mark for this person | both or neither (`…_delegation_complete`); only on an open mark (`…_delegated_while_open`) |
 | `agent_wakes` | one row per event that met a wake rule: its id is the job id and the turn id (uuid5 of the event); trigger, event, the person who acted, and what it came to: `queued`, then `started` and its final word, `answered`, `stopped` or `failed` (a turn that ran), or `suppressed` and `refused` (no turn ran) | a reason exactly for `suppressed`, `refused` and `failed`; `settled_at` exactly when it left `queued`; `ended_at` exactly when it reached its final word (migration `0141_wake_ends.sql`); RLS on the org and the mark's org |
 
 Migration `0150_annotation_mentions.sql` adds whom a text mentions (below,
@@ -64,11 +64,11 @@ Migration `0152_annotation_reply_edits.sql` adds when a reply was reworded
 |---|---|---|
 | `document_annotation_replies.edited_at` | when its author last changed its text, by the database's clock (`now()` in the edit's UPDATE); null for one never changed | never before `created_at` (`…_edited_after_created`) |
 
-Migration `0142_piloti_changes.sql` adds the change record: every change Piloti
+Migration `0142_piloti_changes.sql` adds the change record: every change the agent
 applied to a mark or a thread, with the turn that made it. The chat card reads
 it, and undo runs from it (below, „In the chat“). Each change is also one
 `piloti.change.applied`, and each undo one `piloti.change.undone`, in the
-organization's WorkOS audit log, where an admin reads what Piloti did and for
+organization's WorkOS audit log, where an admin reads what the agent did and for
 whom ([the trail](../deployment/workos-provisioning.md#5-audit-logs-native-workos-product)).
 
 Numbers are allocated under an advisory lock per document, so two people
@@ -83,7 +83,7 @@ marks are as invisible as the upload.
 **What a listing says about them.** Every listing row (`toListedDocuments`,
 `lib/documents/shelf-listing.ts`, so a project's Dateien, the Archiv and the
 by-name reads alike) carries `marks: { open, proposed, forYou }`: how many of
-the document's marks are open, how many are Piloti's proposals nobody decided
+the document's marks are open, how many are the agent's proposals nobody decided
 on (both live, `isLive`, on every Fassung, and counted apart: „offen“ means the
 office's own open marks wherever it is said, as Offene Punkte, the Protokoll
 and the Postfach say it), and how many of the open ones have the reader as
@@ -114,14 +114,14 @@ line under the size and the date (never in their place). It says it in words,
 „4 offen · 2 für Sie · 12 Vorschläge“ (`openMarksShortLabel`, each part only
 when it has any), not as bare numbers; the kit's `Tooltip` and the button's
 name carry the whole sentence, „4 offene Anmerkungen, 2 für Sie und 12
-Vorschläge von Piloti“ (`openMarksLabel`, the name adding „in „Grundriss
+Vorschläge von {productName}“ (`openMarksLabel`, the name adding „in „Grundriss
 EG““). The review says the same in its header and the rail's count
 („2 offen · 12 Vorschläge“), its Offen tab counts the open marks and adds the
 proposals it lists under them („Offen 2 · 12 Vorschläge“, `tabCounts`), and the
 approve confirm names both (below). On a phone, where the list opens from a
 button in the review's header, the button shows the open count and its name
 says the whole sentence („Anmerkungen: 2 offene Anmerkungen und 12 Vorschläge
-von Piloti“, `review.listOpen` over `openMarksLabel`). A press opens the review: the page's own URL
+von {productName}“, `review.listOpen` over `openMarksLabel`). A press opens the review: the page's own URL
 with `doc` and `review=1` (`reviewHrefAt(…, { withDocument: true })`), which
 the shelf's `?doc=` sync and the pane already answer.
 
@@ -158,7 +158,7 @@ kept, on the mark and on each reply. See „Mentioning a colleague“ below.
 A PATCH with `carryToCurrent: true` (and nothing but `expectedStatus` beside
 it, 400 otherwise) carries an open mark to the document's current Fassung
 (below, „A mark goes on with a new Fassung“): a closed or proposed mark is 422
-`not-open`, a mark Piloti works on another document's behalf 422 `delegated`,
+`not-open`, a mark the agent works on another document's behalf 422 `delegated`,
 and a colleague's move first, or a second carry, 409. It answers the mark as it
 now stands, which for a mark of a replaced document is the linked mark on the
 replacing one (its `documentId` says which). Every view carries `carriedFrom`
@@ -167,16 +167,16 @@ documentName}`, or null, named only to a reader who may open that document
 (`linkedDocuments`, through `getAccessibleDocument`).
 
 The list answers `pilotiWakes`, whether the organization lets events wake
-Piloti. A reply answers `{annotation, replyId, wake}` and a PATCH that
+the agent. A reply answers `{annotation, replyId, wake}` and a PATCH that
 delegates `{annotation, wake}`, where `wake` is `none` (no rule met), `off`
-(the switch is off), `queued` (the server wakes Piloti) or `suppressed` (a cap
+(the switch is off), `queued` (the server wakes the agent) or `suppressed` (a cap
 held it).
 
-The UI and Piloti are equal clients of one service (ADR-0055).
+The UI and the agent are equal clients of one service (ADR-0055).
 
 **What PostHog counts.** Because every client passes the service, the product
 events about marks are sent there and nowhere else: `annotation_created`
-(who set it, person or Piloti, its kind, open or proposed), `annotation_closed`
+(who set it, person or the agent, its kind, open or proposed), `annotation_closed`
 (resolved or dismissed, by whom, whose mark, from which status) and
 `annotation_carried` (in place or across). Kinds and statuses only, never a
 word of a mark or a name ([`posthog-events.md`](../observability/posthog-events.md)).
@@ -189,15 +189,15 @@ role name:
 | Who | May |
 |---|---|
 | whoever may open the document (`project:view` and read in its folder; on the Büroablage every member) | read the marks and their threads, export the Protokoll, be @mentioned and be told |
-| whoever may write it (`project:documents:write` or `project:edit`, and write in its folder; on the Büroablage `org:office_shelf:manage`) | set a mark, answer in a thread, take over, dismiss, resolve or reopen, assign, set or clear a date, delegate to Piloti, carry an open mark to the current Fassung (to a replacing document only with the right to write that one too); **be made Zuständige** (`isAssignable`), because the Zuständige answers and closes the mark |
-| the author (`createdBy`, a person's own mark) | reword it („Bearbeiten“ in the card's menu; the server lets any writer change a `body`, the card offers it to the author) and delete it (`mayDeleteMark`), while nothing but its author and Piloti stands on it (below) |
-| the author of a reply (a person's own, `created_by`), who may still write the document | reword it and delete it, while the mark is live and Piloti has not taken the reply up (below); never a colleague's reply, never Piloti's (a note Piloti posted for them goes by the chat card's undo) |
+| whoever may write it (`project:documents:write` or `project:edit`, and write in its folder; on the Büroablage `org:office_shelf:manage`) | set a mark, answer in a thread, take over, dismiss, resolve or reopen, assign, set or clear a date, delegate to the agent, carry an open mark to the current Fassung (to a replacing document only with the right to write that one too); **be made Zuständige** (`isAssignable`), because the Zuständige answers and closes the mark |
+| the author (`createdBy`, a person's own mark) | reword it („Bearbeiten“ in the card's menu; the server lets any writer change a `body`, the card offers it to the author) and delete it (`mayDeleteMark`), while nothing but its author and the agent stands on it (below) |
+| the author of a reply (a person's own, `created_by`), who may still write the document | reword it and delete it, while the mark is live and the agent has not taken the reply up (below); never a colleague's reply, never the agent's (a note the agent posted for them goes by the chat card's undo) |
 
 **What a delete would take with it.** Deleting a mark takes its thread along,
 turns every inbox row anchored on it inert, leaves a hole in the numbering a
 Protokoll cites, and for a carried mark cuts the link that carries the point
 on. So even its author deletes a mark only while nobody but the author and
-Piloti has written in its thread, and while it neither went on to another
+the agent has written in its thread, and while it neither went on to another
 document nor came from one (`deleteRefusalOf`, `lib/annotations/service.ts`;
 the rule undo always kept, below, now kept for every delete). Otherwise
 `DELETE` is `409` with `details.reason` `mark-discussed` or `mark-carried`.
@@ -211,7 +211,7 @@ The Zuständige picker reads who may write
 (`GET /api/assignments/document/{id}/candidates?access=write`,
 `listAssignmentCandidates` with `access: 'write'`), offers the reader
 themselves („Mir zuweisen“), and the service checks the pick again on every
-write (422 `assignee-cannot-answer`; by name for Piloti, `resolveAssignee`). A
+write (422 `assignee-cannot-answer`; by name for the agent, `resolveAssignee`). A
 mention asks less: whoever may open the document. A held upload (ADR-0086)
 narrows both rows to its uploader and the people who may review its
 quarantine, as `findDocumentForSession` does for a session.
@@ -222,8 +222,8 @@ quarantine, as `findDocumentForSession` does for a session.
 is the document opened full screen:
 
 - marks drawn on the PDF pages (`review-page-layer.tsx`);
-- the open thread beside its mark (`thread-card.tsx`), on the side a whole card fits in pixels, else under the mark (`placeCard`); on a phone in a sheet from the bottom edge. On the sheet a card keeps inside the free stage, the canvas less the toolbars and chips at its foot (`review-stage.ts`): beside its mark it moves up as it grows, under its mark it gets shorter, and past the stage's height its thread scrolls inside it, never the reply field. A new line at the end of the thread (a reply, Piloti at work, its answer) is scrolled into view for a reader at the end or one who just sent into it (`use-follow-end.ts`; a jump under reduced motion);
-- the list (`review-panel.tsx`), where Piloti's proposals lead the open marks as a group you can walk through („Durchgehen": the card says „1/3", J or „Weiter" goes on, and taking one over or dismissing it moves to the next);
+- the open thread beside its mark (`thread-card.tsx`), on the side a whole card fits in pixels, else under the mark (`placeCard`); on a phone in a sheet from the bottom edge. On the sheet a card keeps inside the free stage, the canvas less the toolbars and chips at its foot (`review-stage.ts`): beside its mark it moves up as it grows, under its mark it gets shorter, and past the stage's height its thread scrolls inside it, never the reply field. A new line at the end of the thread (a reply, the agent at work, its answer) is scrolled into view for a reader at the end or one who just sent into it (`use-follow-end.ts`; a jump under reduced motion);
+- the list (`review-panel.tsx`), where the agent's proposals lead the open marks as a group you can walk through („Durchgehen": the card says „1/3", J or „Weiter" goes on, and taking one over or dismissing it moves to the next);
 - the tools, leading the viewer's own pill at the foot; on a touch screen a row of their own above it, each with its name. The first review a browser opens spells every tool out with its key (`TOOLS_INTRO_KEY`), folded after the first mark or by its ×. A tool in hand says what it does next at the top of the canvas.
 
 Everything drawn on the page is in `--paper-ink`, never `--foreground`: the
@@ -233,7 +233,7 @@ Keys:
 
 | Key | Does |
 |---|---|
-| V / C / R / P | select, point, box, ask Piloti about a box; C, R and P from the keyboard bring the crosshair (below) |
+| V / C / R / P | select, point, box, ask the agent about a box; C, R and P from the keyboard bring the crosshair (below) |
 | J / K | step through the marks the list shows that the sheet draws, proposals first: this Fassung's and the ghosts of an earlier one (below), not a closed mark of an earlier Fassung |
 | E | take a proposal over, or resolve an open mark; a toast says so with „Rückgängig“ (below) |
 | ⌫ / Entf | dismiss a proposal, with the same toast |
@@ -249,7 +249,7 @@ the mark had (`expectedStatus`). The review's toasts are its own
 (`review-toaster.tsx`, `LayerToaster` in `components/ui/sonner.tsx`): mounted
 inside the review's dialog, centred at the foot of the canvas above the
 viewer's pill, where the cursor chat stops too. The app's toaster, top right
-and outside the modal dialog, covered „Protokoll exportieren“, „Piloti prüfen
+and outside the modal dialog, covered „Protokoll exportieren“, „{productName} prüfen
 lassen“ and the list's filter, and its „Rückgängig“ could not be clicked. A
 toast raised after the review closed goes to the app's. „Rückgängig“ lets go of it before anything
 was sent, so an undone slip leaves no inbox row, no audit event and no
@@ -271,7 +271,7 @@ page there (`KeyboardAim` in `review-page-layer.tsx`, `role="application"`
 with a label that says the keys). The arrows move it a hundredth of the page,
 with Shift a twentieth; Enter sets a point, or for a box holds the first
 corner, the arrows draw the box out and Enter sets it. What it sets goes the
-way a click goes: the draft card, or the question to Piloti. A held Enter is
+way a click goes: the draft card, or the question to the agent. A held Enter is
 one press. Escape is the review's own Escape and puts the tool down. The hint
 at the top reads „Klicken oder ↵ · Pfeiltasten · Esc"; while the crosshair is
 out it is hidden from a screen reader, which hears the crosshair's label instead.
@@ -299,9 +299,9 @@ glyphs' tooltip (name and key).
 **What a screen reader hears.** What the others do reaches it through one
 polite live region of its own, there from the moment the review opens
 (`review-announcer.tsx`), beside the review's few status lines (offline,
-Piloti's review in the header, the tool hint): what the others did to the marks,
-gathered for three seconds and said as one line („Piloti hat 3 Vorschläge
-gesetzt. Anna Berger: neue Anmerkung 7"), and „Piloti hat geantwortet" when a
+the agent's review in the header, the tool hint): what the others did to the marks,
+gathered for three seconds and said as one line („{productName} hat 3 Vorschläge
+gesetzt. Anna Berger: neue Anmerkung 7"), and „{productName} hat geantwortet" when a
 question this reader asked is answered. Never a pointer or who came and went,
 never this reader's own changes, in this tab or another. The same line twice
 is said twice. The pointers and their tags are hidden from it.
@@ -333,7 +333,7 @@ session's user id the app keeps (`useChatStore`'s `currentUserId`), so
 
 **„Für Sie“** is one predicate on both surfaces (`isForReader`,
 `lib/annotations/types.ts`): the marks the reader is Zuständige of, and that are
-the office's (Piloti's proposal naming them is not theirs until somebody takes
+the office's (the agent's proposal naming them is not theirs until somebody takes
 it over). Who set a mark does not count: a mark set for a colleague is the
 colleague's. The list's filter shows those under Offen and Erledigt alike, and
 its Offen count is the number Dateien's chip says, „4 offen · 2 für Sie“, which
@@ -343,7 +343,7 @@ of `@/test-utils/marks-for-reader`.
 
 **A thread with news.** A pin and its row wear a dot when the reader's
 Postfach holds news anchored on the mark they have not read: a reply, the mark
-closed, Piloti's finished work (the informational inbox items opening a mark
+closed, the agent's finished work (the informational inbox items opening a mark
 reads). One bounded read per document through the inbox's typed client
 (`unreadMarks`, `GET /api/inbox/unread-anchors`, the same rows
 `markAnchorItemsRead` reads), said in words to a screen reader („ungelesen“).
@@ -433,21 +433,21 @@ is confirmed, as a mark's is (`ConfirmDialog`). An edited reply says
 The server refuses, and the menu is not offered:
 
 - anyone's reply but one's own person reply (403): a colleague's words stay
-  theirs, and a note Piloti posted for the person goes by the chat card's undo
-  (`deleteReply`, a compare-and-swap on what Piloti wrote);
+  theirs, and a note the agent posted for the person goes by the chat card's undo
+  (`deleteReply`, a compare-and-swap on what the agent wrote);
 - a reply on a closed mark (422, `details.reason` `mark-closed`): a resolved or
   dismissed mark's thread is the record;
-- a reply Piloti has taken up (409, `piloti-took-it-up`): it was for Piloti
-  (its @Piloti, or an answer on Piloti's own Rückfrage) and Piloti wrote in the
+- a reply the agent has taken up (409, `piloti-took-it-up`): it was for the agent
+  (its @agent, or an answer on the agent's own Rückfrage) and the agent wrote in the
   thread after it, or its wake (`wakeTurnId(replyId)`, enqueued in the reply's
   own transaction) is queued, running, answered or stopped. A wake a cap held,
   or one refused or failed before it answered, took nothing up. With wakes off
-  the browser asked Piloti itself, and only Piloti's answer in the thread says
+  the browser asked the agent itself, and only the agent's answer in the thread says
   so: the server lets a delete through in the moment between the ask and the
-  answer, and Piloti answers a reply that is gone. The card reads the same
+  answer, and the agent answers a reply that is gone. The card reads the same
   facts (`agentRepliedSince`, `pilotiWork` for the reply's author) to keep
   from offering what the server would refuse, and withholds the change too
-  while this tab's own ask of Piloti in that thread is thinking
+  while this tab's own ask of the agent in that thread is thinking
   (`agentAskingIn`), which leaves that moment to another tab only. The
   refusal says so in the card, not as a colleague's move.
 
@@ -455,12 +455,12 @@ The write is a compare-and-swap on the words the service read
 (`updateAnnotationReply`, `deleteAnnotationReply` with the body), so an edit
 or a delete that raced another is a 409.
 
-**An edit never wakes Piloti.** The wake was the posting's event, decided once
-(`replyTrigger`), and whether the reply addressed Piloti (`addresses_agent`)
-stays what it was. So an @Piloti is kept only when the reply already had one;
+**An edit never wakes the agent.** The wake was the posting's event, decided once
+(`replyTrigger`), and whether the reply addressed the agent (`addresses_agent`)
+stays what it was. So an @agent is kept only when the reply already had one;
 one added in an edit is not stored and stays plain text. The edit's composer
-offers no @Piloti, and where Piloti could be asked it says that an edited reply
-does not reach Piloti and to ask in a new reply.
+offers no @agent, and where the agent could be asked it says that an edited reply
+does not reach the agent and to ask in a new reply.
 
 **What an edit tells, and a delete takes back.** An edit keeps whom it mentions
 as a new text does (`keepMentions`): the people it adds are told
@@ -527,7 +527,7 @@ longer fits is resolved and set again instead.
   chat the name stands without a link, `features/documents/lib/revision-links.ts`).
   Closing B's mark settles what it asked of people; its Zuständige is asked
   again on C's mark (`annotation.assigned_to_you`), unless they carried it
-  themselves. A mark Piloti works is taken back first: its running turn writes
+  themselves. A mark the agent works is taken back first: its running turn writes
   on B.
 
 What the review offers is what the server would do. Each mark of a list or a
@@ -536,7 +536,7 @@ on, named as they see it, or null where the carry would be refused or do
 nothing (`carryWayOf` and `carryTargetOf`, `lib/annotations/service.ts`): a
 mark that is not open, a reader who may not write its document, a mark on the
 current Fassung of a document nothing replaces; across, a replacing document
-the reader may not write, and a mark Piloti works. The target is the end of the
+the reader may not write, and a mark the agent works. The target is the end of the
 chain the carry walks (`replacingDocumentOf`), so when C was replaced by D in
 turn, B's card names D, not the direct successor its notice names. A list read
 whose chain cannot be read offers no carry rather than failing.
@@ -557,24 +557,24 @@ mark's card says „Dieses Dokument ist durch „C“ ersetzt.“ and offers
 „In „D“ übernehmen“, D being its `carryTarget`. The header says
 „Ersetzt durch „C““ or „Ersetzt „B““ beside the Fassung.
 
-**Piloti prüfen lassen, was behoben ist.** Under both groups (the earlier
-Fassungen' bar and „Aus Fassung „B““) the review offers to have Piloti check
+**{productName} prüfen lassen, was behoben ist.** Under both groups (the earlier
+Fassungen' bar and „Aus Fassung „B““) the review offers to have the agent check
 which of those open marks look fixed now (`review/check-fixed.ts`,
 `useCheckFixed`). It is the review's own whole-document ask, the one the
-header's „Piloti prüfen lassen“ runs (`review.piloti.ask` with no region,
+header's „{productName} prüfen lassen“ runs (`review.piloti.ask` with no region,
 `use-canvas-ask.ts`), with the question written for that group: the marks by
 number, the Fassung they are checked against („Fassung 3“, or for B's marks C's
 name), and how to answer. One turn for the group, in the person's thread about
 the document (or the chat's conversation over the chat), so it streams into the
 header line, is one turn at a time with every other ask, and can be stopped. The
 ask carries `checkFixed` (`{documentId, annotationIds}`), which the header reads
-to say „Piloti prüft, was behoben ist …“ / „Piloti hat in den Verläufen
+to say „{productName} prüft, was behoben ist …“ / „{productName} hat in den Verläufen
 geantwortet“ instead of counting proposals, and the group to say it is running.
 Not the wake path: nothing happened on a mark that a rule could name, and a wake
 per mark would be N turns, each spending the per-mark and per-person caps, for
 one question.
 
-Piloti answers in each mark's thread with `canvas__reply`, „In Fassung 3
+The agent answers in each mark's thread with `canvas__reply`, „In Fassung 3
 behoben: …“ or „Weiterhin offen: …“, naming B for B's marks (`document`, a file
 name from the turn's inventory). It changes no status: the question says so,
 and the `canvas` tools' descriptions hold it on every path, `piloti-acts` on or
@@ -584,7 +584,7 @@ Closing stays the person's: „Erledigt“ in the mark's thread, or for B's mark
 „Erledigen“ on the row in C's review (`resolveCarried`, a PATCH to B's mark
 with the status the row showed). B's threads are in B's room, which C's review
 does not hear, so the group is read again when the check's turn ends, and each
-row shows Piloti's newest answer when it is Piloti's. Only on request: an upload
+row shows the agent's newest answer when it is the agent's. Only on request: an upload
 never starts it. Observable as any canvas ask: the turn's trace, with one
 `canvas__reply` observation (and its `canvas.reply` step) per mark; the question
 is the trace's input. No model call is added.
@@ -606,7 +606,7 @@ people who may open the document, read from the assignment candidates
 (`GET /api/assignments/document/{id}/candidates`, `listAssignmentCandidates`,
 `mayOpenDocument`; the Zuständige picker asks the narrower `access=write`
 list), under „Können das Dokument öffnen“; a reply also offers
-Piloti, and its spark writes the @Piloti mention too. A draft does not: setting
+the agent, and its spark writes the @agent mention too. A draft does not: setting
 a mark wakes nobody. A query that finds nobody says that only people who may
 open the document can be mentioned. The picker ranks what it finds
 (`filterMentionCandidates`): a name part that starts with the query, then a
@@ -618,10 +618,10 @@ same picker.
 
 The server keeps a mention only while its token stands in the text, the name is
 the directory's, and the person may open the document
-(`lib/annotations/mentions.ts`); Piloti by its product name, and only in a
+(`lib/annotations/mentions.ts`); the agent by its product name, and only in a
 reply, never in a mark's own text. Where the organization has collaboration
 off (the gate the candidates route and the chat keep), a text mentions nobody
-but Piloti. A dropped mention
+but the agent. A dropped mention
 is not stored, so its „@Name“ stays plain text, and the composer, comparing
 what it sent with what came back, says whom it did not tell, without a reason
 it cannot know („Anna Berger wurde nicht benachrichtigt.“). It says the chat's
@@ -631,9 +631,9 @@ names. A list of people that failed to load says so in the picker, never as
 text is dropped as the text changes, and when two picks share a name the
 newest wins (`reconcileMentions`), so a namesake taken back is never told. A
 reply that
-mentions Piloti addresses it, as `addressesPiloti` does; an edit of a reply
-keeps an @Piloti only where it stood, and wakes nobody (above). Mentions spend the
-chat's one budget (`enforceMentionBounds`, `MENTION_LIMIT`), @Piloti counted
+mentions the agent addresses it, as `addressesPiloti` does; an edit of a reply
+keeps an @agent only where it stood, and wakes nobody (above). Mentions spend the
+chat's one budget (`enforceMentionBounds`, `MENTION_LIMIT`), @agent counted
 like a person as in the chat, before anything is written. A write that closes
 the mark tells nobody it mentions.
 
@@ -647,9 +647,9 @@ a stored mention becomes a chip.
 
 **Before a Freigabe.** The approve confirm in the rail
 (`document-review-controls.tsx`, under „Freigabe und Fassungen“) names the
-live marks the pane's review holds, before the signature, Piloti's untaken
+live marks the pane's review holds, before the signature, the agent's untaken
 proposals apart from the open ones as the chip tells them: „2 offene
-Anmerkungen und 12 Vorschläge von Piloti – trotzdem freigeben?“, with „In der Prüfansicht öffnen“ beside it
+Anmerkungen und 12 Vorschläge von {productName} – trotzdem freigeben?“, with „In der Prüfansicht öffnen“ beside it
 as a link in the sentence (`openMarks`, handed down from `file-preview-pane.tsx`
 through `DocumentRevisions`; drawn as `Button variant="inline"`, underlined at
 rest, because `link` is ink like the sentence around it and underlines only on
@@ -670,10 +670,10 @@ the way a design tool shows its collaborators:
 |---|---|---|
 | A colleague's pointer | the arrow in their colour, their name on a tag; after 8 s at rest it quiets and the tag folds down to a dot with their initial (`CURSOR_IDLE_MS`, one timer per pointer). Under the open card, never over it. In the file preview, the arrow alone: no tag, no chat, no name on a mark or a box being drawn | `review-page-layer.tsx`, `components/ui/live-cursor.tsx` |
 | Cursor chat | „/" opens a field at the reader's pointer, the toolbar's button centred above the toolbars, always inside the canvas; every key shows beside it for the room as typed; Enter keeps the line 4 s, Esc takes it away. A colleague's chat keeps their name above the words. Nothing is stored | `cursor-chat.tsx` |
-| The mark a colleague has open | a ring round the pin (an outline round a region) in their colour, with their first name at its top-right; „Anna +1" for several; a person whose own pointer is within 48 px of the mark is not named twice (`selectionTagged`); never the reader's own tabs, never Piloti | `peerSelections`, `PeerSelection` |
+| The mark a colleague has open | a ring round the pin (an outline round a region) in their colour, with their first name at its top-right; „Anna +1" for several; a person whose own pointer is within 48 px of the mark is not named twice (`selectionTagged`); never the reader's own tabs, never the agent | `peerSelections`, `PeerSelection` |
 | A box being dragged out | dashed in their colour, with their first name over its top-right corner; beside the box when the box is narrower than the name, so the name never lies over a pin next to it (`draftTagPlace`) | `review-page-layer.tsx` |
 | A colleague out of view | a chip at the edge that leads to them („Lena · Seite 2"), decided by whether their point is on screen (`peerSide`); a click jumps there; the face's tooltip names the page. Never over the open card: the card keeps out of the foot, and a row that would still lie over it steps aside (`covers`) | `Elsewhere` in `document-review.tsx` |
-| Piloti | its own pointer, always led by its name („Piloti · Fluchtweg · für Anna"), quieting once it is parked with nothing in hand (`agentResting`); the box it reads glows while it reads it (`look` sends the `look` op for a workspace document, from the canvas or the chat: presence and a `reading` activity) | `AgentCursor`, `tools/canvas/presence.py` `show_reading` |
+| The agent | its own pointer, always led by its name („{productName} · Fluchtweg · für Anna"), quieting once it is parked with nothing in hand (`agentResting`); the box it reads glows while it reads it (`look` sends the `look` op for a workspace document, from the canvas or the chat: presence and a `reading` activity) | `AgentCursor`, `tools/canvas/presence.py` `show_reading` |
 
 A write sends an `annotations.changed` hint. A hint is a nudge to re-read, never
 the state itself, so a dropped hint costs a few seconds, not a wrong list. The
@@ -692,7 +692,7 @@ preview, the review itself, its list) reads the roster in render: the faces and
 the header read who is here by membership and page (`useRoomCompany`), each
 page's company layer reads the peers on its page (`usePeersOnPage`), and the
 marks are a memoised layer of their own. A pointer moving redraws its pointer.
-Piloti's highlights are kept once per room (`createHighlightTracker`), not per
+The agent's highlights are kept once per room (`createHighlightTracker`), not per
 page drawn.
 
 Everything a colleague's colour carries white words on (`identityInk`) is dark
@@ -713,9 +713,9 @@ left the room it sends nothing more under its peer, so a late send from a timer
 (the cursor chat's linger) cannot put it back in the roster as a ghost
 (`features/realtime/use-channel.ts`).
 
-## Piloti on the canvas
+## The agent on the canvas
 
-Piloti reaches marks in two ways.
+The agent reaches marks in two ways.
 
 **By tool.** The `canvas` function group (`packages/agent/src/agent/tools/canvas/`) calls
 `/api/internal/document-annotations`: `canvas__marks` (`list`), `canvas__mark`
@@ -723,7 +723,7 @@ Piloti reaches marks in two ways.
 `canvas__delete` (`delete`), `canvas__reply` (`reply`), `canvas__room`
 (`room`), and the gestures `canvas__point` and `canvas__highlight`.
 `look` (`packages/agent/src/agent/tools/look/`, ADR-0128), a tool of its own bound in every
-context, renders the page or a box on it and makes the box glow here. The turn sends `leave` when it ends, so Piloti's cursor goes with it.
+context, renders the page or a box on it and makes the box glow here. The turn sends `leave` when it ends, so the agent's cursor goes with it.
 
 - A tool may name a document (`document`: a file name from the turn's inventory, or an id); the name is resolved against the inventory and its id read from `GET /api/internal/document-file` with the envelope echoed. Without one it acts on the document open on the canvas (`focus_document_id`), then on the conversation's *subject*. The server checks a named document against the asker's access and the turn's signed scope (`lib/annotations/agent.ts`).
 - With no document named and no subject, the tool gets a typed 422 and asks which document is meant.
@@ -731,10 +731,10 @@ context, renders the page or a box on it and makes the box glow here. The turn s
 - A held upload reaches no model.
 - A subject in a restricted folder is admitted against the conversation first.
 
-### What the person asks for, Piloti does as they could
+### What the person asks for, the agent does as they could
 
-The product decision: there is no difference between what Piloti does and what
-a person does, with light reporting. When the person ASKS, Piloti may do on a
+The product decision: there is no difference between what the agent does and what
+a person does, with light reporting. When the person ASKS, the agent may do on a
 document's Anmerkungen everything that person may do, under that person's own
 rights, because every op runs as the asker's pinned session through the same
 service functions the person's own routes use (`lib/annotations/agent.ts`):
@@ -742,10 +742,10 @@ service functions the person's own routes use (`lib/annotations/agent.ts`):
 | Asked for | Op | Runs | Recorded as |
 |---|---|---|---|
 | Set a mark | `create` | `setAnnotationsForAsker`: born `open`, `author_kind = piloti` | `created_by` and `accepted_by`/`accepted_at` = the asker |
-| Resolve, reopen, dismiss a proposal, take one over, assign, set or clear a date, reword, change the kind | `update` | `updateAnnotationForAsker`, which runs `updateAnnotation` with `actor = AGENT`, then posts `note` as Piloti's reply | `closed_by` / `accepted_by` = the asker |
+| Resolve, reopen, dismiss a proposal, take one over, assign, set or clear a date, reword, change the kind | `update` | `updateAnnotationForAsker`, which runs `updateAnnotation` with `actor = AGENT`, then posts `note` as the agent's reply | `closed_by` / `accepted_by` = the asker |
 | Delete a mark | `delete` | `deleteAnnotation`, which allows only a mark the asker set themselves, while nobody else wrote in its thread and it was not carried | nothing left |
 
-Findings Piloti makes on its own initiative, including a whole-document review
+Findings the agent makes on its own initiative, including a whole-document review
 the person did not itemise, stay proposals (`propose`). So do the marks of a
 notice of a new Fassung (ADR-0130), which a job proposes through this same
 function, as the person who made the Fassung, recorded against a message in
@@ -756,7 +756,7 @@ only on explicit request.
 
 **Only where the office switched it on.** Acting is the organization's choice:
 the WorkOS flag `piloti-acts`, an entitlement off by default, so a pilot office
-starts with Piloti proposing only. With it off, `runAgentAnnotationRequest`
+starts with the agent proposing only. With it off, `runAgentAnnotationRequest`
 refuses `create`, `update` and `delete` before reading or writing anything, a
 403 with code `PILOTI_ACTS_OFF` and `details.reason` `piloti-acts-off`; the
 canvas tools turn it into a sentence (`tools/canvas/calls.py`): a mark the
@@ -764,11 +764,11 @@ person asked for is proposed instead (`canvas__mark` without `open`), and a
 change or a deletion is left to the person, in the document. Reads, the room,
 pointing, highlighting, replies and proposals never ask the flag.
 
-The CHECKs of migration 0138 hold on every path, unchanged:
+The CHECKs of migration 0138, renamed by migration 0242, hold on every path, unchanged:
 
-- `only_piloti_proposes`: a born-open mark is not `proposed`; a person's mark never is.
+- `only_agent_proposes`: a born-open mark is not `proposed`; a person's mark never is.
 - `acceptance_complete`: `accepted_by` and `accepted_at` are set together, on birth or by `transition()`.
-- `piloti_needs_a_person`: Piloti's open or resolved mark carries `accepted_by`, the asker, because the person stood behind it by asking.
+- `agent_needs_a_person`: The agent's open or resolved mark carries `accepted_by`, the asker, because the person stood behind it by asking.
 - `closing_complete`: closing goes through `transition()`, which sets `closed_by`/`closed_at` to the asker and clears them on reopening.
 
 `apps/workspace/app/api/internal/document-annotations/route.spec.ts` runs the
@@ -776,8 +776,8 @@ real service over a fake repository and checks every row it leaves against
 these predicates; `repository.integration.spec.ts` sets a born-open mark in
 real PostgreSQL and finds the CHECK still refusing one with nobody behind it.
 
-**The note.** Every change Piloti makes to an existing mark posts ONE short
-reply in that mark's thread, authored as Piloti, from the `note` the model must
+**The note.** Every change the agent makes to an existing mark posts ONE short
+reply in that mark's thread, authored as the agent, from the `note` the model must
 give („Erledigt: Die lichte Breite ist im Schnitt B-B mit 1,25 m kotiert.").
 The service posts it in the same request as the change, so the two cannot
 drift apart: a full thread refuses the change before it lands, a stale
@@ -792,11 +792,11 @@ Zuständige must (`resolveAssignee`, `mayWriteDocument`): an exact name or addre
 of a name. None or several is a 422 naming the candidates, and the tool turns
 it into a question.
 
-**Who it says did it.** Piloti's presence and replies are labelled Piloti. The
+**Who it says did it.** The agent's presence and replies are labelled the agent. The
 person shown as `acceptedBy` or `closedBy` is the asker, which is correct: they
 are accountable.
 
-**By a box.** A person draws a box and asks Piloti about it, on the canvas.
+**By a box.** A person draws a box and asks the agent about it, on the canvas.
 
 1. The canvas opens a conversation whose subject is the document, before the socket opens. The proxy only verifies a conversation that exists at upgrade time.
 2. It sends the question with `focus_region` (page and normalized box) on the wire v2 `user_message`.
@@ -807,15 +807,15 @@ A turn that ended is read by its outcome, never its phase alone
 (`statusOf` in `use-canvas-ask.ts`): a refusal or a full queue is `declined`
 (its words are the reason, never a mark to keep), a commissioned run is
 `handedOff` to the chat, a cancel from elsewhere is `stopped`, and an answer
-without words says Piloti worked on the document instead. A question whose
+without words says the agent worked on the document instead. A question whose
 server does not read its box or its thread target still goes; the canvas client
 says what it went without (`onDegraded`, `canvasDegradations`), the card says
-Piloti answered about the whole document, and a thread answer that never
+the agent answered about the whole document, and a thread answer that never
 reached the thread is offered there to add by hand. Both fields travel only
 while `WIRE_V2_ADDITIVE_FIELDS` is on, its default: the hello then names
 them in `accepts`.
 
-Mentioning Piloti in a thread sends the same turn with `reply_in_thread`. The
+Mentioning the agent in a thread sends the same turn with `reply_in_thread`. The
 prompt tells the model it was asked in that thread, and the model answers there
 with `canvas__reply`: nothing is posted on its behalf. The turn runs without
 restricted folders in scope, so its own research cannot keep the reply out.
@@ -825,20 +825,20 @@ The canvas asks in the person's own thread about the document, `POST
 /api/documents/{id}/thread` (`lib/annotations/document-thread.ts`): its id is
 uuid5 of the document and the person, created with the document as its subject
 on first use, the construction `lib/tasks/task-thread.ts` uses. The canvas, the
-chat and a wake of Piloti by the person's reply agree on it without a lookup;
+chat and a wake of the agent by the person's reply agree on it without a lookup;
 the per-tab id the canvas used to keep in session storage is gone.
 
-### Events wake Piloti (ADR-0106)
+### Events wake the agent (ADR-0106)
 
-People answer Piloti where the work is, often with nobody's chat open. These
+People answer the agent where the work is, often with nobody's chat open. These
 events wake it, and only these, by a rule people can read (ADR-0036):
 
-| Event | Wakes Piloti when | Trigger |
+| Event | Wakes the agent when | Trigger |
 |---|---|---|
-| A person's reply in a mark's thread | it addresses Piloti (the composer's @Piloti mention, stored as `addresses_agent`) | `thread_mention` |
-| A person's reply in a mark's thread | the mark is Piloti's own `question`, still proposed or open | `thread_reply` |
-| A person makes Piloti the delegate on an open mark | always | `assigned` |
-| A person takes over or dismisses Piloti's mark | never | |
+| A person's reply in a mark's thread | it addresses the agent (the composer's @agent mention, stored as `addresses_agent`) | `thread_mention` |
+| A person's reply in a mark's thread | the mark is the agent's own `question`, still proposed or open | `thread_reply` |
+| A person makes the agent the delegate on an open mark | always | `assigned` |
+| A person takes over or dismisses the agent's mark | never | |
 | A person rewords or deletes their reply | never: the wake was the posting's (above, „A reply its author takes back or rewords“) | |
 
 `lib/annotations/wake.ts` decides; the service enqueues the wake **in the
@@ -846,7 +846,7 @@ write's own transaction** (`insertAnnotationReply` / `updateDocumentAnnotation`
 take a hook that runs in it), so a reply that rolls back leaves no wake. The
 wake's id is uuid5 of the event (`wake-ids.ts`), which is its `agent_wakes`
 row, its `bff_job_queue` job (`piloti_wake`) and the turn id: one event wakes
-Piloti at most once.
+the agent at most once.
 
 **Who it runs as.** The person whose act is the event: the replier, or the
 person who delegated. The job (`lib/annotations/wake-job.ts`) asks everything
@@ -868,12 +868,12 @@ the job waits without spending an attempt (`notBefore`, 15 s doubling to
 A refusal (admission, the budget): recorded as `refused`. A wrong envelope is
 retried by the queue and recorded as `failed` on the last attempt.
 
-**Guards.** Piloti's own replies never wake it. Only a person who may write
+**Guards.** The agent's own replies never wake it. Only a person who may write
 the document can reply, so only they can wake it. At most
 `WAKE_MAX_PER_MARK_HOUR` wakes per mark an hour (6) and
 `WAKE_MAX_PER_PERSON_DAY` per person a day (50), counted over the
 `agent_wakes` rows at enqueue and again at claim. The WorkOS flag
-`piloti-wakes`, an entitlement off by default. A wake held before Piloti was
+`piloti-wakes`, an entitlement off by default. A wake held before the agent was
 asked (a cap, the switch, rights lost, the mark gone, the delegation taken
 back) has no trace, so it is on its row and in the audit trail as
 `piloti.wake.suppressed`. One that started is `piloti.wake.started` there, and
@@ -883,23 +883,23 @@ its reason (`reasonKind`, the inbox's `variant` below)
 (`apps/workspace/bff/annotations/wake-audit.ts`).
 
 **With the switch off** the reply answers `wake: 'off'`, whichever rule met it
-(an @Piloti, or an answer to Piloti's own open Rückfrage with no @Piloti at
-all), and the thread card asks Piloti itself on exactly that answer, under the
+(an @agent, or an answer to the agent's own open Rückfrage with no @agent at
+all), and the thread card asks the agent itself on exactly that answer, under the
 turn id a server wake of the same reply would use (`wakeTurnId(replyId)`), so
 the two could never both run. The server stays the authority: the card asks on
 `off` and on nothing else. With it on the browser runs nothing, and the thread
-reads Piloti's work off the server. The inbox has no Piloti to ask, so a
+reads the agent's work off the server. The inbox has no agent to ask, so a
 Rückfrage answered from there would reach nobody: its row leads to the
 Prüfansicht instead (`answerIn: 'review'`, below).
 
-**Piloti's work is the server's to say** (`lib/annotations/agent-work.ts`).
+**The agent's work is the server's to say** (`lib/annotations/agent-work.ts`).
 Every mark's view carries `pilotiWork`, read off its newest wake, so everyone
 in the room reads the same line, after a reload too:
 
 | Newest wake | `pilotiWork.state` | The thread says |
 |---|---|---|
-| `queued` | `queued` | „Piloti ist dran · für Anna" |
-| `started` | `working` | „Piloti antwortet … · für Anna" (a delegation says it in its chip) |
+| `queued` | `queued` | „{productName} ist dran · für Anna" |
+| `started` | `working` | „{productName} antwortet … · für Anna" (a delegation says it in its chip) |
 | `failed`, `refused`, for 6 h after it ended | `failed`, with `reasonKind` | why, by class (`workFailed.<class>`) |
 | `suppressed`, for 10 min | `held` | that too many requests held it |
 | `answered`, `stopped` | none | the answer is in the thread |
@@ -924,7 +924,7 @@ The wake records `ended_at` when it reaches that word. A delegation is handed
 back when its own turn ends, whatever the end was, and only while the mark is
 still delegated by that delegation (`handBackDelegation`, a compare-and-swap on
 `delegated_at`). A person who took the mark back and delegated it again in
-between keeps the second delegation. A reply of Piloti's never hands a mark
+between keeps the second delegation. A reply of the agent's never hands a mark
 back.
 
 The outcome is idempotent. A turn that is not a wake (a browser's), a
@@ -934,7 +934,7 @@ turn that errors at once can report before the job has marked it started.
 
 ### Taking a delegation back stops its turn
 
-Taking a mark back from Piloti, or resolving, dismissing or deleting the mark,
+Taking a mark back from the agent, or resolving, dismissing or deleting the mark,
 is a person's change, and it ends what the delegation started
 (`apps/workspace/bff/annotations/take-back.ts`, in the change's own
 transaction):
@@ -949,7 +949,7 @@ transaction):
   chat socket, as the person in the thread. The turn ends `cancelled` and
   reports `stopped` itself, so the job never writes the wake. A turn that is no
   longer running is a stop already done.
-- Piloti's own change in the asker's name stops nothing. When the delegation's
+- The agent's own change in the asker's name stops nothing. When the delegation's
   own turn closes the mark, that turn is finishing, not being taken back.
 
 Each wake a take-back (or a delete) stops is one `piloti.wake.stopped` in the
@@ -961,7 +961,7 @@ A turn asked from a thread, whose model did not call `canvas__reply`, posts its
 answer into that thread at the end, when the turn ended `answered`
 (`packages/agent/src/agent/turn/annotation_reply.py`, posted by `post_fallback_reply` in
 `apps/agent-host/src/agent_host/chat_socket.py`). It does so only when nothing
-Piloti did in that thread already spoke there, and only where everyone who
+the agent did in that thread already spoke there, and only where everyone who
 opens the document reads. The reply goes through the route the tool uses, as
 the person who asked.
 
@@ -975,15 +975,15 @@ An item about a mark opens the Prüfansicht at that mark (`markId` in
 |---|---|---|---|
 | `piloti.work_done` | a woken turn ended `answered` | who mentioned, answered or delegated | no |
 | `piloti.work_failed` | a woken turn ended `failed`, or the wake job was refused or gave up before a turn answered (a delegation, a mention or an answer) | who delegated, mentioned or answered | no |
-| `piloti.asks_you` | Piloti set a Rückfrage, or replied on its own open one | the mark's Zuständige, else the person its turn acted for | yes |
-| `piloti.revision_checked` | Piloti compared a new Fassung unasked and proposed marks on it ([ADR-0130](../adr/0130-piloti-notices-a-new-fassung.md)); anchored on the first mark | the person whose upload or link made the Fassung | no |
-| `annotation.assigned_to_you` | a person made someone Zuständige of an open mark (setting it, changing it, taking over Piloti's proposal that names one, or carrying it on to a replacing document), or Piloti did for the person its turn acted for | the new Zuständige, unless they did it themselves | yes |
+| `piloti.asks_you` | The agent set a Rückfrage, or replied on its own open one | the mark's Zuständige, else the person its turn acted for | yes |
+| `piloti.revision_checked` | The agent compared a new Fassung unasked and proposed marks on it ([ADR-0130](../adr/0130-piloti-notices-a-new-fassung.md)); anchored on the first mark | the person whose upload or link made the Fassung | no |
+| `annotation.assigned_to_you` | a person made someone Zuständige of an open mark (setting it, changing it, taking over the agent's proposal that names one, or carrying it on to a replacing document), or the agent did for the person its turn acted for | the new Zuständige, unless they did it themselves | yes |
 | `annotation.assigned_to_you`, variants `due` / `due_cleared` (`…_piloti`) | someone set, moved or cleared the date of an open mark whose Zuständige stays (a date that comes with a new Zuständige is their assignment) | the Zuständige, unless they did it, in the row they have for the mark | yes |
 | `annotation.assigned_to_you`, variants `due_soon` / `overdue` | the daily reminder: the Frist is today or tomorrow, or it has passed (below) | the Zuständige, while they may open the document; once per reminder and date, the overdue one upgrading the same row | yes |
 | `annotation.mentioned` | a person @mentioned someone in a mark's text (setting it, or a `body` that adds them) or in a reply | each person mentioned anew who may open the document, minus whoever wrote it, minus a Zuständige the same write made responsible (who has `annotation.assigned_to_you`) | yes |
-| `annotation.activity` | a person or Piloti replied in the thread | the mark's participants, minus whoever acted, minus whom the reply mentions (one row for one reply: the mention) | no |
+| `annotation.activity` | a person or the agent replied in the thread | the mark's participants, minus whoever acted, minus whom the reply mentions (one row for one reply: the mention) | no |
 | `annotation.activity` | someone resolved, dismissed or reopened a mark | the mark's author, unless they did it | no |
-| `annotation.activity`, variants `created` / `created_piloti` | a person set a mark, Piloti set marks for the person who asked for them, or a person took over Piloti's proposal (`onMarksSet`; a proposal nobody took over tells nobody) | the document's people: who is Verantwortlich for it (ADR-0047) and who uploaded it, as for a new Fassung; minus whoever acted (for Piloti, the person who asked or took it over), minus whom a mark already tells in its own row (its Zuständige, whom it mentions, whom Piloti's Rückfrage asks) | no |
+| `annotation.activity`, variants `created` / `created_piloti` | a person set a mark, the agent set marks for the person who asked for them, or a person took over the agent's proposal (`onMarksSet`; a proposal nobody took over tells nobody) | the document's people: who is Verantwortlich for it (ADR-0047) and who uploaded it, as for a new Fassung; minus whoever acted (for the agent, the person who asked or took it over), minus whom a mark already tells in its own row (its Zuständige, whom it mentions, whom the agent's Rückfrage asks) | no |
 
 The author's `annotation.activity` row says `yours: true`: a reply or a move
 on a mark they wrote answers them, so it reaches their devices as a result
@@ -1034,12 +1034,12 @@ they get no notification for would otherwise take the telling from the rows
 before it, and nobody would tell them.
 
 The participants are derived from the mark when something happens, never
-stored as a list (`markParticipants`): its author (who set it, or for Piloti's
+stored as a list (`markParticipants`): its author (who set it, or for the agent's
 mark who took it over or asked for it), its Zuständige, who delegated it to
-Piloti, every person who replied, and every person the mark's text or a reply
-mentions (being asked into a thread is taking part in it). Whoever acted is left out, and for Piloti that is the
+the agent, every person who replied, and every person the mark's text or a reply
+mentions (being asked into a thread is taking part in it). Whoever acted is left out, and for the agent that is the
 person its turn acted for: on a wake, who woke it, who hears `piloti.work_done`
-instead. When Piloti follows up its own open Rückfrage, the Zuständige it asks
+instead. When the agent follows up its own open Rückfrage, the Zuständige it asks
 has the `piloti.asks_you` row and no second one. Every recipient of a
 colleague's news must be able to open the document now, its folder included
 (`mayOpenDocument`, `apps/workspace/bff/documents/may-open.ts`), the rule
@@ -1047,14 +1047,14 @@ that decides who may be mentioned; who may be made Zuständige must also be
 able to write it (`mayWriteDocument`, above). A held upload (ADR-0086) opens
 and is written there only for its uploader and the people who may review its
 quarantine (`isQuarantineReviewer`), so nobody else is assigned, mentioned or
-told about a document they would find missing. The note Piloti writes
+told about a document they would find missing. The note the agent writes
 with a change it made for the asker tells nobody: the change told whoever it
 concerns, exactly as the asker's own change would.
 
-Each row reads as a colleague's sentence: what Piloti did, to which mark in
+Each row reads as a colleague's sentence: what the agent did, to which mark in
 which document, and what the reader can do now. The payload carries the
 document's name (`subject`), the mark's number (`related`) and, as the excerpt,
-what the mark says (Piloti's question for a Rückfrage). Beside the excerpt of
+what the mark says (the agent's question for a Rückfrage). Beside the excerpt of
 an `annotation.mentioned` and of a reply's `annotation.activity` it carries
 whom that text mentions (`mentions`, as the server kept them), and the row
 draws them as the thread's chips (`MentionText`, the reader's own louder:
@@ -1065,14 +1065,14 @@ mention (the chat keeps no names on the server), quotes plain text:
 
 | Item | Title | Body |
 |---|---|---|
-| `piloti.work_done` | „Piloti hat Anmerkung 4 in „Grundriss EG“ für Sie bearbeitet“ | „Lesen Sie die Antwort im Verlauf der Anmerkung.“ |
-| `piloti.work_failed` | „Piloti konnte Anmerkung 4 in „Grundriss EG“ nicht bearbeiten“ | why, and what to do (below) |
-| `piloti.asks_you` | „Piloti hat eine Rückfrage an Sie zu Anmerkung 4 in „Grundriss EG““ | „Piloti wartet auf Ihre Antwort. Antworten Sie im Verlauf der Anmerkung.“; with `answerIn: 'review'` (below) „Antworten Sie in der Prüfansicht. Von dort erreicht Ihre Antwort Piloti.“ (`bodyInReview`) |
-| `annotation.assigned_to_you` | „Miriam hat Ihnen Anmerkung 4 in „Grundriss EG“ zugewiesen“; variant `piloti`: „Piloti hat Ihnen für Miriam Anmerkung 4 in „Grundriss EG“ zugewiesen“; `due`: „Miriam hat die Frist von Anmerkung 4 in „Grundriss EG“ auf 24. Okt. 2026 gesetzt“; `due_cleared`: „… die Frist … entfernt“; `due_soon`: „Anmerkung 4 in „Grundriss EG“ ist am 18. Okt. 2026 fällig“; `overdue`: „… war am 15. Okt. 2026 fällig“ | „Sie sind dafür zuständig. Antworten Sie im Verlauf oder erledigen Sie die Anmerkung.“; with a date (`dueOn` in the payload) „Sie sind dafür zuständig, bis 24. Okt. 2026. …“; `overdue` says the Frist has passed and to agree on a new one |
+| `piloti.work_done` | „{productName} hat Anmerkung 4 in „Grundriss EG“ für Sie bearbeitet“ | „Lesen Sie die Antwort im Verlauf der Anmerkung.“ |
+| `piloti.work_failed` | „{productName} konnte Anmerkung 4 in „Grundriss EG“ nicht bearbeiten“ | why, and what to do (below) |
+| `piloti.asks_you` | „{productName} hat eine Rückfrage an Sie zu Anmerkung 4 in „Grundriss EG““ | „{productName} wartet auf Ihre Antwort. Antworten Sie im Verlauf der Anmerkung.“; with `answerIn: 'review'` (below) „Antworten Sie in der Prüfansicht. Von dort erreicht Ihre Antwort {productName}.“ (`bodyInReview`) |
+| `annotation.assigned_to_you` | „Miriam hat Ihnen Anmerkung 4 in „Grundriss EG“ zugewiesen“; variant `piloti`: „{productName} hat Ihnen für Miriam Anmerkung 4 in „Grundriss EG“ zugewiesen“; `due`: „Miriam hat die Frist von Anmerkung 4 in „Grundriss EG“ auf 24. Okt. 2026 gesetzt“; `due_cleared`: „… die Frist … entfernt“; `due_soon`: „Anmerkung 4 in „Grundriss EG“ ist am 18. Okt. 2026 fällig“; `overdue`: „… war am 15. Okt. 2026 fällig“ | „Sie sind dafür zuständig. Antworten Sie im Verlauf oder erledigen Sie die Anmerkung.“; with a date (`dueOn` in the payload) „Sie sind dafür zuständig, bis 24. Okt. 2026. …“; `overdue` says the Frist has passed and to agree on a new one |
 | `annotation.mentioned` | „Miriam hat Sie in Anmerkung 4 in „Grundriss EG“ erwähnt“ | „Antworten Sie im Verlauf der Anmerkung.“; the excerpt is the text that mentions them |
-| `annotation.activity`, variant `reply` | „Miriam hat zu Anmerkung 4 in „Grundriss EG“ geantwortet“, counted „3 neue Antworten zu Anmerkung 4 in „Grundriss EG“, zuletzt von Miriam“; Piloti's reply „Neue Antwort zu Anmerkung 4 in „Grundriss EG““ | none: the newest reply is the excerpt |
+| `annotation.activity`, variant `reply` | „Miriam hat zu Anmerkung 4 in „Grundriss EG“ geantwortet“, counted „3 neue Antworten zu Anmerkung 4 in „Grundriss EG“, zuletzt von Miriam“; the agent's reply „Neue Antwort zu Anmerkung 4 in „Grundriss EG““ | none: the newest reply is the excerpt |
 | `annotation.activity`, variants `resolved` / `dismissed` / `reopened` | „Miriam hat Anmerkung 4 in „Grundriss EG“ erledigt“ / „… verworfen“ / „… wieder geöffnet“ | none |
-| `annotation.activity`, variant `created` | „Miriam hat Anmerkung 4 in „Grundriss EG“ gesetzt“, counted „Miriam hat 15 Anmerkungen in „Grundriss EG“ gesetzt“; `created_piloti` „Piloti hat für Miriam …“ (Miriam asked for them, or took Piloti's proposal over); a setter the directory no longer knows „Piloti hat 3 Anmerkungen …“, „Neue Anmerkungen in „Grundriss EG““ (`…NoActor`) | counted: „Die neueste ist Anmerkung 15.“; once the newest was deleted: „Eine der Anmerkungen wurde inzwischen gelöscht.“ (`bodyNoExcerpt`) |
+| `annotation.activity`, variant `created` | „Miriam hat Anmerkung 4 in „Grundriss EG“ gesetzt“, counted „Miriam hat 15 Anmerkungen in „Grundriss EG“ gesetzt“; `created_piloti` „{productName} hat für Miriam …“ (Miriam asked for them, or took the agent's proposal over); a setter the directory no longer knows „{productName} hat 3 Anmerkungen …“, „Neue Anmerkungen in „Grundriss EG““ (`…NoActor`) | counted: „Die neueste ist Anmerkung 15.“; once the newest was deleted: „Eine der Anmerkungen wurde inzwischen gelöscht.“ (`bodyNoExcerpt`) |
 
 **New marks fold per document and per who set them.** Every other row about
 a mark folds on the mark; a new mark's row folds on the document and the
@@ -1081,7 +1081,7 @@ setter (`groupAnchor` `set:<variant>:<actor>` in `inboxGroupKey`,
 review of fifteen marks is one counted row whose link opens the review at the
 newest. That mark wears no dot for it, and opening the document's review reads
 it (above, „A thread with news“). A write of several at once
-(Piloti's batch) is ONE emission counting them all (`InboxEmission.occurrences`,
+(the agent's batch) is ONE emission counting them all (`InboxEmission.occurrences`,
 which the upsert adds to the stored count), so it is one row write and one
 notification, not fifteen. Deleting the newest of them takes it out of the
 row (`onMarkDeleted`): the row counts one less, quotes nothing and no longer
@@ -1093,19 +1093,19 @@ review with no mark selected, and deleting a mark that is not the row's anchor
 leaves its count as it was. Every other row anchored on a deleted mark goes
 inert.
 
-Piloti's proposals tell the document's people nothing: a proposal is nobody's
+The agent's proposals tell the document's people nothing: a proposal is nobody's
 news until a person takes it over. Taking it over (`proposed → open`, or
 reopening a dismissed proposal nobody stood behind, the moves that set
-`accepted_by`) tells them then, as a mark Piloti set for whoever took it over
-(`created_piloti`, folded with the marks Piloti set for them; `traceChange` in
+`accepted_by`) tells them then, as a mark the agent set for whoever took it over
+(`created_piloti`, folded with the marks the agent set for them; `traceChange` in
 `lib/annotations/service.ts`), less its Zuständige, who hears
 `annotation.assigned_to_you`.
 
-`piloti.work_done` names what woke Piloti as its variant; a delegation's end
+`piloti.work_done` names what woke the agent as its variant; a delegation's end
 (`assigned`) adds „Die Anmerkung liegt wieder bei Ihnen.“ Rows fold per mark
 and their payloads merge, so every row names its variant, and a replied-to
 mark is one counted row however busy its thread is (`titleRelatedMany` in
-`apps/workspace/bff/inbox/item-copy.ts`). Piloti's own rows wear its glyph,
+`apps/workspace/bff/inbox/item-copy.ts`). The agent's own rows wear its glyph,
 drawn as a line like every other row's; a row a person caused wears that
 person's face with the type's glyph in its corner.
 
@@ -1126,15 +1126,15 @@ every request on a mark (`annotation.assigned_to_you`, `piloti.asks_you`,
 | `answerIn` | When | The row offers |
 |---|---|---|
 | `row` | the reader may write the document | „Antworten“, which answers in the thread from the row, and on an assigned mark „Erledigen“ (`status: 'resolved'`, `expectedStatus: 'open'`, so a mark someone moved meanwhile is a `409`, not overwritten). The write waits for the undo window, as archiving a row does (`useUndoableArchive`, `ARCHIVE_UNDO_MS`): the row says „Als erledigt markiert. Rückgängig“ at once, and the PATCH goes when the window ends, the page is hidden or the row goes. „Rückgängig“ inside it lets go and sends nothing, so the request is still open and the list's re-read keeps the row; a write refused when it goes says the row's conflict (409) or failure words. The focus follows: „Rückgängig“ takes it from „Erledigen“, „Erledigen“ takes it back on an undo, and when the window ends with the write, the outcome line (`tabIndex -1`) takes it, since „Erledigen“ is not drawn again (`useFocusBackOnClose`). Under „Für mich“ the re-read after the write drops the row, outcome line and all; the list hands the focus to the row now at its place, or to the list when none is left, without scrolling, so a reader who scrolled on during the window stays where they read (`InboxList`, any row a refresh takes with the focus in it) |
-| `review` | Piloti's Rückfrage while events do not wake Piloti (`piloti-wakes` off) | „In der Prüfansicht beantworten“ in place of „Zur Anmerkung“: the thread card asks Piloti with the answer, which a row cannot |
+| `review` | The agent's Rückfrage while events do not wake the agent (`piloti-wakes` off) | „In der Prüfansicht beantworten“ in place of „Zur Anmerkung“: the thread card asks the agent with the answer, which a row cannot |
 | null | the reader may only read the document (a mention reaches readers too), or the row is no open request | „Zur Anmerkung“ alone |
 
 „Antworten“ opens the thread's own composer (`Composer`, `review/composer.tsx`)
 in the row, gesture for gesture: Enter sends, Shift+Enter breaks the line,
 Escape lets go, „@“ offers whoever may open the document, and the spark writes
-@Piloti where the row says events wake Piloti (`pilotiWakes` on the item,
+@agent where the row says events wake the agent (`pilotiWakes` on the item,
 `answerIn: 'row'` and the `piloti-wakes` switch on: the server answers it, as in
-the thread). The reply carries whom it mentions and the @Piloti flag, so a
+the thread). The reply carries whom it mentions and the @agent flag, so a
 colleague asked from the Postfach is told as from the thread. Sent, the row
 says so and names whom the server did not keep; a failure keeps the words in
 the box and says the row's own failure. Sent or let go, the box gives the focus
@@ -1144,13 +1144,13 @@ Both writes go through the annotations' own client (`lib/annotations/client.ts`)
 the same writes the thread makes, so the settle rules above apply unchanged,
 and the service checks the write again. An answer from the row that still
 comes back `wake: 'off'` (a Rückfrage reached through another row) says that
-Piloti reads it only once asked with @Piloti in the Prüfansicht.
+the agent reads it only once asked with @agent in the Prüfansicht.
 
 The notification offer the shell makes once as a toast
 (`features/notifications/components/inbox-push-offer.tsx`) names the newest
-request: a person („Anna hat Sie erwähnt …“, „Anna braucht Sie in Piloti …“),
-or for `piloti.asks_you` Piloti („Piloti hat eine Rückfrage an Sie …“), never
-„Jemand“ for Piloti's question.
+request: a person („Anna hat Sie erwähnt …“, „Anna braucht Sie in {productName} …“),
+or for `piloti.asks_you` the agent („{productName} hat eine Rückfrage an Sie …“), never
+„Jemand“ for the agent's question.
 
 Opening a mark reads its news. When a mark stays selected in the review for
 `MARK_NEWS_SETTLE_MS` (`features/documents/hooks/use-document-review.ts`), the
@@ -1174,17 +1174,17 @@ English and meant for the audit trail:
 | Class | Stored reasons | The body says |
 |---|---|---|
 | `budget` | `budget: …`, the agent's „LLM budget is exhausted“ | the usage budget is used up; whoever manages the organization raises it under Organisation → Nutzung & Budgets |
-| `busy` | `gave up waiting: …`, the admission and fence refusals („send your message again in a moment“, „answers in progress“, „research jobs waiting“) | Piloti did not get to it in time; ask again later |
-| `access` | `rejected: auth_expired`, `rejected: conversation_mismatch`, `auth_error`, `token_expired`, `token_invalid` | Piloti could not sign in on the person's behalf; ask again |
+| `busy` | `gave up waiting: …`, the admission and fence refusals („send your message again in a moment“, „answers in progress“, „research jobs waiting“) | The agent did not get to it in time; ask again later |
+| `access` | `rejected: auth_expired`, `rejected: conversation_mismatch`, `auth_error`, `token_expired`, `token_invalid` | The agent could not sign in on the person's behalf; ask again |
 | `error` | anything else, `DEFAULT_FAILURE_REASON` included | the work broke off before there was an answer; ask again, or work on the mark yourself |
 
 A stop makes no item, because the person stopped it; nor does a suppressed wake
 (the person's own act, a rule or a cap held it). A wake the job ends without an
 answer is told and handed back as a turn's end is (`wake-job.ts`), so a
-delegated mark never keeps reading „Piloti arbeitet daran“ after a refusal. A
+delegated mark never keeps reading „{productName} arbeitet daran“ after a refusal. A
 `piloti.asks_you` is resolved for everyone once any person answers in the
 thread, and with `annotation.assigned_to_you` and `annotation.mentioned` for
-everyone when the mark is resolved or dismissed, by a person or by Piloti in
+everyone when the mark is resolved or dismissed, by a person or by the agent in
 their name. An `annotation.mentioned` is resolved for its reader when they
 answer in the thread: mentioning yourself tells nobody, and a colleague asked
 in the same breath has not answered. A mention taken back (a `body` that no
@@ -1198,9 +1198,9 @@ link to it or a quote from it. A „15 Anmerkungen gesetzt“ row anchored on it
 counts one less instead (above). Every inert write also sets the row's count
 to 0, so a row revived later counts only what revived it.
 
-A proposal Piloti made (`piloti.proposal_waiting`, `lib/proposals/attention.ts`)
+A proposal the agent made (`piloti.proposal_waiting`, `lib/proposals/attention.ts`)
 is worded by what it changes, stored as its `variant`: a file operation by its
-verb („Piloti schlägt eine Umbenennung vor“), a note („Piloti möchte sich eine
+verb („{productName} schlägt eine Umbenennung vor“), a note („{productName} möchte sich eine
 Notiz merken“), a change to the project context. Its excerpt names the files,
 the note or the change, and its body says the proposal is in the chat and that
 nothing changes until the person applies it.
@@ -1274,17 +1274,17 @@ unread waits for the ADR-0035 sender, like every other mail.
   ([`posthog-events.md`](../observability/posthog-events.md)). A mark that could
   not be told is a warning in the log, and the next run tells it.
 
-### Piloti as the delegate
+### The agent as the delegate
 
 Work is assigned to people and delegated to agents (ADR-0105, the pattern
-Linear ships). „An Piloti delegieren“ in the thread's menu (offered while the
+Linear ships). „An {productName} delegieren“ in the thread's menu (offered while the
 switch is on, on an open mark) sets `delegated_by` and `delegated_at` and wakes
-Piloti; the mark keeps its assignee, and the thread shows „Piloti arbeitet
-daran · für Miriam“. „Von Piloti zurücknehmen“ clears it without a wake, and stops the turn that
-works it (below). Piloti hands the mark back when the turn the delegation woke
+the agent; the mark keeps its assignee, and the thread shows „{productName} arbeitet
+daran · für Miriam“. „Von {productName} zurücknehmen“ clears it without a wake, and stops the turn that
+works it (below). The agent hands the mark back when the turn the delegation woke
 ends, or when its wake was refused or gave up before a turn answered (a spent
 budget, a busy thread), never by a reply of its own, and resolves it only when the person who
-delegated asked for that; closing the mark ends the delegation. Piloti cannot
+delegated asked for that; closing the mark ends the delegation. The agent cannot
 delegate to itself.
 
 The trace carries `turn_surface` and `focus_region_viewed`
@@ -1292,7 +1292,7 @@ The trace carries `turn_surface` and `focus_region_viewed`
 
 ## In the chat
 
-Whatever Piloti did on a document in a turn comes back as one
+Whatever the agent did on a document in a turn comes back as one
 `canvas_activity` card ([cards.md](cards.md#current-card-types)): marks
 proposed (`proposed`) or set on request (`created`), changes (`changed`, each
 field before and after, and the note), deletions (`deleted`) and replies. It
@@ -1325,15 +1325,15 @@ an answer older than the record. Its actions:
    compare-and-swap run as the person who clicks, through the annotations
    service's own rules (`apps/workspace/bff/changes/service.ts`, the inverse
    in `apps/workspace/bff/changes/undo.ts`). It runs only while the mark is
-   still as Piloti left it, so a colleague's later move is never undone: the
+   still as the agent left it, so a colleague's later move is never undone: the
    answer is `409 moved-on`, and the card says where the mark stands. Undoing a
    change that is already undone answers `409 already-undone` and shows who did
-   it. A mark Piloti set open for the asker is taken back by deleting it, which
+   it. A mark the agent set open for the asker is taken back by deleting it, which
    the person it was set for may do like their own mark (`mayDeleteMark`), but
-   only while nobody but Piloti has written in its thread: deleting the mark
-   would delete a colleague's answer with it. A reply Piloti posted for a person
-   is deleted the same way, while its text is still what Piloti wrote
-   (`deleteReply`). Undoing a mark Piloti proposed dismisses it, and that is
+   only while nobody but the agent has written in its thread: deleting the mark
+   would delete a colleague's answer with it. A reply the agent posted for a person
+   is deleted the same way, while its text is still what the agent wrote
+   (`deleteReply`). Undoing a mark the agent proposed dismisses it, and that is
    scored once, as the dismissal. Taking a proposal over or dismissing one has
    no way back, as before.
    A deleted mark is set again from what the change recorded, and resolved again
@@ -1341,7 +1341,7 @@ an answer older than the record. Its actions:
    older than the record keeps its own copy of the
    changes, and undo there still replays that copy after reading the mark again.
 
-   Each decision on Piloti's work also posts one `piloti-decision` score on the
+   Each decision on the agent's work also posts one `piloti-decision` score on the
    trace of the turn that produced it (`apps/workspace/bff/langfuse/decision-score.ts`;
    the catalogue is in [`langfuse.md`](../observability/langfuse.md)): a proposed
    mark taken over (`accepted`) or dismissed (`dismissed`), and an applied change
@@ -1386,12 +1386,12 @@ organization's document are 404, as they are for the Prüfansicht.
 published version's number among the document's versions, and the day it was
 filed), the project, the selection, when and by whom it was exported. Then one
 entry per mark, by number: „Nr. 4 · Seite 2 · Mangel · offen", who set it („von
-Piloti gesetzt · für Anna" for a mark Piloti set that a person stands behind),
+{productName} gesetzt · für Anna" for a mark the agent set that a person stands behind),
 who closed it, the text, Grundlage, Zuständig, Termin, the Fassung it was set on
-when that is an earlier one, and the thread (author · date: text, Piloti's
-replies as „Piloti · für Anna"). Piloti's proposals that nobody took over are
+when that is an earlier one, and the thread (author · date: text, the agent's
+replies as „{productName} · für Anna"). The agent's proposals that nobody took over are
 not the office's: they are left out, or with `includeProposals=1` listed after
-the marks under „Vorschläge von Piloti, nicht geprüft". Dates are on the
+the marks under „Vorschläge von {productName}, nicht geprüft". Dates are on the
 office's calendar (Europe/Vienna).
 
 **How the three files are made.** The Protokoll is built once as the answer
@@ -1485,7 +1485,7 @@ as many marks as are shown, up to a page's most. A failed read says so with
 format: what is in the file is what the filters show. The export reads the
 marks page by page through `listProjectAnnotations`, so exactly what the
 reader's list shows, sorts each document's into the office's marks and
-Piloti's proposals with `selectMarks`, and writes each entry with the
+the agent's proposals with `selectMarks`, and writes each entry with the
 document Protokoll's own `entryBlocks` under a heading per document; the files
 come from the same `renderProtocol`. Past 1000 marks
 (`PROJECT_PROTOCOL_MAX_MARKS`) it is refused (422 `too-many-marks`) rather
@@ -1535,7 +1535,7 @@ export above, then the project's upload, `POST /api/documents/upload`
 person's rights, the folder's access per role, name screening, the quota, the
 ingest and the `document.uploaded` audit event all apply as to any upload. Not the chat
 draft card's „Ins Projekt ablegen“ (`POST /api/conversations/{id}/draft/file`):
-that door files a text Piloti wrote in a conversation's working directory
+that door files a text the agent wrote in a conversation's working directory
 through `fileGeneratedDocument`, which marks the bytes as machine-written and
 keeps them out of the index. A Protokoll is the person's record of the office's
 marks; filed through the upload it is theirs, and it is read like any other
@@ -1558,13 +1558,13 @@ it, and the project is not closed (`protocolFiling`, `file-preview-pane.tsx`).
 - „Fassungen vergleichen“ compares two documents (`revision-compare-service.ts`); two versions under the same name have no visual comparison yet, so a mark of an earlier Fassung of the same document is carried with only its ghost pin to show where it stood.
 - A mark carried on to a replacing document starts a new thread there; the old one is read on the replaced document, by the link in the card. The two are not one timeline.
 
-- The chat-hosted canvas (the review open over the chat) still asks an @Piloti reply in the chat's conversation, under the chat's own message id, when wakes are off; only the standalone canvas uses the reply's turn id.
+- The chat-hosted canvas (the review open over the chat) still asks an @agent reply in the chat's conversation, under the chat's own message id, when wakes are off; only the standalone canvas uses the reply's turn id.
 - The „Woken by“ prompt block names the person the turn runs for. A woken turn has no access token, so the name comes from the signed envelope's `requester`, which the wake job mints from the pinned session (`resolvePerson`; `turn.context.user_info_for`). `author_name` on the message only attributes the turn in the transcript. A woken turn whose person WorkOS cannot name still reads „A person“.
-- Which Piloti reply a wake wrote is derived, not stored (`lib/annotations/wake-attribution.ts`): a wake of the same person on the same mark that began before the reply and had not ended before it. The thread shows it as „Geweckt durch …“ under the reply's byline.
+- Which agent reply a wake wrote is derived, not stored (`lib/annotations/wake-attribution.ts`): a wake of the same person on the same mark that began before the reply and had not ended before it. The thread shows it as „Geweckt durch …“ under the reply's byline.
 
 - The canvas runs its own small turn client next to the chat's turn driver in `use-websocket-chat.ts`. That driver should become one shared module that both use.
 - A box asked about on the canvas is still this tab's: its answer lives in the tab until kept, and a reload loses the card (the conversation keeps the answer). The next step is the primitive the thread now has: an ask as a server-side request on the document (a wake with an `asked` trigger), run headless, its state on the room, the tab attaching to its turn to stream it.
 - Over the chat, a canvas question whose server reads no box is not told so (`onDegraded` is the stand-alone canvas client's).
 - The Python side posts to internal routes through several near-identical helpers.
-- A change Piloti makes and its note are two writes in one request, not one transaction (`updateAnnotationForAsker`). Every refusal the service can foresee (rights, a stale status, a full thread) comes before the change; a database failure between the two writes would still leave the change without its note.
+- A change the agent makes and its note are two writes in one request, not one transaction (`updateAnnotationForAsker`). Every refusal the service can foresee (rights, a stale status, a full thread) comes before the change; a database failure between the two writes would still leave the change without its note.
 - The change record is a third write, after the annotations service has committed the change and its note (`recordAgentChanges`, `apps/workspace/bff/changes/service.ts`). The service offers no hook into its transaction, and a failed record is logged, not thrown: the change then lands without a row, so the card cannot undo it from the record.

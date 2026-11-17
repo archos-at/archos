@@ -1,5 +1,3 @@
-"""The personal-memory client (ADR-0180): one write, owned by the envelope, faked at the transport."""
-
 import io
 import json
 import urllib.error
@@ -26,7 +24,6 @@ class _Response(io.BytesIO):
 
 @pytest.fixture
 def route(monkeypatch):
-    """Install the route's answer (a body, or an HTTP error); returns what the client sent."""
     monkeypatch.setenv("INTERNAL_API_TOKEN", "internal-token")
     seen: dict = {"calls": 0}
 
@@ -69,6 +66,19 @@ def test_the_note_is_posted_with_the_envelope_and_names_no_owner(route):
     assert seen["headers"][bff_http.REQUEST_CONTEXT_SIGNATURE_HEADER.lower()] == "env-signature"
 
 
+def test_the_topic_is_sent_trimmed(route):
+    seen = route({"item": {"id": "n1"}, "created": True})
+    _write(topic=" Brandschutz ")
+    assert seen["payload"]["topic"] == "Brandschutz"
+
+
+@pytest.mark.parametrize("topic", [None, "", "T" * 41])
+def test_a_topic_that_is_absent_empty_or_too_long_is_not_sent(route, topic):
+    seen = route({"item": {"id": "n1"}, "created": True})
+    assert _write(topic=topic) is not None
+    assert "topic" not in seen["payload"]
+
+
 def test_a_refreshed_note_says_it_was_not_created(route):
     route({"item": {"id": "note-1"}, "created": False})
     assert _write(provenance_type="distillation").created is False
@@ -109,7 +119,6 @@ ANSWER = "4f9c1d2e-3b4a-5c5d-8e6f-7a8b9c0d1e2f"
 
 
 def test_a_note_saved_in_a_turn_names_the_answer_it_was_saved_under(route):
-    """So the owner's browser can show it under that answer; the note itself never rides the message."""
     seen = route({"item": {"id": "note-1"}, "created": True})
     token = pm.begin_turn_memory_log(answer_message_id=ANSWER)
     try:
@@ -126,13 +135,11 @@ def test_a_note_saved_outside_a_turn_names_no_answer(route):
 
 
 def test_a_personal_note_never_enters_the_ledger_the_stage_frame_is_made_of(route):
-    """The frame is stored on a message other people read (ADR-0180): its ledger holds shared notes only."""
     route({"item": {"id": "note-1"}, "created": True})
     token = pm.begin_turn_memory_log(answer_message_id=ANSWER)
     try:
         _write()
         assert pm.turn_memory_notes() == ()
-        # Still a write of the turn: the reflection pass must not file it again.
         assert pm.turn_memory_writes() == (" Leads the permit phase. ",)
     finally:
         pm.end_turn_memory_log(token)

@@ -1,9 +1,3 @@
-/**
- * Project profile patches API — apply agent-proposed patch operations to the
- * stored profile. Thin handler; normalization, unknown-pruning, and the
- * optimistic-concurrency rules live in `@/lib/project-profile/profile-service`.
- */
-
 import { apiRoute, parseJsonBody } from '@/lib/api/handler'
 import { patchProjectProfile } from '@/lib/project-profile/profile-service'
 import { patchProfileSchema, toProfileWire } from '@/lib/project-profile/profile-wire'

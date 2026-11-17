@@ -1,5 +1,3 @@
-"""Tests for the platform-tunable retrieval settings resolver."""
-
 import httpx
 import pytest
 
@@ -19,7 +17,6 @@ def _clean_cache(monkeypatch):
 
 
 def _mock_bff(monkeypatch, payload: object = None, error: Exception | None = None) -> int:
-    """Patch httpx.get; returns a call counter."""
     calls = {"n": 0}
 
     class FakeResponse:
@@ -149,9 +146,6 @@ class TestResolution:
 
 
 class TestCatalogParity:
-    """The backend bounds must match the BFF catalog exactly (fixture exported
-    from apps/workspace/bff/retrieval-settings/catalog.ts)."""
-
     def test_bounds_match_frontend_catalog(self):
         import json
         from pathlib import Path

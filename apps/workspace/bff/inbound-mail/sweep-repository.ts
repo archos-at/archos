@@ -1,32 +1,3 @@
-/**
- * SQL of the E-Mail-Eingang's retention sweeps (ADR-0137, DECISION §5, `./sweep.ts`).
- *
- * Three kinds of statement, each named by its scope:
- *
- * - **Discovery** (`find…`) lists what is due across every organization. Its
- *   caller runs it under `withPlatformAccess`, and it returns ids, keys and
- *   flags, never a sender, subject or file name. Every list is bounded.
- * - **Per-row writes** run in the row's own tenant scope (`withTenant`), each a
- *   compare-and-set on the state discovery saw, so a person or a job that
- *   moved the row in between wins and the sweep changes nothing.
- * - **Deletes** (`delete…`) run as the platform role, because DELETE is revoked
- *   from the runtime role on these tables (migration 0196, „Ending is a
- *   state“). Each repeats its whole condition, the legal hold included.
- *
- * **Legal hold is a filter, the trigger the backstop (RT-S20).** Every set
- * that erases or deletes asks `legal_hold_blocks` in its WHERE: a hold on
- * the project (`project`), and for a mail's bytes also a custodian hold on the
- * member it came from (`user`, `sender_user_id`). A held row is left out of
- * the set, or its erasure is deferred (`erasure_deferred_at`), so one held
- * project never makes a batch fail for every tenant; the triggers
- * (`GLH01`) still refuse whatever a later change forgets to filter.
- *
- * Callers import every statement from here. The erasing sweeps (6, 8 and 10)
- * live in `./sweep-erasure-repository.ts`, the thread and follow sweeps (9 and
- * 12) in `./sweep-thread-repository.ts`, and the hold filters all of them share
- * in `./sweep-sql.ts`.
- */
-
 import 'server-only'
 import { and, eq, isNull, lt, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
@@ -79,11 +50,6 @@ export {
   releaseOrphanedThread,
 } from './sweep-thread-repository'
 
-// ---------------------------------------------------------------------------
-// Sweep 1: receptions that never finished
-// ---------------------------------------------------------------------------
-
-/** A reception older than its window: its object (when one was written) and the row go. */
 export interface StaleReception {
   id: string
   organizationId: string
@@ -91,7 +57,6 @@ export interface StaleReception {
   rawStorageKey: string | null
 }
 
-/** `receiving` rows not touched since `before`, outside any held project. Platform scope. */
 export async function findStaleReceptions(before: Date, limit: number): Promise<StaleReception[]> {
   return select<StaleReception>(sql`
     SELECT m.id, m.organization_id AS "organizationId", m.staging_bucket AS "stagingBucket",
@@ -103,7 +68,6 @@ export async function findStaleReceptions(before: Date, limit: number): Promise<
      LIMIT ${limit}`)
 }
 
-/** Delete a stale reception whose object is gone. Platform scope; whether it was deleted. */
 export async function deleteStaleReception(id: string, before: Date): Promise<boolean> {
   const rows = await select<{ id: string }>(sql`
     DELETE FROM inbound_mails m
@@ -113,28 +77,12 @@ export async function deleteStaleReception(id: string, before: Date): Promise<bo
   return rows.length === 1
 }
 
-// ---------------------------------------------------------------------------
-// Sweep 2: received mail whose job is gone
-// ---------------------------------------------------------------------------
-
-/** A received mail with no job reading it. */
 export interface OrphanedReception {
   id: string
   organizationId: string
   projectId: string
 }
 
-/**
- * `received` rows not touched since `before` that have no job (its id is the
- * mail's). A mail whose job is dead is not one: the dead row keeps the id
- * until `purgeDeadJobs` deletes it (`BFF_JOBS_DEAD_RETENTION_DAYS`), nothing
- * can queue it again before that, and the pod reported it once when it died
- * (`[bff-jobs] … now dead`). Nor is a mail whose Hatchet run ended without
- * touching its row: the row is still `queued` or held, and the dispatch sweep
- * starts it again (`lib/jobs-queue/task-run.ts`). Listing those first, as this did, let fifty of them fill every
- * batch, so a real orphan was never re-queued, and logged an error for each
- * every run (R11 of the second 2026-11 ship review). Platform scope.
- */
 export async function findReceivedWithoutJob(before: Date, limit: number): Promise<OrphanedReception[]> {
   return select<OrphanedReception>(sql`
     SELECT m.id, m.organization_id AS "organizationId", m.project_id AS "projectId"
@@ -146,11 +94,6 @@ export async function findReceivedWithoutJob(before: Date, limit: number): Promi
      LIMIT ${limit}`)
 }
 
-// ---------------------------------------------------------------------------
-// Sweeps 3 and 4: the window runs out
-// ---------------------------------------------------------------------------
-
-/** What a notice or the trail reads of a held mail: ids and labels only. */
 export interface HeldMailFacts {
   id: string
   organizationId: string
@@ -167,7 +110,6 @@ const heldFacts = sql`m.id, m.organization_id AS "organizationId", m.project_id 
 
 const hasWaitingPart = sql`EXISTS (SELECT 1 FROM inbound_mail_parts p WHERE p.mail_id = m.id AND p.state = 'waiting')`
 
-/** Held mail past its window with a part still waiting (sweep 3). Platform scope. */
 export async function findExpiredMails(now: Date, limit: number): Promise<HeldMailFacts[]> {
   return select<HeldMailFacts>(sql`
     SELECT ${heldFacts} FROM inbound_mails m
@@ -176,12 +118,6 @@ export async function findExpiredMails(now: Date, limit: number): Promise<HeldMa
      LIMIT ${limit}`)
 }
 
-/**
- * Expire what still waits of one mail (sweep 3): each waiting part `expired`,
- * restorable for seven days from now (D8). A part being filed is its job's.
- * Only while the window is still out (a restore may have moved it). The
- * number of parts expired.
- */
 export async function expireMail(mailId: string, now: Date): Promise<number> {
   return getDb().transaction(async (tx) => {
     const [mail] = await tx
@@ -201,10 +137,8 @@ export async function expireMail(mailId: string, now: Date): Promise<number> {
   })
 }
 
-/** How long before its end a held mail's people are told it expires (D8), in milliseconds. */
 export const EXPIRING_NOTICE_BEFORE_MS = INBOUND_MAIL_EXPIRING_NOTICE_DAYS * DAY_MS
 
-/** Held mail within `INBOUND_MAIL_EXPIRING_NOTICE_DAYS` of its end, not told yet, with a part still waiting (sweep 4). Platform scope. */
 export async function findExpiringMails(now: Date, limit: number): Promise<HeldMailFacts[]> {
   const from = new Date(now.getTime() + EXPIRING_NOTICE_BEFORE_MS)
   return select<HeldMailFacts>(sql`
@@ -216,7 +150,6 @@ export async function findExpiringMails(now: Date, limit: number): Promise<HeldM
      LIMIT ${limit}`)
 }
 
-/** Mark a mail told it expires, once: whether this call marked it (the caller then tells). */
 export async function claimExpiringNotice(mailId: string, now: Date): Promise<boolean> {
   const rows = await getDb()
     .update(inboundMails)
@@ -226,11 +159,6 @@ export async function claimExpiringNotice(mailId: string, now: Date): Promise<bo
   return rows.length === 1
 }
 
-// ---------------------------------------------------------------------------
-// Sweep 5: filing claims that ran out
-// ---------------------------------------------------------------------------
-
-/** A part whose filing claim ran out, with the person whose filing it was. */
 export interface LapsedClaim {
   partId: string
   decisionId: string
@@ -240,7 +168,6 @@ export interface LapsedClaim {
   decidedBy: string
 }
 
-/** Parts `filing` past their claim (the job died, or its person left). Platform scope. */
 export async function findLapsedClaims(now: Date, limit: number): Promise<LapsedClaim[]> {
   return select<LapsedClaim>(sql`
     SELECT p.id AS "partId", p.decision_id AS "decisionId", p.mail_id AS "mailId",
@@ -252,7 +179,6 @@ export async function findLapsedClaims(now: Date, limit: number): Promise<Lapsed
      LIMIT ${limit}`)
 }
 
-/** The part waits again, `unavailable`: only while it is still filing on the same, lapsed claim. */
 export async function returnLapsedClaim(claim: LapsedClaim, now: Date): Promise<boolean> {
   const rows = await getDb()
     .update(inboundMailParts)
@@ -269,29 +195,20 @@ export async function returnLapsedClaim(claim: LapsedClaim, now: Date): Promise<
   return rows.length === 1
 }
 
-// ---------------------------------------------------------------------------
-// Sweep 7: scans that failed
-// ---------------------------------------------------------------------------
-
-/** How many times a failed scan is tried again, an hour apart (D16). */
 export const RESCAN_ATTEMPTS = 24
 export const RESCAN_AFTER_MS = 60 * 60 * 1000
 
-/** A staged object whose scan failed and is due again. */
 export interface FailedScan {
-  /** The part's id, or the mail's for its raw message. */
   id: string
   kind: 'part' | 'raw'
   mailId: string
   organizationId: string
   projectId: string
-  /** The mail's class: a verified writer's mail gets its sender's filing again once a scan is clean. */
   senderClass: InboundMailSenderClass | null
   stagingBucket: string
   storageKey: string
 }
 
-/** Waiting parts and held raw messages whose scan failed an hour ago or more, under the attempt cap. Platform scope. */
 export async function findFailedScans(now: Date, limit: number): Promise<FailedScan[]> {
   const due = new Date(now.getTime() - RESCAN_AFTER_MS).toISOString()
   return select<FailedScan>(sql`
@@ -315,7 +232,6 @@ export async function findFailedScans(now: Date, limit: number): Promise<FailedS
       LIMIT ${limit})`)
 }
 
-/** Store a repeated scan of a part, counted; only while its scan is still the failed one. */
 export async function recordPartRescan(partId: string, scan: StoredScan): Promise<boolean> {
   const rows = await getDb()
     .update(inboundMailParts)
@@ -332,7 +248,6 @@ export async function recordPartRescan(partId: string, scan: StoredScan): Promis
   return rows.length === 1
 }
 
-/** Store a repeated scan of a held mail's raw message, counted; only while it is still the failed one. */
 export async function recordRawRescan(mailId: string, scan: StoredScan): Promise<boolean> {
   const rows = await getDb()
     .update(inboundMails)
@@ -349,14 +264,8 @@ export async function recordRawRescan(mailId: string, scan: StoredScan): Promise
   return rows.length === 1
 }
 
-// ---------------------------------------------------------------------------
-// Sweep 15: texts the reader did not answer for
-// ---------------------------------------------------------------------------
-
-/** How long after the reader last failed a text is read again. */
 export const REREAD_AFTER_MS = 15 * 60 * 1000
 
-/** A waiting mail whose text the Python reader did not answer for (`reader_fault_at`, migration 0199). */
 export interface UnreadText {
   id: string
   organizationId: string
@@ -368,11 +277,6 @@ export interface UnreadText {
   senderClass: InboundMailSenderClass | null
 }
 
-/**
- * Waiting mails, within their window, whose text waits unread because the
- * reader did not answer, last tried before `REREAD_AFTER_MS` ago, with the raw
- * message still staged and the text still waiting. Platform scope.
- */
 export async function findUnreadTexts(now: Date, limit: number): Promise<UnreadText[]> {
   const due = new Date(now.getTime() - REREAD_AFTER_MS).toISOString()
   const rows = await select<UnreadText>(sql`
@@ -388,7 +292,6 @@ export async function findUnreadTexts(now: Date, limit: number): Promise<UnreadT
   return rows.map((row) => ({ ...row, readerFaultAt: new Date(row.readerFaultAt) }))
 }
 
-/** What a re-read gives the text part and the mail. */
 export interface RereadText {
   readStorageKey: string
   sha256: string
@@ -397,11 +300,6 @@ export interface RereadText {
   contentFindings: InboundMailContentFinding[]
 }
 
-/**
- * The text read at last: the mail's `read.json` and its text part, in one
- * transaction, compare-and-set on the fault the find saw and on the part
- * still waiting. False when a person decided first or another run read it.
- */
 export async function recordReread(mail: UnreadText, text: RereadText): Promise<boolean> {
   return getDb().transaction(async (tx) => {
     const now = new Date()
@@ -416,7 +314,6 @@ export async function recordReread(mail: UnreadText, text: RereadText): Promise<
       .set({ sha256: text.sha256, sizeBytes: text.sizeBytes, riskFlags: text.riskFlags, contentFindings: text.contentFindings, updatedAt: now })
       .where(and(eq(inboundMailParts.mailId, mail.id), eq(inboundMailParts.kind, 'message'), eq(inboundMailParts.state, 'waiting')))
       .returning({ id: inboundMailParts.id })
-    // Thrown, not `tx.rollback()`, which throws the driver's own error (`LostCompareAndSwap` in documents/version-repository).
     if (part.length === 0) throw new TextNoLongerWaiting()
     return true
   }).catch((error: unknown) => {
@@ -425,25 +322,11 @@ export async function recordReread(mail: UnreadText, text: RereadText): Promise<
   })
 }
 
-/** The text part was decided between the find and the write: the mail's half rolls back with it. */
 class TextNoLongerWaiting extends Error {}
 
-/**
- * The fault the find saw, to the millisecond: Postgres keeps microseconds and a
- * `Date` milliseconds, so a plain equality never matches what was read back.
- */
 const faultSeen = (mail: UnreadText) =>
   sql`date_trunc('milliseconds', ${inboundMails.readerFaultAt}) = ${mail.readerFaultAt.toISOString()}::timestamptz`
 
-/**
- * Lease one text for a re-read before it is read: `reader_fault_at` moves to
- * `leasedAt`, compare-and-set on the fault the find saw. A sweep running
- * beside this one (a run past its execution timeout is aborted but its handler
- * runs on, and Hatchet delivers at least once) found the same row and loses the set, so no two runs read one text
- * (R3 of the second 2026-11 ship review). A read that fails leaves the lease
- * as the time it was last tried: read again after `REREAD_AFTER_MS`. The
- * leased text, or null when another run or a person came first.
- */
 export async function leaseReread(mail: UnreadText, leasedAt: Date): Promise<UnreadText | null> {
   const rows = await getDb()
     .update(inboundMails)
@@ -453,11 +336,6 @@ export async function leaseReread(mail: UnreadText, leasedAt: Date): Promise<Unr
   return rows.length === 1 ? { ...mail, readerFaultAt: leasedAt } : null
 }
 
-// ---------------------------------------------------------------------------
-// Sweep 11: decisions still owed to the audit trail
-// ---------------------------------------------------------------------------
-
-/** Decisions not audited since `before` (the request that made them sends them first). Platform scope. */
 export async function findUnauditedDecisions(before: Date, limit: number): Promise<InboundMailDecisionRow[]> {
   return getDb()
     .select()
@@ -467,18 +345,12 @@ export async function findUnauditedDecisions(before: Date, limit: number): Promi
     .limit(limit)
 }
 
-// ---------------------------------------------------------------------------
-// Sweep 13: originals whose move stopped half-way
-// ---------------------------------------------------------------------------
-
-/** A mail whose raw message was being moved to its entry's original when the run stopped. */
 export interface StalledMove {
   id: string
   organizationId: string
   projectId: string
 }
 
-/** Moves pending since `before`. Platform scope. */
 export async function findStalledMoves(before: Date, limit: number): Promise<StalledMove[]> {
   return select<StalledMove>(sql`
     SELECT m.id, m.organization_id AS "organizationId", m.project_id AS "projectId"
@@ -488,11 +360,6 @@ export async function findStalledMoves(before: Date, limit: number): Promise<Sta
      LIMIT ${limit}`)
 }
 
-// ---------------------------------------------------------------------------
-// The caps (D18): what each address's managers were told
-// ---------------------------------------------------------------------------
-
-/** An address whose staged bytes call for a notice, or whose notice is out of date. */
 export interface AddressCapState {
   id: string
   organizationId: string
@@ -503,12 +370,6 @@ export interface AddressCapState {
   organizationBytes: number
 }
 
-/**
- * Every address at 80% of its cap or whose organization is at 80% of its own,
- * and every address that was told and may need settling. The bytes are
- * counted as the webhook counts them (`stagedBytes`): raw messages of mail
- * arriving, received or waiting. Platform scope.
- */
 export async function findAddressCapStates(
   caps: { address: number; organization: number },
   limit: number,
@@ -535,10 +396,6 @@ export async function findAddressCapStates(
   return rows.map((row) => ({ ...row, addressBytes: Number(row.addressBytes), organizationBytes: Number(row.organizationBytes) }))
 }
 
-/**
- * Record what the address's managers are told now, from what they were told
- * (compare-and-set): whether this call changed it.
- */
 export async function setCapNotice(
   addressId: string,
   from: InboundMailCapNotice | null,

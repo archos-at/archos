@@ -194,8 +194,6 @@ describe('GET /api/auth/websocket-scope gate-then-fanout', () => {
     const response = await upgrade('')
 
     expect(response.status).toBe(200)
-    // Before the effective-project fix every call below received `undefined`
-    // here and silently missed the implicit project.
     expect(getBudgetStatus).toHaveBeenCalledWith('org_1', 'user_1', 'proj_implicit')
     expect(loadProjectFederalState).toHaveBeenCalledWith('proj_implicit', 'org_1')
     expect(await response.json()).toMatchObject({ projectId: 'proj_implicit' })
@@ -244,9 +242,6 @@ describe('GET /api/auth/websocket-scope gate-then-fanout', () => {
     expect(resolveOrgInstructions).not.toHaveBeenCalled()
   })
 
-  // `MissingTenantContextError` on `project_memory`: with no organization there
-  // is no tenant, so a read of the office's rows throws. The handshake used to
-  // inline the profile view and memory digest for exactly these callers.
   it.each([
     ['an anonymous caller (auth off)', () => getUserSession.mockResolvedValue(null)],
     [

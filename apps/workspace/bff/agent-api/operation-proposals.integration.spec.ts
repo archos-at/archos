@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  *
- * Piloti's writes through the MCP surface, filed as proposals against a REAL
+ * The in-product agent's writes through the MCP surface, filed as proposals against a REAL
  * Postgres through the restricted runtime role (ADR-0122, ADR-0105):
  *
  *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \
@@ -19,7 +19,7 @@
  *     found every one failing with `MissingTenantContextError`);
  *   - the turn's answer is the proposal's origin message;
  *   - the same call again in the conversation is the same proposal;
- *   - a member's Piloti cannot file a change to a project the member cannot
+ *   - a member's in-product agent cannot file a change to a project the member cannot
  *     see (the confused deputy), and nothing is stored;
  *   - the card names the target for a reader who may read it, by name;
  *   - a reader who may decide the proposal's project but not read its target
@@ -47,7 +47,6 @@ const ADMIN = `user_opprop_admin_${STAMP}`
 const MEMBER = `user_opprop_member_${STAMP}`
 const ids = { visible: '', hidden: '' }
 
-// WorkOS: the member holds a grant on the visible project and none on the hidden one.
 vi.mock('@/lib/authz/resource-check', async () => {
   const { PROJECT_PERMISSION_SPECS } = await import('@/lib/authz/catalog')
   return {
@@ -57,7 +56,6 @@ vi.mock('@/lib/authz/resource-check', async () => {
     ),
   }
 })
-// WorkOS: who besides the asker may open which project; the member opens the visible one only.
 vi.mock('@/lib/authz/project-membership', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/authz/project-membership')>()),
   userHoldsProjectPermission: vi.fn(async (_session: unknown, projectId: string) => projectId === ids.visible),
@@ -78,7 +76,7 @@ describe('the operation-proposal suite is not silently skipped in CI', () => {
   })
 })
 
-describe.skipIf(!url)('Piloti’s proposed operations against Postgres', () => {
+describe.skipIf(!url)('the in-product agent’s proposed operations against Postgres', () => {
   let db: ReturnType<typeof import('@/lib/db').getDb>
   let withTenant: typeof import('@/lib/db/tenant-context').withTenant
   let proposeOperation: typeof import('./operation-proposals').proposeOperation
@@ -161,7 +159,6 @@ describe.skipIf(!url)('Piloti’s proposed operations against Postgres', () => {
     expect(stored).toHaveLength(1)
     expect(stored[0]).toMatchObject({ id: first.proposalId, origin_message_id: answerMessageId, on_behalf_of: ADMIN })
 
-    // The same call again while the first is open is the first: the look-up ran in the tenant scope too.
     const again = await proposeOperation({
       principal: { session: admin, conversationId: conversation, projectId: ids.visible, answerMessageId: randomUUID() },
       op: rename,
@@ -171,7 +168,7 @@ describe.skipIf(!url)('Piloti’s proposed operations against Postgres', () => {
     expect(await rowsFor(ids.visible)).toHaveLength(1)
   })
 
-  it('refuses a member’s Piloti a change to a project the member cannot see, and stores nothing', async () => {
+  it('refuses a member’s in-product agent a change to a project the member cannot see, and stores nothing', async () => {
     await expect(
       proposeOperation({
         principal: { session: member, conversationId: conversation, projectId: ids.visible },
@@ -198,7 +195,6 @@ describe.skipIf(!url)('Piloti’s proposed operations against Postgres', () => {
       op: rename,
       input: { params: { id: ids.hidden }, body: { name: 'Verborgen, nochmals' } },
     })
-    // The member reads the conversation (and so the card), and may decide in its project, not see the target.
     await inOrg(() =>
       db.execute(sql`
         insert into resource_shares (organization_id, resource_type, resource_id, subject_user_id, role, granted_by)
@@ -211,7 +207,6 @@ describe.skipIf(!url)('Piloti’s proposed operations against Postgres', () => {
     await expect(
       asMember(() => applyProposal(member, proposalId, new Request('http://localhost/api/proposals/apply', { method: 'POST' })))
     ).rejects.toMatchObject({ status: 403 })
-    // Nor may they dismiss it: no button means no decision, either way (it used to let the dismiss through).
     await expect(asMember(() => dismissProposal(member, proposalId))).rejects.toMatchObject({ status: 403 })
     expect((await inOrg(() => getProposal(admin, proposalId))).status).toBe('proposed')
   })
@@ -229,8 +224,6 @@ describe.skipIf(!url)('Piloti’s proposed operations against Postgres', () => {
       mode: 'tools' as const,
       appHost: 'declared' as const,
     })
-    // Filed in a conversation of the admin's own, then shared with the member, who reads the card and may not
-    // decide it: its target is hidden from them.
     const own = `${conversation}_card`
     await inOrg(() =>
       db.execute(sql`
@@ -258,7 +251,6 @@ describe.skipIf(!url)('Piloti’s proposed operations against Postgres', () => {
     const decided = await runAppTool(outside(admin), tool('proposal-card-dismiss'), { id: proposalId })
     expect(decided.isError).toBeFalsy()
     expect(decided.structuredContent).toMatchObject({ proposal: { id: proposalId, status: 'dismissed', decidedBy: ADMIN } })
-    // A second press is the route's 409, which the card shows as the earlier decision.
     const again = await runAppTool(outside(admin), tool('proposal-card-dismiss'), { id: proposalId })
     expect(again.structuredContent).toMatchObject({ status: 409 })
   })
@@ -284,7 +276,6 @@ describe.skipIf(!url)('Piloti’s proposed operations against Postgres', () => {
       })
     ).rejects.toMatchObject({ status: 403 })
     expect(await rowsFor(ids.hidden)).toHaveLength(before)
-    // The conversation's own project is every reader's: filed.
     const own = await proposeOperation({
       principal: { session: admin, conversationId: shared, projectId: ids.visible },
       op: rename,

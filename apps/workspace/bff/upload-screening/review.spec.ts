@@ -60,7 +60,7 @@ const member: AuthorizedSession = {
   featureFlags: null,
 }
 const orgAdmin: AuthorizedSession = { ...member, userId: 'user-admin', permissions: ['org:projects:administer'] }
-const archivist: AuthorizedSession = { ...member, userId: 'user-arch', permissions: ['org:archiv:manage'] }
+const archivist: AuthorizedSession = { ...member, userId: 'user-arch', permissions: ['org:office_shelf:manage'] }
 
 const verdict = 'quarantined:{"reasons":[{"kind":"term","term":"Lohnzettel","count":1,"pages":[1]},{"kind":"iban","count":1,"sample":"AT61 •••• 1234"}],"checked":"full"}'
 const quarantined = makeDocument({
@@ -77,12 +77,10 @@ beforeEach(() => {
   vi.mocked(isFolderVisibleTo).mockResolvedValue(true)
   vi.mocked(requireFolderWrite).mockResolvedValue(undefined)
   vi.mocked(canWriteFolder).mockResolvedValue(true)
-  // The repository answers by the reader it is asked for, as `documentVisibleTo` does.
   vi.mocked(findDocumentInOrg).mockImplementation(async (_id, _org, reader) =>
     mayReadDocument(quarantined, reader) ? quarantined : null
   )
   vi.mocked(markScreeningReleased).mockResolvedValue(true)
-  // A plain member holds no project:manage anywhere.
   vi.mocked(requireProjectAccess).mockRejectedValue(new NotFoundError('Project not found'))
 })
 
@@ -121,8 +119,6 @@ describe('mayReviewQuarantine and restricted folders (ADR-0087)', () => {
 })
 
 describe('releaseQuarantinedDocument', () => {
-  // A held reading never stored what the uploader chose (ADR-0086, C3's gap):
-  // the release sends it again, read from the row, for these bytes only.
   const OLDER_ID = '0b6c8a52-3f1e-4c7a-9d2b-5e8f1a2b3c4d'
   const heldWithChoice = {
     ...quarantined,
@@ -133,7 +129,6 @@ describe('releaseQuarantinedDocument', () => {
     },
   }
   const olderVersion = makeDocument({ id: OLDER_ID, filename: 'EG_Grundriss_Index_B.pdf' })
-  /** The repository holding the held upload and, as `older` says, the document it was filed as the Fassung of. */
   const holding = (older: typeof olderVersion | null) =>
     vi.mocked(findDocumentInOrg).mockImplementation(async (id, _org, reader) => {
       const row = id === OLDER_ID ? older : heldWithChoice
@@ -150,8 +145,6 @@ describe('releaseQuarantinedDocument', () => {
     )
   })
 
-  // The release can come days after the upload: the Fassung is checked again,
-  // by the older document's id, never trusted by a name recorded back then.
   it("sends the older document's name as it is at the release, not as it was at upload", async () => {
     holding({ ...olderVersion, filename: 'EG_Grundriss_Index_B_rev.pdf' })
 
@@ -205,7 +198,6 @@ describe('releaseQuarantinedDocument', () => {
       metadata: { reasons: 'term,iban', terms: 'Lohnzettel' },
     })
     expect(JSON.stringify(audit)).not.toContain('AT61')
-    // The uploader's „Prüfung anfragen" is answered: it leaves every reviewer's inbox.
     expect(resolveInboxItemsAnchoredOn).toHaveBeenCalledWith({
       organizationId: 'org-1',
       types: ['document.release_requested'],
@@ -221,7 +213,6 @@ describe('releaseQuarantinedDocument', () => {
 
     const audit = vi.mocked(recordAuditEvent).mock.calls[0]?.[0]
     expect(audit?.filedIn).toEqual({ projectId: 'proj-1', folderId: 'f-lohn' })
-    // What the trail keeps of the event when the folder is restricted (`wireMetadata`, audit/service.ts).
     const kept = Object.entries(audit?.metadata ?? {}).filter(
       ([key]) => !(DOCUMENT_NAME_KEYS as readonly string[]).includes(key)
     )
@@ -256,12 +247,6 @@ describe('releaseQuarantinedDocument', () => {
     expect(dispatchDocument).not.toHaveBeenCalled()
   })
 
-  /**
-   * A file the gate never reached a verdict on is held from upload until its
-   * screening passes (2026-10-08). When its reading fails for good (an IFC model
-   * over the size limit, an unparseable one) a retry fails the same way, so
-   * without a release it stayed with its uploader for ever.
-   */
   it.each([
     ['whose reading failed', { status: 'failed' as const, errorMessage: 'IFC zu groß' }],
     ['stranded before its dispatch', { status: 'uploaded' as const, errorMessage: null }],
@@ -301,8 +286,6 @@ describe('releaseQuarantinedDocument', () => {
 
 describe('listQuarantineQueue', () => {
   it('reads past a page of other projects\' quarantine until the reviewer\'s own list is full', async () => {
-    // The page size is 3 here. The newest page belongs entirely to a project
-    // this reviewer does not administer; theirs come after it.
     const at = (minute: number) => new Date(Date.UTC(2026, 9, 1, 10, minute))
     const other = [1, 2, 3].map((n) => ({ ...quarantined, id: `other-${n}`, projectId: 'proj-2', updatedAt: at(60 - n) }))
     const mine = [1, 2].map((n) => ({ ...quarantined, id: `mine-${n}`, projectId: 'proj-1', updatedAt: at(30 - n) }))
@@ -316,12 +299,10 @@ describe('listQuarantineQueue', () => {
     const items = await listQuarantineQueue(member)
 
     expect(items.map((item) => item.id)).toEqual(['mine-1', 'mine-2'])
-    // The second page starts after the last row of the first.
     expect(vi.mocked(listQuarantinedDocuments).mock.calls[1]?.[1]).toEqual({ updatedAt: at(57), id: 'other-3' })
   })
 
   it("shows a project admin only their projects' part of the queue, with the reasons read", async () => {
-    // A full page, then the end of the queue.
     vi.mocked(listQuarantinedDocuments)
       .mockResolvedValueOnce([
         { ...quarantined, id: 'a', projectId: 'proj-1' },
@@ -338,7 +319,6 @@ describe('listQuarantineQueue', () => {
 
     expect(items.map((item) => item.id)).toEqual(['a', 'c'])
     expect(items[0]?.verdict?.reasons[0]).toMatchObject({ kind: 'term', term: 'Lohnzettel' })
-    // One check per project, not per document.
     expect(requireProjectAccess).toHaveBeenCalledTimes(2)
   })
 
@@ -361,11 +341,9 @@ describe('listQuarantineQueue', () => {
 })
 
 describe('requestQuarantineRelease („Freigabe anfragen")', () => {
-  // `makeDocument` is uploaded by `user-1`.
   const uploader: AuthorizedSession = { ...member, userId: 'user-1' }
 
   beforeEach(() => {
-    // Every session here may view the project; nobody but its admin manages it.
     vi.mocked(requireProjectAccess).mockImplementation(async (_s, _projectId, permission) => {
       if (permission === 'project:manage') throw new NotFoundError('Project not found')
       return { role: 'project-viewer' } as Awaited<ReturnType<typeof requireProjectAccess>>
@@ -388,7 +366,6 @@ describe('requestQuarantineRelease („Freigabe anfragen")', () => {
       groupKey: 'document.release_requested:organization:org-1:doc-q',
       payload: { subject: 'Lohnzettel 03.pdf' },
     })
-    // Asking releases nothing.
     expect(markScreeningReleased).not.toHaveBeenCalled()
     expect(dispatchDocument).not.toHaveBeenCalled()
   })
@@ -424,7 +401,6 @@ describe('requestQuarantineRelease („Freigabe anfragen")', () => {
 })
 
 describe('quarantineReviewAccess (what the Files preview offers)', () => {
-  // `makeDocument` is uploaded by `user-1`, into the project root of `proj-1`.
   const uploader: AuthorizedSession = { ...member, userId: 'user-1' }
 
   beforeEach(() => {

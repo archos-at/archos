@@ -83,7 +83,6 @@ describe.skipIf(!url)('projectModelKinds', () => {
     await seedConversation(OTHER_CONVERSATION)
     await seedDocument({ filename: 'Haus.IFC', scope: 'project', projectId: WITH_IFC, conversationId: null })
     await seedDocument({ filename: 'Grundriss.pdf', scope: 'project', projectId: WITH_NOTHING, conversationId: null })
-    // A quarantined DXF is held from the agent (ADR-0086): it must not count.
     await seedDocument({
       filename: 'gesperrt.dxf',
       scope: 'project',
@@ -91,7 +90,6 @@ describe.skipIf(!url)('projectModelKinds', () => {
       conversationId: null,
       status: 'quarantined',
     })
-    // Another conversation's private upload must not count for this one.
     await seedDocument({ filename: 'privat.dxf', scope: 'session', projectId: null, conversationId: OTHER_CONVERSATION })
 
     OFFICE_ONLY_ORG = `${ORG}_office`

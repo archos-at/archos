@@ -1,0 +1,41 @@
+from __future__ import annotations
+
+from unittest.mock import MagicMock
+from unittest.mock import patch
+
+from langchain_core.messages import AIMessage
+from langchain_core.messages import HumanMessage
+
+from agent.cards.registry import CardRegistry
+from agent.core import conversation_register
+from agent.core.models import ConversationState
+from agent.stages import TurnFacts
+from agent.turn.admission import TurnOutcome
+from agent.turn.registries import TurnRegistries
+
+RESTRICTED = "proj_1_r0123456789ab"
+
+
+def test_finished_carries_the_registry_and_the_uncapped_listing_into_the_stage_facts():
+    state = ConversationState(
+        messages=[HumanMessage(content="Was ist vereinbart?"), AIMessage(content="Pauschal.")],
+        collection_scope=["proj_1", RESTRICTED],
+        available_documents=[],
+    )
+    registries = TurnRegistries(cards=CardRegistry(), source_collections=(RESTRICTED,))
+    context = MagicMock(stage_facts=TurnFacts(project_id="p1"))
+    inputs = MagicMock(query_text="Was ist vereinbart?")
+    listed = ({"collection": RESTRICTED, "file_name": "Vertrag.pdf", "summary": "Honorar"},)
+
+    with (
+        patch.object(conversation_register, "schedule_post_answer_stages") as schedule,
+        patch.object(conversation_register, "get_turn_documents", return_value=listed),
+    ):
+        conversation_register._finished(
+            TurnOutcome(state=state, refusal=None), registries, context, inputs, message_id="m1", stage_llms={}
+        )
+
+    facts = schedule.call_args.args[0]
+    assert facts.restriction.scope == (RESTRICTED,)
+    assert facts.restriction.read == (RESTRICTED,)
+    assert [doc.name for doc in facts.restriction.documents] == ["Vertrag.pdf"]

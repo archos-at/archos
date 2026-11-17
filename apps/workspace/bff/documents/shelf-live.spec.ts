@@ -2,16 +2,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Every write to a shelf is announced on its live channel (`shelf:<id>`), or
- * the Files workspaces open on it go stale until a reload: that was the
- * workspace before the channel existed, and a new write path that forgets the
- * announcement brings it back for exactly that path.
- *
- * So: a module that writes the `documents` or `project_folders` table either
- * calls `publishShelfChanged` itself, or is listed below with the module that
- * announces its writes, or with why they change nothing a shelf listing shows.
- */
 
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
@@ -21,8 +11,6 @@ const modules = srcEntries()
   .filter((entry) => /\.tsx?$/.test(entry) && !/\.(spec|test)\.tsx?$/.test(entry))
   .filter((entry) => !entry.includes('test-utils') && !entry.startsWith('app/dev'))
   .map((entry) => ({ path: entry.split('\\').join('/'), code: readFileSync(srcPath(entry), 'utf8') }))
-  // The repository is one module, `repository.ts` and the `repository/` folder it
-  // delegates to: read as one unit, so the check asks what it asked of the file.
   .reduce<{ path: string; code: string }[]>((units, module) => {
     if (!module.path.startsWith('lib/documents/repository')) return [...units, module]
     const unit = units.find((other) => other.path === 'lib/documents/repository.ts')
@@ -34,7 +22,6 @@ const modules = srcEntries()
 const WRITES_A_SHELF =
   /\.(update|insert|delete)\(\s*(documents|projectFolders)\s*\)|\b(UPDATE|INSERT INTO|DELETE FROM)\s+(documents|project_folders)\b/
 
-/** Writers whose writes another module announces, or that change nothing a shelf listing shows. */
 const ANNOUNCED_ELSEWHERE: Record<string, string> = {
   'lib/storage/repository.ts': 'the insert and the replace; `lib/storage/service.ts` and `lib/documents/shelf-upload.ts` announce them',
   'lib/office-shelf/repository.ts': 'the Archiv delete; `lib/office-shelf/service.ts` announces it',

@@ -1,28 +1,9 @@
 'use client'
 
-/**
- * Dev preview for the structured-analysis disclosure — the advanced half of a
- * visual chunk's description, rendered on its own and already expanded.
- *
- * It lives here rather than only inside `/dev/file-preview` because it is two
- * levels deep in the real pane (Auf den Seiten → Strukturierte Daten, the
- * second collapsed), which a screenshot cannot reach. What must be visible for review is
- * the shape of the rendering: one labelled line per vocabulary category, layers
- * in order, figures that keep their meaning, relations as triples, and the
- * provenance line that stops an inferred reading from looking measured.
- *
- * The second fixture is the point of the whole design: a domain this build has
- * no translations for still renders, from its keys. That is what "adding a
- * domain on the backend needs no frontend release" looks like on screen.
- *
- * Not linked from anywhere and 404s outside development.
- */
-
 import { notFound } from 'next/navigation'
 import { DrawingStructuredDetails } from '@/features/documents/components/drawing-structured-details'
 import { normalizeDrawingStructured } from '@/lib/documents/drawing-structured'
 
-/** An architectural sheet, in the vocabulary this build ships. */
 const ARCHITECTURE = {
   schema_version: 4,
   registry: 'architecture+general@850c9b2d770a',
@@ -98,10 +79,6 @@ const ARCHITECTURE = {
   },
 }
 
-/**
- * A domain that does not exist in this build — categories and states it has no
- * translation for. Everything must still render, from the keys.
- */
 const UNKNOWN_DOMAIN = {
   schema_version: 4,
   registry: 'electrical+general@0000deadbeef',

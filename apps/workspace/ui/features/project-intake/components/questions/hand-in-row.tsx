@@ -12,12 +12,6 @@ import { intakeQuestionsStepCopy } from '@/i18n/namespaces/intake-questions-step
 import { cn } from '@/lib/utils'
 import { useAppConfig } from '@/shared/context'
 
-/**
- * The dashed row under a Rückfrage: where the answer usually stands, and the
- * place to hand that document in. Dropped or chosen, the files go through the
- * page's one upload and Piloti reads the answer out of them; `onHandedIn`
- * lets the round move on. On a phone the whole row is the button.
- */
 export function HandInRow({
   where,
   label,
@@ -25,9 +19,7 @@ export function HandInRow({
   onHandedIn,
   disabled = false,
 }: {
-  /** The documents the answer is usually in, already joined („Einreichplan (Grundriss) oder Baubeschreibung"). */
   where: string | null
-  /** The question it answers, for the button's name. */
   label: string
   onFiles: (files: File[], info?: DropInfo) => void
   onHandedIn?: () => void
@@ -91,7 +83,7 @@ export function HandInRow({
       />
       <Button
         type="button"
-        variant="outline"
+        variant="secondary"
         size="sm"
         className="hidden h-8 shrink-0 text-[13px] font-normal md:inline-flex"
         disabled={disabled}

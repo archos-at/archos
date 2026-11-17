@@ -1,14 +1,3 @@
-/**
- * TechnicalSteps — every Herleitung row in order, a power-user opt-in
- * (profile setting `showTechnicalReasoning`). Rendered as a collapsible tail
- * below the reasoning graph.
- *
- * "Technical" is about the GRANULARITY — every step the backend sent, with its
- * timestamp. A tool is named in the reader's nouns where the chip row has one
- * (`stepNameLabel`), and otherwise by its basename; a status slot and a skill id
- * are identifiers a power user came for, and show verbatim.
- */
-
 'use client'
 
 import type { FC } from 'react'
@@ -20,7 +9,6 @@ import { formatTime } from '@/shared/utils/format-time'
 import { stepNameLabel } from '../../lib/executed-steps'
 import type { StoredThinkingStep } from '@/lib/conversations/message-provenance'
 
-/** The row label for one stored step. */
 export const technicalStepLabel = (step: StoredThinkingStep, t: Translator): string => {
   switch (step.kind) {
     case 'tool':

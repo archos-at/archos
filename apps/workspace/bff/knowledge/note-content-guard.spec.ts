@@ -37,7 +37,6 @@ describe('the memory note guard and its Python twin read one table', () => {
   })
 
   it.each(fixture.cases.map((entry) => [entry.name, entry] as const))('%s', (_name, entry) => {
-    // Every shelf refuses a secret; a shared shelf also refuses a contact detail.
     expect(noteRefusal(entry.text, false)).toBe(entry.secret)
     expect(noteRefusal(entry.text, true)).toBe(entry.secret ?? entry.contact)
   })

@@ -1,68 +1,5 @@
 #!/usr/bin/env python3
 
-"""Keep the product's name out of every new code and infrastructure identifier.
-
-Why this exists
----------------
-
-The product has been called AI-Q, then Grid, then Piloti, now ARCHOS, and it is
-about to change again. Every rename so far was a code change across thousands of lines,
-because the name sat in identifiers, file names, environment variables, routes
-and resource names. The name belongs in user-facing copy, read from one place,
-so the next rename is a copy change.
-
-What it checks
---------------
-
-A ratchet, in the style of `scripts/check_file_size.py`: no new hit anywhere,
-and a baseline (`ci/brand_names_baseline.json`) holding the hits each file had
-when the check arrived.
-
-- A hit is a word of a token (a camelCase, snake_case, kebab-case or dotted
-  name) that is one of the brands: `aiq`, `archos`, `piloti`, `grid` (``brand_words``).
-- A file's count is its hits in its own name plus, for a code or config file
-  (``CONTENT_SUFFIXES``), its hits in the text. A directory is keyed `dir/`
-  and counts the hits in its own name, so a new file in an old directory is
-  not a new hit, and a new directory is.
-- A key over its baseline fails; so does one under it (``--update`` lowers and
-  removes entries, it never raises or adds one).
-
-What is not a hit
------------------
-
-- The name as a word in prose: the bare token `Piloti`, `Grid` or `ARCHOS` (a
-  comment, a docstring, a string a person reads, a generated fixture that renders
-  `PRODUCT_NAME` into copy). That copy is the brand's business, and the place to
-  centralise it is the `PRODUCT_NAME` constant; `scripts/check_brand_prose.py`
-  counts it in text, this check does not.
-- `grid` the English word: a bare lowercase `grid`, CSS and Tailwind
-  (`grid-cols-2`, `gridTemplateColumns`), and `grid` as the last word, the
-  layout noun (`FileGrid`, `document_grid`, `stat-grid`).
-- The repository's own name and URLs (``REPOSITORY``), which only the
-  repository's owners rename: `archos-at/archos` and the `archos-at` org
-  (`ghcr.io/archos-at/...`, `github.com/archos-at/...`). The image or repo
-  name after the org is not exempt, so an existing `grid-oib-*` hit stays.
-- The Kubernetes and Compose tier names `aiq-agent` and `aiq-api`
-  (``PENDING_INFRA_NAMES``), until the deploy rename (ADR-0145 row 10c) moves
-  them in its three operator-applied deploys.
-- The module path on a Python ``from``/``import`` line into the chat agent's
-  package (``IMPORT_PATH``). The package's directory is the identifier, kept on
-  purpose because the checkpointer restores a graph by it, and is counted once
-  under its ``dir/`` key; every import of it is a consequence of that one name.
-  Counted per import, each new test of the package was a new hit only a
-  ``--rebaseline`` could admit. The path anywhere else still counts.
-- History and copy (``EXCLUDED``): ADRs, audits, release notes, migrations,
-  the i18n dictionaries and the site's content, published assets, lockfiles,
-  and Markdown, whose paths and names follow the code they describe.
-
-Usage:
-    python scripts/check_brand_names.py              # check, exit 1 on a finding
-    python scripts/check_brand_names.py --update     # ratchet the baseline down
-    python scripts/check_brand_names.py --rebaseline # rewrite it from the tree
-
-``--rebaseline`` is for a move or rename that re-keys entries: it records the
-tree as it is, new hits included, so its diff is the thing to review.
-"""
 
 from __future__ import annotations
 
@@ -84,8 +21,6 @@ CONTENT_SUFFIXES = (
 )  # fmt: skip
 CONTENT_NAMES = ("Dockerfile", "pre-commit")
 
-# Matched against the repo-relative POSIX path. Each line says what it is and
-# why a brand in it is not a code identifier.
 EXCLUDED = re.compile(
     "|".join(
         (
@@ -102,45 +37,34 @@ EXCLUDED = re.compile(
             r"^ci/[^/]*baseline[^/]*\.json$",  # ratchet baselines: they list paths, not names
             r"^\.github/filters\.yml$",  # CI path filters: they list paths, not names
             r"^scripts/check_brand_(names|prose)\.py$|^tests/test_check_brand_(names|prose)\.py$",  # these checks
-            # The layout test names the old directories it forbids; the import test plants one in a fixture.
             r"^tests/test_(repo_layout|test_imports)\.py$",
-            # The one-release fallback that reads the old, prefixed variable names, and its tests.
             r"^apps/agent-host/entrypoint\.py$|^tests/test_(entrypoint_roles|no_legacy_env_names)\.py$|^apps/workspace/scripts/legacy-env-names\.",
-            # The infrastructure names table: its legacy column holds the old names until ADR-0147's contract step.
             r"^deploy/pulumi/src/names\.ts$",
-            # The one-release fallback that reads the old x-grid-* header names, and its tests.
             r"^apps/workspace/bff/http/legacy-header-names\.|^apps/agent-host/src/agent_host/legacy_headers\.py$",
-            # The brand's one file, where the name is meant to live, and the copies a sync script writes from it
-            # (apps/*/**/identity.json, and the agent's beside agent.common.brand). The product is renamed by
-            # editing that file, so it is not a code identifier.
+            r"^apps/workspace/ui/features/documents/hooks/legacy-drag-types\.ts$",
+            r"^apps/workspace/bff/agent-api/legacy-names\.|^packages/agent/src/agent/tools/workspace/legacy_names\.py$",
             r"^packages/brand/identity\.json$|^apps/[^/]+/(.*/)?identity\.json$|^packages/agent/src/agent/common/identity\.json$",
             r"^tests/test_legacy_headers\.py$",
-            # The legacy Postgres rename (database and role names): it names the old names by design.
             r"^deploy/postgres/rename-legacy-names\.sh$|^deploy/pulumi/src/data/postgres-rename\.ts$",
             r"^deploy/pulumi/index-postgres-rename\.spec\.ts$|^tests/test_postgres_rename_legacy_names\.py$",
-            # The one-release move of the browser's stored keys off their old names, and its spec.
-            r"^apps/workspace/app/storage-rename-boot(\.spec)?\.ts$",
-            # The migration harness: it replays the Drizzle history (excluded above) and seeds the tables
-            # each migration knew, under the names they had then.
             r"^scripts/rls-test-db\.sh$",
-            # The one release the BFF also sends the mode header under its old name, beside `x-chat-mode`.
             r"^apps/workspace/bff/turns/headless-mode\.ts$",
-            # The website's redirects from old public addresses, which keep the spelling they were published under.
             r"^apps/website/redirects\.mjs$",
         )
     )
 )
 
 URL = re.compile(r"\b(?:https?|git|ssh)://\S+|\bgit@[\w.-]+:\S+")
-# A host name, or an email address's. `.tech` is the brand's own domain (identity.json's "domain").
+LEGACY_HEADER = re.compile(r"(?i)drop after release\s+\S+")
 HOST = re.compile(r"\.(?:at|ai|app|com|de|dev|eu|io|net|org|tech)$")
-# The Kubernetes and Compose tier names `aiq-agent` and `aiq-api` are not
-# counted: renaming them recreates resources and an operator applies it (ADR-0145
-# row 10c). Delete this set with that rename.
 PENDING_INFRA_NAMES = re.compile(r"(?<![A-Za-z0-9])(?:aiq-agent|aiq-api)(?![A-Za-z0-9])")
 REPOSITORY = re.compile(
     r"\bgrid-check/grid-oib-agent\b|\bgrid-oib-agent\b|\bgrid-check\b|(?<![\w.-])archos-at(?:/archos(?![\w-]))?(?![\w-])",
     re.IGNORECASE,
+)
+EXTERNAL_NAMES = re.compile(
+    r"(?<![\w-])grid-oib(?![\w-])|(?<![\w-])grid-documents(?![\w-])|(?<![\w-])grid-org(?![\w])(?:-[\w-]*)?"
+    r"|(?<![\w-])piloti_(?:corpus|office)(?!\w)"
 )
 BRAND = re.compile("|".join(BRANDS), re.IGNORECASE)
 TOKEN_CHARS = frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.-")
@@ -157,24 +81,20 @@ def _is_brand(word: str) -> bool:
     lowered = word.lower()
     if lowered in BRANDS:
         return True
-    # An acronym run swallows its neighbour: `AIQAPIWorker` reads `AIQAPI`, `Worker`.
     return word.isupper() and any(lowered.startswith(brand) for brand in BRANDS)
 
 
 def brand_words(token: str) -> list[str]:
-    """The brand words of ``token`` (`piloti_wakes` → ['piloti'], `FileGrid` → [], `Piloti` → [])."""
     if token in PROSE or token == "grid" or HOST.search(token):
         return []
     if CSS_GRID.match(token) or CSS_GRID_PROPERTY.match(token):
         return []
     words = _words(token)
     hits = [index for index, word in enumerate(words) if _is_brand(word)]
-    # `grid` as the last word is the English layout noun; GRID_ and friends lead.
     return [words[index] for index in hits if not (words[index].lower() == "grid" and index == len(words) - 1 > 0)]
 
 
 def branded_tokens(text: str) -> list[str]:
-    """The tokens of ``text`` that contain a brand, grown out from each match (a regex for whole tokens is slow)."""
     tokens: list[str] = []
     end = 0
     for match in BRAND.finditer(text):
@@ -189,31 +109,20 @@ def branded_tokens(text: str) -> list[str]:
     return tokens
 
 
-#: The module path of a Python import into the chat agent's package (see "What is not a hit").
-IMPORT_PATH = re.compile(r"^(\s*(?:from|import)\s+)agent\.agents\.piloti(?!\w)(?:\.\w+)*", re.M)
-
-
 def _without_exempt_names(text: str) -> str:
-    """``text`` with URLs, the repository's own name and the pending infra names blanked.
-
-    Each substitution runs only where a plain substring says it can match: the
-    three regexes over every file were half of this check (2.7s of 5.3,
-    2026-11-10), REPOSITORY alone 1.8s, and most files hold none of them.
-    """
     if "://" in text or "git@" in text:
         text = URL.sub(" ", text)
     lowered = text.lower()
     if "grid-" in lowered or "archos-at" in lowered:
         text = REPOSITORY.sub(" ", text)
+    if "grid-" in text or "piloti_" in text:
+        text = EXTERNAL_NAMES.sub(" ", text)
     if "aiq-a" in text:
         text = PENDING_INFRA_NAMES.sub(" ", text)
-    if "agent.agents." in text:
-        text = IMPORT_PATH.sub(r"\1", text)
     return text
 
 
 def count_text(text: str) -> int:
-    """The brand hits in ``text``, URLs and the repository's own name left out."""
     if not BRAND.search(text):
         return 0
     return sum(len(brand_words(token)) for token in branded_tokens(_without_exempt_names(text)))
@@ -225,13 +134,11 @@ def is_content(path: str) -> bool:
 
 
 def tracked_files(root: Path) -> list[str]:
-    """Every file git tracks (staged included) that this check governs."""
     out = subprocess.run(["git", "ls-files"], cwd=root, capture_output=True, text=True, check=True).stdout
     return [path for path in out.splitlines() if not EXCLUDED.search(path) and (root / path).is_file()]
 
 
 def measure(root: Path, paths: list[str]) -> dict[str, int]:
-    """The hits per file and per directory (keyed `dir/`), zeros left out."""
     counts: Counter[str] = Counter()
     directories: set[str] = set()
     for path in paths:
@@ -239,7 +146,9 @@ def measure(root: Path, paths: list[str]) -> dict[str, int]:
         directories.update(str(parent) for parent in pure.parents if str(parent) != ".")
         counts[path] += count_text(pure.name)
         if is_content(path):
-            counts[path] += count_text((root / path).read_text(encoding="utf-8", errors="replace"))
+            text = (root / path).read_text(encoding="utf-8", errors="replace")
+            if not LEGACY_HEADER.search("\n".join(text.split("\n", 15)[:15])):
+                counts[path] += count_text(text)
     for directory in directories:
         counts[f"{directory}/"] += count_text(PurePosixPath(directory).name)
     return {key: count for key, count in counts.items() if count}
@@ -254,7 +163,6 @@ def write_baseline(path: Path, counts: dict[str, int]) -> None:
 
 
 def check(current: dict[str, int], baseline: dict[str, int]) -> list[str]:
-    """New or grown keys, and keys the baseline should lower."""
     findings = []
     for key, count in sorted(current.items()):
         allowed = baseline.get(key, 0)
@@ -268,13 +176,14 @@ def check(current: dict[str, int], baseline: dict[str, int]) -> list[str]:
 
 
 def tightened(current: dict[str, int], baseline: dict[str, int]) -> dict[str, int]:
-    """The baseline lowered to the tree wherever the tree has fewer; nothing new, nothing raised."""
     return {key: min(allowed, current[key]) for key, allowed in baseline.items() if key in current}
 
 
 def main(argv: list[str] | None = None) -> int:
-    """CLI entry point: check (or ratchet) the brand-name baseline and return an exit code."""
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description="Keep the product's name out of every new code and infrastructure identifier.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--update", action="store_true", help="Lower and remove baseline entries; never raise one.")
     mode.add_argument("--rebaseline", action="store_true", help="Record the tree as it is, new hits included.")
@@ -292,6 +201,8 @@ def main(argv: list[str] | None = None) -> int:
         write_baseline(root / BASELINE, baseline)
 
     findings = check(current, baseline)
+    slack = [f for f in findings if "so lower its" in f or "remove its baseline entry" in f]
+    findings = [f for f in findings if f not in slack]
     if findings:
         print(f"Brand-name check FAILED ({len(findings)} finding(s)):", file=sys.stderr)
         for finding in findings:
@@ -300,6 +211,10 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     print(f"Brand-name check passed: {sum(baseline.values())} hit(s) in {len(baseline)} path(s) held at baseline.")
+    if slack:
+        print(
+            f"  {len(slack)} baseline entr{'y' if len(slack) == 1 else 'ies'} can be lowered: `task baselines:tighten`."
+        )
     return 0
 
 

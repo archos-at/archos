@@ -1,8 +1,3 @@
-/**
- * Add a person to a project's Steckbrief (ADR-0091). Thin handler; who may,
- * the account check and the audit trail live in `project-record-service`.
- */
-
 import { apiRoute, parseJsonBody } from '@/lib/api/handler'
 import { addProjectPerson } from '@/lib/projects/project-record-service'
 import { projectPersonSchema } from '@/lib/projects/project-record-types'

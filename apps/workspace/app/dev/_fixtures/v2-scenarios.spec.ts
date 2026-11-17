@@ -1,24 +1,15 @@
 /**
  * @vitest-environment node
  */
-/**
- * `/dev/stream-socket?scenario=` plays turns no backend recorded, so each is
- * held to the wire contract here: every frame parses as a v2 event, seq runs
- * 1..n in time order, no frame but the settle and the terminal is over 4 KB,
- * and folded the way the store folds it the turn ends in the shape its name
- * promises. A scenario that drifted off the contract would measure a turn the
- * product can never receive.
- */
 import { describe, expect, it } from 'vitest'
 import { parseWireEvent, type WireEvent } from '@/adapters/api/wire-v2'
-import { foldTurnEvents, type TurnView } from '@/features/chat/lib/turn-fold'
+import { foldTurnEvents, type TurnView } from '@/lib/turns/turn-fold'
 import { buildTurnScript } from '../stream-socket/turn-script'
 import { STREAM_FRAMES } from './stream-frames'
 import { ERROR_PHASES, STREAM_SCENARIOS, v2Scenario, type ErrorPhase, type StreamScenario } from './v2-scenarios'
 import type { TimedFrame } from './v2-turn'
 
 const IDS = { conversationId: 'c', turnId: 't', messageId: 'm' }
-/** What the settle carries, and what the product's terminal repeats today. */
 const SETTLED = STREAM_FRAMES.oib2.frames.find((frame) => frame.stream_replace)!
 const SETTLED_TEXT = SETTLED.content
 

@@ -13,8 +13,6 @@ describe('origin paths', () => {
     expect(normalizeOriginPath(null)).toBeNull()
   })
 
-  // The stored label is bounded; the name screening reads the whole path
-  // (ADR-0086), so a folder past the cut is still screened.
   it('cut only the stored label, never what the screening reads', () => {
     const deep = `${'a'.repeat(1100)}/Personalunterlagen/scan.pdf`
     expect(sanitizeOriginPath(deep)).toHaveLength(1024)

@@ -88,7 +88,6 @@ Reach for the narrow task rather than the whole gate:
 | UI lint (oxlint; why not ESLint or Biome: [lint-evaluation.md](lint-evaluation.md)), and the module seams (dependency-cruiser: [module-seams.md](module-seams.md)) | `task workspace:lint` |
 | Backend lint (ruff), and the package seams (import-linter: [module-seams.md](module-seams.md)) | `task be:lint` |
 | Backend tests | `task be:test`, or `task be:test:api` for the plugin suite |
-| The Chroma exporter and the move off Chroma (`deploy/migration/`, `vector_store/import_vectors.py`) | `task be:test:migration`, in its own `chromadb` environment; nothing else imports `chromadb` ([`deploy/migration/README.md`](../../deploy/migration/README.md#tests)) |
 | Pulumi and the policy pack | `task infra:types` |
 | The public website (`apps/website`) and the riso kit | `task website:verify` |
 | A page behind a session, in the real app (click through, capture, Playwright) | `task local:up`, then `task local:session -- anna` ([local-stack.md](local-stack.md)) |
@@ -159,16 +158,13 @@ resolves `agent` from whatever the venv has installed, possibly another
 worktree, and validates the wrong code while appearing to pass. `pyproject.toml`'s
 `pythonpath` puts `packages/agent/src/` first, so a bare `pytest` is safe as well as the Taskfile.
 
-**The claim queues, kept until the cutover to Hatchet drains them (ADR-0150),
-are tested on Postgres by `task be:test:postgres`, in CI's Backend job.**
-`packages/agent/tests/common/test_claim_queue.py` and
-`tests/knowledge_layer_tests/test_ingest_queue.py` run every scenario on
-SQLite, which ranks in Python, and on Postgres, which runs production's claim
-SQL. The folder card builder's suites (`packages/agent/tests/knowledge/folder_cards/`:
-dirty set, budget, manifests, the build over a collection) run on both too, through the
-`database_url` and `agent_db` fixtures in their `conftest.py`, and so does the
-metadata store's mail records (`packages/agent/tests/knowledge/test_mail_facts.py`: the
-add-column path on a table from before the columns, and the read-back). Without `TEST_POSTGRES_URL` the Postgres parameter skips, so the task
+**The folder card builder's suites run on Postgres too, through `task
+be:test:postgres` in CI's Backend job.** `packages/agent/tests/knowledge/folder_cards/`
+(dirty set, budget, manifests, the build over a collection) runs every scenario on
+SQLite and on Postgres, through the `database_url` and `agent_db` fixtures in its
+`conftest.py`, and so does the metadata store's mail records
+(`packages/agent/tests/knowledge/test_mail_facts.py`: the add-column path on a table
+from before the columns, and the read-back). Without `TEST_POSTGRES_URL` the Postgres parameter skips, so the task
 reuses `scripts/rls-test-db.sh --exec` for a throwaway cluster and names a
 scratch database in it. Each file carries an `TEST_POSTGRES_REQUIRED` guard,
 set in CI, that fails instead of skipping. A new suite with a Postgres parameter
@@ -264,13 +260,13 @@ needed job succeeded or was skipped by the path filter.
 ## The live turn-shape eval
 
 ADR-0052 deleted the intent router, so two things that used to be code are now
-Piloti's reading of its own prompt: a greeting or a question
-about the assistant answers without calling a search tool, and a commissioned
+the agent's reading of its own prompt: a greeting or a question
+about the agent answers without calling a search tool, and a commissioned
 report („erstelle mir einen vollständigen Prüfbericht …") escalates to deep
 research before it retrieves anything.
 [`evals/turn-shapes/test_turn_shapes_live.py`](../../evals/turn-shapes/test_turn_shapes_live.py)
 pins both, plus a control question that must still search. It runs the real
-agent on the real prompt against Piloti's own model through OpenRouter, with
+agent on the real prompt against the agent's own model through OpenRouter, with
 stub tools in place of retrieval, and reads the trace from the turn's own
 transcript (every tool call the model asked for), so the assertion is on the
 trace rather than on the prose.
@@ -637,6 +633,42 @@ surfaces is a deliberate run rather than a per-commit tax.
 
 ## The answer suite
 
+### Which run gates a change
+
+A change that shapes an answer (the prompt, the card or envelope contract,
+retrieval, ingestion, the answer pipeline, a model or effort default) is
+measured on dev, after it is deployed there: the AT golden run before and after.
+
+1. Before the deploy, start a run: `platform-knowledge-golden-run` with
+   `{ "countryId": "AT" }` on the platform door, then
+   `platform-knowledge-golden-run-advance` until `finishedAt` is set. The latest
+   finished run on the release that answered it can serve as the before, if no
+   other answer-shaping change was deployed since.
+2. After the deploy, the same run again.
+3. Put both `platform-knowledge-golden-run-get` summaries in the PR, or in a
+   follow-up comment once it has merged: cases passed and failed, which case
+   changed, `medianSeconds`, `medianCostUsd` and the release (`releaseSeq`). Add
+   live asks on dev (`agent-ask-create`) for the questions the change was made
+   for, where the golden cases hold none.
+
+The run asks through the real answer path with the platform organization's own
+model key, on the released records, and scores each answer in Langfuse
+(`golden-case-passed` and the rows beside it in
+[`langfuse.md`](../observability/langfuse.md)). A worse "after" is a regression
+of the change, the same as a failing test.
+
+**Why dev, not the local suite.** On 2026-11-12 the owner moved the gate here.
+The local suite needs an OpenRouter key with credit, the operator's PDFs in
+`data/oib` and a local Qdrant. Its key ran out (402) while five answer fixes
+waited on it, and it reads the law from a fixture of the packs rather than the
+records dev has released. The golden run needs none of that and reads what a
+customer's turn reads. The local `task be:eval:answer-suite` described below stays
+useful before a change can be deployed: for timings and reasoning spikes per
+call, for its other sets (editions, workspace, files), and for a run on a branch.
+It is no longer the gate.
+
+### Running the suite locally
+
 `task be:eval:answer-suite` is the end-to-end check: the reference questions
 through the real agent, several runs each, timed call by call and checked
 against what the answer must say. The loop eval asks how the turn looked for
@@ -902,7 +934,7 @@ measured on 2026-09-24, and the effort A/B:
 
 ### The workspace set
 
-**The workspace set** (`-- --set workspace`, ADR-0123) asks Piloti for office
+**The workspace set** (`-- --set workspace`, ADR-0123) asks the agent for office
 work through its MCP door: reads, writes that must come back as proposals with
 the right input, two writes in one turn, an ambiguous target it must ask about,
 German and English, and follow-up turns in one conversation (a row's `turns`
@@ -910,7 +942,7 @@ run in order; the checkpointer carries the history between processes). Each
 run sits in the current project of a fixture office
 (`apps/workspace/tests/fixtures/workspace/office.json`) as an admin, with a
 signed envelope. `scripts/turn_census/fixture_workspace.py` serves the door from
-the catalog production shows Piloti (`catalog.json`, written by
+the catalog production shows the agent (`catalog.json`, written by
 `workspace-eval.fixture.spec.ts`) and the turn context with the WORKSPACE block
 the production renderer writes (`rendered.json`); a follow-up turn's block lists
 what the run filed, as production would. A search ranks as `discovery.ts` does
@@ -1162,7 +1194,8 @@ and `light` modes that replayed it, are gone with the v2 cut.
 
 | Question | Tool | Needs | Cost |
 |---|---|---|---|
-| Is the answer right, and did it get slower or more variable? | `task be:eval:answer-suite` | key and ingested corpus | about 4 minutes for the core set at two runs |
+| Did a deployed change keep the answers right, as fast and as cheap? (the gate) | `platform-knowledge-golden-run` on dev, before and after the deploy ([which run gates a change](#which-run-gates-a-change)) | platform door on dev | minutes; the platform organization's model budget |
+| Is the answer right, and did it get slower or more variable, before it can deploy? | `task be:eval:answer-suite` | key and ingested corpus | about 4 minutes for the core set at two runs |
 | What did one turn cost, call by call? | `task be:eval:turn-census -- "<question>"` | key and ingested corpus | one turn per run (`--runs`, default 1); writes to `/tmp/turn_census` unless `--out`; `--override KEY VALUE` per census |
 | What happens in the milliseconds before the first model call? | `scripts/turn_census/startup_probe.py` | key, corpus and document inventory | several questions in one process; the first turn is cold |
 | Does Qdrant retrieval still clear gates G1b, G2 and G6, beside the numbers the Chroma path recorded? | `task be:eval:qdrant-parity` (`-- --variants all` adds the ranking sweep) | `data/oib`, a Qdrant 1.19 server, the embeddings key | about 15 minutes on 4 CPUs; the corpus embedding (~$0.12) is cached after the first run. [The gate report](../audit/qdrant-gates-2026-10.md) |

@@ -1,15 +1,5 @@
 'use client'
 
-/**
- * The yes or no under an opened row: one review verdict on every claim the
- * unit holds, sent through the existing review route (`POST …/review`) in
- * calls of at most 500. Four eyes is the server's: an author of any revision
- * in the request has their verdicts refused unless the deployment runs one
- * operator alone, and that refusal reads "waits for a second person". A page
- * or text nobody fetched is shown here, and only its records carry the
- * reviewer's source check.
- */
-
 import type { JSX } from 'react'
 import { useState } from 'react'
 import { toast } from 'sonner'
@@ -29,12 +19,9 @@ async function refusal(response: Response): Promise<string> {
 
 export interface ConfirmContext {
   requestId: string
-  /** Verdicts are taken here while the request is submitted. */
   open: boolean
   canReview: boolean
-  /** The viewer wrote a revision anywhere in the request: the server refuses their verdicts unless one operator runs alone. */
   authored: boolean
-  /** Read the request again; `advance` also opens what comes next. */
   onDone: (advance: boolean) => void
 }
 
@@ -62,7 +49,6 @@ export function ConfirmBar({ unit, context, yes }: { unit: ReviewUnit; context: 
         }
         if (!response.ok) {
           toast.error(t(saved > 0 ? 'partlySaved' : 'failed', { reason: await refusal(response) }))
-          // A refusal may mean the request moved on (approved, rejected): read it again either way.
           context.onDone(false)
           return
         }
@@ -110,7 +96,7 @@ export function ConfirmBar({ unit, context, yes }: { unit: ReviewUnit; context: 
         <div className="flex flex-col gap-2">
           <Textarea value={wrong} onChange={(event) => setWrong(event.target.value)} placeholder={t('wrongPlaceholder')} aria-label={t('wrongPlaceholder')} rows={2} />
           <div className="flex flex-wrap items-center gap-3">
-            <Button size="sm" variant="outline" disabled={busy || wrong.trim().length === 0} onClick={() => void send('rejected', wrong.trim())}>
+            <Button size="sm" variant="secondary" disabled={busy || wrong.trim().length === 0} onClick={() => void send('rejected', wrong.trim())}>
               {t('sendBack')}
             </Button>
             <Button size="sm" variant="link" disabled={busy} onClick={() => setWrong(null)}>

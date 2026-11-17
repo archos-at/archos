@@ -1,15 +1,3 @@
-"""A named § costs no model call at all.
-
-"Was verlangt § 63 BO Wien?" is an ADDRESS, and an address is resolved by
-reading, not by inference. The whole reason the address stage runs first is
-that a question carrying a § skips both internal LLM calls — the search planner
-(the catalog already knows where the Bauordnung is) and the § picker (the
-grammar already knows which paragraph § 63 is).
-
-If this test ever needs a picker mock to pass, the tool started paying for a
-model to find a number it was handed.
-"""
-
 from __future__ import annotations
 
 import pytest
@@ -31,7 +19,6 @@ async def test_a_named_paragraph_makes_no_picker_call(lookup, catalog, monkeypat
 
 
 async def test_a_named_paragraph_makes_no_planner_call_either(lookup, catalog, monkeypatch):
-    """The catalog answers, so no live search is planned and none is run."""
     from ris_adapter_testing.lookup import FakePlanner
 
     planner = FakePlanner()
@@ -50,12 +37,10 @@ async def test_the_paragraph_comes_back_with_its_absaetze(lookup, catalog):
     assert "(1) Dem Ansuchen" in body
     assert "(2) Die Baupläne" in body
     assert "(3) Die Behörde" in body
-    # …and nothing from the next §.
     assert "Bauverhandlung anzuberaumen" not in body
 
 
 async def test_only_the_named_paragraph_comes_back(lookup, catalog):
-    """One § asked for, one § returned — not the law."""
     output = await lookup.run(question="Wie hoch darf das Gebäude sein? § 75", instrument="BO Wien")
 
     assert output.count("--- Result ") == 1
@@ -64,7 +49,6 @@ async def test_only_the_named_paragraph_comes_back(lookup, catalog):
 
 
 async def test_a_pasted_ris_url_is_an_address_and_needs_no_search(lookup, monkeypatch):
-    """No catalog, no live search: the caller already said which document."""
     from ris_adapter_testing.lookup import FakePlanner
 
     planner = FakePlanner()
@@ -79,7 +63,6 @@ async def test_a_pasted_ris_url_is_an_address_and_needs_no_search(lookup, monkey
 
 
 async def test_a_list_of_paragraphs_comes_back_whole_in_one_call(lookup, catalog, monkeypatch):
-    """ "§§ 63 und 64": both out of the one document already fetched, no model asked."""
     from ris_adapter_testing.lookup import FakePicker
 
     picker = FakePicker("§ 75")
@@ -93,7 +76,6 @@ async def test_a_list_of_paragraphs_comes_back_whole_in_one_call(lookup, catalog
 
 
 async def test_a_subsection_the_paragraph_lacks_comes_back_once(lookup, catalog):
-    """ "§ 63 Abs 9" of a § with three Absätze is § 63, once, never twice under one key."""
     output = await lookup.run(question="Was verlangt § 63 Abs 9 BO Wien?", instrument="§ 63 Abs 9 BO Wien")
 
     assert output.count("--- Result ") == 1

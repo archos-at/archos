@@ -1,24 +1,9 @@
-"""Why a reader rated an answer unhelpful, as a label (ADR-0064, use 9).
-
-A down-vote carries one of four coarse chips (inaccurate, too slow, wrong
-source, other) and sometimes a comment, and the comment is where the cause is:
-„In GK 4 ist es R 60, nicht R 90" and „Das ist die Wiener Regelung, wir sind in
-Tirol" are both `inaccurate` to the chip and two different defects to whoever
-has to fix them. Filing a comment under one of ten causes is a choice over a
-state, so the decision model labels each down-vote the feedback digest samples,
-and the digest reads — and the Quality page shows — the counts.
-
-A label annotates an operator's view. Nothing a reader sees depends on it, and
-a vote the decider could not label is counted as unlabelled, not guessed.
-"""
-
 from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Sequence
 from typing import Any
 
-#: The causes, in the decider's language. Keys are stable: the page translates them.
 CAUSES: dict[str, str] = {
     "wrong_value": "The answer states a wrong number, class or requirement, or misread a table or the project's facts.",
     "wrong_rule": (
@@ -47,11 +32,6 @@ CAUSES: dict[str, str] = {
     "other": "None of the above, or no way to tell from what was written.",
 }
 
-#: A label counts at this probability; below it the vote is unlabelled. Measured
-#: 2026-09-26 on sixteen down-votes (``tests/fixtures/decisions/feedback_causes.yaml``):
-#: 16/16 right, the lowest 0.89 once `slow` covers a bare 'too_slow' chip
-#: with no comment (0.75-0.79 before). Held-out (24 down-votes written blind):
-#: 20 right, 1 wrong, 3 left unlabelled, with or without that change.
 CAUSE_THRESHOLD = 0.8
 SLOT = "feedback_causes"
 CAUSE_QUESTION = (
@@ -71,7 +51,6 @@ def _state(sample: Any) -> dict[str, str]:
 
 
 async def label_causes(samples: Sequence[Any], *, organization_id: str | None = None) -> list[str | None]:
-    """One cause per down-vote sample, ``None`` where none was decided."""
     if not samples:
         return []
     from agent.common.decisions import choice
@@ -91,5 +70,4 @@ async def label_causes(samples: Sequence[Any], *, organization_id: str | None = 
 
 
 def count_causes(labels: Sequence[str | None]) -> dict[str, int]:
-    """Labelled causes, most frequent first; unlabelled votes are not counted."""
     return dict(Counter(label for label in labels if label).most_common())

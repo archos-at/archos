@@ -1,8 +1,3 @@
-/**
- * One personal memory note of the caller (ADR-0180): edit or remove it. A note
- * of somebody else is a 404: row-level security never shows it to this query.
- */
-
 import { z } from 'zod'
 import { apiRoute, parseJsonBody } from '@/lib/api/handler'
 import { NotFoundError } from '@/lib/api/errors'
@@ -11,10 +6,8 @@ import { patchPersonalMemorySchema } from '@/lib/personal-memory/wire'
 
 type Params = { itemId: string }
 
-/** Stated on each handler: `authz-coverage.spec.ts` reads every export on its own. */
 const WHY = 'the caller’s own note, keyed to session.userId and held by row-level security on the person'
 
-/** A malformed id names no note; answering 404 keeps the database from raising on the cast. */
 function noteId(params: Params): string {
   const parsed = z.guid().safeParse(params.itemId)
   if (!parsed.success) throw new NotFoundError()
@@ -42,7 +35,6 @@ export const DELETE = apiRoute<Params>(
       noteId(params)
     )
     if (!removed) throw new NotFoundError()
-    // No body: apiRoute answers 204.
   },
   { authz: { sessionOnly: true, why: WHY } }
 )

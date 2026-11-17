@@ -59,15 +59,12 @@ describe('$ref resolution', () => {
         Shared: { type: 'object', properties: { document: { type: 'string' } } },
       },
     })
-    // One declaration, three references and its type — inlining would ship the object thrice.
     expect(generatedModule.match(/export const sharedSchema = /g)).toHaveLength(1)
     expect(generatedModule.match(/\bsharedSchema\b/g)).toHaveLength(5)
     expect(generatedModule).toContain('export type SharedData = z.input<typeof sharedSchema>')
   })
 
   it('declares a def before the def that references it', () => {
-    // `const` is not hoisted: the referenced schema has to exist by the time
-    // the referring declaration is evaluated, or the module throws on import.
     const root = {
       oneOf: [{ $ref: '#/$defs/OuterCard' }],
       $defs: {
@@ -108,9 +105,6 @@ describe('$ref resolution', () => {
   })
 
   it('refuses a sibling keyword next to a $ref rather than dropping it', () => {
-    // Returning a string from `parserOverride` skips the library's own
-    // handling of the node, so anything beside the `$ref` other than a
-    // description would vanish — a constraint lost without a trace.
     expect(() => refParserOverride({ $ref: '#/$defs/NormReference', minItems: 1 })).toThrow(/minItems/)
   })
 

@@ -12,7 +12,6 @@ const session = {
   featureFlags: ['runtime-model-config'] as string[] | null,
 }
 
-// A deployment that signs people in: the gates read the session's WorkOS claim.
 beforeEach(() => {
   vi.stubEnv('REQUIRE_AUTH', 'true')
 })
@@ -110,7 +109,6 @@ const CAPABLE = {
 const zdrIndex = (...ids: string[]): ZdrIndex =>
   new Map(ids.map((modelId) => [modelId, [{ modelId, supportedParameters: ['tools'], contextLength: 200000 }]]))
 
-/** The catalog an org with ZDR in force gets: the whole list, plus the ZDR index. */
 const zdrCatalog = (...zdrIds: string[]): Awaited<ReturnType<typeof getCatalogForOrg>> => ({
   models: [CAPABLE],
   source: 'openrouter',
@@ -203,8 +201,6 @@ describe('/api/organization/model-config', () => {
   })
 
   it('PUT accepts a provider-native id shape but still requires catalog membership (422)', async () => {
-    // 'gpt-4o' passes the BYOK-aware shape check; this org's catalog does not
-    // list it, so the save is rejected by membership, not by the regex.
     const res = await PUT(put({ overrides: { deep_research: { model: 'gpt-4o' } } }))
     expect(res.status).toBe(422)
   })

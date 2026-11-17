@@ -1,8 +1,3 @@
-/**
- * Import another deployment's release bundle as a new draft change request. Multipart: `file` (the bundle the
- * export answered, gzipped or not) and an optional `title`. Writes a draft only; review and publish stay here.
- */
-
 import { BadRequestError, UnprocessableError } from '@/lib/api/errors'
 import { parseFormData } from '@/lib/api/handler'
 import { platformApiRoute } from '@/lib/api/platform-handler'

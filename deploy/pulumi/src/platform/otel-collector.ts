@@ -30,15 +30,8 @@ import {
 } from "./collector-config";
 
 const COMPONENT = "otel-collector";
-/**
- * The `prometheus` exporter's listener: every Qdrant series the collector
- * scrapes, re-exposed in the Prometheus text format for the alert rules in
- * `data/qdrant-alerts.ts`; see {@link qdrantScrape}.
- */
 export const METRICS_EXPORT_PORT = 8889;
-/** How often each Qdrant peer is scraped. Alert rules assume at least two scrapes in their shortest `for`. */
 const QDRANT_SCRAPE_INTERVAL = "30s";
-/** How often workload state is read from the API; PostHog charts at minute resolution. */
 const CLUSTER_STATE_INTERVAL = "30s";
 
 export interface OtelCollector {
@@ -48,40 +41,10 @@ export interface OtelCollector {
 }
 
 export interface OtelCollectorSources {
-  /**
-   * The Secret carrying Langfuse's precomputed Basic-auth header (ADR-0044),
-   * when that tier is deployed. It, not `cfg.langfuse.enabled`, decides the
-   * Langfuse exporter: `index.ts` builds the tier under a wider guard than the
-   * flag, and an exporter whose `${env:…}` nothing injects stops the collector
-   * from starting, taking every export down with it.
-   */
   langfuseSecretName?: pulumi.Input<string>;
-  /** Every Qdrant peer's metrics listener (`host:port`), when Qdrant is deployed. */
   qdrantMetricsTargets?: pulumi.Input<string[]>;
 }
 
-/**
- * Deploys the OpenTelemetry Collector as the cluster's single OTLP ingestion
- * point (ADR-0029 amendment).
- *
- * All telemetry producers (Next.js BFF, aiq-agent, agent-worker) send plain
- * OTLP in-cluster to this Service — no API key on the producers. The collector
- * is the ONLY holder of the credentials its consumers need (Langfuse's ingestion
- * key; PostHog's public project token sits in the ConfigMap). It batches and
- * applies memory back-pressure. What it forwards, and where, is one fragment
- * per consumer below, composed by `collector-config.ts`. Swapping or adding a
- * backend later is a fragment HERE, not a change in any app.
- *
- * With PostHog metrics on it is also the one place the cluster's metrics leave
- * from: the per-node agents (`otel-agent.ts`) send it their nodes' kubelet
- * stats and scrapes over OTLP, and it reads workload state from the API
- * itself (`k8s_cluster`). One replica on purpose: a second would report every
- * workload twice.
- *
- * NetworkPolicy: same-namespace ingress is already allowed and egress is open
- * by design (see network-policies.ts); the scrape of Qdrant's metrics port is
- * the one connection out of it that needs a rule of its own (rule 18).
- */
 export function installOtelCollector(
   cfg: DeployConfig,
   provider: k8s.Provider,
@@ -101,7 +64,7 @@ export function installOtelCollector(
         ...(cfg.posthog.tracesEnabled
           ? [posthogTraces(cfg.posthog.host, cfg.posthog.projectToken, pulumi.getStack())]
           : []),
-        ...(cfg.posthog.logsEnabled ? [posthogLogs(cfg.posthog.host, cfg.posthog.projectToken)] : []),
+        ...(cfg.posthog.logsEnabled ? [posthogLogs(cfg.posthog.host, cfg.posthog.projectToken, pulumi.getStack())] : []),
         ...(qdrant ? [qdrantScrape(qdrant)] : []),
         ...(metrics
           ? [
@@ -115,8 +78,6 @@ export function installOtelCollector(
           : []),
       ]),
     );
-  // Read access to the API only when cluster state is collected; otherwise the
-  // pod gets no token at all.
   const identity = metrics ? installCollectorIdentity(COMPONENT, CLUSTER_STATE_RULES, provider, namespace) : undefined;
   const config: pulumi.Input<string> = qdrantMetricsTargets
     ? pulumi.output(qdrantMetricsTargets).apply((targets) => configFor(targets))
@@ -137,23 +98,11 @@ export function installOtelCollector(
       metadata: { name, namespace, labels },
       spec: {
         replicas: 1,
-        // Stateless OTLP forwarder — surge so producers always have a collector
-        // Service endpoint to export to, even mid-roll.
         ...surgeRollout(ROLLOUT.observability),
         selector: { matchLabels: labels },
         template: {
           metadata: {
             labels,
-            // The pod's credential arrives by `secretKeyRef`, which is read ONCE
-            // at container start (rollout.ts §5). Without this the collector
-            // keeps presenting a retired key after a rotation while `pulumi up`
-            // reports success — and the symptom is the quietest one in the
-            // tier: the exporter 401s and telemetry simply stops.
-            //
-            // The config is in the digest for the same reason: the collector
-            // reads its file once, at start, and the ConfigMap keeps its name,
-            // so a new pipeline (Qdrant turned on, a PostHog token changed)
-            // would otherwise wait for the next unrelated restart.
             annotations: secretChecksumAnnotations(
               secretChecksum({
                 ...(cfg.langfuse.enabled ? { "langfuse-otlp-auth": langfuseOtlpBasicAuth(cfg) } : {}),
@@ -182,8 +131,6 @@ export function installOtelCollector(
                   { containerPort: HEALTH_PORT, name: "health" },
                   ...(qdrantMetricsTargets ? [{ containerPort: METRICS_EXPORT_PORT, name: "metrics" }] : []),
                 ],
-                // Present only when Langfuse is deployed: the env var and the
-                // exporter that reads it are one decision (see sources).
                 env: langfuseSecretName
                   ? [
                       {
@@ -245,33 +192,12 @@ export function installOtelCollector(
   return { deployment, service, configMap };
 }
 
-/**
- * The tiers whose spans are application request traces rather than LLM traces:
- * the Next.js BFF and the Next server inside bff-jobs. Their spans go to
- * PostHog Tracing and never to Langfuse; every other tier's spans are the
- * agent's and go to Langfuse only (ADR-0029 Amendment 6). Read from where each
- * tier's `OTEL_SERVICE_NAME` is set, so a rename cannot split them.
- */
 export const APP_TRACE_SERVICES = [BFF_SERVICE_NAME, BFF_JOBS_SERVICE_NAME] as const;
 
-/** The span attributes Next records a URL in, query string included. */
 const URL_ATTRIBUTES = ["http.target", "http.url", "url.full"] as const;
 
-/** OTTL: the span came from one of {@link APP_TRACE_SERVICES}. */
 const FROM_APP_TIER = APP_TRACE_SERVICES.map((s) => `resource.attributes["service.name"] == "${s}"`).join(" or ");
 
-/**
- * Traces to Langfuse (ADR-0044): the agent's LLM traces, and nothing else.
- *
- * The BFF's request spans are dropped here: one trace per HTTP request is what
- * flooded Langfuse before (ADR-0029 Amendment 5), and they are not LLM work.
- * The filter is in this pipeline whether or not PostHog takes them, so
- * switching PostHog traces off never lets the flood back in.
- *
- * `otlp_http`, NOT `otlphttp`: both resolve today, and upstream made
- * `otlphttp` the DeprecatedType. `traces_endpoint`, not `endpoint`: the latter
- * would have the exporter append `/v1/traces` to a path that already ends in it.
- */
 export function langfuseTraces(): CollectorFragment {
   return {
     processors: {
@@ -281,18 +207,10 @@ export function langfuseTraces(): CollectorFragment {
       "otlp_http/langfuse": {
         traces_endpoint: langfuseOtlpTracesEndpoint(),
         headers: {
-          // Basic base64(pk:sk), precomputed into the Langfuse Secret because
-          // the collector cannot base64 two env vars together.
           Authorization: "${env:LANGFUSE_OTLP_AUTH}",
-          // Langfuse v4 writes spans that carry this straight to its events
-          // table; without it they wait for the ~15-minute propagation.
           "x-langfuse-ingestion-version": "4",
         },
-        // Spans carry prompts and completions, which compress roughly an order
-        // of magnitude; Langfuse accepts gzip.
         compression: "gzip",
-        // Keeps a Langfuse restart (a deploy, a node drain) from becoming
-        // dropped spans, within a bound.
         ...boundedDelivery(2000),
       },
     },
@@ -306,20 +224,6 @@ export function langfuseTraces(): CollectorFragment {
   };
 }
 
-/**
- * The BFF's request traces to PostHog Tracing (`/i/v1/traces`), and only
- * those: the agent's spans carry prompts and completions and reach PostHog
- * through Langfuse's integration (ADR-0100), so they are dropped here.
- *
- * Query strings are cut from the URLs Next records (`http.target` on the
- * request, `http.url` on each `fetch`): a search box's text, a filter or a
- * signed URL's token is tenant data, and the path is what a trace is read by.
- *
- * Same public `phc_` token and the same environment stamp as the metrics, so
- * dev and prod stay apart in the one project. Volume is the BFF sampler's job
- * (`observability/request-sampler.js`): health probes, static assets and
- * prefetches are never recorded, so they never reach this pipeline.
- */
 export function posthogTraces(host: string, projectToken: string, environment: string): CollectorFragment {
   return {
     processors: {
@@ -352,21 +256,10 @@ export function posthogTraces(host: string, projectToken: string, environment: s
   };
 }
 
-/** What replaces a log line's message before it leaves for PostHog. */
 export const WITHHELD = "(text withheld)";
 
-/**
- * A leading `[area]` tag, as RE2 inside an OTTL string. Character classes, not
- * backslashes: OTTL refuses `\[` as an escape in a quoted string.
- */
 const AREA_TAG = "[[][A-Za-z0-9 _.:/-]{1,48}[]]";
 
-/**
- * The log attributes that may leave for PostHog: where a line came from and
- * what kind of failure it was, never what it was about. `exception.message`
- * and `exception.stacktrace` are not among them, because both repeat the
- * message (a Python traceback ends with it).
- */
 export const POSTHOG_LOG_ATTRIBUTES = [
   "code.function",
   "code.function.name",
@@ -382,13 +275,6 @@ export const POSTHOG_LOG_ATTRIBUTES = [
   "event.name",
 ] as const;
 
-/**
- * The `transform` processor that withholds a log line's text. A body that
- * starts with an area tag (`[documents] …`, the BFF's convention) keeps the
- * tag; every other body becomes {@link WITHHELD}. Attributes are kept only
- * when {@link POSTHOG_LOG_ATTRIBUTES} names them. `error_mode: propagate`:
- * a statement that cannot run drops the batch rather than export it unredacted.
- */
 export const POSTHOG_LOG_REDACTION = {
   error_mode: "propagate",
   log_statements: [
@@ -403,30 +289,12 @@ export const POSTHOG_LOG_REDACTION = {
   ],
 };
 
-/**
- * WARN-and-above logs to PostHog Logs, and the logs signal only: LLM traces
- * reach PostHog through Langfuse's own integration.
- *
- * Its own pipeline because the severity filter is per pipeline, and a second
- * log consumer must not inherit it. WARN rather than ERROR because PostHog is
- * the searchable log store, not an alert sink; INFO and DEBUG are what would
- * burn the free tier. A record with no severity (0) is dropped too, which is
- * the safe side. The project token is PostHog's public `phc_` key (it ships in
- * the browser bundle), so it is plain config, and a changed token changes the
- * ConfigMap, whose digest restarts the collector.
- *
- * **No text leaves for PostHog** ({@link POSTHOG_LOG_REDACTION}). A WARN line
- * carries whatever its format string interpolated: a document's name, a
- * project's, a passage of a licensed norm in an error message. PostHog is a
- * processor for operational logs (configs/subprocessors/posthog.yaml), not for
- * office content, so the pipeline keeps what says where and how often (the
- * logger as the scope, severity, code location, exception type, a `[area]`
- * prefix) and withholds the message itself and every other attribute. The full
- * line stays in the pod's own log, inside the cluster.
- */
-export function posthogLogs(host: string, projectToken: string): CollectorFragment {
+export function posthogLogs(host: string, projectToken: string, environment: string): CollectorFragment {
   return {
     processors: {
+      "resource/logs_environment": {
+        attributes: [{ key: "deployment.environment.name", value: environment, action: "insert" }],
+      },
       "filter/warn_and_above": {
         error_mode: "ignore",
         log_conditions: ["log.severity_number < SEVERITY_NUMBER_WARN"],
@@ -435,8 +303,6 @@ export function posthogLogs(host: string, projectToken: string): CollectorFragme
     },
     exporters: {
       "otlp_http/posthog": {
-        // The whole URL: PostHog serves logs at /i/v1/logs, whatever the
-        // exporter would append.
         logs_endpoint: `${host.replace(/\/+$/, "")}/i/v1/logs`,
         headers: { Authorization: `Bearer ${projectToken}` },
         compression: "gzip",
@@ -446,7 +312,7 @@ export function posthogLogs(host: string, projectToken: string): CollectorFragme
     pipelines: {
       "logs/posthog": {
         receivers: [OTLP_RECEIVER],
-        processors: ["filter/warn_and_above", "transform/posthog_redact"],
+        processors: ["filter/warn_and_above", "transform/posthog_redact", "resource/logs_environment"],
         exporters: ["otlp_http/posthog"],
       },
     },
@@ -456,15 +322,6 @@ export function posthogLogs(host: string, projectToken: string): CollectorFragme
 const QDRANT_RECEIVER = "prometheus/qdrant";
 const CLUSTER_STATE_RECEIVER = "k8s_cluster";
 
-/**
- * Scrape every Qdrant peer, and re-expose the series on
- * `otel-collector:8889/metrics` for the alert rules in `data/qdrant-alerts.ts`.
- *
- * Per peer, by its headless name: `/metrics` reports only the peer that
- * answers. The metrics port needs no key (`PORT.qdrantMetrics`), so the
- * collector holds no Qdrant credential. `up{job="qdrant"}` is the receiver's
- * own series and is what a dead peer looks like.
- */
 export function qdrantScrape(targets: string[]): CollectorFragment {
   return {
     receivers: {
@@ -488,8 +345,6 @@ export function qdrantScrape(targets: string[]): CollectorFragment {
     exporters: {
       prometheus: {
         endpoint: `0.0.0.0:${METRICS_EXPORT_PORT}`,
-        // A peer that stops answering stops refreshing its series; they leave
-        // the export after this, while `up` keeps reporting the peer as down.
         metric_expiration: "5m",
       },
     },
@@ -497,12 +352,6 @@ export function qdrantScrape(targets: string[]): CollectorFragment {
   };
 }
 
-/**
- * Workload state from the Kubernetes API: pod phases and restarts, deployment,
- * statefulset and daemonset availability, HPA targets, job outcomes, node
- * conditions and allocatable resources. What a pod is DOING is the agents'
- * (`otel-agent.ts`); this is what the cluster says it should be.
- */
 export function clusterState(): CollectorFragment {
   return {
     receivers: {
@@ -516,17 +365,6 @@ export function clusterState(): CollectorFragment {
   };
 }
 
-/**
- * Every metric the collector receives or reads, to PostHog Metrics: the
- * application meters (OTLP from every tier), the agents' node and pod readings
- * (OTLP), workload state and the Qdrant scrape.
- *
- * Its own exporter beside the logs one: one exporter per PostHog signal keeps
- * each signal's switch and queue its own. The project token is the same
- * public `phc_` key as the logs'. `deployment.environment.name` is the stack,
- * so dev and prod stay apart in one PostHog project; `insert` leaves a value a
- * producer set itself.
- */
 export function posthogMetrics(
   host: string,
   projectToken: string,

@@ -36,7 +36,6 @@ describe('a section’s further pages', () => {
 
   it('asks for one cursor once, however often the end of the list is reached before the page lands', async () => {
     const { result } = await settled()
-    // The observer and a click in the same frame: both read the section before the re-render.
     const loadMore = result.current.loadMore
     act(() => {
       loadMore('document')
@@ -49,9 +48,6 @@ describe('a section’s further pages', () => {
   })
 
   it('stops at a page that hands back the cursor it was asked with, and shows each document once', async () => {
-    // The capture harness answered every question with the first page: the
-    // same hits and the same cursor, so the register appended page one again
-    // and asked for it again, three times over.
     postSearch.mockImplementation(async () => FIRST)
     const { result } = await settled()
     await act(async () => result.current.loadMore('document'))

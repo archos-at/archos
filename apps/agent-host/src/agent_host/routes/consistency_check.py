@@ -1,18 +1,3 @@
-"""End-of-wizard FREE-TEXT intake consistency-check endpoint.
-
-Structured intake answers (selects/numbers/booleans) are checked
-DETERMINISTICALLY on the client — see ``intake-consistency.ts``. This endpoint
-is the LLM half: it looks ONLY at the free-text answers (goal details,
-high-building details, …) and asks whether that prose contradicts the
-structured answers (passed as read-only context) or itself. It does NOT
-re-check the structured answers against each other, and it does NOT nag about
-completeness: skipped/unknown answers are legitimate and are never sent here.
-
-Mirrors ``generate_summary.py``: machine-readable error codes and an
-always-200, best-effort shape. Any failure returns HTTP 200 with an ``error``
-code and ``findings: None`` so a check outage never blocks the user from saving.
-"""
-
 import asyncio
 import logging
 import os
@@ -61,29 +46,10 @@ SYSTEM_PROMPT = (
 
 
 def _llm_settings(organization_id: str | None = None) -> ResolvedCredential:
-    """Resolve the endpoint (model, key, base URL, data policy) for the consistency-check LLM call.
-
-    Goes through the shared credential resolver so this route reaches the org's
-    BYOK credential like every other LLM call, then the same env chain as before:
-    ``CONSISTENCY_LLM_*`` → generic ``LLM_*`` → the OpenRouter/OpenAI default used
-    by ``config_oib_openrouter.yml`` (matching ``generate_summary.py`` so both
-    endpoints degrade identically). Model + base URL keep their two-level env
-    fallback; the resolver adds BYOK (org key + base, model unchanged) and
-    provider inference on top. Fail-open: a BYOK miss falls back to the env chain.
-    """
     from agent.common.credential_resolution import read_api_key_env
     from agent.common.credential_resolution import resolve_llm_credential
 
-    # `read_api_key_env`, not `os.getenv`: docker compose `env_file` does not
-    # interpolate `${VAR}` references, so `OPENROUTER_API_KEY=${OPENROUTER_API_KEY}`
-    # arrives as a literal placeholder — truthy, but not a key. Reading it raw
-    # selected the OpenRouter endpoint below while the resolver (which normalizes
-    # the same way) treated the key as unset and fell back to `LLM_API_KEY`,
-    # sending another provider's key to openrouter.ai.
     openrouter_key = read_api_key_env("OPENROUTER_API_KEY")
-    # Mirrors the boot floor in config_oib_openrouter.yml. NOTE: this route is
-    # not an AgentGroup, so it resolves outside `platform_model_defaults` — the
-    # platform default set under Platform → Models does not reach it.
     default_model = "openai/gpt-6-luna" if openrouter_key else "gpt-4o-mini"
     default_base = "https://openrouter.ai/api/v1" if openrouter_key else "https://api.openai.com/v1"
 
@@ -105,22 +71,10 @@ def _llm_settings(organization_id: str | None = None) -> ResolvedCredential:
 
 
 def _render_fields(fields: list) -> str:
-    """One field/value pair per line, for the user turn."""
     return "\n".join(f"- {item.field}: {item.value}" for item in fields)
 
 
 def _parse_findings(content: str | None) -> list[ConsistencyFinding] | None:
-    """Defensively parse the model's JSON into findings.
-
-    Returns a (possibly empty) list of valid findings, or ``None`` if the
-    payload is not the expected object shape. Individual malformed findings are
-    skipped rather than failing the whole parse.
-
-    Recovery of the object itself is shared with the other two JSON-returning
-    routes (issue #233), which also buys this route two tolerances its local
-    fence-stripper never had: a line of prose around the object, and a reply the
-    token cap cut off mid-object.
-    """
     try:
         data = extract_json_object(content)
     except ValueError:
@@ -128,7 +82,6 @@ def _parse_findings(content: str | None) -> list[ConsistencyFinding] | None:
 
     raw_findings = data.get("findings")
     if raw_findings is None:
-        # A well-formed object without a findings key means "consistent".
         return []
     if not isinstance(raw_findings, list):
         return None
@@ -150,7 +103,6 @@ def _parse_findings(content: str | None) -> list[ConsistencyFinding] | None:
 
 
 def add_consistency_check_routes(router: APIRouter) -> None:
-    """Register the intake consistency-check endpoint."""
 
     @router.post(
         "/v1/consistency-check",
@@ -165,18 +117,13 @@ def add_consistency_check_routes(router: APIRouter) -> None:
     )
     async def consistency_check(
         request: ConsistencyCheckRequest,
-        # Forwarded by the BFF (profile-service) so this route can reach the
-        # org's BYOK LLM credential; absent for anonymous/direct callers.
         x_grid_organization_id: str | None = Header(default=None),
     ) -> ConsistencyCheckResponse:
         if not request.free_text:
-            # No free text to scrutinise — nothing for the LLM to do. The client
-            # normally short-circuits before calling; this guards direct callers.
             return ConsistencyCheckResponse(findings=[])
 
         cred = await asyncio.to_thread(_llm_settings, x_grid_organization_id)
         if not cred.api_key:
-            # No credentials — surface a diagnosable code instead of a guaranteed 401.
             return ConsistencyCheckResponse(findings=None, error="llm_not_configured")
 
         language = "German" if request.locale.lower().startswith("de") else "English"

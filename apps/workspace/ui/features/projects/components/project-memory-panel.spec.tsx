@@ -1,9 +1,3 @@
-/**
- * The Project Memory panel marks a restricted note (ADR-0087) with the folder
- * lock, naming the folders it came from. The API sends such a note only to a
- * reader cleared for it, so the panel's job is the mark, not the filter. When a
- * language model helped decide who reads the note, the mark says so (AI Act).
- */
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
 import { render, screen } from '@/test-utils'
@@ -26,6 +20,7 @@ describe('ProjectMemoryPanel', () => {
       'fetch',
       vi.fn(async () =>
         Response.json({
+          topics: [],
           items: [
             wire({ id: 'open', content: 'Flachdach extensiv begrünt.' }),
             wire({
@@ -61,6 +56,22 @@ describe('ProjectMemoryPanel', () => {
     expect(screen.getByText('Flachdach extensiv begrünt.')).toBeInTheDocument()
   })
 
+  test('files the notes under the topics the shelf names, with the count', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        Response.json({
+          topics: [{ name: 'Brandschutz', count: 1 }],
+          items: [wire({ id: 'fire', content: 'Fluchtweg Treppenhaus 2 offen.', topic: 'Brandschutz' })],
+        })
+      )
+    )
+    render(<ProjectMemoryPanel projectId="p1" />)
+
+    await screen.findByText('Fluchtweg Treppenhaus 2 offen.')
+    expect(screen.getAllByText('Brandschutz').length).toBeGreaterThan(0)
+  })
+
   test('a closed project: the notes, and no control that would change them (ADR-0090)', async () => {
     render(<ProjectMemoryPanel projectId="p1" readOnly />)
 
@@ -94,7 +105,7 @@ describe('ProjectMemoryPanel', () => {
   test('a confidence this build does not know is shown as it is', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () => Response.json({ items: [wire({ id: 'odd', content: 'Sonderfall.', confidence: 'certain' as 'high' })] }))
+      vi.fn(async () => Response.json({ topics: [], items: [wire({ id: 'odd', content: 'Sonderfall.', confidence: 'certain' as 'high' })] }))
     )
     render(<ProjectMemoryPanel projectId="p1" />)
 
@@ -122,7 +133,7 @@ describe('ProjectMemoryPanel', () => {
               { error: 'A note in shared memory cannot hold a phone number.', code: 'BAD_REQUEST', details: { reason: 'note_refused', kind: 'phone' } },
               { status: 400 }
             )
-          : Response.json({ items: [] })
+          : Response.json({ topics: [], items: [] })
       )
     )
     render(<ProjectMemoryPanel projectId="proj-1" />)
@@ -134,5 +145,58 @@ describe('ProjectMemoryPanel', () => {
     expect(
       await screen.findByText('Not saved: a note others read may not hold a phone number. Leave it out and save again.')
     ).toBeInTheDocument()
+  })
+
+  test('a new note is filed under the open topic picked for it', async () => {
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) =>
+      init?.method === 'POST'
+        ? Response.json({ item: wire({ id: 'new', content: 'Brandschutzkonzept abgestimmt.', topic: 'Brandschutz' }) })
+        : Response.json({
+            topics: [{ name: 'Brandschutz', count: 1 }],
+            items: [wire({ id: 'fire', content: 'Fluchtweg Treppenhaus 2 offen.', topic: 'Brandschutz' })],
+          })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    render(<ProjectMemoryPanel projectId="p1" />)
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Add note' }))
+    await userEvent.type(screen.getByLabelText('Add note'), 'Brandschutzkonzept abgestimmt.')
+    await userEvent.type(screen.getByRole('combobox', { name: 'Topic' }), 'brand')
+    await userEvent.click(screen.getByRole('option', { name: 'Brandschutz' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Add' }))
+
+    await screen.findByText('Brandschutzkonzept abgestimmt.')
+    const post = fetchMock.mock.calls.find(([, init]) => (init as RequestInit | undefined)?.method === 'POST')
+    expect(JSON.parse(String((post?.[1] as RequestInit | undefined)?.body))).toEqual({
+      kind: 'decision',
+      content: 'Brandschutzkonzept abgestimmt.',
+      topic: 'Brandschutz',
+    })
+  })
+
+  test('switching a new note to the office drops the project topic picked for it', async () => {
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) =>
+      init?.method === 'POST'
+        ? Response.json({ item: wire({ id: 'new', content: 'Gilt im ganzen Büro.', scope: 'organization', projectId: null }) })
+        : Response.json({
+            topics: [{ name: 'Stellplätze', count: 1 }],
+            items: [wire({ id: 'park', content: 'Tiefgarage mit 40 Plätzen.', topic: 'Stellplätze' })],
+          })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    render(<ProjectMemoryPanel projectId="p1" />)
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Add note' }))
+    await userEvent.type(screen.getByLabelText('Add note'), 'Gilt im ganzen Büro.')
+    await userEvent.type(screen.getByRole('combobox', { name: 'Topic' }), 'stell')
+    await userEvent.click(screen.getByRole('option', { name: 'Stellplätze' }))
+    await userEvent.click(screen.getByRole('combobox', { name: 'Scope of the note' }))
+    await userEvent.click(await screen.findByRole('option', { name: 'All my projects' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Add' }))
+
+    await screen.findByText('Gilt im ganzen Büro.')
+    const post = fetchMock.mock.calls.find(([, init]) => (init as RequestInit | undefined)?.method === 'POST')
+    expect(String(post?.[0])).toContain('/api/organization/memory')
+    expect(JSON.parse(String((post?.[1] as RequestInit | undefined)?.body)).topic ?? null).toBeNull()
   })
 })

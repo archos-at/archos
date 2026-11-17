@@ -1,24 +1,5 @@
-/**
- * The platform's base knowledge on the platform door (ADR-0165, design §4.5):
- * how an operator's agent brings a country's knowledge in as a reviewed data
- * release. Every route is a `platformApiRoute`, so only a platform operator's
- * call passes; reads need `platform:settings:view`, drafting
- * `platform:knowledge:write`, review and release `platform:knowledge:review`,
- * entitlements `platform:organizations:manage`.
- *
- * The flow (ADR-0170 makes it agent-grade): read the onboarding guide and
- * schema-get; change-request-create; citation-capture for each page; then
- * records-propose (dryRun first), text-import or text-upload for each
- * manifestation's text, and validate; submit; a reviewer's
- * change-request-review per claim; change-request-decide (the person's yes,
- * never by the author); publish to preview, then stable (the person's yes);
- * rollback (the person's yes). `personDecides` makes the door ask the person,
- * and a client that cannot ask gets `decideAt`, the page where they decide it;
- * the route refuses without that yes whatever path the call took. Every write
- * takes the door's `idempotencyKey`, and every refusal is an RFC 9457 problem.
- */
-
 import { z } from 'zod'
+import { corpusQuerySchema } from '@/lib/knowledge/corpus-query'
 import {
   approvalBodySchema,
   captureBodySchema,
@@ -42,13 +23,11 @@ import { addDocumentBodySchema, listWorksQuerySchema, uploadDocumentFields } fro
 import type { AgentOperation, PersonConfirmation } from '../operation'
 import { MAX_UPLOAD_BYTES, uploadBodySchemaWith } from '../upload-wire'
 
-/** Whether a review's verdicts vouch for a source (`sourceChecked`): the one verdict the person must give themselves. */
 function checksASource(body: unknown): boolean {
   const decisions = (body as { decisions?: unknown } | null)?.decisions
   return Array.isArray(decisions) && decisions.some((decision) => (decision as { sourceChecked?: unknown } | null)?.sourceChecked === true)
 }
 
-/** Where the person approves, publishes, rolls back or entitles in the app: the platform's countries view. */
 const IN_COUNTRIES_VIEW: PersonConfirmation = { decideAt: () => '/app/platform/countries' }
 
 const requestParams = z.object({
@@ -112,7 +91,8 @@ export const platformKnowledgeOperations = [
     description:
       'Each record’s newest revision in the request, every claim (a body field) with the newest verdict on it, the ' +
       'approvals (with the reason of one given alone), and the release moves. `approval` is four_eyes, or single when its ' +
-      'author approved it alone; then `secondReview` says whether another person’s review is due, confirmed or disputed.',
+      'author approved it alone; then `secondReview` says whether another person’s review is due, confirmed or disputed. ' +
+      '`warnings` names what the request would release that nothing refuses: read each to the person before they approve or publish.',
     method: 'GET',
     path: '/api/platform/knowledge/change-requests/[changeRequestId]',
     params: requestParams,
@@ -208,9 +188,11 @@ export const platformKnowledgeOperations = [
     summary: 'See the whole base corpus, released or not',
     description:
       'The whole base corpus store with each document’s indexing state: `{ collectionName, summary, files: [{ fileName, state, chunkCount, docClass, displayTitle, ... }] }`. ' +
-      'It includes documents no release marked and documents a rollback withdrew, which no organization reads. Which country reads a document is in platform-knowledge-text-list.',
+      'It includes documents no release marked and documents a rollback withdrew, which no organization reads. Which country reads a document is in platform-knowledge-text-list. ' +
+      'The whole store with summaries is longer than one result: narrow it with `nameContains` and `countryId` (or `none`), leave out the summaries with `brief: true`, and page with `limit` and `cursor` (`matched`, `nextCursor`).',
     method: 'GET',
     path: '/api/platform/knowledge/documents',
+    query: corpusQuerySchema,
     load: () => import('@/app/api/platform/knowledge/documents/route'),
   },
   {
@@ -442,7 +424,6 @@ export const platformKnowledgeOperations = [
     params: requestParams,
     body: reviewBodySchema,
     idempotent: false,
-    // `sourceChecked` vouches for a page nobody fetched: the person's own, asked of them (ADR-0170).
     personDecidesWhen: (input) => checksASource(input.body),
     load: () => import('@/app/api/platform/knowledge/change-requests/[changeRequestId]/review/route'),
   },

@@ -1,0 +1,15 @@
+export const memoryTopics = {
+  noTopic: 'No topic',
+  topicCount: '{count, plural, one {# note} other {# notes}}',
+  moveTo: 'Move to …',
+  newTopic: 'New topic',
+  rename: 'Rename topic',
+  renamePlaceholder: 'Topic name',
+  mergeHint: 'If that topic exists, the two are merged.',
+  officeKeepsTopic: "The office's notes keep their topic.",
+  removeTopic: 'Remove topic and all its notes',
+  removeTopicConfirm: '{count, plural, one {# note in "{name}" is} other {# notes in "{name}" are}} removed for good.',
+  ungroup: 'Ungroup',
+  topicTooLong: 'At most 40 characters.',
+  filterLabel: 'Topic',
+}

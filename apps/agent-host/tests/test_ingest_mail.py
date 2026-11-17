@@ -1,12 +1,3 @@
-"""`POST /v1/ingest` carries what a filed mail says about the document (ADR-0137).
-
-A filed E-Mail-Verlauf arrives with `mail_thread`: the route stamps the job's `source_format`
-(the chunks' lane, `project_mail`) and hands the record to the job, which stores it on the
-metadata row. A file a person filed from a mail arrives with `mail_origin`: the message it came
-with, which `list_files` and `read_passage` print. Neither carries an address, and the route
-refuses one before a job exists, as it refuses a key it does not know.
-"""
-
 from typing import get_args
 from unittest.mock import MagicMock
 
@@ -107,14 +98,12 @@ async def test_a_document_that_came_by_no_mail_carries_neither(app, mock_ingesto
 @pytest.mark.parametrize(
     "body",
     [
-        # An address is never sent: not as a name, not under a key of its own.
         {"mail_origin": {**ORIGIN, "from_name": "gruber@verkehrsplanung-gruber.at"}},
         {"mail_origin": {**ORIGIN, "from_address": "gruber@verkehrsplanung-gruber.at"}},
         {"mail_origin": {**ORIGIN, "sender_trust": "verified"}},
         {"mail_origin": {**ORIGIN, "sent_at": "2026-05-04T06:30:00"}},  # no offset: whose clock?
         {"mail_thread": {**THREAD, "message_count": 0}},
         {"mail_thread": {**THREAD, "locale": "fr"}},
-        # A Verlauf IS the mails; an attachment came WITH one.
         {"mail_thread": THREAD, "mail_origin": ORIGIN},
     ],
 )
@@ -126,6 +115,5 @@ async def test_what_cannot_be_stored_honestly_is_refused_before_a_job_exists(app
 
 
 def test_the_wire_vocabulary_is_the_stores():
-    """The route's literals are spelled out; the store's tuples are the source."""
     assert get_args(SenderTrust) == SENDER_TRUSTS
     assert get_args(MailLocale) == MAIL_LOCALES

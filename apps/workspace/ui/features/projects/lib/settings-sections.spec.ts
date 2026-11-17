@@ -17,8 +17,6 @@ describe('visibleSettingsSections', () => {
   })
 
   test('a viewer is offered no section whose API would refuse them', () => {
-    // The roster endpoint needs members:manage, the usage read needs
-    // project:manage or an org budget admin.
     expect(visibleSettingsSections({ manageMembers: false, manageBudget: false })).toEqual([
       'overview',
       'memory',

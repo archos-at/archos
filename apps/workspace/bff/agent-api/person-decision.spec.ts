@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The person's yes, held at the route (`person-decision.ts`): runs through the
- * real acting session the dispatcher binds, so what is tested is the guard a
- * route calls, not a stand-in for it.
- */
 
 import { describe, expect, it, vi } from 'vitest'
 

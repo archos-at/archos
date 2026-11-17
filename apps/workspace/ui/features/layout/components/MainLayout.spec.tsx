@@ -15,7 +15,6 @@ const mockDeleteConversation = vi.fn()
 const mockDeleteAllConversations = vi.fn()
 const mockUpdateConversationTitle = vi.fn()
 
-// The chat column is the attachment drop zone, which reads the accepted types.
 vi.mock('@/shared/context', () => ({
   useAppConfig: () => ({
     fileUpload: {
@@ -29,7 +28,6 @@ vi.mock('@/shared/context', () => ({
   }),
 }))
 
-// Mock the useSessionUrl hook (uses Next.js App Router hooks)
 vi.mock('@/hooks/use-session-url', () => ({
   useSessionUrl: vi.fn(() => ({
     updateSessionUrl: mockUpdateSessionUrl,
@@ -37,12 +35,8 @@ vi.mock('@/hooks/use-session-url', () => ({
   })),
 }))
 
-// Per-test overrides merged into the chat-store state. Read lazily inside the
-// mock factory (so it is StrictMode-double-render safe — every useChatStore
-// call in every render pass sees the same state), and reset in beforeEach.
 let chatStoreOverrides: Record<string, unknown> = {}
 
-// Mock the chat store
 vi.mock('@/features/chat', () => ({
   NoSourcesBanner: () => <div data-testid="no-sources-banner">No Sources Banner</div>,
   ChatUsageNotice: ({ isAuthenticated }: { isAuthenticated?: boolean }) =>
@@ -66,7 +60,6 @@ vi.mock('@/features/chat/store', () => ({
   }),
 }))
 
-// Mock the layout store
 vi.mock('../store', () => ({
   useLayoutStore: vi.fn((selector?: StoreSelector<LayoutStore>) => {
     const state: DeepPartial<LayoutStore> = {
@@ -78,7 +71,6 @@ vi.mock('../store', () => ({
   }),
 }))
 
-// Mock child components
 vi.mock('./ChatToolbar', () => ({
   ChatToolbar: ({
     sessionTitle,
@@ -123,9 +115,6 @@ describe('MainLayout', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     chatStoreOverrides = {}
-    // The file-preview store is the real zustand module here, not a mock, so
-    // it is module state shared across this file's tests. Reset it or the peek
-    // test below leaks a file into every test declared after it.
     useFilePreviewStore.setState({ file: null, mode: 'modal', hidden: false })
   })
 
@@ -136,7 +125,6 @@ describe('MainLayout', () => {
     expect(screen.getByTestId('sessions-panel')).toBeInTheDocument()
     expect(screen.getByTestId('chat-area')).toBeInTheDocument()
     expect(screen.getByTestId('input-area')).toBeInTheDocument()
-    // The usage notice rides above the composer for a signed-in reader.
     expect(screen.getByTestId('usage-notice-slot')).toBeInTheDocument()
   })
 
@@ -159,7 +147,6 @@ describe('MainLayout', () => {
 
     expect(screen.getByTestId('rights-lost')).toHaveTextContent('You no longer have the rights to view this chat')
     expect(screen.getByTestId('rights-lost')).toHaveTextContent('Shared chat')
-    // Nothing of the chat is mounted: not the thread, not the composer to write into it.
     expect(screen.queryByTestId('chat-area')).toBeNull()
     expect(screen.queryByTestId('input-area')).toBeNull()
     expect(screen.queryByTestId('no-sources-banner')).toBeNull()
@@ -189,7 +176,6 @@ describe('MainLayout', () => {
   test('passes auth state to components', () => {
     render(<MainLayout isAuthenticated={true} />)
 
-    // Components render - props are passed to mocked child components
     expect(screen.getByTestId('app-bar')).toBeInTheDocument()
     expect(screen.getByTestId('chat-area')).toBeInTheDocument()
     expect(screen.getByTestId('input-area')).toBeInTheDocument()
@@ -274,20 +260,12 @@ describe('MainLayout', () => {
 
     render(<MainLayout isAuthenticated={true} />)
 
-    // Cross-project bleed guard (UX-8): project B's session must NOT appear
-    // in project A's panel; unscoped legacy sessions stay visible.
     expect(screen.getByTestId('session-item-in-project')).toBeInTheDocument()
     expect(screen.getByTestId('session-item-legacy')).toBeInTheDocument()
     expect(screen.queryByTestId('session-item-other-project')).not.toBeInTheDocument()
     expect(screen.queryByTestId('session-item-other-user')).not.toBeInTheDocument()
   })
 
-  // The regression the file-ask split shipped with: `FilePreviewSplit` puts the
-  // peeked file in its own resizable panel BESIDE this whole subtree, so the
-  // room is already made one level up. This column used to subtract the peek
-  // width again — out of a panel that had already shrunk — which at 1440px left
-  // the chat 539px inside an 883px panel and a 344px dead band between the
-  // conversation and the file it is about. Visual proof: `/dev/file-ask-split`.
   test('keeps full width while a file is peeked — the split already made the room', () => {
     useFilePreviewStore.setState({
       file: { id: 'doc-1', filename: 'Brandschutzplan_EG.pdf' } as never,

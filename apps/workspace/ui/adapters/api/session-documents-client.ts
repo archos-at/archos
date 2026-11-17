@@ -1,22 +1,3 @@
-/**
- * Session documents client: the files attached privately to one chat
- * (ADR-0047 Phase 2, `scope = 'session'`).
- *
- * Every call goes to a first-party BFF route, never to the ingestor through
- * the `/api/v1` proxy. The upload itself, `POST /api/session/documents/upload`
- * (file-type gate, storage quota, document row, SeaweedFS, dispatch), is sent
- * by `useFileUpload` through the same per-file XHR as the other shelves, so it
- * reports byte progress:
- *
- *   - list    → `GET    /api/session/documents?conversationId=` (reconciles
- *     in-flight statuses, so re-listing is also how an upload is polled);
- *   - delete  → `DELETE /api/session/documents/[id]` (chunks, objects, row).
- *
- * The rows are handed to the documents store in the collection-file shape it
- * already reads (`FileInfo`), with the DOCUMENT id as `file_id`, so a delete
- * names the row it removes.
- */
-
 import { z } from 'zod'
 import { surfaceStateOf, type SurfaceState } from '@/lib/documents/surface-state'
 import { verdictSchema } from '@/lib/upload-screening/quarantine'
@@ -30,7 +11,6 @@ const SessionDocumentRowSchema = z.object({
   collectionName: z.string(),
   createdAt: z.string().nullable().optional(),
   errorMessage: z.string().nullable().optional(),
-  /** Why a held attachment is held (ADR-0113). A verdict that does not parse reads as none, never as a failed list. */
   quarantine: verdictSchema.nullable().catch(null).optional(),
   chunkCount: z.number().nullable().optional(),
 })
@@ -42,18 +22,6 @@ const SessionDocumentListSchema = z.object({
 
 export type SessionDocumentRow = z.infer<typeof SessionDocumentRowSchema>
 
-/**
- * Each state's word in the listed-file vocabulary. Only `citable` is
- * `success`, the status every chat surface counts as an available source.
- *
- * - In flight (`uploading`, `reading`) is `ingesting`, which the chat polls.
- * - `stored`: an attachment stored and never read (`uploaded`) has nothing in
- *   the index and no passing verdict, so the chat cannot answer from it
- *   (ADR-0086). It used to come back `success` and read as available.
- * - `held`: the content check stopped it; never offered a retry.
- * - An undeclared status is at rest, or the poll would never end, and not
- *   `success` either: nothing is known about it, so it is not a source.
- */
 const LISTED_STATUS_BY_STATE: Record<SurfaceState, ListedFileStatus> = {
   citable: 'success',
   uploading: 'ingesting',
@@ -61,22 +29,14 @@ const LISTED_STATUS_BY_STATE: Record<SurfaceState, ListedFileStatus> = {
   held: 'held',
   unreadable: 'failed',
   stored: 'stored',
-  // A read a person stopped: at rest and not in the index, like `stored`. It is
-  // not a failure, so it is not `failed`; and there is nothing to retry, so the
-  // chat offers it no different from any other unread file.
   cancelled: 'stored',
   unknown: 'stored',
 }
 
-/**
- * A document row's status in the listed-file vocabulary, from the one status
- * table (`surfaceStateOf`), by the status alone as every other surface reads it.
- */
 export function sessionDocumentFileStatus(status: string): ListedFileStatus {
   return LISTED_STATUS_BY_STATE[surfaceStateOf(status)]
 }
 
-/** A session document row in the shape the documents store reads. */
 export function sessionDocumentToFileInfo(row: SessionDocumentRow): FileInfo {
   return {
     file_id: row.id,
@@ -98,7 +58,6 @@ async function errorMessage(response: Response, fallback: string): Promise<strin
   return typeof message === 'string' && message ? message : `${fallback}: ${response.status}`
 }
 
-/** One chat's attachments, statuses reconciled. `null` when the conversation is not (yet) on the server. */
 export async function listSessionDocuments(
   conversationId: string,
   signal?: AbortSignal
@@ -113,7 +72,6 @@ export async function listSessionDocuments(
   return documents.map(sessionDocumentToFileInfo)
 }
 
-/** Delete one attachment. A document that is already gone is success. */
 export async function deleteSessionDocument(documentId: string): Promise<void> {
   const response = await fetch(`/api/session/documents/${encodeURIComponent(documentId)}`, {
     method: 'DELETE',

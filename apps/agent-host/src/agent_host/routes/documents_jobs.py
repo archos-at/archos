@@ -1,9 +1,3 @@
-"""The ingestion job routes: one job's status, a batch of them, and cancel.
-
-Split from ``documents.py``, which registers these through ``_add_document_job_routes``
-at the end of its own routes, the position they always had.
-"""
-
 import asyncio
 import logging
 from typing import Any
@@ -20,15 +14,12 @@ from agent.knowledge.schema import IngestionJobStatus
 from ..jobs import ingest_dispatch
 from .collections import _require_ingestor
 
-# The name these routes logged under before the split, so log filters keep matching.
 logger = logging.getLogger("agent_host.routes.documents")
 
-# Upper bound on job ids per batch-status request (request validation).
 BATCH_STATUS_MAX_IDS = 200
 
 
 def _job_statuses(ingestor: BaseIngestor, job_ids: list[str]) -> dict[str, Any]:
-    """Each job's status, or None when unknown or failing. One thread hop for the batch, not one per id."""
     statuses: dict[str, Any] = {}
     for job_id in job_ids:
         try:
@@ -44,7 +35,6 @@ async def get_job_status(
     job_id: str,
     ingestor: BaseIngestor = Depends(_require_ingestor),
 ) -> IngestionJobStatus:
-    """Get the status of an ingestion job."""
     try:
         status = await asyncio.to_thread(ingestor.get_job_status, job_id)
         if status is None:
@@ -66,26 +56,10 @@ async def get_job_statuses_batch(
     request: BatchStatusRequest,
     ingestor: BaseIngestor = Depends(_require_ingestor),
 ) -> dict[str, Any]:
-    """Batch variant of the per-job status endpoint.
-
-    The BFF reconciles every in-flight document row on document-list
-    reads; per-job round-trips made that read O(n) HTTP calls. Unknown
-    or failing job ids map to null (the caller falls back to the
-    collection file list), mirroring the single endpoint's 404.
-    """
     return {"statuses": await asyncio.to_thread(_job_statuses, ingestor, request.job_ids)}
 
 
 async def cancel_job(job_id: str) -> dict[str, Any]:
-    """Stop a queued or running ingestion job.
-
-    The BFF has already decided the caller may act on the document this job
-    belongs to; this tier only stops the job. ``result`` is one of the
-    cancel outcomes (``ingest_dispatch.cancel``): ``cancelled`` when a live
-    job was stopped, ``finished`` when the queue holds no live row for it,
-    and ``unavailable`` when the queue is off or has no database (an
-    in-memory job runs in a process this one cannot reach).
-    """
     try:
         return {"result": await asyncio.to_thread(ingest_dispatch.cancel, job_id)}
     except Exception as e:
@@ -94,7 +68,6 @@ async def cancel_job(job_id: str) -> dict[str, Any]:
 
 
 def _add_document_job_routes(router: APIRouter) -> None:
-    """Register the ingestion job routes on the document router."""
     router.get(
         "/v1/documents/{job_id}/status",
         response_model=IngestionJobStatus,

@@ -29,7 +29,6 @@ describe('useSettleTrackedUploads', () => {
     const { rerender } = renderHook(({ docs }) => useSettleTrackedUploads(docs, [row]), {
       initialProps: { docs: [{ id: 'doc-1', status: 'processing' }] },
     })
-    // Still converting: not finished early.
     expect(trackedStatus('local-1')).toBe('ingesting')
 
     rerender({ docs: [{ id: 'doc-1', status: 'completed' }] })
@@ -63,9 +62,7 @@ describe('useSettleTrackedUploads', () => {
       vi.useRealTimers()
     })
 
-    it('settles from its own status while „Von Piloti" narrows the listing', async () => {
-      // The filter makes the listing agent-authored rows only, so a person's
-      // detached upload is never in it and used to spin forever in the tray.
+    it('settles from its own status while the agent filter narrows the listing', async () => {
       vi.useFakeTimers()
       const row = upload({})
       useDocumentsStore.setState({ trackedFiles: [row] })

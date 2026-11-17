@@ -353,10 +353,10 @@ const DICTATION_LIMIT = {
  * One HTTP request to the agent door, `/api/mcp` (ADR-0122), per member.
  *
  * Charged once per request after the caller is known (an external agent's
- * token, or Piloti's envelope: both are the same person's budget), before any
+ * token, or the agent's envelope: both are the same person's budget), before any
  * tool runs. It bounds the door, not the work: every operation it dispatches
  * still pays its own route's rule (`api-mutation`, `bim-query`, ...), and a
- * write by Piloti only files a proposal. A model making a tool call a second
+ * write by the agent only files a proposal. A model making a tool call a second
  * for ten minutes is far past an honest agent, which pauses to think between
  * calls; a stuck client loop is not, and the burst clause stops it within
  * seconds. A turn's few dozen calls fit with room to spare.

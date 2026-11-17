@@ -3,7 +3,7 @@
 Status: Active, rewritten 2026-11-10 for ADR-0175. Companion to ADR-0165,
 ADR-0168, ADR-0173 and `backend-deep-dive.md` §6b.
 
-Piloti ships Austria-first, but the product goal is multi-jurisdiction. Until
+The product ships Austria-first, but the product goal is multi-jurisdiction. Until
 ADR-0175 a `CountryProfile` in code (`common/country_profile.py`) decided which
 country's law a project read, from the project's own text, with Austria's
 doctrine, corpus note and OIB verdicts (`common/applicability.py`) as code. All
@@ -63,6 +63,20 @@ Phase 3 — vocabulary and language surfaces (scoped per country):
 8. Request envelope: its `federal_state` is AT-vocabulary. The agent no longer
    reads it for which law applies (the knowledge context's site does, ADR-0175);
    the RIS adapter still uses it to address a lookup to the right Land.
+
+## Deferred until a second country needs it
+
+- **A released text's document class from its records.** The base corpus files
+  a released text (`<manifestationKey>-<hash>.pdf`) as `other`: no filename
+  reader classes the name, and the records state no class (an OIB-Richtlinie,
+  its Begriffsbestimmungen and its list of cited standards are all
+  `model_code`, a Leitfaden and the Erläuterungen both `commentary`). For AT an
+  operator sets each text once per environment (`platform-knowledge-doc-class-update`;
+  rollover-to-prod step 8b). **Build when a second country's texts need a
+  class:** an optional `docClass` claim on the work record, stamped by the
+  indexing job beside the title (`platform/indexing.ts`), a class a person set
+  still winning (ADR-0064 Use 8). Costed 2026-11-12 at one migration and about
+  eight files; the unmerged draft is PR #1709's first commit.
 
 ## Known duplications (consolidate opportunistically, never let them drift)
 
@@ -161,7 +175,7 @@ it touches:
 | Part | Today | Becomes | Paths (hits) |
 |---|---|---|---:|
 | The source record | `configs/sources/at/ris/source.yml` and its two fixtures, a file in git; `at-ris` and its hosts as examples in the platform wire and catalog | A platform source record proposed in Austria's change request (ADR-0174), its fixtures with it; examples in descriptions name no real source | 7 (16), plus the 3 files under `configs/` |
-| The adapter | `packages/ris-adapter` (19 source files, 15 test files), the `ris_xml` engine in `packages/public-sources/src/engines/`, the backend's `routes/ris.py` and the RIS halves of `routes/norms.py` and `plugin.py`, the BFF's `bff/ris/` and `/api/ris/document`, the UI's `ris-document-dialog` | The package goes away. The request side is the generic `rest` access type the record already configures. The format side is an engine named for the format (see below). Routes and the dialog are a source document by source id | 31 (481) |
+| The adapter | `packages/ris-adapter` (19 source files, 15 test files), the `ris_xml` engine in `packages/public-sources/src/public_sources/engines/`, the backend's `routes/ris.py` and the RIS halves of `routes/norms.py` and `plugin.py`, the BFF's `bff/ris/` and `/api/ris/document`, the UI's `ris-document-dialog` | The package goes away. The request side is the generic `rest` access type the record already configures. The format side is an engine named for the format (see below). Routes and the dialog are a source document by source id | 31 (481) |
 | The model tool | `ris_lookup` and its three siblings (`ris_search`, `ris_fetch_document`, `ris_catalog_lookup`) as tool names, config keys (`ris.page_size`), limits, retrieval settings, step labels and `law_gate.LAW_SOURCE_COUNTRIES = {"ris": "AT"}` | One country-neutral legal-source lookup over the sources the turn's knowledge context names (ADR-0173); which source answers is the record's territory, not a table in `law_gate` | 17 (56) |
 | Citations | `is_ris`, `isRisUrl`, `RIS_HOST_RE`, the `ris` origin and target kind, the `building_law_ris` lane, `RisPreviewChip`, the `[RIS]` tag in text parsers and report layout | A legal database is recognised by its source record and public address: roles, source identity, text parsers and verification ask the record, and the chip shows the record's title | 33 (129) |
 | Prompts | The deep research templates tell the model to call `ris_lookup` and to cite RIS; the door's guides and three built-in skills name it | The prompt names the kind of source and the neutral tool; the turn's knowledge context names the source | 12 (26) |
@@ -236,7 +250,7 @@ module names, routes, document classes and rule ids.
 |---|---|---|
 | `agent-host/routes/oib.py` (106), `agent/oib_status.py`, `agent/oib_sync.py`, the BFF's backend operations for them | `/v1/admin/oib/*`, `sync_oib_documents`, `OibFileState`: the base corpus named for its first publisher | The platform base corpus, per country: routes and modules named for the base corpus, the files a country's manifestations name |
 | `knowledge/doc_class_vocabulary.py`, `bff/knowledge/doc-class.ts`, `bff/source-kinds.ts`, `ui/.../citations/model.ts`, `common/norm_registry.py` (61) | Document classes and lanes `oib_guideline`, `building_law_oib_*`, their labels ("OIB-Richtlinie") and `isOibBinding` | A work's `kind` and `designation` from the records; whether it binds is the relation the chain resolves (ADR-0168), never the class name |
-| `bff/bim/rules.ts` (32), `packages/ifc-spatial-py` (9) | Rule ids `oib4-stair-rise-run-ratio`, `richtlinie: 'OIB 4'`, `appliesIn: 'AT'` | Rulesets run by the one evaluator (ADR-0166), selected by the site |
+| `bff/bim/rules.ts` (32), `packages/ifc-spatial-py` (9) | Rule ids `oib4-stair-rise-run-ratio`, `designation: 'OIB-Richtlinie 4'` with `edition: 'Ausgabe Mai 2023'`, the thresholds in code. Whether a rule judges at a site is read from the knowledge context (`bff/bim/rule-basis.ts`), not from a territory in code | Rulesets run by the one evaluator (ADR-0166), selected by the site |
 | The built-in skills under `skills/builtin/oib/` (23) and the prompts (50 in all), tool descriptions in `agent/tools` | OIB named in skill, prompt and tool text a model reads | Text that names the kind of source; the turn's knowledge context names the works |
 | `oib_knowledge` as the collection default (three YAMLs, `collection-scope.ts`) | A collection named for one publisher | One shared corpus under a neutral name, filtered by `country_id` |
 
@@ -251,7 +265,7 @@ is deleted whole.
 ### 5. Law names (44 hits) and hosts (14 hits)
 
 `law_name` (Bauordnung, WBTV, Baugesetz as examples in tool descriptions,
-prompts and one citation regex in `knowledge-layer/src/references.py`) becomes
+prompts and one citation regex in `knowledge-layer/src/knowledge_layer/references.py`) becomes
 the works' designations from the pack, rendered where an example is needed.
 `host` (`ris.bka.gv.at`, `oib.or.at`, `ma37.wien.gv.at` in citation targets,
 the egress list and catalog examples) becomes the hosts of source records,

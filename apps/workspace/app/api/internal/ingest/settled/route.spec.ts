@@ -8,7 +8,6 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-// The route factory statically imports the session guard, which pulls in authkit; internal routes never call it.
 vi.mock('@/lib/auth/require-auth', () => ({ requireAuthorizedSession: vi.fn() }))
 vi.mock('@/lib/db', () => ({ getDb: vi.fn(() => ({})) }))
 vi.mock('@/lib/db/tenant-context', async (original) => ({
@@ -20,7 +19,6 @@ vi.mock('@/lib/documents/repository', async (original) => ({
   ...(await original<typeof import('@/lib/documents/repository')>()),
   listSettleableDocumentsForIngestJobs: vi.fn(),
   setDocumentReconciledStatus: vi.fn(),
-  // The attempt the event joins is read after the settle; every row here is its first dispatch.
   findIngestAnnouncementFacts: vi.fn(
     async (_organizationId: string, ids: string[]) => new Map(ids.map((id) => [id, { attempt: 1, uploadBatchId: null }]))
   ),
@@ -48,7 +46,6 @@ const request = (body: unknown, token: string | null = 'test-token'): Request =>
 
 const mockFetch = vi.fn()
 
-/** The backend: every asked job completed, and the collection lists the file. */
 const backendSaysCompleted = () =>
   mockFetch.mockImplementation(async (url: string, init?: RequestInit) => {
     if (url.includes('/v1/documents/status/batch')) {
@@ -80,7 +77,6 @@ const pendingDocument = (id: string, organizationId: string, jobId: string) =>
     ingestAttempts: 1,
   })
 
-/** The `documents` table for this spec: a row stays in flight until the guarded write moves it, once. */
 const tableOf = (rows: ReturnType<typeof pendingDocument>[]) => {
   const status = new Map(rows.map((row) => [row.id, row.status]))
   vi.mocked(listSettleableDocumentsForIngestJobs).mockImplementation(async (jobIds) =>
@@ -172,8 +168,6 @@ describe('POST /api/internal/ingest/settled', () => {
   })
 
   it('heals a document failed as interrupted hours ago whose job finished after all', async () => {
-    // A read heals such a row only for half an hour after its failure was written
-    // (`lost-job.ts`). The push is the run's own last word, so it has no window.
     const failed = {
       ...pendingDocument('doc-1', 'org-1', 'job-1'),
       status: 'failed' as const,

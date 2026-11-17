@@ -1,23 +1,10 @@
-"""A file's state is the same in every process that asks, not the one that ran the job.
-
-Ingestion runs only in the `ingest-worker` (ADR-0076); the HTTP routes run in the
-`api` process (ADR-0082). Per-file state used to live in a dict on the ingestor
-that ran the job (`_files`), so the `api` process listed a failed file nowhere,
-gave a chunk-only file a new random id on every call, and could not delete a file
-by the id the worker had issued. The BFF treats a name absent from the listing as
-"the backend never heard of it" and lets the document be dispatched again.
-
-Two ingestors stand for the two processes: they share one SQLite status store and
-one Qdrant store, and nothing else. The worker ingests; the api never ran a job.
-"""
-
 from __future__ import annotations
 
 from datetime import datetime
 
 import pytest
 from knowledge_layer.ingest import LlamaIndexIngestor
-from knowledge_layer.ingest import adapter as adapter_module
+from knowledge_layer.ingest import pdf_text
 from knowledge_layer_testing import reingest
 from knowledge_layer_testing.vector_store import FakeEmbedder
 
@@ -30,20 +17,18 @@ from agent.knowledge.schema import stable_file_id
 
 COLLECTION = "proj_two_processes"
 
-# The metadata store a job writes to, on a temp SQLite file.
 stores = reingest.stores
 
 
 @pytest.fixture()
 def processes(tmp_path, monkeypatch, stores, qdrant_store):
-    """``(worker, api)``: two ingestors over one status store and one Qdrant."""
     url = f"sqlite:///{tmp_path / 'jobs.db'}"
     monkeypatch.setenv("SUMMARY_DB", url)
 
     def encrypted(_path):
         raise ValueError("PDF is encrypted")
 
-    monkeypatch.setattr(adapter_module, "_extract_text_from_pdf", encrypted)
+    monkeypatch.setattr(pdf_text, "_extract_text_from_pdf", encrypted)
 
     def process() -> LlamaIndexIngestor:
         ingestor = LlamaIndexIngestor({"generate_summary": False})
@@ -63,7 +48,6 @@ def _upload(tmp_path, name: str, body: bytes = b"Brandschutz im Treppenhaus.") -
 
 @pytest.fixture()
 def worked(processes, tmp_path):
-    """The worker has run one job: ``ok.txt`` indexed, ``bad.pdf`` failed. The api prepared it and ran nothing."""
     worker, api = processes
     prepared = api.prepare_job(
         [_upload(tmp_path, "ok.txt"), _upload(tmp_path, "bad.pdf", b"%PDF-1.7\n%encrypted\n")],
@@ -137,7 +121,6 @@ def test_the_api_deletes_a_failed_file_by_the_id_it_listed(worked):
     assert result["successful"] == [bad_id]
     assert result["failed"] == []
     assert set(_by_name(api)) == {"ok.txt"}
-    # Gone for the process that ran the job too: it is not a private record.
     assert set(_by_name(worker)) == {"ok.txt"}
     assert api.get_file_status(bad_id, COLLECTION) is None
 
@@ -200,7 +183,6 @@ def _job(job_id: str, submitted: datetime, state: JobState, status: FileStatus) 
 
 def test_the_newest_job_that_names_a_file_decides_its_status(processes):
     _worker, api = processes
-    # Written newest first: the order of the writes is not the order of the jobs.
     ingest_status_store.put(_job("newer", datetime(2026, 7, 2), JobState.COMPLETED, FileStatus.SUCCESS))
     ingest_status_store.put(_job("older", datetime(2026, 7, 1), JobState.FAILED, FileStatus.FAILED))
 

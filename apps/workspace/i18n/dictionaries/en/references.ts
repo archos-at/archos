@@ -1,4 +1,3 @@
-/** Similar closed projects: the page a person reads for the office's past work (ADR-0094). */
 export const references = {
   intro:
     'The office’s closed projects most like this one that you may open: what they share, the decisions made there and the conditions the authority set. {productName} draws on the same projects as precedent in chat.',

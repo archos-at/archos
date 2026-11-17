@@ -65,7 +65,6 @@ describe.skipIf(!url)('the hold on a document, against Postgres', () => {
     outcome: (typeof OUTCOMES)[number]
     authoredBy: 'user' | 'agent'
     createdBy: string
-    /** What the verdict judged (migration 0123): the row's own bytes unless a test says otherwise. */
     screened?: 'own' | 'earlier' | 'none'
   }): Promise<Row> {
     const n = rows.length
@@ -120,9 +119,6 @@ describe.skipIf(!url)('the hold on a document, against Postgres', () => {
     )
     projectId = String(Array.from(projects)[0].id)
 
-    // Every status against every verdict, by a person and by Piloti, uploaded
-    // by the reader and by somebody else, on the project shelf; and a slice of
-    // it on the Büroablage, for the per-shelf readers.
     for (const status of STATUSES) {
       for (const outcome of OUTCOMES) {
         for (const createdBy of [UPLOADER, OTHER]) {
@@ -130,8 +126,6 @@ describe.skipIf(!url)('the hold on a document, against Postgres', () => {
           await insert({ scope: 'office_shelf', status, outcome, authoredBy: 'user', createdBy })
         }
         await insert({ scope: 'project', status, outcome, authoredBy: 'agent', createdBy: OTHER })
-        // A verdict about other bytes than the row holds (a published draft, a
-        // content write on the version the item mirrors) or none at all.
         await insert({ scope: 'project', status, outcome, authoredBy: 'user', createdBy: OTHER, screened: 'earlier' })
         await insert({ scope: 'project', status, outcome, authoredBy: 'user', createdBy: OTHER, screened: 'none' })
         await insert({ scope: 'project', status, outcome, authoredBy: 'agent', createdBy: OTHER, screened: 'earlier' })
@@ -206,7 +200,6 @@ describe.skipIf(!url)('the hold on a document, against Postgres', () => {
     )
     expect(held.length).toBeGreaterThan(40)
     expect(held.filter((row) => seen.has(row.id))).toEqual([])
-    // In flight with no verdict yet is held: nobody else sees a file before its screening.
     const pending = rows.find((row) => row.status === 'pending' && row.screeningOutcome === null && row.createdBy === OTHER)
     expect(pending && seen.has(pending.id)).toBe(false)
   })
@@ -220,8 +213,6 @@ describe.skipIf(!url)('the hold on a document, against Postgres', () => {
         .where(and(eq(documents.organizationId, ORG), visibility.heldAtRest()))
     )
     const expected = rows.filter((row) => isHeldAtRest(row)).map((row) => row.id).sort()
-    // A failed upload with no verdict is among them: the case a NULL verdict
-    // used to drop out of a negated predicate for.
     expect(rows.some((row) => row.status === 'failed' && row.screeningOutcome === null && expected.includes(row.id))).toBe(true)
     expect(found.map((row) => row.id).sort()).toEqual(expected)
   })
@@ -231,7 +222,6 @@ describe.skipIf(!url)('the hold on a document, against Postgres', () => {
     const stale = rows.filter((row) => row.authoredBy === 'user' && row.screenedHash !== row.contentHash)
     expect(stale.length).toBeGreaterThan(50)
     expect(stale.filter((row) => seen.has(row.id))).toEqual([])
-    // Piloti's own documents were never an upload: no verdict binds them.
     const agentStale = rows.find((row) => row.authoredBy === 'agent' && row.screenedHash !== row.contentHash && row.status === 'completed')
     expect(agentStale && seen.has(agentStale.id)).toBe(true)
   })
@@ -251,7 +241,6 @@ describe.skipIf(!url)('the hold on a document, against Postgres', () => {
       await expect(repo.setDocumentIngestJob(upload.id, ORG, 'job-0121')).resolves.toBe(true)
       expect((await facts(upload.id)).hash).toBe(upload.contentHash)
 
-      // The bytes change while the job reads the old ones (a published draft).
       await inTenant(() => db.execute(sql`UPDATE documents SET content_hash = 'sha256:swapped' WHERE id = ${upload.id}::uuid`))
       await expect(
         repo.setDocumentReconciledStatus(
@@ -262,11 +251,9 @@ describe.skipIf(!url)('the hold on a document, against Postgres', () => {
         ),
       ).resolves.toBe(true)
       const after = await facts(upload.id)
-      // The verdict is about the bytes the job read, not the ones that replaced them.
       expect(after).toMatchObject({ status: 'completed', screened_hash: upload.contentHash, content_hash: 'sha256:swapped' })
       await expect(repo.findDocumentInOrg(upload.id, ORG, memberReader(UPLOADER))).resolves.toBeNull()
 
-      // Its own job's verdict lets the swapped bytes through.
       await expect(repo.setDocumentIngestJob(upload.id, ORG, 'job-0121-b')).resolves.toBe(true)
       await repo.setDocumentReconciledStatus(
         upload.id,
@@ -307,7 +294,6 @@ describe.skipIf(!url)('the hold on a document, against Postgres', () => {
       reader = await import('./document-reader')
     })
 
-    /** A person's upload of `hash` as the document's next published version, as a re-upload records it. */
     async function upload(documentId: string, hash: string): Promise<void> {
       await inTenant(() => versions.insertPublishedVersion({
         organizationId: ORG,
@@ -325,7 +311,6 @@ describe.skipIf(!url)('the hold on a document, against Postgres', () => {
         publishedBy: OTHER,
         publishedAt: new Date(),
       }))
-      // The replace resets the item's verdict: the new bytes are unscreened (`replaceDocumentBytes`).
       await inTenant(() =>
         db.execute(sql`
           UPDATE documents SET status = 'uploaded', screening_outcome = NULL, screened_hash = NULL
@@ -334,7 +319,6 @@ describe.skipIf(!url)('the hold on a document, against Postgres', () => {
       )
     }
 
-    /** One job over the document's current bytes, and the verdict it brings back. */
     async function screen(documentId: string, job: string, resolution: { status: 'completed' | 'quarantined'; outcome: 'clean' | 'quarantined' }) {
       await expect(repo.setDocumentIngestJob(documentId, ORG, job)).resolves.toBe(true)
       await expect(
@@ -356,7 +340,6 @@ describe.skipIf(!url)('the hold on a document, against Postgres', () => {
         (version) => `${version.versionNumber}:${version.state}=${version.screenedHash ?? '-'}`,
       )
 
-    /** What a member who did not upload it may open, by version number. */
     async function readableByAMember(documentId: string): Promise<number[]> {
       const document = await repo.findDocumentInOrg(documentId, ORG, memberReader('user_vis_nobody'))
       if (!document) return []
@@ -375,17 +358,14 @@ describe.skipIf(!url)('the hold on a document, against Postgres', () => {
       await screen(item.id, 'job-0131-a', { status: 'completed', outcome: 'clean' })
       expect(await verdicts(item.id)).toEqual([`1:published=${first}`])
 
-      // A re-upload the gate quarantines: its version records no pass.
       await upload(item.id, held)
       await screen(item.id, 'job-0131-b', { status: 'quarantined', outcome: 'quarantined' })
       expect(await verdicts(item.id)).toEqual([`1:superseded=${first}`, '2:published=-'])
 
-      // A reviewer releases it: the release is a verdict about those bytes.
       const releasedAt = new Date()
       await expect(repo.markScreeningReleased(item.id, ORG, { contentHash: held, releasedBy: UPLOADER, releasedAt })).resolves.toBe(true)
       expect(await verdicts(item.id)).toEqual([`1:superseded=${first}`, `2:published=${held}`])
 
-      // A re-upload replaced while it was still being read never passes.
       await upload(item.id, unread)
       await upload(item.id, latest)
       await screen(item.id, 'job-0131-d', { status: 'completed', outcome: 'clean' })
@@ -396,7 +376,6 @@ describe.skipIf(!url)('the hold on a document, against Postgres', () => {
         `4:published=${latest}`,
       ])
 
-      // So a member opens the screened earlier uploads, and not the unread one.
       expect(await readableByAMember(item.id)).toEqual([1, 2, 4])
     })
 
@@ -469,7 +448,6 @@ describe.skipIf(!url)('the hold on a document, against Postgres', () => {
       await expect(
         inTenant(() => db.execute(sql`UPDATE documents SET status = 'pending' WHERE id = ${quarantinedId}::uuid`))
       ).rejects.toMatchObject(refusal)
-      // A release of other bytes than the row holds is refused the same way.
       await expect(
         inTenant(() =>
           db.execute(sql`
@@ -492,7 +470,6 @@ describe.skipIf(!url)('the hold on a document, against Postgres', () => {
       })
       expect(released).toBe(true)
       expect(await statusOf(quarantinedId)).toBe('uploaded')
-      // And the dispatch after the release takes, as it always did.
       await expect(repo.setDocumentIngestJob(quarantinedId, ORG, 'job-after-release')).resolves.toBe(true)
       expect(await statusOf(quarantinedId)).toBe('pending')
     })
@@ -509,7 +486,6 @@ describe.skipIf(!url)('the hold on a document, against Postgres', () => {
         (await repo.findDocumentInOrg(id, ORG, reader)) !== null
       const expectHeld = async (id: string, at: string): Promise<void> => {
         expect(await statusOf(id), at).toBe(at)
-        // A colleague who neither uploaded nor reviews it, and a model.
         expect(await visibleTo(id, memberReader(UPLOADER)), `${at}: colleague`).toBe(false)
         expect(await visibleTo(id, SCREENED_ONLY), `${at}: model`).toBe(false)
         expect(await visibleTo(id, memberReader(OTHER)), `${at}: uploader`).toBe(true)
@@ -579,9 +555,6 @@ describe.skipIf(!url)('the hold on a document, against Postgres', () => {
         await expectHeld(failed.id, 'failed')
       })
 
-      // No CHECK ties the status to the outcome. A quarantined row with a
-      // passing outcome about its own bytes would be shown the moment its
-      // status changed, so the writer puts the holding outcome on it.
       it.each(['clean', 'released', null] as const)(
         'holds a quarantined row whose outcome column says %s',
         async (outcome) => {
@@ -596,7 +569,6 @@ describe.skipIf(!url)('the hold on a document, against Postgres', () => {
         const attempt = (set: ReturnType<typeof sql>, id: string) =>
           inTenant(() => db.execute(sql`UPDATE documents SET status = 'uploaded', ${set} WHERE id = ${id}::uuid`))
         const passing = await quarantined('clean')
-        // Nothing changed but the status: the outcome on the row passes.
         await expect(attempt(sql`updated_at = now()`, passing.id)).rejects.toMatchObject(refusal)
         const held = await quarantined()
         await expect(attempt(sql`screening_outcome = 'clean'`, held.id)).rejects.toMatchObject(refusal)
@@ -648,7 +620,6 @@ describe.skipIf(!url)('the hold on a document, against Postgres', () => {
                  (${ORG}, ${projectId}::uuid, ${passedId}::uuid, 'ready')
         `)
       )
-      // A Prüfbuch confirmation on each revision.
       await inTenant(() =>
         db.execute(sql`
           INSERT INTO bim_check_confirmations (organization_id, project_id, rule_id, model_id, confirmed_by, note)

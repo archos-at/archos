@@ -1,9 +1,3 @@
-/**
- * The thread holds at most one unresolved connection error: a second
- * `connection.failed` or `connection.lost` takes the place of the first, and
- * a socket that opens again clears the one there is. Every other error kind
- * is appended as before.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useChatStore } from '../store'
 import type { ChatMessage, Conversation } from '../types'

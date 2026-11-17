@@ -1,6 +1,6 @@
 # LLM providers — the OpenAI-compatible, agnostic model
 
-> Piloti is not tied to any LLM vendor. Any OpenAI-compatible endpoint is a valid
+> The agent is not tied to any LLM vendor. Any OpenAI-compatible endpoint is a valid
 > provider, selected entirely by configuration. See also
 > [ADR-0010](../adr/0010-llm-agnostic-openai-compatible.md).
 
@@ -67,13 +67,13 @@ binds one model per role:
 | `writer_llm` | `REPORT_WRITER` | `deep_research` |
 
 There is no generic `llm` field on deep research, so changing
-`orchestrator_llm` moves every role you did not set. Piloti reads `llm:`
+`orchestrator_llm` moves every role you did not set. The agent reads `llm:`
 (`research_llm`), and `claim_judge_llm` (`follow_ups_llm`) for the answer check
 that grades each answer against everything its turn registered (ADR-0139),
 resolved per turn on the `follow_ups` agent group and bound to temperature 0.
 The clarify step is configured by the `clarifier:` block on
 `chat_deepresearcher_agent` (`ClarifierSettings` in
-`packages/agent/src/agent/agents/piloti/clarify.py`): `llm` asks the questions and
+`packages/agent/src/agent/core/clarify.py`): `llm` asks the questions and
 `planner_llm` writes the plan, falling back to `llm` when unset.
 
 ## Runtime per-org model overrides (ADR-0014)
@@ -207,7 +207,7 @@ models cannot be rewritten per call (their client is built at boot), so a cell s
   deferred schemas in full; capability tracked neither vendor nor quality, and
   OpenRouter's `supported_parameters` has no token for it. The measurements
   are in the ADR; a new tool search starts from them rather than re-deriving
-  them. Since ADR-0052 Piloti binds its full tool set on every turn, greetings
+  them. Since ADR-0052 the agent binds its full tool set on every turn, greetings
   included; scope (`turn_tools.tools_in_scope`) is what keeps the BIM schemas
   off a turn without a project.
 - `reasoning_effort` is a **native** `ChatOpenAI` field

@@ -15,11 +15,6 @@ const door = defineLifecycle({
   },
 })
 
-/**
- * XState's interpreter is the oracle (AGENTS.md, „Buy, don't build"): the
- * helper is ours because a row's state lives in the database and a move is an
- * UPDATE, but what a statechart means is not ours to define.
- */
 export function expectAgreesWithStatechart(lifecycle: Lifecycle<string, string>): void {
   const machine = createMachine(lifecycle.statechart())
   expect(initialTransition(machine)[0].value).toBe(lifecycle.initial)

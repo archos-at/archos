@@ -1,8 +1,3 @@
-/**
- * Map structured backend source payloads (WS `sources` / SSE citation_source)
- * onto the FE CitationSource shape.
- */
-
 import type { CitationProject, CitationSource, WireCitationSource } from '../types'
 import { asShelf, asSourceKind, modernizeLane } from '@/lib/source-kinds'
 import { parsePageRegions } from '@/features/knowledge/lib/page-region'
@@ -22,10 +17,8 @@ export const normalizeOrigin = (value: unknown): CitationSource['origin'] | unde
   return undefined
 }
 
-/** The other project a source came from (ADR-0094), when the wire states a well-formed one. */
 export const projectFromWire = (value: unknown): CitationProject | undefined => {
   if (!value || typeof value !== 'object') return undefined
-  // `landNote` is what a pod that has not rolled yet still sends. Remove after one release.
   const { id, name, status, federalStateNote, landNote } = value as Record<string, unknown>
   const projectId = trimmed(id)
   if (!projectId) return undefined
@@ -37,7 +30,6 @@ export const projectFromWire = (value: unknown): CitationProject | undefined => 
   }
 }
 
-/** Build a stable-ish client id when the server does not send one. */
 const wireIdentity = (wire: WireCitationSource): string => {
   if (wire.citation_key?.trim()) return `key:${wire.citation_key.trim().toLowerCase()}`
   if (wire.url?.trim()) return `url:${wire.url.trim().toLowerCase()}`
@@ -75,7 +67,6 @@ export const citationFromWire = (
     tool: wire.tool?.trim() || undefined,
     fileName: wire.file_name?.trim() || undefined,
     page: typeof wire.page === 'number' && Number.isFinite(wire.page) ? wire.page : undefined,
-    // `punkt` is the pre-rename spelling an older pod and a stored row still carry.
     clause: trimmed(wire.clause ?? wire.punkt),
     snippet: trimmed(wire.snippet),
     score: typeof wire.score === 'number' && Number.isFinite(wire.score) ? wire.score : undefined,
@@ -84,16 +75,10 @@ export const citationFromWire = (
         ? wire.number
         : undefined,
     kind: asSourceKind(wire.kind),
-    // The shelf as the backend stated it (ADR-0047). An unrecognised or missing
-    // value stays undefined — unknown, never a default shelf.
     shelf: asShelf(wire.shelf),
     lane: trimmed(modernizeLane(wire.lane)),
     laneLabel: trimmed(wire.lane_label),
     bindingNote: trimmed(wire.binding_note),
-    // `unknown` is the backend's explicit "no registry entry matched", which
-    // on screen must be silence, not a badge — dropping it here means an
-    // unclassified source simply carries no binding chip rather than a
-    // misleading one. See WireCitationSource.bindingStatus.
     bindingStatus: bindingStatusOrUndefined(wire.binding_status),
     regions: parsePageRegions(wire.regions),
     project: projectFromWire(wire.project),
@@ -101,16 +86,11 @@ export const citationFromWire = (
   }
 }
 
-/** The line fields a source carries, each validated on its own; undefined when it carries none. */
 const lineOrUndefined = (wire: WireCitationSource): CitationLineWire | undefined => {
   const line = citationLineOf(wire)
   return hasCitationLine(line) ? line : undefined
 }
 
-/**
- * The German binding statuses a stored citation or an older pod's wire still
- * carries. Read-only: nothing writes these.
- */
 export const LEGACY_BINDING_STATUS: Readonly<Record<string, string>> = {
   bindend: 'binding',
   verbindlich_erklaert: 'declared_binding',
@@ -118,23 +98,12 @@ export const LEGACY_BINDING_STATUS: Readonly<Record<string, string>> = {
   unbekannt: 'unknown',
 }
 
-/** `unknown`/empty → undefined; any real classification kept verbatim (English spelling). */
 const bindingStatusOrUndefined = (value: string | null | undefined): string | undefined => {
   const raw = value?.trim()
   const status = raw && Object.hasOwn(LEGACY_BINDING_STATUS, raw) ? LEGACY_BINDING_STATUS[raw] : raw
   return status && status !== 'unknown' ? status : undefined
 }
 
-/**
- * Identity of an already-normalized citation, for deduplication across the two
- * events that can describe the SAME source (`citation_source` on discovery,
- * `citation_use` when the report cites it).
- *
- * Document key first, then URL, then file+page — the same precedence
- * `wireIdentity` uses, but tolerant of the small URL spelling differences
- * between the discovery payload (the tool's URL) and the citation payload (the
- * URL as extracted from the report text).
- */
 const citationIdentity = (citation: CitationSource): string => {
   const key = citation.citationKey?.trim().toLowerCase()
   if (key) return `key:${key}`
@@ -145,17 +114,9 @@ const citationIdentity = (citation: CitationSource): string => {
   return `content:${(citation.content || '').trim().toLowerCase().slice(0, 120)}`
 }
 
-/** Whether two normalized citations describe the same source. */
 export const sameCitation = (a: CitationSource, b: CitationSource): boolean =>
   citationIdentity(a) === citationIdentity(b)
 
-/**
- * Fold a later payload for the same source into the one already held.
- *
- * Field-wise "prefer the value that exists", so the sparser `citation_use`
- * event can raise `isCited` without erasing the richer discovery payload —
- * and `isCited` is sticky once true.
- */
 export const mergeCitation = (
   existing: CitationSource,
   incoming: CitationSource
@@ -164,20 +125,11 @@ export const mergeCitation = (
   ...Object.fromEntries(
     Object.entries(incoming).filter(([, value]) => value !== undefined && value !== '')
   ),
-  // Identity and first-seen time belong to the entry already in the list.
   id: existing.id,
   timestamp: existing.timestamp,
   isCited: incoming.isCited || existing.isCited,
 })
 
-/**
- * Collapse a buffered replay of citation events into the citation list.
- *
- * The SSE replay delivers `citation_source` and `citation_use` for the same
- * source as separate events, exactly as the live stream does; buffering them
- * and mapping 1:1 produced duplicate rows where the live path produced one
- * merged row. Folding them here keeps a replayed run identical to a live one.
- */
 export const dedupeBufferedCitations = (
   buffered: ReadonlyArray<{ wire: WireCitationSource; isCited?: boolean }>,
   timestamp: Date

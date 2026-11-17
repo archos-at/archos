@@ -1,9 +1,3 @@
-/**
- * Organization settings: the web-search switch is saved through its own route,
- * the one an agent calls (`organization-web-search-set`), never through the
- * generic settings save, which refuses the key.
- */
-
 import { render, screen, waitFor } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'

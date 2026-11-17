@@ -1,19 +1,3 @@
-/**
- * MainLayout Component
- *
- * The main application layout container that orchestrates:
- * - ChatToolbar (top)
- * - SessionsPanel (left, overlay)
- * - ChatArea + InputArea (center)
- *
- * Handles auth state to show different UI for logged-in vs logged-out users.
- *
- * A run is one message in the thread that commissioned it (ADR-0062): its
- * progress, its report and its findings are read there, and any deeper look
- * (a document, the sources) opens as a dialog over the thread. There is no
- * side panel.
- */
-
 'use client'
 
 import { type CSSProperties, type FC, useCallback, useMemo, useState } from 'react'
@@ -42,40 +26,18 @@ import { selectThreadPhase } from '../lib/thread-phase'
 import { TOOLBAR_CLEAR_VAR, toolbarClearance } from '../lib/toolbar-clearance'
 
 interface MainLayoutProps {
-  /** Whether the user is authenticated */
   isAuthenticated?: boolean
-  /** Callback when sign in is clicked */
   onSignIn?: () => void
-  /**
-   * Whether the collaboration surfaces are available (ADR-0032…0035): message
-   * authorship, the unread divider, the turn-in-flight banner. Threaded to
-   * ChatArea. Defaults to false — this feature is dark-launched, and it changes
-   * who can see a conversation, so it must not switch itself on for callers
-   * that have not opted in (spec NF-7/NF-8).
-   */
   canCollaborate?: boolean
-  /** Whether the reader may chat in this project (`project:chat`). */
   canChatInProject?: boolean
 }
 
-/**
- * Main application layout with all panels and regions.
- * Manages the overall structure and panel states.
- * Chat state is managed via the useChatStore.
- */
 export const MainLayout: FC<MainLayoutProps> = ({
   isAuthenticated = false,
   onSignIn,
   canCollaborate = false,
   canChatInProject = true,
 }) => {
-  // Only what the layout shows, never the conversation objects themselves:
-  // a streamed answer replaces the open conversation on every delta, and the
-  // whole shell would re-render with each one. How many messages the thread
-  // holds decides whether the toolbar calls the chat started; whether the
-  // composer is lifted off the floor into the empty canvas is the thread's
-  // PHASE, the same selector `ChatArea` draws the greeting from, so a thread
-  // whose messages are still loading keeps the composer down.
   const {
     currentConversationId,
     currentConversationTitle,
@@ -113,15 +75,9 @@ export const MainLayout: FC<MainLayoutProps> = ({
   const expandFile = useFilePreviewStore((s) => s.expand)
   const tFiles = useTranslations(filesCopy)
 
-  // Composer geometry (--composer-h, --welcome-offset, and the lift the stack
-  // travels on) — see useComposerMetrics.
-  // Shared with the /dev preview route so the two cannot drift.
   const { composerRef, columnVars, composerStyle, composerMotion } =
     useComposerMetrics(isThreadEmpty)
 
-  // The toolbar's measured height, so the transcript starts below it whatever
-  // the toolbar is made of right now (one row, two on a phone, three while the
-  // link is gone). Absent until measured: the old one-row values stand.
   const [toolbarHeight, setToolbarHeight] = useState<number | null>(null)
   const toolbarVars = useMemo<CSSProperties>(
     () =>
@@ -131,10 +87,8 @@ export const MainLayout: FC<MainLayoutProps> = ({
     [toolbarHeight]
   )
 
-  // Sync session state with URL query parameters
   const { updateSessionUrl, clearSessionUrl } = useSessionUrl({ isAuthenticated })
 
-  // Wrap selectConversation to also update URL
   const handleSelectSession = useCallback(
     (sessionId: string) => {
       selectConversation(sessionId)
@@ -143,14 +97,12 @@ export const MainLayout: FC<MainLayoutProps> = ({
     [selectConversation, updateSessionUrl]
   )
 
-  // Start a new unsaved draft session and clear URL until first interaction.
   const handleNewSession = useCallback(() => {
     startNewSessionDraft()
     useFilePreviewStore.getState().close()
     clearSessionUrl()
   }, [startNewSessionDraft, clearSessionUrl])
 
-  // Wrap deleteConversation to clear URL if deleting current session
   const handleDeleteSession = useCallback(
     (sessionId: string) => {
       const wasCurrentSession = currentConversationId === sessionId
@@ -162,9 +114,6 @@ export const MainLayout: FC<MainLayoutProps> = ({
     [deleteConversation, currentConversationId, clearSessionUrl]
   )
 
-  // Delete all sessions for the current user in the active project context
-  // (the store scopes the delete to what the panel shows here — see
-  // deleteAllConversations).
   const handleDeleteAllSessions = useCallback(() => {
     deleteAllConversations()
     clearSessionUrl()
@@ -173,9 +122,6 @@ export const MainLayout: FC<MainLayoutProps> = ({
   const isNavigationBlocked = isStreaming || pendingInteraction !== null
 
   const content = (
-    // h-full pins the chat surface to the viewport: the composer floats at the
-    // bottom and only the message list scrolls. The toolbar is no longer a top
-    // band — it floats over the chat plane (see below).
     <div className="flex h-full min-w-0 flex-col overflow-hidden">
       {/* Main Content Area - using explicit widths instead of flex for smoother animation */}
       <div className="relative flex min-h-0 flex-1 overflow-hidden">
@@ -185,21 +131,7 @@ export const MainLayout: FC<MainLayoutProps> = ({
         <ChatDropZone
           className="flex min-w-0 flex-col overflow-hidden"
           style={{
-            // Research shares the row 50/50, and this column yields half.
-            //
-            // The FILE PEEK IS NOT LISTED HERE, deliberately. It used to be:
-            // when the peek was a floating pane, this column subtracted the
-            // pane's width to clear a lane for it. `FilePreviewSplit` replaced
-            // that pane with a real resizable panel BESIDE this whole subtree,
-            // so the room is already made one level up — and subtracting it
-            // again here took it out a second time, out of a panel that had
-            // already shrunk. At 1440px that left the chat 539px wide inside an
-            // 883px panel: a 344px dead band between the conversation and the
-            // file it is about, with the resize handle stranded on the far side
-            // of it. `/dev/file-ask-split/chat` is the regression evidence.
             width: '100%',
-            // Published by useComposerMetrics; inherits into ChatArea (a
-            // descendant), which reads both via calc().
             ...columnVars,
             ...toolbarVars,
           }}
@@ -224,10 +156,6 @@ export const MainLayout: FC<MainLayoutProps> = ({
             onNewSession={handleNewSession}
             isNewSessionDisabled={isNavigationBlocked}
             isChatStarted={messageCount > 0}
-            // Collaboration affordances in the thread header: the participant
-            // strip, the access chip and the share dialog. All three are gated on
-            // the dark-launch flag AND on there being a conversation to share, so
-            // an unshared or brand-new thread shows no extra chrome at all.
             conversationId={currentConversationId ?? null}
             isCollaborationEnabled={canCollaborate}
             currentUserId={currentUserId}
@@ -238,9 +166,7 @@ export const MainLayout: FC<MainLayoutProps> = ({
             <button data-attr="chat-expand-file"
               type="button"
               onClick={expandFile}
-              // Floating over the transcript: the alpha is what `backdrop-blur`
-              // blurs, and the `supports-` step is the no-blur fallback.
-              className="border-base bg-card/70 supports-[backdrop-filter]:bg-card/60 absolute left-[max(0.75rem,env(safe-area-inset-left))] right-[max(0.75rem,env(safe-area-inset-right))] top-[var(--chat-toolbar-clear,calc(max(0.5rem,env(safe-area-inset-top))+3.5rem))] z-20 flex min-h-11 items-center gap-2 rounded-surface border px-3 py-1.5 text-left backdrop-blur shadow-xs"
+              className="bg-card/70 supports-[backdrop-filter]:bg-card/60 absolute left-[max(0.75rem,env(safe-area-inset-left))] right-[max(0.75rem,env(safe-area-inset-right))] top-[var(--chat-toolbar-clear,calc(max(0.5rem,env(safe-area-inset-top))+3.5rem))] z-20 flex min-h-11 items-center gap-2 rounded-surface px-3 py-1.5 text-left backdrop-blur shadow-xs"
             >
               <span className="min-w-0 flex-1 truncate text-xs font-medium">
                 {documentDisplayName(peekedFile)}
@@ -269,7 +195,7 @@ export const MainLayout: FC<MainLayoutProps> = ({
               {/* The scrims under and above the floating composer (`ComposerScrim`). */}
               <ComposerScrim />
 
-              {/* What Piloti's viewer actions move, for this page only (ADR-0144). */}
+              {/* What the agent's viewer actions move, for this page only (ADR-0144). */}
               <ViewerActionHost />
 
               {/* Floating composer stack: overlays the bottom of the chat scroll
@@ -283,13 +209,6 @@ export const MainLayout: FC<MainLayoutProps> = ({
                 ref={composerRef}
                 className="absolute inset-x-0 z-10 flex flex-col"
                 style={composerStyle}
-                // The composer TRAVELS between the two places it lives. On an empty
-                // canvas it sits with the greeting in the middle of the column; the
-                // first message sends it to the floor, and before this it got there
-                // between two frames — the input the reader had just been typing in
-                // vanished and an identical one appeared somewhere else. A move is
-                // what says those are the same object. The rules for when that move
-                // is real, and why it is a transform, are in `useComposerMetrics`.
                 {...composerMotion}
               >
                 {/* No sources warning - shown when no data sources or files available */}
@@ -302,9 +221,6 @@ export const MainLayout: FC<MainLayoutProps> = ({
                 <InputArea
                   isAuthenticated={isAuthenticated}
                   connectionMode="websocket"
-                  // Gates the composer's addressee statement (and the hand-off read
-                  // behind it). False — the default — is byte-for-byte today's
-                  // composer (spec NF-8).
                   canCollaborate={canCollaborate}
                   canChatInProject={canChatInProject}
                 />

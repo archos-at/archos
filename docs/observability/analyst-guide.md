@@ -1,6 +1,6 @@
-# Reading Piloti in Langfuse: a guide for analysts and the Fachbereich
+# Reading the agent in Langfuse: a guide for analysts and the Fachbereich
 
-Langfuse is where we look at how Piloti actually behaves across chat and
+Langfuse is where we look at how the agent actually behaves across chat and
 research runs: what each costs, how long it takes, and how good it is, both by
 the checks the system runs on every answer and by the people who use it. We
 improve the product from these numbers, so they are meant to be read by
@@ -23,7 +23,7 @@ exports inside the company.
 
 ## The words you will see
 
-| Langfuse word | In Piloti |
+| Langfuse word | In the app |
 |---|---|
 | **Trace** | One unit of work. A `chat-turn` trace is one question and its answer. A `research-job` is a long research run. `conversation-title`, `project-summary`, `feedback-digest` and the like are small background model calls |
 | **Session** | One chat. All turns of a conversation share it |
@@ -32,7 +32,7 @@ exports inside the company.
 | **Tag** | A label for fast filtering, like `route:deep` or `confidence:low` |
 | **Metadata** | Facts about the trace, like how many sources the answer had |
 | **Environment / release** | Which deployment, and which version of the software, produced the trace |
-| **Prompt version** | Which version of Piloti's instructions produced a model call |
+| **Prompt version** | Which version of the agent's instructions produced a model call |
 
 ## What you can measure, and where
 
@@ -114,7 +114,7 @@ dataset) when you find one the suite should always get right.
 ## Exporting
 
 Any trace list or score view can be exported as CSV or JSON from its menu.
-The platform page **Antwortqualität** in Piloti also exports votes as an Excel
+The platform page **Antwortqualität** in the app also exports votes as an Excel
 workbook ([`answer-feedback-export.md`](../technical-reference/answer-feedback-export.md)).
 Exports stay internal.
 

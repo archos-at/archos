@@ -1,28 +1,5 @@
 'use client'
 
-/**
- * `/dev/turn-outcomes?scenario=handed_off&auto=1` — every way a turn ends other
- * than a plain answer, played through the REAL socket client, hook, fold,
- * projection, store and `ChatArea`, with a scripted v2 server behind a stubbed
- * `window.WebSocket` (`./fake-socket.ts`).
- *
- * The scenarios (`./scenarios.ts`): a hand-off to a run, an answer retracted
- * mid-stream, `RUN_ERROR` during the steps, mid-stream and at the finish, a
- * question the server never acknowledges (the 30 s ack timeout), Stop pressed
- * before the first step, during the steps and mid-reveal, a full job queue, a
- * choice prompt answered, a plan approved and handed off, and a file proposal
- * accepted. Each is what a reader sees when a turn does not simply
- * answer, which is exactly where the thread used to jump, lose its words or
- * say the wrong thing (wave-2 outcomes audit). The note under the picker says
- * what to watch for.
- *
- * `auto=1` answers prompts and presses the proposal's button by itself, for a
- * headless capture; without it the page waits for you. `window.__turnOutcomes`
- * records every body the server sent, with its time.
- *
- * Development only (the `/dev` layout 404s elsewhere).
- */
-
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
@@ -38,8 +15,6 @@ import { PROJECT_ID, SCENARIO_IDS, SCENARIOS, type ScenarioId } from './scenario
 
 const config: AppConfig = { authRequired: false, fileUpload: getFileUploadConfigFromEnv() }
 
-// `useWebSocketChat` resets any other user id on mount, and the cross-user
-// guard then empties the thread (gotchas.md).
 const USER = 'default-user'
 const HARNESS_STORAGE_KEY = 'chat-store:turn-outcomes'
 const CONVERSATION_ID = 'turn-outcomes'
@@ -66,7 +41,6 @@ const openConversation = (project: boolean): Conversation => ({
   updatedAt: new Date(2026, 9, 1, 9),
 })
 
-/** Type the question into the real composer and press Enter, as a reader would. */
 const sendFromComposer = (question: string): boolean => {
   const textarea = document.querySelector<HTMLTextAreaElement>('textarea')
   if (!textarea) return false
@@ -83,7 +57,6 @@ const sendFromComposer = (question: string): boolean => {
   return true
 }
 
-/** What `auto=1` does once a prompt or a card is on screen: what a reader would. */
 const autoAnswer = (id: ScenarioId): void => {
   const respond = useChatStore.getState().respondToInteractionFn
   if (id === 'hitl_choice') respond?.('gk4')
@@ -114,7 +87,6 @@ export default function TurnOutcomesPage() {
     const at = (ms: number, run: () => void) => timers.push(window.setTimeout(run, ms))
     let connected = false
 
-    // Before anything mounts: the socket the chat opens must be the fake one.
     const uninstallSocket = installFakeSocket(scenario, {
       onOpen: () => (connected = true),
       onBody: (body) => {
@@ -146,7 +118,6 @@ export default function TurnOutcomesPage() {
     const sendWhenOpen = () => {
       if (connected && sendFromComposer(scenario.question)) {
         probe.sentAt = performance.now()
-        // Stop, as the composer's button does it.
         if (scenario.stopAt !== undefined)
           at(scenario.stopAt, () => useChatStore.getState().stopStreaming?.())
         return
@@ -182,7 +153,6 @@ export default function TurnOutcomesPage() {
                     ? 'text-foreground font-semibold'
                     : 'text-muted-foreground hover:text-foreground'
                 }
-                // A fresh page per scenario: one scripted turn per socket.
                 prefetch={false}
                 onClick={(event) => {
                   event.preventDefault()

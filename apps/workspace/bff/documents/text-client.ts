@@ -1,10 +1,3 @@
-/**
- * The typed client for `GET /api/documents/{id}/text` (ADR-0055): a text
- * document's content, bounded, for the formats the pane renders itself (plain
- * text, Markdown, CSV). Anything else answers 415, which surfaces here as a
- * thrown error the caller turns into one quiet line.
- */
-
 export interface DocumentText {
   text: string
   truncated: boolean

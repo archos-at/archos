@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  *
- * Piloti's workspace reads in a conversation, against a REAL Postgres through
+ * The in-product agent's workspace reads in a conversation, against a REAL Postgres through
  * the restricted runtime role (ADR-0093, ADR-0094, ADR-0122):
  *
  *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \
@@ -37,7 +37,6 @@ import type { AuthorizedSession } from '@/lib/auth/types'
 import { restrictedCollectionName } from '@/lib/authz/folder-access-rule'
 
 vi.mock('server-only', () => ({}))
-// No roles from WorkOS: the session's own permissions decide (`seesEverything`).
 vi.mock('@/lib/auth/membership-roles', () => ({ resolveMembershipRoles: vi.fn(async () => null) }))
 
 const STAMP = Date.now()
@@ -57,7 +56,6 @@ const ids = {
   closedRestrictedDocument: '',
 }
 
-/** Who besides the requester may open which active project (WorkOS's answer). A closed one is everyone's. */
 const opens = new Set<string>()
 vi.mock('@/lib/authz/project-membership', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/authz/project-membership')>()),
@@ -65,7 +63,6 @@ vi.mock('@/lib/authz/project-membership', async (importOriginal) => ({
     projectId === ids.closed || opens.has(`${userId}:${projectId}`)
   ),
 }))
-// The lookup's backend: the vector search answers one passage of the document named here.
 const searchHit = vi.hoisted(() => ({ collection: '', fileName: '' }))
 vi.mock('@/lib/documents/semantic-search', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/documents/semantic-search')>()),
@@ -87,7 +84,7 @@ describe('the read-gate suite is not silently skipped in CI', () => {
   })
 })
 
-describe.skipIf(!url)('Piloti’s workspace reads against Postgres', () => {
+describe.skipIf(!url)('the in-product agent’s workspace reads against Postgres', () => {
   let db: ReturnType<typeof import('@/lib/db').getDb>
   let withTenant: typeof import('@/lib/db/tenant-context').withTenant
   let gate: typeof import('./read-gate')
@@ -205,7 +202,6 @@ describe.skipIf(!url)('Piloti’s workspace reads against Postgres', () => {
     ids.openOtherDocument = await document('other', ids.other, 'offen.pdf', null)
     ids.closedDocument = await document('closed', ids.closed, 'archiv.pdf', null)
     ids.closedRestrictedDocument = await document('closed', ids.closed, 'gehalt.pdf', ids.closedFolder)
-    // A closed project takes no new folder or document, so it closes last.
     await inOrg(() =>
       db.execute(sql`
         update projects set status = 'closed', closed_at = now(), closed_by = ${OWNER}, closed_outcome = 'completed',
@@ -228,7 +224,6 @@ describe.skipIf(!url)('Piloti’s workspace reads against Postgres', () => {
       const reads = gate.readGateFor(principal(chat, ids.own, answer))
       expect(await reads.beforeRead(op('document-get'), { params: { id: ids.otherDocument } })).toBeNull()
       expect(await recordedProjects(chat)).toEqual([ids.other])
-      // The document's own folder, not the conversation's project's: the read touched only the other project.
       expect(await recordedFolders(chat)).toEqual([ids.otherFolder])
       expect(await marked(answer)).toBe(1)
     })
@@ -239,7 +234,6 @@ describe.skipIf(!url)('Piloti’s workspace reads against Postgres', () => {
       expect(await reads.beforeRead(op('document-list'), { query: { projectId: ids.other } })).toBeNull()
       expect(await recordedProjects(chat)).toEqual([ids.other])
       expect(await recordedFolders(chat)).toEqual([ids.otherFolder])
-      // A project's facts carry no folder.
       const facts = await conversation(ids.own)
       expect(await gate.readGateFor(principal(facts, ids.own)).beforeRead(op('project-get'), { params: { id: ids.other } })).toBeNull()
       expect(await recordedProjects(facts)).toEqual([ids.other])
@@ -261,7 +255,6 @@ describe.skipIf(!url)('Piloti’s workspace reads against Postgres', () => {
       expect(await recordedFolders(chat)).toEqual([ids.folder])
       expect(await recordedProjects(chat)).toEqual([])
       expect(await marked(answer)).toBe(1)
-      // A list narrowed to the turn's project runs on the same record.
       expect(await reads.beforeRead(op('conversation-list'), { query: { projectId: ids.own } })).toBeNull()
     })
 
@@ -269,7 +262,6 @@ describe.skipIf(!url)('Piloti’s workspace reads against Postgres', () => {
       const chat = await conversation(ids.own)
       const reads = gate.readGateFor(principal(chat, ids.own))
       const passage = { document: { kind: 'stored', documentId: ids.own }, passage: { text: 'Stellplatz je Wohnung', cited: false } }
-      // Naming the turn's own project does not narrow the similar-passage search: it reads every project.
       expect(await reads.beforeRead(op('passage-similar-search'), { body: { ...passage, projectId: ids.own } })).toBe(
         audience.READ_REFUSALS.spansProjects
       )
@@ -283,7 +275,6 @@ describe.skipIf(!url)('Piloti’s workspace reads against Postgres', () => {
       const reads = gate.readGateFor(principal(chat, ids.own))
       expect(await reads.beforeRead(op('document-get'), { params: { id: randomUUID() } })).toBe(audience.READ_REFUSALS.unknown)
       expect(await reads.beforeRead(op('conversation-get'), { params: { id: chat } })).toBeNull()
-      // A resource of a type the lookup cannot place names nothing it could check.
       expect(
         await reads.beforeRead(op('assignment-candidate-list'), { params: { resourceType: 'annotation', resourceId: randomUUID() } })
       ).toBe(audience.READ_REFUSALS.unknown)
@@ -342,10 +333,8 @@ describe.skipIf(!url)('Piloti’s workspace reads against Postgres', () => {
   it('refuses a read whose conversation was shared after its audience was read, and records nothing of it', async () => {
     const chat = await conversation(ids.own)
     const reads = gate.readGateFor(principal(chat, ids.own))
-    // The audience is read now: the requester's alone.
     expect(await reads.beforeRead(op('project-get'), { params: { id: ids.own } })).toBeNull()
     await share(chat, COLLEAGUE)
-    // Judged against the solo audience it read, the record under the lock sees the share.
     expect(await reads.beforeRead(op('document-get'), { params: { id: ids.otherDocument } })).toBe(
       audience.READ_REFUSALS.audienceChanged
     )

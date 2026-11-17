@@ -23,7 +23,6 @@ import type { SetupStepProps } from './types'
 
 export { questionRound, type QuestionRound } from '../../lib/question-round'
 
-/** „Wien", „Graz, Steiermark": where the register reads the location. */
 function placeOf(view: IntakeView): string | null {
   const register = view.locationRegister
   if (!register?.federalState) return null
@@ -32,18 +31,6 @@ function placeOf(view: IntakeView): string | null {
   return municipality && municipality.localeCompare(federalState, 'de', { sensitivity: 'base' }) !== 0 ? `${municipality}, ${federalState}` : federalState
 }
 
-/**
- * Step 4, Rückfragen: one question at a time (ticket 26). On the left every
- * Rückfrage of the round, grouped: what is missing in the documents (the
- * location register's inputs and the needs that decide a Gebäudeklasse), the
- * documents the location calls for, and the contradictions, where picking a
- * value settles it. On the right the one asked now, answered with the
- * wizard's own control, marked „nicht bekannt", or settled by handing in its
- * document right there; each answer moves on to the next. Nothing waits for
- * the round: „Rest später" goes on to the Steckbrief. While Piloti still
- * reads, the step says so and takes what the person already knows. The other
- * open needs stay reachable, folded into a sheet.
- */
 export function QuestionsStep({ view, canDecide, busy, canUpload, onDecide, onFiles, onNext }: SetupStepProps): JSX.Element {
   const t = useTranslations(intakeQuestionsStepCopy)
   const isMobile = useIsMobile()
@@ -64,7 +51,7 @@ export function QuestionsStep({ view, canDecide, busy, canUpload, onDecide, onFi
   const progress = { done, total, label: t('progress', { done, total }) }
   const allDone = current === null
   const desk: ReactNode = onNext ? (
-    <Button type="button" variant={allDone ? 'default' : 'outline'} className={PRIMARY_ACTION_CLASS} onClick={onNext}>
+    <Button type="button" variant={allDone ? 'default' : 'secondary'} className={PRIMARY_ACTION_CLASS} onClick={onNext}>
       {allDone ? t('next') : t('rest')}
       <ArrowRight aria-hidden />
     </Button>
@@ -138,7 +125,6 @@ export function QuestionsStep({ view, canDecide, busy, canUpload, onDecide, onFi
       ),
     }
     const { entry } = row
-    // Keyed by the item: a new question starts with an empty draft.
     if (entry.kind === 'need') return <NeedQuestion key={row.id} need={entry.need} {...shared} />
     if (entry.kind === 'request') return <RequestQuestion key={row.id} request={entry.request} {...shared} />
     return <ContradictionQuestion key={row.id} item={entry.contradiction} {...shared} />

@@ -5,7 +5,6 @@ import { asStoreState, type DeepPartial, type StoreSelector } from '@/test-utils
 import type { ChatStoreWithHydration } from '@/features/chat/store'
 import type { ChatMessage, Conversation } from '@/features/chat/types'
 
-// Mock Next.js navigation hooks
 const mockRouter = {
   replace: vi.fn(),
   push: vi.fn(),
@@ -20,7 +19,6 @@ vi.mock('next/navigation', () => ({
   useSearchParams: () => mockSearchParams,
 }))
 
-/** A real `Conversation`, so a renamed store field breaks this spec. */
 const conversation = (overrides: Partial<Conversation> = {}): Conversation => ({
   id: 'c-1',
   userId: 'user-1',
@@ -31,7 +29,6 @@ const conversation = (overrides: Partial<Conversation> = {}): Conversation => ({
   ...overrides,
 })
 
-/** The resume rule only reopens a session that has messages. */
 const message = (): ChatMessage => ({
   id: 'm-1',
   role: 'user',
@@ -39,24 +36,16 @@ const message = (): ChatMessage => ({
   timestamp: new Date('2026-07-29T08:00:00Z'),
 })
 
-// Mock chat store. `satisfies` keeps every field checked against the real store
-// while leaving the `vi.fn()` methods their inferred mock types, so the tests
-// below can still reconfigure them.
 const mockChatStore = {
   currentConversation: null as Conversation | null,
   currentUserId: null as string | null,
   conversations: [] as Conversation[],
-  // Defaults to true so every pre-existing test keeps asserting the settled
-  // behaviour it was written for; the deep-link tests below drive it false.
   serverConversationsLoaded: true as boolean,
   selectConversation: vi.fn(),
   getUserConversations: vi.fn((): Conversation[] => []),
 } satisfies DeepPartial<ChatStoreWithHydration>
 
 vi.mock('@/features/chat/store', () => ({
-  // `mockChatStore` doubles as the mock holder these tests reconfigure
-  // (`getUserConversations.mockReturnValue(...)`), so it keeps its inferred
-  // mock types and widens to the store only at this boundary.
   useChatStore: vi.fn((selector?: StoreSelector<ChatStoreWithHydration>) =>
     selector ? selector(asStoreState<ChatStoreWithHydration>(mockChatStore)) : mockChatStore
   ),
@@ -157,14 +146,6 @@ describe('useSessionUrl', () => {
       expect(mockRouter.replace).toHaveBeenCalledWith('/')
     })
 
-    /**
-     * The inbox-notification case (ADR-0035): a link into a conversation this
-     * browser has never seen, because a colleague shared it. At first render the
-     * server list has not arrived, so the id is unknown — and "unknown means
-     * stale" stripped it, dropping the recipient on whatever session was last
-     * active while the inbox row was marked read. Their one signal, spent on
-     * nothing.
-     */
     test('holds an unknown session id until the server list has been fetched', () => {
       mockSearchParams = new URLSearchParams('session=s_shared_1')
       mockChatStore.currentUserId = 'user-anna'
@@ -176,7 +157,6 @@ describe('useSessionUrl', () => {
       expect(mockRouter.replace).not.toHaveBeenCalled()
       expect(mockChatStore.selectConversation).not.toHaveBeenCalled()
 
-      // The server list lands and carries the shared conversation.
       mockChatStore.conversations = [conversation({ id: 's_shared_1' })]
       mockChatStore.serverConversationsLoaded = true
       mockChatStore.getUserConversations.mockReturnValue([
@@ -196,7 +176,6 @@ describe('useSessionUrl', () => {
       const { rerender } = renderHook(() => useSessionUrl({ isAuthenticated: true }))
       expect(mockRouter.replace).not.toHaveBeenCalled()
 
-      // Asked and answered — the id is not coming.
       mockChatStore.serverConversationsLoaded = true
       mockChatStore.conversations = [conversation({ id: 'other' })]
       rerender()
@@ -281,10 +260,8 @@ describe('useSessionUrl', () => {
 
       const { rerender } = renderHook(() => useSessionUrl({ isAuthenticated: true }))
 
-      // Trigger initial sync
       rerender()
 
-      // Change conversation
       mockChatStore.currentConversation = conversation({ id: 'session-456' })
       rerender()
 
@@ -301,10 +278,8 @@ describe('useSessionUrl', () => {
 
       const { rerender } = renderHook(() => useSessionUrl({ isAuthenticated: true }))
 
-      // Initial sync happens
       rerender()
 
-      // Clear conversation
       mockChatStore.currentConversation = null
       rerender()
 

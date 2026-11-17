@@ -1,20 +1,8 @@
-"""Unit tests for layered, scoped knowledge retrieval.
-
-Covers:
-- Collection-set resolution (legacy fixed mode, base+session, project_collections,
-  dedup, empty fallback).
-- Cross-collection rank fusion across multiple RetrievalResults, tolerating
-  failed/empty layers.
-- TTL reaper session-prefix exclusion.
-
-All tests are offline: no ChromaDB, no embeddings, no network.
-"""
-
 import pytest
 from knowledge_layer.register import KnowledgeRetrievalConfig
+from knowledge_layer.search import _resolve_target_collections
 from knowledge_layer.search import merge_results
 from knowledge_layer.search import restrict_scope_to_turn
-from knowledge_layer.search.scope import _resolve_target_collections
 
 from agent.knowledge.base import SESSION_COLLECTION_PREFIX
 from agent.knowledge.base import TTLCleanupMixin
@@ -25,12 +13,6 @@ from agent.knowledge.schema import RetrievalResult
 
 
 def _chunk(score: float, name: str = "doc.pdf", rank: int | None = None, collection: str | None = None) -> Chunk:
-    """Build one hit. ``rank`` is its 0-based rank inside the collection that produced it.
-
-    Rank is what the merge fuses on; ``score`` is the true cosine similarity and is only
-    displayed. Leaving ``rank`` unset exercises the fallback where the position in the
-    result list is the rank.
-    """
     return Chunk(
         chunk_id=f"{collection or ''}-{name}-{score}",
         content=f"content {score}",
@@ -51,11 +33,6 @@ def _result(chunks, success=True, error=None, backend="llamaindex", query="q") -
         success=success,
         error_message=error,
     )
-
-
-# =============================================================================
-# Collection-set resolution
-# =============================================================================
 
 
 class TestResolveTargetCollections:
@@ -123,7 +100,6 @@ class TestResolveTargetCollections:
         assert _resolve_target_collections(config, None) == ["oib_knowledge"]
 
     def test_empty_falls_back_to_base(self):
-        # Nothing selected: no base, no session, no projects -> fall back to base name.
         config = KnowledgeRetrievalConfig(
             collection_name="oib_knowledge",
             include_base_collection=False,
@@ -132,19 +108,8 @@ class TestResolveTargetCollections:
         assert _resolve_target_collections(config, None) == ["oib_knowledge"]
 
 
-# =============================================================================
-# Turn-level shelf subtraction
-# =============================================================================
-
-
 class TestRestrictScopeToTurn:
     def test_session_focus_drops_office_shelf_but_keeps_the_building_code(self):
-        """A subject narrows which DOCUMENTS the turn reads, not whether the law applies.
-
-        Dropping ``base`` here made the product unable to answer its own central
-        question: attach a plan, ask whether it meets the escape-route
-        requirement, and retrieval held the plan and no OIB at all.
-        """
         from agent.common.focus_file import set_turn_intent
         from agent.common.source_kinds import Shelf
         from agent.knowledge.scoping import ScopedCollection
@@ -157,7 +122,6 @@ class TestRestrictScopeToTurn:
                 ScopedCollection("s_1", Shelf.SESSION),
             ]
             kept = [entry.collection for entry in restrict_scope_to_turn(entries)]
-            # The Büroablage is still subtracted — that narrowing is what #429 asked for.
             assert "archiv_org" not in kept
             assert set(kept) == {"s_1", "oib_knowledge"}
         finally:
@@ -185,17 +149,8 @@ class TestRestrictScopeToTurn:
             set_turn_intent()
 
 
-# =============================================================================
-# Merge by cross-collection rank fusion
-# =============================================================================
-
-
 class TestMergeResults:
     def test_merge_orders_by_per_collection_rank_not_by_raw_score(self):
-        # Each collection contributes one channel. Both rank-0 hits fuse to the same
-        # score, so the base collection (channels[0]) takes the exact tie and the
-        # rank-1 hit lands last DESPITE holding the best cosine in the set. Sorting by
-        # score here is what used to throw the fusion away.
         r1 = _result([_chunk(0.5, "a.pdf", rank=0), _chunk(0.9, "b.pdf", rank=1)])
         r2 = _result([_chunk(0.7, "c.pdf", rank=0)])
         merged = merge_results([r1, r2], query="q", top_k=5, backend_name="llamaindex")
@@ -219,20 +174,14 @@ class TestMergeResults:
         r1 = _result([_chunk(0.5, "a.pdf", rank=0), _chunk(0.9, "b.pdf", rank=1), _chunk(0.1, "c.pdf", rank=2)])
         r2 = _result([_chunk(0.7, "d.pdf", rank=0), _chunk(0.8, "e.pdf", rank=1)])
         merged = merge_results([r1, r2], query="q", top_k=2, backend_name="llamaindex")
-        # The two rank-0 hits, base collection first — not the two best cosines.
         assert [(c.file_name, c.score) for c in merged.chunks] == [("a.pdf", 0.5), ("d.pdf", 0.7)]
 
     def test_unranked_layer_falls_back_to_its_position_in_the_result_list(self):
-        # Results that stamp no retrieval_rank (test doubles, anything predating
-        # the field) must keep behaving as if the returned order were the rank.
         r1 = _result([_chunk(0.5, "a.pdf"), _chunk(0.9, "b.pdf")])
         merged = merge_results([r1], query="q", top_k=5, backend_name="llamaindex", max_per_document=0)
         assert [(c.file_name, c.score) for c in merged.chunks] == [("a.pdf", 0.5), ("b.pdf", 0.9)]
 
     def test_merge_records_a_fusion_score_without_touching_the_displayed_similarity(self):
-        # format_results prints `Relevance Score:` from `score`; citation parsing
-        # anchors on that literal, so the merge must never overwrite it with a
-        # fusion score that is not a similarity at all.
         r1 = _result([_chunk(0.5, "a.pdf", rank=0)])
         merged = merge_results([r1], query="q", top_k=5, backend_name="llamaindex")
         assert merged.chunks[0].score == 0.5
@@ -255,7 +204,6 @@ class TestMergeResults:
     def test_all_failed_returns_empty_success(self):
         failed = _result([], success=False, error="Collection not found")
         merged = merge_results([failed, RuntimeError("boom")], query="q", top_k=5, backend_name="llamaindex")
-        # success=True with empty chunks so format_results renders "No relevant documents found"
         assert merged.success is True
         assert merged.chunks == []
 
@@ -266,14 +214,6 @@ class TestMergeResults:
 
 
 class TestMergeEmbeddingMismatch:
-    """A fingerprint mismatch must surface, never read as a genuine miss.
-
-    Regression: a wrong EMBED_MODEL/EMBED_BASE_URL raised RuntimeError
-    in ``_get_index``, ``_retrieve_sync`` converted it to ``success=False``,
-    and ``merge_results`` skipped the layer and returned ``success=True`` —
-    total base-corpus loss read as fewer sources.
-    """
-
     def _mismatch(self, collection: str = "oib_knowledge"):
         return _result(
             [],
@@ -335,16 +275,8 @@ class TestMergeEmbeddingMismatch:
         assert "content 0.6" in text
 
 
-# =============================================================================
-# Per-document diversity cap
-# =============================================================================
-
-
 class TestMergeDiversity:
     def test_cap_spreads_across_documents_by_displacing_deeper_ranks(self):
-        # 4 hits from one document + 1 from another, all in one collection so the fused
-        # order is that collection's own rank order: the second document must take the
-        # last slot instead of the first document's rank-2 hit.
         r1 = _result(
             [
                 _chunk(0.95, "a.pdf", rank=0),
@@ -358,13 +290,9 @@ class TestMergeDiversity:
         assert [(c.file_name, c.score) for c in merged.chunks] == [("a.pdf", 0.95), ("a.pdf", 0.90), ("b.pdf", 0.50)]
 
     def test_fill_pass_exceeds_the_cap_when_distinct_documents_run_out(self):
-        # Two documents, cap 2, four slots: the cap alone can fill only 3, so the
-        # deferred rank-2 hit must come back rather than the merge returning 3 chunks.
         r1 = _result([_chunk(0.9, "a.pdf", rank=0), _chunk(0.8, "a.pdf", rank=1), _chunk(0.7, "a.pdf", rank=2)])
         r2 = _result([_chunk(0.6, "b.pdf", rank=0)])
         merged = merge_results([r1, r2], query="q", top_k=4, backend_name="llamaindex", max_per_document=2)
-        # Fused order is a@0, b@0 (the tie goes to the base collection), a@1, a@2 — and
-        # the returned slate is that order, not "selected first, deferred appended".
         assert [(c.file_name, c.score) for c in merged.chunks] == [
             ("a.pdf", 0.9),
             ("b.pdf", 0.6),
@@ -378,15 +306,12 @@ class TestMergeDiversity:
         assert [c.score for c in merged.chunks] == [0.9, 0.8, 0.7, 0.6]
 
     def test_same_file_name_in_different_collections_counts_separately(self):
-        # Same filename on two shelves, cap 1. b.pdf is the discriminator: if the two
-        # a.pdf hits shared a document key, the second slot would go to b.pdf instead.
         base = _result([_chunk(0.9, "a.pdf", rank=0, collection="oib_knowledge"), _chunk(0.5, "b.pdf", rank=1)])
         project = _result([_chunk(0.8, "a.pdf", rank=0, collection="proj_123")])
         merged = merge_results([base, project], query="q", top_k=2, backend_name="llamaindex", max_per_document=1)
         assert [(c.file_name, c.score) for c in merged.chunks] == [("a.pdf", 0.9), ("a.pdf", 0.8)]
 
     def test_cap_one_keeps_one_chunk_per_document(self):
-        # Plain top-2 would return both a.pdf hits; the cap must hand slot 2 to b.pdf.
         r1 = _result([_chunk(0.9, "a.pdf", rank=0), _chunk(0.85, "a.pdf", rank=1), _chunk(0.5, "b.pdf", rank=2)])
         merged = merge_results([r1], query="q", top_k=2, backend_name="llamaindex", max_per_document=1)
         assert [(c.file_name, c.score) for c in merged.chunks] == [("a.pdf", 0.9), ("b.pdf", 0.5)]
@@ -397,14 +322,7 @@ class TestMergeDiversity:
         assert [(c.file_name, c.score) for c in merged.chunks] == [("a.pdf", 0.9), ("a.pdf", 0.8)]
 
 
-# =============================================================================
-# TTL reaper session-prefix exclusion
-# =============================================================================
-
-
 class _FakeReaper(TTLCleanupMixin):
-    """Minimal harness exercising the TTL cleanup logic without threads."""
-
     backend_name = "fake"
 
     def __init__(self, collections):
@@ -428,7 +346,6 @@ def _expired_collection(name: str) -> CollectionInfo:
     return CollectionInfo(
         name=name,
         backend="fake",
-        # Old timestamp so it is well past any TTL threshold.
         updated_at=datetime.now(UTC) - timedelta(days=30),
     )
 
@@ -459,21 +376,7 @@ if __name__ == "__main__":
 
 
 class TestRelevanceFloor:
-    """The grounding block must be able to say "nothing here".
-
-    Without a floor, top_k is always filled: a question the corpus cannot answer
-    still returns sixteen formatted excerpts carrying page citations and a
-    Dokumentart line asserting binding legal force. In a building-law product that
-    is the highest-consequence failure available, and it was structurally
-    impossible to express before scores became true similarities.
-    """
-
     def test_the_floor_is_disabled_by_default(self) -> None:
-        """A floor is a number on one embedding model's cosine distribution.
-
-        Shipping a default would repeat MIN_SURFACE_SCORE's whole history: a value
-        calibrated elsewhere, silently wrong here. 0 means "not calibrated yet".
-        """
         from agent.common.retrieval_settings import get_retrieval_setting
 
         assert get_retrieval_setting("knowledge.relevance_floor_pct", 0) == 0

@@ -1,4 +1,3 @@
-/** Büroablage: der organisationsweite, projektübergreifende Dokumentenspeicher (ADR-0024). */
 export const officeShelf = {
   title: 'Büroablage',
   subtitle: 'Gemeinsame Dokumente, die jedem Projekt Ihrer Organisation zur Verfügung stehen',
@@ -6,8 +5,6 @@ export const officeShelf = {
   backToProject: 'Zurück zum Projekt',
   backToNamedProject: 'Zurück zu {name}',
   toast: {
-    // Sobald die asynchrone Verarbeitung abgeschlossen ist und das Dokument
-    // organisationsweit zitierbar wird.
     ingestionComplete: '„{name}“ ist jetzt in der Büroablage – zitierbar',
   },
   workspace: {
@@ -26,8 +23,6 @@ export const officeShelf = {
     reingestConfirmDescription:
       '{productName} liest die Datei noch einmal vollständig, zum Beispiel damit Bilder in Word- und PowerPoint-Dateien erfasst werden. Bis {productName} damit fertig ist, antwortet es weiter aus dem bisher Gelesenen.',
     reingestConfirmAction: 'Erneut lesen',
-    // Ein noch laufendes Lesen beenden: Die Bytes bleiben, nichts wurde
-    // indexiert, und ein erneutes Lesen liest sie wieder. Neutral.
     cancel: 'Lesen abbrechen',
     cancelling: 'Wird abgebrochen …',
     cancelled: 'Lesen von „{name}“ abgebrochen',

@@ -1,34 +1,17 @@
-"""The locator: opening a passage the agent can already NAME.
-
-``read_passage`` exists because the only way to reach a passage used to be a
-semantic search, so a second round that already knew what it wanted paid a full
-search — reranker, requery judge and all — for a lookup it could address. These
-tests pin the four properties that make it a lookup rather than a second search:
-
-* it resolves a document by NAME (indexed name, stored display title, derived
-  OIB title) and refuses anything else instead of guessing the nearest;
-* the store sees a hard metadata filter, so what comes back is the Punkt or the
-  page that was asked for and nothing that merely resembles it;
-* the grounding block is byte-for-byte the one ``knowledge_search`` produces, so
-  citations, the ``Punkt:`` line and the ``## Trace-Lanes`` fan-out keep working
-  with nothing downstream taught about a second shape;
-* no LLM is involved anywhere on the path.
-"""
-
 from __future__ import annotations
 
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
+from knowledge_layer.read_passage import _MAX_PASSAGE_CHUNKS
+from knowledge_layer.read_passage import _READ_PASSAGE_DESCRIPTION
 from knowledge_layer.read_passage import ReadPassageConfig
+from knowledge_layer.read_passage import _clause_sort_key
+from knowledge_layer.read_passage import _document_names
+from knowledge_layer.read_passage import _matches
+from knowledge_layer.read_passage import _passage_filters
 from knowledge_layer.read_passage import read_passage
-from knowledge_layer.read_passage.tool import _MAX_PASSAGE_CHUNKS
-from knowledge_layer.read_passage.tool import _READ_PASSAGE_DESCRIPTION
-from knowledge_layer.read_passage.tool import _clause_sort_key
-from knowledge_layer.read_passage.tool import _document_names
-from knowledge_layer.read_passage.tool import _matches
-from knowledge_layer.read_passage.tool import _passage_filters
 from knowledge_layer.register import KnowledgeRetrievalConfig
 
 from agent.common.source_kinds import Shelf
@@ -45,12 +28,6 @@ def _document(file_name: str, display_title: str | None = None) -> SimpleNamespa
 
 
 def _chunk(*, clause: str | None = None, page: int | None = None, content: str = "Text", chunk_id: str = "c1") -> Chunk:
-    """A real :class:`Chunk`, because that is what the store hands back.
-
-    A SimpleNamespace would pass every assertion here and hide the one thing
-    worth pinning about the plumbing: the located chunks are re-wrapped in a
-    ``RetrievalResult``, which validates them.
-    """
     metadata: dict[str, object] = {}
     if clause:
         metadata["clause_id"] = clause
@@ -69,8 +46,6 @@ def _chunk(*, clause: str | None = None, page: int | None = None, content: str =
 
 
 class _Store:
-    """A stand-in for the retriever and the document metadata store."""
-
     def __init__(self, chunks, documents):
         self.chunks = chunks
         self.documents = documents
@@ -83,7 +58,6 @@ class _Store:
 
 @pytest.fixture
 def store(monkeypatch):
-    """One project-scoped OIB document with two Punkte on two pages."""
     chunks = [
         _chunk(clause="3.5.2", page=12, content="Fluchtweglänge …", chunk_id="a"),
         _chunk(clause="3.5.3", page=12, content="Notwendiger Treppenraum …", chunk_id="b"),
@@ -100,8 +74,6 @@ def store(monkeypatch):
         "agent.knowledge.scoping.get_scoped_collections_from_context",
         lambda: [ScopedCollection("oib_knowledge", Shelf.BASE)],
     )
-    # The formatter's three store lookups are not what these tests are about;
-    # an empty map is the documented fail-open and keeps the run database-free.
     for name in ("get_document_doc_classes", "get_document_display_titles", "get_document_folder_paths"):
         monkeypatch.setattr(f"agent.knowledge.factory.{name}", lambda _c, _f: {})
     return handle
@@ -121,8 +93,6 @@ async def _read(**kwargs) -> str:
 
 
 class TestResolution:
-    """A name resolves or it is refused. There is no third answer."""
-
     def test_a_document_answers_to_its_file_name_title_and_derived_title(self):
         names = _document_names(_document(OIB, "Hausname 2"))
         assert names == [
@@ -139,10 +109,6 @@ class TestResolution:
         ["OIB 2.1", "OIB-RL 2.1", "OIB-Richtlinie 2.1", "oib-richtlinie 2.1"],
     )
     def test_a_member_answers_to_the_names_the_family_line_uses(self, wanted: str):
-        """The inventory names a family's parts as numbers („2, 2.1, 2.2, 2.3")
-        and a conclusion names one the way the office does. Each of those used
-        to be refused — a wasted round, an empty locator layer in the
-        Herleitung — with only the edition-bearing title accepted."""
         assert _matches(_document("oib-rl_2.1_ausgabe_mai_2023.pdf"), wanted.strip().casefold())
 
     @pytest.mark.parametrize("wanted", ["OIB 2", "OIB-RL 2", "OIB-Richtlinie 2"])
@@ -161,7 +127,6 @@ class TestResolution:
         assert _matches(_document(OIB), wanted.strip().casefold())
 
     def test_a_near_name_does_not(self):
-        """The trap a fuzzy locator walks into: 2 is not 2.3."""
         assert not _matches(_document("oib-rl_2.3_ausgabe_mai_2023.pdf"), "oib-richtlinie 2, ausgabe mai 2023")
 
     async def test_an_unknown_document_is_refused_and_names_no_substitute(self, store):
@@ -169,8 +134,6 @@ class TestResolution:
 
         assert "No document in scope is named" in out
         assert "knowledge_search" in out
-        # The refusal must not have fetched anything: a locator that falls back
-        # to a search is a search with a confident label.
         assert store.calls == []
         assert "--- Result 1 ---" not in out
 
@@ -184,16 +147,12 @@ class TestResolution:
 
 
 class TestTheFilterIsTheAnswer:
-    """What comes back is what was addressed, decided by the store, not by rank."""
-
     def test_a_clause_request_filters_on_file_and_clause(self):
         assert _passage_filters(OIB, "3.5.2", None) == {
             "$and": [{"file_name": {"$eq": OIB}}, {"clause_id": {"$eq": "3.5.2"}}]
         }
 
     def test_a_page_request_compares_page_label_as_a_STRING(self):
-        """Every writer in the ingest path stores `page_label` as a string; an
-        int here matches nothing and reads as an empty document."""
         labels = [str(number) for number in range(4, 13)]
         assert _passage_filters(OIB, None, 12) == {
             "$and": [{"file_name": {"$eq": OIB}}, {"page_label": {"$in": labels}}]
@@ -208,8 +167,6 @@ class TestTheFilterIsTheAnswer:
         ]
 
     async def test_a_clause_request_drops_the_page_beside_it(self, store):
-        """Every chunk of a Punkt is filed under its first page, so a page next
-        to the number can only repeat it or empty the read."""
         await _read(document="OIB-Richtlinie 2, Ausgabe Mai 2023", clause="3.5.2", page=13)
 
         (call,) = store.calls
@@ -225,7 +182,6 @@ class TestTheFilterIsTheAnswer:
         assert {"clause_id": {"$eq": "3.5.2"}} in call["filters"]["$and"]
 
     async def test_the_former_argument_name_still_opens_the_clause(self, store):
-        """``punkt`` was the argument's name until the rename; a replayed turn still sends it."""
         await _read(document="OIB-Richtlinie 2, Ausgabe Mai 2023", punkt="3.5.2")
 
         (call,) = store.calls
@@ -245,8 +201,6 @@ class TestTheFilterIsTheAnswer:
         assert {"page_label": {"$in": [str(number) for number in range(4, 13)]}} in call["filters"]["$and"]
 
     async def test_a_continuation_page_reaches_the_chunk_that_runs_onto_it(self, store):
-        """Section chunks are filed under the page they start on: a four-page
-        report is labelled 1,1,3,3,4,4, and page 2 lives inside the second chunk."""
         spans = [(1, 1), (1, 2), (3, 3), (3, 4), (4, 4), (4, 4)]
         store.chunks = []
         for index, (label, end) in enumerate(spans):
@@ -262,7 +216,6 @@ class TestTheFilterIsTheAnswer:
         assert call["top_k"] > _MAX_PASSAGE_CHUNKS, "the window is fetched whole, then filtered"
 
     async def test_a_passage_read_says_it_read_a_locus_not_that_it_found_documents(self, store):
-        """The header of a read names what was opened, in reading order; it is not a search's count."""
         out = await _read(document=OIB, page=13)
 
         assert out.startswith(f"Read 1 passage(s) of {OIB}, S. 13, in reading order:")
@@ -276,13 +229,6 @@ class TestTheFilterIsTheAnswer:
         assert _passage_filters(OIB, "§3", None)["$and"][1] == {"clause_id": {"$in": ["§ 3", "§3"]}}
 
     async def test_neither_clause_nor_page_outlines_the_document_instead_of_refusing(self, store):
-        """Naming only the document is the OVERVIEW question, not a malformed call.
-
-        It used to be refused, and the model answered the refusal by guessing a
-        Punkt. These chunks carry no `clause_depth`, so the outline finds no
-        heading structure and falls back to the document's opening pages — two
-        fetches, and a block that says plainly there is no Gliederung to list.
-        """
         store.chunks = [_chunk(page=1, content="Titelblatt …", chunk_id="t1")]
 
         out = await _read(document=OIB)
@@ -293,7 +239,6 @@ class TestTheFilterIsTheAnswer:
         assert len(store.calls) == 2
 
     def test_the_order_is_page_then_clause_numerically(self):
-        """`3.10` after `3.9`, which a string sort gets backwards."""
         chunks = [
             _chunk(clause="3.10", page=5, chunk_id="x"),
             _chunk(clause="3.9", page=5, chunk_id="y"),
@@ -302,8 +247,6 @@ class TestTheFilterIsTheAnswer:
         assert [c.chunk_id for c in sorted(chunks, key=_clause_sort_key)] == ["z", "y", "x"]
 
     def test_a_long_tables_row_groups_come_back_in_order(self):
-        """Every row group of a table shares page and ``clause_id`` and its chunk
-        id is a random uuid: "Teil 1 von N" … "Teil N von N" came back shuffled."""
         from knowledge_layer.ingest import PageTable
         from knowledge_layer.ingest import clause_documents
 
@@ -316,7 +259,6 @@ class TestTheFilterIsTheAnswer:
         ]
         groups = [d for d in clause_documents(pages, OIB, 1) if d.metadata["chunking"] == "table"]
         assert len(groups) > 2
-        # Chunk ids that sort against the parts, as a uuid may.
         chunks = [
             _chunk(clause="Tabelle 1a", page=2, content=doc.text, chunk_id=f"{9 - index}")
             for index, doc in enumerate(groups)
@@ -331,14 +273,12 @@ class TestTheFilterIsTheAnswer:
         )
 
     def test_a_long_sections_parts_come_back_in_order(self):
-        """A tenant section cut into parts shares page and ``clause_id``; ``section_part`` orders them."""
         chunks = [_chunk(clause="3.2", page=7, chunk_id=f"{9 - n}") for n in range(1, 4)]
         for part, chunk in enumerate(chunks, start=1):
             chunk.metadata["section_part"] = part
         assert [c.metadata["section_part"] for c in sorted(chunks, key=_clause_sort_key)] == [1, 2, 3]
 
     def test_pageless_sections_come_back_in_document_order_not_alphabetically(self):
-        """A Markdown file has no page and its sections no number to sort on."""
         titles = ["Modellangaben", "Geschoße", "Bauteile nach Typ", "Materialien"]
         chunks = [_chunk(clause=title, chunk_id=title) for title in titles]
         for order, chunk in enumerate(chunks):
@@ -347,8 +287,6 @@ class TestTheFilterIsTheAnswer:
 
 
 class TestFormatParity:
-    """The block is the search's block. Nothing downstream learns a second shape."""
-
     async def test_the_located_passage_renders_exactly_as_a_searched_one(self, store):
         from knowledge_layer.search import format_results
 
@@ -378,15 +316,6 @@ class TestFormatParity:
 
 
 class TestLaneToolStamp:
-    """The hit says WHICH tool fetched it, and only the capture hears it.
-
-    The block is byte-identical to a search's (see :class:`TestFormatParity`),
-    so the renderer cannot tell the two tools apart — which is exactly why the
-    stamp exists. Without it the retrieval ledger cannot say whether an earlier
-    round OPENED a document or merely ranked it, and a first read of a
-    search-listed file renders as „bereits abgerufen".
-    """
-
     async def test_the_captured_hit_names_read_passage_as_its_tool(self, store):
         from agent.common import turn_status
 
@@ -398,17 +327,11 @@ class TestLaneToolStamp:
             turn_status.end_lane_capture(token)
 
         assert captured, "the read recorded no lane hit at all"
-        # Every hit, not merely the first: the scope has to survive the
-        # `asyncio.to_thread` hop that renders the block, and a scope entered
-        # inside the thread would be a context copy nobody reads back.
         assert {hit.get("tool") for hit in captured} == {"read_passage"}
 
     async def test_the_stamp_stays_out_of_the_block_the_model_reads(self, store):
         out = await _read(document=OIB, clause="3.5.2")
 
-        # The Trace-Lanes payload is the frontend's and the model's; which tool
-        # fetched a passage is how a repeat is derived, not something either is
-        # shown. `record_lane_hit` builds its own record for that reason.
         assert '"tool"' not in out
 
     async def test_the_scope_does_not_outlive_the_call(self, store):
@@ -419,11 +342,6 @@ class TestLaneToolStamp:
         assert turn_status.current_lane_tool() is None
 
     async def test_only_the_addressed_clause_is_returned(self, store):
-        """The stub store ignores filters, so the tool must not.
-
-        A real store applies the metadata filter; this one hands back all three
-        chunks, which is the honest worst case for a locator that trusted rank.
-        """
         out = await _read(document=OIB, clause="3.5.2")
 
         assert "Fluchtweglänge" in out
@@ -436,12 +354,9 @@ class TestTheContract:
         assert "cannot find a document from a topic (`knowledge_search` does)" in _READ_PASSAGE_DESCRIPTION
 
     def test_the_checkpoint_sentence_is_an_optional_argument(self):
-        """The slot exists; the model is not required to fill it."""
         assert "`conclusion=` is optional" in _READ_PASSAGE_DESCRIPTION
 
     async def test_a_conclusion_changes_nothing_about_what_is_opened(self, store):
-        """It is a checkpoint channel. A sentence that steered retrieval would
-        make the Herleitung a cause rather than a record of one."""
         with_sentence = await _read(document=OIB, clause="3.5.2", conclusion="Ich brauche den Treppenraum.")
         without = await _read(document=OIB, clause="3.5.2")
 

@@ -1,17 +1,11 @@
 /**
  * @vitest-environment node
  */
-/**
- * Who sees and decides the E-Mail-Eingang (D9, C1): the office's entitlement,
- * then document write on the project, asked so a closed project's mail can
- * still be read and dismissed; the address is the manager's.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
 vi.mock('@/lib/authz/projects', () => ({ requireProjectAccess: vi.fn(async () => ({ role: 'project-editor', closed: true, readsBecauseClosed: false })) }))
 vi.mock('@/lib/authz/decide', () => ({ can: vi.fn(async () => true) }))
-// The session's flags as WorkOS states them (outside a WorkOS deployment the default would answer).
 vi.mock('@/lib/authz/feature-flags', () => ({
   isInboundMailEnabled: (session: { featureFlags: string[] }) => session.featureFlags.includes('inbound-mail'),
 }))

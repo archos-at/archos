@@ -1,16 +1,3 @@
-/**
- * What a confirm does once the user has confirmed.
- *
- * The tone icon and the button order are design; this file is about the part
- * every caller silently depends on — the outcome of `onConfirm` decides whether
- * the dialog closes. A refused mutation must not look like a success (that is
- * the contract `ShareDialog` leans on: its `sharing.*` calls resolve `false` and
- * it throws to keep the dialog up), the refusal must leave the dialog usable
- * rather than stuck pending, and it must stay a caught rejection rather than an
- * unhandled one — the click handler fires this with `void`, so nothing else
- * would catch it.
- */
-
 import { useState } from 'react'
 import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -19,11 +6,6 @@ import { ConfirmDialog } from './confirm-dialog'
 
 const CONFIRM = 'Zugriff entziehen'
 
-/**
- * Rendered open, with the caller owning `open` as every real caller does — so
- * "the dialog closes" is observable as the dialog leaving the DOM, not merely as
- * a callback having fired.
- */
 function renderDialog(onConfirm: () => void | Promise<void>) {
   const onOpenChange = vi.fn()
 
@@ -72,24 +54,15 @@ describe('ConfirmDialog', () => {
 
     await user.click(confirmButton())
 
-    // Closing here is the damaging version: the user watches the confirmation
-    // dismiss exactly as it does on success, while the explanation appears on a
-    // surface behind it — so a refusal reads as a completed action.
     await waitFor(() => expect(onConfirm).toHaveBeenCalled())
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     expect(onOpenChange).not.toHaveBeenCalledWith(false)
 
-    // And the pending flag is cleared on the way out, or the dialog the user is
-    // left staring at has two disabled buttons and no way forward but Escape.
     await waitFor(() => expect(confirmButton()).toBeEnabled())
     expect(screen.getByRole('button', { name: 'Abbrechen' })).toBeEnabled()
   })
 
   it('does not let the refusal escape as an unhandled rejection', async () => {
-    // `onClick` fires this with `void`, so the `catch` in `handleConfirm` is the
-    // only thing between a refused mutation and an unhandled rejection — which
-    // in the browser is a console error and a noise spike in error reporting for
-    // an outcome the product handles deliberately.
     const unhandled: unknown[] = []
     const record = (reason: unknown) => {
       unhandled.push(reason)
@@ -102,7 +75,6 @@ describe('ConfirmDialog', () => {
       )
 
       await user.click(confirmButton())
-      // Rejections are reported at the end of a turn, not inside it.
       await new Promise((resolve) => setTimeout(resolve, 20))
 
       expect(unhandled).toEqual([])
@@ -124,8 +96,6 @@ describe('ConfirmDialog', () => {
     await user.click(confirmButton())
     await waitFor(() => expect(confirmButton()).toHaveAttribute('aria-disabled', 'true'))
 
-    // Escaping out mid-flight would hide a mutation that is still going to land
-    // (or still going to fail) behind a dialog the user believes they cancelled.
     await user.keyboard('{Escape}')
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     expect(onOpenChange).not.toHaveBeenCalled()

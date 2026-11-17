@@ -6,7 +6,6 @@ import type { SearchBody, SearchKind, SearchResponse, SearchScopeQuery } from '@
 import { postSearch } from '../lib/search-client'
 import type { SectionView } from '../lib/sections'
 
-/** One question's answer as it landed: how long the browser waited, and the route's `Server-Timing`. */
 export interface AnsweredSearch {
   scope: SearchScopeQuery
   body: SearchBody
@@ -31,7 +30,6 @@ export interface SearchResults {
   loadMore: (kind: SearchKind) => void
 }
 
-/** `earlier` and then the hits of `later` it does not already hold: a document is one row, once. */
 export function appendUnique<T extends { id: string }>(earlier: readonly T[], later: readonly T[]): T[] {
   const seen = new Set(earlier.map((hit) => hit.id))
   const out = [...earlier]
@@ -43,21 +41,6 @@ export function appendUnique<T extends { id: string }>(earlier: readonly T[], la
   return out
 }
 
-/**
- * The answer to one question, and its sections' further pages.
- *
- * A new question aborts the one in flight, so a slow answer to the words typed
- * a moment ago never lands over the answer to the words typed now. A section's
- * next page asks the same question for that kind alone, from the cursor the
- * last page gave (`nextCursor`, ADR-0131).
- *
- * Each cursor is asked once per question. The end of a list can be reached
- * twice before a re-render (the observer and a click in one frame), and both
- * read the same `more`; the cursors asked live in a ref, which they share. A
- * page that hands back a cursor already asked has not moved on, so the
- * section ends there instead of asking it again, and a document a later page
- * repeats is dropped (`appendUnique`): React keys rows by id.
- */
 export function useSearchResults(scope: SearchScopeQuery, body: SearchBody, onAnswered?: (answer: AnsweredSearch) => void): SearchResults {
   const key = JSON.stringify([scope, body])
   const [response, setResponse] = useState<SearchResponse | null>(null)
@@ -67,7 +50,6 @@ export function useSearchResults(scope: SearchScopeQuery, body: SearchBody, onAn
   const [more, setMore] = useState<Partial<Record<SearchKind, MorePage>>>({})
   const current = useRef(key)
   const asked = useRef<Partial<Record<SearchKind, Set<string>>>>({})
-  // Heard for the question's own answer, not a section's further page (telemetry: `search_issued`).
   const answeredRef = useRef(onAnswered)
   useEffect(() => {
     answeredRef.current = onAnswered
@@ -123,7 +105,6 @@ export function useSearchResults(scope: SearchScopeQuery, body: SearchBody, onAn
         })
         .catch(() => {
           if (current.current !== question) return
-          // A failed page may be asked again, by the reader's click.
           cursors.delete(cursor)
           setMore((pages) => ({ ...pages, [kind]: { hits: pages[kind]?.hits ?? [], nextCursor: cursor, loading: false, failed: true } }))
         })

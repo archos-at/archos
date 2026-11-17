@@ -6,7 +6,7 @@
  *
  * The claim (ADR-0078) is that a shelf is a parameter: the same code files,
  * renames, moves and deletes folders on both, and what the Archiv adds is only
- * who may (`org:archiv:manage`), where its collection is, and that a folder row
+ * who may (`org:office_shelf:manage`), where its collection is, and that a folder row
  * carries its tenant and shelf. The database's half of that — a parent and a
  * document held on their own shelf and tenant — is
  * `tenant-isolation.integration.spec.ts`; this suite pins the service's half
@@ -71,7 +71,6 @@ const folder = (id: string, name: string, path: string, parentId: string | null 
   updatedAt: NOW,
 })
 
-/** A drizzle handle that answers `select`s in order and records every write. */
 function fakeDb(selects: Array<Array<ReturnType<typeof folder>>>) {
   const writes = {
     inserted: [] as Array<Record<string, unknown>>,
@@ -142,7 +141,7 @@ describe('who may touch the Archiv shelf', () => {
     ['update', () => updateShelfFolder(session, OFFICE_SHELF, { folderId: 'f-1', name: 'Neu' })],
     ['delete', () => deleteShelfFolder(session, OFFICE_SHELF, 'f-1')],
     ['ensure', () => ensureShelfFolderPaths(session, OFFICE_SHELF, { parentId: null, paths: ['A/B'] })],
-  ])('refuses %s to a member without org:archiv:manage, before touching the database', async (_name, run) => {
+  ])('refuses %s to a member without org:office_shelf:manage, before touching the database', async (_name, run) => {
     vi.mocked(canManageOfficeShelf).mockReturnValue(false)
 
     await expect(run()).rejects.toBeInstanceOf(ForbiddenError)
@@ -282,11 +281,8 @@ describe('deleting an Archiv folder', () => {
     const result = await deleteShelfFolder(session, OFFICE_SHELF, 'f-2')
 
     expect(result.ok && result.result).toEqual({ documentsMoved: 1, foldersMoved: 1 })
-    // The row goes: the Archiv has no Papierkorb and no tombstone (ADR-0088),
-    // only a project folder's delete keeps one, and that is not this function.
     expect(fake.writes.deleted).toBe(1)
     expect(fake.writes.updated).not.toContainEqual(expect.objectContaining({ deletedAt: expect.anything() }))
-    // The child moves up a level, carrying its path with it.
     expect(fake.writes.updated).toContainEqual(
       expect.objectContaining({ parentId: 'f-1', path: 'Normen/Alt' }),
     )

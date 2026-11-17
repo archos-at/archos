@@ -5,7 +5,6 @@ import { describe, expect, it } from 'vitest'
 
 import { canManageBudgets, canManageCompliance, canManageModels, isOrgAdmin } from './organizations'
 import {
-  acceptedPermissionSlugs,
   hasPermission,
   ORG_PERMISSIONS,
   PLATFORM_PERMISSIONS,
@@ -22,9 +21,6 @@ describe('permission registry', () => {
   })
 
   it("a role NAME grants nothing: the token's claim is the only answer", () => {
-    // There was a catalog-derived implication from the role slug, so a role
-    // named `admin` held the whole Admin bundle whatever WorkOS said it held.
-    // The deploy applies the catalog to WorkOS, so the claim already carries it.
     expect(hasPermission(session('admin'), ORG_PERMISSIONS.settingsManage)).toBe(false)
     expect(hasPermission(session('admin'), ORG_PERMISSIONS.projectsAdminister)).toBe(false)
     expect(hasPermission(session('org-auditor'), ORG_PERMISSIONS.auditView)).toBe(false)
@@ -42,7 +38,6 @@ describe('permission registry', () => {
   })
 
   it('a platform permission is never answered from a tenant session', () => {
-    // Platform access is membership of the platform org (lib/authz/platform).
     expect(hasPermission(session('org-platform-owner'), PLATFORM_PERMISSIONS.organizationsView)).toBe(false)
     expect(hasPermission(session('admin', ['org:settings:manage']), PLATFORM_PERMISSIONS.usageView)).toBe(false)
   })
@@ -59,15 +54,5 @@ describe('permission registry', () => {
     expect(isOrgAdmin(session('member', ['org:settings:manage']))).toBe(true)
     expect(isOrgAdmin(session('member', ['widgets:users-table:manage']))).toBe(true)
     expect(isOrgAdmin(session('member'))).toBe(false)
-  })
-})
-
-describe('the renamed office-shelf permission', () => {
-  it('counts a grant under the old slug as a grant of the new one', () => {
-    expect(acceptedPermissionSlugs('org:office_shelf:manage')).toEqual(['org:office_shelf:manage', 'org:archiv:manage'])
-    expect(acceptedPermissionSlugs('org:models:manage')).toEqual(['org:models:manage'])
-    expect(hasPermission({ permissions: ['org:archiv:manage'] }, ORG_PERMISSIONS.officeShelfManage)).toBe(true)
-    expect(hasPermission({ permissions: ['org:office_shelf:manage'] }, ORG_PERMISSIONS.officeShelfManage)).toBe(true)
-    expect(hasPermission({ permissions: [] }, ORG_PERMISSIONS.officeShelfManage)).toBe(false)
   })
 })

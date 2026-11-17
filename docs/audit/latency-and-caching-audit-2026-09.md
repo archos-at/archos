@@ -309,8 +309,12 @@ they are (the credential cache is deliberately per-process, ADR-0022).
 
 ### 3.7 The in-flight ingest hold
 
-**[LANDED, the read]** The read is one of the gathered branches now. The
-narrowing of the wait itself is still open.
+**[LANDED]** The read is one of the gathered branches now, and the wait is
+narrowed: only a file attached to this conversation (the session shelf) holds
+the turn (`turn/inventory.py`, `held_uploads`). A project or office-filing file
+still being read is named to the model and never waited for. Before that, in a
+busy project nearly every turn waited the full twenty seconds for somebody
+else's upload, a greeting included.
 
 `register.py:1168-1182` polls `ingest_status_store.in_flight_files` for up to
 `GRID_INGEST_WAIT_SECONDS` (default 20, `:126`) when anything in scope is still

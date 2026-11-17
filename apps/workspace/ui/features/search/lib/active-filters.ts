@@ -1,11 +1,3 @@
-/**
- * The filters a search has set, each with the search it leaves behind when
- * taken off: the chips over the results are this list.
- *
- * What a chip says is decided in the component (it needs the dictionary); what
- * removing it does is decided here, so it can be specced.
- */
-
 import type { DocumentFilters, FactFilter } from '@/lib/search/search-wire'
 import { compactFilters, type SearchUrlState } from './search-url'
 
@@ -22,7 +14,6 @@ export type ActiveFilterValue =
 
 export interface ActiveFilter {
   id: string
-  /** The i18n key of the field's name, under `search`. */
   labelKey: string
   value: ActiveFilterValue
   next: SearchUrlState
@@ -77,12 +68,10 @@ export function activeFilters(state: SearchUrlState): ActiveFilter[] {
   return out
 }
 
-/** The search with every filter off; the words, the view and the order stay. */
 export function clearFilters(state: SearchUrlState): SearchUrlState {
   return { ...state, filters: {}, projectId: null }
 }
 
-/** A comma list as the form takes it: „C, D“ → ["C", "D"], empty parts dropped. */
 export function splitList(value: string): string[] {
   return [...new Set(value.split(',').map((part) => part.trim()).filter((part) => part !== ''))]
 }

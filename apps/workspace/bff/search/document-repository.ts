@@ -1,14 +1,3 @@
-/**
- * The documents a search finds, in one statement with their authorization
- * (ADR-0136): `documents` under the reach's predicate, the search projection
- * (`document_search_facets`) for what each document is, the project and the
- * folder for where it lives. The page, the total and every facet count use the
- * same WHERE, so a count never includes a document the page would not show.
- *
- * The predicate is the listing's (`listingWhere`) widened from one shelf to the
- * reach: the shelf, the lifecycle, the hidden folders, `documentVisibleTo`.
- */
-
 import { OFFICE_TIME_ZONE } from '@/lib/format'
 import 'server-only'
 import { and, asc, desc, eq, gte, inArray, isNull, lte, ne, notInArray, or, sql, type SQL } from 'drizzle-orm'
@@ -29,31 +18,18 @@ import type { DocumentFilters, SearchSort } from './search-wire'
 
 const f = documentSearchFacets
 
-/** The generated full-text column, which the drizzle table does not declare (it is never written). */
 const SEARCH_VECTOR = sql.raw('"document_search_facets"."search_vector"')
 
-/** A reference filter written as a payload token: `norm:önorm b 1600`. */
 const TOKEN = /^(norm|law|plan|document):.+$/
 
-/** What a `citedBy` or `citing` filter resolved to, read for the reader beforehand (`./document-search.ts`). */
 export interface ReferenceTargets {
-  /** Squashed plan numbers and document types the documents must carry. */
   planKeys: readonly string[]
   documentTypes: readonly string[]
 }
 
-/** The text part of a search, as the WHERE and the ranking read it. */
 export interface TextMatch {
   text: string
-  /** {@link contentKey} of the content search's documents, best first. */
   contentKeys: readonly string[]
-  /**
-   * The same documents' ids, aligned with `contentKeys`. A hit joins by its id
-   * when it carries one (its key is then `''`), else by its key (its id `''`),
-   * and a key joins only a document a person uploaded, as `joinHitsToFiles`
-   * does: a machine-written row can share a name, and a row is never handed
-   * another document's passage.
-   */
   contentIds?: readonly string[]
 }
 
@@ -64,22 +40,14 @@ export interface DocumentQuery {
   citing: ReferenceTargets | null
 }
 
-/**
- * The separator of a content key. Not NUL: Postgres text cannot hold it, so a
- * NUL-joined key fails as a parameter (`invalid byte sequence for encoding
- * "UTF8": 0x00`) and `chr(0)` is refused outright. U+001F (unit separator) is
- * valid text and appears in neither a collection name nor a file name.
- */
 const CONTENT_KEY_SEPARATOR = '\u001f'
 
-/** How a content search hit names its document: its collection and file name, joined. */
 export function contentKey(collectionName: string, filename: string): string {
   return `${collectionName}${CONTENT_KEY_SEPARATOR}${filename}`
 }
 
 const contentKeyOf = sql`(${documents.collectionName} || chr(31) || ${documents.filename})`
 
-/** The reach as a predicate over `documents`: the shelves, the hidden folders, the hold. */
 export function reachWhere(reach: SearchReach, includeArchived: boolean): SQL | undefined {
   const projectIds = reach.projects.map((reached) => reached.project.id)
   const hidden = reach.projects.flatMap((reached) => reached.hiddenFolderIds)
@@ -102,7 +70,6 @@ const between = (column: SQL | typeof f.planDate, range: { from?: string; to?: s
   ...(range?.to ? [sql`${column} <= ${range.to}`] : []),
 ]
 
-/** One `cites` entry: a token exactly, or any reference whose key or label carries the words. */
 function citesWhere(entry: string): SQL {
   const lowered = entry.normalize('NFC').toLowerCase().trim()
   if (TOKEN.test(lowered)) return sql`${f.referenceTokens} @> ARRAY[${lowered}]::text[]`
@@ -136,7 +103,6 @@ function targetsWhere(targets: ReferenceTargets): SQL {
   ) ?? sql`false`
 }
 
-/** What the filters ask of the reading and the row. Within a list any of; across fields all of. */
 export function filtersWhere(filters: DocumentFilters, timeZone: string = OFFICE_TIME_ZONE): SQL[] {
   const where: SQL[] = []
   const anyOf = (parts: SQL[]): void => {
@@ -166,7 +132,6 @@ export function filtersWhere(filters: DocumentFilters, timeZone: string = OFFICE
   const family = readFamilyWhere(filters.states)
   if (family) where.push(family)
   if (filters.incompleteRead) where.push(sql`${f.pagesNotRead} > 0`)
-  // Array operators, not an index: under RLS no index serves them (0185's header), and these run over the reach's rows.
   if (filters.factsChanged) where.push(sql`cardinality(${f.changedFactKeys}) > 0`)
   if (filters.changedFacts?.length) where.push(sql`${f.changedFactKeys} && ${pgTextArray(filters.changedFacts)}`)
   anyOf((filters.fileTypes ?? []).map((extension) => sql`lower(${documents.filename}) LIKE ${`%.${extension}`}`))
@@ -175,15 +140,9 @@ export function filtersWhere(filters: DocumentFilters, timeZone: string = OFFICE
   return where
 }
 
-/**
- * The words as a query over `search_vector`, in both spellings the vector holds
- * (migration 0188): as typed, and folded by `fold_german`, so
- * „Flaechenwidmung“ and „Flächenwidmung“ find the same documents.
- */
 const tsQuery = (text: string): SQL =>
   sql`(websearch_to_tsquery('german', ${text}) || websearch_to_tsquery('german', fold_german(${text})))`
 
-/** The text predicate: the name, what the document is (the reading), or its content. */
 function textWhere(text: TextMatch): SQL {
   const squashed = squashDrawingNumber(text.text)
   return or(
@@ -197,7 +156,6 @@ function textWhere(text: TextMatch): SQL {
   ) as SQL
 }
 
-/** The whole WHERE of a document search. */
 export function documentSearchWhere(reach: SearchReach, query: DocumentQuery): SQL | undefined {
   return and(
     reachWhere(reach, query.filters.includeArchived === true),
@@ -215,18 +173,10 @@ function pgTextArray(values: readonly string[]): SQL {
   return values.length === 0 ? sql`ARRAY[]::text[]` : sql`ARRAY[${sql.join(values.map((value) => sql`${value}`), sql`, `)}]::text[]`
 }
 
-/** The ids a content search named, without the blanks of hits that carried none. */
 function contentIdsOf(text: TextMatch): string[] {
   return (text.contentIds ?? []).filter((id) => id !== '')
 }
 
-/**
- * Where the content search placed a row (1 is its best), null when it did not:
- * by the hit's document id when it named one, else by collection and file name.
- * It orders before {@link relevance}: a weight inside one sum let a name match
- * (0.3) outrank the content search's best hit (1/6), so a file merely named
- * like the words came before the one whose passage answers them.
- */
 function contentPosition(text: TextMatch): SQL<number | null> {
   return sql<number | null>`coalesce(
     array_position(${pgTextArray(text.contentIds ?? [])}, ${documents.id}::text),
@@ -234,7 +184,6 @@ function contentPosition(text: TextMatch): SQL<number | null> {
   )`
 }
 
-/** The relevance of a row the content search did not rank, or among equals: the reading, then the name. */
 function relevance(text: TextMatch): SQL<number> {
   return sql<number>`(
     coalesce(ts_rank(${SEARCH_VECTOR}, ${tsQuery(text.text)}), 0)
@@ -269,7 +218,6 @@ function orderOf(sort: SearchSort, dir: 'asc' | 'desc', text: TextMatch | null):
   return [dir === 'asc' ? sql`${column} ASC NULLS LAST` : sql`${column} DESC NULLS LAST`, asc(documents.id)]
 }
 
-/** One row of a document result, as the service turns it into a hit. */
 export interface DocumentSearchRow {
   id: string
   filename: string
@@ -279,14 +227,12 @@ export interface DocumentSearchRow {
   projectName: string | null
   folderId: string | null
   folderName: string | null
-  /** `project_folders.path`, the stored path from the shelf root; '' at the root. */
   folderPath: string
   collectionName: string
   status: string
   contentType: string | null
   createdAt: Date
   createdBy: string
-  /** Whose hand wrote it: a content hit joined by name may only become a person's own upload. */
   authoredBy: string
   documentType: string | null
   title: string | null
@@ -300,13 +246,11 @@ export interface DocumentSearchRow {
   superseded: boolean
   changedFacts: SearchFacetChange[]
   municipality: string | null
-  /** The Verfasser: the first party the reading names as architect, else as author. */
   author: string | null
   matchedName: boolean
   matchedReading: boolean
 }
 
-/** One page of the documents a search finds, and how many there are. */
 export async function searchDocumentPage(
   reach: SearchReach,
   query: DocumentQuery,
@@ -326,7 +270,6 @@ export async function searchDocumentPage(
         projectName: projects.name,
         folderId: documents.folderId,
         folderName: projectFolders.name,
-        // The path is stored and rewritten with every rename and move (`documents/shelf-folders.ts`), so the page reads it off the join it already has.
         folderPath: sql<string>`coalesce(${projectFolders.path}, '')`,
         collectionName: documents.collectionName,
         status: documents.status,
@@ -386,10 +329,8 @@ export async function searchDocumentPage(
   }
 }
 
-/** Most values one facet answers. */
 export const FACET_VALUES_MAX = 30
 
-/** The value expression of each facet, and whether it needs a lateral unnest of a list column. */
 const FACET_VALUE: Record<string, SQL> = {
   documentType: sql`${f.documentType}`,
   tag: sql`unnest(${f.tags})`,
@@ -399,19 +340,11 @@ const FACET_VALUE: Record<string, SQL> = {
   cites: sql`unnest(${f.referenceTokens})`,
   status: sql`lower(${documents.status})`,
   uploader: sql`${documents.createdBy}`,
-  // A match test, then the last dot's part: the same value as `substring(... from '\.([A-Za-z0-9]{1,8})$')`,
-  // whose capture group sends Postgres down its slow regex path (measured: 120 ms against 45 ms over
-  // 60,000 names), and this facet runs over every matched row (`search-latency.integration.spec.ts`).
   fileType: sql`CASE WHEN ${documents.filename} ~ '\\.[A-Za-z0-9]{1,8}$' THEN lower(split_part(${documents.filename}, '.', -1)) END`,
   changedFact: sql`unnest(${f.changedFactKeys})`,
 }
 export type FacetKey = keyof typeof FACET_VALUE
 
-/**
- * The same values read off the matched set of {@link facetCountsOnce}: its
- * columns, not the tables'. Keyed like {@link FACET_VALUE}, so a facet has one
- * meaning on both paths.
- */
 const FACET_ON_MATCHED: Record<FacetKey, SQL> = {
   documentType: sql.raw('matched.document_type'),
   tag: sql.raw('unnest(matched.tags)'),
@@ -427,17 +360,6 @@ const FACET_ON_MATCHED: Record<FacetKey, SQL> = {
 
 type FacetRows = Record<string, Array<{ value: string; count: number }>>
 
-/**
- * Per facet, the values the matched documents hold and how many hold each,
- * most first, at most {@link FACET_VALUES_MAX}.
- *
- * Two plans, by what the WHERE costs. Without text each facet is its own
- * statement, run side by side (measured 132/151 ms p50/p95 for all eight over
- * 18,000 matched documents). With text the predicate (the name, the German
- * vector, the content ids) would be evaluated eight times, so the matched set
- * is read once into a materialized CTE and every facet counts over it (231 ms
- * p95 the first way; `search-latency.integration.spec.ts`).
- */
 export async function documentFacetCounts(
   reach: SearchReach,
   query: DocumentQuery,
@@ -446,7 +368,6 @@ export async function documentFacetCounts(
   return query.text ? facetCountsOnce(reach, query, keys) : facetCountsSideBySide(reach, query, keys)
 }
 
-/** Exported for the spec that holds both plans to one answer. */
 export async function facetCountsSideBySide(reach: SearchReach, query: DocumentQuery, keys: readonly FacetKey[]): Promise<FacetRows> {
   const where = documentSearchWhere(reach, query)
   const results = await withTenant({ organizationId: reach.organizationId }, () =>
@@ -472,7 +393,6 @@ export async function facetCountsSideBySide(reach: SearchReach, query: DocumentQ
   return Object.fromEntries(results)
 }
 
-/** Exported for the spec that holds both plans to one answer. */
 export async function facetCountsOnce(reach: SearchReach, query: DocumentQuery, keys: readonly FacetKey[]): Promise<FacetRows> {
   if (keys.length === 0) return {}
   const where = documentSearchWhere(reach, query)
@@ -507,12 +427,6 @@ export async function facetCountsOnce(reach: SearchReach, query: DocumentQuery, 
   return out
 }
 
-/**
- * How many documents in reach Piloti has not read yet: no projection row, so
- * no facet counts them and no reading filter can find them. Over the reach,
- * not the filters: a reading filter admits none of them by construction, so
- * counting them under it would always say 0.
- */
 export async function countUnreadDocuments(reach: SearchReach, includeArchived: boolean): Promise<number> {
   const [row] = await withTenant({ organizationId: reach.organizationId }, () =>
     getDb()
@@ -524,7 +438,6 @@ export async function countUnreadDocuments(reach: SearchReach, includeArchived: 
   return Number(row?.unread ?? 0)
 }
 
-/** What one document in reach says it is and points at, for a `citedBy` or `citing` filter; null when out of reach. */
 export async function readReferenceSubject(
   reach: SearchReach,
   documentId: string
@@ -541,24 +454,16 @@ export async function readReferenceSubject(
   return { planNumberKey: row.planNumberKey, documentType: row.documentType, referenceTokens: row.referenceTokens ?? [] }
 }
 
-/** One document a query's filters admit, as the content search's pre-filter names it. */
 export interface CandidateDocument {
   id: string
-  /** Its file name when a person uploaded it: what a passage written before `grid_document_id` names it by; null otherwise. */
   filename: string | null
 }
 
-/**
- * The documents a query's filters admit, without its text, at most `max` (the
- * content search's pre-filter: ADR-0136 item 5). A list one longer than `max`
- * means "too many to name", and the caller narrows by payload instead.
- */
 export async function listCandidateDocuments(reach: SearchReach, query: DocumentQuery, max: number): Promise<CandidateDocument[]> {
   const rows = await withTenant({ organizationId: reach.organizationId }, () =>
     getDb()
       .select({
         id: documents.id,
-        // Only a person's upload is indexed, and a hit joins by name only to one (`joinHitsToFiles`).
         filename: sql<string | null>`CASE WHEN ${documents.authoredBy} = 'user' THEN ${documents.filename} END`,
       })
       .from(documents)

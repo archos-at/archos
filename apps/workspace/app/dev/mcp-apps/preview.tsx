@@ -1,14 +1,11 @@
 'use client'
 
-/** The five frames of `/dev/mcp-apps`; what each shows is in `page.tsx`. */
-
 import type { McpUiHostContext } from '@modelcontextprotocol/ext-apps/app-bridge'
 import { FILE_PROPOSAL, HOST_STYLES, OPERATION_PROPOSAL, READ_ONLY_PROPOSAL } from './fixtures'
 import { HostFrame } from './host-frame'
 
 const styles = { variables: HOST_STYLES }
 
-// Module constants: a host context that changed identity would reconnect its frame.
 const LIGHT: McpUiHostContext = { theme: 'light', locale: 'en-US', styles }
 const DARK: McpUiHostContext = { theme: 'dark', locale: 'en-US', styles }
 const PLAIN: McpUiHostContext = { theme: 'light', locale: 'en-US' }

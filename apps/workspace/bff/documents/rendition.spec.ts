@@ -40,7 +40,6 @@ const DOCX_BYTES = new Uint8Array([0x50, 0x4b, 0x03, 0x04])
 const commands = () => send.mock.calls.map(([command]) => command as unknown)
 const puts = () => commands().filter((c): c is PutObjectCommand => c instanceof PutObjectCommand)
 
-/** No rendition yet; the original is readable. */
 const storeWithoutRendition = () => {
   send.mockImplementation(async (command: unknown) => {
     if (command instanceof HeadObjectCommand) throw Object.assign(new Error('NotFound'), { name: 'NotFound' })
@@ -75,9 +74,6 @@ describe('isRenditionEnabled', () => {
 })
 
 describe('extractsFromRendition', () => {
-  // The list itself is `preview-types.spec.ts`'s subject. Pinned here is the
-  // one boundary the dispatch turns on: Word and decks read the PDF, a modern
-  // workbook keeps its structure-preserving extractor (ADR-0071).
   it('sends Word and presentation files to the rendition and keeps .xlsx on its own extractor', () => {
     expect(extractsFromRendition('Baubeschreibung.docx')).toBe(true)
     expect(extractsFromRendition('piloti/doc-1/Präsentation.PPTX')).toBe(true)
@@ -94,8 +90,6 @@ describe('ensureRendition', () => {
     const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit]
     expect(url).toBe('http://gotenberg:3000/forms/libreoffice/convert')
     expect(init.method).toBe('POST')
-    // LibreOffice picks its import filter by extension, so the original name
-    // must travel with the bytes.
     const file = (init.body as FormData).get('files') as File
     expect(file.name).toBe('Baubeschreibung.docx')
     expect(new Uint8Array(await file.arrayBuffer())).toEqual(DOCX_BYTES)
@@ -133,7 +127,7 @@ describe('ensureRendition', () => {
     expect(puts()).toHaveLength(1)
   })
 
-  it('names the last path segment only, so a Piloti name with slashes stays one part', async () => {
+  it('names the last path segment only, so an agent name with slashes stays one part', async () => {
     await ensureRendition({ ...INPUT, filename: 'piloti/doc-1/bericht.docx' })
     const file = ((fetchSpy.mock.calls[0] as [string, RequestInit])[1].body as FormData).get('files') as File
     expect(file.name).toBe('bericht.docx')
@@ -188,7 +182,6 @@ describe('ensureRendition', () => {
   })
 })
 
-/** A promise and the handle that settles it, for a converter the test answers by hand. */
 function deferred<T>() {
   let resolve!: (value: T) => void
   const promise = new Promise<T>((r) => {
@@ -203,11 +196,6 @@ const inputFor = (name: string) => ({
   filename: `${name}.docx`,
 })
 
-/**
- * A reindex or a folder upload starts hundreds of conversions at once, and
- * Gotenberg runs LibreOffice one at a time with a timeout that counts its own
- * queue. The bound keeps that queue here, where waiting costs no timeout.
- */
 describe('ensureRendition under a burst', () => {
   it('runs at most GOTENBERG_MAX_CONCURRENCY conversions at once, and every queued one still succeeds', async () => {
     vi.stubEnv('GOTENBERG_MAX_CONCURRENCY', '2')
@@ -227,8 +215,6 @@ describe('ensureRendition under a burst', () => {
 
     const burst = Array.from({ length: 7 }, (_, i) => ensureRendition(inputFor(`burst-${i}`)))
     await vi.waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(2))
-    // The five still queued have not started their clock: a timeout is made
-    // only for a request that reaches Gotenberg.
     expect(timeouts).toHaveBeenCalledTimes(2)
 
     for (let answered = 0; answered < 7; answered += 1) {
@@ -301,10 +287,6 @@ describe('ensureRendition under a burst', () => {
   })
 })
 
-/**
- * The preview and file routes wait inside a request Cloudflare cuts at ~100s,
- * and used to convert a file LibreOffice cannot read again on every open.
- */
 describe('ensureRendition for a reader', () => {
   it('stops waiting after readerWaitMs, while the conversion finishes and is stored for the next open', async () => {
     const answer = deferred<Response>()
@@ -314,7 +296,6 @@ describe('ensureRendition for a reader', () => {
     await expect(ensureRendition(input, { readerWaitMs: 20 })).rejects.toBeInstanceOf(RenditionFailedError)
     expect(puts()).toHaveLength(0)
 
-    // The same conversion goes on: a second reader joins it rather than starting another.
     const next = ensureRendition(input, { readerWaitMs: 60_000 })
     answer.resolve(new Response(PDF_BYTES, { status: 200 }))
     await expect(next).resolves.toBe('org/org-1/project/proj-1/doc/slow/v1/_render.pdf')
@@ -350,7 +331,6 @@ describe('ensureRendition for a reader', () => {
 
     await expect(ensureRendition(input)).resolves.toBe('org/org-1/project/proj-1/doc/retry/v1/_render.pdf')
     expect(fetchSpy).toHaveBeenCalledTimes(2)
-    // And a success clears the memory: the reader converts no more, it reads.
     send.mockResolvedValue({ ContentLength: 1024 })
     await expect(ensureRendition(input, { readerWaitMs: 60_000 })).resolves.toBe(
       'org/org-1/project/proj-1/doc/retry/v1/_render.pdf',
@@ -375,10 +355,6 @@ describe('ensureRendition for a reader', () => {
   })
 })
 
-/**
- * A DXF goes to the backend's drawing route instead of Gotenberg (ADR-0152); the
- * sibling key, the PDF check and the failure handling are the same.
- */
 describe('ensureRendition for a DXF drawing', () => {
   const DXF = {
     bucket: 'test-bucket',

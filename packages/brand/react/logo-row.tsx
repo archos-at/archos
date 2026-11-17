@@ -2,7 +2,6 @@ import type { CSSProperties } from 'react';
 import { joinClasses } from './join-classes';
 
 export interface LogoRowProps {
-  /** Grey SVGs (fill line-strong), height in px per logo to balance optical size */
   logos: { src: string; alt: string; height?: number }[];
   columns?: number;
   label?: string;

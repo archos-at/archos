@@ -1,19 +1,10 @@
-/**
- * The office's base knowledge (ADR-0163): its licensed standards, commentaries,
- * authority directives, guidelines and laws as Archiv documents with edition,
- * territory, authority, licence and last check. See `projects.ts` for the shape
- * and `docs/architecture/agent-surface.md` for the rules.
- *
- * An agent that sorts an office's knowledge (an outside agent over MCP, or the
- * office's own colleague) reads the office shelf, proposes an entry per document
- * with the values it read, and the person confirms. Upload is the office shelf's
- * own operation; search is the knowledge search over the office shelf.
- */
-
 import { z } from 'zod'
 import {
+  bulkEntriesBodySchema,
+  createFolderBodySchema,
   confirmEntryBodySchema,
   licenceEntryBodySchema,
+  listFoldersQuerySchema,
   entryParamsSchema,
   listEntriesQuerySchema,
   proposeEntryBodySchema,
@@ -34,7 +25,9 @@ export const baseKnowledgeOperations = [
     domain: 'knowledge',
     summary: 'List the office’s base knowledge: its standards, commentaries and directives',
     description:
-      ENTRY + ' Only confirmed entries reach answers. Any member may read.',
+      ENTRY +
+      ' Narrow by `folderId` (with its subfolders), `attention`, `kind` or `q`; `counts` are the folder’s before ' +
+      'those narrow it. Proposals and checks due come first. Only confirmed entries reach answers. Any member may read.',
     method: 'GET',
     path: '/api/base-knowledge',
     query: listEntriesQuerySchema,
@@ -74,10 +67,65 @@ export const baseKnowledgeOperations = [
     method: 'POST',
     path: '/api/base-knowledge/upload',
     body: uploadBodySchemaWith({
-      folderId: z.string().optional().describe('From office-shelf-folder-list; omit for the root.'),
+      folderId: z.string().optional().describe('From base-knowledge-folder-list; omit for the base-knowledge root folder.'),
     }),
     bodyEncoding: 'multipart',
     load: () => import('@/app/api/base-knowledge/upload/route'),
+  },
+  {
+    name: 'base-knowledge-edition-add',
+    domain: 'knowledge',
+    summary: 'Upload a newer edition of a base-knowledge entry',
+    description:
+      'Uploads the newer edition into the entry’s folder as a second edition of the same work (its edition read from ' +
+      'the file name), proposed until a person confirms it. Answers then take the edition in force on the project’s ' +
+      'reference day; the earlier entry stays for projects filed before, with a check that found a newer edition. ' +
+      'Send `body.files[0]` as { name, mimeType, contentBase64 }. Needs org:office_shelf:manage.',
+    method: 'POST',
+    path: '/api/base-knowledge/[entryId]/editions',
+    params: entryParamsSchema,
+    body: uploadBodySchemaWith({}),
+    bodyEncoding: 'multipart',
+    load: () => import('@/app/api/base-knowledge/[entryId]/editions/route'),
+  },
+  {
+    name: 'base-knowledge-folder-list',
+    domain: 'knowledge',
+    summary: 'List the folders of the office’s base knowledge',
+    description:
+      'The base-knowledge root folder on the office shelf (`rootId`, null until first used) and every folder below ' +
+      'it. They are office shelf folders: rename or delete one with office-shelf-folder-update or -delete; the root ' +
+      'keeps its name and place. Any member may read.',
+    method: 'GET',
+    path: '/api/base-knowledge/folders',
+    query: listFoldersQuerySchema,
+    load: () => import('@/app/api/base-knowledge/folders/route'),
+  },
+  {
+    name: 'base-knowledge-folder-create',
+    domain: 'knowledge',
+    summary: 'Create a folder for the office’s base knowledge',
+    description:
+      'Creates a folder under the base-knowledge root (created on first use) or under one of its folders, e.g. by ' +
+      'trade or by standards body. Refused when a sibling has the name. Needs org:office_shelf:manage.',
+    method: 'POST',
+    path: '/api/base-knowledge/folders',
+    body: createFolderBodySchema,
+    load: () => import('@/app/api/base-knowledge/folders/route'),
+  },
+  {
+    name: 'base-knowledge-bulk',
+    domain: 'knowledge',
+    summary: 'Check, move or remove many base-knowledge entries at once',
+    description:
+      'One action over up to 50 entries: `check` records a check with its result, `move` files them into a folder ' +
+      'from base-knowledge-folder-list, `remove` deletes them and their documents. Answers one result per entry; a ' +
+      'refused entry does not stop the others. Needs org:office_shelf:manage.',
+    method: 'POST',
+    path: '/api/base-knowledge/bulk',
+    body: bulkEntriesBodySchema,
+    destructive: true,
+    load: () => import('@/app/api/base-knowledge/bulk/route'),
   },
   {
     name: 'base-knowledge-confirm',

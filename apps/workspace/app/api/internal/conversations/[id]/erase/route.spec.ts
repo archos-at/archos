@@ -3,8 +3,6 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-// The route factory (`@/lib/api/handler`) statically imports the session
-// guard, which pulls in authkit; internal routes never call it.
 vi.mock('@/lib/auth/require-auth', () => ({
   requireAuthorizedSession: vi.fn(),
 }))
@@ -22,7 +20,7 @@ const REAL_TOKEN = 'a-real-secret-token'
 const CONVERSATION_ID = 's_conv-1'
 
 const makeRequest = (body: unknown, token?: string) =>
-  new Request(`https://grid.test/api/internal/conversations/${CONVERSATION_ID}/erase`, {
+  new Request(`https://example.test/api/internal/conversations/${CONVERSATION_ID}/erase`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',

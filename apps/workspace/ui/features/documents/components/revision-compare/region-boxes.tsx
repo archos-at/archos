@@ -12,25 +12,11 @@ import type { ActiveRegion } from './use-active-region'
 
 export interface RegionBoxesProps {
   regions: readonly NumberedRegion[]
-  /** The page as drawn, in CSS pixels. */
   size: PageSize
-  /** The change the whole comparison is looking at; hovering a box previews it, clicking pins it. */
   activeRegion: ActiveRegion
-  /** Dashed boxes, for the overlay, where a solid line could be taken for ink. */
   dashed?: boolean
 }
 
-/**
- * The changed places on one page: an outlined box and its numbered tag.
- *
- * Each box is a button: hovering or focusing it names the change in a tooltip
- * and lights its row in the list; clicking pins it there. Pixels, not
- * percentages, so the mapping is the one pure function the specs hold
- * (`regionToPixels`). The outline is the mark ink at 2 px with a white halo,
- * over an 8 % wash of the same ink, so a box is findable on a busy drawing
- * without hiding the lines the reader is checking. While one change is active
- * the others step back.
- */
 export function RegionBoxes({ regions, size, activeRegion, dashed = false }: RegionBoxesProps): JSX.Element | null {
   const t = useTranslations(filesCopy)
   if (regions.length === 0) return null
@@ -68,7 +54,6 @@ export function RegionBoxes({ regions, size, activeRegion, dashed = false }: Reg
               >
                 <ChangeBadge
                   number={number}
-                  // Above the box, unless the box touches the sheet's top edge.
                   className={cn('absolute -top-0.5 -left-0.5', box.top >= 22 && '-translate-y-full')}
                 />
               </button>

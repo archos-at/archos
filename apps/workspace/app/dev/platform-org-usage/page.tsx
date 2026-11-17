@@ -1,16 +1,5 @@
 'use client'
 
-/**
- * Dev preview for Platform → one organization's spend
- * (`app/app/(shell)/platform/organizations/[id]`): the REAL view, fed by a
- * fetch shim for its one endpoint, so it can be reviewed and screenshotted
- * without a backend or a platform session. Eight models with one over the
- * palette (the tail folds into "Other"), a month near its limit, and a member
- * WorkOS no longer lists.
- *
- *   /dev/platform-org-usage   404s outside development (see `../layout.tsx`)
- */
-
 import type { JSX } from 'react'
 import { notFound } from 'next/navigation'
 

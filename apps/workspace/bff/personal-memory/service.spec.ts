@@ -6,6 +6,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 vi.mock('./repository', () => ({
   PERSONAL_MEMORY_LIST_LIMIT: 200,
   selectPersonalMemory: vi.fn(),
+  selectPersonalTopics: vi.fn(async () => []),
+  movePersonalTopic: vi.fn(),
+  deletePersonalTopic: vi.fn(),
   findPersonalMemoryByContentKey: vi.fn(),
   insertPersonalMemory: vi.fn(),
   touchPersonalMemory: vi.fn(),
@@ -13,7 +16,6 @@ vi.mock('./repository', () => ({
   deletePersonalMemory: vi.fn(),
   deleteAllPersonalMemory: vi.fn(),
 }))
-// The office's screening (ADR-0086): here, a stand-in that masks one number.
 vi.mock('@/lib/upload-screening/service', () => ({
   maskChatText: vi.fn(async (_org: string, text: string) => ({ text: text.replace(/AT\d{18}/g, '[IBAN]') })),
 }))
@@ -28,9 +30,11 @@ import {
   findPersonalMemoryByContentKey,
   insertPersonalMemory,
   selectPersonalMemory,
+  selectPersonalTopics,
   touchPersonalMemory,
   updatePersonalMemory,
 } from './repository'
+import { TOPIC_INDEX_MAX_TOPICS } from '@/lib/knowledge/topic-index'
 import {
   PERSONAL_DIGEST_MAX_CHARS,
   PERSONAL_DIGEST_MAX_ITEMS,
@@ -39,6 +43,7 @@ import {
   clearPersonalMemory,
   createPersonalMemoryItem,
   editPersonalMemoryItem,
+  forgetPersonalMemoryItem,
   listPersonalMemory,
   removePersonalMemoryItem,
 } from './service'
@@ -56,6 +61,7 @@ function note(overrides: Partial<PersonalMemoryItem> = {}): PersonalMemoryItem {
     provenanceType: 'agent',
     sourceConversationId: null,
     sourceMessageId: null,
+    topic: null,
     pinned: false,
     createdAt: new Date('2026-11-01T10:00:00Z'),
     updatedAt: new Date('2026-11-01T10:00:00Z'),
@@ -63,7 +69,6 @@ function note(overrides: Partial<PersonalMemoryItem> = {}): PersonalMemoryItem {
   }
 }
 
-/** What the driver raises on the unique index, as drizzle wraps it: the SQLSTATE is on the cause. */
 function uniqueViolation(): Error {
   return new Error('Failed query', { cause: Object.assign(new Error('duplicate key'), { code: UNIQUE_VIOLATION }) })
 }
@@ -95,6 +100,7 @@ describe('createPersonalMemoryItem', () => {
       pinned: false,
       sourceConversationId: 's_1',
       sourceMessageId: null,
+      topic: null,
     })
   })
 
@@ -143,7 +149,7 @@ describe('createPersonalMemoryItem', () => {
     })
 
     expect(findPersonalMemoryByContentKey).toHaveBeenCalledWith(OWNER, 'answers in short paragraphs')
-    expect(touchPersonalMemory).toHaveBeenCalledWith(OWNER, existing.id)
+    expect(touchPersonalMemory).toHaveBeenCalledWith(OWNER, existing.id, null)
     expect(result).toEqual({ item: touched, created: false })
     expect(insertPersonalMemory).not.toHaveBeenCalled()
   })
@@ -311,6 +317,33 @@ describe('clearPersonalMemory', () => {
   })
 })
 
+describe('forgetPersonalMemoryItem', () => {
+  it('removes the agent’s note the quote names, matched with case and punctuation folded', async () => {
+    vi.mocked(findPersonalMemoryByContentKey).mockResolvedValue(note({ id: 'note-1' }))
+    vi.mocked(deletePersonalMemory).mockResolvedValue(true)
+
+    expect(await forgetPersonalMemoryItem(OWNER, '  answers in SHORT paragraphs ')).toEqual({ removedId: 'note-1', refused: null })
+    expect(findPersonalMemoryByContentKey).toHaveBeenCalledWith(OWNER, 'answers in short paragraphs')
+    expect(deletePersonalMemory).toHaveBeenCalledWith(OWNER, 'note-1')
+  })
+
+  it('removes nothing and says not_found when no note says that, or the quote has no letter', async () => {
+    expect(await forgetPersonalMemoryItem(OWNER, 'Mit „Lord“ ansprechen.')).toEqual({ removedId: null, refused: 'not_found' })
+    expect(await forgetPersonalMemoryItem(OWNER, '…')).toEqual({ removedId: null, refused: 'not_found' })
+    expect(deletePersonalMemory).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['the person wrote', { provenanceType: 'user' as const }],
+    ['is pinned', { pinned: true }],
+  ])('refuses a note the person %s as curated: theirs to remove in the panel', async (_name, overrides) => {
+    vi.mocked(findPersonalMemoryByContentKey).mockResolvedValue(note(overrides))
+
+    expect(await forgetPersonalMemoryItem(OWNER, 'Answers in short paragraphs.')).toEqual({ removedId: null, refused: 'curated' })
+    expect(deletePersonalMemory).not.toHaveBeenCalled()
+  })
+})
+
 describe('listPersonalMemory and removePersonalMemoryItem', () => {
   it('reads and removes for the owner handed in, never a wider scope', async () => {
     vi.mocked(selectPersonalMemory).mockResolvedValue([note()])
@@ -363,7 +396,6 @@ describe('buildPersonalMemoryDigest', () => {
       ].join('\n')
     )
     expect(PERSONAL_MEMORY_DIGEST_HEADER).toBe('PERSONAL_MEMORY v1')
-    // One more than fits, so a cut can be counted.
     expect(selectPersonalMemory).toHaveBeenCalledWith(OWNER, PERSONAL_DIGEST_MAX_ITEMS + 1)
   })
 
@@ -399,5 +431,24 @@ describe('buildPersonalMemoryDigest', () => {
 
     vi.mocked(selectPersonalMemory).mockResolvedValue([note({ content: 'y'.repeat(2000) }), note({ content: 'Short.' })])
     expect(await buildPersonalMemoryDigest(OWNER)).toBe('PERSONAL_MEMORY v1\n(+2 more personal notes, not shown.)')
+  })
+
+  it('groups the block by topic under an index read from every note of the shelf, not only the shown ones', async () => {
+    vi.mocked(selectPersonalMemory).mockResolvedValueOnce([
+      note({ kind: 'profile', content: 'Leads the fire-safety reviews.', pinned: true, topic: 'Brandschutz' }),
+      note({ content: 'Answers in short paragraphs.', topic: null }),
+    ])
+    vi.mocked(selectPersonalTopics).mockResolvedValueOnce([{ topic: 'Brandschutz' }, { topic: null }])
+
+    expect(await buildPersonalMemoryDigest(OWNER)).toBe(
+      [
+        PERSONAL_MEMORY_DIGEST_HEADER,
+        `topics of the person's 2 notes (at most ${TOPIC_INDEX_MAX_TOPICS} named): "Brandschutz" (1)`,
+        'Topic "Brandschutz":',
+        '- [pinned | profile] "Leads the fire-safety reviews."',
+        'No topic:',
+        '- [preference] "Answers in short paragraphs."',
+      ].join('\n')
+    )
   })
 })

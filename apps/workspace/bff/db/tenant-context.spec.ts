@@ -1,23 +1,5 @@
 // @vitest-environment node
 // @disk-inputs: app/api/**, bff/agent-api/mcp-door-route.ts, bff/api/handler.ts, bff/api/platform-handler.ts, bff/db/tenant-context.ts
-/**
- * The tenant context, and the leak it is built to avoid (ADR-0041).
- *
- * `AsyncLocalStorage.enterWith` has no scope end: it writes into the current
- * async resource, and Node reuses that resource for the next request on the
- * same keep-alive socket. Reproduced against a plain `node:http` server — one
- * request set a tenant, awaited, and the two requests that followed it on the
- * same socket inherited that tenant. The victim is not the request that sets a
- * tenant; it is a later one that sets NONE, should therefore fail closed, and
- * instead runs as whoever used the socket last.
- *
- * That reproduction is deliberately NOT a test here: it asserts Node's
- * scheduling rather than our code, and it does not fire under the vitest
- * runner, so as a test it would be a flake that proves nothing. What IS tested
- * is the property that makes it moot — every scope comes from `run()`, starts
- * empty, and leaves nothing behind — plus a static check that the route
- * factories actually open one.
- */
 
 import { readFileSync, readdirSync } from 'node:fs'
 import { join, relative } from 'node:path'
@@ -37,10 +19,6 @@ import {
   withTenant,
 } from './tenant-context'
 
-/**
- * Drive two sequential requests down ONE keep-alive socket and report what each
- * saw before it did anything. `onRequest` runs inside the server handler.
- */
 async function overOneSocket(
   onRequest: (path: string) => Promise<void> | void,
   observe: () => string | null,
@@ -80,8 +58,6 @@ describe('runWithTenantSlot', () => {
         await runWithTenantSlot(async () => {
           if (path === '/sets-a') {
             enterTenantContext({ organizationId: 'ORG_A', userId: 'u1' })
-            // Same shape as the leaking case above, so this is a like-for-like
-            // comparison rather than a weaker one.
             await new Promise((resolve) => setTimeout(resolve, 5))
             expect(getTenantContext()).toMatchObject({ organizationId: 'ORG_A' })
           }
@@ -132,9 +108,6 @@ describe('enterTenantContext', () => {
   })
 
   it('CLEARS an existing scope when the session has no organization', async () => {
-    // The dangerous shape: a slot already carries a tenant (inherited, or from
-    // an earlier resolve in the same request) and then an org-less session
-    // resolves. Leaving the old value would read as the previous tenant.
     await runWithTenantSlot(async () => {
       enterTenantContext({ organizationId: 'ORG_A', userId: 'u1' })
       expect(getTenantContext()).toMatchObject({ organizationId: 'ORG_A' })
@@ -146,8 +119,6 @@ describe('enterTenantContext', () => {
   })
 
   it('replaces an inherited slot wholesale rather than reusing it', async () => {
-    // The server-component path has no factory to open a slot, so it falls back
-    // to enterWith. A later request must overwrite that value, never read it.
     await runWithTenantSlot(async () => {
       enterTenantContext({ organizationId: 'ORG_A', userId: 'u1' })
       enterTenantContext({ organizationId: 'ORG_B', userId: 'u2' })
@@ -169,8 +140,6 @@ describe('explicit scopes', () => {
   })
 
   it('withTenant awaits a lazy result inside the scope', async () => {
-    // A drizzle query builder is lazy; returning one unexecuted would run it
-    // after the scope closed. `withTenant` awaits for exactly this reason.
     const lazy = { then: (resolve: (value: unknown) => void) => resolve(getTenantContext()) }
     const observed = await withTenant({ organizationId: 'ORG_A' }, () => lazy)
     expect(observed).toMatchObject({ organizationId: 'ORG_A' })
@@ -224,16 +193,10 @@ describe('explicit scopes', () => {
   })
 })
 
-/**
- * The behavioural tests above prove the scope is bounded. This proves the
- * bounded scope is actually USED — the part a refactor could quietly drop, and
- * whose absence fails open rather than loudly (ADR-0041).
- */
 describe('route factories open a request-scoped slot', () => {
   const FACTORIES: Array<{ file: string; factories: string[] }> = [
     { file: 'bff/api/handler.ts', factories: ['apiRoute', 'internalApiRoute', 'publicApiRoute'] },
     { file: 'bff/api/platform-handler.ts', factories: ['platformApiRoute'] },
-    // The MCP doors' edge (`/api/mcp`, `/api/platform/mcp`, ADR-0126): one factory, two doors.
     { file: 'bff/agent-api/mcp-door-route.ts', factories: ['mcpDoorPost'] },
   ]
 
@@ -241,10 +204,6 @@ describe('route factories open a request-scoped slot', () => {
     const source = readFileSync(join(process.cwd(), file), 'utf8')
 
     for (const factory of factories) {
-      // The LAST declaration: an overloaded factory (`internalApiRoute`, token
-      // or signed) lists its bodiless overload signatures first, and TypeScript
-      // requires the implementation to follow them directly. Reading the first
-      // one checked a signature, which has no body to return anything from.
       const start = source.lastIndexOf(`export function ${factory}`)
       expect(start, `${factory} not found in ${file}`).toBeGreaterThan(-1)
       const next = FACTORIES.flatMap((entry) => entry.factories)
@@ -252,8 +211,6 @@ describe('route factories open a request-scoped slot', () => {
         .filter((index) => index > start)
       const body = source.slice(start, next.length ? Math.min(...next) : undefined)
 
-      // Call position, not a mention: `toContain` was satisfied by an unused
-      // import or a `void runWithTenantSlot` left behind by a refactor.
       expect(
         body,
         `${factory} must RETURN runWithTenantSlot(...) or tenantSlotRoute(...), or a ` +
@@ -263,9 +220,6 @@ describe('route factories open a request-scoped slot', () => {
   })
 
   it('every API route opens a slot, by factory or explicitly', () => {
-    // The factory check above cannot see a route that skips the factories —
-    // which is exactly how seven hand-rolled routes ended up on the unbounded
-    // `enterWith` fallback. This one walks the whole surface instead.
     const apiDir = join(process.cwd(), 'app', 'api')
     const routes: string[] = []
     const walk = (dir: string) => {
@@ -276,14 +230,8 @@ describe('route factories open a request-scoped slot', () => {
       }
     }
     walk(apiDir)
-    // Only that the walk found something — the `unscoped` assertion below is
-    // what actually guards anything. A threshold near the current route count
-    // would fail on a consolidation, pointing at the wrong problem.
     expect(routes.length, 'the API route walk found no route.ts files').toBeGreaterThan(0)
 
-    // Matched at the EXPORT, not anywhere in the file: a leftover import used
-    // to satisfy the old file-wide substring check.
-    // The generic parameter is common (`apiRoute<Params>(...)`), so allow it.
     const SCOPED_EXPORT =
       /export\s+const\s+(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s*=\s*(?:apiRoute|internalApiRoute|publicApiRoute|platformApiRoute|tenantSlotRoute|mcpDoorPost)\s*(?:<[^>]*>)?\s*\(/
     const unscoped = routes
@@ -300,7 +248,6 @@ describe('route factories open a request-scoped slot', () => {
 
   it('nothing calls the unbounded enterWith except the documented session fallback', () => {
     const context = readFileSync(join(process.cwd(), 'bff/db/tenant-context.ts'), 'utf8')
-    // Exactly one: the server-component path, which no factory wraps.
     expect(context.match(/storage\.enterWith\(/g) ?? []).toHaveLength(1)
   })
 })

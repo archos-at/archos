@@ -1,11 +1,3 @@
-/**
- * Creating a project, running or already closed: what reaches the server
- * action, and what keeps the submit shut. And the setup: the address (a text
- * field that keeps what is typed, with the address search's hits where one is
- * configured),
- * „Worum geht es?" folded behind a line, and a project folder dropped on the
- * dialog or chosen in its zone.
- */
 import { fireEvent, render, screen, waitFor } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { redirect } from 'next/navigation'
@@ -18,7 +10,6 @@ import { forgetGeocoderAnswer } from './address-field'
 import { CreateProjectForm, folderNameOf } from './create-project-form'
 import { PRODUCT_NAME } from '@/lib/brand'
 
-/** The key this dialog holds a drop under: one per dialog, fixed here so a spec can look. */
 const DROP_KEY = 'new-project:00000000-0000-4000-8000-000000000000'
 vi.mock('@/features/documents/lib/dropped-file-handover', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/features/documents/lib/dropped-file-handover')>()),
@@ -69,7 +60,6 @@ const moedling: GeocodeResult = {
 
 const action = vi.mocked(createProject)
 
-/** The fields of the FormData the action was last called with. */
 function sent(): Record<string, string> {
   const formData = action.mock.calls.at(-1)?.[1]
   return Object.fromEntries([...(formData?.entries() ?? [])].map(([key, value]) => [key, String(value)]))
@@ -84,11 +74,9 @@ const submit = (name: RegExp = /^Create project$/) => screen.getByRole('button',
 
 describe('CreateProjectForm', () => {
   beforeEach(() => {
-    // Only the clock: the Abschluss bounds read this month, and userEvent needs real timers.
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date('2026-03-15T12:00:00Z'))
     action.mockReset()
-    // What the real action does on success: it never returns, it redirects.
     action.mockImplementation(async () => redirect('/app/projects/p1/setup'))
     vi.mocked(capturePosthog).mockClear()
     search.mockReset()
@@ -127,7 +115,6 @@ describe('CreateProjectForm', () => {
 
     expect(await screen.findByTestId('create-project-closed')).toBeInTheDocument()
     const closedSubmit = submit()
-    // Not preselected: a default would nudge the record towards the wrong outcome.
     expect(screen.getByRole('radio', { name: /Completed/ })).not.toBeChecked()
     expect(screen.getByRole('radio', { name: /Not realized/ })).not.toBeChecked()
     expect(closedSubmit).toBeDisabled()
@@ -251,24 +238,21 @@ describe('CreateProjectForm', () => {
     })
   })
 
-  describe('Piloti sets it up', () => {
+  describe('the agent sets it up', () => {
     test('a chosen address is sent as the location, with „Worum geht es?"', async () => {
       search.mockResolvedValue({ enabled: true, results: [hauptstrasse, moedling] } satisfies GeocodeResponse)
       const user = userEvent.setup()
       render(<CreateProjectForm />)
 
       await user.type(screen.getByLabelText('Project name'), 'Aufstockung')
-      // Folded until asked for.
       expect(screen.queryByRole('textbox', { name: 'What is it about?' })).toBeNull()
       await user.click(screen.getByRole('button', { name: 'Briefly describe what it is about' }))
       await user.type(screen.getByRole('textbox', { name: 'What is it about?' }), 'Zwei Geschoße mehr')
       await user.type(screen.getByRole('combobox', { name: 'Address' }), 'Hauptstraße')
       const option = await screen.findByRole('option', { name: /Hauptstraße 12, 1010 Wien/ })
-      // The hits are OSM data, and say so (ODbL).
       expect(screen.getByTestId('create-project-address-attribution')).toHaveTextContent('© OpenStreetMap contributors')
       await user.click(option)
 
-      // The chosen hit names its Gemeinde and Bundesland.
       expect(screen.getByTestId('create-project-address-place')).toHaveTextContent('Wien · Wien')
       await user.click(submit())
 
@@ -298,14 +282,12 @@ describe('CreateProjectForm', () => {
       vi.advanceTimersByTime(1)
       expect(search).toHaveBeenCalledWith('Haupt', 5, { signal: expect.any(AbortSignal) })
 
-      // The next keystroke outdates the request still in flight.
       fireEvent.change(input, { target: { value: 'Hauptstr' } })
       expect(signals[0]?.aborted).toBe(true)
       vi.advanceTimersByTime(250)
       expect(search).toHaveBeenCalledTimes(2)
       expect(signals[1]?.aborted).toBe(false)
 
-      // Under three characters nothing is asked.
       fireEvent.change(input, { target: { value: 'Ha' } })
       expect(signals[1]?.aborted).toBe(true)
       vi.advanceTimersByTime(1000)
@@ -341,7 +323,6 @@ describe('CreateProjectForm', () => {
       expect(screen.getAllByRole('option')).toHaveLength(2)
       await user.keyboard('{ArrowDown}')
       await user.keyboard('{Enter}')
-      // Enter chose; it did not submit the form.
       expect(combobox).toHaveValue('Hauptstraße 3, 2340 Mödling')
       expect(screen.getByTestId('create-project-address-place')).toHaveTextContent('Mödling · Niederösterreich')
       expect(action).not.toHaveBeenCalled()
@@ -388,7 +369,6 @@ describe('CreateProjectForm', () => {
       await user.type(screen.getByLabelText('Project name'), 'Haus am See')
       await user.type(screen.getByRole('combobox', { name: 'Address' }), 'Seestraße 5, 9220 Velden')
 
-      // The pilot onboarding typed three letters and lost them to a Bundesland select.
       const field = await screen.findByRole('textbox', { name: 'Address' })
       expect(field).toHaveValue('Seestraße 5, 9220 Velden')
       expect(screen.queryByRole('combobox', { name: 'Bundesland' })).toBeNull()
@@ -448,7 +428,7 @@ describe('CreateProjectForm', () => {
       expect(screen.queryByTestId('create-project-same-address')).toBeNull()
     })
 
-    test('a closed project Piloti sets up says it closes when the review is finished', async () => {
+    test('a closed project the agent sets up says it closes when the review is finished', async () => {
       const user = userEvent.setup()
       render(<CreateProjectForm />)
 
@@ -471,7 +451,6 @@ describe('CreateProjectForm', () => {
       expect(await screen.findByTestId('create-project-dropped')).toHaveTextContent('Folder “Wohnbau Nord”: 2 files')
       expect(screen.getByLabelText('Project name')).toHaveValue('Wohnbau Nord')
       expect(takeDroppedFiles(DROP_KEY)).toEqual(files)
-      // Taken once: put it back for the rest of the test.
       await user.click(screen.getByRole('button', { name: 'Remove the folder' }))
       expect(screen.queryByTestId('create-project-dropped')).toBeNull()
     })
@@ -534,7 +513,6 @@ describe('CreateProjectForm', () => {
       first.unmount()
 
       expect(takeDroppedFiles(DROP_KEY)).toEqual([file])
-      // The key goes with the creation, so the redirect sends only THIS project's setup page for them.
       expect(sent().dropKey).toBe(DROP_KEY)
     })
 
@@ -558,7 +536,6 @@ describe('CreateProjectForm', () => {
       await waitFor(() => expect(action).toHaveBeenCalledTimes(1))
       first.unmount()
 
-      // Held on, they would have been filed in the next project waiting for documents.
       expect(takeDroppedFiles(DROP_KEY)).toEqual([])
     })
 
@@ -578,7 +555,6 @@ describe('CreateProjectForm', () => {
       const user = userEvent.setup()
       render(<CreateProjectForm />)
 
-      // The only choice is the project's state.
       expect(screen.getAllByRole('radio').map((radio) => radio.textContent)).toEqual(['Ongoing', 'Closed, as a reference'])
       expect(screen.queryByRole('button', { name: /myself/i })).toBeNull()
 
@@ -590,13 +566,11 @@ describe('CreateProjectForm', () => {
   })
 })
 
-/** A file as a folder drop gives it: with the path it had in the dropped tree. */
 function withPath(file: File, path: string): File {
   Object.defineProperty(file, 'webkitRelativePath', { value: path, configurable: true })
   return file
 }
 
-/** A drag from the desktop onto `target`: `Files` in `types` is what marks it as an upload. */
 function dropFiles(target: HTMLElement, files: File[]): void {
   fireEvent.drop(target, { dataTransfer: { types: ['Files'], files, items: [] } })
 }

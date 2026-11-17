@@ -1,11 +1,3 @@
-"""The server's stamp on each quote line ``> „…“ [N]`` (``common/quote_stamps.py``).
-
-The excerpt says „Wortlaut belegt [N]" off this stamp and nothing else, so the
-assertions are about which claims it can and cannot make: a wording a passage
-holds is located, one no passage holds is not, a fragment or nothing to check
-against says nothing, and the passage the line cites wins a tie.
-"""
-
 from __future__ import annotations
 
 from agent.citations.entries import SourceEntry
@@ -62,7 +54,6 @@ class TestTheStamp:
         assert verification_for(QUOTE, [], []) == {"status": "unchecked"}
 
     def test_a_short_span_is_unchecked(self):
-        # „1.200 m²" matches half the corpus: the prose check skips it too.
         assert verification_for("1.200 m²", [(_entry(), 1)], []) == {"status": "unchecked"}
         assert verification_for(None, [(_entry(), 1)], []) == {"status": "unchecked"}
 
@@ -99,7 +90,6 @@ class TestStampQuoteLines:
         assert stamps[1] == {"text": invented, "status": "not_found"}
 
     def test_the_passage_the_line_cites_is_tried_first(self):
-        # Two cited pages hold the same sentence; the line says [2], so the stamp names page 22.
         first = _entry()
         second = _entry(key="OIB-RL_2_2019.pdf, p. 22")
         stamps = stamp_quote_lines(f"> „{QUOTE}“ [2]", [(first, 1), (second, 2)], [])

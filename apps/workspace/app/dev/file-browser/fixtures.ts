@@ -1,10 +1,3 @@
-/**
- * The file browser previews' fixtures: the files and folders, the fetch shim
- * that answers thumbnails and the search, and the folder navigation, shared by
- * `/dev/file-browser` and `/dev/files-page` so both draw the same project.
- * Development only.
- */
-
 import { useState } from 'react'
 import type { FolderNavigation } from '@/features/documents/components/file-browser-pane'
 import type { FileItem, FolderItem } from '@/features/documents/components/project-file-workspace'
@@ -33,8 +26,6 @@ export function makeFile(id: string, filename: string, summary: string, extra: R
 }
 
 export const FILES: FileItem[] = [
-  // Filed documents — reachable by drilling into their folder, and countable
-  // on its card ("2 items" on Brandschutz).
   makeFile('p1', 'Brandschutzkonzept_Wohnbau-Nord.pdf', 'Brandschutzkonzept für den Wohnbau Nord (GK 4).', {
     fileSize: 3_800_000,
     folderId: 'f-brand',
@@ -47,8 +38,6 @@ export const FILES: FileItem[] = [
     contentType: 'application/acad',
     fileSize: 5_600_000,
   }),
-  // Image with no thumbnail → the WARM placeholder (soft tile + format chip),
-  // NOT a broken-image glyph.
   makeFile('p4', 'Fassadenschnitt_Nord.png', 'Fassadenschnitt der Nordseite mit Fluchtbalkon.', {
     contentType: 'image/png',
     fileSize: 4_100_000,
@@ -58,10 +47,6 @@ export const FILES: FileItem[] = [
     folderId: 'f-statik',
     marks: { open: 1, proposed: 0, forYou: 0 },
   }),
-  // What is still open on its pages, under the size and the date: four open
-  // Anmerkungen (every Fassung), two of them for the reader, and three of
-  // the agent's proposals nobody took over, „4 offen · 2 für Sie · 3 Vorschläge".
-  // A press opens the review.
   makeFile('p10', 'Einreichplan_Grundriss_EG_Index-C.pdf', 'Einreichplan Grundriss Erdgeschoss, Index C.', {
     fileSize: 1_900_000,
     marks: { open: 4, proposed: 3, forYou: 2 },
@@ -70,16 +55,10 @@ export const FILES: FileItem[] = [
     status: 'processing',
     fileSize: 900_000,
   }),
-  // Image whose thumbnail genuinely FAILS to load (5xx) → the distinct
-  // "Vorschau nicht verfügbar" treatment, separate from "no thumbnail".
   makeFile('p7', 'Baustellenfoto_Rohbau.jpg', 'Baustellenfoto des Rohbaus, Nordfassade.', {
     contentType: 'image/jpeg',
     fileSize: 5_300_000,
   }),
-  // FORMAT BEATS THE NAME. „plan" matches anywhere in a filename, so these two
-  // used to draw a floor-plan card — outer walls, partitions and a door swing —
-  // over a Markdown note and a table. `Statik_Positionsplan.pdf` above is the
-  // control: it is a PDF, it really can be a drawing, and it still reads as one.
   makeFile('p8', 'Projektplan_Sanierung.md', 'Ablauf der Sanierung in Phasen, mit offenen Punkten je Gewerk.', {
     contentType: 'text/markdown',
     fileSize: 31_000,
@@ -94,11 +73,6 @@ export const FILES: FileItem[] = [
   }),
 ]
 
-/**
- * Stand-in for a rendered PDF first page — inline so the fixture needs no
- * backend and no committed binary. Shaped like a landscape drawing sheet, which
- * is what the card's thumbnail well actually has to crop.
- */
 export const PAGE_THUMBNAIL =
   'data:image/svg+xml;utf8,' +
   encodeURIComponent(
@@ -119,19 +93,12 @@ export const PAGE_THUMBNAIL =
      </svg>`
   )
 
-/**
- * The moment a batch lands: two documents still being read (no summary yet, one
- * of them already showing its page preview) beside two that have settled. The
- * settled cards carry a two-line description, so they set the row height and the
- * unsettled ones have to fill it.
- */
 export const UPLOADING_FILES: FileItem[] = [
   makeFile('u1', '240119_PerspektivischerSchnitt_Bauteil-A.pdf', '', {
     status: 'processing',
     summary: null,
     fileSize: 2_400_000,
   }),
-  // Waiting in the ingest queue behind two of the office's own uploads.
   makeFile('u2', 'Baubeschreibung_Einreichung.pdf', '', {
     status: 'pending',
     queueAhead: 2,
@@ -146,8 +113,6 @@ export const UPLOADING_FILES: FileItem[] = [
   }),
 ]
 
-// Root + nested folders so the drill-down renders folder cards, counts, and a
-// multi-level breadcrumb once Brandschutz › Fluchtwege is entered.
 export const FOLDERS: FolderItem[] = [
   { id: 'f-brand', parentId: null, name: 'Brandschutz', path: '/Brandschutz' },
   { id: 'f-brand-plan', parentId: 'f-brand', name: 'Fluchtwege', path: '/Brandschutz/Fluchtwege' },
@@ -162,22 +127,14 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
     const real = window.fetch.bind(window)
     window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
-      // u1 already has its page preview while ingestion is still running — the
-      // PDF thumbnail is produced at upload time, the summary much later.
       if (/\/api\/documents\/u1\/thumbnail$/.test(url)) {
         return Response.json({ url: PAGE_THUMBNAIL })
       }
-      // p7 simulates a GENUINE thumbnail failure (5xx) → distinct error tile;
-      // every other thumbnail 404s → warm "no thumbnail" placeholder.
       if (/\/api\/documents\/p7\/thumbnail$/.test(url)) return new Response(null, { status: 500 })
       if (/\/api\/documents\/.+\/thumbnail$/.test(url)) return new Response(null, { status: 404 })
       if (/\/api\/search\?/.test(url)) {
         const variant = new URLSearchParams(window.location.search).get('variant')
-        // The semantic search, refusing to run — see the `search-failed` variant.
         if (variant === 'search-failed') return new Response(null, { status: 500 })
-        // A RANKED answer, deliberately out of upload order: the best match is
-        // the oldest file in the set, so a list that re-sorted by date would
-        // put it last and the ranking would be gone without a word.
         if (variant === 'search-list') {
           return Response.json(
             documentSearchAnswer([

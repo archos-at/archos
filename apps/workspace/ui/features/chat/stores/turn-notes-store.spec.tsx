@@ -1,8 +1,3 @@
-/**
- * The reader's own personal notes under an answer (ADR-0180): read per person
- * and per conversation, never off the message, and read again only when the
- * answer's turn says they may have changed.
- */
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
@@ -43,7 +38,6 @@ const row = (id: string, sourceMessageId: string | null, extra: Record<string, u
   provenanceType: 'distillation',
   sourceConversationId: CONVERSATION,
   sourceMessageId,
-  // What the route also sends and the chip has no use for.
   organizationId: 'org_1',
   userId: 'user_1',
   ...extra,
@@ -117,17 +111,14 @@ describe('usePersonalTurnNotes', () => {
     const { result } = renderHook(() => usePersonalTurnNotes(CONVERSATION, ANSWER))
     await waitFor(() => expect(requests).toHaveLength(1))
 
-    // Still writing: nothing has changed that a note could have come from.
     setTurns({ t1: turn() })
     expect(requests).toHaveLength(1)
 
-    // The result: the `remember` tool may have kept a note during the answer.
     served = [row('in-turn', ANSWER, { provenanceType: 'agent' })]
     setTurns({ t1: turn({ result: { message_id: ANSWER } }) })
     await waitFor(() => expect(result.current.map((note) => note.id)).toEqual(['in-turn']))
     expect(requests).toHaveLength(2)
 
-    // The stage reports `empty`: a pass that kept only a personal note puts nothing on the frame.
     served = [row('in-turn', ANSWER, { provenanceType: 'agent' }), row('after', ANSWER)]
     setTurns({ t1: turn({ result: { message_id: ANSWER }, stages: { memory_reflection: { status: 'empty' } } }) })
     await waitFor(() => expect(result.current.map((note) => note.id)).toEqual(['in-turn', 'after']))

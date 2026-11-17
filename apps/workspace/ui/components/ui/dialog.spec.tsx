@@ -1,13 +1,3 @@
-/**
- * How a Dialog presents itself on a phone.
- *
- * Pixels belong to the browser (and the presentation is CSS behind the
- * `phone:` variant, which the test DOM never matches), so these assert the
- * decisions the component makes in JavaScript: which presentation a caller
- * gets, that a caller who lays the dialog out keeps its own layout, and that
- * the grabber's pull really closes the dialog it promises to close.
- */
-
 import { useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, screen } from '@testing-library/react'
@@ -66,7 +56,6 @@ describe('DialogContent on a phone', () => {
     expect(dialog).toHaveAttribute('data-mobile-presentation', 'sheet')
     expect(dialog.className).toContain('phone:bottom-0')
     expect(dialog.className).toContain('phone:rounded-overlay')
-    // The footer pins to the bottom edge, and the sheet clears the home indicator.
     expect(dialog.className).toContain('phone:pb-[max(1.5rem,env(safe-area-inset-bottom))]')
     expect(dialog.className).toContain('phone:[:where(&_[data-slot=dialog-footer])]:sticky')
     expect(grabber()).not.toBeNull()
@@ -112,9 +101,7 @@ describe('DialogContent on a phone', () => {
     const { content } = renderDialog({ className: 'p-0' })
     const dialog = content()!
 
-    // Still a sheet: padding is not geometry…
     expect(dialog).toHaveAttribute('data-mobile-presentation', 'sheet')
-    // …but the sheet does not paint a safe-area padding over the caller's `p-0`.
     expect(dialog.className).not.toContain('phone:pb-')
     expect(dialog.className).not.toContain('dialog-footer])]:pb-')
   })
@@ -140,9 +127,7 @@ describe('DialogContent on a phone', () => {
     expect(chrome.className).toContain('phone:-top-6')
     expect(chrome).toContainElement(screen.getByRole('button', { name: 'Schließen' }))
     expect(chrome).toContainElement(grabber())
-    // Last, so the close stays last in the tab order and a keyboard lands in the first field.
     expect(dialog.lastElementChild).toBe(chrome)
-    // Beside the first child in the first row: a row of its own would cost a gap above the title.
     expect(dialog.className).toContain('phone:[&>:first-child]:row-start-1')
     expect(dialog.className).toContain('phone:[:where(&>[data-slot=dialog-header]:first-child)]:sticky')
   })
@@ -262,7 +247,6 @@ describe('the grabber pulls', () => {
   it('stays open when the pull falls short', () => {
     const { onOpenChange, content } = renderDialog()
 
-    // The finger comes to rest before it lifts, so no flick commits it either.
     const handle = grabber()!
     fireEvent.pointerDown(handle, { pointerId: 1, button: 0, clientY: 10 })
     fireEvent.pointerMove(handle, { pointerId: 1, clientY: 40 })
@@ -274,11 +258,6 @@ describe('the grabber pulls', () => {
   })
 })
 
-/*
- * An overlay summoned from the keyboard many times a day (the ⌘K palette, the
- * `?` cheatsheet) opens and closes with no motion: an entrance there is
- * latency between the keystroke and what the reader asked for.
- */
 describe('an instant dialog', () => {
   function renderInstant(instant: boolean) {
     render(

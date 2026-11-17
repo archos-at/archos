@@ -1,8 +1,3 @@
-/**
- * The title a mermaid source carries in its front matter, read in time linear
- * in the source: the model writes the source, so its whitespace is not ours to
- * bound, and the title is read on every render of a drawn view.
- */
 import { createElement, type ComponentProps } from 'react'
 import { act, renderHook } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
@@ -35,7 +30,6 @@ describe('titleFromSource', () => {
       const text = source(n)
       return elapsedMs(() => titleFromSource(text))
     }
-    // Quadratic, 8 times the run took ~64 times as long; linear, ~8 times.
     expect(growthRatio(time, { size: 2000, floorMs: 0.05 })).toBeLessThan(LINEAR_BOUND)
   })
 })
@@ -52,8 +46,6 @@ describe('useDiagramFiling — the conversation rides with the filing (ADR-0087)
     )
     const target = { projectId: 'proj-1', answerId: 'msg-1', conversationId: 's_conv_1' }
     const { result } = renderHook(() => useDiagramFiling({ source: 'flowchart LR\n  A --> B', fileSvg: '<svg/>' }), {
-      // `children` travels as createElement's third argument; the props type
-      // requires it, so the props object is asserted to the component's own.
       wrapper: ({ children }) =>
         createElement(DiagramFilingProvider, { target } as ComponentProps<typeof DiagramFilingProvider>, children),
     })

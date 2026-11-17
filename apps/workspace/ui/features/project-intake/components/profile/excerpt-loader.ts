@@ -1,16 +1,3 @@
-/**
- * Draw the excerpt of a cited page into a canvas: find the project's document
- * by the name the evidence gives, open it with the viewer's own pdf.js runtime,
- * find the quote in the page's text as the viewer marks it, and render only
- * that part of the page, at the size it is shown.
- *
- * Every step is the citation viewer's (`documents-by-name`, `pdfjs-runtime`,
- * `pdf-text-chunks`, `passage-highlight`, `pdf-raster`); nothing here parses a
- * PDF or matches text of its own. pdf.js loads only when the first excerpt is
- * asked for, and a few open documents are kept, so ten values from one
- * Baubeschreibung fetch it once.
- */
-
 import type { PDFDocumentLoadingTask, PDFDocumentProxy } from 'pdfjs-dist'
 import { documentNameLookupKey, resolveDocumentsByName } from '@/features/documents/lib/documents-by-name'
 import { maxCanvasPixels, rasterFor } from '@/features/knowledge/lib/pdf-raster'
@@ -23,12 +10,10 @@ import { excerptOf, type Excerpt } from './excerpt-geometry'
 
 export type DocumentEvidence = Extract<ProfileEvidence, { kind: 'document' }>
 
-/** Only a PDF page can be drawn here; an office file opens in the viewer, through its chip. */
 export function hasExcerpt(evidence: ProfileEvidence): evidence is DocumentEvidence & { page: number } {
   return evidence.kind === 'document' && evidence.page !== null && /\.pdf$/i.test(evidence.fileName.trim())
 }
 
-/** How many opened documents are kept: a Steckbrief cites a handful of files many times. */
 const KEEP_DOCUMENTS = 4
 const opened = new Map<string, { task: PDFDocumentLoadingTask; promise: Promise<PDFDocumentProxy> }>()
 
@@ -52,7 +37,6 @@ async function openDocument(documentId: string): Promise<PDFDocumentProxy> {
   return entry.promise
 }
 
-/** Test hook: forget the opened documents. */
 export function resetExcerptDocuments(): void {
   for (const { task } of opened.values()) void task.destroy()
   opened.clear()
@@ -65,17 +49,10 @@ async function documentIdOf(projectId: string | null, fileName: string): Promise
 }
 
 export interface DrawnExcerpt {
-  /** The passage relative to the drawn part, or null when the whole page is drawn. */
   mark: Excerpt['mark']
-  /** The drawn part's size at scale 1, so the caller can mark the passage in percent. */
   crop: Excerpt['crop']
 }
 
-/**
- * Draw the excerpt for `evidence` into `canvas`, `cssWidth` pixels wide.
- * Resolves null when there is nothing to draw (the file is gone, not a PDF,
- * has no such page, or pdf.js would not load); never rejects.
- */
 export async function drawExcerpt(options: {
   projectId: string | null
   evidence: DocumentEvidence & { page: number }

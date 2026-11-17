@@ -42,7 +42,6 @@ describe('POST /api/organization/audit-portal', () => {
     const res = await POST(request())
     expect(res.status).toBe(200)
     expect((await res.json()).link).toBe('https://portal.workos.com/x')
-    // Scoped to the CALLER's org — never a caller-chosen one.
     expect(generateAuditPortalLink).toHaveBeenCalledWith(
       'org_1',
       'https://grid.example/app/organization'

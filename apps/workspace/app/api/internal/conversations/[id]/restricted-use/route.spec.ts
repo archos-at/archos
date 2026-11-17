@@ -39,7 +39,7 @@ const CONTRACTS = 'proj_abc_r0123456789ab'
 
 const ask = (body: unknown, token: string = TOKEN, id: string = CONVERSATION_ID) =>
   POST(
-    new Request(`https://grid.test/api/internal/conversations/${id}/restricted-use`, {
+    new Request(`https://example.test/api/internal/conversations/${id}/restricted-use`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-grid-internal-token': token },
       body: JSON.stringify(body),
@@ -102,11 +102,6 @@ describe('POST /api/internal/conversations/[id]/restricted-use', () => {
     expect(admitRestrictedUse).toHaveBeenCalledWith(REQUEST, [CONTRACTS])
   })
 
-  /**
-   * The answer id is the server's key for the mark (ADR-0093): the turn start
-   * marks it when an earlier turn drew on a restricted folder, the admission in
-   * the transaction that records the folder. Both before the model reads.
-   */
   it('hands the answer the turn writes to the mark, at turn start and at admission', async () => {
     vi.mocked(admitRestrictedUse).mockResolvedValue({ admitted: [CONTRACTS], refused: [], recorded: [] })
     const withAnswer = { ...REQUEST, answerMessageId: ANSWER_ID }

@@ -1,14 +1,3 @@
-"""Pulling a Langfuse version into review (`scripts/prompts_pull.py`).
-
-Git is the platform prompt's source of truth (ADR-0060 (a)); this script only
-ever reads from Langfuse and writes the committed file, which is how an edit
-made there is brought into review. The cases worth pinning are the
-ones a maintainer would otherwise discover by finding the wrong thing committed:
-a fallback overwritten with nothing because the label does not exist, a diff
-that is one trailing newline, and a run that reports success without
-credentials.
-"""
-
 from __future__ import annotations
 
 import importlib.util
@@ -21,7 +10,6 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def _load(name: str, relative: str):
-    """Import a top-level script by path, the way tests/test_release_notes.py does."""
     if str(REPO_ROOT) not in sys.path:
         sys.path.insert(0, str(REPO_ROOT))
     spec = importlib.util.spec_from_file_location(name, REPO_ROOT / relative)
@@ -33,19 +21,11 @@ def _load(name: str, relative: str):
 
 pull = _load("scripts.prompts_pull", "scripts/prompts_pull.py")
 
-BUNDLED = REPO_ROOT / "packages/agent/src/agent/agents/piloti/prompts/chat_static.md"
+BUNDLED = REPO_ROOT / "packages/agent/src/agent/core/prompts/chat_static.md"
 
 
 @pytest.fixture(autouse=True)
 def _the_real_fallback_is_never_written():
-    """No test in this file may touch the prompt the agent actually renders.
-
-    Written after a run of this suite overwrote it: `write_fallback`'s path
-    was a DEFAULT ARGUMENT, bound at import to the real file, so patching the
-    module constant moved nothing. The path resolves at call time now, and this
-    fixture is the ratchet — a test that writes the real prompt fails here
-    rather than in whichever suite next reads it.
-    """
     before = BUNDLED.read_bytes()
     yield
     assert BUNDLED.read_bytes() == before, "a test wrote the real bundled prompt"
@@ -58,8 +38,6 @@ class FakePrompt:
 
 
 class FakeClient:
-    """Answers one `get_prompt` and records how it was asked."""
-
     def __init__(self, *, answer=None, raises: Exception | None = None):
         self.answer = answer
         self.raises = raises
@@ -74,11 +52,6 @@ class FakeClient:
 
 class TestFetch:
     def test_it_reads_the_labelled_version_without_a_cache(self):
-        """
-        A one-shot CLI must not be answered from a cache the store warmed a
-        minute ago — that is how a maintainer commits a version that is already
-        superseded.
-        """
         client = FakeClient(answer=FakePrompt("LIVE TEXT"))
 
         assert pull.fetch_text(client, label="production") == "LIVE TEXT"
@@ -97,11 +70,6 @@ class TestFetch:
         assert pull.fetch_text(client) is None
 
     def test_an_unreachable_langfuse_propagates(self):
-        """
-        Silence here would write "could not reach Langfuse" into the fallback
-        as if it were the prompt. Only a 404 is an answer; everything else is a
-        failure the maintainer has to see.
-        """
         client = FakeClient(raises=RuntimeError("connection refused"))
 
         with pytest.raises(RuntimeError):
@@ -116,21 +84,13 @@ class TestWriteFallback:
         assert target.read_text() == "SOME PROMPT\n"
 
     def test_an_unchanged_file_is_not_rewritten(self, tmp_path: Path):
-        """
-        So `git status` after a pull says something true. A no-op write would
-        leave a maintainer wondering what changed.
-        """
         target = tmp_path / "chat_static.md"
         target.write_text("SOME PROMPT\n")
 
         assert pull.write_fallback("SOME PROMPT", target) is False
 
     def test_the_bundled_file_round_trips_through_a_pull(self, tmp_path: Path):
-        """
-        The committed fallback is already normalized, so pulling the version it
-        came from must be a no-op rather than a whitespace diff on every run.
-        """
-        bundled = REPO_ROOT / "packages/agent/src/agent/agents/piloti/prompts/chat_static.md"
+        bundled = REPO_ROOT / "packages/agent/src/agent/core/prompts/chat_static.md"
         target = tmp_path / "copy.md"
         target.write_text(bundled.read_text(encoding="utf-8"), encoding="utf-8")
 
@@ -171,12 +131,6 @@ class TestMain:
 
 class TestThePullOnlyReads:
     def test_the_script_can_only_read_from_langfuse(self):
-        """
-        The pull brings a Langfuse version INTO review; it never writes to
-        Langfuse. Publishing is `scripts/prompts_push.py`, one script with one
-        guard (it never overwrites a version edited in Langfuse), so a
-        `create_prompt` or `update_prompt` appearing here is a second push path.
-        """
         source = (REPO_ROOT / "scripts/prompts_pull.py").read_text(encoding="utf-8")
 
         assert "create_prompt" not in source
@@ -186,11 +140,6 @@ class TestThePullOnlyReads:
         assert _scripts_calling("create_prompt(", "update_prompt(") == {"scripts/prompts_push.py"}
 
     def test_there_is_one_read_of_a_version(self):
-        """
-        The push reads the live version through the pull's `fetch_version`, so
-        a 404 means "no version" in one place and every other error propagates
-        from one place too.
-        """
         assert _scripts_calling("get_prompt(") == {"scripts/prompts_pull.py"}
 
 

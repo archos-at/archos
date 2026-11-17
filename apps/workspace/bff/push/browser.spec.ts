@@ -1,12 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   classifyPushSupport,
+  closeNotifications,
   deviceOfSubscription,
   forgetThisDevice,
   readCapabilities,
   urlBase64ToBytes,
   type PushCapabilities,
 } from './browser'
+import { LEGACY_WORKER_MESSAGES } from './legacy-worker-names'
 import type { PushDeviceView } from './types'
 
 const caps = (overrides: Partial<PushCapabilities> = {}): PushCapabilities => ({
@@ -28,7 +30,7 @@ describe('where a browser stands on notifications', () => {
     ['a browser without push', caps({ hasPushManager: false }), 'unsupported'],
     ['a browser without Notification', caps({ hasNotification: false, permission: null }), 'unsupported'],
     ['an iPhone in Safari (no push there at all)', caps({ isIos: true, hasPushManager: false, hasNotification: false }), 'needs-install'],
-    ['an iPhone with Piloti on the Home Screen', caps({ isIos: true, isStandalone: true }), 'default'],
+    ['an iPhone with the app on the Home Screen', caps({ isIos: true, isStandalone: true }), 'default'],
     ['an installed iPhone app that was refused', caps({ isIos: true, isStandalone: true, permission: 'denied' }), 'denied'],
   ])('%s', (_label, capabilities, expected) => {
     expect(classifyPushSupport(capabilities)).toBe(expected)
@@ -114,8 +116,6 @@ describe('forgetting this browser, as sign-out does', () => {
     Reflect.deleteProperty(navigator, 'clearAppBadge')
   })
 
-  // A slow server used to outlast sign-out's budget with the browser still
-  // subscribed, so the next person on the computer got the last one's inbox.
   it('unsubscribes, closes what is shown and clears the badge even when the server never answers', async () => {
     const order: string[] = []
     const { notification, subscription, clearAppBadge } = browserWith(order)
@@ -144,5 +144,22 @@ describe('forgetting this browser, as sign-out does', () => {
     }
     await forgetThisDevice(client)
     expect(order.slice(order.indexOf('unsubscribe'))).toEqual(['unsubscribe', 'list', 'remove:mine'])
+  })
+})
+
+describe('asking the worker to close notifications', () => {
+  afterEach(() => {
+    Reflect.deleteProperty(navigator, 'serviceWorker')
+  })
+
+  it('posts the request under the new message and under the old one, which an installed worker one release old still reads', async () => {
+    const postMessage = vi.fn()
+    Object.defineProperty(navigator, 'serviceWorker', {
+      configurable: true,
+      value: { getRegistration: vi.fn(async () => ({ active: { postMessage } })) },
+    })
+    await closeNotifications({ itemIds: ['item-1'] })
+    expect(postMessage).toHaveBeenCalledWith({ type: 'close-notifications', itemIds: ['item-1'] })
+    expect(postMessage).toHaveBeenCalledWith({ type: LEGACY_WORKER_MESSAGES.closeNotifications, itemIds: ['item-1'] })
   })
 })

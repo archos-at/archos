@@ -1,22 +1,3 @@
-"""What a folder's card is built from, and the hash that says whether it changed (ADR-0127).
-
-A card reads one level down and no further: the documents directly in the folder
-(name, title, Dokumentart, tags, the one-sentence summary ingestion already wrote,
-the Fassung its title block or a person states), the child folders' own cards, and
-the description a person wrote for the folder. Never the text of a grandchild, so
-the input grows with the folder's fan-out, not with its subtree.
-
-:func:`input_hash` is SHA-256 over a canonical JSON of exactly those inputs, children
-in name order, so it is Merkle-like: a child card enters through its
-``abstract_hash``, and a child whose abstract came out identical changes nothing
-above it. Counts and dates are deliberately NOT hashed: tier 0 shows them live on
-every listing (``browse.folder_cards``), the abstract is told not to state them,
-and an upload that only moves a count therefore never costs a model call.
-
-One collection only: a restricted folder is its own collection (ADR-0088), so its
-documents never reach a card of the folder above it.
-"""
-
 from __future__ import annotations
 
 import hashlib
@@ -27,16 +8,11 @@ from dataclasses import asdict
 from dataclasses import dataclass
 from typing import Any
 
-#: Bumping it marks every card stale: the hash covers it.
 PROMPT_VERSION = "folder-card-v1"
 
-#: A folder with fewer documents than this and no child folder gets no card: its listing is the card.
 MIN_DOCUMENTS = 3
-#: Documents one prompt lists in full. Past it the rest are named by type only (bounded input, one call).
 MAX_LISTED_DOCUMENTS = 60
-#: Summary characters per document in the prompt.
 MAX_SUMMARY_CHARS = 300
-#: Document names shown for a child folder that has no card of its own.
 MAX_CHILD_FOLDER_NAMES = 5
 
 
@@ -47,7 +23,6 @@ class ChildDocument:
     doc_class: str | None
     tags: tuple[str, ...]
     summary: str
-    #: ``Index B, 2026-02-03`` from the title block, when one was read.
     revision: str | None
     superseded_by: str | None
 
@@ -58,7 +33,6 @@ class ChildFolder:
     path: str
     abstract: str | None
     abstract_hash: str | None
-    #: A few document names, only when the child has no card to stand for it.
     documents: tuple[str, ...]
 
 
@@ -70,7 +44,6 @@ class FolderInputs:
     description: str | None
     documents: tuple[ChildDocument, ...]
     folders: tuple[ChildFolder, ...]
-    #: Tier-0 lines the prompt shows for orientation. Not hashed (see the module docstring).
     overview: tuple[str, ...] = ()
 
     @property
@@ -83,7 +56,6 @@ class FolderInputs:
 
     @property
     def tiny(self) -> bool:
-        """Too small to be worth a written card: the listing already says everything."""
         return not self.folders and len(self.documents) < MIN_DOCUMENTS
 
 
@@ -112,7 +84,6 @@ def _document(row: Any) -> ChildDocument:
 
 
 def _overview(rows: Sequence[Any], folder_path: str) -> tuple[str, ...]:
-    """Tier 0 for the prompt, from the same function the listing uses."""
     from knowledge_layer.browse import folder_cards
 
     cards = folder_cards(list(rows), root=folder_path, depth=0)
@@ -133,13 +104,6 @@ def folder_inputs(
     cards: Mapping[str, Mapping[str, Any]],
     descriptions: Mapping[str, str] | None = None,
 ) -> FolderInputs:
-    """The inputs of one folder's card. Pure.
-
-    ``rows`` are the collection's ``browse.FileRow`` (one collection, so never a
-    restricted folder's documents above it); ``cards`` the collection's stored cards
-    by folder path, as the BFF's ``GET`` returns them; ``descriptions`` every
-    folder's description by path, a card or not.
-    """
     path = folder_path.strip().strip("/")
     prefix = f"{path}/"
     subtree = [row for row in rows if row.folder == path or row.folder.startswith(prefix)]
@@ -178,7 +142,6 @@ def folder_inputs(
 
 
 def input_hash(inputs: FolderInputs) -> str:
-    """SHA-256 over what the abstract is written from; stable under row order. Pure."""
     canonical = {
         "prompt_version": PROMPT_VERSION,
         "description": inputs.description,

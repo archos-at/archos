@@ -4,18 +4,6 @@ import { join } from "node:path";
 import * as pulumi from "@pulumi/pulumi";
 import { baseStackConfig, langfuseStackConfig } from "./test-support/stack-config";
 
-/**
- * The primary's connection budget (ADR-0083).
- *
- * PgBouncer keeps a server pool per (database, role), so what the pooler can
- * take from `max_connections` is `instances x pooled pairs x pool size`, and the
- * connections that bypass it by design are held back on top. The three knobs
- * behind that sum are set in different places (the pooler's two, the ingest
- * tier's size) and none looks wrong alone, so the program refuses a stack whose
- * sum passes the limit instead of finding out as "too many clients" on the first
- * tier to reconnect.
- */
-
 pulumi.runtime.setMocks(
   {
     newResource: (args: pulumi.runtime.MockResourceArgs) => ({
@@ -42,13 +30,11 @@ async function load(config: Record<string, string> = {}) {
   return { ...budget, cfg: configModule.loadConfig() };
 }
 
-/** A knob as a stack file sets it; undefined when the stack leaves it to the default. */
 function stackKnob(stack: "dev" | "prod", key: string): string | undefined {
   const text = readFileSync(join(pulumiDir, `Pulumi.${stack}.yaml`), "utf8");
   return text.match(new RegExp(`^\\s*grid-oib:${key}: "?([^"\\s]+)"?\\s*$`, "m"))?.[1];
 }
 
-/** The reserve part with this name, so a test reads the number it is about. */
 function part(budget: { reserve: Array<{ name: string; connections: number }> }, name: RegExp): number {
   const found = budget.reserve.find((p) => name.test(p.name));
   if (!found) throw new Error(`no reserve part matching ${name}`);
@@ -66,9 +52,7 @@ describe("pgConnectionBudget", () => {
 
     const budget = pgConnectionBudget(cfg);
 
-    // 2 poolers x (3 pooled pairs x 16 + 1 auth session)
     expect(budget.pooled).toBe(98);
-    // One keyed_lock per ingest job in flight (5 x 3, the high-memory pool's 1 x 1), plus the background ones.
     expect(part(budget, /advisory locks/)).toBe(15 + 1 + 4);
     expect(budget.total).toBe(budget.pooled + budget.reserveTotal);
     expect(budget.limit).toBe(200);
@@ -133,9 +117,6 @@ describe("assertPgConnectionBudget", () => {
   });
 
   it("holds production at 150 of 200: Langfuse and KEDA on, the ingest tier at its ceiling, the single topology", async () => {
-    // The arithmetic Pulumi.prod.yaml's comment and the pgPoolerPoolSize doc
-    // state. A change here is a change to those numbers, on purpose. The ingest
-    // ceiling is read from the stack file, so lowering it there moves this too.
     const { cfg, pgConnectionBudget } = await load({
       ...langfuseStackConfig(),
       "grid-oib:observabilityEnabled": "true",
@@ -149,17 +130,12 @@ describe("assertPgConnectionBudget", () => {
 
     expect(cfg.langfuse.enabled).toBe(true);
     expect(cfg.ingestWorker.maxReplicas).toBe(7);
-    // 2 x (3 x 12 + 1)
     expect(budget.pooled).toBe(74);
-    // 3 superuser + 6 CNPG + 20 LISTEN + (7 x 2 + 1 x 1 + 4) locks + 6 Jobs + 8 KEDA + 20 Langfuse
     expect(budget.reserveTotal).toBe(82);
     expect(budget.total).toBe(156);
   });
 
   it("passes a fresh stack with everything on, which is the defaults' worst case", async () => {
-    // Split topology with the Postgres filer store is the default for a new
-    // stack, and Langfuse is default-on: every reserve part at once. It must fit,
-    // or the first `pulumi up` on a new stack is a refusal nobody chose.
     const { cfg, assertPgConnectionBudget, pgConnectionBudget } = await load({
       ...langfuseStackConfig(),
       "grid-oib:observabilityEnabled": "true",
@@ -174,7 +150,6 @@ describe("assertPgConnectionBudget", () => {
   it("fails a pooler sized past the limit, naming every number and what to change", async () => {
     const { cfg, assertPgConnectionBudget } = await load({ "grid-oib:pgPoolerPoolSize": "40" });
 
-    // 2 x (3 x 40 + 1) = 242 pooled, before the reserve.
     expect(() => assertPgConnectionBudget(cfg)).toThrow(/more than max_connections \(200\)/);
     expect(() => assertPgConnectionBudget(cfg)).toThrow(
       /can hold 242 \(pgPoolerInstances 2 x \(3 pooled database\/role pairs x pgPoolerPoolSize 40 \+ 1 auth session\)\)/,
@@ -199,7 +174,6 @@ describe("assertPgConnectionBudget", () => {
       ...cfg,
       postgres: { ...cfg.postgres, pooler: { ...cfg.postgres.pooler, poolSize } },
     });
-    // The largest pool that still fits: each step of it costs three connections.
     let fits = 1;
     while (pgConnectionBudget(withPoolSize(fits + 1)).total <= 200) fits += 1;
 
@@ -230,8 +204,6 @@ describe("the pooler knobs", () => {
     const version = cfg.postgres.pooler.image.match(/^ghcr\.io\/cloudnative-pg\/pgbouncer:(\d+)\.(\d+)\.\d+@sha256:[a-f0-9]{64}$/);
     expect(version, "the image is a tag AND a digest").not.toBeNull();
     const [major, minor] = [Number(version![1]), Number(version![2])];
-    // max_prepared_statements, which psycopg3 and asyncpg need in transaction
-    // mode, arrived in PgBouncer 1.21.
     expect(major > 1 || (major === 1 && minor >= 21)).toBe(true);
   });
 });

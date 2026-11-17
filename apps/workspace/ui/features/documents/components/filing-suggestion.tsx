@@ -1,29 +1,5 @@
 'use client'
 
-/**
- * Piloti's filing suggestion on the file it is about: a chip („→ Bescheide“)
- * on the card's footer, after the name in the list, and on the upload row,
- * that opens the decision in a popover: the move as a before and an after, the
- * reason, and the answer, „Verschieben“ or „Belassen“.
- *
- * Not a second filing UI: the suggestion is the server's proposed change
- * (ADR-0105), read, applied and dismissed through `useServerProposal`, the hook
- * the chat's receipt cards use, so a decision here is the same record, inbox
- * item and Langfuse score as anywhere. The hook is mounted when the popover
- * opens, not with the chip: ten chips after a batch upload are ten quiet pills,
- * not ten reads and ten live channels.
- *
- * One proposal per target folder. When it moves more files than this one, the
- * popover says so and its button says how many it moves, and while it is open
- * the other files it moves are lit (`useFilingHighlighted`), so one file's
- * control never moves a file the person cannot see. The decision for several
- * files at once is the filing bar's (`filing-bar.tsx`).
- *
- * The chips find their suggestion through {@link FilingSuggestionsProvider}, so
- * a list row, a card and an upload row need no new props; outside a provider
- * a slot draws nothing.
- */
-
 import {
   createContext,
   useCallback,
@@ -50,42 +26,26 @@ import { useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 import type { FilingFolderSuggestion, FilingSuggestionView } from '../lib/filing-suggestions'
 
-/** The last segment of a folder path: what fits on a chip. */
 export function folderLeaf(path: string): string {
   const segments = path.split('/').filter((segment) => segment.trim() !== '')
   return segments.at(-1) ?? path
 }
 
-// ─── The suggestions of a shelf ─────────────────────────────────────────────
-
 interface FilingSuggestionsContextValue {
   suggestionFor: (documentId: string) => FilingSuggestionView | undefined
-  /** The same suggestions one per target folder, for a filing bar. */
   byFolder: readonly FilingFolderSuggestion[]
-  /** A suggestion was decided: re-read the listing and the suggestions. */
   onSettled: () => void
-  /** Where a document is now: its folder's path, '' at the top level, undefined when not known. */
   folderPathOf: (documentId: string) => string | undefined
-  /** The document whose popover is open on arrival, without taking focus: a preview of the open state. */
   openOnArrival: string | null
 }
 
 const FilingSuggestionsContext = createContext<FilingSuggestionsContextValue | null>(null)
 
-/** The suggestions a provider holds, or null outside one. */
 export function useFilingSuggestionsContext(): FilingSuggestionsContextValue | null {
   return useContext(FilingSuggestionsContext)
 }
 
-// ─── The highlight: which documents a decision in view would move ───────────
-
-/**
- * Which documents are lit right now. A store and not state, so lighting two
- * cards re-renders those two and leaves the other thousand alone
- * (`useSyncExternalStore` compares each card's own answer).
- */
 export interface FilingHighlightStore {
-  /** Light these documents; the returned function puts them out, unless something else has lit others since. */
   light: (documentIds: readonly string[]) => () => void
   has: (documentId: string) => boolean
   subscribe: (listener: () => void) => () => void
@@ -118,14 +78,12 @@ function createHighlightStore(): FilingHighlightStore {
 
 const FilingHighlightContext = createContext<FilingHighlightStore | null>(null)
 
-/** The highlight of the provider around, for a control that lights documents; null outside one. */
 export function useFilingHighlight(): FilingHighlightStore | null {
   return useContext(FilingHighlightContext)
 }
 
 const noSubscription = () => () => undefined
 
-/** Whether this document is lit: a filing bar line is hovered or focused, or a chip's popover that moves it is open. */
 export function useFilingHighlighted(documentId: string | null | undefined): boolean {
   const store = useContext(FilingHighlightContext)
   return useSyncExternalStore(
@@ -135,10 +93,6 @@ export function useFilingHighlighted(documentId: string | null | undefined): boo
   )
 }
 
-/**
- * Light `documentIds` while `active`; put them out when it ends. A no-op
- * outside a provider (the setup page has no cards to light).
- */
 export function useLightWhile(active: boolean, documentIds: readonly string[]): void {
   const store = useFilingHighlight()
   const key = documentIds.join('\u0000')
@@ -163,7 +117,6 @@ export function FilingSuggestionsProvider({
   byFolder?: readonly FilingFolderSuggestion[]
   onSettled: () => void
   folderPathOf?: (documentId: string) => string | undefined
-  /** Open this document's popover on first render, without taking focus (`/dev/filing-suggestions`). */
   openOnArrival?: string | null
   children: ReactNode
 }): JSX.Element {
@@ -185,14 +138,6 @@ export function FilingSuggestionsProvider({
   )
 }
 
-// ─── The decision, shared by the popover and the bar ────────────────────────
-
-/**
- * One filing suggestion as a person decides it, through the proposal: whether
- * this reader may, what the button says, and once decided (here or by a
- * colleague) the sentence that says what happened, until the shelf re-reads
- * it away.
- */
 export function useFilingDecision(suggestion: FilingSuggestionView, onSettled: () => void) {
   const t = useTranslations(filesCopy)
   const settled = useCallback((_proposal: ProposalOfKind<'file_operation'>) => onSettled(), [onSettled])
@@ -209,7 +154,6 @@ export function useFilingDecision(suggestion: FilingSuggestionView, onSettled: (
   return {
     status,
     outcome,
-    /** Why the move failed, item by item, as the server said it. */
     failure: status === 'failed' ? (proposal?.results?.find((result) => !result.ok)?.reason ?? null) : null,
     mayDecide: proposal ? proposal.canDecide : suggestion.canDecide,
     error: problem === 'apply' || problem === 'dismiss' ? t('filing.error') : null,
@@ -219,9 +163,6 @@ export function useFilingDecision(suggestion: FilingSuggestionView, onSettled: (
   }
 }
 
-// ─── The chip and its popover ───────────────────────────────────────────────
-
-/** The suggestion for one document, where a provider holds one: its chip; nothing otherwise. */
 export function FilingSuggestionSlot({
   documentId,
   className,
@@ -290,8 +231,6 @@ function FilingSuggestionChip({
         side="top"
         aria-label={t('filing.label')}
         data-testid="filing-popover"
-        // Escape and an outside click close it and focus goes back to the chip
-        // (Radix). Opened by default it leaves focus where it is.
         onOpenAutoFocus={defaultOpen ? (event) => event.preventDefault() : undefined}
       >
         <FilingDecisionBody suggestion={suggestion} onSettled={onSettled} folderPath={folderPath} />
@@ -300,7 +239,6 @@ function FilingSuggestionChip({
   )
 }
 
-/** What the popover holds, mounted only while it is open. */
 function FilingDecisionBody({
   suggestion,
   onSettled,

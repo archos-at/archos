@@ -1,13 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The daily reminder of a Zuständige's Frist: the sweep queues one job per
- * organization and office day, and the job reminds each Zuständige once per
- * reminder and date, only while they may open the document, a page at a time.
- * The repositories, the queue, the inbox rows and PostHog are faked; the
- * reminder's words are `attention.spec.ts`'s and the row's.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -79,7 +72,6 @@ beforeEach(() => {
 describe('dueWindowOn', () => {
   it('reaches from a week back, the overdue Fristen still reminded of, through tomorrow', () => {
     expect(dueWindowOn('2026-10-17')).toEqual({ from: '2026-10-10', through: '2026-10-18' })
-    // Across a month's end.
     expect(dueWindowOn('2026-11-03')).toEqual({ from: '2026-10-27', through: '2026-11-04' })
   })
 })
@@ -90,7 +82,6 @@ describe('reminderOn', () => {
     expect(reminderOn('2026-10-18', '2026-10-17')).toBe('due_soon')
     expect(reminderOn('2026-10-16', '2026-10-17')).toBe('overdue')
     expect(reminderOn('2026-10-19', '2026-10-17')).toBeNull()
-    // Across a month's end.
     expect(reminderOn('2026-11-01', '2026-10-31')).toBe('due_soon')
   })
 })
@@ -99,10 +90,8 @@ describe('enqueueDueReminders (the daily sweep)', () => {
   it('queues one job per organization with marks due, in its own lane, named by the office’s day', async () => {
     vi.mocked(listOrganizationsWithDueMarks).mockResolvedValue(['org_a', 'org_b'])
 
-    // 23:30 UTC on the 16th is already the 17th in Vienna.
     const sweep = await enqueueDueReminders(new Date('2026-10-16T23:30:00Z'))
 
-    // The overdue window reaches seven days back; the order turns over with the day.
     expect(listOrganizationsWithDueMarks).toHaveBeenCalledWith({ from: '2026-10-10', through: '2026-10-18' }, '2026-10-17', 1000)
     expect(sweep).toEqual({ day: '2026-10-17', organizations: 2, queued: 2, already: 0 })
     expect(vi.mocked(withTenant).mock.calls.map(([scope]) => scope)).toEqual([
@@ -192,7 +181,6 @@ describe('runDueRemindersSlice (one organization’s job)', () => {
   it('tells nobody twice: a row that already says this reminder for this date is left alone', async () => {
     vi.mocked(listDueMarksPage).mockResolvedValue([
       due({ id: 'ann_told', dueOn: '2026-10-18' }),
-      // Reminded of when it was near; now it has passed, which upgrades the same row.
       due({ id: 'ann_passed', dueOn: '2026-10-16' }),
     ])
     vi.mocked(readGroupPayloads).mockResolvedValue(

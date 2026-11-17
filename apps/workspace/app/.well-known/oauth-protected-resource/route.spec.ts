@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The RFC 9728 document an MCP client reads to find the authorization server
- * (ADR-0122). Both well-known paths serve the same document: the bare one and
- * the path-inserted one the 401 challenge points at.
- */
 
 import { beforeEach, describe, expect, it } from 'vitest'
 import { GET as a2a } from './api/a2a/route'
@@ -14,16 +9,15 @@ import { GET as platform } from './api/platform/mcp/route'
 import { GET } from './route'
 import { PRODUCT_NAME } from '@/lib/brand'
 
-const CANONICAL = 'https://app.piloti.test/api/mcp'
+const CANONICAL = 'https://app.example.test/api/mcp'
 
 const CURRENT_HOST = new URL(CANONICAL).host
 
-/** A GET for the metadata as Envoy forwards it: the client's host in `Host`. */
 const at = (host = CURRENT_HOST) => new Request('http://10.0.0.7:3000/.well-known/oauth-protected-resource', { headers: { host } })
 
 beforeEach(() => {
   delete process.env.MCP_FORMER_ORIGINS
-  process.env.WORKOS_AUTHKIT_DOMAIN = 'auth.piloti.test'
+  process.env.WORKOS_AUTHKIT_DOMAIN = 'auth.example.test'
   process.env.MCP_RESOURCE_URL = CANONICAL
 })
 
@@ -34,8 +28,8 @@ describe('oauth-protected-resource', () => {
       expect(response.status).toBe(200)
       expect(response.headers.get('access-control-allow-origin')).toBe('*')
       expect(await response.json()).toEqual({
-        resource: 'https://app.piloti.test/api/mcp',
-        authorization_servers: ['https://auth.piloti.test'],
+        resource: 'https://app.example.test/api/mcp',
+        authorization_servers: ['https://auth.example.test'],
         scopes_supported: ['openid', 'profile', 'email', 'offline_access'],
         resource_name: PRODUCT_NAME,
         bearer_methods_supported: ['header'],
@@ -47,8 +41,8 @@ describe('oauth-protected-resource', () => {
     const response = a2a(at())
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({
-      resource: 'https://app.piloti.test/api/a2a',
-      authorization_servers: ['https://auth.piloti.test'],
+      resource: 'https://app.example.test/api/a2a',
+      authorization_servers: ['https://auth.example.test'],
       scopes_supported: ['openid', 'profile', 'email', 'offline_access'],
       resource_name: PRODUCT_NAME,
       bearer_methods_supported: ['header'],
@@ -59,8 +53,8 @@ describe('oauth-protected-resource', () => {
     const response = platform(at())
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({
-      resource: 'https://app.piloti.test/api/platform/mcp',
-      authorization_servers: ['https://auth.piloti.test'],
+      resource: 'https://app.example.test/api/platform/mcp',
+      authorization_servers: ['https://auth.example.test'],
       scopes_supported: ['openid', 'profile', 'email', 'offline_access'],
       resource_name: `${PRODUCT_NAME} platform console`,
       bearer_methods_supported: ['header'],
@@ -68,16 +62,16 @@ describe('oauth-protected-resource', () => {
   })
 
   it('derives the platform door from the same setting, so one change moves all three resources', async () => {
-    process.env.MCP_RESOURCE_URL = 'https://piloti.example/api/mcp'
+    process.env.MCP_RESOURCE_URL = 'https://example.test/api/mcp'
     const body = (await platform(at()).json()) as { resource: string }
-    expect(body.resource).toBe('https://piloti.example/api/platform/mcp')
+    expect(body.resource).toBe('https://example.test/api/platform/mcp')
   })
 
   it('takes the resource from the pinned app origin when none is set', async () => {
     delete process.env.MCP_RESOURCE_URL
-    process.env.WORKOS_REDIRECT_URI = 'https://app.piloti.test/api/auth/callback'
+    process.env.WORKOS_REDIRECT_URI = 'https://app.example.test/api/auth/callback'
     const body = (await GET(at()).json()) as { resource: string }
-    expect(body.resource).toBe('https://app.piloti.test/api/mcp')
+    expect(body.resource).toBe('https://app.example.test/api/mcp')
   })
 
   it('answers 503 while AuthKit is not configured', () => {
@@ -94,7 +88,7 @@ describe('oauth-protected-resource', () => {
       for (const [handler, path] of [[pathInserted, '/api/mcp'], [a2a, '/api/a2a'], [platform, '/api/platform/mcp']] as const) {
         const body = (await handler(at('app.old.test')).json()) as { resource: string; authorization_servers: string[] }
         expect(body.resource).toBe(`https://app.old.test${path}`)
-        expect(body.authorization_servers).toEqual(['https://auth.piloti.test'])
+        expect(body.authorization_servers).toEqual(['https://auth.example.test'])
       }
     })
 

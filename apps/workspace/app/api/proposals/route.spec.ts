@@ -1,20 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Proposals no chat made (Piloti's filing suggestions) and proposals on the
- * Büroablage (0146), driven through the TYPED CLIENT (ADR-0055):
- *
- * - `GET /api/proposals` lists a shelf's open proposals with the documents
- *   they name, resolved for the reader, and leaves out one naming a document
- *   the reader cannot open;
- * - a proposal no conversation made is read through its documents: one the
- *   reader cannot resolve is a 404;
- * - a Büroablage proposal is read by any member and decided by its curators
- *   (`org:archiv:manage`), and can only move its documents;
- * - „create this folder and move these files into it" is one confirm: the
- *   apply makes the folder with its description, then files every item.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -129,7 +115,7 @@ const ROUTES: Array<{ pattern: RegExp; method: string; handler: Handler }> = [
 ]
 
 const run = async (path: string, init?: RequestInit) => {
-  const url = new URL(path, 'https://grid.test')
+  const url = new URL(path, 'https://example.test')
   const method = init?.method ?? 'GET'
   const route = ROUTES.find((entry) => entry.pattern.test(url.pathname) && entry.method === method)
   if (!route) throw new Error(`no route for ${method} ${url.pathname}`)
@@ -255,7 +241,7 @@ describe('GET /api/proposals', () => {
       [OFFICE_SHELF, null, false],
     ])
     expect(requireProjectAccess).not.toHaveBeenCalled()
-    SESSION.permissions = ['org:archiv:manage']
+    SESSION.permissions = ['org:office_shelf:manage']
     expect((await listOpenProposals({ shelf: 'office_shelf' }, run)).proposals[0].proposal.canDecide).toBe(true)
   })
 
@@ -303,7 +289,6 @@ describe('a proposal no conversation made', () => {
       { documentId: 'doc_1', folderId: 'f_bescheide' },
       { documentId: 'doc_2', folderId: 'f_bescheide' },
     ])
-    // The judgement's trace carries the decision, as a turn's does for a card.
     await vi.waitFor(() =>
       expect(recordDecisionScore).toHaveBeenCalledWith(expect.objectContaining({ decision: 'accepted', traceId: 'trace-filing' }))
     )
@@ -332,7 +317,7 @@ describe('a proposal no conversation made', () => {
 describe('the Büroablage', () => {
   it('is decided by its curators: a member gets a 403', async () => {
     await expect(applyProposal(OFFICE_SHELF, run)).rejects.toMatchObject({ status: 403 })
-    SESSION.permissions = ['org:archiv:manage']
+    SESSION.permissions = ['org:office_shelf:manage']
     const { proposal } = await applyProposal(OFFICE_SHELF, run)
     expect(proposal.status).toBe('applied')
     expect(moveDocumentToFolder).toHaveBeenCalledWith({ documentId: 'doc_n', folderId: 'f_normen' }, SESSION)

@@ -1,23 +1,7 @@
-/**
- * The MCP server (`POST /api/mcp`, @payloadcms/plugin-mcp): how Claude, Cursor
- * and our own agent work in the CMS (ADR-0155).
- *
- * An MCP client authenticates with an API key made in the admin panel
- * (Settings > API Keys): a person makes their own, an administrator makes one
- * for an agent's account. The key acts as the user it is bound to, so every rule
- * in `access/` applies to it unchanged, and for an editor or an agent every
- * write is a draft. Each key also switches each operation below on or off for
- * itself.
- *
- * Offered here: find, create and update, never delete. Users, keys and jobs are
- * not offered at all, and the plugin's experimental tools (which edit the
- * config, collections and jobs as code) stay off.
- */
 import type { MCPPluginConfig } from '@payloadcms/plugin-mcp';
 import type { Field, FieldAccess } from 'payload';
 import { isAdmin } from './access/roles';
 
-/** Who a key is bound to: set once, by an administrator when it is not their own; never changed. */
 const USER_FIELD_ACCESS: { create: FieldAccess; update: FieldAccess } = { create: ({ req }) => isAdmin(req.user), update: () => false };
 
 const DRAFT_ONLY = { find: true, create: true, update: true, delete: false };
@@ -44,9 +28,6 @@ export const MCP_OPTIONS: MCPPluginConfig = {
         "The website's CMS. Blog posts hold German (locale de, the default) and English (locale en) in one document; read and write one locale at a time. Every write you make is a draft that a publisher reviews and publishes in the admin panel; you cannot publish, unpublish or delete. A post's body is Lexical rich text whose blocks are the website's components.",
     },
   },
-  // Anyone with the admin panel makes keys for themselves (an editor using Claude Code). An agent's
-  // account has no admin panel, so an administrator makes its key and binds it to that account: the
-  // plugin refuses binding a key to another user unless allowed here, and only administrators are.
   overrideApiKeyCollection: (collection) => ({
     ...collection,
     admin: { ...collection.admin, group: 'Settings' },

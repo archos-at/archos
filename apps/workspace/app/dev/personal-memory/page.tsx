@@ -1,21 +1,5 @@
 'use client'
 
-/**
- * Dev preview for „Mein Gedächtnis“ (ADR-0180): the REAL `PersonalMemoryPanel`
- * over a fetch shim for `/api/user/memory`, so every state is reviewable
- * without a backend. Pick one with the toggles or open it by address:
- *
- *   ?state=notes      three notes, one pinned; add, edit, pin and remove work
- *   ?state=empty      no note yet
- *   ?state=loading    the list never answers
- *   ?state=error      the list answers 500
- *   ?state=conflict   every edit of a text answers 409 (another note says it)
- *
- * The shim is installed at MODULE scope, not in an effect: a child's effect
- * fires first and would race a parent's fetch patch. Not linked from anywhere
- * and 404s outside development (see ../layout.tsx).
- */
-
 import type { JSX } from 'react'
 import { PageHeader } from '@/components/ui/page-header'
 import { PersonalMemoryPanel } from '@/features/personal-memory'
@@ -32,10 +16,13 @@ interface Note {
   content: string
   provenanceType: 'agent' | 'user' | 'distillation'
   pinned: boolean
+  topic: string | null
   sourceConversationId: string | null
   createdAt: string
   updatedAt: string
 }
+
+type Body = Partial<Note> & { from?: string | null; to?: string | null; name?: string }
 
 const note = (id: string, kind: Note['kind'], content: string, overrides: Partial<Note> = {}): Note => ({
   id,
@@ -43,6 +30,7 @@ const note = (id: string, kind: Note['kind'], content: string, overrides: Partia
   content,
   provenanceType: 'agent',
   pinned: false,
+  topic: null,
   sourceConversationId: null,
   createdAt: '2026-11-03T09:00:00Z',
   updatedAt: '2026-11-03T09:00:00Z',
@@ -59,36 +47,94 @@ const SEED: Note[] = [
     '5f0a4c88-0000-4000-8000-0000000000a2',
     'profile',
     'Leitet im Büro die Einreichplanung und ist Ansprechperson für Brandschutzfragen.',
-    { updatedAt: '2026-11-09T15:40:00Z' }
+    { topic: 'Brandschutz', updatedAt: '2026-11-09T15:40:00Z' }
   ),
   note(
     '5f0a4c88-0000-4000-8000-0000000000a3',
     'preference',
     'Flächenangaben immer in Quadratmetern mit einer Nachkommastelle.',
-    { provenanceType: 'distillation', updatedAt: '2026-11-06T11:05:00Z' }
+    { provenanceType: 'distillation', topic: 'Flächen', updatedAt: '2026-11-06T11:05:00Z' }
+  ),
+  note(
+    '5f0a4c88-0000-4000-8000-0000000000a4',
+    'preference',
+    'Bei Stellplatzfragen zuerst die Stellplatzsatzung der Gemeinde nennen, dann den Bebauungsplan.',
+    { topic: 'Stellplätze', updatedAt: '2026-11-05T10:20:00Z' }
+  ),
+  note(
+    '5f0a4c88-0000-4000-8000-0000000000a5',
+    'preference',
+    'Brandschutznachweise immer mit Fundstelle im Entwurf nennen.',
+    { topic: 'Brandschutz', updatedAt: '2026-11-04T14:00:00Z' }
   ),
 ]
 
-/** What the shim serves; the page sets both before it mounts the panel. */
 const server: { state: PreviewState; notes: Note[] } = { state: 'notes', notes: [...SEED] }
+
+function sameTopic(a: string | null, b: string | null): boolean {
+  if (a === null || b === null) return a === b
+  return a.toLocaleLowerCase('de') === b.toLocaleLowerCase('de')
+}
+
+function topicSummary(notes: Note[]): { name: string; count: number }[] {
+  const counts = new Map<string, number>()
+  for (const candidate of notes) {
+    if (candidate.topic !== null) counts.set(candidate.topic, (counts.get(candidate.topic) ?? 0) + 1)
+  }
+  return [...counts]
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'de'))
+}
+
+function resolveName(raw: string | null | undefined): string | null {
+  const text = (raw ?? '').trim().replace(/\s+/g, ' ')
+  if (text === '') return null
+  return topicSummary(server.notes).find((topic) => sameTopic(topic.name, text))?.name ?? text
+}
+
+function answerTopics(method: string, body: Body): Response {
+  if (method === 'PATCH') {
+    const from = body.from ?? null
+    const to = resolveName(body.to)
+    const moved = server.notes.filter((candidate) => sameTopic(candidate.topic, from)).length
+    const now = new Date().toISOString()
+    server.notes = server.notes.map((candidate) =>
+      sameTopic(candidate.topic, from) ? { ...candidate, topic: to, updatedAt: now } : candidate
+    )
+    return Response.json({ moved })
+  }
+  if (method === 'DELETE') {
+    const name = body.name ?? null
+    const removed = server.notes.filter((candidate) => sameTopic(candidate.topic, name)).length
+    server.notes = server.notes.filter((candidate) => !sameTopic(candidate.topic, name))
+    return Response.json({ removed })
+  }
+  return Response.json({ error: 'Method not allowed' }, { status: 405 })
+}
 
 async function answer(url: string, init?: RequestInit): Promise<Response> {
   const method = init?.method ?? 'GET'
-  const body = typeof init?.body === 'string' ? (JSON.parse(init.body) as Partial<Note>) : {}
+  const { pathname, searchParams } = new URL(url, 'http://preview.local')
+  const body = typeof init?.body === 'string' ? (JSON.parse(init.body) as Body) : {}
   if (method === 'GET') {
     if (server.state === 'loading') return new Promise<Response>(() => {})
     if (server.state === 'error') return Response.json({ error: 'Internal error' }, { status: 500 })
-    return Response.json({ items: server.notes, nextCursor: null })
+    const topic = searchParams.get('topic')
+    const items =
+      topic === null ? server.notes : server.notes.filter((candidate) => sameTopic(candidate.topic, topic === '' ? null : topic))
+    return Response.json({ items, nextCursor: null, topics: topicSummary(server.notes) })
   }
   if (method === 'POST') {
     const created = note(crypto.randomUUID(), body.kind ?? 'preference', body.content ?? '', {
       provenanceType: 'user',
+      topic: resolveName(body.topic),
       updatedAt: new Date().toISOString(),
     })
     server.notes = [created, ...server.notes]
     return Response.json({ item: created }, { status: 201 })
   }
-  const id = url.split('/').pop()
+  if (pathname === '/api/user/memory/topics') return answerTopics(method, body)
+  const id = pathname.split('/').pop()
   const existing = server.notes.find((candidate) => candidate.id === id)
   if (!existing) return Response.json({ error: 'Not found' }, { status: 404 })
   if (method === 'DELETE') {
@@ -111,7 +157,7 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
     window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
       const path = url.split('?')[0]
-      if (path === '/api/user/memory' || path.startsWith('/api/user/memory/')) return answer(path, init)
+      if (path === '/api/user/memory' || path.startsWith('/api/user/memory/')) return answer(url, init)
       return real(input, init)
     }
   }

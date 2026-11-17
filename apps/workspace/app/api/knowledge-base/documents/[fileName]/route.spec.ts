@@ -22,7 +22,6 @@ vi.mock('@/lib/internal-auth', () => ({ internalServiceHeaders: () => ({ 'x-test
 
 import { GET } from './route'
 
-/** Each file the corpus holds and the mark its release wrote; null is a text no release marked. */
 const MARKS: Record<string, string | null> = {
   'released-here.pdf': 'QA',
   'released-elsewhere.pdf': 'QB',
@@ -33,7 +32,6 @@ const WITHHELD = ['released-elsewhere.pdf', 'rolled-back.pdf', 'draft-upload.pdf
 
 const fetchMock = vi.fn()
 
-/** The backend's office read: the file when its mark is one of the countries asked as, else its 404. */
 async function backend(input: string): Promise<Response> {
   const url = new URL(input)
   const name = decodeURIComponent(url.pathname.split('/').pop() ?? '')
@@ -94,7 +92,6 @@ describe('GET /api/knowledge-base/documents/[fileName]', () => {
 
     expect(missing.status).toBe(404)
     expect(res.status).toBe(404)
-    // Only the request id differs: nothing in the answer says which of the two it was.
     expect(await withoutRequestId(res)).toEqual(await withoutRequestId(missing))
     expect(res.headers.get('Content-Type')).toBe(missing.headers.get('Content-Type'))
   })

@@ -1,4 +1,4 @@
-# The Piloti hobble register (2026-09)
+# The agent hobble register (2026-09)
 
 > Every constraint in the answering path, ranked, and classified by what it
 > actually does: remove a capability the model has, prevent waste that a tool
@@ -47,7 +47,7 @@ product answers, and row `was-weisst-du-ueber-oib-2` of the loop eval
 (`tests/fixtures/derivation/loop_eval_questions.yaml`). Not an exotic six-hop
 chain. A family overview.
 
-Static prompt weight, measured (`piloti.j2`, 57 007 chars ≈ 14 250 tokens):
+Static prompt weight, measured (`system.j2`, 57 007 chars ≈ 14 250 tokens):
 `<answer_envelope>` 1 658 · `<cards>` 1 432 · `<stimme>` 1 391 ·
 `<output_contract>` 1 147 · `<examples>` 964 · `<research_rules>` 700 ·
 `<source_priority>` 509 · `<citation_format>` 367 · `<clarification>` 310 ·
@@ -80,29 +80,29 @@ retune · **D** = defect.
 
 | # | Constraint | Where | Removes / prescribes | Class | Real fix | Status |
 |---|---|---|---|---|---|---|
-| 1 | RIS is three tools plus a prompt-taught sequence | `configs/config_oib_openrouter.yml`, `packages/ris-adapter/src/register.py`, `piloti.j2` | Model must spend 2–3 of 7 charged calls (catalog → search → fetch) to reach one citable §; the fetched blob is not a grounding block, so nothing downstream can resolve a § | **H** | `ris_lookup` — §3 below | **In this change** (the design in §3 is what is being built) |
+| 1 | RIS is three tools plus a prompt-taught sequence | `configs/config_oib_openrouter.yml`, `packages/ris-adapter/src/ris_adapter/register.py`, `system.j2` | Model must spend 2–3 of 7 charged calls (catalog → search → fetch) to reach one citable §; the fetched blob is not a grounding block, so nothing downstream can resolve a § | **H** | `ris_lookup` — §3 below | **In this change** (the design in §3 is what is being built) |
 | 2 | Research budget is charged per **emitted call**, never refunded; forced synthesis at the ceiling | `max_tool_iterations: 7`; `agent.py`, `_SYNTHESIS_ANCHOR` | A parallel round of five costs five. Trace A truncated on a family overview | **H** (the ceiling is fine; the *unit* is the hobble) | Charge **rounds**, not calls; keep 7 as a round ceiling, add a token/wall-clock stop | **In this change** |
 | 3 | `reasoning_effort: low` on `research_llm` | `configs/…` | The one role that decides *what to retrieve* is the only role denied deliberation; `clarifier`, `deep_*`, `card` all get `medium` | **H** | `medium` on the research role; re-measure latency, which is what the comment actually argues about | **In this change** |
 | 4 | Web search returns 8 snippets, each truncated to 1 000 chars, and there is no web fetch | `configs/…` `max_results: 8`, `max_content_length: 1000` | Nothing quotable comes back, and the prompt has no "fetch the page" move to offer — the RIS advice ("prefer the fetched text over search snippets") has no web twin | **H** | `web_lookup(question, conclusion=)`: search → fetch top 2 → extract passages → same grounding block. §4 | **Open** — deliberately after RIS, so the eval delta stays attributable |
-| 5 | `<source_priority>` "Choose sources in this order" | `piloti.j2` | A fixed 1→4 ordering over corpora, decided before the question is read. A Wiener Bauordnung question is told to start in the OIB corpus | **H** | Delete the ordering; keep the *facts* (what each corpus holds, what it does not) in the tool descriptions where they already are | **Closed** `0e89484` — the section is a description of what each corpus holds |
-| 6 | Data-source toggles delete tools from the binding and from the prompt | `common/data_sources.py`; `configs/…`; `piloti.j2` | A toggle changes both the tool set and the prompt text → a different `prompt_cache_key` shard, so every toggle combination pays a cold prefix on a turn that is 99.6 % input tokens | **H** + cost | Keep the tool bound, make it **refuse** with a reason (mask, don't remove). One cache shard per org/model, not per toggle combination. *Since 2026-09-23: two per org, with and without a project (`_tools_in_scope` drops `ifc_query` / `ifc_measure` when there is none).* | **In this change** |
+| 5 | `<source_priority>` "Choose sources in this order" | `system.j2` | A fixed 1→4 ordering over corpora, decided before the question is read. A Wiener Bauordnung question is told to start in the OIB corpus | **H** | Delete the ordering; keep the *facts* (what each corpus holds, what it does not) in the tool descriptions where they already are | **Closed** `0e89484` — the section is a description of what each corpus holds |
+| 6 | Data-source toggles delete tools from the binding and from the prompt | `common/data_sources.py`; `configs/…`; `system.j2` | A toggle changes both the tool set and the prompt text → a different `prompt_cache_key` shard, so every toggle combination pays a cold prefix on a turn that is 99.6 % input tokens | **H** + cost | Keep the tool bound, make it **refuse** with a reason (mask, don't remove). One cache shard per org/model, not per toggle combination. *Since 2026-09-23: two per org, with and without a project (`_tools_in_scope` drops `ifc_query` / `ifc_measure` when there is none).* | **In this change** |
 | 7 | History trimmed to 8 000 tokens | `conversation_register.py`, `conversation.py`, `history.py` | On a model carrying 37–83 k tokens per call, the *conversation* is the one thing cut. A user's correction three turns back is gone while 14 k of static prompt is re-sent | **H** | Raise to ~40 k, or budget history as "what is left after prompt + tools + this turn's observations", which is the only budget that means anything | **In this change** |
-| 8 | Card doctrine exists twice: `<cards>` in the prompt **and** `emit_card`'s rendered doctrine + index; shape needs a `describe_card` round trip | `piloti.j2`; `cards/register.py`; `catalog.render_card_doctrine/index` | ≈ 1 432 + 918 + 942 ≈ 3 300 tokens on **every** call of every turn, plus one charged interaction call to learn a shape | **H** (the split) / **W** (`describe_card`) | One home for triggers (the tool schema — it is the thing that is called). Return the shape *with the validation error* `emit_card` already returns, and drop `describe_card` from the bound set | **Closed** `1762b09` — trigger table is data, a failed `emit_card` teaches the shape, `describe_card` off the chat surface |
-| 9 | `<query_rewriting>` — "Before calling any search tool, rewrite the user's question" | `piloti.j2` | Prescribes a step three tools already perform: `ris_search` has `ris_planner_llm`, `knowledge_search` has the requery gate, the web tool rewrites internally | **H** (redundant instruction, ~114 tok/call) | Delete. If a tool does not rewrite, fix the tool | **Closed** `0e89484` |
+| 8 | Card doctrine exists twice: `<cards>` in the prompt **and** `emit_card`'s rendered doctrine + index; shape needs a `describe_card` round trip | `system.j2`; `cards/register.py`; `catalog.render_card_doctrine/index` | ≈ 1 432 + 918 + 942 ≈ 3 300 tokens on **every** call of every turn, plus one charged interaction call to learn a shape | **H** (the split) / **W** (`describe_card`) | One home for triggers (the tool schema — it is the thing that is called). Return the shape *with the validation error* `emit_card` already returns, and drop `describe_card` from the bound set | **Closed** `1762b09` — trigger table is data, a failed `emit_card` teaches the shape, `describe_card` off the chat surface |
+| 9 | `<query_rewriting>` — "Before calling any search tool, rewrite the user's question" | `system.j2` | Prescribes a step three tools already perform: `ris_search` has `ris_planner_llm`, `knowledge_search` has the requery gate, the web tool rewrites internally | **H** (redundant instruction, ~114 tok/call) | Delete. If a tool does not rewrite, fix the tool | **Closed** `0e89484` |
 | 10 | Round-zero fan-out cap: first round runs at most two searches | `agent.py` `_ROUND_ZERO_SEARCH_LIMIT = 2` | Three plausible corpora (knowledge, RIS, web) do not fit in two calls. `ris_fetch` / `ris_catalog_lookup` counted as "searches" although a document number is an address, not a guess | **H** | Delete it: it judged the model's process, and the budget bounds cost without prescribing a round's shape | **Closed** `47b2be9` (locator calls stopped counting), then `7f6270c` (the cap is gone). What remains is `max_calls_per_round` (12, config), a runaway guard on the width of ONE round that no batch the prompt asks for comes near; the calls past it are answered with „ask again next round", not refused |
-| 11 | "Ask at most one question" + one `ask_user` per turn, hard | `piloti.j2`; `ask_user.py`, `AskUserGuard`, `MAX_OPTIONS = 6` | A turn that genuinely needs two facts (Bundesland **and** Gebäudeklasse) must guess one | **R** for the transport guard (one outstanding prompt is a real transport invariant), **H** for "one per turn" | Keep the transport guard. Let a turn ask twice if it answers between them; drop the prompt sentence | **Open** |
+| 11 | "Ask at most one question" + one `ask_user` per turn, hard | `system.j2`; `ask_user.py`, `AskUserGuard`, `MAX_OPTIONS = 6` | A turn that genuinely needs two facts (Bundesland **and** Gebäudeklasse) must guess one | **R** for the transport guard (one outstanding prompt is a real transport invariant), **H** for "one per turn" | Keep the transport guard. Let a turn ask twice if it answers between them; drop the prompt sentence | **Open** |
 | 12 | Every retrieved passage truncated | `knowledge_layer/register.py` `_CHUNK_TRUNCATE_CHARS = 2500`; RIS `max_chars: 40000`; web `max_content_length: 1000` | An OIB table longer than 2 500 chars loses rows — the comment says so and then keeps the cut | **B** at 2 500 (defensible), **H** at web 1 000 | Cut on a **row/paragraph boundary** with a stated remainder and a way to open it, not mid-table. RIS's 40 k becomes an extractor bound rather than a model-facing one (§3) | **Partly, in this change** — the RIS half is §3; the web half rides with row 4. 2026-09-24: a § the caller NAMES is bounded at 8 000 (`grammar.SECTION_MAX_CHARS`, 187 of 194 §§ of the BO Wien whole) after the answer suite showed § 63 cut at 2 500 costing three more lookups; RIS's screen-reader twins (`.sr-only`, a third of the text) are dropped, and each § is parsed once whether RIS repeats it as a header block (Wien) or a table of contents (Tirol) |
 | 13 | Four tools over one index | `knowledge_search`, `read_passage`, `surface_documents`, `view_knowledge_image` | Each description spends a paragraph saying *not* to call the other three | **H** (mild) | Lower priority than RIS: each is addressed differently and the pairing is now coherent. Revisit after RIS lands; `surface_documents` is the merge candidate (`mode=one/many` is `knowledge_search` with a different renderer) | **Open**, deferred on purpose |
-| 14 | Off-topic decline: "Do NOT answer the question, even when you happen to know the answer" | `piloti.j2` | Removes capability by policy | **R** — product scope, not a hobble | Keep | **Keep** |
+| 14 | Off-topic decline: "Do NOT answer the question, even when you happen to know the answer" | `system.j2` | Removes capability by policy | **R** — product scope, not a hobble | Keep | **Keep** |
 | 15 | Duplicate-fetch guard withholds an identical call | `agent.py`, `_drop_repeat_fetches` | Right intent, wrong return: the model gets a German scolding instead of the result | **W** | Return the **cached result** with a one-line note that it is a repeat. Costs nothing, keeps the transcript append-only, removes the retry loop the notice is trying to talk the model out of | Guard added `d1792bb`; the cached-result return is **in this change** |
 | 16 | `_INTERACTION_TOOL_ALLOWANCE = 9` | `agent.py` | Cards/memory/drafts do not eat research budget | **B**, keep | It exists only because #2 charges calls. Charging rounds makes most of its derivation unnecessary | **In this change**, with row 2 |
 | 17 | Repair: 2 retrievals, 1 rewrite | `repair.py` | Bounds the post-verification repair | **B**, keep | None. This is the model of a good bound: it caps cost without prescribing the shape | **Keep**. *Since ADR-0067: `MAX_PATCHES = 3`, `PATCH_TIMEOUT_S = 8.0` (`quote_patch.py`), no retrieval.* |
 | 18 | `max_llm_turns: 10` is dead, and the config reasons from it | `configs/…`; `register.py` warns it is ignored; real limit `agent.py::_recursion_limit` | The config comment computes "well under `recursion_limit` 30 (`max_llm_turns * 2 + 10`)". The code gives **46**, from a different formula | **D** | Delete the key, fix the comment. A stale derivation in the one file people tune is how the next budget decision goes wrong | **In this change**, with row 2 |
 | 19 | `top_k: 16`, `max_chunks_per_document: 5`, `rerank_candidates: 60`, relevance floor | `configs/…`; ADR-0057/0058 | Retrieval-side bounds with measured derivations | **B**, keep | None | **Keep** |
 | 20 | `tool_search` off; `deferred_tool_loading` on with `min_intelligence_index: 50` | `configs/…`; `piloti/tool_search.py`; ADR-0048 | Both *add* capability or leave it untouched; the off switch is argued from measurement (71 % answering-tool recall) | **B/R**, keep | None. `tool_search.py` names the real constraint — "turns are the scarce resource" — which is row #2 | **Removed 2026-10-27; re-adding is a new implementation.** *Both were off in every shipped config; the code went with ADR-0048's supersession* |
-| 21 | Citation verification only ever removes; confidence capped without verified citations | `piloti.j2`; `piloti/grounding.py`; `piloti/AGENTS.md` "two currencies" | Catches a false claim **after** the fact | **R**, keep | None. This is the archetype of what must stay | **Keep**. *ADR-0125 changed the form, not the ratchet: a dropped pointer is labelled, and the cap is per sentence (§5)* |
+| 21 | Citation verification only ever removes; confidence capped without verified citations | `system.j2`; `core/grounding.py`; `core/AGENTS.md` "two currencies" | Catches a false claim **after** the fact | **R**, keep | None. This is the archetype of what must stay | **Keep**. *ADR-0125 changed the form, not the ratchet: a dropped pointer is labelled, and the cap is per sentence (§5)* |
 | 22 | `conclusion=` required on every retrieval call | `knowledge_layer/register.py`; `turn_status.py` | One sentence per call, deliberately unread by the tool | **R** (it is the Herleitung's evidence, and it is a *slot*, not a sequence) | Keep. Extend to `ris_lookup` | **Keep**, and extended in §3 |
-| 23 | The DYNAMIC half restates tool contracts and standing doctrine | `piloti.j2` below the boundary: `<entwuerfe>` 788 · `<aufraeumen>` 329 · `<delegieren>` 383 · `ris_catalog` 1 544 · `norm_doctrine` 788 · the three `project_context` explanations 718 | 7 724 tokens on a realistic turn, none of it cacheable, so every call of every turn pays all of it. Row 8's pattern, three more times: a bound tool's contract written out beside the tool that already states it | **H** | Each rule into the tool description that owns it; standing doctrine ABOVE the boundary, where identical bytes are cached; the catalog deleted, because `ris_lookup` resolves a pointer from the question | **Closed** — ADR-0060 amendment. 7 724 → 2 962; two sentences of rule survive (`<entwuerfe>`: the anaphora, and that filing needs a project) and per-turn FACTS are all that is left |
+| 23 | The DYNAMIC half restates tool contracts and standing doctrine | `system.j2` below the boundary: `<entwuerfe>` 788 · `<aufraeumen>` 329 · `<delegieren>` 383 · `ris_catalog` 1 544 · `norm_doctrine` 788 · the three `project_context` explanations 718 | 7 724 tokens on a realistic turn, none of it cacheable, so every call of every turn pays all of it. Row 8's pattern, three more times: a bound tool's contract written out beside the tool that already states it | **H** | Each rule into the tool description that owns it; standing doctrine ABOVE the boundary, where identical bytes are cached; the catalog deleted, because `ris_lookup` resolves a pointer from the question | **Closed** — ADR-0060 amendment. 7 724 → 2 962; two sentences of rule survive (`<entwuerfe>`: the anaphora, and that filing needs a project) and per-turn FACTS are all that is left |
 
 ---
 
@@ -176,7 +176,7 @@ the top two pages, extracts the passages that answer the question, and emits the
 same grounding block. Lower rank than RIS only because Austrian building law is
 the product and the web is the fallback.
 
-**5 — A source ordering decided before the question is read.** `piloti.j2`
+**5 — A source ordering decided before the question is read.** `system.j2`
 numbered the corpora 1 → 4 and said "Choose sources in this order, based on the
 query". Rung 1 claimed primacy for the knowledge base "because the binding text
 sits here and carries a page"; rung 2 sent statutes to RIS. But the loop-eval row
@@ -482,7 +482,7 @@ unnecessary once the sequence is inside the tool.
    documents and returns at most 6 passages; a 900 kB consolidated law does not
    put 900 kB in the transcript.
 6. `test_ris_lookup_ledger.py` — through the **compiled graph** (the
-   `piloti/AGENTS.md` ContextVar rule): lane hits equal returned passages, each
+   `core/AGENTS.md` ContextVar rule): lane hits equal returned passages, each
    stamped with the executing round.
 7. `test_repeat_fetch_guard.py` — extend: two identical `ris_lookup` calls in
    one turn, the second withheld (or, with row 15 landed, served from cache).
@@ -553,7 +553,7 @@ the one merge candidate on the horizon, and it can wait.
 
 ## 5. What is NOT a hobble, and must stay
 
-* **Citation verification that only ever removes** (`piloti.j2`,
+* **Citation verification that only ever removes** (`system.j2`,
   `common/citation_verification.py`). It catches a false claim after the fact
   and cannot invent one. The archetype. *Since ADR-0125 it labels instead of
   removing silently; since its amendment of 2026-11-10 it removes again, because no
@@ -562,7 +562,7 @@ the one merge candidate on the horizon, and it can wait.
   did is gone.*
 * **The confidence ceiling** — a measurement never buys more than `medium`, and
   an answer touching the law without verified citations is capped whatever it
-  measured (`piloti/grounding.py`, `piloti/AGENTS.md` "two currencies that do
+  measured (`core/grounding.py`, `core/AGENTS.md` "two currencies that do
   not convert"). It closes a laundering path; it removes no capability.
   *Superseded by ADR-0125 for chat: the ceiling is now per sentence. A
   measurement or a workspace record can reach `high` for the sentence it
@@ -593,7 +593,7 @@ the one merge candidate on the horizon, and it can wait.
 * **The duplicate-fetch guard's intent** (`agent.py`) — a fetch whose signature
   already ran this turn buys the turn nothing. Only its *return* was wrong
   (row 15).
-* **The off-topic decline** (`piloti.j2`). Product scope, decided by the people
+* **The off-topic decline** (`system.j2`). Product scope, decided by the people
   who own the product.
 
 ---
@@ -743,7 +743,7 @@ the problem, three overlapping RIS tools is. Note also what the same guide says
 about instructions — "Define clear actions: Make sure every step in your
 routine corresponds to a specific action or output" (p. 11) — which is the
 honest counterweight: a *routine* is legitimate where the work really is a
-fixed procedure. Piloti's retrieval is not; its output envelope is, and that is
+fixed procedure. The agent's retrieval is not; its output envelope is, and that is
 why `<answer_envelope>` stays and `<research_rules>` shrank.
 
 **Cognition, "Don't build multi-agents"** —
@@ -757,7 +757,7 @@ why `<answer_envelope>` stays and `<research_rules>` shrank.
 > "Subagent 1 and subagent 2 cannot see what the other was doing and so their
 > work ends up being inconsistent with each other."
 
-Relevant twice. First as an endorsement of what Piloti already is — ADR-0052's
+Relevant twice. First as an endorsement of what the agent already is — ADR-0052's
 single answering agent with the full tool set. Second as the constraint on the
 `ris_planner_llm` extractor pass inside `ris_lookup`: it must receive the
 *question and the § headings*, and it must not make a decision the answering

@@ -1,16 +1,3 @@
-/**
- * What a base-knowledge document's name and masthead say (ADR-0163): kind,
- * designation, edition, territory, issuer and, for a directive, the authority.
- * Pure; nothing here calls a model. Today the service passes the file name
- * alone: the copy's text is held until a person confirms it, so no summary or
- * search projection of it may feed the proposal. `title` and `summary` stay for
- * a masthead read that the licensed seam can make without retaining the text.
- *
- * A proposal, never a decision: the person confirms or corrects every value,
- * and an agent that read the masthead itself proposes through the same
- * operation with its own values, which win over these.
- */
-
 import type { LicenceClass } from '@/lib/db/schema/knowledge-records'
 import type { OfficeWorkKind } from '@/lib/base-knowledge/wire/vocab'
 import type { Addressee, EntryValues } from '../wire'
@@ -20,14 +7,11 @@ export interface DocumentReading {
   title?: string | null
   summary?: string | null
   documentType?: string | null
-  /** The search projection's federal state token of the document (`vienna`), when it read one. */
   federalState?: string | null
 }
 
-/** The territory each intake `federal_state` token names (`styria` is `AT-6`), from the released setup records (`subdivisionTerritories`). */
 export type SubdivisionTerritories = Readonly<Record<string, string>>
 
-/** Authorities a directive names, with the territory they decide for (the interim path, design §8.1). */
 const KNOWN_AUTHORITIES: readonly { pattern: RegExp; addressee: Addressee }[] = [
   { pattern: /\bMA\s?37\b|Baupolizei\s+Wien/i, addressee: { name: 'MA 37', territoryId: 'AT-9' } },
   { pattern: /\bMA\s?19\b/i, addressee: { name: 'MA 19', territoryId: 'AT-9' } },
@@ -35,7 +19,6 @@ const KNOWN_AUTHORITIES: readonly { pattern: RegExp; addressee: Addressee }[] = 
   { pattern: /\bMA\s?64\b/i, addressee: { name: 'MA 64', territoryId: 'AT-9' } },
 ]
 
-/** ÖNORM B 1600, ÖNORM EN 1991-1-1, DIN 4109-1, DIN EN 1992, OIB-Richtlinie 2, with an edition when printed. */
 const DESIGNATION =
   /(?<![\p{L}\d])(ÖNORM|ONORM|OENORM|DIN|EN|ISO|SIA|OIB[- ]Richtlinie)\s*((?:EN\s+|ISO\s+)*[A-Z]?\s?\d+(?:[-.]\d+)*)(?:\s*[:]\s*(\d{4}(?:-\d{2}(?:-\d{2})?)?))?/iu
 
@@ -91,7 +74,6 @@ export function readKind(text: string, designation: Designation | null): OfficeW
   return 'technical_standard'
 }
 
-/** Standards and commentaries are bought; a directive or a law is published by its author. */
 export function defaultLicence(kind: OfficeWorkKind): LicenceClass {
   return kind === 'authority_directive' || kind === 'statute' ? 'public_open' : 'licensed'
 }
@@ -121,7 +103,6 @@ function issuerOf(designation: Designation | null, addressees: Addressee[]): str
   return addressees[0]?.name ?? null
 }
 
-/** Every value the reading can propose; the caller's own values replace these one by one. */
 export function proposeFromReading(reading: DocumentReading, subdivisions: SubdivisionTerritories): EntryValues {
   const text = haystack(reading)
   const designation = readDesignation(text)
@@ -135,6 +116,8 @@ export function proposeFromReading(reading: DocumentReading, subdivisions: Subdi
     designation: designation?.designation ?? null,
     editionLabel: edition.label ?? 'unbekannt',
     issuedOn: edition.issuedOn,
+    inForceFrom: null,
+    inForceTo: null,
     territoryIds: readTerritories(kind, reading, addressees, subdivisions),
     issuer: issuerOf(designation, addressees),
     addressees,

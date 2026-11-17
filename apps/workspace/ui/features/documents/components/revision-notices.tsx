@@ -6,12 +6,6 @@ import { useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 import type { RevisionLinks } from '@/lib/documents/revision-links'
 
-/**
- * Piloti's suggestion that this document replaces another. A suggestion only:
- * nothing changes for answers until a person who may edit the folder confirms
- * it (feld72, Jour fixe 2026-10-09: „Automatik nur als Vorschlag mit Rückfrage
- * und manueller Bestätigung").
- */
 export function SuggestionNotice({
   suggestion,
   canManage,
@@ -21,7 +15,6 @@ export function SuggestionNotice({
   suggestion: NonNullable<RevisionLinks['suggestion']>
   canManage: boolean
   busy: boolean
-  /** `true` links the two documents, `false` dismisses the suggestion. */
   onDecide: (olderId: string, linked: boolean) => void
 }): JSX.Element {
   const t = useTranslations(filesCopy)
@@ -48,7 +41,6 @@ export function SuggestionNotice({
   )
 }
 
-/** What the suggestion rests on, said in the reader's terms. Exhaustive over the wire values. */
 const BASIS_KEY: Record<NonNullable<RevisionLinks['suggestion']>['basis'], string> = {
   title_block: 'preview.revision.basisTitleBlock',
   name: 'preview.revision.basisName',

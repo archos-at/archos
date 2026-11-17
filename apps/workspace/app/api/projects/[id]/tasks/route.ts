@@ -1,13 +1,3 @@
-/**
- * A project's tasks — the standing definitions (ADR-0131: a task is the
- * definition, a task run one attempt at it, served at `../runs`). List, one
- * keyset page at a time, and create. Thin adapters (ADR-0017); logic in
- * `@/lib/jobs/service`.
- *
- * Until October 2026 this path served the runs and `/jobs` served the tasks;
- * `/jobs` redirects here for one release (`lib/api/legacy-routes.ts`).
- */
-
 import { apiRoute, parseJsonBody, parseQuery } from '@/lib/api/handler'
 import { requireSkillsEnabled } from '@/lib/authz/feature-flags'
 import { createJob, listJobs } from '@/lib/jobs/service'

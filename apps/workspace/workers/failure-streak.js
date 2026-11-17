@@ -128,7 +128,6 @@ async function describeFailedResponse(res) {
   } catch {
     /* body unreadable — the status is enough to act on */
   }
-  // An HTML page served without its content type is still an HTML page.
   if (!body || /^<(!doctype|html)/i.test(body)) return { kind, detail: kind }
   return { kind, detail: `${kind} ${body.slice(0, BODY_SNIPPET)}` }
 }

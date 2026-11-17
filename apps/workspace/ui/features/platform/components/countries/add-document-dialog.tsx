@@ -1,13 +1,5 @@
 'use client'
 
-/**
- * "Add a document" on a country's Works and editions tab: one PDF, from the
- * publisher's URL or an upload, into the country's open draft change request
- * (or a new one), as the text of an edition of a work. One call to the BFF
- * (`platform-knowledge-document-add` / `-document-add-upload`), the same an agent makes on
- * the platform door. What the file's name tells is prefilled and stays editable.
- */
-
 import type { JSX } from 'react'
 import { useState } from 'react'
 import { FilePlus2 } from 'lucide-react'
@@ -26,10 +18,8 @@ import { KNOWLEDGE_WORK_KINDS } from '@/lib/base-knowledge/wire/vocab'
 import { usePlatformJson } from './use-platform-json'
 
 const BASE = '/api/platform/knowledge/countries'
-/** The refusals the dialog words itself; anything else shows the server's detail. */
 const KNOWN_CODES = ['EDITION_EXISTS', 'HOST_NOT_ON_SOURCE', 'EGRESS_REFUSED', 'NOT_A_PDF', 'NOT_PRINTED'] as const
 
-/** The work picker's value for a work not yet in the country. */
 const NEW = '+new'
 const TEXT_KEYS = ['url', 'publishedAt', 'titleText', 'title', 'designation', 'label', 'inForceFrom'] as const
 type TextKey = (typeof TEXT_KEYS)[number]
@@ -42,7 +32,6 @@ const EMPTY = {
 }
 type Draft = typeof EMPTY
 
-/** What a file name or URL tells before anything is read: the work it names (the longest match) and the edition's date or year. */
 export function guessFromName(name: string, works: readonly CountryWorkView[]): { workKey: string | null; label: string | null; title: string } {
   const stem = decodeURIComponent(name.split(/[?#]/)[0].split('/').pop() ?? '').replace(/\.pdf$/i, '')
   const slug = keyPart(stem, 200)
@@ -54,7 +43,6 @@ export function guessFromName(name: string, works: readonly CountryWorkView[]): 
   return { workKey: named?.work.workKey ?? null, label, title: stem.replace(/[_-]+/g, ' ').trim() }
 }
 
-/** Fill what the name tells and the person has not written yet; with no work to pick, the work is a new one. */
 function prefilled(draft: Draft, name: string, works: readonly CountryWorkView[]): Draft {
   const guess = guessFromName(name, works)
   const workKey = draft.workKey || guess.workKey || (works.length === 0 ? NEW : '')
@@ -74,7 +62,6 @@ function requestOf(countryId: string, draft: Draft): [string, RequestInit] {
   return [`${BASE}/${countryId}/documents/upload`, { method: 'POST', body: form }]
 }
 
-/** Whether the draft says enough to send; the server checks the rest. */
 function complete(draft: Draft): boolean {
   const source = draft.from === 'url' ? draft.url.trim() !== '' : draft.file !== null && draft.publishedAt.trim() !== '' && draft.titleText.trim() !== ''
   return source && draft.workKey !== '' && (draft.workKey !== NEW || draft.title.trim() !== '') && draft.label.trim() !== ''
@@ -127,7 +114,6 @@ export function AddDocumentDialog(props: {
   const set = (patch: Partial<Draft>): void => setDraft((current) => ({ ...current, ...patch }))
   const a = (key: string): string => t(`countryPages.addDocument.${key}`)
 
-  /** One labelled text field; the URL's prefills what its name tells when the person leaves it. */
   const field = (key: TextKey, type = 'text', why?: string): JSX.Element => {
     const control = { id: `add-document-${key}`, value: draft[key], onChange: (event: { target: { value: string } }) => set({ [key]: event.target.value }) }
     const leave = key === 'url' ? () => (draft.url ? setDraft((current) => prefilled(current, current.url, known)) : null) : undefined
@@ -187,7 +173,7 @@ export function AddDocumentDialog(props: {
               {t(done.opened ? 'countryPages.addDocument.doneOpened' : 'countryPages.addDocument.doneAdded', { title: done.changeRequestTitle })}
             </p>
             <DialogFooter>
-              <Button variant="outline" onClick={() => close(false)}>
+              <Button variant="secondary" onClick={() => close(false)}>
                 {t('countryKnowledge.close')}
               </Button>
               <Button onClick={() => (close(false), onReview(done.changeRequestId))}>{a('reviewNow')}</Button>

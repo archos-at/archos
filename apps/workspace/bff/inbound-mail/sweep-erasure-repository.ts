@@ -1,13 +1,3 @@
-/**
- * SQL of the sweeps that erase (ADR-0137, DECISION §5): a part's bytes past
- * their restore window and the mail they settle (sweep 6), rows past their keep
- * (sweep 8), and erasures a hold deferred, once it is released (sweep 10).
- *
- * The rules every statement here keeps (discovery, per-row writes, deletes,
- * and legal hold as a filter) are `./sweep-repository.ts`'s, the module its
- * callers import.
- */
-
 import 'server-only'
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
@@ -15,29 +5,12 @@ import { inboundMailParts, inboundMails, type InboundMailRow } from '@/lib/db/sc
 import { ignoredCounts } from './filing-repository'
 import { DAY_MS, mailErasable, select } from './sweep-sql'
 
-// ---------------------------------------------------------------------------
-// Sweep 6: dismissed and expired parts past their seven days; settling
-// ---------------------------------------------------------------------------
-
-/** How long a dismissed or expired part can be restored (D8). */
 export const RESTORE_WINDOW_MS = 7 * DAY_MS
 
-/**
- * A dismissed or expired part is past restoring: seven days after it ended,
- * or at once for a dismissed part of mail from an unconfirmed outside domain
- * (D8: nobody vouched for it, and somebody said no), and at once for an
- * outsider's part that ran out (ADR-0137's amendment: an outsider's mail is
- * discarded after its 14 days, with no restore window; migration 0197 refuses
- * the restore too, `inbound_mail_decisions_external_expiry_final`). Not a mail
- * whose sender could not be checked (`sender_unchecked`, migration 0199): it is
- * classed `external` for want of a member, may be a member's, and keeps a
- * member's seven days.
- */
 const pastRestore = (cutoff: Date) => sql`(p.ended_at < ${cutoff.toISOString()}::timestamptz
   OR (p.state = 'dismissed' AND m.sender_trust = 'external_unverified' AND NOT ('sender_unchecked' = ANY (m.sender_flags)))
   OR (p.state = 'expired' AND m.sender_class = 'external' AND NOT ('sender_unchecked' = ANY (m.sender_flags))))`
 
-/** A staged object to erase, and whether a hold defers that. */
 export interface EndedPartBytes {
   partId: string
   mailId: string
@@ -47,7 +20,6 @@ export interface EndedPartBytes {
   held: boolean
 }
 
-/** Dismissed or expired parts past restoring that still hold bytes, not deferred yet. Platform scope. */
 export async function findEndedPartBytes(now: Date, limit: number): Promise<EndedPartBytes[]> {
   return select<EndedPartBytes>(sql`
     SELECT p.id AS "partId", p.mail_id AS "mailId", p.organization_id AS "organizationId",
@@ -62,13 +34,6 @@ export async function findEndedPartBytes(now: Date, limit: number): Promise<Ende
 
 const endedOrFiled = inArray(inboundMailParts.state, ['dismissed', 'expired', 'filed'])
 
-/**
- * Sweep 6, before the erasure: the part forgets its bytes' key (and the name
- * and suggestion that go with them) only while every condition of the find
- * still holds: still dismissed or expired, past restoring, the same key, no
- * deferral, no hold. True when it did; the caller erases the object only then,
- * so a restore or a hold that landed after the find erases nothing.
- */
 export async function takeEndedPartBytes(part: { partId: string; storageKey: string }, now: Date): Promise<boolean> {
   const rows = await select<{ id: string }>(sql`
     UPDATE inbound_mail_parts p
@@ -82,7 +47,6 @@ export async function takeEndedPartBytes(part: { partId: string; storageKey: str
   return rows.length === 1
 }
 
-/** The store could not erase what `takeEndedPartBytes` took: the key comes back, so the next run tries again. */
 export async function returnEndedPartKey(part: { partId: string; storageKey: string }, now: Date): Promise<void> {
   await getDb()
     .update(inboundMailParts)
@@ -90,7 +54,6 @@ export async function returnEndedPartKey(part: { partId: string; storageKey: str
     .where(and(eq(inboundMailParts.id, part.partId), isNull(inboundMailParts.storageKey), endedOrFiled))
 }
 
-/** A hold stopped the erasure of a part's bytes: sweep 10 erases them once it is released. */
 export async function deferPartErasure(partId: string, now: Date): Promise<void> {
   await getDb()
     .update(inboundMailParts)
@@ -98,7 +61,6 @@ export async function deferPartErasure(partId: string, now: Date): Promise<void>
     .where(and(eq(inboundMailParts.id, partId), endedOrFiled, isNull(inboundMailParts.erasureDeferredAt)))
 }
 
-/** A held mail nothing of which can be decided or restored any more: settled and scrubbed next. */
 export interface MailToSettle {
   id: string
   organizationId: string
@@ -106,11 +68,6 @@ export interface MailToSettle {
   held: boolean
 }
 
-/**
- * `waiting` mail with no part waiting or being filed, and none still
- * restorable (sweep 6). Includes mail every part of which was filed but whose
- * settle did not run. Platform scope.
- */
 export async function findMailsToSettle(now: Date, limit: number): Promise<MailToSettle[]> {
   const cutoff = new Date(now.getTime() - RESTORE_WINDOW_MS)
   return select<MailToSettle>(sql`
@@ -127,20 +84,11 @@ export async function findMailsToSettle(now: Date, limit: number): Promise<MailT
      LIMIT ${limit}`)
 }
 
-/** The row as the settle reads it. */
 export async function findMailRow(mailId: string): Promise<InboundMailRow | null> {
   const [row] = await getDb().select().from(inboundMails).where(eq(inboundMails.id, mailId)).limit(1)
   return row ?? null
 }
 
-/**
- * Settle a mail nothing of which waits or can be restored: scrubbed to ids
- * (`inbound_mails_ended_is_scrubbed`), its staged objects forgotten (the
- * caller erased them by key first), unless a hold deferred the erasure, which
- * keeps the keys for sweep 10. A raw message still moving to its entry's
- * original is the move's (sweep 13). Only from `waiting`, and only while
- * nothing waits or is being filed; whether this call settled it.
- */
 export async function settleEndedMail(mail: InboundMailRow, erasureDeferred: boolean, now: Date): Promise<boolean> {
   const rows = await getDb()
     .update(inboundMails)
@@ -172,21 +120,9 @@ export async function settleEndedMail(mail: InboundMailRow, erasureDeferred: boo
   return rows.length === 1
 }
 
-// ---------------------------------------------------------------------------
-// Sweep 8: rows past their keep
-// ---------------------------------------------------------------------------
-
-/** How long a settled mail's ids are kept once none of its files lives, and a dropped mail's (D8). */
 export const SETTLED_KEEP_MS = 30 * DAY_MS
 export const DROPPED_KEEP_MS = 30 * DAY_MS
 
-/**
- * Settled and dropped mail past its keep that may be deleted now (`m` is
- * `inbound_mails`): a settled mail only once no filed part names a live
- * document, any mail only once it names no object, none of its decisions is
- * still owed to the audit trail (RT-S8; sweep 11 runs first), and no hold
- * covers its project or its member.
- */
 const mailDeletable = (now: Date) => {
   const settledBefore = new Date(now.getTime() - SETTLED_KEEP_MS).toISOString()
   const droppedBefore = new Date(now.getTime() - DROPPED_KEEP_MS).toISOString()
@@ -200,7 +136,6 @@ const mailDeletable = (now: Date) => {
     AND ${mailErasable}`
 }
 
-/** Settled and dropped mail past its keep (sweep 8). Platform scope. */
 export async function findKeptMails(now: Date, limit: number): Promise<Array<{ id: string; organizationId: string }>> {
   return select<{ id: string; organizationId: string }>(sql`
     SELECT m.id, m.organization_id AS "organizationId" FROM inbound_mails m
@@ -209,10 +144,6 @@ export async function findKeptMails(now: Date, limit: number): Promise<Array<{ i
      LIMIT ${limit}`)
 }
 
-/**
- * Delete these mails, as the platform role (sweep 8), each only if it still
- * may be: its parts and its (audited) decisions go with it. The ids deleted.
- */
 export async function deleteKeptMails(ids: readonly string[], now: Date): Promise<string[]> {
   if (ids.length === 0) return []
   const rows = await select<{ id: string }>(sql`
@@ -222,16 +153,6 @@ export async function deleteKeptMails(ids: readonly string[], now: Date): Promis
   return rows.map((row) => row.id)
 }
 
-// ---------------------------------------------------------------------------
-// Sweep 10: erasures a hold deferred, once it is released
-// ---------------------------------------------------------------------------
-
-/**
- * A deferred erasure no hold stops any more: a part's bytes (`storageKey`), or
- * an ended mail's staged objects (`readKey`, and `rawKey` unless the raw
- * message is still moving to its entry's original, sweep 13). The keys as the
- * find saw them; `keys` is what is to be erased.
- */
 export interface DeferredErasure {
   id: string
   kind: 'part' | 'mail'
@@ -243,10 +164,8 @@ export interface DeferredErasure {
   keys: string[]
 }
 
-/** The raw message sweep 10 erases: none while it is still moving to its entry's original (sweep 13). */
 const erasableRawKey = sql`CASE WHEN m.original_move_pending_at IS NULL THEN m.raw_storage_key END`
 
-/** Deferred erasures whose hold was released. Platform scope. */
 export async function findReleasedErasures(limit: number): Promise<DeferredErasure[]> {
   const rows = await select<Omit<DeferredErasure, 'keys'>>(sql`
     (SELECT p.id, 'part' AS kind, p.organization_id AS "organizationId", m.staging_bucket AS "stagingBucket",
@@ -269,14 +188,6 @@ export async function findReleasedErasures(limit: number): Promise<DeferredErasu
   }))
 }
 
-/**
- * Sweep 10, before the erasure: the row forgets the keys and the deferral only
- * while every condition of the find still holds: still deferred, still ended,
- * the same keys, and no hold (project or custodian). True when it did; the
- * caller erases the objects only then, so a hold placed after the find erases
- * nothing. A part also forgets the name and suggestion that went with its
- * bytes; a raw message still moving to its entry's original stays the move's.
- */
 export async function takeReleasedErasure(row: DeferredErasure, now: Date): Promise<boolean> {
   const at = now.toISOString()
   const rows = await select<{ id: string }>(
@@ -305,11 +216,6 @@ export async function takeReleasedErasure(row: DeferredErasure, now: Date): Prom
   return rows.length === 1
 }
 
-/**
- * The store kept some of what `takeReleasedErasure` took: those keys, and the
- * deferral, come back, so the next run tries again. A key the store did
- * erase stays forgotten.
- */
 export async function returnReleasedErasure(row: DeferredErasure, kept: readonly string[], now: Date): Promise<void> {
   const keptKey = (key: string | null) => (key !== null && kept.includes(key) ? key : null)
   if (row.kind === 'part') {

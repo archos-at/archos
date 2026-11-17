@@ -11,64 +11,36 @@ import {
 } from '@/lib/proposals/types'
 import { conversations } from './conversations'
 import { projects } from './projects'
+import { AGENT_KINDS } from '@/lib/agent-kind'
 
 const list = (values: readonly string[]) => sql.raw(values.map((value) => `'${value}'`).join(', '))
 
-/** Who made the proposal; the contract's `proposedByKind`. */
-export const PROPOSER_KINDS = ['piloti', 'person'] as const
+export const PROPOSER_KINDS = ['person', ...AGENT_KINDS] as const
 export type ProposerKind = (typeof PROPOSER_KINDS)[number]
 
-/** The statuses that carry `results`: the change was applied, whatever came of it. */
 export const APPLIED_STATUSES = ['applied', 'partially_applied', 'failed'] as const satisfies readonly ProposedChangeStatus[]
 
-/**
- * `proposed_changes` — a change to the workspace Piloti proposes and a person
- * applies (migration 0140, ADR-0105; `docs/architecture/proposed-changes.md`).
- *
- * `payload` is the contract's payload for `kind` (`lib/proposals/types.ts`),
- * parsed on every read. The CHECKs carry the lifecycle: decided exactly when
- * it left `proposed`, `results` exactly when it was applied, and the apply
- * claim (`applying_by`/`applying_since`) only while it is still `proposed`.
- */
 export const proposedChanges = pgTable(
   'proposed_changes',
   {
     id: uuid('id').primaryKey().defaultRandom(),
     organizationId: text('organization_id').notNull(),
-    /**
-     * The project the change is for; NULL for a Büroablage (0146) or an
-     * organization-scoped (0176) proposal, exactly when `scope` is not
-     * `project` (`proposed_changes_scope_owner`).
-     */
     projectId: uuid('project_id'),
-    /**
-     * The shelf (0146, 0176). A Büroablage proposal moves Büroablage documents
-     * and nothing else (`proposed_changes_office_shelf_move`); an
-     * organization's is an `operation` and nothing else
-     * (`proposed_changes_organization_operation`).
-     */
     scope: text('scope').$type<ProposalScope>().notNull().default('project'),
     kind: text('kind').$type<ProposedChangeKind>().notNull(),
     payload: jsonb('payload').$type<unknown>().notNull(),
     status: text('status').$type<ProposedChangeStatus>().notNull().default('proposed'),
     proposedByKind: text('proposed_by_kind').$type<ProposerKind>().notNull(),
-    /** The person the proposal was made for: whose turn proposed it. */
     onBehalfOf: text('on_behalf_of').notNull(),
     originConversationId: text('origin_conversation_id'),
     originMessageId: uuid('origin_message_id'),
-    /** Which card of that answer made it (0143): one card, one proposal, however often the turn's finish runs. */
     originCardIndex: integer('origin_card_index'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     decidedBy: text('decided_by'),
     decidedAt: timestamp('decided_at', { withTimezone: true }),
     results: jsonb('results').$type<ProposedChangeResult[]>(),
-    /** The person applying it right now; cleared when the apply settles. */
     applyingBy: text('applying_by'),
     applyingSince: timestamp('applying_since', { withTimezone: true }),
-    /**
-     * The Langfuse trace of the judgement that proposed it (0146), for a
-     * proposal no chat turn made: the decision is scored on it.
-     */
     originTraceId: text('origin_trace_id'),
   },
   (table) => ({
@@ -98,8 +70,6 @@ export const proposedChanges = pgTable(
       'proposed_changes_organization_operation',
       sql`${table.scope} <> 'organization' OR ${table.kind} = 'operation'`
     ),
-    // One open call, one proposal (0176): the same operation with the same input, in one conversation,
-    // for one person (0178).
     openOperationUidx: uniqueIndex('uniq_proposed_changes_open_operation')
       .on(
         table.organizationId,

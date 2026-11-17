@@ -17,8 +17,6 @@ describe('mentionsAnyFileType', () => {
     }
   })
 
-  // The gate exists to keep three list fetches off the answers that cannot
-  // possibly need them, so a false positive costs real requests.
   it('stays quiet for prose with no document in it', () => {
     expect(mentionsAnyFileType('Die Fluchtweglänge beträgt 34 m [1].')).toBe(false)
     expect(mentionsAnyFileType('Siehe ris.bka.gv.at für die Fassung.')).toBe(false)

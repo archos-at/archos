@@ -1,21 +1,3 @@
-/**
- * Who may read and change a shelf — the ONE place the project's and the
- * Archiv's authorization are told apart (ADR-0078).
- *
- * Everything else about filing — folders, moving a document into one, uploading
- * into it — is the same on both shelves and takes a {@link DocumentShelf}; what
- * is not the same is the answer to "may this caller", and that is here:
- *
- *   - project: `project:view` reads; `project:documents:write` or `project:edit`
- *     changes (ADR-0038).
- *   - archiv: any member of the organization reads; `org:office_shelf:manage`
- *     (`canManageOfficeShelf`) changes. Reading is open because the Archiv is shared
- *     knowledge, so only mutations gate.
- *
- * Deliberately not a role-name check: both are permissions, so a custom role
- * holding them works and a role that merely shares a name does not.
- */
-
 import { ForbiddenError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { canManageOfficeShelf } from '@/lib/authz/organizations'

@@ -47,7 +47,6 @@ describe('fileNameFromDisposition', () => {
 })
 
 describe('downloadFetched', () => {
-  // The link-clicking spec above stubs `createElement` for its own test.
   beforeEach(() => vi.restoreAllMocks())
   afterEach(() => {
     vi.unstubAllGlobals()

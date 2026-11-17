@@ -23,18 +23,13 @@ describe('isForwardableV1Request', () => {
     ['POST', ['generate']],
     ['POST', ['jobs', 'async', 'submit']],
     ['GET', ['jobs', 'async', 'job', 'j1']],
-    // The run listing goes through the job proxy, which signs its project.
     ['GET', ['jobs', 'async', 'jobs']],
     ['GET', ['admin', 'oib', 'sync']],
     ['POST', ['maintenance', 'purge-project-resources']],
     ['GET', ['collections']],
-    // A chat's attachments go through `/api/session/documents`, and no shelf
-    // takes a raw upload or loses its whole collection from a browser.
     ['POST', ['collections', 's_abc', 'documents']],
     ['POST', ['collections', 'proj_abc', 'documents']],
     ['DELETE', ['collections', 's_abc']],
-    // The chunk-only file delete, which a document-id caller turned into a
-    // no-op that left the row and the object behind.
     ['DELETE', ['collections', 'proj_abc', 'documents']],
     ['POST', ['collections', 's_abc', 'search']],
     ['GET', ['documents', 'job-1']],

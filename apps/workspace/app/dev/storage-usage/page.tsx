@@ -1,19 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the organization storage panel.
- *
- * Two fixtures, because the meter has two states and only one of them is
- * reassuring. The first sits at 82% of quota — visibly filling, not yet an
- * error. The second is over, which is what a tenant whose uploads just started
- * failing actually sees: the critical fill, the limit tick, and the sentence
- * that explains it. The scopes differ by an order of magnitude so the byte
- * formatter is exercised at both GB and MB.
- *
- * There is no admin variant, because there is no editor for any role — the
- * quota belongs to the platform operator (ADR-0042).
- */
-
 import type { JSX } from 'react'
 import { notFound } from 'next/navigation'
 import { HardDrive } from 'lucide-react'
@@ -42,26 +28,11 @@ const OVER_QUOTA = {
   effectiveMaxUploadFileBytes: 100e6,
 }
 
-/**
- * One endpoint per fixture, so each card asks for the state it is labelled with.
- *
- * This used to vary by CALL ORDER through a `window` counter — first mount got
- * the within-quota fixture, second got the over-quota one. React strict mode
- * double-invokes effects and the counter persisted across remounts, so both cards
- * frequently ended on the same fixture and the screenshot captured whichever
- * state the counter reached. In the artifact whose only job is to show both
- * states, that made it evidence of nothing.
- *
- * Keying on the url instead is order-independent: mount them twice, in any
- * sequence, and each still resolves to its own fixture.
- */
 const FIXTURES: Record<string, typeof STORAGE> = {
   '/api/organization/storage?fixture=within': STORAGE,
   '/api/organization/storage?fixture=over': OVER_QUOTA,
 }
 
-// Module scope, not a useEffect: a shim installed from an effect loses the race
-// with the child component's own mount-time fetch.
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   const w = window as unknown as { __storageUsageShim?: boolean }
   if (!w.__storageUsageShim) {

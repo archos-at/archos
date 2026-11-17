@@ -1,36 +1,13 @@
 'use client'
 
-/**
- * Projects-home dev preview: the REAL `ProjectsGrid` at the size the redesign
- * exists for — nine projects, three of which this viewer has actually worked in.
- *
- * The rail carries those three (largest cards, "Pick up where you left off"),
- * everything else is a dense row list ordered by recency. `?variant=fresh`
- * renders the other branch: a viewer with no activity anywhere, where the rail
- * is filled by project recency and says so ("Your projects") rather than
- * claiming a "continue" that never happened. `?variant=lifecycle` puts the
- * lifecycle in (ADR-0098): the hotel paused, the Turnsaal not realized, two
- * more closed; the list opens on „Aktiv" and offers Ruhend and Abgeschlossen.
- *
- * Each project's second line is its Standort (`site_address`); the
- * Kindergarten and the Turnsaal have none, so their tiles show no second line.
- *
- * Fixture data only, no backend. The `/dev` layout 404s this outside development.
- */
-
 import type { JSX } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
 import { ProjectsGrid } from '@/components/projects/projects-grid'
 import type { Project } from '@/lib/db/schema/projects'
 
-// Relative to the moment the preview renders, not to a pinned date: the whole
-// point of the surface is the *shape* of the recency ordering ("12 minutes ago"
-// above "3 hours ago" above "last month"), and a fixed epoch turns all of it
-// into "2 years ago" a year from now.
 const minutesAgo = (minutes: number): Date => new Date(Date.now() - minutes * 60_000)
 
-/** The Standort as the intake writes it: the profile fact `site_address`, confirmed. */
 function siteAddressProfile(address: string | null, at: Date): Project['profile'] {
   const facts: Project['profile']['facts'] = address
     ? { site_address: { value: address, confidence: 'confirmed', source: 'onboarding', updatedAt: at.toISOString() } }
@@ -93,14 +70,12 @@ const DOC_COUNTS: Record<string, number> = {
   p9: 1,
 }
 
-/** The viewer's own last message per project — what orders the rail. */
 const VIEWER_ACTIVITY: Record<string, string> = {
   p1: minutesAgo(12).toISOString(),
   p2: minutesAgo(60 * 3).toISOString(),
   p3: minutesAgo(60 * 27).toISOString(),
 }
 
-/** The same office with its lifecycle in: one project paused, three closed, one of them never realized. */
 const WITH_LIFECYCLE: Project[] = PROJECTS.map((project) => {
   if (project.id === 'p4') return { ...project, status: 'paused', pausedAt: minutesAgo(60 * 24 * 30) }
   if (project.id === 'p6' || project.id === 'p8' || project.id === 'p9') {

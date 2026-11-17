@@ -1,39 +1,3 @@
-/**
- * The estate tree (ADR-0133 slice 7): one shelf of the turn's estate as the
- * conversation's WHOLE audience may list it, for the agent's `ls` and `glob`
- * (`docs/architecture/agent-filesystem.md` §5). `app/api/internal/estate-tree`
- * adapts; this decides which shelf and which reach.
- *
- * ## One reach, the search's
- *
- * What the audience may read is `reachForAudience` (`lib/search/reach.ts`, over
- * ADR-0094's `audienceReach`), and the SQL filters through the search's own
- * predicates (`./repository.ts`). Nothing here prunes a folder or a document by
- * a rule of its own. What the tree adds is the walk: every folder of the shelf,
- * empty ones too, with its description and whether it has a card, and the page.
- *
- * ## Listing is not use
- *
- * A listing reaches the prompt before any admission, and a folder name is itself
- * a name, so restricted folders are never LISTED, not even in a chat that is the
- * asker's alone, where the search may read them (ADR-0088, `restricted_use.py`'s
- * `without_restricted`). `reachForAudience`'s `listing` option gives that reach.
- *
- * ## Which shelves, and who asks
- *
- * The acting person is the envelope's, pinned (ADR-0054 §4); the shelf is one of
- * the turn's own, never named by the body, and its collection must be in the
- * turn's SIGNED scope:
- *
- * | Shelf | What it is |
- * |---|---|
- * | `project` | the envelope's project, the conversation's own (`includeOwnProject`), pruned for the audience |
- * | `office_shelf` | the organization's office shelf (ADR-0078) |
- * | `session` | the conversation's own files, under the reach's reader |
- *
- * Any refusal is the same 404, worded like a missing folder.
- */
-
 import 'server-only'
 import { NotFoundError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
@@ -64,7 +28,6 @@ import {
 const notInScope = () => new NotFoundError('No such shelf in this turn.')
 const noFolder = () => new NotFoundError('No folder with that path.')
 
-/** The reach a shelf is read under, and its own collection; a 404 when the turn does not hold the shelf. */
 async function resolveShelf(
   context: VerifiedRequestContext,
   session: AuthorizedSession,
@@ -77,7 +40,6 @@ async function resolveShelf(
   if (request.shelf === 'session') {
     const collection = sessionCollectionName(conversationId)
     if (!signed.has(collection) || request.folder_path) throw request.folder_path ? noFolder() : notInScope()
-    // The reach is read for its reader alone: who in the audience sees a held upload.
     const reach = await reachForAudience(session, conversationId, { kind: 'office_shelf' })
     return { source: { kind: 'session', reach, conversationId }, collection }
   }
@@ -101,7 +63,6 @@ async function resolveShelf(
   return { source: { kind: 'reach', reach }, collection: project.collectionName }
 }
 
-/** The listing reach for `scope`; a folder the listing hides is refused as a missing one. */
 async function listed(
   session: AuthorizedSession,
   conversationId: string,
@@ -110,8 +71,6 @@ async function listed(
 ): Promise<SearchReach> {
   let reach: SearchReach
   try {
-    // `includeOwnProject`: `audienceReach` names the OTHER projects a lookup may search (ADR-0094), and a shared
-    // chat's own project is not among them; a reader of the conversation reads its project.
     reach = await reachForAudience(session, conversationId, scope, { listing: true, includeOwnProject: true })
   } catch (error) {
     if (error instanceof NotFoundError) throw folderId ? noFolder() : notInScope()
@@ -157,7 +116,6 @@ function documentView(row: TreeDocumentRow): EstateTreeDocument {
   }
 }
 
-/** One shelf's tree as the conversation's audience may list it. Runs inside the caller's tenant scope. */
 export async function readEstateTree(
   context: VerifiedRequestContext,
   session: AuthorizedSession,

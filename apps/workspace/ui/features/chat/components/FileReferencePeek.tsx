@@ -1,21 +1,5 @@
 'use client'
 
-/**
- * What a file reference IS, before the reader commits to opening it.
- *
- * The chip's click already opens the document, so this panel is not the way in
- * — it is the answer to the question that decides whether to bother. An answer
- * recommending five documents in reading order is asking the reader to choose
- * one, and the facts that choice turns on are not in the filename: how big it
- * is, how many pages, whether Piloti has actually read it, and which shelf it
- * came from — a plan in the Büroablage is somebody else's project, a private
- * attachment is one this conversation alone can see.
- *
- * Every fact here is read off the document row the chip already resolved.
- * Nothing is fetched, so hovering six names in a paragraph costs six renders
- * and no requests.
- */
-
 import type { FC } from 'react'
 import { ArrowUpRight, FileWarning } from 'lucide-react'
 import { useLocale, useTranslations } from '@/i18n'
@@ -32,7 +16,6 @@ import { PEEK_ACTION_CLASSES } from './CitationPeek'
 
 export const FileReferencePeek: FC<{
   stored: StoredFile
-  /** The name as the answer wrote it — shown only when it differs from the file's own. */
   writtenAs?: string
   onOpen: () => void
 }> = ({ stored, writtenAs, onOpen }) => {
@@ -43,15 +26,8 @@ export const FileReferencePeek: FC<{
   const ext = fileExtensionLabel(file.filename)
   const tint = extChipTint(ext)
 
-  // The row is the truth about whether this document can answer anything. A
-  // never-indexed file is still worth opening (the reader can read it); it just
-  // cannot be cited, and saying so here is cheaper than the reader discovering
-  // it after asking a question about it.
   const notIndexed = isNeverIndexed(file)
   const failed = isFailedStatus(file.status)
-  // Held back by the content check (ADR-0086): it is the reader's own upload
-  // or one they review, since nobody else is shown it. Not a failure; a person
-  // decides, and Piloti cites it only after that.
   const held = isHeldStatus(file.status)
 
   const facts = [

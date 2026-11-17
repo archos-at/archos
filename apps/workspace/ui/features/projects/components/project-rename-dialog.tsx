@@ -27,11 +27,6 @@ interface ProjectRenameDialogProps {
   onOpenChange: (open: boolean) => void
 }
 
-/**
- * Rename the project, opened from the Overview hero's menu. Backed by
- * `PATCH /api/projects/[id]` (`project:manage`); the caller only offers it
- * when the user holds that capability, and a 403 is still surfaced gracefully.
- */
 export function ProjectRenameDialog({
   projectId,
   projectName,
@@ -43,8 +38,6 @@ export function ProjectRenameDialog({
   const [name, setName] = useState(projectName)
   const [pending, setPending] = useState(false)
 
-  // Opened from outside (the menu), so the field is seeded on open rather than
-  // in the handler: it must show the current name, not the one at mount.
   useEffect(() => {
     if (open) setName(projectName)
   }, [open, projectName])
@@ -97,9 +90,6 @@ export function ProjectRenameDialog({
               value={name}
               maxLength={255}
               autoFocus
-              // One field, one submit: the soft keyboard's action key is the
-              // shortest path out of a dialog that opens with the keyboard
-              // already up.
               enterKeyHint="done"
               onChange={(event) => setName(event.target.value)}
             />
@@ -107,7 +97,7 @@ export function ProjectRenameDialog({
           <DialogFooter className="mt-5">
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               onClick={() => handleOpenChange(false)}
               disabled={pending}
             >

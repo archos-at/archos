@@ -1,89 +1,18 @@
-/**
- * {@link DocBlock}s to a PDF, with `@react-pdf/renderer`.
- *
- * ## Why this exists next to `docx.ts` and not instead of it
- *
- * `lib/answer-export/blocks.ts` says in its own docstring that the block
- * vocabulary is there "so a second output format can be added later without
- * touching a single card renderer". This module is that second format. It reads
- * exactly the same `DocBlock[]` the Word exporter reads, which means the PDF
- * gets the report prose, the ~40 card types and the reference list from the
- * shape-walker in `cards.ts` — and the day a forty-first card type ships,
- * neither exporter has to learn about it.
- *
- * The two renderers stay separate because their constraints are opposite. Word
- * has named styles, an infinite scroll and a reader who will edit the file;
- * a PDF has fixed pages, a reader who will print it, and no styles at all —
- * every rule below is direct formatting because there is nothing else.
- *
- * ## Shapes, not kinds
- *
- * Four block kinds have to carry a research report, a code listing, a
- * label/value table, a checks table and a numbered reference list. Rather than
- * grow the vocabulary (which would mean a second renderer to keep in step, and
- * a card walker that has to learn the new kinds), this renderer dispatches on
- * the SHAPE of a block the way `cards.ts` dispatches on the shape of a field:
- *
- *   - a paragraph whose only run is monospaced and multi-line is a code listing;
- *   - a paragraph opening with a bold `[7]` is a reference entry, and gets the
- *     marker as a tinted chip so the eye can find it from the prose;
- *   - a two-column table with no header row is a label/value block, and gets a
- *     definition-list treatment instead of a grid.
- *
- * Each of those is a real distinction the AUTHOR of the blocks made; none of
- * them needed a new kind, and a block that fits no special shape still renders
- * correctly as its plain kind.
- *
- * ## Fonts
- *
- * Helvetica, one of the four faces pdfkit carries itself. The app is set in
- * Geist, but no Geist file exists anywhere in this repository and `Font.register`
- * needs actual bytes — a registration pointing at a URL would turn every export
- * into a network fetch at render time, and a registration pointing at a missing
- * path throws. A built-in face that always renders beats a brand face that
- * sometimes does; the day a Geist `.ttf` lands in the repo, `FONT_FAMILY` below
- * is the only line that changes.
- */
-
 import React from 'react'
 import { Document, Font, Page, StyleSheet, View } from '@react-pdf/renderer'
 
-// `Text` comes from the transliterating wrapper, never from the library: a raw
-// `Text` would print `≤` as `d`. See printable-text.tsx.
 import { Link, Text } from './printable-text'
 import type { DocBlock, DocRun } from '@/lib/answer-export/blocks'
 import { PRODUCT_NAME } from '@/lib/brand'
 import { CoverContent, COVER_PAGE_STYLE, PageFooter, RunningHeader, type CoverInfo } from './branding'
 import { PDF_PAGE, PDF_THEME, PDF_TYPE } from './theme'
 
-/**
- * The body face. See the module docstring: built-in on purpose, and the single
- * place to change when a real brand font file exists to register.
- */
 const FONT_FAMILY = 'Helvetica'
-/** pdfkit's own monospaced face — inline code, identifiers, code listings. */
 const MONO_FAMILY = 'Courier'
 
-/**
- * Hyphenation off.
- *
- * react-pdf hyphenates English by default, which breaks URLs and German
- * compounds at points no dictionary agrees with — and a hyphen inserted into a
- * URL survives copy-and-paste, so the reader ends up with an address that does
- * not resolve and no way to tell why.
- */
 Font.registerHyphenationCallback((word) => [word])
 
 const styles = StyleSheet.create({
-  /**
-   * The page carries the face, the size and the colour — but NOT the leading.
-   *
-   * A `lineHeight` on the `Page` is inherited by its absolutely positioned
-   * children, and react-pdf then lays the fixed footer out somewhere it drops
-   * it: the document renders, no error is thrown, and the page numbers and the
-   * wordmark are simply not on the sheet. So every text style below states its
-   * own leading, and this one deliberately states none.
-   */
   page: {
     fontFamily: FONT_FAMILY,
     fontSize: PDF_TYPE.body,
@@ -94,7 +23,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: PDF_PAGE.margin,
   },
 
-  // ---- headings ------------------------------------------------------------
   h1Group: { marginTop: 20, marginBottom: 12 },
   h1: {
     fontSize: PDF_TYPE.h1,
@@ -118,7 +46,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: PDF_THEME.rule,
   },
-  /** One square of the mark, reused as a section bullet. */
   h2Mark: {
     width: 5,
     height: 5,
@@ -140,10 +67,6 @@ const styles = StyleSheet.create({
     marginTop: 14,
     marginBottom: 5,
   },
-  /**
-   * A heading inside a `surface`: a card under the surface's title, or a tab's
-   * title (`surfaceBlocks` in `cards.ts`). Between h3 and body in size.
-   */
   h4: {
     fontSize: PDF_TYPE.h3 - 0.25,
     fontWeight: 'bold',
@@ -151,10 +74,6 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 4,
   },
-  /**
-   * The card under a tab of a titled `surface`: body size, told from h4 by its
-   * colour and from body by its weight. Never smaller than the text it heads.
-   */
   h5: {
     fontSize: PDF_TYPE.body,
     fontWeight: 'bold',
@@ -163,7 +82,6 @@ const styles = StyleSheet.create({
     marginBottom: 3,
   },
 
-  // ---- paragraphs ----------------------------------------------------------
   body: { marginBottom: 8, lineHeight: PDF_TYPE.lineHeight },
   meta: {
     fontSize: PDF_TYPE.meta,
@@ -198,7 +116,6 @@ const styles = StyleSheet.create({
     color: PDF_THEME.ink,
   },
 
-  // ---- reference entries ---------------------------------------------------
   reference: {
     flexDirection: 'row',
     marginBottom: 7,
@@ -218,7 +135,6 @@ const styles = StyleSheet.create({
   },
   referenceBody: { flexGrow: 1, flexBasis: 1, lineHeight: 1.45 },
 
-  // ---- lists ---------------------------------------------------------------
   bulletRow: { flexDirection: 'row', marginBottom: 4 },
   bulletMark: {
     width: 12,
@@ -227,7 +143,6 @@ const styles = StyleSheet.create({
   },
   bulletBody: { flexGrow: 1, flexBasis: 1, lineHeight: PDF_TYPE.lineHeight },
 
-  // ---- tables --------------------------------------------------------------
   table: {
     marginTop: 4,
     marginBottom: 12,
@@ -287,7 +202,6 @@ const styles = StyleSheet.create({
     lineHeight: 1.4,
   },
 
-  // ---- rule ----------------------------------------------------------------
   rule: {
     borderBottomWidth: 1,
     borderBottomColor: PDF_THEME.rule,
@@ -295,37 +209,16 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
 
-  // ---- inline --------------------------------------------------------------
   bold: { fontWeight: 'bold', color: PDF_THEME.ink },
   italic: { fontStyle: 'italic' },
   mono: { fontFamily: MONO_FAMILY, fontSize: PDF_TYPE.mono },
   link: { color: PDF_THEME.accentInk, textDecoration: 'underline' },
 })
 
-/**
- * A markdown link, or a bare address, inside otherwise plain run text.
- *
- * Runs carry no href — `markdown.ts` flattens a link to `label (url)` because
- * that is what survives into Word, where a hyperlink would need a relationship
- * part. A PDF has real link annotations and nothing to keep in step, so the
- * address is found again here and made clickable. Both spellings are matched:
- * the flattened `(https://…)` form, and the raw `[label](https://…)` that a
- * written sources section still carries when the model wrote its own list.
- */
 const LINKISH = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)|(https?:\/\/[^\s<>()[\]]+)/g
 
-/** Punctuation that ends the sentence rather than the address. */
 const trimUrl = (url: string): string => url.replace(/[.,;:!?'"]+$/, '')
 
-/**
- * Coerce anything a block carries to renderable PDF text (#611, #589, #580).
- *
- * The block vocabulary types every text field as `string`, but block builders
- * consume LLM/DB data cast from `unknown` — a card renderer passing an object
- * through arrives here as an object, and react-pdf throws minified React #31
- * ("Objects are not valid as a React child"). A dropped value is a missing
- * sentence; a thrown render is a missing document. Coerce, never throw.
- */
 export function pdfText(value: unknown): string {
   if (typeof value === 'string') return value
   if (value === null || value === undefined) return ''
@@ -335,13 +228,6 @@ export function pdfText(value: unknown): string {
   return ''
 }
 
-/**
- * Text, with its addresses turned into link annotations.
- *
- * Newlines are left in place: react-pdf breaks a line on `\n` inside a `Text`,
- * which is what a card's `missing` sentence and a reference's URL-on-its-own-line
- * were written expecting.
- */
 const inlineNodes = (text: unknown, keyPrefix: string): React.ReactNode[] => {
   const safe = pdfText(text)
   const nodes: React.ReactNode[] = []
@@ -352,9 +238,6 @@ const inlineNodes = (text: unknown, keyPrefix: string): React.ReactNode[] => {
   let match: RegExpExecArray | null
   while ((match = LINKISH.exec(safe)) !== null) {
     const [full, mdLabel, mdUrl, bare] = match
-    // A bare address gives its trailing punctuation back to the prose: the
-    // period at the end of "…see https://example.org/a." is the sentence's, and
-    // linking it produces an address that 404s when the reader clicks it.
     const url = bare ? trimUrl(bare) : mdUrl
     const label = bare ? url : mdLabel
     const end = bare ? match.index + url.length : match.index + full.length
@@ -377,20 +260,12 @@ const inlineNodes = (text: unknown, keyPrefix: string): React.ReactNode[] => {
   return nodes
 }
 
-/**
- * One run's emphasis, as a react-pdf style array.
- *
- * Built by spreading rather than by filtering a nullable list: react-pdf's
- * `style` prop takes `Style[]`, and a `null` in it is a type error rather than
- * a no-op.
- */
 const runStyle = (run: DocRun) => [
   ...(run.bold ? [styles.bold] : []),
   ...(run.italic ? [styles.italic] : []),
   ...(run.mono ? [styles.mono] : []),
 ]
 
-/** A paragraph's runs, in order. */
 const runNodes = (runs: DocRun[], keyPrefix: string): React.ReactNode[] =>
   runs.map((run, index) => (
     <Text key={`${keyPrefix}-r${index}`} style={runStyle(run)}>
@@ -398,19 +273,12 @@ const runNodes = (runs: DocRun[], keyPrefix: string): React.ReactNode[] =>
     </Text>
   ))
 
-// ---------------------------------------------------------------------------
-// Shape detection. Each of these is a distinction the block AUTHOR made; see the
-// module docstring for why they are read off the shape instead of given a kind.
-// ---------------------------------------------------------------------------
-
 type ParagraphBlock = Extract<DocBlock, { kind: 'paragraph' }>
 type TableBlock = Extract<DocBlock, { kind: 'table' }>
 
-/** A whole paragraph set in mono across several lines is a code listing. */
 const isCodeListing = (block: ParagraphBlock): boolean =>
   block.runs.length === 1 && block.runs[0].mono === true && pdfText(block.runs[0].text).includes('\n')
 
-/** `[7] ` in bold, the marker `answer-document.ts` writes for a reference. */
 const REFERENCE_MARKER = /^\[(\d{1,3})\]\s*$/
 
 const referenceNumber = (block: ParagraphBlock): string | null => {
@@ -419,27 +287,13 @@ const referenceNumber = (block: ParagraphBlock): string | null => {
   return REFERENCE_MARKER.exec(pdfText(first.text))?.[1] ?? null
 }
 
-/**
- * A headerless two-column table is a label/value block.
- *
- * `blocks.ts` says so itself: it gave the two the same kind deliberately, "for
- * no gain" in splitting them. That is true for the vocabulary and false for the
- * page — a scalar block from a card looks like a form when it is ruled like a
- * grid, and like a fact sheet when it is not.
- */
 const isDefinitionList = (block: TableBlock): boolean =>
   !block.head && block.rows.length > 0 && block.rows.every((row) => row.length === 2)
-
-// ---------------------------------------------------------------------------
-// Block renderers
-// ---------------------------------------------------------------------------
 
 const headingNode = (
   block: Extract<DocBlock, { kind: 'heading' }>,
   key: string
 ): React.ReactNode => {
-  // `minPresenceAhead` keeps a heading from being the last thing on a page.
-  // A section title stranded above a page break reads as an empty section.
   if (block.level === 1) {
     return (
       <View key={key} style={styles.h1Group} wrap={false} minPresenceAhead={72}>
@@ -513,15 +367,6 @@ const bulletsNode = (
   </View>
 )
 
-/**
- * Column widths, as percentages.
- *
- * Even, with one exception: in a table that HAS a header row and three or more
- * columns, the first column is the one carrying names — a checks table's "Item",
- * a components table's label — and it is reliably the longest. Giving it half
- * again the share of the others is what stops "Fluchtweg vom entferntesten
- * Punkt" from setting one word per line next to three columns of white space.
- */
 const columnWidths = (columns: number, headed: boolean): string[] => {
   const weights = Array.from({ length: columns }, (_, index) =>
     headed && columns >= 3 && index === 0 ? 1.5 : 1
@@ -554,9 +399,6 @@ const tableNode = (block: TableBlock, key: string): React.ReactNode => {
     1
   )
   const widths = columnWidths(columns, Boolean(block.head))
-  // Short rows are padded rather than left ragged: a row with fewer cells than
-  // the grid would otherwise stretch its last cell across the missing columns,
-  // silently putting a value under the wrong heading.
   const padded = (row: DocRun[][]): DocRun[][] =>
     Array.from({ length: columns }, (_, index) => row[index] ?? [])
 
@@ -591,7 +433,6 @@ const tableNode = (block: TableBlock, key: string): React.ReactNode => {
   )
 }
 
-/** One block, as react-pdf nodes. Every kind in `blocks.ts` is handled here. */
 const blockNode = (block: DocBlock, index: number): React.ReactNode => {
   const key = `b${index}`
   switch (block.kind) {
@@ -608,50 +449,15 @@ const blockNode = (block: DocBlock, index: number): React.ReactNode => {
   }
 }
 
-/**
- * Blocks as react-pdf nodes, without a page around them.
- *
- * Exported so a spec can assert on the rendering of one block without building
- * a whole document, and so a future caller can compose the body into a page of
- * its own shape.
- */
 export const blockNodes = (blocks: DocBlock[]): React.ReactNode[] => blocks.map(blockNode)
 
 export interface BlocksDocumentProps {
-  /** Title and header facts. Drawn on the cover, not into the block stream. */
   cover: CoverInfo
-  /** The document's body — prose, cards and references, already assembled. */
   blocks: DocBlock[]
-  /**
-   * The machine-readable AI marking, into the Info dictionary's Keywords.
-   *
-   * Separate from the printed notice on purpose, and both or neither: the
-   * notice is what a person reads, this is what a detector matches on, and a
-   * document that carries one without the other is marked for exactly one of
-   * its two audiences. `fileGeneratedDocument` verifies this string against the
-   * stored bytes before it stores them, so it cannot be merely claimed.
-   */
   keywords?: string
-  /**
-   * The Info dictionary's Subject.
-   *
-   * The one marking field a reader actually SEES, in their viewer's
-   * document-properties panel — so „KI-generiert — nicht geprüft" reaches
-   * someone who never scrolls to page one. Set only when there is a marking, so
-   * an ordinary export's Subject is not overwritten with something it did not
-   * say.
-   */
   subject?: string
 }
 
-/**
- * A complete, branded document: cover sheet, then the body under running chrome.
- *
- * The `Document` metadata is filled in as well as the visible chrome. It is
- * what a document management system files the PDF under and what the reader's
- * viewer puts in its title bar, and leaving it blank means an exported answer
- * shows up in a DMS as an untitled file from an unnamed producer.
- */
 export const BlocksDocument: React.FC<BlocksDocumentProps> = ({
   cover,
   blocks,

@@ -1,5 +1,3 @@
-"""The research-run listing: the job rows a caller may see, newest first."""
-
 from __future__ import annotations
 
 import logging
@@ -23,20 +21,15 @@ def format_created_at(value: Any) -> str | None:
 
 
 def _listing_queries(where_clause: str):
-    """The count and the page statements over the runs ``where_clause`` keeps."""
     from sqlalchemy import text
 
     join_sql = "FROM job_access ja INNER JOIN job_info ji ON ja.job_id = ji.job_id"
-    # where_clause is literal fragments with ":name" placeholders; every value is bound.
     # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
     count_query = text(f"SELECT COUNT(*) {join_sql} {where_clause}")
     # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
     page_query = text(
         "SELECT ja.job_id, ji.status, ji.created_at, ja.conversation_id, ja.project_collection "
         f"{join_sql} {where_clause} "
-        # job_id tiebreaker: created_at alone is not unique, and an
-        # unstable order across pages would duplicate/drop rows
-        # during offset pagination.
         "ORDER BY ji.created_at DESC, ja.job_id DESC "
         "LIMIT :limit OFFSET :offset"
     )
@@ -52,19 +45,6 @@ def find_research_runs(
     limit: int,
     offset: int,
 ) -> tuple[list[dict], int]:
-    """
-    Sync helper to query research runs (job_access joined with the agent runtime's job_info).
-
-    Runs in a thread via run_in_executor to avoid blocking the event loop with DB I/O.
-    Mirrors the raw-SQL, sync-engine query pattern used by ``job_reaper._find_stale_jobs``.
-
-    With ``visible_to`` (REQUIRE_AUTH=true), results are the runs that caller may
-    read: its own, and those its signed scope reaches (``job_visibility_clause``,
-    the listing's form of the rule ``authorize_job_access`` applies). The
-    filters below narrow that set and never widen it. With None (auth disabled),
-    access is not enforced, consistent with how ``authorize_job_access`` treats
-    no-auth deployments.
-    """
     from sqlalchemy import inspect
 
     from ..jobs.event_store import EventStore
@@ -72,10 +52,6 @@ def find_research_runs(
     EventStore._ensure_table_exists(db_url)
     engine = EventStore._get_or_create_sync_engine(db_url)
 
-    # job_info is created by the agent runtime's JobStore; on a fresh database where no job
-    # has ever been submitted it may not exist yet, and the JOIN below would
-    # 500 the listing instead of returning an empty page (same guard as
-    # _find_stale_jobs uses for job_events).
     if not inspect(engine).has_table("job_info"):
         return [], 0
 

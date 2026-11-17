@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The grants route is a thin adapter over `@/lib/sharing/service`; what is
- * specified here is what it adds: `resource_shared` for PostHog, and that a
- * refused takeover leaves it as the service's 404 (ADR-0032 decision 5).
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/auth/require-auth', () => ({
@@ -90,8 +85,6 @@ describe('POST /api/sharing/[resourceType]/[resourceId]/grants', () => {
   })
 
   it('answers a takeover of a resource the caller cannot read as not found', async () => {
-    // The service refuses a project admin with no access to a private chat; the
-    // route must neither soften nor explain that refusal.
     vi.mocked(escalateToOwner).mockRejectedValue(new NotFoundError())
 
     const response = await post({ escalate: true })

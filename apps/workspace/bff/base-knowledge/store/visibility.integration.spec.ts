@@ -34,6 +34,8 @@ const ownerUrl = process.env.TEST_OWNER_DATABASE_URL
 const RUN = Date.now().toString(36)
 const AUSTRIAN = `org_vis_${RUN}_at`
 const GERMAN = `org_vis_${RUN}_de`
+const UNENTITLED = `org_vis_${RUN}_xz`
+const OFFICES = [AUSTRIAN, GERMAN, UNENTITLED]
 const AUTHOR = 'user_vis_author'
 const EXPERT = 'user_vis_expert'
 
@@ -46,10 +48,10 @@ describe.skipIf(!url || !ownerUrl)('the office read predicate against the row po
   let withTenant: typeof import('@/lib/db/tenant-context').withTenant
   let withPlatformAccess: typeof import('@/lib/db/tenant-context').withPlatformAccess
   let ORGANIZATION_SETTING: string
+  let LEGACY_ORGANIZATION_SETTING: string
   let db: ReturnType<typeof import('@/lib/db').getDb>
   let owner: postgres.Sql
 
-  /** A pack published through the lifecycle (migration 0218), in batches as records-propose takes them: a pack may hold more than one batch. */
   async function published(countryId: string, title: string, raw: unknown[]): Promise<void> {
     const records = Array.from({ length: Math.ceil(raw.length / wire.MAX_PROPOSED_RECORDS) }, (_, i) =>
       wire.proposeRecordsBodySchema.parse({ records: raw.slice(i * wire.MAX_PROPOSED_RECORDS, (i + 1) * wire.MAX_PROPOSED_RECORDS) }).records,
@@ -57,15 +59,13 @@ describe.skipIf(!url || !ownerUrl)('the office read predicate against the row po
     await publishedRequest({ title, countryId, records }, { author: AUTHOR, expert: EXPERT })
   }
 
-  /** The ids the runtime role reads through the row policy, as `organizationId`. */
   const throughPolicy = async (organizationId: string): Promise<string[]> =>
     (await withTenant({ organizationId }, () => db.execute<{ id: string }>(sql`SELECT id FROM knowledge_records ORDER BY id`))).map((row) => row.id)
 
-  /** The ids the code predicate names for `organizationId`, read as the owner with no row policy. */
   async function throughPredicate(organizationId: string): Promise<string[]> {
     const ownerDb = drizzle(owner)
     return ownerDb.transaction(async (tx) => {
-      await tx.execute(sql`SELECT set_config(${ORGANIZATION_SETTING}, ${organizationId}, true)`)
+      await tx.execute(sql`SELECT set_config(${ORGANIZATION_SETTING}, ${organizationId}, true), set_config(${LEGACY_ORGANIZATION_SETTING}, ${organizationId}, true)`)
       const rows = await tx.execute<{ id: string }>(
         sql`SELECT r.id FROM knowledge_records r WHERE ${visibility.recordReadable('r', organizationId)} ORDER BY r.id`,
       )
@@ -79,6 +79,7 @@ describe.skipIf(!url || !ownerUrl)('the office read predicate against the row po
     withTenant = context.withTenant
     withPlatformAccess = context.withPlatformAccess
     ORGANIZATION_SETTING = context.ORGANIZATION_SETTING
+    LEGACY_ORGANIZATION_SETTING = (await import('@/lib/db/legacy-tenant-settings')).LEGACY_ORGANIZATION_SETTING
     db = (await import('@/lib/db')).getDb()
     wire = await import('../platform/wire')
     visibility = await import('./visibility')
@@ -86,12 +87,16 @@ describe.skipIf(!url || !ownerUrl)('the office read predicate against the row po
     for (const [organizationId, home] of [
       [AUSTRIAN, 'AT'],
       [GERMAN, 'DE'],
+      [UNENTITLED, 'XZ'],
     ] as const) {
       await withTenant({ organizationId }, () =>
         db.execute(sql`INSERT INTO organizations (workos_organization_id, home_country) VALUES (${organizationId}, ${home})`),
       )
     }
-    // The Austria and EU packs, unless a suite before this one in the same database published them.
+    await withPlatformAccess('visibility spec: a given country', () =>
+      db.execute(sql`INSERT INTO organization_countries (organization_id, country_id, entitled_by, decision_source)
+                     VALUES (${GERMAN}, 'LI', 'visibility spec', 'app')`),
+    )
     const held = await withPlatformAccess('visibility spec: are the packs published', () =>
       db.execute(sql`SELECT 1 FROM knowledge_records WHERE id = 'work:wbtv' AND head_revision_id IS NOT NULL`),
     )
@@ -101,7 +106,6 @@ describe.skipIf(!url || !ownerUrl)('the office read predicate against the row po
         await published(countryId, `${title} ${RUN}`, records)
       }
     }
-    // A Swiss standard no office is entitled to, reached from the Wiener Bautechnikverordnung.
     await published('CH', `SIA listing ${RUN}`, [
       { type: 'work', key: `sia-500-${RUN}`, kind: 'technical_standard', title: 'Hindernisfreie Bauten', designation: 'SIA 500' },
       { type: 'edition', key: `sia-500-2009-${RUN}`, workKey: `sia-500-${RUN}`, label: '2009', issuedOn: '2009-01-01' },
@@ -116,25 +120,86 @@ describe.skipIf(!url || !ownerUrl)('the office read predicate against the row po
         to: { type: 'edition', key: `sia-500-2009-${RUN}` },
       },
     ])
+    const hop = (i: number) => `hop-${i}-${RUN}`
+    const swissChain: unknown[] = []
+    for (let i = 1; i <= 9; i++) {
+      swissChain.push({ type: 'work', key: hop(i), kind: 'technical_standard', title: `Hop ${i}`, designation: `HOP ${i}` })
+    }
+    swissChain.push({ type: 'edition', key: `${hop(3)}-2020`, workKey: hop(3), label: '2020', issuedOn: '2020-01-01' })
+    for (let i = 1; i <= 8; i++) {
+      const to = i === 2 ? { type: 'edition', key: `${hop(3)}-2020` } : { type: 'work', key: hop(i + 1) }
+      swissChain.push({ type: 'relation', key: `${hop(i)}-next`, relationType: 'makes_binding', mode: 'dynamic_reference', from: { type: 'work', key: hop(i) }, to })
+    }
+    await published('CH', `A chain of Swiss standards ${RUN}`, swissChain)
+    await published('AT', `Wien references the chain ${RUN}`, [
+      { type: 'relation', key: `wien-hop-${RUN}`, relationType: 'makes_binding', mode: 'dynamic_reference', from: { type: 'work', key: 'wbtv' }, to: { type: 'work', key: hop(1) } },
+    ])
   }, 120_000)
 
   afterAll(async () => {
     await owner?.end()
     await withPlatformAccess('visibility spec cleanup', async () => {
-      await db.execute(sql`DELETE FROM organizations WHERE workos_organization_id IN (${AUSTRIAN}, ${GERMAN})`)
+      await db.execute(sql`DELETE FROM organization_countries WHERE organization_id = ${GERMAN}`)
+      await db.execute(sql`DELETE FROM organizations WHERE workos_organization_id IN (${AUSTRIAN}, ${GERMAN}, ${UNENTITLED})`)
     })
   })
 
   it('names exactly what the row policy lets each office read', async () => {
-    const offices = (
-      await withPlatformAccess('visibility spec: every office', () =>
-        db.execute<{ id: string }>(sql`SELECT workos_organization_id AS id FROM organizations ORDER BY 1`),
-      )
-    ).map((row) => row.id)
-    expect(offices).toEqual(expect.arrayContaining([AUSTRIAN, GERMAN]))
+    const offices = OFFICES
     for (const organizationId of offices) {
       expect(await throughPredicate(organizationId), organizationId).toEqual(await throughPolicy(organizationId))
     }
+  })
+
+  it('reads the reach as one set that answers what the per-row walk answers, for each of its offices', async () => {
+    const offices = OFFICES
+    for (const organizationId of offices) {
+      const disagreements = await drizzle(owner).transaction(async (tx) => {
+        await tx.execute(sql`SELECT set_config(${ORGANIZATION_SETTING}, ${organizationId}, true), set_config(${LEGACY_ORGANIZATION_SETTING}, ${organizationId}, true)`)
+        return tx.execute<{ id: string; walk: boolean }>(sql`
+          SELECT r.id, knowledge_reached_by_relation(r.id) AS walk FROM knowledge_records r
+          WHERE r.organization_id IS NULL
+            AND knowledge_reached_by_relation(r.id) IS DISTINCT FROM (r.id IN (SELECT knowledge_reached_ids()))`)
+      })
+      expect(disagreements, organizationId).toEqual([])
+    }
+    const reached = await drizzle(owner).transaction(async (tx) => {
+      await tx.execute(sql`SELECT set_config(${ORGANIZATION_SETTING}, ${AUSTRIAN}, true), set_config(${LEGACY_ORGANIZATION_SETTING}, ${AUSTRIAN}, true)`)
+      return (await tx.execute<{ id: string }>(sql`SELECT knowledge_reached_ids() AS id`)).map((row) => row.id)
+    })
+    expect(reached).toEqual(expect.arrayContaining([`work:sia-500-${RUN}`, `edition:sia-500-2009-${RUN}`]))
+    const hop = (i: number) => `hop-${i}-${RUN}`
+    for (let i = 1; i <= 8; i++) expect(reached, `work:${hop(i)}`).toContain(`work:${hop(i)}`)
+    expect(reached).toContain(`edition:${hop(3)}-2020`)
+    expect(reached).not.toContain(`work:${hop(9)}`)
+    for (let i = 1; i <= 7; i++) expect(reached, `relation:${hop(i)}-next`).toContain(`relation:${hop(i)}-next`)
+    expect(reached).not.toContain(`relation:${hop(8)}-next`)
+  })
+
+  it('reads the entitled countries as one set that answers what the per-row entitlement answers, for each of its offices', async () => {
+    const offices = OFFICES
+    for (const organizationId of offices) {
+      const disagreements = await drizzle(owner).transaction(async (tx) => {
+        await tx.execute(sql`SELECT set_config(${ORGANIZATION_SETTING}, ${organizationId}, true), set_config(${LEGACY_ORGANIZATION_SETTING}, ${organizationId}, true)`)
+        return tx.execute<{ country: string }>(sql`
+          SELECT c.country FROM (SELECT DISTINCT country_id AS country FROM knowledge_records UNION SELECT 'EU' UNION SELECT 'DE' UNION SELECT NULL) c
+          WHERE knowledge_country_entitled(c.country) IS DISTINCT FROM coalesce(c.country IN (SELECT knowledge_entitled_countries()), false)`)
+      })
+      expect(disagreements, organizationId).toEqual([])
+      const nulls = await drizzle(owner).transaction(async (tx) => {
+        await tx.execute(sql`SELECT set_config(${ORGANIZATION_SETTING}, ${organizationId}, true), set_config(${LEGACY_ORGANIZATION_SETTING}, ${organizationId}, true)`)
+        return tx.execute(sql`SELECT 1 FROM knowledge_entitled_countries() c WHERE c IS NULL`)
+      })
+      expect(nulls, organizationId).toHaveLength(0)
+    }
+    const entitled = async (organizationId: string) =>
+      drizzle(owner).transaction(async (tx) => {
+        await tx.execute(sql`SELECT set_config(${ORGANIZATION_SETTING}, ${organizationId}, true), set_config(${LEGACY_ORGANIZATION_SETTING}, ${organizationId}, true)`)
+        return (await tx.execute<{ country: string }>(sql`SELECT knowledge_entitled_countries() AS country`)).map((row) => row.country).sort()
+      })
+    expect(await entitled(AUSTRIAN)).toEqual(['AT', 'EU'])
+    expect(await entitled(GERMAN)).toEqual(['DE', 'LI'])
+    expect(await entitled(UNENTITLED)).toEqual(['XZ'])
   })
 
   it('is not vacuous: an Austrian office reads the reached Swiss standard and the EU pack, a German office neither', async () => {
@@ -143,5 +208,9 @@ describe.skipIf(!url || !ownerUrl)('the office read predicate against the row po
     const german = await throughPredicate(GERMAN)
     expect(german).not.toContain(`work:sia-500-${RUN}`)
     expect(german).not.toContain('AT-9')
+    const unentitled = await throughPredicate(UNENTITLED)
+    expect(unentitled).not.toContain(`work:sia-500-${RUN}`)
+    expect(unentitled).not.toContain('AT-9')
+    expect(unentitled).not.toContain('EU')
   })
 })

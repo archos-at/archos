@@ -221,6 +221,16 @@
    "withheld": null,
    "reason": null
   },
+  "project-memory-topic-rename": {
+   "kind": "catalog",
+   "domain": "projects",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
   "project-memory-update": {
    "kind": "catalog",
    "domain": "projects",
@@ -2173,6 +2183,26 @@
    "withheld": null,
    "reason": null
   },
+  "personal-memory-topic-delete": {
+   "kind": "catalog",
+   "domain": "collaboration",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "personal-memory-topic-rename": {
+   "kind": "catalog",
+   "domain": "collaboration",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
   "personal-memory-update": {
    "kind": "catalog",
    "domain": "collaboration",
@@ -2660,6 +2690,16 @@
    },
    "reason": null
   },
+  "base-knowledge-bulk": {
+   "kind": "catalog",
+   "domain": "knowledge",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
   "base-knowledge-check-record": {
    "kind": "catalog",
    "domain": "knowledge",
@@ -2680,7 +2720,37 @@
    "withheld": null,
    "reason": "which documents the office relies on in its answers is the person’s decision; the agent proposes, the person confirms"
   },
+  "base-knowledge-edition-add": {
+   "kind": "catalog",
+   "domain": "knowledge",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
   "base-knowledge-edition-as-of": {
+   "kind": "catalog",
+   "domain": "knowledge",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "base-knowledge-folder-create": {
+   "kind": "catalog",
+   "domain": "knowledge",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "base-knowledge-folder-list": {
    "kind": "catalog",
    "domain": "knowledge",
    "sensitivity": null,
@@ -4522,13 +4592,13 @@
  },
  "appTools": {
   "proposal-card-apply": {
-   "view": "ui://piloti/proposal-card",
+   "view": "ui://workspace/proposal-card",
    "operation": "proposal-apply",
    "app": true,
    "reason": "pressed by the person on the agent’s card inside their own assistant (an MCP App); listed with `visibility: [\"app\"]`, so the host keeps it from the model, and it runs the catalog operation it names through that operation’s route"
   },
   "proposal-card-dismiss": {
-   "view": "ui://piloti/proposal-card",
+   "view": "ui://workspace/proposal-card",
    "operation": "proposal-dismiss",
    "app": true,
    "reason": "pressed by the person on the agent’s card inside their own assistant (an MCP App); listed with `visibility: [\"app\"]`, so the host keeps it from the model, and it runs the catalog operation it names through that operation’s route"

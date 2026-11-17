@@ -1,24 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the FilePreviewDialog (the one file-preview modal used across
- * the app). Renders the REAL dialog OPEN with a rich fixture — a long
- * multi-paragraph summary, many key-value props, several tags and a populated
- * visual-details section — so the responsive scroll behavior is genuinely
- * exercised: on the mobile sheet ALL metadata must be reachable below the capped
- * preview, and on desktop the split's two columns must scroll independently.
- *
- * A module-scope fetch shim (browser + dev only) serves the preview URL, the
- * visual-details payload and — for `?variant=review` — the version listing, so
- * the pane renders fully backend-free. Not linked from anywhere and 404s outside
- * development.
- *
- * `?variant=review` is the one that answers "has anybody opened the review rail
- * on a phone?" (ledger 40): it passes the `lifecyclePermissions` the pane needs
- * before it mounts „Fassungen und Freigabe", which no preview had ever done, so
- * the section shipped unphotographed at every width.
- */
-
 import type { JSX } from 'react'
 import { notFound } from 'next/navigation'
 import { use, useEffect } from 'react'
@@ -32,8 +13,6 @@ import { a1SheetPdf } from '../_fixtures/a1-sheet'
 import { SEARCH_FIXTURE_DOCUMENTS } from '../_fixtures/search'
 import { normalizeDrawingStructured } from '@/lib/documents/drawing-structured'
 
-// A visible "document page" so the left preview renders something real (not a
-// blank iframe) in the screenshot. Encoded as an SVG data URI, backend-free.
 const PAGE_SVG =
   'data:image/svg+xml;utf8,' +
   encodeURIComponent(
@@ -83,43 +62,13 @@ const FIXTURE: FileItem = {
     'Nutzungssicherheit/Barrierefreiheit',
     'Schallschutz',
   ],
-  // Free-form subjects beside the vocabulary tags, so the rail's third chip
-  // weight is photographed too.
   topics: ['Fluchtwege', 'Rauchableitung'],
   capture: null,
-  // Somebody is on the hook for this document. `Unvergeben` is the other state
-  // and the generated fixture below keeps it, so one run photographs both.
   assignees: [
     { userId: 'u-1', name: 'Miriam Hofer', email: 'm.hofer@example.at', profilePictureUrl: null },
   ],
 }
 
-/**
- * The same pane holding a document AGENT wrote, which is the state nothing had
- * ever photographed.
- *
- * Every difference from `FIXTURE` above is a consequence of one decision — a
- * machine-authored document is deliberately never dispatched to `/v1/ingest`
- * (`lib/documents/generated.ts`) — and the pane has to stay honest about all of
- * them at once:
- *
- *   - `status: 'stored'` is the only status `isNeverIndexedStatus` accepts. It
- *     is what greys „Piloti dazu fragen" and swaps its hint from „Sobald die
- *     Datei zitierbar ist" (a promise of a wait) to a sentence saying there is
- *     no wait coming.
- *   - `authoredBy: 'agent'` is what draws „Von Piloti erstellt" under the name.
- *   - No summary, no chunks, no tags, no content types — those are ingestion
- *     output, and no ingestion ran. Inventing them here would photograph a
- *     „Von Piloti indexiert" rail that the real document can never show.
- *   - The filename is what `generatedFilename` actually returns for the title
- *     „Fluchtweglängen Gebäudeklasse 4", not what a German writer would type.
- *     The slugger NFKD-normalises and strips combining marks, so `ä` becomes
- *     `a` — NOT `ae`; only `ß` is transliterated, because it decomposes to
- *     nothing and would otherwise vanish mid-word. Hence `fluchtweglangen`,
- *     `gebaudeklasse`. Writing the German transliteration here would have made
- *     this preview disagree with every real filed report, which is the one
- *     thing a fixture must not do.
- */
 const GENERATED_FIXTURE: FileItem = {
   id: 'dev-doc-generated',
   filename: 'fluchtweglangen-gebaudeklasse-4-2026-06-14.pdf',
@@ -140,13 +89,6 @@ const GENERATED_FIXTURE: FileItem = {
   capture: null,
 }
 
-/**
- * The three text-shaped documents, which are the formats that had no viewer at
- * all: they drew the same grey "download it to read it" page mock as a `.dwg`,
- * although the bytes ARE the content. Three fixtures rather than one, because
- * the whole argument for rendering them separately is that a Markdown checklist
- * read as headings and boxes is a checklist and read as asterisks is a diff.
- */
 const TEXT_FIXTURES: Record<'markdown' | 'csv' | 'text', FileItem> = {
   markdown: {
     id: 'dev-doc-md',
@@ -204,12 +146,6 @@ const TEXT_FIXTURES: Record<'markdown' | 'csv' | 'text', FileItem> = {
   },
 }
 
-/**
- * An office file, shown through the PDF the BFF makes from it (ADR-0070).
- * `?variant=office-converting|office-converted|office-failed` picks the state;
- * the shim below answers by id: a preview that never settles (the conversion
- * the reader waits on), a PDF rendition, and a 502 from a failed converter.
- */
 const OFFICE_VARIANTS = ['office-converting', 'office-converted', 'office-failed'] as const
 type OfficeVariant = (typeof OFFICE_VARIANTS)[number]
 
@@ -232,16 +168,6 @@ const officeFixture = (variant: OfficeVariant): FileItem => ({
   capture: null,
 })
 
-/**
- * `?variant=settling`: an upload finishing WHILE its file is open.
- *
- * The real host, over a document still being read. The shim answers its
- * status poll with `processing` twice, then `completed` without the summary
- * (the cached listing the BFF can still hand back on the terminal read), then
- * the full metadata — so one visit shows the pending line, the badge turning,
- * and the summary, tags, counts and visual details arriving in the open modal
- * without closing it. Reload the page to replay it.
- */
 const SETTLING_FIXTURE: FileItem = {
   ...FIXTURE,
   id: 'dev-doc-settling',
@@ -280,16 +206,6 @@ function SettlingPreview(): JSX.Element {
   return <FilePreviewHost />
 }
 
-/**
- * `?variant=pdf` and `?variant=pdf-unreadable`: a PDF upload in the pane's own
- * pdf.js viewer, and the same file when its bytes cannot be opened.
- *
- * The viewer FETCHES `/api/documents/{id}/file` (see `documentFileUrl`), so the
- * shim answers that route with real bytes built by `sample-pdf.ts` — for these
- * and for `office-converted`, whose `/file` streams the rendition. The
- * unreadable one answers 500 there, which is what the pane's failure state and
- * its retry exist for.
- */
 const PDF_VARIANTS = ['pdf', 'pdf-unreadable'] as const
 type PdfVariant = (typeof PDF_VARIANTS)[number]
 
@@ -299,11 +215,6 @@ const pdfFixture = (variant: PdfVariant): FileItem => ({
   contentType: 'application/pdf',
 })
 
-/**
- * `?variant=drawing`: the on-site case the reader is built for. An A1
- * Grundriss at 1:100 (`a1-sheet.ts`), opened on a phone: full screen, zoomed
- * until its 2.5 mm lettering reads, its Fassungen one sheet away.
- */
 const DRAWING_FIXTURE: FileItem = {
   ...FIXTURE,
   id: 'dev-doc-drawing',
@@ -313,14 +224,6 @@ const DRAWING_FIXTURE: FileItem = {
   pageCount: 1,
 }
 
-/**
- * `?variant=search-hit`: the document the search's first hit names
- * (`SEARCH_FIXTURE_DOCUMENTS[0]`, „Brandschutzkonzept Wohnhaus Seestadt J7“),
- * so the hit's link (`?doc=…&page=7&highlight=…`) opens THAT file at THAT
- * page with THAT passage lit: the scene the search promises, end to end. Its
- * 24 pages are real, and page 7 carries the passage word for word, wrapped
- * across two lines as a typeset page would.
- */
 const SEARCH_HIT = SEARCH_FIXTURE_DOCUMENTS[0]!
 const SEARCH_HIT_FIXTURE: FileItem = {
   ...FIXTURE,
@@ -353,7 +256,6 @@ const SEARCH_HIT_SECTIONS = [
   'Sicherheitsbeleuchtung',
 ]
 
-/** Twenty-four pages; page 7 holds the hit's passage, the rest say where they are. */
 const searchHitPages = (): PdfLine[][] =>
   Array.from({ length: SEARCH_HIT.pageCount ?? 24 }, (_, index) => {
     const page = index + 1
@@ -486,15 +388,6 @@ Ergebnis
   binnen vier Wochen nach.
 `
 
-// Install the fetch shim at module scope (before any component effect fires) so
-/**
- * A structured analysis as ingestion stores it (snake_case, the ingestion
- * schema's own vocabulary). The shim below serves it through
- * `normalizeDrawingStructured`, which is what the BFF does before it answers
- * (`lib/documents/document-details.ts`). Serving the raw shape, as this preview once
- * did, crashed the route the moment „Detaillierte Informationen" opened: the
- * pane reads `segment.entityGroups`, which only the normalizer produces.
- */
 const DEV_STRUCTURED_RAW = {
   schema_version: 4,
   registry: 'architecture+general@850c9b2d770a',
@@ -570,23 +463,6 @@ const DEV_STRUCTURED_RAW = {
   },
 }
 
-/**
- * A version IN REVIEW, so the rail carries the whole decision set.
- *
- * `in_review` is the state the rail exists for — Freigeben / Änderungen
- * anfordern / Piloti überarbeiten lassen / Ablehnen, four
- * controls that have to wrap legibly in a 280px desktop rail and again in a
- * 390px phone column. A `draft` would show one button and photograph nothing.
- */
-/**
- * The document the review rail is mounted on: an ordinary indexed project file,
- * plus the two listing columns that make the HEADER badge speak.
- *
- * `versionState`/`versionCount` are what `showsVersionStateBadge` reads, and
- * the rule is deliberately quiet on a one-version human upload — so without
- * them the chip beside the name is correctly absent and this target would
- * photograph the rail's half of the story only.
- */
 const REVIEW_FIXTURE: FileItem = {
   ...FIXTURE,
   id: 'dev-doc-review',
@@ -594,26 +470,6 @@ const REVIEW_FIXTURE: FileItem = {
   versionCount: 2,
 }
 
-/**
- * Scroll the review section into view before the shot — at every viewport.
- *
- * The harness captures a page at rest, and „Fassungen und Freigabe" is not at
- * rest's top: it sits in the rail under the summary and Piloti's reading,
- * because a review apparatus is not what a reader opens a file for. At 390px
- * the rail also stacks under the document. Either way the panel is a scroll
- * away, and a shot of the top of the rail is evidence of the identity block
- * rather than of the thing this target exists to show.
- *
- * It used to run only under 640px, on the reasoning that the desktop rail is
- * its own column and the controls are therefore already visible. That was true
- * while the section led the rail and stopped being true when it moved; the
- * width check went with it rather than being adjusted, because the panel's
- * position in the rail is the thing that decides this and the viewport is not.
- *
- * Idempotent through a module-scope flag and a poll that stops once the panel
- * is in view, because `reactStrictMode` mounts every effect twice — the
- * `/dev/citation-interaction` pattern.
- */
 let scrolledIntoView = false
 
 function ScrollRailIntoView(): null {
@@ -634,7 +490,6 @@ function ScrollRailIntoView(): null {
   return null
 }
 
-/** What the reader in this fixture may do — enough for all five decisions. */
 const REVIEW_PERMISSIONS = [
   'project:view',
   'project:edit',
@@ -670,8 +525,6 @@ const REVIEW_VERSIONS = {
   ],
 }
 
-// the pane's preview / visual-details fetches always resolve. Idempotent +
-// dev/browser-guarded.
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   const w = window as unknown as { __filePreviewShim?: boolean }
   if (!w.__filePreviewShim) {
@@ -688,8 +541,6 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
         return Response.json({ code: 'RENDITION_FAILED' }, { status: 502 })
       }
       if (officeMatch) {
-        // The route's answer is what the pane decides by; the viewer then
-        // reads the rendition's bytes from `/file`, answered below.
         return Response.json({
           url: PAGE_SVG,
           contentType: 'application/pdf',
@@ -698,8 +549,6 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
             'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         })
       }
-      // The same-origin stream the pdf.js viewer reads: the rendition for the
-      // office file, the upload itself for a PDF.
       const fileMatch = /\/api\/documents\/(.+)\/file$/.exec(url)
       if (fileMatch?.[1] === DRAWING_FIXTURE.id) {
         return new Response(a1SheetPdf('C'), { headers: { 'Content-Type': 'application/pdf' } })
@@ -718,8 +567,6 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
       if (/\/api\/documents\/.+\/preview$/.test(url)) {
         return Response.json({ url: PAGE_SVG })
       }
-      // The text route answers with the CONTENT, not a URL — the object store
-      // publishes no CORS policy, so a presigned link is unreadable to a fetch.
       const textMatch = /\/api\/documents\/(.+)\/text$/.exec(url)
       if (textMatch) {
         const body =
@@ -730,12 +577,6 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
               : MARKDOWN_BODY
         return Response.json({ text: body, truncated: textMatch[1] === 'dev-doc-txt' })
       }
-      // ── the review rail ─────────────────────────────────────────────────
-      // `?variant=review` mounts `DocumentRevisions` INSIDE the pane's
-      // rail, which is the only place it actually ships and the one place it
-      // had never been photographed (ledger 40). The panel reaches the network
-      // through the typed client, so the fixture goes here rather than through
-      // a prop: `FilePreviewPane` deliberately does not forward a client.
       if (/\/api\/documents\/.+\/versions\/reviewers$/.test(url)) {
         return Response.json({
           candidates: [
@@ -750,8 +591,6 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
       if (url.endsWith(`/api/documents/${SETTLING_FIXTURE.id}/status`)) {
         return Response.json(settlingStatus())
       }
-      // Nothing visual has been indexed while the document is still being
-      // read: the empty answer the pane must not keep once it is done.
       if (url.endsWith(`/api/documents/${SETTLING_FIXTURE.id}/visual-details`) && settlingReads < 4) {
         return Response.json({ details: [] })
       }
@@ -767,9 +606,6 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
               text: 'Lageplan mit Feuerwehraufstellflächen, Löschwasserentnahmestellen und Zufahrten.',
               structured: null,
             },
-            // Two segments off ONE sheet — the case the per-drawing indexing
-            // exists for — the second carrying the full structured analysis so
-            // the advanced disclosure has something to show.
             {
               page: 7,
               contentType: 'drawing',
@@ -804,15 +640,6 @@ export default function FilePreviewDevPage({
   if (process.env.NODE_ENV !== 'development') {
     notFound()
   }
-  // `?authored=agent` swaps in the document Piloti wrote. One route rather than
-  // two so the two states are photographed through the same dialog, with the
-  // same shim and the same props — the only variable is the file.
-  //
-  // `?variant=markdown|csv|text` swaps in a text-shaped document, for the same
-  // reason: same dialog, same shim, the file is the only variable. The `text`
-  // one is served truncated on purpose — a viewer that silently shows the first
-  // half of a document is worse than one that shows none of it, so the notice
-  // under the page is part of the surface and has to be photographed.
   const params = use(searchParams)
   const authored = params.authored
   const variant = typeof params.variant === 'string' ? params.variant : undefined
@@ -821,22 +648,6 @@ export default function FilePreviewDevPage({
       ? TEXT_FIXTURES[variant]
       : null
 
-  // `?variant=review` mounts the pane the way the surface that OWNS the review
-  // rail mounts it (ledger 40).
-  //
-  // Not through `FilePreviewDialog`: that mount forwards neither
-  // `lifecyclePermissions` nor `viewerUserId`, so „Fassungen und Freigabe" can
-  // never appear inside it — the rail ships through `file-preview-host`, which
-  // renders `FilePreviewPane` directly in a `h-[85vh] w-[min(960px,…)]` box.
-  // The box below is that box, so the preview photographs the geometry the
-  // reader actually gets: two scrolling columns on a desktop, and at 390px one
-  // column with the rail stacked under the document.
-  // The host's own geometry, to the pixel: `h-[85vh]`, `w-[min(960px,
-  // calc(100% - 2rem))]`, centred on the page — and no page padding of its own.
-  // An extra `p-4` here would make the pane 32px narrower than the real one,
-  // and 32px is the difference between the type chip fitting in the header and
-  // being truncated at phone width: a preview narrower than production
-  // photographs a squeeze the reader never sees.
   if (variant === 'review') {
     return (
       <main className="bg-muted/40 flex min-h-dvh items-center justify-center">
@@ -875,11 +686,7 @@ export default function FilePreviewDevPage({
       projectId="proj-demo"
       projectName="Wohnbau Nord — Linz"
       canManage
-      // The rail's identity block holds „Verantwortlich" — the faces plus the
-      // Zuweisen popover — and it renders only for a collaborating viewer, so
-      // without this the one shot of the pane never photographed the row.
       canCollaborate
-      // Keep the modal open for the screenshot (fixture state is constant).
       onClose={() => {}}
     />
   )

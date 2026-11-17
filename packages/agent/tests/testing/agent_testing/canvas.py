@@ -1,10 +1,3 @@
-"""Fakes for the canvas tools: the signed envelope, the HTTP calls, and a turn's state.
-
-Only the two HTTP calls are faked (the canvas POST and the document-id lookup).
-The tools, their payload builders, renderers, target resolution, card and
-policy are the real ones, so what the tests read is what a turn would send and say.
-"""
-
 from __future__ import annotations
 
 from typing import Any
@@ -43,7 +36,6 @@ INVENTORY = [
 
 
 def listed(**extra: Any) -> dict[str, Any]:
-    """One mark as ``InternalAnnotationListResponse`` carries it, every field the schema requires."""
     return {
         "id": ANNOTATION,
         "number": 4,
@@ -143,7 +135,6 @@ PROPOSAL = {
 
 @pytest.fixture
 def registry():
-    """A bound card registry, the way a turn binds one."""
     cards = CardRegistry()
     token = set_card_registry(cards)
     yield cards
@@ -152,7 +143,6 @@ def registry():
 
 @pytest.fixture(autouse=True)
 def turn(monkeypatch):
-    """A chat turn: an envelope, a conversation, an inventory, nothing restricted, no focus."""
     monkeypatch.setattr(project_context, "get_request_envelope_from_context", lambda: (HEADER, SIGNATURE))
     monkeypatch.setattr(project_context, "get_conversation_id_from_context", lambda: "s_conv_1")
     monkeypatch.setattr(project_context, "get_user_message_id_from_context", lambda: "m_user_7")
@@ -168,13 +158,11 @@ def turn(monkeypatch):
 
 @pytest.fixture
 def calls(monkeypatch: pytest.MonkeyPatch) -> Calls:
-    """The record of every canvas body posted (answer each with :func:`answering`)."""
     return []
 
 
 @pytest.fixture
 def lookups(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, str]]:
-    """The document-id lookups made; each answers with :data:`OTHER_DOCUMENT`."""
     made: list[tuple[str, str]] = []
 
     def fake(collection: str, file_name: str, envelope: SignedEnvelope) -> str | None:
@@ -186,7 +174,6 @@ def lookups(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, str]]:
 
 
 def answering(monkeypatch: pytest.MonkeyPatch, calls: Calls, *bodies: dict[str, Any] | Exception) -> None:
-    """Answer each POST with the next body (the last one repeats), or raise it when it is an exception."""
     queue = list(bodies)
 
     def fake(payload: dict[str, Any], envelope: SignedEnvelope, **_: Any) -> dict[str, Any]:

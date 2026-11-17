@@ -58,7 +58,6 @@ describe('listFeedbackExportRows', () => {
     expect(queryOf(execute, 1).params).toContain('up')
   })
 
-  /** The voter is a pseudonym computed in SQL: the user id never reaches the application. */
   it('hashes the voter in SQL and never selects the user id itself', async () => {
     const execute = capture()
     await listFeedbackExportRows(all, 10)
@@ -157,17 +156,10 @@ describe('getFeedbackExportTotals', () => {
 
     expect(totals).toEqual({ votes: 6, up: 3, down: 3, voters: 5, organizations: 2 })
     expect(params).toEqual(expect.arrayContaining(['org_9', 'structural']))
-    // The question lateral's `limit 1` is per vote; the set itself has no bound.
     expect(sql).not.toMatch(/limit \$\d+/i)
   })
 })
 
-/**
- * Every filter is a WHERE clause in the one bounded statement, never a second
- * query per value and never a `.filter()` after the cap. One fragment
- * (`vote-scope.ts`) for the export, the page and the count, so these hold for
- * all of them.
- */
 describe('the shared vote scope, per filter', () => {
   const sqlOf = async (query: FeedbackQuery) => {
     const execute = capture()
@@ -214,7 +206,6 @@ describe('the shared vote scope, per filter', () => {
     expect(params).toEqual(expect.arrayContaining(values))
   })
 
-  /** `100%` must find the text "100%", not everything starting with 100. */
   it('searches question and answer with LIKE metacharacters escaped', async () => {
     const { sql, params } = await sqlOf(withRatings({ query: 'WC_1 100%' }))
     expect(sql).toMatch(/m\.content ilike \$\d+ or q\.content ilike \$\d+/)
@@ -255,10 +246,8 @@ describe('getFeedbackFacets', () => {
     const { sql, params } = queryOf(execute)
 
     expect(execute).toHaveBeenCalledOnce()
-    // The scope narrows the counts; the ratings filters do not.
     expect(params).toContain('org_a')
     expect(sql).not.toContain("coalesce(f.reason, 'other') in")
-    // Selected once as a column; never applied as a condition.
     expect(sql.match(/btrim\(f\.comment\)/g)).toHaveLength(1)
     expect(sql.match(/union all/g)?.length).toBe(6)
     expect(facets.verdicts).toEqual({ up: 12, down: 3 })

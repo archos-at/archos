@@ -1,31 +1,15 @@
 'use client'
 
-/**
- * A host frame for `/dev/mcp-apps`: the MCP Apps SDK's own host side
- * (`AppBridge`, `PostMessageTransport`) drawing the built `ui://piloti/proposal-card`
- * document in a sandboxed iframe, as Claude or ChatGPT would.
- *
- * What it does as a host (MCP Apps 2026-01-26): the iframe is
- * `sandbox="allow-scripts"` with an opaque origin, its document carries the
- * spec's restrictive default CSP (the resource declares no domain), the bridge
- * connects before the document loads, and the tool result is sent once the view
- * says `initialized`. The view's `tools/call` is answered by a fake of the door
- * that moves the proposal as the proposal routes would; `/dev` has no backend.
- * A real deployment's door is what `mcp-apps.spec.ts` covers.
- */
-
 import { useEffect, useRef, useState } from 'react'
 import { AppBridge, PostMessageTransport, type McpUiHostContext } from '@modelcontextprotocol/ext-apps/app-bridge'
 import type { CallToolResult } from '@modelcontextprotocol/client'
 import type { ProposedChangeView } from '@/lib/proposals/types'
 import { PRODUCT_NAME } from '@/lib/brand'
 
-/** The spec's default when a resource declares no CSP domain ("Host Behavior", restrictive default). */
 export const DEFAULT_VIEW_CSP =
   "default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; " +
   "media-src 'self' data:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'self'"
 
-/** The document with the host's CSP as its first element, as a sandbox proxy would serve it. */
 export function withCsp(html: string, csp: string = DEFAULT_VIEW_CSP): string {
   return html.replace('<head>', `<head><meta http-equiv="Content-Security-Policy" content="${csp}">`)
 }
@@ -35,7 +19,6 @@ const result = (proposal: ProposedChangeView): CallToolResult => ({
   structuredContent: { proposal },
 })
 
-/** What the door would answer: apply and dismiss move the proposal once; a second press is a 409. */
 function fakeDoor(start: ProposedChangeView, log: (line: string) => void) {
   let proposal = start
   return async (name: string, args: Record<string, unknown> | undefined): Promise<CallToolResult> => {
@@ -86,7 +69,7 @@ export function HostFrame({
     const door = fakeDoor(proposal, log)
     const bridge = new AppBridge(
       null,
-      { name: 'piloti-dev-host', version: '1.0.0' },
+      { name: 'dev-host', version: '1.0.0' },
       { serverTools: {}, updateModelContext: { text: {} } },
       { hostContext: { ...hostContext, platform: 'web', displayMode: 'inline', containerDimensions: { maxHeight: 2000 } } },
     )
@@ -118,7 +101,6 @@ export function HostFrame({
       <p className="text-muted-foreground text-xs font-medium">{label}</p>
       <div
         className="rounded-2xl p-4"
-        // The host's own page around the frame, in its theme.
         style={{ background: dark ? '#1f1e1d' : '#faf9f5', border: `1px solid ${dark ? '#3d3d3a' : '#e8e6dc'}` }}
       >
         <p className="mb-3 text-sm" style={{ color: dark ? '#c2c0b6' : '#5e5d59' }}>

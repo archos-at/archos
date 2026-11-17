@@ -1,18 +1,3 @@
-/**
- * The values a free-text filter of the search can take, as the documents in
- * reach hold them, with how many documents hold each (`POST /api/search/suggest`).
- * One statement under the search's own WHERE (`documentSearchWhere`): the
- * reach, the hidden folders, the hold and the other filters, so a completion
- * never names a value of a document the reader could not find, and its count
- * is the count that filter would bring.
- *
- * Matched on the start of any word of the value, folded as `foldForSuggest`
- * (`./suggest-fold`) folds the typed text (case, accents, „ß“, separators).
- * No index serves it: under row-level security none does for `LIKE` (0185's
- * header, docs/contributing/gotchas.md), and the scan is the facet count's,
- * over the matched documents only (`search-latency.integration.spec.ts`).
- */
-
 import 'server-only'
 import { eq, sql, type SQL } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
@@ -29,11 +14,9 @@ import { FOLD_FROM, FOLD_TO, foldForSuggest } from './suggest-fold'
 
 const f = documentSearchFacets
 
-/** `foldForSuggest` in SQL, after a space, so `LIKE '% word%'` finds the start of any word. */
 const words = (value: SQL): SQL =>
   sql`(' ' || btrim(regexp_replace(replace(translate(lower(${value}), ${FOLD_FROM}, ${FOLD_TO}), 'ß', 'ss'), '\\s+', ' ', 'g')))`
 
-/** What one completion asks: the dimension, the typed start, a party's role or a fact's key, how many values. */
 export interface SuggestRequest {
   dimension: SuggestDimension
   prefix: string
@@ -46,14 +29,6 @@ const SOURCE = sql.raw('matched.source')
 const RAW_VALUE = sql.raw('raw.value')
 const RAW_LABEL = sql.raw('raw.label')
 
-/**
- * One dimension. Per matched document: the search-row column it reads
- * (`source`), the values it expands to (`from`, `keep`), each value as the
- * filter takes it and as the documents write it. Per distinct value: what is
- * folded and matched (`hay`; null matches the squashed drawing number, as its
- * filter does), and what makes two spellings one value (`group`; null: their
- * folded words).
- */
 interface DimensionSql {
   source: SQL
   from: SQL
@@ -64,7 +39,6 @@ interface DimensionSql {
   group: SQL | null
 }
 
-/** A plain text column of the search row. */
 function column(source: SQL, group: SQL | null): DimensionSql {
   return {
     source,
@@ -115,7 +89,6 @@ function dimensionSql(request: SuggestRequest): DimensionSql {
     case 'planIndex':
       return column(sql`${f.planIndex}`, sql`lower(btrim(${RAW_VALUE}))`)
     case 'planNumber':
-      // Matched and grouped on the squashed number, as the filter is: „EP0“ finds „EP-05“ and „EP 05“ is one value with it.
       return {
         ...column(sql`${f.planNumber}`, null),
         hay: null,
@@ -136,7 +109,6 @@ function dimensionSql(request: SuggestRequest): DimensionSql {
   }
 }
 
-/** The typed start as a condition over one distinct value (`folded`). */
 function startsAs(request: SuggestRequest, d: DimensionSql): SQL {
   if (d.hay === null) {
     const start = squashDrawingNumber(request.prefix)
@@ -146,22 +118,7 @@ function startsAs(request: SuggestRequest, d: DimensionSql): SQL {
   return start === '' ? sql`true` : sql`folded.words LIKE ${`% ${escapeLikePattern(start)}%`}`
 }
 
-/**
- * The statement of {@link suggestValues}; exported for the latency spec's `EXPLAIN`.
- *
- * The matched documents are read first, under the search's WHERE, carrying
- * only the column the dimension reads: the scan a facet count makes. Their
- * values are counted per exact spelling (`raw`), and only the distinct
- * spellings are folded, matched and merged into values. `raw` is
- * MATERIALIZED on purpose: without the fence the planner pushes the match on
- * a grouped column below the GROUP BY and folds every occurrence again, one
- * `translate()` per party of every document. `EXPLAIN ANALYZE` office-wide,
- * 18,000 matched documents: 316 ms, 290 of them in that fold; fenced, 80 ms
- * p50, about one facet count (`search-latency.integration.spec.ts`, 2026-10-27).
- *
- * Merging sums the per-spelling counts, so a document that writes one name two
- * ways counts twice for it; a document naming it twice the same way counts once.
- */
+// MATERIALIZED fence: 316 ms to 80 ms p50 on 18,000 matched documents (search-latency.integration.spec.ts, 2026-10-27).
 export function suggestStatement(
   reach: SearchReach,
   query: DocumentQuery,
@@ -196,12 +153,6 @@ export function suggestStatement(
     LIMIT ${request.limit}`
 }
 
-/**
- * The values of one dimension among the documents `query` admits in `reach`,
- * starting as `prefix` does, most documents first, then by label, at most
- * `limit`. A value written several ways is one value, shown in its most
- * frequent spelling.
- */
 export async function suggestValues(
   reach: SearchReach,
   query: DocumentQuery,

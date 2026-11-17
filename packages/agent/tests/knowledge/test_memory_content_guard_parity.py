@@ -1,12 +1,3 @@
-"""The memory note guard, held to the table its TypeScript twin reads too.
-
-``tests/fixtures/memory_note_guard_cases.json`` is the one statement of what a
-memory note may not hold. ``apps/workspace/bff/knowledge/note-content-guard.spec.ts``
-runs the same cases against the BFF's refusal, so the agent's early refusal and
-the server's cannot drift apart: a case added for one fails the other until both
-agree.
-"""
-
 from __future__ import annotations
 
 import json
@@ -39,7 +30,6 @@ def test_the_fixture_holds_the_kinds_defined_here() -> None:
 @pytest.mark.parametrize("case", _cases(), ids=lambda case: case["name"])
 def test_each_case_is_refused_as_the_fixture_says(case: dict) -> None:
     text = case["text"]
-    # Every shelf refuses a secret; a shared shelf also refuses a contact detail.
     assert note_refusal(text, shared=False) == case["secret"]
     assert note_refusal(text, shared=True) == (case["secret"] or case["contact"])
     assert looks_like_secret(text) is (case["secret"] is not None)

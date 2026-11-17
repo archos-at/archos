@@ -1,20 +1,3 @@
-"""The model's ``project_profile_patch`` card leaves the turn as a server proposal (ADR-0105).
-
-The model composes this card in the answer envelope and no tool runs, so the one
-place a turn can create its proposal is where the envelope's cards are made
-final and registered (``cards/envelope.register_envelope_card``, called by
-``agents/piloti/answer_pipeline._register_envelope_cards``). Only the transport
-is faked, so the body checked is the one the client really sends.
-
-* **An open turn gets a proposal**; the card carries its id, and the body is the
-  contract's, with the card's real position as ``originCardIndex``.
-* **A confined turn does not.** The refusal comes first: no card, no request.
-* **Every failure is the card without an id**, which the browser still applies.
-* **The id is never the model's.** One it wrote is stripped, and one it was
-  never given cannot be taught.
-* **One card, one request.**
-"""
-
 from __future__ import annotations
 
 import io
@@ -30,7 +13,6 @@ from jsonschema import Draft202012Validator
 from jsonschema import FormatChecker
 
 import agent.project_context as pc
-from agent.agents.piloti.answer_pipeline import _register_envelope_cards
 from agent.cards.catalog import render_card_details
 from agent.cards.envelope import REFUSED_CONFINED
 from agent.cards.envelope import register_envelope_card
@@ -41,6 +23,7 @@ from agent.cards.registry import reset_card_registry
 from agent.cards.registry import set_card_registry
 from agent.common import bff_http
 from agent.common.answer_envelope import AnswerMeta
+from agent.core.answer_pipeline import _register_envelope_cards
 from agent.knowledge import scoping
 from agent.turn.response import answer_message_id
 
@@ -74,8 +57,6 @@ CALCULATION = {
 
 
 class Transport:
-    """``_opener.open`` with answers queued: a dict is a 200 body, an int an HTTP error."""
-
     def __init__(self, *answers: Any) -> None:
         self.answers = list(answers)
         self.requests: list[urllib.request.Request] = []
@@ -107,7 +88,6 @@ def registry():
 
 @pytest.fixture(autouse=True)
 def turn(monkeypatch):
-    """An open chat turn: a signed envelope, a service token, a scope with no restricted folder."""
     monkeypatch.setattr(pc, "get_request_envelope_from_context", lambda: (HEADER, SIGNATURE))
     monkeypatch.setattr(pc, "get_conversation_id_from_context", lambda: CONVERSATION)
     monkeypatch.setattr(pc, "get_user_message_id_from_context", lambda: USER_MESSAGE)
@@ -127,7 +107,6 @@ def transport(monkeypatch):
 
 
 async def _finish(*cards: dict[str, Any]) -> str:
-    """What the answer pipeline does with the envelope's cards: validate, repair, register."""
     prose = "\n\n".join(f"[[card:{n}]]" for n in range(1, len(cards) + 1))
     return await _register_envelope_cards(AnswerMeta(cards=[dict(card) for card in cards]), prose, [], None)
 
@@ -191,7 +170,6 @@ class TestAnOpenTurn:
         assert len({json.dumps(body["payload"], sort_keys=True) for body in fake.bodies()}) == 2
 
     async def test_a_card_registered_again_at_its_position_names_the_same_proposal_key(self, registry, transport):
-        """The database dedupes on (answer, index): the second call must send the first's key."""
         fake = transport(_created(FIRST), _created(FIRST))
         validated, _ = validate_model_card(dict(PATCH))
         assert validated is not None
@@ -256,7 +234,6 @@ class TestTheIdIsNeverTheModels:
         assert "proposal_id" not in validated
 
     async def test_an_id_the_model_wrote_does_not_survive_a_refused_create(self, registry, transport):
-        """Otherwise Accept would apply a proposal this turn never made."""
         transport(404)
         await _finish({**PATCH, "proposal_id": MODELS_OWN_ID})
 

@@ -1,10 +1,3 @@
-/**
- * „Mein Gedächtnis“ (ADR-0180): the person's own notes. What must hold: the
- * page says who reads them before anything else, the list keeps the server's
- * order (pinned first), every state has a face (loading, empty, failed), and
- * an edit another note already says (409) keeps the editor open with the
- * reason instead of losing what was typed.
- */
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
 import { render, screen, waitFor, within } from '@/test-utils'
@@ -18,6 +11,7 @@ const note = (id: string, content: string, overrides: Record<string, unknown> = 
   kind: 'preference',
   content,
   provenanceType: 'agent',
+  topic: null,
   pinned: false,
   sourceConversationId: null,
   createdAt: '2026-11-01T09:00:00Z',
@@ -32,7 +26,6 @@ const OLDER = note('n-older', 'Flächen in Quadratmetern.', { provenanceType: 'd
 type Handler = (url: string, init?: RequestInit) => Response | Promise<Response>
 const fetchMock = vi.fn<Handler>()
 
-/** Answer the list with `items`, and every other request with `rest`. */
 function serve(items: unknown[], rest: Handler = () => new Response(null, { status: 204 })): void {
   fetchMock.mockImplementation((url, init) =>
     !init?.method ? Response.json({ items, nextCursor: null }) : rest(url, init)
@@ -75,6 +68,23 @@ describe('PersonalMemoryPanel', () => {
     expect(screen.getByLabelText('Pinned')).toBeInTheDocument()
   })
 
+  test('notes are folded by topic: the topics most notes first, the notes without a topic last', async () => {
+    serve([
+      note('n-plain', 'Ohne Thema.'),
+      note('n-one', 'Stellplatz 3.', { topic: 'Stellplätze' }),
+      note('n-two', 'Brandschutzklasse F30.', { topic: 'Brandschutz' }),
+      note('n-three', 'Fluchtweg Nord.', { topic: 'Brandschutz' }),
+    ])
+    render(<PersonalMemoryPanel />)
+
+    await screen.findByText('Stellplatz 3.')
+    const [fireSafety, parking, unfiled] = screen.getAllByTestId('topic-folder')
+    expect(fireSafety).toHaveTextContent('Brandschutz2 notes')
+    expect(parking).toHaveTextContent('Stellplätze1 note')
+    expect(unfiled).toHaveTextContent('No topic')
+    expect(rows()).toHaveLength(4)
+  })
+
   test('shows the loading rows until the list answers', () => {
     fetchMock.mockImplementation(() => new Promise<Response>(() => {}))
     render(<PersonalMemoryPanel />)
@@ -113,10 +123,33 @@ describe('PersonalMemoryPanel', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/user/memory', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ kind: 'preference', content: 'Ist für Brandschutz zuständig.' }),
+      body: JSON.stringify({ kind: 'preference', content: 'Ist für Brandschutz zuständig.', topic: null }),
     })
     expect(rows()[0]).toContain('Ist für Brandschutz zuständig.')
     expect(toast.success).toHaveBeenCalledWith('Note added.')
+  })
+
+  test('a note added under a topic is sent with it, the topic the shelf already has', async () => {
+    const created = note('n-new', 'Brandschutzklasse F30.', { topic: 'Brandschutz', provenanceType: 'user' })
+    serve([note('n-one', 'Fluchtweg Nord.', { topic: 'Brandschutz' })], () =>
+      Response.json({ item: created, created: true }, { status: 201 })
+    )
+    render(<PersonalMemoryPanel />)
+    await screen.findByText('Fluchtweg Nord.')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Add note' }))
+    await userEvent.type(screen.getByLabelText('Note'), 'Brandschutzklasse F30.')
+    await userEvent.type(screen.getByRole('combobox', { name: 'Topic' }), 'brand')
+    await userEvent.click(screen.getByRole('option', { name: 'Brandschutz' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Add' }))
+
+    await screen.findByText('Brandschutzklasse F30.')
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/user/memory',
+      expect.objectContaining({
+        body: JSON.stringify({ kind: 'preference', content: 'Brandschutzklasse F30.', topic: 'Brandschutz' }),
+      })
+    )
   })
 
   test('a text an existing note already says answers that note: the list holds it once', async () => {
@@ -130,7 +163,6 @@ describe('PersonalMemoryPanel', () => {
 
     await waitFor(() => expect(screen.queryByLabelText('Note')).not.toBeInTheDocument())
     expect(rows()).toHaveLength(1)
-    // Nothing was added, and the panel does not claim it was.
     expect(toast.success).toHaveBeenCalledWith('You already have this note. It is back at the top.')
     expect(toast.success).not.toHaveBeenCalledWith('Note added.')
   })

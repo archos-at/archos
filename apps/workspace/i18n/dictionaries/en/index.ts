@@ -1,11 +1,3 @@
-/**
- * English dictionary — the canonical shape.
- *
- * Every other locale must structurally match this object (enforced by the
- * `Dictionary` type in ../index.ts). Each namespace lives in its own file so
- * feature work can extend a namespace without touching unrelated strings.
- */
-
 import { common } from './common'
 import { nav } from './nav'
 import { profile } from './profile'
@@ -17,6 +9,7 @@ import { collaboration } from './collaboration'
 import { files } from './files'
 import { dossier } from './dossier'
 import { officeShelf } from './office-shelf'
+import { baseKnowledge } from './base-knowledge'
 import { lawMap } from './law-map'
 import { bim } from './bim'
 import { knowledge } from './knowledge'
@@ -54,6 +47,7 @@ import { search } from './search'
 import { whatsNew } from './whats-new'
 import { personalMemory } from './personal-memory'
 import { memoryNotes } from './memory-notes'
+import { memoryTopics } from './memory-topics'
 
 export const en = {
   common,
@@ -70,6 +64,7 @@ export const en = {
   files,
   dossier,
   officeShelf,
+  baseKnowledge,
   lawMap,
   bim,
   knowledge,
@@ -104,4 +99,5 @@ export const en = {
   whatsNew,
   personalMemory,
   memoryNotes,
+  memoryTopics,
 } as const

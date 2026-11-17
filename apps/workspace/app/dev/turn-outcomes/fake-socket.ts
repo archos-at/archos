@@ -1,29 +1,13 @@
-/**
- * A scripted v2 chat server behind a stubbed `window.WebSocket`, and the API
- * routes the scenario touches, for `/dev/turn-outcomes`.
- *
- * Unlike `/dev/stream-socket`'s server this one answers the client: an
- * `interaction_response` plays the scenario's continuation, a `cancel_turn`
- * drops what was still to come and sends the cancelled terminal with the text
- * sent so far. Timers run on the page: nothing here is measured, so the
- * worker that keeps that harness honest under load is not needed.
- *
- * Only the chat socket (`…/websocket`) is faked; any other `WebSocket` (the
- * dev server's HMR) is the real one.
- */
-
 import { PROJECT_ID, storedRunMessage, type Scenario, type TimedBody } from './scenarios'
 
 const OPEN = 1
 const CLOSED = 3
 
-/** What the page wants to know about the turn. */
 export interface SocketSink {
   onOpen: () => void
   onBody: (body: Record<string, unknown>) => void
 }
 
-/** Install the fake server. Returns the uninstaller. */
 export const installFakeSocket = (scenario: Scenario, sink: SocketSink): (() => void) => {
   const RealWebSocket = window.WebSocket
   const timers = new Set<number>()
@@ -81,7 +65,6 @@ export const installFakeSocket = (scenario: Scenario, sink: SocketSink): (() => 
     constructor(url: string | URL, protocols?: string | string[]) {
       const href = String(url)
       this.url = href
-      // Not the chat socket: hand back a real one (the constructor's return value wins).
       if (!new URL(href, window.location.href).pathname.endsWith('/websocket')) {
         return new RealWebSocket(url, protocols) as unknown as FakeSocket
       }
@@ -89,7 +72,6 @@ export const installFakeSocket = (scenario: Scenario, sink: SocketSink): (() => 
       window.setTimeout(() => {
         this.readyState = OPEN
         this.onopen?.(new Event('open'))
-        // `ChatSocket.serve` says hello first; the client sends nothing before it.
         this.deliver(
           JSON.stringify({
             v: 2,
@@ -152,15 +134,6 @@ const json = (body: unknown, status = 200): Response =>
 const later = <T>(ms: number, value: () => T): Promise<T> =>
   new Promise((resolve) => window.setTimeout(() => resolve(value()), ms))
 
-/**
- * The routes a scenario reaches, answered here; every other `/api/` route
- * answers at once and empty, as on `/dev/stream-socket`.
- *
- * - `GET …/messages`: the run's stored message, after the scenario's delay —
- *   the read `fetchRunMessage` makes after a hand-off.
- * - `GET`/`POST /api/projects/…/folders`: the project's one folder, and a slow
- *   create, so the proposal card's busy state can be seen.
- */
 export const stubApi = (scenario: Scenario): (() => void) => {
   const realFetch = window.fetch
   window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {

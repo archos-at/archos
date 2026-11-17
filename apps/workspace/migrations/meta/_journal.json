@@ -1653,6 +1653,69 @@
       "when": 1795000000000,
       "tag": "0235_territory_zone",
       "breakpoints": true
+    },
+    {
+      "idx": 236,
+      "version": "7",
+      "when": 1795100000000,
+      "tag": "0236_reached_records_once",
+      "breakpoints": true
+    },
+    {
+      "idx": 237,
+      "version": "7",
+      "when": 1795200000000,
+      "tag": "0237_open_agent_asks_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 238,
+      "version": "7",
+      "when": 1795300000000,
+      "tag": "0238_memory_topics",
+      "breakpoints": true
+    },
+    {
+      "idx": 239,
+      "version": "7",
+      "when": 1795400000000,
+      "tag": "0239_knowledge_carried_releases",
+      "breakpoints": true
+    },
+    {
+      "idx": 240,
+      "version": "7",
+      "when": 1795500000000,
+      "tag": "0240_knowledge_index_run_handed",
+      "breakpoints": true
+    },
+    {
+      "idx": 241,
+      "version": "7",
+      "when": 1795500100000,
+      "tag": "0241_app_session_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 242,
+      "version": "7",
+      "when": 1795500200000,
+      "tag": "0242_agent_actor_kind",
+      "breakpoints": true
+    },
+    {
+      "idx": 243,
+      "version": "7",
+      "when": 1795500300000,
+      "tag": "0243_documents_generated_namespace",
+      "breakpoints": true
+    },
+    {
+      "idx": 244,
+      "version": "7",
+      "when": 1795600300000,
+      "tag": "0244_usage_events_model_once",
+      "breakpoints": true
     }
   ]
 }

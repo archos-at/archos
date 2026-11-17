@@ -62,9 +62,6 @@ describe('deleteStoragePrefix', () => {
     expect(s3.send.mock.calls.filter(([c]) => c instanceof DeleteObjectsCommand)).toHaveLength(0)
   })
 
-  // The branch the module exists to get right. `Quiet: true` means a 200 can
-  // still carry per-key errors; swallowing them makes the purge "succeed", the
-  // `app` pointer disappear, and the surviving objects unreachable orphans.
   it('throws when the batch delete reports per-key errors', async () => {
     const s3 = makeS3([{ Contents: [{ Key: 'a' }], IsTruncated: false }], {
       deleteResult: { Errors: [{ Key: 'a', Code: 'AccessDenied' }] },
@@ -74,42 +71,23 @@ describe('deleteStoragePrefix', () => {
     )
   })
 
-  // Per-organization buckets are created LAZILY, on an organization's first
-  // upload (ADR-0043). Any organization that has not uploaded since the feature
-  // was enabled — or ever — has no tenant bucket, and the purge visits it
-  // anyway because erasure must not depend on the current flag state. A bucket
-  // that does not exist holds no objects, so this is the correct answer, not a
-  // swallowed error: without it the purge fails AFTER destroying the
-  // Python-side stores, retries ten times destroying them again, and then
-  // abandons the row with the tenant's project and conversation data intact.
   it('treats a missing bucket as an empty sweep', async () => {
     const s3 = makeS3([s3Error('NoSuchBucket', 404)])
     expect(await deleteStoragePrefix(s3, 'grid-org-o1-abcdef123456', 'org/o1/')).toBe(0)
   })
 
   it('still propagates any other failure', async () => {
-    // A 403 means the credential is wrong, not that the bucket is absent.
-    // Treating it as "nothing to delete" would report an erasure that never
-    // touched the objects.
     const s3 = makeS3([s3Error('AccessDenied', 403)])
     await expect(deleteStoragePrefix(s3, 'grid-documents', 'org/o1/')).rejects.toThrow(
       'AccessDenied',
     )
   })
 
-  // The dangerous near-miss. `SEAWEED_ENDPOINT` pointed at the filer's HTTP
-  // port instead of the S3 port, or an ingress that lost its route, answers
-  // 404 — and a guard that keyed on the STATUS rather than the code would call
-  // that "already erased", let the purge delete the WorkOS resource and the
-  // `app` rows, and mark the queue row purged with every object intact.
   it('does not treat a bare 404 from a misrouted endpoint as an empty bucket', async () => {
     const s3 = makeS3([s3Error('NotFound', 404)])
     await expect(deleteStoragePrefix(s3, 'grid-documents', 'org/o1/')).rejects.toThrow('NotFound')
   })
 
-  // The bucket can also vanish BETWEEN the list and the delete. "Gone" means
-  // the same thing at either point — nothing left to erase — so the guard has
-  // to cover both calls, not just the first.
   it('treats a bucket that disappears mid-sweep as an empty sweep', async () => {
     const s3 = makeS3([{ Contents: [{ Key: 'a' }], IsTruncated: false }], {
       deleteResult: s3Error('NoSuchBucket', 404),
@@ -126,11 +104,6 @@ describe('deleteStoragePrefix', () => {
 })
 
 describe('isMissingBucket', () => {
-  // Deliberately narrow. This function's answer is "there is nothing here to
-  // erase", and the purge acts on it by deleting the rows that name the
-  // objects — so a false positive is an erasure that reported success and
-  // removed only the pointers. Every row below that maps to `false` is a
-  // 404 that means something OTHER than a missing bucket.
   it.each([
     ['a missing bucket', s3Error('NoSuchBucket', 404), true],
     ['a missing KEY, which is a 404 too', s3Error('NoSuchKey', 404), false],

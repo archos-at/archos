@@ -56,7 +56,6 @@ describe('isMicrophoneDenied', () => {
     ).resolves.toBe(false)
   })
 
-  // Seen as a permission query that never settles: the button stayed disabled for good.
   test('a query that never answers is not treated as denied, after a short wait', async () => {
     vi.useFakeTimers()
     try {

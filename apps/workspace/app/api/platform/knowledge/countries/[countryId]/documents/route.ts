@@ -1,9 +1,3 @@
-/**
- * Add a document to a country from its publisher's URL, in one call: into the
- * country's open draft change request (or a new one), with the work, edition
- * and manifestation it is the text of, and the PDF fetched by the platform.
- */
-
 import { parseJsonBody } from '@/lib/api/handler'
 import { platformApiRoute } from '@/lib/api/platform-handler'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'

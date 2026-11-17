@@ -1,19 +1,4 @@
 import 'server-only'
-/**
- * Progressive discovery for the agent door (ADR-0122).
- *
- * The catalog is large, and MCP has no standard tool search. Putting every
- * operation in `tools/list` costs a client thousands of tokens before its first
- * word, so the default mode offers four meta-tools instead, the shape PostHog
- * (`exec`) and Cloudflare (`search` + `execute`) settled on:
- *
- *   search-operations -> describe-operation -> call-operation
- *   report-missing-operation, for the day search finds nothing
- *
- * The handlers here are plain functions over an {@link McpCallContext};
- * `mcp-server.ts` registers them, and registers the per-operation tools of
- * `tools` mode over the same {@link runOperation}, so both modes run one path.
- */
 
 import type { CallToolResult } from '@modelcontextprotocol/server'
 import { withAiGeneratedMeta } from './ai-generated-meta'
@@ -61,21 +46,15 @@ import type { AgentPrincipal } from './principal'
 import { readGateFor, sharedConversationReadRefusal } from './read-gate'
 import { READ_GATE_DETAIL, problemFailure, refusalResult } from './door-problem'
 import { IDEMPOTENCY_KEY_SCHEMA } from './door-idempotency'
+import { actingDoorOf } from './call-origin'
 import { type McpCallContext, recordOperationCalled, recordOperationMissing } from './telemetry'
 import { PRODUCT_NAME } from '@/lib/brand'
+import { isAgentKind } from '@/lib/agent-kind'
 
-/**
- * Longest text a result carries; beyond it the call must be narrowed. The one
- * cap on what an agent reads from this server: Piloti's own client
- * (`tools/workspace/client.py`) adds none of its own.
- */
 export const MAX_RESULT_CHARS = 40_000
 const DEFAULT_SEARCH_LIMIT = 10
 const MAX_SEARCH_LIMIT = 50
-/** A search is a few words; past this it is not one, and ranking it would cost every tenant the time. */
 export const MAX_SEARCH_QUERY_LENGTH = 200
-
-// --- results ---------------------------------------------------------------
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -83,12 +62,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 const GENERIC_NARROWING_HINT = 'Narrow the call to page through it: pass a smaller limit or filters in input.query, or fetch one item by id.'
 
-/**
- * How to narrow `op`'s answer, from the input it really takes: the query
- * parameters it names, or, when it has none, a plain statement that it has no
- * filter. A hint naming a parameter the operation lacks sends the agent into a
- * refusal.
- */
 export function narrowingHint(op: { readonly query?: z.ZodObject; readonly inputSchema?: JsonSchemaObject }): string {
   const names = op.inputSchema
     ? Object.keys(op.inputSchema.properties ?? {}).filter((name) => name !== 'projectId')
@@ -103,10 +76,6 @@ export function narrowingHint(op: { readonly query?: z.ZodObject; readonly input
   return `Narrow the call with the parameters this operation takes (${names.join(', ')}) ${where}, or fetch one item by id with a narrower operation.`
 }
 
-/**
- * Text for a model, capped; whether it was cut. Compact JSON: indentation is a
- * third of a pretty-printed answer, and the model reads it as tokens it pays for.
- */
 function renderText(value: unknown, hint = GENERIC_NARROWING_HINT): { text: string; truncated: boolean } {
   const full = typeof value === 'string' ? value : (JSON.stringify(value) ?? 'null')
   if (full.length <= MAX_RESULT_CHARS) return { text: full, truncated: false }
@@ -116,14 +85,6 @@ function renderText(value: unknown, hint = GENERIC_NARROWING_HINT): { text: stri
   return { text: full.slice(0, MAX_RESULT_CHARS) + note, truncated: true }
 }
 
-/**
- * The operations an MCP Apps view reads its data from (ADR-0142): the ones a
- * view draws, and the ones its app-only tools run. For a caller offered the
- * views (`offersAppViews`) their `structuredContent` is the view's input, so it
- * is kept whole however long the text is; only the text, which the model
- * reads, is capped. A proposal is one bounded object. Every other caller gets
- * the cap as for any operation.
- */
 const VIEW_DATA_OPERATIONS: ReadonlySet<string> = new Set<string>([
   ...APP_VIEWS.flatMap((view) => view.drawsResultOf),
   ...APP_TOOLS.map((tool) => tool.operation),
@@ -132,7 +93,6 @@ const VIEW_DATA_OPERATIONS: ReadonlySet<string> = new Set<string>([
 function success(value: unknown, hint?: string, keepStructured = false): CallToolResult {
   const { text, truncated } = renderText(value, hint)
   const result: CallToolResult = { content: [{ type: 'text', text }] }
-  // structuredContent must be an object; a client that reads it would bypass the cap, except a view's own data.
   if (!truncated || keepStructured) result.structuredContent = isRecord(value) ? value : { result: value }
   return result
 }
@@ -141,7 +101,6 @@ function failure(message: string): CallToolResult {
   return { isError: true, content: [{ type: 'text', text: message }] }
 }
 
-/** Bytes as the person would read them: `1.5 MiB`. */
 function sizeText(bytes: number | null): string {
   if (bytes === null) return 'an unknown size'
   if (bytes < 1024) return `${bytes} bytes`
@@ -150,13 +109,6 @@ function sizeText(bytes: number | null): string {
 
 const SAFE_URI_SEGMENT = /[^\w.-]+/g
 
-/**
- * A file the route returned, as MCP content: an embedded `resource` with the
- * bytes as `blob` (base64) and a one-line text summary. The base64 lives only in
- * that content item, never in `structuredContent` and never in the capped text.
- * Over {@link MAX_INLINE_BYTES} nothing is sent, and the text says how to read
- * the document another way.
- */
 function binaryResult(opName: string, file: BinaryBody): CallToolResult {
   const mimeType = file.contentType?.split(';')[0]?.trim() || 'application/octet-stream'
   const label = file.filename ? `"${file.filename}", ` : ''
@@ -178,12 +130,11 @@ function binaryResult(opName: string, file: BinaryBody): CallToolResult {
   return {
     content: [
       { type: 'text', text: `Returned ${label}${mimeType}, ${sizeText(file.bytes)}, as the attached resource.` },
-      { type: 'resource', resource: { uri: `piloti://operation/${opName}/${name}`, mimeType, blob: file.base64 } },
+      { type: 'resource', resource: { uri: `workspace://operation/${opName}/${name}`, mimeType, blob: file.base64 } },
     ],
   }
 }
 
-/** A redirect, handed on as a `resource_link`: the URL is a short-lived credential, so it is never followed here. */
 function redirectResult(opName: string, location: string): CallToolResult {
   return {
     content: [
@@ -196,7 +147,6 @@ function redirectResult(opName: string, location: string): CallToolResult {
   }
 }
 
-/** An answer too large to read: the agent is told to narrow the call, as the text cap tells it. */
 function oversizedResult(op: AgentOperation | BackendOperation, body: OversizedBody): CallToolResult {
   const opName = op.name
   return failure(
@@ -206,16 +156,11 @@ function oversizedResult(op: AgentOperation | BackendOperation, body: OversizedB
   )
 }
 
-/**
- * A route's answer as the tool result. `input` is the call's, for the project a
- * link needs when the answer does not say it (a run under `/api/projects/[id]`).
- */
 export function fromOperationResult(
   op: AgentOperation,
   result: OperationResult,
   input: OperationInput = {},
   origin: string | null = configuredAppOrigin(),
-  /** The caller draws MCP Apps views: a view's data is kept whole (`VIEW_DATA_OPERATIONS`). */
   forView = false,
 ): CallToolResult {
   if (isOversizedBody(result.body)) return oversizedResult(op, result.body)
@@ -226,11 +171,6 @@ export function fromOperationResult(
   return withAiGeneratedMeta(op, result.body, success(withLinks(op, input, result.body, origin), narrowingHint(op), keep))
 }
 
-/**
- * The backend's answer to a read tool as the tool result. Success is
- * `{ tool, result }`: the result is capped text with structuredContent, except
- * the page-image tool's content blocks, which stay images.
- */
 function fromBackendResult(op: BackendOperation, result: OperationResult): CallToolResult {
   const hint = narrowingHint(op)
   if (isOversizedBody(result.body)) return oversizedResult(op, result.body)
@@ -243,9 +183,6 @@ function fromBackendResult(op: BackendOperation, result: OperationResult): CallT
   return { content }
 }
 
-// --- the input schema of one operation -------------------------------------
-
-/** An ETag is short; anything longer is not one. */
 const IF_MATCH_MAX_LENGTH = 256
 
 const IF_MATCH_SCHEMA = {
@@ -259,18 +196,12 @@ const schemaCache = new Map<string, JsonSchemaNode>()
 
 function part(schema: Parameters<typeof toJsonSchema>[0]): { node: JsonSchemaNode; required: boolean } {
   try {
-    // Required when dispatch would refuse it absent, which it checks as `{}` (`validateOperationInput`).
     return { node: toJsonSchema(schema), required: !z.safeParse(schema, {}).success }
   } catch {
-    // The route's own schema is the gate; the export only shapes what is shown.
     return { node: { description: 'Shape not describable here; the route validates it.' }, required: false }
   }
 }
 
-/**
- * The input of `op` as JSON Schema: `{ params, query, body }`, each present only
- * when the operation has it, built from the same zod the dispatcher validates with.
- */
 export function inputSchemaOf(op: AgentOperation): JsonSchemaNode {
   const cached = schemaCache.get(op.name)
   if (cached) return cached
@@ -283,21 +214,15 @@ export function inputSchemaOf(op: AgentOperation): JsonSchemaNode {
     properties[key] = node
     if (isRequired) required.push(key)
   }
-  // Only where the route reads the header: offered anywhere else, it would be a version check nobody makes.
   if (op.ifMatchHeader) properties.ifMatch = IF_MATCH_SCHEMA
-  // Every write takes a key (ADR-0170), described once in the server's instructions; a read is idempotent by itself.
   if (!annotationsOf(op).readOnlyHint) properties.idempotencyKey = IDEMPOTENCY_KEY_SCHEMA
   const schema: JsonSchemaNode = { type: 'object', properties, additionalProperties: false }
   if (required.length > 0) schema.required = required
-  // JSON Schema's own keyword for sample instances (2020-12, `examples`).
   if (op.examples && op.examples.length > 0) schema.examples = op.examples as unknown as JsonSchemaNode
   schemaCache.set(op.name, schema)
   return schema
 }
 
-// --- running one operation --------------------------------------------------
-
-/** Run one of the Python agent's read tools as the person; `input` is the tool's own arguments. */
 export async function runBackendOperation(
   ctx: McpCallContext,
   op: BackendOperation,
@@ -323,18 +248,13 @@ export async function runBackendOperation(
   }
 }
 
-/**
- * What Piloti reads when it names an operation it does with a native tool
- * (`agent: 'native:<tool>'` in `exposure.config.ts`): the tool, not a search.
- */
 export function nativeToolRefusal(name: string, tool: string): string {
   return `${name} is not offered to you: you do this with your own tool ${tool}. Call that instead.`
 }
 
 function unknownOperation(ctx: McpCallContext, name: string): CallToolResult {
-  const native = ctx.principal.actor === 'piloti' ? nativeToolOf(name) : undefined
+  const native = isAgentKind(ctx.principal.actor) ? nativeToolOf(name) : undefined
   if (native) return problemFailure(nativeToolRefusal(name, native), 404, 'UNKNOWN_OPERATION')
-  // The search schema bounds a query; a name the agent typed is bounded here, the one unchecked text ranked.
   const near = rank(ctx, name.slice(0, MAX_SEARCH_QUERY_LENGTH), undefined)
     .slice(0, 5)
     .map((hit) => hit.name)
@@ -342,12 +262,6 @@ function unknownOperation(ctx: McpCallContext, name: string): CallToolResult {
   return problemFailure(`Unknown operation "${name}".${hint} Use search-operations to find the right name.`, 404, 'UNKNOWN_OPERATION')
 }
 
-/**
- * The body of a read the door makes for itself (a prompt reading the office's
- * skills), as `ctx.principal` and through the same gate and dispatch as
- * call-operation, but whole: the 40,000-character cap is for what a model
- * reads, and this body is read by code. Only a read that runs, never a write.
- */
 export async function readOperationBody(
   ctx: McpCallContext,
   name: string,
@@ -360,8 +274,6 @@ export async function readOperationBody(
   const startedAt = Date.now()
   const record = (status: number) =>
     recordOperationCalled(ctx, { operation: op.name, domain: op.domain, decision: 'run', status, startedAt })
-  // Code reads this, not a model: whatever goes wrong is a refusal the caller can answer
-  // with an empty result, never an exception out of a prompt completion.
   try {
     const refused = await readGateFor(ctx.principal).beforeRead(op, input)
     if (refused) {
@@ -387,17 +299,12 @@ export async function readOperationBody(
   }
 }
 
-/**
- * Run (or propose) one operation for `ctx.principal`. The one path both modes
- * share: visibility, the run/propose decision, the dispatch, the telemetry.
- */
 export async function runOperation(ctx: McpCallContext, name: string, input: OperationInput): Promise<CallToolResult> {
   const startedAt = Date.now()
   const op = findVisibleOperation(ctx.principal, name)
   if (!op) {
     const backend = findVisibleBackendOperation(ctx.principal, name)
     if (backend) return runBackendOperation(ctx, backend, isRecord(input) ? { ...input } : {})
-    // Not the caller's text: an unknown name is whatever the agent typed, and server events are non-personal.
     recordOperationCalled(ctx, { operation: null, domain: null, decision: 'refused', status: 404, startedAt })
     return unknownOperation(ctx, name)
   }
@@ -410,8 +317,6 @@ export async function runOperation(ctx: McpCallContext, name: string, input: Ope
       const parsed = validateOperationInput(op, input)
       const proposal = await proposeOperation({ principal: ctx.principal, op, input: parsed })
       record(202)
-      // The result shape the in-product client reads to show the card (`tools/workspace/register.py`):
-      // `structuredContent.decision === 'propose'` with the proposal's id. The text is all the model reads.
       return {
         content: [{ type: 'text', text: 'Proposed — the person decides. Nothing was changed.' }],
         structuredContent: {
@@ -429,24 +334,12 @@ export async function runOperation(ctx: McpCallContext, name: string, input: Ope
   return 'refusal' in outcome ? outcome.refusal : fromOperationResult(op, outcome.result, input, undefined, offersAppViews(ctx))
 }
 
-/**
- * Why a call did not reach the route, or failed in it: what the caller reads,
- * and the status and code the door answered it with, so a caller that needs
- * the status (an MCP Apps card telling a 409 apart) never parses it from text.
- */
 export interface OperationRefusal {
   refusal: CallToolResult
   status: number
   code?: string
 }
 
-/**
- * Run `op`, which the caller may run (its decision is `run`): the read gate,
- * the route as the person, the telemetry. The route's own answer, or the
- * refusal the caller reads instead. {@link runOperation} renders the answer;
- * the ask's progress and task (`ask-calls.ts`) read its state from the body,
- * through this same path.
- */
 export async function executeOperation(
   ctx: McpCallContext,
   op: AgentOperation,
@@ -462,10 +355,8 @@ export async function executeOperation(
       record(403)
       return { refusal: problemFailure(refused, 403, 'FORBIDDEN', READ_GATE_DETAIL), status: 403, code: 'FORBIDDEN' }
     }
-    // An agent reads the answer: a route that words its refusal in the person's locale words it in English.
-    const result = await callOperation(op, input, ctx.principal.session, 'agent', { decisionSource: ctx.decisionSource, clientId: ctx.principal.clientId ?? undefined })
+    const result = await callOperation(op, input, ctx.principal.session, 'agent', { decisionSource: ctx.decisionSource, clientId: ctx.principal.clientId ?? undefined, ...actingDoorOf(ctx) })
     record(result.status)
-    // A link works for whoever holds it, with the requester's access: never into a transcript others read.
     if (isRedirectBody(result.body) && !(await gate.mayHandOnLink())) {
       return { refusal: problemFailure(sharedConversationReadRefusal(), 403, 'FORBIDDEN', READ_GATE_DETAIL), status: 403, code: 'FORBIDDEN' }
     }
@@ -475,7 +366,6 @@ export async function executeOperation(
   }
 }
 
-/** What the caller reads when running `op` threw, recorded with its status. */
 function operationFailure(op: AgentOperation, error: unknown, record: (status: number) => void): CallToolResult {
   return failureOf(op, error, record).refusal
 }
@@ -494,18 +384,14 @@ function failureOf(op: AgentOperation, error: unknown, record: (status: number) 
   return { refusal: problemFailure(`${op.name} failed on the server. Try again; if it persists, report it.`, 500, 'INTERNAL_ERROR'), status: 500 }
 }
 
-/** Longest input schema quoted in a refusal; a larger one is a describe-operation away. */
 const INLINE_SCHEMA_CHARS = 2_000
 
-/** What was wrong with the input, and the schema to fix it with when it is short: one round, not two. */
 function inputRefusal(op: AgentOperation, error: OperationInputError): string {
   const schema = JSON.stringify(inputSchemaOf(op))
   return schema.length <= INLINE_SCHEMA_CHARS
     ? `${error.message}. The input schema of ${op.name}: ${schema}`
     : `${error.message}. Use describe-operation for ${op.name} to see its input schema.`
 }
-
-// --- search ------------------------------------------------------------------
 
 interface Hit {
   name: string
@@ -516,19 +402,10 @@ interface Hit {
   score: number
 }
 
-/**
- * The scorer for `query` on `ctx`'s door: a word weighs by how rare it is among
- * every operation this caller can see, so the weights do not move with a domain
- * filter and a hidden operation is never part of them.
- */
 function scorerFor(ctx: McpCallContext, query: string): (op: SearchableOperation) => number {
   return operationScorer(query, [...visibleOperations(ctx.principal), ...visibleBackendOperations(ctx.principal)])
 }
 
-/**
- * Ranks with {@link operationScorer}: German and English words find the same operation (ADR-0123).
- * `query` is at most {@link MAX_SEARCH_QUERY_LENGTH} characters: the search schema refuses a longer one.
- */
 function rank(ctx: McpCallContext, query: string, domain: string | undefined): Hit[] {
   const score = scorerFor(ctx, query)
   const catalog: Hit[] = visibleOperations(ctx.principal)
@@ -559,7 +436,6 @@ function rank(ctx: McpCallContext, query: string, domain: string | undefined): H
     .sort((a, b) => b.score - a.score)
 }
 
-/** The search input on `principal`'s door: only the domains the door offers may be named. */
 function searchInput(principal: AgentPrincipal) {
   const domains = visibleDomains(doorOfPrincipal(principal)) as [string, ...string[]]
   return z.object({
@@ -569,13 +445,6 @@ function searchInput(principal: AgentPrincipal) {
   })
 }
 
-/**
- * The sentence a search adds when an operation it does not offer this caller
- * (one that widens access, touches a credential or turns a control down) would
- * have ranked first: without it the top hit is the nearest thing that is NOT
- * what was asked (`Mitglied hinzufügen` finds the people list, not a project
- * role). It names no operation: what is hidden stays absent from the listing.
- */
 export const SENSITIVE_MATCH_NOTE =
   'An operation that changes who may do what, a credential or a security control matches this request, and it ' +
   'is not offered to you: none of the operations listed does that. Tell the person to make that change in ' + PRODUCT_NAME + ' themselves.'
@@ -585,7 +454,6 @@ function sensitiveMatchOutranks(ctx: McpCallContext, query: string, domain: stri
   return AGENT_OPERATIONS.some(
     (op) =>
       op.sensitivity !== undefined &&
-      // Off the door is unknown to everyone, never a hint (`isOnDoor`).
       isOnDoor(op.name, doorOfPrincipal(ctx.principal)) &&
       (!domain || op.domain === domain) &&
       !canSee(ctx.principal, op) &&
@@ -594,13 +462,6 @@ function sensitiveMatchOutranks(ctx: McpCallContext, query: string, domain: stri
   )
 }
 
-/**
- * Where to go when no operation matched. The words of a question about what a
- * document or the law SAYS (`Brandschutz Anforderungen Gebäudeklasse 5`) are
- * in the documents, not in the catalog, so the search finds nothing and the
- * agent concluded the door could not answer. It names the operations that read
- * content, when this caller can see them.
- */
 export function nothingMatched(ctx: McpCallContext): string {
   const visible = new Set(visibleBackendOperations(ctx.principal).map((op) => op.name))
   for (const op of visibleOperations(ctx.principal)) visible.add(op.name)
@@ -613,7 +474,6 @@ export function nothingMatched(ctx: McpCallContext): string {
   )
 }
 
-/** The operations that answer from content rather than act, in the order an agent should try them. */
 const CONTENT_READERS = [
   { name: 'knowledge-search', what: 'quotable passages from the project, the office and the building-law corpus' },
   { name: 'law-lookup', what: 'a provision of Austrian law' },
@@ -638,11 +498,6 @@ export function searchOperations(ctx: McpCallContext, args: unknown): CallToolRe
 
 const describeInput = z.object({ name: z.string().min(1), field: z.string().min(1).max(200).optional() })
 
-/**
- * The input schema as describe-operation shows it: whole when small, an outline
- * when large (`layered-schema.ts`), or the subtree at `field`. A field that is
- * not in the schema is a refusal naming the fields that are.
- */
 function schemaView(opName: string, schema: JsonSchemaNode, field: string | undefined): { shown: Record<string, unknown> } | { refusal: CallToolResult } {
   const root = schema as Record<string, unknown>
   const resolved = field === undefined ? { node: root } : resolveField(root, field)
@@ -659,7 +514,6 @@ export function describeOperation(ctx: McpCallContext, args: unknown): CallToolR
   const backend = findVisibleBackendOperation(ctx.principal, parsed.data.name)
   if (backend) {
     recordOperationCalled(ctx, { operation: 'describe-operation', domain: backend.domain, decision: 'run', status: 200, startedAt })
-    // Flat: call-operation takes these as `input` itself, with no params/query/body.
     const view = schemaView(backend.name, backend.inputSchema as JsonSchemaNode, field)
     if ('refusal' in view) return view.refusal
     return success({
@@ -709,12 +563,6 @@ const callInput = z.object({
 
 const backendCallInput = z.object({ name: z.string().min(1), input: z.record(z.string(), z.unknown()).optional() })
 
-/**
- * The catalog call `args` of call-operation name, or null when they name a read
- * tool, nothing `principal` may see, or do not parse: what the person would be
- * asked about (`confirmation.ts`). Parsed as {@link callOperationTool} parses
- * them, so both rounds of a confirmed call compare the same shape.
- */
 export function catalogCallOf(principal: AgentPrincipal, args: unknown): { operation: string; input: OperationInput } | null {
   const parsed = callInput.safeParse(args)
   if (!parsed.success || !findVisibleOperation(principal, parsed.data.name)) return null
@@ -722,7 +570,6 @@ export function catalogCallOf(principal: AgentPrincipal, args: unknown): { opera
 }
 
 export function callOperationTool(ctx: McpCallContext, args: unknown): Promise<CallToolResult> {
-  // A backend operation takes its own flat arguments (projectId among them), not { params, query, body }.
   const backendName = isRecord(args) && typeof args.name === 'string' ? args.name : null
   const backend = backendName ? findVisibleBackendOperation(ctx.principal, backendName) : undefined
   if (backend) {
@@ -730,7 +577,6 @@ export function callOperationTool(ctx: McpCallContext, args: unknown): Promise<C
     if (!flat.success) return Promise.resolve(failure(`call-operation needs { name, input } with ${backend.name}'s arguments.`))
     return runBackendOperation(ctx, backend, flat.data.input ?? {})
   }
-  // A name the caller cannot see is unknown whatever shape its input has: say that, not how to shape it.
   if (backendName && !findVisibleOperation(ctx.principal, backendName)) {
     return runOperation(ctx, backendName, {})
   }
@@ -741,7 +587,6 @@ export function callOperationTool(ctx: McpCallContext, args: unknown): Promise<C
   return runOperation(ctx, parsed.data.name, parsed.data.input ?? {})
 }
 
-/** What a report is about: a missing operation, or friction with one the agent did find. */
 export const FRICTION_CATEGORIES = ['missing_operation', 'tool_description', 'input_schema', 'error_message', 'result_shape', 'other'] as const
 export type FrictionCategory = (typeof FRICTION_CATEGORIES)[number]
 
@@ -755,14 +600,10 @@ export function reportMissingOperation(ctx: McpCallContext, args: unknown): Call
   if (!parsed.success) {
     return failure(`report-missing-operation needs { description } of 1 to 2000 characters, and category one of ${FRICTION_CATEGORIES.join(', ')} when given.`)
   }
-  // Only the length and the category leave this process: server events are non-personal by rule.
   recordOperationMissing(ctx, parsed.data.description, parsed.data.category)
   return success({ status: 'recorded' })
 }
 
-// --- the meta-tools as JSON Schema ------------------------------------------
-
-/** One meta-tool as `tools/list` shows it. */
 export interface MetaTool {
   readonly title: string
   readonly description: string
@@ -772,7 +613,6 @@ export interface MetaTool {
 
 export type MetaToolName = 'search-operations' | 'describe-operation' | 'call-operation' | 'report-missing-operation'
 
-/** What `search-operations` says it searches, per door, and the example query it gives. */
 const SEARCH_SCOPE: Readonly<Record<AgentDoor, { area: string; example: string; operation: string }>> = {
   office: {
     area:
@@ -790,17 +630,10 @@ const SEARCH_SCOPE: Readonly<Record<AgentDoor, { area: string; example: string; 
   },
 }
 
-/**
- * The four meta-tools of `search` mode, as `principal` sees them: the domain
- * list names only the areas the door offers. The single source of their words: Piloti's own client reads the
- * in-product variant from `packages/agent/src/agent/tools/workspace/meta_tools.json`,
- * which `meta-tools.spec.ts` writes from here and holds current.
- */
 export function metaToolsFor(principal: Pick<AgentPrincipal, 'actor' | 'door'>): Record<MetaToolName, MetaTool> {
-  const piloti = principal.actor === 'piloti'
+  const piloti = isAgentKind(principal.actor)
   const door = doorOfPrincipal(principal)
   const scope = SEARCH_SCOPE[door]
-  // Piloti has the agent read tools natively and never sees them here; the platform door does not offer them.
   const flatTools =
     piloti || door !== 'office' ? '' : '; the agent read tools such as knowledge-search take their own arguments flat in `input` instead'
   const writes = piloti
@@ -861,8 +694,6 @@ export function metaToolsFor(principal: Pick<AgentPrincipal, 'actor' | 'door'>):
         type: 'object',
         properties: {
           name: { type: 'string', description: 'An operation name from search-operations.' },
-          // Untyped on purpose: the catalog's operations take { params, query, body }, the agent read tools their
-          // own flat arguments (knowledge-search's `query` is a string). The handler validates per operation.
           input: { type: 'object', description: 'The operation\'s input, as describe-operation shows it.' },
         },
         required: ['name'],

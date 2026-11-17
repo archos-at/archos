@@ -8,41 +8,13 @@ import { useDelayedFlag } from '@/hooks/use-transient-flag'
 import { cn } from '@/lib/utils'
 
 export interface SaveButtonProps extends Omit<ButtonProps, 'children' | 'loading'> {
-  /** The save is in flight. */
   busy: boolean
-  /**
-   * What is on screen is what is stored, because THIS session saved it. The
-   * button then says so and stays where the reader's focus is, until an edit
-   * makes it a Save again. Not set on a form nobody has saved yet.
-   */
   saved: boolean
-  /** The resting label („Speichern"). */
   children: string
-  /** The label while the save runs („Wird gespeichert …"). */
   busyLabel: string
-  /** The label once saved („Gespeichert"). */
   savedLabel: string
 }
 
-/**
- * A settings form's Save, which reports its own outcome.
- *
- * A success toast in the corner said "saved" about a form the reader was
- * looking at, two hands of distance from the button they had pressed, and
- * then went away: the control is where the eye already is, and the state
- * belongs on it. So the button turns into „Gespeichert" with a check and
- * stays that way while the fields hold what is stored. Failures still toast:
- * a transient action failure is what a toast is for (design language,
- * „Error").
- *
- * Busy is not disabled: while saving, and while it reads „Gespeichert", the
- * button is `aria-disabled` with the press swallowed, so it keeps the focus
- * the reader's press gave it (Chrome blurs a button the moment it turns
- * `disabled`). `disabled` stays for a Save there is nothing to do for yet.
- * The labels share one grid cell, so the width never moves, and the spinner
- * appears only after 150 ms. A polite status line announces the save to a
- * screen reader, which the toast used to do.
- */
 export const SaveButton = React.forwardRef<HTMLButtonElement, SaveButtonProps>(
   ({ busy, saved, children, busyLabel, savedLabel, disabled, className, onClick, ...props }, ref) => {
     const showBusy = useDelayedFlag(busy)

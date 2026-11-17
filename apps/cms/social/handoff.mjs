@@ -58,7 +58,6 @@ async function reconcile(post, { cms, context, apiKey, log }) {
     log(`  in flight ${post.id}: claimed at ${post.updatedAt}, left to the run that claimed it`);
     return;
   }
-  // The link is what names the post in Buffer; a post it cannot be rebuilt for cannot be looked up, and is not guessed at.
   const built = createPostInput(post, context);
   if ('error' in built) {
     log(`  stuck    ${post.id}: ${built.error}, so Buffer cannot be asked about it; look in Buffer and set it failed or archived by hand`);

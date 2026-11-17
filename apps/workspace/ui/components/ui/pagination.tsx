@@ -6,25 +6,11 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
-/**
- * Range control for a paged list.
- *
- * The admin lists rendered every row they had, unbounded — fine at twenty
- * documents, not at eight hundred. This is the smallest control that fixes
- * that honestly: it states the range and the total, so nobody has to guess
- * whether they are looking at everything.
- *
- * Prev/next only, deliberately. Numbered pages are noise on a list you filter
- * and sort rather than navigate by ordinal.
- */
-
 export interface PaginationProps {
-  /** 0-based index of the first visible item. */
   offset: number
   pageSize: number
   total: number
   onOffsetChange: (offset: number) => void
-  /** e.g. `(from, to, total) => \`${from}–${to} of ${total}\`` */
   rangeLabel: (from: number, to: number, total: number) => string
   previousLabel: string
   nextLabel: string
@@ -41,8 +27,6 @@ export function Pagination({
   nextLabel,
   className,
 }: PaginationProps): JSX.Element | null {
-  // One page of results needs no pager — the range label would only restate
-  // the row count already visible.
   if (total <= pageSize) return null
 
   const from = total === 0 ? 0 : offset + 1
@@ -53,7 +37,7 @@ export function Pagination({
       <p className="text-xs tabular-nums text-muted-foreground">{rangeLabel(from, to, total)}</p>
       <div className="flex items-center gap-1">
         <Button
-          variant="outline"
+          variant="secondary"
           size="sm"
           disabled={offset === 0}
           onClick={() => onOffsetChange(Math.max(0, offset - pageSize))}
@@ -62,7 +46,7 @@ export function Pagination({
           {previousLabel}
         </Button>
         <Button
-          variant="outline"
+          variant="secondary"
           size="sm"
           disabled={to >= total}
           onClick={() => onOffsetChange(offset + pageSize)}

@@ -1,24 +1,5 @@
 'use client'
 
-/**
- * ProposalReceipt — the one card for a proposed change the server holds
- * (ADR-0105), whatever its kind.
- *
- * A file operation, a memory note and a change to the project profile are
- * three bodies in one frame. The frame is what they share and what must not
- * drift between them: it reads the proposal, shows its status, says who decided
- * it and when („Übernommen von Anna · 14:02“), offers „Übernehmen“ and
- * „Verwerfen“ only when the server says this reader may decide
- * (`canDecide`), and turns a colleague's earlier decision (a 409, or the
- * channel) into that colleague's receipt instead of an error. A decision is a
- * write to the proposal and nothing else: no `cardInteractions`.
- *
- * What differs is passed in: the eyebrow and title, the body while the
- * proposal is open, the headline and body once it is decided, and, for a
- * memory note, one secondary way to apply it ({@link ProposalReceiptProps.alternative}).
- * Each kind's body lives in `./proposal-receipt-bodies`.
- */
-
 import type { ComponentProps, ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { useLocale, useTranslations } from '@/i18n'
@@ -33,10 +14,6 @@ import { StackedLabel } from '@/components/ui/stacked-label'
 
 type ProposalTone = ComponentProps<typeof ProposalShell>['tone']
 
-/**
- * The shell's accent per server status. A failed proposal changed nothing, so
- * it does not borrow the green of an applied one; its words carry the failure.
- */
 const STATUS_TONE: Record<ProposedChangeStatus, ProposalTone> = {
   proposed: 'pending',
   applied: 'accepted',
@@ -55,22 +32,12 @@ const HEADLINE_CLASS: Record<ProposedChangeStatus, string> = {
 
 export interface ProposalReceiptProps<K extends ProposedChangeKind> {
   server: ServerProposal<K>
-  /** A small label above the title (the file verb); omitted when the title says it. */
   eyebrow?: ReactNode
   title: string
-  /** The body while the proposal is open: the stored object once read, the card's own copy before. */
   open: ReactNode
-  /** The first line of the decided card: what happened. */
   headline: (proposal: ProposalOfKind<K>) => string
-  /** What sits under the headline once decided: per-row results, a failure's reason. */
   decidedBody?: (proposal: ProposalOfKind<K>) => ReactNode
-  /** A second way to apply, beside „Übernehmen“: the memory note filed in the project only. */
   alternative?: { label: string; working: string; body: ApplyProposalRequest }
-  /**
-   * Why „Übernehmen“ waits, when it does: the reader has not yet been shown
-   * everything the change would do (a value still shown in part). The buttons
-   * stay where they are; applying does nothing until this is gone.
-   */
   acceptBlocked?: string
 }
 
@@ -190,7 +157,7 @@ export function ProposalReceipt<K extends ProposedChangeKind>({
           {alternative && (
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               size="sm"
               onClick={() => {
                 if (!applyWaits) void decide('apply', alternative.body)
@@ -208,7 +175,7 @@ export function ProposalReceipt<K extends ProposedChangeKind>({
           )}
           <Button
             type="button"
-            variant="outline"
+            variant="secondary"
             size="sm"
             onClick={() => void decide('dismiss')}
             aria-disabled={pressed || undefined}

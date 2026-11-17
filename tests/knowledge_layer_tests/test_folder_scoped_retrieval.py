@@ -1,13 +1,3 @@
-"""Scoping `knowledge_search` to a project folder — and to its subtree (ADR-0049).
-
-The folder is resolved from ``document_metadata.folder_path`` at retrieve time,
-not read out of chunk metadata, for the same reason ``doc_class`` and
-``display_title`` are: a rename must apply with nothing re-ingested. These tests
-pin the boundary (``Brandschutz`` covers ``Brandschutz/Fluchtwege`` but never
-``Brandschutzkonzepte``), the fail-open behaviour when the store is unreachable,
-and the ``Ordner:`` line that lets a cited passage say where its document lives.
-"""
-
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -18,10 +8,10 @@ from knowledge_layer import register as register_module
 from knowledge_layer.register import _KNOWLEDGE_SEARCH_DESCRIPTION
 from knowledge_layer.register import KnowledgeRetrievalConfig
 from knowledge_layer.register import knowledge_retrieval
+from knowledge_layer.search import _folder_matches
 from knowledge_layer.search import apply_agent_filters
 from knowledge_layer.search import empty_search_message
 from knowledge_layer.search import format_results
-from knowledge_layer.search.hit_metadata import _folder_matches
 
 from agent.common.source_kinds import Shelf
 from agent.knowledge.inventory import set_turn_documents
@@ -45,7 +35,6 @@ def _chunk(file_name: str, collection: str = "proj_abc") -> SimpleNamespace:
 
 
 def _folders(monkeypatch, mapping: dict[str, str]) -> None:
-    """Stub the batched store read the folder filter and the Ordner line use."""
     monkeypatch.setattr(
         "agent.knowledge.factory.get_document_folder_paths",
         lambda collection, file_names: {k: v for k, v in mapping.items() if k in file_names},
@@ -53,8 +42,6 @@ def _folders(monkeypatch, mapping: dict[str, str]) -> None:
 
 
 class TestFolderMatch:
-    """A path, not an id — so the subtree is a prefix, with a `/` boundary."""
-
     def test_the_folder_itself_matches(self) -> None:
         assert _folder_matches("Brandschutz", "Brandschutz") is True
 
@@ -65,7 +52,6 @@ class TestFolderMatch:
         assert _folder_matches("Brandschutz/Fluchtwege/EG", "Brandschutz") is True
 
     def test_a_sibling_that_merely_starts_with_the_name_does_not(self) -> None:
-        # The whole reason the boundary is `/` and not a bare startswith.
         assert _folder_matches("Brandschutzkonzepte", "Brandschutz") is False
 
     def test_a_parent_does_not_match_a_request_for_its_child(self) -> None:
@@ -75,15 +61,11 @@ class TestFolderMatch:
         assert _folder_matches(None, "Brandschutz") is False
 
     def test_matching_is_case_insensitive_and_slash_tolerant(self) -> None:
-        # The agent retypes the folder out of the inventory; a capital letter or
-        # a stray slash is not a different folder.
         assert _folder_matches("Brandschutz/Fluchtwege", "brandschutz") is True
         assert _folder_matches("Brandschutz", "/Brandschutz/") is True
 
 
 class TestFolderFilter:
-    """`folder=` narrows the merged candidate list, post-merge like its siblings."""
-
     def test_it_keeps_only_what_is_filed_in_the_folder_or_beneath_it(self, monkeypatch) -> None:
         chunks = [_chunk("in.pdf"), _chunk("nested.pdf"), _chunk("elsewhere.pdf"), _chunk("root.pdf")]
         _folders(
@@ -129,10 +111,6 @@ class TestFolderFilter:
         assert [c.file_name for c in kept] == ["plan.pdf"]
 
     def test_an_unreachable_store_drops_everything_rather_than_answering_wrongly(self, monkeypatch) -> None:
-        # Fail-open on the READ (empty map), fail-closed on the ANSWER: a folder
-        # question whose filing cannot be read must return nothing, so the model
-        # is told to retry, rather than a shelf-wide result presented as "the
-        # documents in Brandschutz".
         def _boom(collection, file_names):
             raise RuntimeError("store down")
 
@@ -144,8 +122,6 @@ class TestFolderFilter:
 
 
 class TestFolderReachesTheModel:
-    """What the agent is told: the parameter, the miss, and where a hit lives."""
-
     def test_the_tool_description_offers_the_folder_parameter(self) -> None:
         assert "`folder=`" in _KNOWLEDGE_SEARCH_DESCRIPTION
         assert "Ordner" in _KNOWLEDGE_SEARCH_DESCRIPTION
@@ -165,8 +141,6 @@ class TestFolderReachesTheModel:
         assert "Ordner: Brandschutz/Fluchtwege" in rendered
 
     def test_a_document_at_the_root_gets_no_folder_line_at_all(self, monkeypatch) -> None:
-        # Absence must read as absence. An "Ordner: /" or "Ordner: -" would be a
-        # folder the user never made.
         _folders(monkeypatch, {})
         result = SimpleNamespace(success=True, chunks=[_chunk("plan.pdf")])
 
@@ -174,14 +148,6 @@ class TestFolderReachesTheModel:
 
         assert "Ordner:" not in rendered
 
-
-# ---------------------------------------------------------------------------
-# Ranked search with `folder=`: the folder narrows BEFORE the ranking.
-#
-# Before this, the folder was a post-filter over the top `3 × top_k` of the
-# whole shelf, so a folder whose passages ranked below that pool came back
-# empty. The store is now asked for the folder's files only.
-# ---------------------------------------------------------------------------
 
 PROJECT = "proj_1"
 BASE = "oib_knowledge"
@@ -208,7 +174,6 @@ def _ranked_chunk(file_name: str, page: int, collection: str = PROJECT) -> Chunk
 
 
 def _folder_keys(filters) -> list[str]:
-    """Every ``folder_ancestors`` value a filter names, ``$and`` groups included."""
     if not isinstance(filters, dict):
         return []
     found = [filters["folder_ancestors"]] if "folder_ancestors" in filters else []
@@ -218,11 +183,6 @@ def _folder_keys(filters) -> list[str]:
 
 
 class _RankedStore:
-    """A ranking retriever. It honours ``folder_ancestors`` the way the store does, and otherwise returns best-first.
-
-    The folder a chunk's points carry is its document's (``payload.document_facts``).
-    """
-
     backend_name = "fake"
     embed_model_name = "fake-embedder"
 
@@ -248,7 +208,6 @@ class _RankedStore:
 
 @pytest.fixture
 def ranked(monkeypatch):
-    """A project shelf beside the base corpus, the turn's inventory, and the store's folder map."""
     monkeypatch.setattr(
         "agent.knowledge.scoping.get_scoped_collections_from_context",
         lambda: [ScopedCollection(BASE, Shelf.BASE), ScopedCollection(PROJECT, Shelf.PROJECT)],
@@ -297,17 +256,12 @@ class TestRankedSearchNarrowsBeforeRanking:
         await _ranked_search(query="Fluchtwege", folder="03_Einreichung")
 
         project_calls = [call for call in store.calls if call["collection"] == PROJECT]
-        # One payload condition for the subtree, never a list of its files.
         assert [call["filters"] for call in project_calls] == [
             {"$and": [{"folder_ancestors": "03_einreichung"}, {"superseded": {"$ne": True}}]}
         ]
         assert {call["collection"] for call in store.calls} == {PROJECT}
 
     async def test_a_folder_outranked_on_the_whole_shelf_still_returns_its_passages(self, ranked):
-        # top_k=3, so the unfiltered pool is 9 passages (3 × top_k). Nine of y.pdf
-        # outrank the one passage of x.pdf, which sits in the folder asked for. An
-        # unfiltered ranking returns only y.pdf, and the folder post-filter then
-        # drops every hit: this is the regression the narrowing fixes.
         others = [_ranked_chunk("y.pdf", page) for page in range(1, 13)]
         ranked(PLAN_DOCS, {PROJECT: [*others, _ranked_chunk("x.pdf", 3)]})
 

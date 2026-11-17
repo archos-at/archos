@@ -1,5 +1,3 @@
-"""Common utilities for the AI-Q blueprint."""
-
 from __future__ import annotations
 
 import asyncio
@@ -16,12 +14,6 @@ if TYPE_CHECKING:
     from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
     from psycopg_pool import AsyncConnectionPool
 
-# What this package re-exports, and from where. Loaded on first use (PEP 562),
-# not when the package is: importing `agent.common.turn_status` executes
-# this file first, and the eager form made every such import pay for LangGraph's
-# checkpointers, psycopg's pool, the agent runtime and LangChain, ~1.7 s of a 2.0 s import
-# (docs/audit/blast-radius-2026-10.md). `tests/test_import_weight.py` keeps it
-# that way.
 _LAZY: dict[str, str] = {
     "BudgetGuardCallback": ".budget_guard",
     "RunBudgetExceededError": ".budget_guard",
@@ -76,8 +68,6 @@ _LAZY: dict[str, str] = {
     "format_tool_unavailability_error": ".tool_validation",
     "format_user_facing_tool_error": ".tool_validation",
     "validate_tool_availability": ".tool_validation",
-    # The checkpointer backends, read through `_lazy` below so a test that
-    # patches `agent.common.AsyncPostgresSaver` still reaches the call.
     "AsyncConnectionPool": "psycopg_pool",
     "AsyncPostgresSaver": "langgraph.checkpoint.postgres.aio",
     "AsyncSqliteSaver": "langgraph.checkpoint.sqlite.aio",
@@ -91,23 +81,17 @@ __getattr__ = lazy_exports(__name__, _LAZY)
 
 
 def _lazy(name: str) -> Any:
-    """`name` as this module holds it now: patched by a test, loaded, or loaded on this call."""
     return getattr(sys.modules[__name__], name)
 
 
 logger = logging.getLogger(__name__)
 
-# Shared checkpointer caches
 _checkpointers: dict[str, BaseCheckpointSaver] = {}
 _postgres_pools: dict[str, AsyncConnectionPool] = {}
-# Serializes checkpointer creation: connect/setup are awaits, so a bare
-# check-then-act would let two concurrent callers both connect and leak the
-# loser's connection when it is overwritten in the cache.
 _checkpointer_lock = asyncio.Lock()
 
 
 def _pool_int_env(name: str, default: int) -> int:
-    """Positive-int env override for pool sizing; falls back on unset/invalid/≤0."""
     try:
         val = int(os.environ.get(name, ""))
         return val if val > 0 else default
@@ -175,14 +159,7 @@ __all__ = [
 ]
 
 
-# @environment_variable AGENT_VERBOSE
-# @category Debug
-# @type bool
-# @default false
-# @required false
-# Enable verbose logging output. Accepts true/1/yes or false/0/no.
 def is_verbose(config_verbose: bool) -> bool:
-    """Check if verbose mode is enabled via env var or config."""
     env_verbose = os.getenv("AGENT_VERBOSE", "").lower()
     if env_verbose in ("true", "1", "yes"):
         return True
@@ -192,7 +169,6 @@ def is_verbose(config_verbose: bool) -> bool:
 
 
 def is_postgres_dsn(value: str) -> bool:
-    """Return True when the checkpoint DSN is a Postgres URL."""
     try:
         from urllib.parse import urlparse
 
@@ -203,21 +179,6 @@ def is_postgres_dsn(value: str) -> bool:
 
 
 def _build_checkpointer_serde() -> JsonPlusSerializer:
-    """Build the checkpointer serializer with an explicit msgpack allow-list.
-
-    This flips the checkpointer from permissive to STRICT deserialization: only
-    the listed pydantic state types may be reconstructed from a checkpoint. The
-    list below is the complete set of custom pydantic types carried in
-    ``ConversationState`` (a research turn's own state is never checkpointed).
-    Any NEW pydantic state type MUST be added here or restore will break for it.
-
-    A type that was on this list and is gone (``ShallowResult``, whose one
-    escalation bit is a plain field now) needs no entry: a blocked type decodes
-    to its own kwargs dict instead of raising, and a channel the graph no
-    longer declares is dropped on restore.
-    """
-    # Imported lazily to avoid a circular import: the agent state modules import
-    # from ``agent.common`` at module load time.
     from agent.common.wire_v2 import FocusRegion
     from agent.common.wire_v2 import TurnTrigger
     from agent.knowledge.schema import AvailableDocument
@@ -228,20 +189,9 @@ def _build_checkpointer_serde() -> JsonPlusSerializer:
 
 
 def get_checkpoint_pool(dsn: str) -> AsyncConnectionPool:
-    """The process-wide connection pool for the checkpoint database, per DSN.
-
-    ONE pool per DSN, whoever asks: the conversation checkpointer opens it, and
-    the chat working directory's LangGraph store (``tools/documents``) rides the
-    same connections rather than opening a second ceiling's worth against the
-    same database.
-    """
     pool = _postgres_pools.get(dsn)
     if pool is not None:
         return pool
-    # Per-replica connection ceiling for checkpoint reads/writes. The old
-    # hard-coded max_size=3 throttled the chat tier's concurrent turns (every
-    # super-step checks out a connection); make it tunable and default higher
-    # now that the tier scales (ADR-0028).
     min_size = _pool_int_env("CHECKPOINT_POOL_MIN_SIZE", 1)
     max_size = max(min_size, _pool_int_env("CHECKPOINT_POOL_MAX_SIZE", 10))
     pool = _lazy("AsyncConnectionPool")(
@@ -255,37 +205,20 @@ def get_checkpoint_pool(dsn: str) -> AsyncConnectionPool:
 
 
 async def get_checkpointer(checkpoint_db: str) -> BaseCheckpointSaver:
-    """Return a shared checkpointer for the given database/DSN.
-
-    This function caches checkpointers by database path/DSN to avoid
-    creating multiple connections to the same database. It supports
-    both SQLite (file path) and Postgres (DSN) backends.
-
-    Args:
-        checkpoint_db: SQLite database path or Postgres DSN.
-
-    Returns:
-        A configured and initialized checkpointer instance.
-    """
     checkpointer = _checkpointers.get(checkpoint_db)
     if checkpointer is not None:
         return checkpointer
 
     async with _checkpointer_lock:
-        # Re-check: another caller may have created it while we waited.
         checkpointer = _checkpointers.get(checkpoint_db)
         if checkpointer is not None:
             return checkpointer
 
         if is_postgres_dsn(checkpoint_db):
-            # Lazy: `agent.knowledge` imports from this package.
             from agent.knowledge.leader_lock import keyed_lock_async
 
             saver = _lazy("AsyncPostgresSaver")
             checkpointer = saver(get_checkpoint_pool(checkpoint_db), serde=_build_checkpointer_serde())
-            # Every role runs `setup()` at start and it is not safe against that: it creates tables and
-            # indexes one statement at a time (CREATE INDEX CONCURRENTLY), so a transaction lock cannot
-            # hold it. A session lock on the direct DSN does (ADR-0083).
             async with keyed_lock_async("langgraph-setup:checkpointer"):
                 await checkpointer.setup()
             logger.info("Postgres checkpointer initialized via async pool.")

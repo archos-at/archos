@@ -1,11 +1,3 @@
-/**
- * What a run commissioned from inside a thread is briefed with.
- *
- * Pure functions over the thread, so the briefs are testable without a store:
- * the question a run answers, and the context it starts from — a finding's
- * own words, or the previous report's findings for a Fortschreibung.
- */
-
 import type { ChatMessage } from '@/features/chat/types'
 import type { Finding, Findings, FindingStatus } from '@/lib/conversations/message-findings'
 import {
@@ -17,7 +9,6 @@ import {
 export interface RunBrief {
   question: string
   context?: string
-  /** The Unterlagen the run starts from: a continuation reads what the last report read. */
   documents?: PlanDocuments
 }
 
@@ -38,7 +29,6 @@ const findingLine = (finding: Finding): string => {
   return `- ${parts.join(' — ')}${finding.comment ? ` (${finding.comment})` : ''}`
 }
 
-/** The brief for clearing one open finding. */
 export function findingBrief(finding: Finding): RunBrief {
   const question = `Klären: ${finding.requirement}`
   const context = [
@@ -49,12 +39,6 @@ export function findingBrief(finding: Finding): RunBrief {
   return { question, context }
 }
 
-/**
- * The office's own documents the last report drew on, as the next run's
- * Grundlage: what was read once is read again, in full, so a Fortschreibung
- * starts from the same paper and not from a fresh search. Regulations and
- * the web are not documents to name — the run finds them on its own.
- */
 export function reportDocuments(message: ChatMessage): PlanDocument[] {
   const out: PlanDocument[] = []
   const seen = new Set<string>()
@@ -71,7 +55,6 @@ export function reportDocuments(message: ChatMessage): PlanDocument[] {
   return out
 }
 
-/** The brief for carrying a finished report forward. */
 export function continuationBrief(message: ChatMessage): RunBrief {
   const title = message.runTitle?.trim() || 'Bericht'
   const question = `Fortschreibung: ${title}`
@@ -87,11 +70,6 @@ export function continuationBrief(message: ChatMessage): RunBrief {
     : { question, context }
 }
 
-/**
- * The findings of the most recent earlier run in the same thread, for the
- * change marks — the thread is the record of a subject's runs, so the
- * comparison needs no column.
- */
 export function previousRunFindings(
   messages: readonly ChatMessage[],
   messageId: string

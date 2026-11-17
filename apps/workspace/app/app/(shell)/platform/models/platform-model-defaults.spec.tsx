@@ -78,12 +78,9 @@ describe('PlatformModelDefaults', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Change defaults' }))
 
     await waitFor(() => expect(toastError).toHaveBeenCalled())
-    // The reset pick survives: the row still shows the workflow model, still
-    // flagged as changed, and the save bar is still there to retry.
     expect(within(row).getByText('vendor/yaml')).toBeInTheDocument()
     expect(within(row).getByText('Changed')).toBeInTheDocument()
     expect(screen.getByTestId('model-save-bar')).toBeInTheDocument()
-    // Nothing re-read the server over the draft.
     expect(getCalls()).toBe(1)
   })
 

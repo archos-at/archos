@@ -1,33 +1,8 @@
-/**
- * The intake eval's BFF gate: the real `needs` and `record` logic of
- * `apps/workspace/bff/project-intake/`, served over stdin/stdout so the
- * Python harness (`scripts/intake_eval/harness.py`) can fake the route
- * in-process without a database.
- *
- * One JSON request per line in, one JSON answer per line out. The profile
- * lives in the harness and travels with every request, so this process holds
- * no state:
- *
- *   {"op":"empty"}                                   → {"profile"}
- *   {"op":"needs","profile","mode","dismissed"}      → {"needs"}
- *   {"op":"record","profile","body","readableFiles","dismissed"}
- *                                                    → {"status", "results"?, "opened"?, "profile"?, "error"?}
- *   {"op":"withdraw","profile","body"}               → {"status", "results"?, "profile"?, "error"?}
- *
- * `record` runs what `recordIntakeValues` in `service.ts` runs: the body
- * through `internalIntakeRequestSchema` (a malformed one answers 400), the
- * static screen of each value (`staticRefusal`), then `planRecord`, which
- * applies the values, derives the Gebäudeklasse and names the needs the batch
- * opened. `withdraw` runs `planWithdraw`, as `withdrawIntakeValues` does, with
- * the body's `jobId` as the reading. Two service steps are not
- * here: the quote is not masked (`documentEvidence` needs the organization's
- * screening policy, and the fixture holds no personal data), and the profile
- * write is the harness keeping the returned profile.
- *
- * Run from the repository root: `bun run scripts/intake_eval/gate.ts`.
- */
-
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { createInterface } from 'node:readline'
+import { rulesetValuesSchema } from '../../apps/workspace/bff/base-knowledge/wire/ruleset'
+import type { StoredRuleset } from '../../apps/workspace/bff/base-knowledge/rulesets/select'
 import { projectIntakeDefinitionV1 as definition } from '../../apps/workspace/bff/project-profile/intake-definition'
 import type { DocumentEvidence } from '../../apps/workspace/bff/project-profile/evidence-schema'
 import { emptyProjectProfile } from '../../apps/workspace/bff/project-profile/patch-engine'
@@ -57,18 +32,22 @@ interface GateRequest {
 
 type Screened = { key: string; screened: ScreenedValue | null; refusal: RecordRefusalReason | null }
 
-/**
- * `reasonFromEvidence` of `lib/project-intake/evidence.ts`, restated: that module is
- * `server-only` (it masks through the screening service) and cannot load here.
- */
 function reasonFromEvidence(evidence: Pick<DocumentEvidence, 'fileName' | 'page' | 'quote'>): string {
   const where = evidence.page ? `${evidence.fileName}, S. ${evidence.page}` : evidence.fileName
   return `${where}: „${evidence.quote}"`
 }
 
+const pack: { records: Array<{ key: string; values: unknown }> } = JSON.parse(
+  readFileSync(join(import.meta.dir, '..', '..', 'configs', 'knowledge-packs', 'at-setup.json'), 'utf8')
+)
+const records: readonly StoredRuleset[] = pack.records.map((record) => ({
+  id: `ruleset:${record.key}`,
+  values: rulesetValuesSchema.parse(record.values),
+}))
+
 function needs(request: GateRequest) {
   const profile = ProjectProfileSchema.parse(request.profile ?? {})
-  return { needs: computeNeeds(profile, definition, { mode: request.mode ?? 'active', dismissed: request.dismissed ?? [] }) }
+  return { needs: computeNeeds(profile, definition, { mode: request.mode ?? 'active', dismissed: request.dismissed ?? [], records }) }
 }
 
 function record(request: GateRequest) {
@@ -89,7 +68,8 @@ function record(request: GateRequest) {
   const plan = planRecord(profile, definition, screened, {
     now: new Date().toISOString(),
     readingId: parsed.data.jobId,
-    needs: { mode: request.mode ?? 'active', dismissed },
+    needs: { mode: request.mode ?? 'active', dismissed, records },
+    records,
   })
   return { status: 200, results: plan.results, opened: plan.opened, profile: plan.profile }
 }
@@ -103,6 +83,7 @@ function withdraw(request: GateRequest) {
   const plan = planWithdraw(profile, definition, parsed.data.keys, {
     now: new Date().toISOString(),
     readingId: parsed.data.jobId,
+    records,
   })
   return { status: 200, results: plan.results, profile: plan.profile }
 }

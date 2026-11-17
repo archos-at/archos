@@ -10,7 +10,6 @@ vi.mock('server-only', () => ({}))
 vi.mock('@/lib/workos/client', () => ({ getWorkOS: () => ({ organizations: { getOrganization }, userManagement: { listOrganizationMemberships } }) }))
 vi.mock('./repository', () => ({ findOrganization: vi.fn(async () => null), upsertOrganization: vi.fn() }))
 vi.mock('@/lib/cache', () => ({
-  // Stores what the loader returns, like the real cache, including null.
   getCached: vi.fn(async (key: string, _ttl: number, load: () => Promise<unknown>) => {
     if (store.has(key)) return store.get(key)
     const value = await load()
@@ -47,12 +46,12 @@ describe('switchableOrganizations', () => {
 
   it('lists the active memberships by name, the current one marked', async () => {
     listOrganizationMemberships.mockResolvedValueOnce({
-      data: [membership('org_b', 'GRID Test'), membership('org_a', 'feld72 Architekten')],
+      data: [membership('org_b', 'Test Org'), membership('org_a', 'feld72 Architekten')],
     })
 
     expect(await switchableOrganizations('org_b', 'user_1')).toEqual([
       { id: 'org_a', name: 'feld72 Architekten', current: false },
-      { id: 'org_b', name: 'GRID Test', current: true },
+      { id: 'org_b', name: 'Test Org', current: true },
     ])
     expect(listOrganizationMemberships).toHaveBeenCalledWith({ userId: 'user_1', statuses: ['active'], limit: 50 })
   })

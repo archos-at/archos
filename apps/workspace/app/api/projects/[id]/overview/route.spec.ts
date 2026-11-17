@@ -11,7 +11,6 @@ vi.mock('@/lib/auth/require-auth', () => ({
     organizationId: 'org-1',
     email: 'test@grid.com',
     role: 'admin',
-    // The overview asks who of the project's quarantine this reader may see.
     permissions: [],
   }),
 }))
@@ -55,17 +54,11 @@ describe('GET /api/projects/[id]/overview', () => {
       createdAt: new Date('2026-01-02'),
     }
 
-    // The overview query issues three selects, in order:
-    // 1. project:      select().from().where().limit(1)          -> [projectRow]
-    // 2. stats:        select().from().where()  (awaited direct) -> [statsRow]
-    // 3. recent docs:  select().from().where().orderBy().limit() -> [recentDocRow]
     const mockLimit = vi
       .fn()
       .mockResolvedValueOnce([projectRow])
       .mockResolvedValueOnce([recentDocRow])
     const mockOrderBy = vi.fn().mockImplementation(() => ({ limit: mockLimit }))
-    // where() must be awaitable (stats query) while still exposing the
-    // orderBy/limit chain for the project and recent-docs queries.
     const mockWhere = vi.fn().mockImplementation(() =>
       Object.assign(Promise.resolve([statsRow]), {
         orderBy: mockOrderBy,
@@ -85,14 +78,10 @@ describe('GET /api/projects/[id]/overview', () => {
     expect(body).toHaveProperty('name', 'Test Project')
     expect(body).toHaveProperty('documentCount')
     expect(body).toHaveProperty('recentDocuments')
-    // The counts and the recent list leave out what this session may not see (ADR-0087).
     const { getHiddenFolderIds } = await import('@/lib/authz/folder-access')
     expect(getHiddenFolderIds).toHaveBeenCalledWith(expect.objectContaining({ userId: 'user-1' }), 'proj-1')
   })
 
-  // ADR-0086: the recent list names a file, the count and size move with it.
-  // A member who neither uploaded a quarantined file nor reviews the project's
-  // quarantine must not find it here, so the route has to hand the query a reader.
   it("narrows the count, size and recent list to a member's own quarantined files", async () => {
     const { getDb } = await import('@/lib/db')
     const member = {
@@ -103,7 +92,6 @@ describe('GET /api/projects/[id]/overview', () => {
       permissions: [],
     } as unknown as AuthorizedSession
     vi.mocked(requireAuthorizedSession).mockResolvedValueOnce(member)
-    // A project member, not its admin: `project:manage` is refused.
     vi.mocked(requireProjectAccess).mockImplementation(async (_session, _projectId, permission) => {
       if (permission === 'project:manage') throw new NotFoundError('Project not found')
       return { role: 'project-viewer' } as Awaited<ReturnType<typeof requireProjectAccess>>
@@ -128,7 +116,6 @@ describe('GET /api/projects/[id]/overview', () => {
     })
     expect(response.status).toBe(200)
 
-    // The project row, then the stats, then the recent list.
     expect(predicates).toHaveLength(3)
     for (const predicate of predicates.slice(1)) {
       const { params } = new PgDialect().sqlToQuery(predicate)

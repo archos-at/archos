@@ -1,18 +1,9 @@
-"""``look`` with a ``question``: a second reader's readings, and the text-only fallback (ADR-0128, V2).
-
-The renderer, the budget and the canvas POST are the real ones; the model call
-is a ``httpx.MockTransport`` behind ``limited_async_http_client``, so the
-request body, the data policy, the span and the parsing are what a turn would
-produce.
-"""
-
 from __future__ import annotations
 
 import io
 import json
 
 import httpx
-import knowledge_layer.ingest.adapter as llm_adapter
 import knowledge_layer.view_image as view
 import pypdfium2 as pdfium
 import pytest
@@ -48,7 +39,6 @@ def _pdf() -> bytes:
 
 @pytest.fixture
 def sees(monkeypatch):
-    """What ``turn_sees`` answers; a test sets ``sees['value']``."""
     state = {"value": True}
 
     async def turn_sees():
@@ -60,7 +50,6 @@ def sees(monkeypatch):
 
 @pytest.fixture
 def model(monkeypatch):
-    """The vision model's endpoint: every request it receives is appended to ``requests``."""
     requests: list[dict] = []
     state: dict = {"reply": REPLY, "status": 200}
 
@@ -90,7 +79,7 @@ def model(monkeypatch):
 @pytest.fixture(autouse=True)
 def stored(monkeypatch, calls):
     monkeypatch.setenv("VIEW_IMAGES_ENABLED", "true")
-    monkeypatch.setattr(llm_adapter, "_get_vlm_api_key", lambda: "sk-test")
+    monkeypatch.setenv("VLM_API_KEY", "sk-test")
     monkeypatch.setattr(view, "_find_pdf", lambda _name: None)
 
     async def locate(collection, file_name, organization_id=None, image_index=None):
@@ -148,7 +137,6 @@ class TestAQuestion:
             image_view_budget.end_image_view_budget(token)
 
     async def test_the_reading_is_booked_to_the_turns_usage_ledger(self, sees, model) -> None:
-        """The callback path never sees this call, so the reading books itself: budgets and invoices count it."""
         from agent.common.cost_tracking import CostTracker
         from agent.common.cost_tracking import cost_tracker_var
 
@@ -285,8 +273,6 @@ class TestParsing:
 
 
 class TestAPageOfALicensedCopy:
-    """ADR-0164: the page of an office's licensed copy reaches the model only inside the call, and only attested."""
-
     @pytest.fixture
     def licensed(self, monkeypatch):
         from agent.common.licensed_text import LicenceTerms
@@ -324,8 +310,6 @@ class TestAPageOfALicensedCopy:
     async def test_a_licensed_page_with_no_place_of_its_own_still_sends_no_image(
         self, sees, model, licensed, monkeypatch
     ) -> None:
-        """The licence is read off the document, not off its place: a copy on the base shelf, or a collection of
-        no known shelf (``place_facts`` answers None), was looked at with its image before."""
         from agent.tools.look import register
 
         monkeypatch.setattr(register, "place_facts", lambda *_args: None)
@@ -347,8 +331,6 @@ class TestAPageOfALicensedCopy:
     async def test_an_office_file_with_no_point_at_all_is_read_as_an_unattested_licensed_copy(
         self, monkeypatch
     ) -> None:
-        """The office layer indexes no unconfirmed or unattested copy, so an office shelf file with no point may be
-        the most restricted copy there is: its licence is asked with the answer that fails closed."""
         from types import SimpleNamespace
 
         from agent.common.source_kinds import OFFICE_SHELF_COLLECTION_PREFIXES

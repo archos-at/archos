@@ -1,15 +1,3 @@
-/**
- * The turns `/dev/turn-outcomes` plays: every way a turn can end other than a
- * plain answer, as the v2 events a backend sends for it
- * (`docs/design/chat-wire-v2.md` §a). Each is a script the page's fake socket
- * sends after the question, plus what it sends back when the reader answers a
- * prompt or presses Stop, plus what the page's stubbed API answers.
- *
- * Bodies only: the socket stamps the envelope (`seq`, `ts`, the ids), so a
- * script reads as the turn it describes.
- */
-
-/** One event body, `at` ms after the question reached the server. */
 export interface TimedBody {
   at: number
   body: Record<string, unknown>
@@ -33,19 +21,13 @@ export type ScenarioId =
 export interface Scenario {
   id: ScenarioId
   label: string
-  /** What to watch for. */
   note: string
   question: string
-  /** The thread is in a project: the proposal card's routes and the run block's read door need one. */
   project?: boolean
   script: TimedBody[]
-  /** Sent after the reader's `interaction_response`, timed from it. */
   afterAnswer?: TimedBody[]
-  /** Sent after `cancel_turn`, with the text the server had sent by then. */
   afterCancel?: (sentText: string) => TimedBody[]
-  /** The page presses Stop this many ms after the question. */
   stopAt?: number
-  /** `GET …/messages` answers with the run's stored message after this many ms. */
   runMessageAfterMs?: number
 }
 
@@ -56,7 +38,6 @@ export const RUN = {
 } as const
 export const PROJECT_ID = 'turn-outcomes-project'
 
-/** The Herleitung's first rows: the documents, one retrieval round, its sources. */
 const steps = (from = 40): TimedBody[] => [
   {
     at: from,
@@ -116,7 +97,6 @@ const steps = (from = 40): TimedBody[] => [
   },
 ]
 
-/** `text` streamed word by word from `start`, one chunk every `every` ms, between START and END. */
 const prose = (text: string, start: number, every = 70, messageId = ANSWER_ID): TimedBody[] => {
   const words = text.split(/(?<= )/)
   return [
@@ -132,7 +112,6 @@ const prose = (text: string, start: number, every = 70, messageId = ANSWER_ID): 
   ]
 }
 
-/** When the last body of `bodies` is sent. */
 const end = (bodies: TimedBody[]): number => bodies.at(-1)?.at ?? 0
 
 const finished = (at: number, outcome: string, result: Record<string, unknown>): TimedBody => ({
@@ -199,14 +178,12 @@ const runError = (at: number): TimedBody => ({
   },
 })
 
-/** The retrieval round fails after its sources: the Herleitung has rows, the answer has no word. */
 const failedInSteps = [
   { at: 0, body: { type: 'RUN_STARTED', message_id: ANSWER_ID } },
   ...steps(),
   runError(1700),
 ]
 
-/** The whole answer streamed, then the turn fails where its terminal would have been. */
 const failedAtFinish = (() => {
   const text = prose(ANSWER, 1800)
   return [
@@ -217,7 +194,6 @@ const failedAtFinish = (() => {
   ]
 })()
 
-/** Steps that start late, so Stop can land between the ack and the first row. */
 const slowStart = (() => {
   const text = prose(ANSWER, 2400)
   return [
@@ -228,10 +204,8 @@ const slowStart = (() => {
   ]
 })()
 
-/** The cancelled terminal with what the server sent before Stop. */
 const cancelledWith = (sentText: string): TimedBody[] => [finished(150, 'cancelled', { text: sentText })]
 
-/** Fast enough that the reveal is still catching up when Stop is pressed. */
 const cancelText = prose(ANSWER, 1800, 25)
 const cancelled = [
   { at: 0, body: { type: 'RUN_STARTED', message_id: ANSWER_ID } },
@@ -307,7 +281,6 @@ const PLAN = {
   genre: 'inspection_report',
   depth: 'expert_report',
 }
-/** The byte-stable plan envelope (`researcher/clarify.py` `format_plan_for_user`). */
 const PLAN_TEXT =
   `**Research Plan Preview**\n\n**Title:** ${PLAN.title}\n\n**Sections:**\n` +
   PLAN.sections.map((section, index) => `  ${index + 1}. ${section}`).join('\n') +
@@ -486,7 +459,6 @@ export const SCENARIOS: Record<ScenarioId, Scenario> = {
 
 export const SCENARIO_IDS = Object.keys(SCENARIOS) as ScenarioId[]
 
-/** The run's message as the BFF stored it (`lib/runs/service.ts` `createRunMessage`), as `GET …/messages` returns it. */
 export const storedRunMessage = (title: string, at: Date) => ({
   id: RUN.run_message_id,
   role: 'assistant',

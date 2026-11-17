@@ -1,13 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the global `:focus-visible` treatment on rounded controls.
- * Renders the same control shapes the profile screen uses (a text input plus
- * two Selects nested inside a Card, i.e. a non-rounded parent) so a screenshot
- * can prove the focus outline follows each control's own `rounded-xl` rather
- * than squaring off. 404s outside development. See docs/ux/visual-screenshots.md.
- */
-
 import type { JSX } from 'react'
 import { notFound } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -52,7 +44,7 @@ export default function FocusRingDevPage(): JSX.Element {
               <SelectItem value="en">English</SelectItem>
             </SelectContent>
           </Select>
-          <Button data-testid="ring-button" variant="outline">
+          <Button data-testid="ring-button" variant="secondary">
             A button
           </Button>
         </CardContent>

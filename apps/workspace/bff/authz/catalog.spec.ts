@@ -22,12 +22,6 @@ import {
   FOLDER_PERMISSIONS,
 } from './permissions'
 
-/**
- * The catalog is provisioned into WorkOS by `scripts/provision-workos-authz.ts`
- * and is what the app derives its permission types from. An internally
- * inconsistent catalog therefore produces an internally inconsistent WorkOS
- * environment — these are the invariants that must hold before it is applied.
- */
 describe('authorization catalog', () => {
   it('has no duplicate permission slugs', () => {
     const slugs = ALL_PERMISSION_SPECS.map((permission) => permission.slug)
@@ -44,8 +38,6 @@ describe('authorization catalog', () => {
     const dangling = ROLES.flatMap((role) =>
       role.permissions.filter((slug) => !known.has(slug)).map((slug) => `${role.slug} -> ${slug}`)
     )
-    // A role referencing an unknown slug would be created in WorkOS with a
-    // permission that can never be granted, which reads as "the role is broken".
     expect(dangling).toEqual([])
   })
 
@@ -59,13 +51,6 @@ describe('authorization catalog', () => {
   })
 
   it('NO tenant-assignable role may hold a platform permission', () => {
-    // The whole platform tier rests on this, and this assertion is the ONLY
-    // thing enforcing it. Verified against the live WorkOS API on 2026-07-31:
-    // a role on the `organization` resource type was created holding
-    // `project:view` (a Project-tier permission) and WorkOS accepted it, so the
-    // provider does not constrain permissions to roles of their own type.
-    // A `platform:*` permission on an environment-scoped role would be
-    // assignable inside any tenant org, and nothing upstream would object.
     const platformSlugs = new Set(PLATFORM_PERMISSION_SPECS.map((p) => p.slug))
     const leaked = ROLES.filter((role) => role.scope === 'environment').flatMap((role) =>
       role.permissions
@@ -94,10 +79,6 @@ describe('authorization catalog', () => {
   })
 
   it('WorkOS caps descriptions at 150 characters — resource types AND permissions', () => {
-    // Both learned the same way: the API rejects a longer one at provisioning
-    // time, which turns a catalog edit into a half-applied environment. The
-    // permission half was missing from this check until `org:projects:administer`
-    // shipped at 208 characters and `createPermission` refused it.
     for (const type of RESOURCE_TYPES) {
       expect(type.description.length, `${type.slug} description`).toBeLessThanOrEqual(150)
     }
@@ -111,12 +92,6 @@ describe('authorization catalog', () => {
   })
 
   it('every permission/role tier maps to a declared resource type', () => {
-    // The provisioner attaches permissions and roles via `resourceTypeSlugFor`
-    // (platform → organization, otherwise the tier itself). A tier without a
-    // RESOURCE_TYPES entry still compiles — it just silently prints a topology
-    // that omits where its permissions live. The skill type went missing
-    // exactly this way: skills had permissions and roles while the printed
-    // topology stopped at Project.
     const typeSlugs = new Set(RESOURCE_TYPES.map((type) => type.slug))
     const resourceTypeFor = (tier: PermissionTier): string =>
       tier === 'platform' || tier === 'org' ? 'organization' : tier
@@ -139,8 +114,6 @@ describe('authorization catalog', () => {
     for (const slug of registrySlugs) {
       expect(findPermissionSpec(slug), `${slug} must exist in the catalog`).toBeDefined()
     }
-    // …and the other direction, so a catalog addition cannot be forgotten in the
-    // registry the app actually checks against.
     const registry = new Set(registrySlugs)
     const unexposed = [
       ...ORG_PERMISSION_SPECS,
@@ -148,26 +121,17 @@ describe('authorization catalog', () => {
       ...PROJECT_PERMISSION_SPECS,
       ...FOLDER_PERMISSION_SPECS,
     ]
-      // A deprecated slug stays in the catalog only so existing grants keep working
-      // (`acceptedPermissionSlugs`); the app checks the slug that replaced it.
       .filter((permission) => !registry.has(permission.slug) && !permission.deprecated)
       .map((permission) => permission.slug)
     expect(unexposed).toEqual([])
   })
 
   it('platform-tier role slugs carry the org- prefix WorkOS requires', () => {
-    // WorkOS rejects an organization-level role whose slug lacks `org-`
-    // ("Slug must be prefixed with 'org-'"). The catalog Job then fails, and
-    // with it every deploy. Caught here, before it reaches an environment.
     const unprefixed = ROLES.filter((role) => role.tier === 'platform' && !role.slug.startsWith('org-'))
     expect(unprefixed.map((role) => role.slug)).toEqual([])
   })
 
   it('Admin holds the org-wide project bypass, so existing admins keep every project', () => {
-    // The bypass moved from the role slug `admin` to the permission
-    // `org:projects:administer`. `hasPermission`'s bounded implication reads
-    // THIS list, so if Admin ever stopped holding it every org admin would
-    // silently lose access to every project they do not have a project role on.
     expect(findRoleSpec('admin')?.permissions).toContain('org:projects:administer')
   })
 
@@ -179,20 +143,12 @@ describe('authorization catalog', () => {
   })
 
   it('read-only platform staff hold no platform write permission', () => {
-    // The catalog half of the fix for a role that was documented as changing
-    // nothing and could PUT the platform model defaults. The enforcement half is
-    // `requirePlatformPermission`; this keeps the grant honest.
     const support = findRoleSpec('org-platform-support')
     expect(support).toBeDefined()
     expect(support!.permissions.filter((slug) => slug.endsWith(':manage'))).toEqual([])
   })
 
   describe('read-only observability (Langfuse)', () => {
-    // The edge in front of Langfuse admits `platform:organizations:view` OR
-    // `platform:observability:view` (deploy/pulumi/src/platform/platform-oidc.ts).
-    // The catalog grants the second explicitly wherever the first is held, so
-    // Langfuse access is a grant someone can read off a role, not a side effect
-    // of holding the operator permission.
 
     it('the analyst role holds the observability permission and nothing else', () => {
       const analyst = findRoleSpec('org-platform-observability-analyst')
@@ -219,27 +175,13 @@ describe('authorization catalog', () => {
   })
 
   it('every project role is assignable through the members API', () => {
-    // A role in the catalog that the API refuses is a role that exists only on
-    // paper — which is what `project-contributor` was.
     const assignable = ['project-viewer', 'project-contributor', 'project-editor', 'project-admin']
     const projectRoles = ROLES.filter((role) => role.tier === 'project').map((role) => role.slug)
     expect(projectRoles.sort()).toEqual([...assignable].sort())
   })
 
-  /**
-   * `project:documents:generate` is required IN ADDITION to
-   * `project:documents:write` at the generated-document seam
-   * (`lib/documents/generated.ts`). Two things follow for the catalog, and
-   * neither is enforced anywhere else.
-   */
   describe('machine authorship is separable and never standalone', () => {
     it('no role grants generate without the write permission it rides on', () => {
-      // A role holding only `generate` could put bytes into a project's file
-      // system that it cannot put there by uploading, and cannot delete
-      // afterwards — a principal that writes more than it can undo. The seam
-      // refuses such a session, so a role like that is not a hole; it is a role
-      // whose grant does nothing, which is worse to debug than one that is
-      // simply absent.
       const broken = ROLES.filter(
         (role) =>
           role.permissions.includes('project:documents:generate') &&
@@ -249,15 +191,9 @@ describe('authorization catalog', () => {
     })
 
     it('the built-in editor and admin hold it; the read-only personas do not', () => {
-      // Held, so the shipped feature works once the catalog is provisioned. An
-      // organization that does not want machine authorship withholds it on a
-      // CUSTOM project role — which is the ADR-0038 §4 extensibility contract
-      // and leaves this catalog (and therefore `provision:authz --check`) alone.
       for (const slug of ['project-editor', 'project-admin']) {
         expect(findRoleSpec(slug)?.permissions, slug).toContain('project:documents:generate')
       }
-      // A contributor may run the research agent and may not change the corpus,
-      // so it gets the answer and not the file. A viewer writes nothing at all.
       for (const slug of ['project-viewer', 'project-contributor']) {
         expect(findRoleSpec(slug)?.permissions, slug).not.toContain('project:documents:generate')
       }
@@ -265,8 +201,6 @@ describe('authorization catalog', () => {
   })
 
   it('the fine-grained org personas each hold a strict subset of Admin', () => {
-    // This is the extensibility contract made testable: if a persona could hold
-    // something Admin does not, "Admin can do everything in the org" is false.
     const admin = new Set(findRoleSpec('admin')?.permissions ?? [])
     for (const slug of [
       'org-auditor',

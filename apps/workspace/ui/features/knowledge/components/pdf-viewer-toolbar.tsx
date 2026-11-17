@@ -1,21 +1,5 @@
 'use client'
 
-/**
- * The viewer's controls, in the floating pill's material: one at the foot of
- * the stage for moving through the document, one at its head while searching.
- *
- * Every surface that opens a PDF gets these same controls in the same order —
- * pages, the way back to a passage when there is one, zoom, search — so a
- * reader who learned them in the chat peek finds them where they expect in the
- * citation dialog. What a narrow stage cannot hold drops out by CONTAINER
- * width (the peek is narrow on a wide screen), never by viewport. The page
- * arrows never drop: a multi-page document is unreadable without them. On a
- * touch screen the zoom steps go first (two fingers zoom there, and the level
- * button still fits again), and the fit-page toggle stays. The pill is never
- * wider than its stage: a control pushed past the edge of a phone is a control
- * nobody can reach.
- */
-
 import { useEffect, useRef, useState, type FC, type ReactNode } from 'react'
 import {
   ChevronDown,
@@ -45,14 +29,11 @@ import { cn } from '@/lib/utils'
 import { isFitted, MIN_ZOOM, type FitMode } from '../lib/pdf-zoom'
 
 export interface PdfControlsProps {
-  /** Null while the document is still loading. */
   pageCount: number | null
   currentPage: number
   onPage: (page: number) => void
-  /** Present when there is a cited passage or region to go back to. */
   onRevealPassage?: () => void
   zoom: number
-  /** This document's ceiling (`maxZoomFor`). */
   maxZoom: number
   fit: FitMode
   onZoomStep: (direction: 1 | -1) => void
@@ -60,12 +41,9 @@ export interface PdfControlsProps {
   onToggleFit: () => void
   searchOpen: boolean
   onToggleSearch: () => void
-  /** Whether the page rail is open. */
   railOpen: boolean
-  /** Whether the document has a rail at all: one page has none, and its toggle would switch nothing. */
   hasRail?: boolean
   onToggleRail: () => void
-  /** The caller's own controls, first in the pill (a review surface's tools). */
   lead?: ReactNode
 }
 
@@ -215,11 +193,6 @@ export const PdfControls: FC<PdfControlsProps> = ({
   )
 }
 
-/**
- * The page field: the current page, editable. Typing a number and pressing
- * Enter (or leaving the field) goes there; anything else snaps back. A page
- * turned from elsewhere — a scroll, a key, the rail — resets it.
- */
 const PageField: FC<{ current: number; count: number; onPage: (page: number) => void }> = ({
   current,
   count,
@@ -269,22 +242,13 @@ const PageField: FC<{ current: number; count: number; onPage: (page: number) => 
 export interface PdfSearchBarProps {
   query: string
   onQuery: (query: string) => void
-  /** Null while the document is still being searched. */
   count: number | null
-  /** 0-based index of the hit on screen. */
   active: number
   onStep: (direction: 1 | -1) => void
   onClose: () => void
-  /** A short query does not search; it says nothing rather than "no matches". */
   tooShort: boolean
 }
 
-/**
- * Find in document: a field, the count, and next / previous. Enter goes to the
- * next hit, Shift+Enter to the previous, Escape closes and hands the keyboard
- * back to the document. The count is a live region, so a screen-reader user
- * hears "3 of 12" as they type, as everyone else sees it.
- */
 export const PdfSearchBar: FC<PdfSearchBarProps> = ({
   query,
   onQuery,

@@ -5,12 +5,6 @@ import { CountPill } from '@/components/ui/count-pill'
 import { cn } from '@/lib/utils'
 import type { ConfidenceLevel } from './profile/confidence'
 
-/**
- * The setup page's own atoms: the section frame every part of the review sits
- * in, and the mark for a value that decides the building class. One place, so
- * the four sections cannot drift apart on spacing or heading size.
- */
-
 export function IntakeSection({
   label,
   count,
@@ -22,7 +16,6 @@ export function IntakeSection({
   label: string
   count?: number
   description?: string
-  /** The section's one action for all it holds, beside the heading. */
   action?: ReactNode
   children: ReactNode
   testId?: string
@@ -44,10 +37,6 @@ export function IntakeSection({
   )
 }
 
-/**
- * A value that decides the class of a building: a property of the value, not an
- * alarm, so it is neutral. A glyph and the words, never a colour alone.
- */
 export function DecisiveBadge({ label, title }: { label: string; title: string }): JSX.Element {
   return (
     <Badge variant="outline" title={title}>
@@ -57,7 +46,6 @@ export function DecisiveBadge({ label, title }: { label: string; title: string }
   )
 }
 
-/** A value the documents disagree on: the one badge on the page that asks for attention. */
 export function ContestedBadge({ label }: { label: string }): JSX.Element {
   return (
     <Badge variant="warning">
@@ -75,13 +63,6 @@ const CONFIDENCE_ICONS = {
   unsupported: CircleHelp,
 } as const
 
-/**
- * How sure a value is, in words beside a glyph (`profile/confidence.ts`):
- * never a colour alone and never a number. A confirmed value wears the
- * success badge the page always used for it; the person's own answer says so
- * with their glyph; a suggestion is quiet text, and only a contradiction is
- * in the warning tone.
- */
 export function ConfidenceNote({
   level,
   label,

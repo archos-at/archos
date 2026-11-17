@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * A filed message's original `.eml`: the service's response (scanned whole on
- * the request, never sniffed) is passed through unchanged, and a refusal is the
- * service's 409.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ConflictError } from '@/lib/api/errors'
 

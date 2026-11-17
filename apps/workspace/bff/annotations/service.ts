@@ -1,62 +1,3 @@
-/**
- * Anmerkungen service — the logic and the authorization for a document's
- * Anmerkungen and their threads (migration 0138; CONTEXT.md „Anmerkung").
- *
- * Access follows the document and nothing else: whoever may read the document
- * reads its Anmerkungen, and whoever may write in its folder sets, takes over,
- * resolves and answers them (`getAccessibleDocument`, so a closed project, a
- * read-only folder and a held upload refuse exactly as they refuse a rename).
- * Deleting one is for the person who set it: a mark somebody else is working
- * from does not vanish under them, it is resolved. A mark Piloti set for its
- * asker counts as theirs ({@link mayDeleteMark}). A person's own reply is
- * reworded or deleted by them while the mark is live and Piloti has not taken
- * it up ({@link editReply}, {@link deleteOwnReply}); a reply Piloti posted for
- * a person is deleted by that person's undo ({@link deleteReply}).
- *
- * Piloti works through the same functions with the asker's pinned session
- * (`/api/internal/document-annotations`), so it may do exactly what the asker
- * may, and nothing more. Its own findings are born proposals a person takes
- * over or dismisses. A mark the asker asked for is born open, taken over by
- * the asker in the same move (`accepted_by`); a change the asker asked for runs
- * through `updateAnnotation` like a person's PATCH, and Piloti says what it did
- * in the mark's thread (`updateAnnotationForAsker`). The CHECKs in 0138 hold
- * that Piloti's mark is open only with a person behind it, so the rule does
- * not depend on this file.
- *
- * A mark's text and a reply mention colleagues the way the chat does: the
- * composer sends whom the person picked in the „@" picker, and the server keeps
- * those whose token still stands in the text and who may open the document
- * (`./mentions.ts`), and tells each person mentioned anew
- * (`annotation.mentioned`, `./attention.ts`). An @Piloti mention addresses
- * Piloti, as the chip's flag does.
- *
- * A reply that addresses Piloti, a reply on Piloti's own open question, and
- * making Piloti the delegate on a mark wake Piloti (ADR-0106, `./wake.ts`):
- * the wake is enqueued in the write's own transaction, and the response says
- * whether the server will answer (`wake`), so the browser never asks twice.
- *
- * Taking a mark back from Piloti (clearing the delegation, or resolving,
- * dismissing or deleting the mark) ends what the delegation started
- * (`./take-back.ts`): a wake still queued never starts, and a turn that runs
- * is stopped by a job queued in the take-back's own transaction. Only the
- * delegation's own turn ending hands a mark back, never a reply of Piloti's
- * (`lib/turns/outcome.ts`).
- *
- * A person's decisions leave traces after the write committed, all
- * best-effort: what Piloti asked on a mark is no longer waiting on them
- * (`./attention.ts`), and taking over or dismissing a mark Piloti proposed is
- * a line in the organization's audit trail (`piloti.mark.decided`,
- * `./mark-audit.ts`) and a score on the turn that proposed it
- * (`lib/langfuse/decision-score.ts`).
- *
- * Every write tells the document's room (the `doc:<id>` live channel,
- * `lib/realtime/document-channel.ts`), so everyone looking at the document
- * re-reads; a failed publish never fails the write.
- *
- * Only the office's own shelves carry Anmerkungen, the project and the
- * Büroablage. A chat attachment has no folder and no team to act on a mark.
- */
-
 import 'server-only'
 import {
   BadRequestError,
@@ -165,56 +106,30 @@ import {
   type WakeOutcome,
 } from './types'
 import { PRODUCT_NAME } from '@/lib/brand'
+import { isAgentKind } from '@/lib/agent-kind'
+import { LEGACY_AGENT_KIND } from '@/lib/legacy-agent-kind'
 
-/** Who acts: a person in their own session, or Piloti in the asker's. `peerId` is the person's tab, when it says. */
 export interface AnnotationActor {
   kind: AnnotationAuthor
   peerId?: string | null
 }
 
 const PERSON: AnnotationActor = { kind: 'person' }
-export const AGENT: AnnotationActor = { kind: 'piloti' }
+export const AGENT: AnnotationActor = { kind: LEGACY_AGENT_KIND }
 
-/**
- * Whether this person may delete the mark: one they set themselves, or one
- * Piloti set for them. Piloti's mark carries the asker as `created_by` (the
- * session it works in), and `accepted_by` is the asker too when they asked for
- * exactly this mark (born open) or took their own proposal over. A mark
- * Piloti proposed and somebody ELSE took over has two people behind it, so
- * neither deletes it; it is resolved or dismissed. A proposal nobody took
- * over has no `accepted_by`, so it is dismissed, never deleted.
- */
 const mayDeleteMark = (record: Pick<AnnotationRecord, 'authorKind' | 'createdBy' | 'acceptedBy'>, userId: string) =>
   record.createdBy === userId && (record.authorKind === 'person' || record.acceptedBy === userId)
 
-/**
- * Why even its author may not delete this mark now, or null when nothing
- * stands in the way, for every delete. Looser than the undo of Piloti's mark
- * (`undoCreate` in `lib/changes/undo.ts`), which stays as it is: undo takes
- * back only an open mark nobody but Piloti has written in, the asker's own
- * reply included, because it is Piloti's work being withdrawn. Here the
- * author's own words in the thread are theirs to delete with it:
- *
- * - `discussed`: somebody other than its author and Piloti has written in its
- *   thread. Deleting the mark would take their answer with it, turn their inbox
- *   rows inert and leave a hole in the numbering a Protokoll cites.
- * - `carried`: it went on to another document, or came from one. The link
- *   between the two is what carries the point on; deleting either end drops it.
- *
- * Such a mark is resolved instead; the card says why and offers that.
- */
 export function deleteRefusalOf(
   record: Pick<AnnotationRecord, 'createdBy' | 'replies' | 'carriedFromId' | 'carriedFrom' | 'carriedTo'>
 ): AnnotationDeleteRefusal | null {
   if (record.carriedFromId || record.carriedFrom || record.carriedTo) return 'carried'
-  const othersWrote = record.replies.some((reply) => reply.authorKind !== 'piloti' && reply.createdBy !== record.createdBy)
+  const othersWrote = record.replies.some((reply) => !isAgentKind(reply.authorKind) && reply.createdBy !== record.createdBy)
   return othersWrote ? 'discussed' : null
 }
 
-/** Whether the document sits on a shelf that carries Anmerkungen. */
 const annotatable = (doc: Document) => doc.scope === 'project' || doc.scope === 'office_shelf'
 
-/** Display names by user id; empty when the directory cannot be read, which costs names and nothing else. */
 type Names = ReadonlyMap<string, { name: string }>
 
 async function directoryNames(organizationId: string): Promise<Names> {
@@ -255,7 +170,6 @@ function toView(
   carryWay: CarryWay | null = null
 ): AnnotationView {
   const wake = work.get(record.id)
-  // The author's own mark that the thread or a carry keeps: the card says why it stays.
   const own = writable && mayDeleteMark(record, session.userId)
   const deleteRefused = own ? deleteRefusalOf(record) : null
   return {
@@ -278,8 +192,6 @@ function toView(
     assigneeName: nameOf(names, record.assigneeUserId),
     dueOn: record.dueOn,
     revisionNumber: record.revisionNumber,
-    // A document with no version row shows the bytes its row holds, which is
-    // where an Anmerkung set without a version was set.
     onCurrentRevision: (record.versionId ?? null) === (doc.publishedVersionId ?? null),
     createdBy: record.createdBy,
     createdByName: nameOf(names, record.createdBy),
@@ -304,7 +216,6 @@ function toView(
   }
 }
 
-/** The documents at the other end of the marks' carries that this reader may open, by id, with their names. */
 type LinkedDocuments = ReadonlyMap<string, string>
 
 const linkView = (link: CarryLink | null | undefined, linked: LinkedDocuments): CarryLinkView | null => {
@@ -312,12 +223,6 @@ const linkView = (link: CarryLink | null | undefined, linked: LinkedDocuments): 
   return link && documentName !== undefined ? { ...link, documentName } : null
 }
 
-/**
- * The documents a carry links these marks to that the reader may open, each
- * asked once through the reader's own rule (`getAccessibleDocument`): a link
- * into a folder closed to them, or to a held upload, is no link at all, its
- * name included. Usually none, or the one document that replaced this one.
- */
 async function linkedDocuments(session: AuthorizedSession, records: readonly AnnotationRecord[]): Promise<LinkedDocuments> {
   const ids = new Set<string>()
   for (const record of records) {
@@ -333,24 +238,11 @@ async function linkedDocuments(session: AuthorizedSession, records: readonly Ann
   return new Map(names.filter((entry): entry is readonly [string, string] => entry !== null))
 }
 
-/**
- * Where this reader's carry takes the open marks of one document
- * (`carryToCurrent`): `across` to the document that replaces it, at the end of
- * its chain as the reader sees it (`replacingDocumentOf`, the walk the carry
- * itself takes), or in place.
- */
 interface CarryWay {
   to: CarryTargetView
   across: boolean
 }
 
-/**
- * The {@link CarryWay} for a reader who may write `doc`, read once per view:
- * null when nothing of it can be carried (no open mark, or a replacing
- * document the reader may not write, which the carry refuses), or when the
- * chain could not be read: a list read does not fail on it, and offers no
- * carry it cannot vouch for.
- */
 async function carryWayOf(
   session: AuthorizedSession,
   doc: Document,
@@ -367,34 +259,16 @@ async function carryWayOf(
   return { to: { documentId: replacing.id, documentName: documentDisplayName(replacing) }, across: true }
 }
 
-/**
- * Where one mark goes when this reader carries it, as {@link carryToCurrent}
- * would take it, or null where it refuses or does nothing: a mark that is not
- * open; across, one Piloti works (`carryAcross` asks for it back first); in
- * place, one already on the current Fassung.
- */
 function carryTargetOf(record: AnnotationRecord, doc: Document, way: CarryWay | null): CarryTargetView | null {
   if (!way || record.status !== 'open') return null
   if (way.across) return record.delegatedBy ? null : way.to
   return (record.versionId ?? null) === (doc.publishedVersionId ?? null) ? null : way.to
 }
 
-/**
- * Whether this person may be a mark's Zuständige: they may write the
- * document, its folder included (`mayWriteDocument`), because answering the
- * mark and closing it are writes. Someone who could only read it would be on
- * the hook for a mark they cannot answer. Mentioning asks less: whoever may
- * open the document (`./mentions`).
- */
 async function isAssignable(session: AuthorizedSession, doc: Document, userId: string): Promise<boolean> {
   return (await mayWriteDocument(session, doc, [userId])).has(userId)
 }
 
-/**
- * Refuse an assignee who could not answer the mark: assigning is not access
- * (ADR-0059), so a person outside the project, or one who may only read the
- * document, would be on the hook for a mark they cannot answer.
- */
 async function requireAssignable(session: AuthorizedSession, doc: Document, userId: string): Promise<void> {
   if (await isAssignable(session, doc, userId)) return
   throw new UnprocessableError('The assignee cannot answer Anmerkungen on this document.', {
@@ -403,20 +277,11 @@ async function requireAssignable(session: AuthorizedSession, doc: Document, user
   })
 }
 
-/** How many name matches an assignee lookup checks for access before it asks instead. */
 const MAX_ASSIGNEE_CANDIDATES = 10
 
 const nameKey = (value: string | null | undefined) =>
   (value ?? '').normalize('NFC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('de')
 
-/**
- * The one member a name or an e-mail address means, among those who may be the
- * mark's Zuständige ({@link isAssignable}: who may write the document). Piloti
- * has no roster and never sees a user id, so it passes
- * the person as the asker said it („Anna"): an exact name or address first,
- * then a first name or the start of a name. None, or more than one, is a 422
- * naming the candidates, which the tool turns into a question.
- */
 export async function resolveAssignee(session: AuthorizedSession, doc: Document, query: string): Promise<string> {
   const key = nameKey(query)
   const people = [...(await loadOrganizationDirectory(session.organizationId)).values()]
@@ -444,7 +309,6 @@ export async function resolveAssignee(session: AuthorizedSession, doc: Document,
   })
 }
 
-/** Tell the room, never failing the write that caused it. */
 function announce(
   session: AuthorizedSession,
   documentId: string,
@@ -459,19 +323,12 @@ function announce(
     actor: {
       peerId: actor.peerId ?? null,
       userId: session.userId,
-      name: actor.kind === 'piloti' ? PRODUCT_NAME : (session.name ?? session.email),
+      name: isAgentKind(actor.kind) ? PRODUCT_NAME : (session.name ?? session.email),
       kind: actor.kind,
     },
   })
 }
 
-/**
- * One product event about marks, sent from the one door every client passes
- * (the review, the inbox, the chat's card, Piloti), so a count never depends on
- * which surface did it (`docs/observability/posthog-events.md`). The person who
- * acted, or for Piloti the person it acted for; kinds and statuses only, never
- * a word of a mark, a name or a document's name. Queued, never failing the write.
- */
 function markEvent(
   session: AuthorizedSession,
   event: Extract<ServerEvent, 'annotation_created' | 'annotation_closed' | 'annotation_reopened' | 'annotation_carried'>,
@@ -540,7 +397,6 @@ const toMark = (input: {
   dueOn: input.dueOn ?? null,
 })
 
-/** Every Anmerkung on a document this session may read, live ones first. */
 export async function listAnnotations(session: AuthorizedSession, documentId: string): Promise<AnnotationListResponse> {
   const doc = await getAccessibleDocument(session, documentId, 'read')
   if (!annotatable(doc)) return { annotations: [], canAnnotate: false, pilotiWakes: false }
@@ -553,13 +409,6 @@ export async function listAnnotations(session: AuthorizedSession, documentId: st
   return { annotations, canAnnotate: writable, pilotiWakes: wakesEnabled(session) }
 }
 
-/**
- * The list projection: one document's marks as this reader sees them, in the
- * order given. Shared by the document's own list and a project's Offene
- * Punkte (`./project-marks.ts`), so a row reads the same on both. The caller
- * read `doc` for this reader and says whether they may write it; `names` is
- * the organization's directory, read once however many documents a page holds.
- */
 export async function documentAnnotationViews(
   session: AuthorizedSession,
   doc: Document,
@@ -576,10 +425,8 @@ export async function documentAnnotationViews(
   return records.map((record) => toView(record, doc, session, writable, directory, wakes, work, linked, carryWay))
 }
 
-/** The organization's directory by user id, for a caller that projects several documents' marks with one read. */
 export const annotationDirectory = (organizationId: string): Promise<Names> => directoryNames(organizationId)
 
-/** A person sets one Anmerkung on the Fassung the document shows now. */
 export async function createAnnotation(
   session: AuthorizedSession,
   documentId: string,
@@ -607,10 +454,6 @@ export async function createAnnotation(
   return { annotation: await viewOf(session, doc, row.id) }
 }
 
-/**
- * Piloti proposes findings on a document, on behalf of the person it works for.
- * Each is born `proposed`; none counts until a person takes it over.
- */
 export async function proposeAnnotations(
   session: AuthorizedSession,
   documentId: string,
@@ -619,11 +462,6 @@ export async function proposeAnnotations(
   return insertAgentMarks(session, documentId, proposals, null)
 }
 
-/**
- * Piloti sets marks the asker asked for („Setz dort eine Anmerkung"). Each is
- * born `open`, taken over by the asker in the same move, because the person
- * stood behind it by asking: the asker is `accepted_by` and accountable.
- */
 export async function setAnnotationsForAsker(
   session: AuthorizedSession,
   documentId: string,
@@ -647,7 +485,7 @@ async function insertAgentMarks(
     organizationId: session.organizationId,
     documentId: doc.id,
     versionId: doc.publishedVersionId ?? null,
-    authorKind: 'piloti',
+    authorKind: LEGACY_AGENT_KIND,
     createdBy: session.userId,
     acceptedBy,
     marks: parsed.map(toMark),
@@ -655,10 +493,8 @@ async function insertAgentMarks(
   const ids = rows.map((row) => row.id)
   announce(session, doc.id, ids, 'created', AGENT)
   for (const row of rows) {
-    markEvent(session, 'annotation_created', doc.id, { author_kind: 'piloti', kind: row.kind, status: row.status })
+    markEvent(session, 'annotation_created', doc.id, { author_kind: LEGACY_AGENT_KIND, kind: row.kind, status: row.status })
   }
-  // The asker asked for them and is not told; a Rückfrage's Zuständige hears `piloti.asks_you` instead (`agent.ts`).
-  // A proposal tells nobody: it is nobody's news until someone takes it over (`traceChange`).
   if (acceptedBy) {
     traceSet(
       session,
@@ -675,11 +511,6 @@ async function insertAgentMarks(
   return { annotations }
 }
 
-/**
- * The bookkeeping a status move carries, or a 409 for a move that does not
- * exist. Taking over a proposal is the only way a machine finding becomes the
- * office's; dismissing it closes it as „verworfen".
- */
 export function transition(
   from: AnnotationStatus,
   to: 'open' | 'resolved' | 'dismissed',
@@ -694,11 +525,10 @@ export function transition(
     throw new ConflictError(`An Anmerkung cannot go from ${from} to ${to}.`)
   }
   if (to !== 'open') return { status: to, ...closed }
-  const accepts = from === 'proposed' || (from === 'dismissed' && record.authorKind === 'piloti')
+  const accepts = from === 'proposed' || (from === 'dismissed' && isAgentKind(record.authorKind))
   return { status: 'open', ...reopened, ...(accepts ? acceptance : {}) }
 }
 
-/** Run work that must never fail the write behind it: a throw or a rejection is a warning. */
 function bestEffort(label: string, work: () => Promise<unknown>): void {
   const warn = (error: unknown) => console.warn(`[annotations] ${label} failed:`, error)
   try {
@@ -708,11 +538,6 @@ function bestEffort(label: string, work: () => Promise<unknown>): void {
   }
 }
 
-/**
- * A person answered in a mark's thread, or the mark was closed (by a person, or
- * by Piloti in their name): what Piloti asked there no longer waits on anybody,
- * and a closed mark asks its Zuständige nothing.
- */
 function traceSettled(session: AuthorizedSession, annotationId: string, closed: boolean): void {
   bestEffort('mark the mark settled', () =>
     onMarkSettledByPerson({
@@ -724,23 +549,12 @@ function traceSettled(session: AuthorizedSession, annotationId: string, closed: 
   )
 }
 
-/**
- * The people a write mentions anew, after the mention budget the chat spends
- * (`enforceMentionBounds`): refused before anything is written, so a refused
- * write leaves no mark and tells nobody. @Piloti (`piloti`) counts like a
- * person, as it does in the chat: one budget for one gesture.
- */
 async function spendMentions(session: AuthorizedSession, mentioned: string[], piloti: boolean): Promise<string[]> {
   const count = mentioned.length + (piloti ? 1 : 0)
   if (count > 0) await enforceMentionBounds(session, count)
   return mentioned
 }
 
-/**
- * The people a write stopped mentioning, whom nothing left on the mark
- * mentions: their `annotation.mentioned` goes inert, so no row keeps asking
- * about, or quoting, a text that no longer names them.
- */
 function traceWithdrawn(session: AuthorizedSession, annotationId: string, withdrawn: readonly string[]): void {
   if (withdrawn.length === 0) return
   bestEffort('withdraw the mentions taken out', () =>
@@ -748,11 +562,6 @@ function traceWithdrawn(session: AuthorizedSession, annotationId: string, withdr
   )
 }
 
-/**
- * Tell the people a write mentioned anew, once it committed. A Zuständige the
- * same write made responsible (`assignedNow`) hears that instead: one row for
- * one write.
- */
 function traceMentioned(
   session: AuthorizedSession,
   doc: Document,
@@ -780,7 +589,6 @@ function traceMentioned(
   )
 }
 
-/** New marks tell the document's people, once they committed (`onMarksSet`): one counted row per document and setter. */
 function traceSet(session: AuthorizedSession, doc: Document, by: MarksSetBy, marks: readonly SetMark[]): void {
   bestEffort('tell the document’s people', () =>
     onMarksSet({
@@ -796,7 +604,6 @@ function traceSet(session: AuthorizedSession, doc: Document, by: MarksSetBy, mar
   )
 }
 
-/** The mark an inbox item is about. */
 const markRefOf = (session: AuthorizedSession, doc: Document, mark: { id: string; number: number }): MarkRef => ({
   organizationId: session.organizationId,
   documentId: doc.id,
@@ -805,20 +612,13 @@ const markRefOf = (session: AuthorizedSession, doc: Document, mark: { id: string
   projectId: doc.projectId ?? null,
 })
 
-/** Who may open the document now: the one filter every item about its marks passes. */
 const mayOpenOf =
   (session: AuthorizedSession, doc: Document): MayOpen =>
   (userIds) =>
     mayOpenDocument(session, doc, userIds)
 
-/** The mark as a change left it, for the people the change concerns. */
 type ChangedMark = Pick<DocumentAnnotationRow, 'id' | 'number' | 'body' | 'assigneeUserId' | 'status' | 'dueOn'>
 
-/**
- * The mark's Zuständige changed, or a person took over Piloti's proposal that
- * names one (`previous` is then null): tell the new one, settle the old one's
- * row (`onAssigneeChanged`). Whoever acted is the session, Piloti's for the asker.
- */
 function traceAssigned(
   session: AuthorizedSession,
   doc: Document,
@@ -830,7 +630,7 @@ function traceAssigned(
     onAssigneeChanged({
       ...markRefOf(session, doc, mark),
       actorUserId: session.userId,
-      byAgent: actor.kind === 'piloti',
+      byAgent: isAgentKind(actor.kind),
       markText: mark.body,
       previousAssigneeUserId: previous,
       assigneeUserId: mark.assigneeUserId,
@@ -840,13 +640,12 @@ function traceAssigned(
   )
 }
 
-/** The date of a mark changed and its Zuständige did not: tell them (`onDueChanged`). */
 function traceRedated(session: AuthorizedSession, doc: Document, mark: ChangedMark, actor: AnnotationActor): void {
   bestEffort('tell the Zuständige the date', () =>
     onDueChanged({
       ...markRefOf(session, doc, mark),
       actorUserId: session.userId,
-      byAgent: actor.kind === 'piloti',
+      byAgent: isAgentKind(actor.kind),
       markText: mark.body,
       assigneeUserId: mark.assigneeUserId,
       dueOn: mark.dueOn,
@@ -855,15 +654,6 @@ function traceRedated(session: AuthorizedSession, doc: Document, mark: ChangedMa
   )
 }
 
-/**
- * What a change tells people, once it committed, whoever made it (a person in
- * their PATCH, or Piloti for the asker through {@link updateAnnotationForAsker}):
- * a new Zuständige, a new date to the Zuständige who stays, a mark closed or
- * reopened under its author, and a closed mark settles what was asked on it.
- * Piloti's proposal taken over (open, and nobody had stood behind it) is new
- * to the document's people now, as a mark Piloti set for the person who took
- * it over (`created_piloti`, folded with the marks Piloti set for them).
- */
 function traceChange(
   session: AuthorizedSession,
   doc: Document,
@@ -878,7 +668,7 @@ function traceChange(
   } else if (after.dueOn !== existing.dueOn && after.assigneeUserId) {
     traceRedated(session, doc, after, actor)
   }
-  if (existing.authorKind === 'piloti' && existing.acceptedBy === null && after.status === 'open') {
+  if (isAgentKind(existing.authorKind) && existing.acceptedBy === null && after.status === 'open') {
     traceSet(session, doc, 'created_piloti', [
       { ...after, mentions: existing.mentions, toldOtherwise: [after.assigneeUserId] },
     ])
@@ -886,14 +676,13 @@ function traceChange(
   if (after.status === existing.status) return
   const closedAs = after.status === 'resolved' || after.status === 'dismissed' ? after.status : null
   if (closedAs) traceSettled(session, existing.id, true)
-  // Taking over a proposal is no news to its author: there was none yet.
   const move = closedAs ?? (existing.status === 'proposed' ? null : 'reopened')
   if (!move) return
   bestEffort('tell the mark’s author', () =>
     onMarkMoved({
       ...markRefOf(session, doc, existing),
       actorUserId: session.userId,
-      byAgent: actor.kind === 'piloti',
+      byAgent: isAgentKind(actor.kind),
       markText: after.body,
       move,
       mark: existing,
@@ -902,12 +691,6 @@ function traceChange(
   )
 }
 
-/**
- * What a person's move of status leaves behind, once it committed: taking
- * over or dismissing a mark Piloti proposed is a decision on Piloti's work, in
- * the audit trail (`piloti.mark.decided`, `./mark-audit.ts`) and as a score on
- * the turn that proposed it.
- */
 function traceMove(
   session: AuthorizedSession,
   doc: { id: string; projectId: string | null },
@@ -915,7 +698,7 @@ function traceMove(
   existing: Pick<AnnotationRecord, 'authorKind' | 'status' | 'number' | 'kind' | 'createdBy'>,
   to: 'open' | 'resolved' | 'dismissed' | undefined
 ): void {
-  const proposal = existing.authorKind === 'piloti' && existing.status === 'proposed'
+  const proposal = isAgentKind(existing.authorKind) && existing.status === 'proposed'
   if (!proposal || (to !== 'open' && to !== 'dismissed')) return
   auditMarkDecided(session, doc, { ...existing, id: annotationId }, to === 'open' ? 'taken_over' : 'dismissed')
   bestEffort('score the decision', () =>
@@ -929,7 +712,6 @@ function traceMove(
   )
 }
 
-/** The delegation a mark carries, with where it lives; none when the mark is not delegated. */
 const delegationOfMark = (
   session: AuthorizedSession,
   documentId: string,
@@ -941,13 +723,6 @@ const delegationOfMark = (
 
 const conflict = () => new ConflictError('Somebody changed this Anmerkung a moment ago. Look again.')
 
-/**
- * The delegation a change makes, or none. Making Piloti the delegate is a
- * person's act on an open mark, and only with the organization's switch on;
- * a mark already delegated is not delegated again, so a second click is no
- * second event. Closing a mark ends a delegation, because nobody works a
- * closed mark.
- */
 function delegationOf(
   session: AuthorizedSession,
   existing: AnnotationRecord,
@@ -958,7 +733,7 @@ function delegationOf(
   const cleared = { delegatedBy: null, delegatedAt: null } as const
   const closing = parsed.status === 'resolved' || parsed.status === 'dismissed'
   if (parsed.delegateToPiloti === undefined) return closing && existing.delegatedBy ? cleared : undefined
-  if (actor.kind === 'piloti') throw new ForbiddenError(PRODUCT_NAME + ' cannot delegate a mark to itself.')
+  if (isAgentKind(actor.kind)) throw new ForbiddenError(PRODUCT_NAME + ' cannot delegate a mark to itself.')
   if (!parsed.delegateToPiloti) return existing.delegatedBy ? cleared : undefined
   if (!wakesEnabled(session)) {
     throw new ForbiddenError('Delegating to ' + PRODUCT_NAME + ' is not switched on for this organization.', {
@@ -971,12 +746,6 @@ function delegationOf(
   return existing.delegatedBy ? undefined : { delegatedBy: session.userId, delegatedAt: now }
 }
 
-/**
- * Change one Anmerkung: take it over, dismiss, resolve or reopen it, reword
- * it, assign it, give it a date, delegate it to Piloti or take it back.
- * Delegating wakes Piloti, enqueued in the change's transaction; nothing else
- * a change does wakes it, taking over or dismissing Piloti's mark included.
- */
 export async function updateAnnotation(
   session: AuthorizedSession,
   documentId: string,
@@ -991,9 +760,6 @@ export async function updateAnnotation(
   if (parsed.expectedStatus && parsed.expectedStatus !== existing.status) throw conflict()
   if (parsed.carryToCurrent) return carryToCurrent(session, doc, existing, actor)
   if (parsed.assigneeUserId) await requireAssignable(session, doc, parsed.assigneeUserId)
-  // A new body keeps whom it mentions: the ones picked with it, else the ones
-  // stored whose token it still shows. Only the people it adds are told, and
-  // nobody when the same write closes the mark: a closed mark asks nobody.
   const mentions =
     parsed.body === undefined
       ? undefined
@@ -1023,11 +789,8 @@ export async function updateAnnotation(
   if (Object.keys(changes).length === 0) return { annotation: await viewOf(session, doc, annotationId) }
 
   const delegating = delegation?.delegatedBy ? delegation.delegatedAt : null
-  // A change that clears the delegation ends it; delegating an already delegated mark changes nothing.
   const ended = delegation && delegation.delegatedBy === null ? delegationOfMark(session, doc.id, existing) : null
-  // Piloti closing a mark in the asker's name is usually the delegation's own turn finishing: it is not stopped.
   const stopTurn = actor.kind === 'person'
-  // Set in the write's transaction; a holder, because a closure's assignment is not narrowed.
   const enqueued: { wake: EnqueuedWake | null; takeBack: TakeBack | null } = { wake: null, takeBack: null }
   const updated = await updateDocumentAnnotation(
     session.organizationId,
@@ -1050,13 +813,11 @@ export async function updateAnnotation(
         }
       : undefined
   )
-  // Gone, or a colleague moved it first: say so rather than overwrite their move.
   if (!updated) throw conflict()
   announce(session, doc.id, [annotationId], 'updated', actor)
   auditHeldWake(session, doc.id, annotationId, 'assigned', enqueued.wake)
   if (ended && enqueued.takeBack) {
     const { takeBack } = enqueued
-    // The queued wake is the one thing a crash here can leave behind; its job would run a turn nobody wants.
     const by = takeBackAudit(session, doc, existing, actor)
     await settleTakenBack(ended, takeBack, { stopTurn }, by).catch((error: unknown) =>
       console.warn('[annotations] could not keep a taken-back wake from starting:', error)
@@ -1098,20 +859,6 @@ export async function updateAnnotation(
   return delegating ? { annotation, wake: wakeOutcomeOf(enqueued.wake) } : { annotation }
 }
 
-/**
- * „Gilt weiter": an open mark goes on with the Fassung the document shows now,
- * at the place it was set (a position never changes under someone who read
- * it; a mark that no longer fits is resolved and set again instead).
- *
- * Under the same name the mark moves in place: its `version_id` becomes the
- * published version's, compared and swapped against the Fassung it was read
- * on, so its number, its thread and every inbox row and wake anchored on it
- * stay whole. Nobody is told: the new Fassung told the people working on its
- * marks (`lib/documents/revision-notify.ts`), and the room re-reads.
- *
- * When another document replaces this one, the mark goes on there instead
- * ({@link carryAcross}).
- */
 async function carryToCurrent(
   session: AuthorizedSession,
   doc: Document,
@@ -1131,30 +878,12 @@ async function carryToCurrent(
   const updated = await updateDocumentAnnotation(session.organizationId, doc.id, existing.id, 'open', {
     revision: { from: existing.versionId ?? null, to: current },
   })
-  // Closed, or carried by a colleague a moment ago: say so rather than guess.
   if (!updated) throw conflict()
   announce(session, doc.id, [existing.id], 'updated', actor)
   markEvent(session, 'annotation_carried', doc.id, { way: 'in_place', by: actor.kind })
   return { annotation: await viewOf(session, doc, existing.id) }
 }
 
-/**
- * The mark of a document another one replaced (Index B, filed again as Index
- * C under another name) goes on as a mark of C: set there with its place, its
- * text, its author, its Zuständige (while they may still answer on C) and its
- * date, numbered on C and linked back (`carried_from_id`), while B's is closed
- * in the same transaction (`carryAnnotationToDocument`).
- *
- * A linked copy and not a move, because a move would cut what hangs on the
- * mark: B's number is what a Protokoll and a Jour fixe named, its thread is
- * anchored on B in every inbox row, wake and change record that points at it,
- * and C has numbers of its own. So B's thread stays readable where every link
- * expects it, C's mark says where it came from, and B's says where it went.
- * Closing B's mark settles what it asked of people (`traceSettled`); its
- * Zuständige is asked again on C's (`annotation.assigned_to_you`), unless they
- * carried it themselves. A mark Piloti works is taken back from Piloti first:
- * its running turn writes on B.
- */
 async function carryAcross(
   session: AuthorizedSession,
   doc: Document,
@@ -1185,14 +914,12 @@ async function carryAcross(
   if (!row) throw conflict()
   announce(session, doc.id, [existing.id], 'updated', actor)
   announce(session, target.id, [row.id], 'created', actor)
-  // A carry, not a close: the source's closing is the carry's own bookkeeping.
   markEvent(session, 'annotation_carried', doc.id, { way: 'across', by: actor.kind })
   traceSettled(session, existing.id, true)
   if (row.assigneeUserId) traceAssigned(session, target, row, null, actor)
   return { annotation: await viewOf(session, target, row.id) }
 }
 
-/** Who took a mark back from Piloti, for the wakes it stops (`./take-back`). */
 const takeBackAudit = (
   session: AuthorizedSession,
   doc: { projectId: string | null },
@@ -1201,12 +928,11 @@ const takeBackAudit = (
 ): TakeBackAudit => ({
   userId: session.userId,
   email: session.email || null,
-  piloti: actor.kind === 'piloti',
+  piloti: isAgentKind(actor.kind),
   projectId: doc.projectId ?? null,
   markNumber: mark.number,
 })
 
-/** A wake a cap held at enqueue goes into the audit trail, after its write committed. */
 function auditHeldWake(
   session: AuthorizedSession,
   documentId: string,
@@ -1227,12 +953,6 @@ function auditHeldWake(
   })
 }
 
-/**
- * Delete one Anmerkung the session set itself, or Piloti set for it
- * ({@link mayDeleteMark}), while nothing but its author and Piloti stands on it
- * ({@link deleteRefusalOf}: a 409 `mark-discussed` or `mark-carried`
- * otherwise). Piloti's proposals are dismissed, never deleted.
- */
 export async function deleteAnnotation(
   session: AuthorizedSession,
   documentId: string,
@@ -1258,14 +978,11 @@ export async function deleteAnnotation(
   }
   const ended = delegationOfMark(session, doc.id, existing)
   const stopTurn = actor.kind === 'person'
-  // Set in the delete's transaction; a holder, because a closure's assignment is not narrowed.
   const found: { takeBack: TakeBack | null } = { takeBack: null }
   await deleteDocumentAnnotation(
     session.organizationId,
     doc.id,
     annotationId,
-    // The mark takes its wakes with it: the running turn is read, and its stop queued, before they go.
-    // A wake still queued needs nothing: its job finds the mark gone.
     ended
       ? async (tx) => {
           found.takeBack = await readTakeBack(tx, ended, { stopTurn })
@@ -1280,7 +997,6 @@ export async function deleteAnnotation(
   return null
 }
 
-/** One Anmerkung as this session reads it; 404 when the document or the mark is not there for it. */
 export async function readAnnotation(
   session: AuthorizedSession,
   documentId: string,
@@ -1300,10 +1016,8 @@ export async function readAnnotation(
   return toView(record, doc, session, writable, names, wakes, work, linked, carryWay)
 }
 
-/** What Piloti may change on a mark for the asker: what a person's PATCH changes, the assignee by name. */
 export interface AskedChange {
   status?: 'open' | 'resolved' | 'dismissed'
-  /** A name or an e-mail address as the asker said it ({@link resolveAssignee}); null clears it. */
   assignee?: string | null
   dueOn?: string | null
   kind?: AnnotationView['kind']
@@ -1311,26 +1025,12 @@ export interface AskedChange {
   expectedStatus?: AnnotationStatus
 }
 
-/** The fields a change can move, compared between two reads of one mark. */
 const CHANGEABLE = ['status', 'assigneeUserId', 'dueOn', 'kind', 'body'] as const
 export type ChangeableField = (typeof CHANGEABLE)[number]
 
 export const changedFields = (before: AnnotationView, after: AnnotationView): ChangeableField[] =>
   CHANGEABLE.filter((field) => before[field] !== after[field])
 
-/**
- * Piloti changes a mark because the asker asked it to, and says so in the
- * mark's thread: the change runs through {@link updateAnnotation} exactly as
- * the asker's own PATCH would (their rights, the state machine, the 409 on a
- * stale `expectedStatus`), then `note` is posted as Piloti's reply in the same
- * request, so the change and its note cannot drift apart. A change that moved
- * nothing posts nothing.
- *
- * The thread's room is checked BEFORE the change, so a full thread refuses the
- * change rather than landing it without its note. Without an `expectedStatus`
- * the status read here is the one the write compares against, so a colleague's
- * move between this read and the write is a 409 rather than overwritten.
- */
 export async function updateAnnotationForAsker(
   session: AuthorizedSession,
   documentId: string,
@@ -1365,22 +1065,10 @@ export async function updateAnnotationForAsker(
   )
   const changed = changedFields(before, after)
   if (changed.length === 0) return { before, after, changed }
-  // The note says what the change did; the change already told whoever it
-  // concerns, exactly as the asker's own PATCH would, so the note tells nobody twice.
   await postReply(session, doc.id, annotationId, { body: noteBody }, AGENT)
   return { before, after: await viewOf(session, doc, annotationId), changed }
 }
 
-/**
- * Answer in an Anmerkung's thread, as a person or as Piloti for one.
- *
- * A person's reply that addresses Piloti, or answers Piloti's own open
- * question, wakes Piloti: with the organization's switch on, the wake is
- * enqueued in the reply's transaction (`wake: 'queued'`, or `'suppressed'`
- * when a cap holds it); with it off, the response says `'off'` and the
- * browser asks Piloti itself, as before. Piloti's reply never wakes it, and
- * never hands a delegated mark back: only the delegation's own turn ending does.
- */
 export async function replyToAnnotation(
   session: AuthorizedSession,
   documentId: string,
@@ -1394,7 +1082,7 @@ export async function replyToAnnotation(
     onMarkReplied({
       ...markRefOf(session, doc, existing),
       actorUserId: session.userId,
-      byAgent: actor.kind === 'piloti',
+      byAgent: isAgentKind(actor.kind),
       markText: existing.body,
       mark: existing,
       replyText: reply.body,
@@ -1407,7 +1095,6 @@ export async function replyToAnnotation(
   return { annotation: await viewOf(session, doc, annotationId), replyId: reply.id, wake }
 }
 
-/** Post one reply, wake Piloti where it should, tell the room: {@link replyToAnnotation} without telling the thread. */
 async function postReply(
   session: AuthorizedSession,
   documentId: string,
@@ -1425,7 +1112,6 @@ async function postReply(
   const doc = await requireWritableDocument(session, documentId)
   const existing = await findDocumentAnnotation(session.organizationId, doc.id, annotationId)
   if (!existing) throw new NotFoundError()
-  // Piloti mentions nobody: only a person's reply carries what they picked.
   const mentions = actor.kind === 'person' ? await keepMentions(session, doc, body, picked ?? [], { piloti: true }) : []
   const mentioned = await spendMentions(session, newlyMentioned(mentions, [], session.userId), mentionsAgent(mentions))
   const addresses = actor.kind === 'person' && (Boolean(addressesPiloti) || mentionsAgent(mentions))
@@ -1467,13 +1153,6 @@ async function postReply(
   return { doc, existing, reply, wake: outcome, mentioned }
 }
 
-/**
- * Delete one reply Piloti posted in a thread for a person, as that person's
- * undo of it (`lib/changes/undo.ts`): `created_by` is the session the reply
- * was posted in, so only the person it was posted for may. `expectedBody` is a
- * compare-and-swap: a reply that says something else now is a 409, never
- * deleted. A person's own reply goes through {@link deleteOwnReply}.
- */
 export async function deleteReply(
   session: AuthorizedSession,
   documentId: string,
@@ -1494,12 +1173,6 @@ export async function deleteReply(
   return null
 }
 
-/**
- * Delete the reply, tell the room, and take back what it told people, and
- * only that (`onReplyDeleted`): the mention of anyone nothing left on the mark
- * names goes inert, and every other row still quoting it counts one less and
- * quotes nothing.
- */
 async function removeReply(
   session: AuthorizedSession,
   doc: Document,
@@ -1518,18 +1191,8 @@ async function removeReply(
   )
 }
 
-/** Wakes that took a reply up: queued, running, or run to an answer or a stop (`listAnsweringWakes`' set). */
 const TAKEN_UP_WAKES: ReadonlySet<AgentWakeRow['status']> = new Set(['queued', 'started', 'answered', 'stopped'])
 
-/**
- * Whether Piloti has taken a reply up, so its words are no longer its
- * author's alone to change: the reply was for Piloti ({@link replyIsForAgent})
- * and Piloti wrote in the thread after it, or the server's wake of it
- * (`wakeTurnId(reply.id)`, enqueued in the reply's own transaction) is queued,
- * running or ran. A wake a cap held, or one refused or failed before it
- * answered, took nothing up. With wakes off the browser asked Piloti, and only
- * Piloti's answer in the thread says so.
- */
 async function agentTookUp(
   session: AuthorizedSession,
   mark: AnnotationRecord,
@@ -1541,12 +1204,6 @@ async function agentTookUp(
   return wake !== null && TAKEN_UP_WAKES.has(wake.status)
 }
 
-/**
- * The person's own reply, as its author may still change it, or the refusal:
- * 404 when it is not there, 403 for anyone's but their own (Piloti's replies
- * included: a note Piloti posted for them goes by undo), 422 on a closed mark
- * (its thread is the record), 409 once Piloti took it up.
- */
 async function ownReplyOf(
   session: AuthorizedSession,
   documentId: string,
@@ -1573,19 +1230,6 @@ async function ownReplyOf(
   return { doc, existing, reply }
 }
 
-/**
- * Its author rewords their own reply ({@link ownReplyOf} says when they may).
- * Whom it mentions is kept as a new text's is (`keepMentions`): the people it
- * adds are told (`annotation.mentioned`), and the people it drops whom nothing
- * else on the mark names have their row turn inert. The thread hears nothing
- * new: an edit is not a reply. Every row still quoting the reply quotes the
- * new words, without resurfacing (`onReplyEdited`).
- *
- * An edit never wakes Piloti: the wake was the posting's event, decided once.
- * So an @Piloti is kept only when the reply already had it; one added in an
- * edit is not stored, and stays plain text (the composer offers none while
- * editing). Whether the reply addressed Piloti (`addresses_agent`) stays what it was.
- */
 export async function editReply(
   session: AuthorizedSession,
   documentId: string,
@@ -1606,7 +1250,6 @@ export async function editReply(
     body,
     mentions,
   })
-  // Deleted or reworded in another tab a moment ago: say so rather than guess.
   if (!updated) throw conflict()
   announce(session, doc.id, [existing.id], 'updated', actor)
   bestEffort('reword the reply’s rows', () =>
@@ -1623,10 +1266,6 @@ export async function editReply(
   return { annotation: await viewOf(session, doc, existing.id) }
 }
 
-/**
- * Its author deletes their own reply ({@link ownReplyOf} says when they may),
- * and what it told people goes with it ({@link removeReply}).
- */
 export async function deleteOwnReply(
   session: AuthorizedSession,
   documentId: string,
@@ -1639,7 +1278,6 @@ export async function deleteOwnReply(
   return null
 }
 
-/** The Anmerkungen as Piloti reads them: place as a box, without a reader's controls. */
 export async function listAnnotationsForAgent(
   session: AuthorizedSession,
   documentId: string

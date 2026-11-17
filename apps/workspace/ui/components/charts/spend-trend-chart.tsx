@@ -1,22 +1,3 @@
-/**
- * Daily spend trend — single-series bar chart (30 UTC days, zero-filled by
- * the service). Dataviz specs: thin bars with 2px surface gaps and rounded
- * data ends, recessive baseline, no legend for a single series (the card
- * title names it), and all text in text tokens (color only ever paints the
- * marks).
- *
- * The per-day value is never behind a hover: one column is selected (the
- * newest until the reader picks another) and its date, value and request
- * count are printed in a readout above the plot. Tap, drag across the plot,
- * hover or arrow-key to move it (`useColumnSelection`). The 30 columns shrink
- * to the width they are given rather than panning in a scroll box, so on a
- * phone today's bar is on screen without a swipe.
- *
- * Unit-agnostic on purpose (ADR-0053): the tenant's card feeds it credits,
- * the platform's overview feeds it USD cost. The caller names the value and
- * formats it; the chart only draws.
- */
-
 import { type FC } from 'react'
 import { useColumnSelection } from '@/components/charts/use-column-selection'
 import { SectionLabel } from '@/components/ui/section-label'
@@ -30,12 +11,9 @@ export interface SpendTrendPoint {
 
 interface SpendTrendChartProps {
   points: SpendTrendPoint[]
-  /** The unit is the caller's: credits for a tenant, USD for the platform. */
   formatValue: (value: number) => string
-  /** The second half of a column's readout; omit when the value already is the count. */
   requestsLabel?: (count: number) => string
   emptyLabel: string
-  /** Accessible name of the plot (usually the card's title for it). */
   label?: string
 }
 
@@ -76,13 +54,10 @@ export const SpendTrendChart: FC<SpendTrendChartProps> = ({
         ref={plotRef}
         role="group"
         aria-label={label}
-        // `pan-y`: a vertical swipe still scrolls the page, a horizontal one
-        // scrubs through the days instead of being claimed by the browser.
         className="flex h-24 touch-pan-y items-end gap-[2px] border-b border-border"
         {...plotProps}
       >
         {points.map((point, index) => (
-          // Full-height column = hit target bigger than the mark.
           <button
             key={point.day}
             aria-label={readout(point)}
@@ -91,9 +66,6 @@ export const SpendTrendChart: FC<SpendTrendChartProps> = ({
           >
             {point.value > 0 ? (
               <span
-                // 3px, not `rounded-t-sm` (6px): the bar is under 10px wide on
-                // a phone, and a 6px cap turns a mark into a lozenge. A data
-                // end's radius is bounded by the mark's width.
                 className="block w-full rounded-t-[3px]"
                 style={{
                   backgroundColor: 'var(--chart-series-1)',

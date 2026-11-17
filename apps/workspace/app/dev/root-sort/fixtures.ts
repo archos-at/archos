@@ -1,9 +1,3 @@
-/**
- * Fixture for the root-sort review: a three-level architecture folder tree and
- * about forty loose files at its root, with sure and unsure placements, two new
- * folder proposals and a few that stay. Plain data: the preview needs no network.
- */
-
 import type {
   NewFolderProposal,
   RootSortDocument,
@@ -30,7 +24,6 @@ export const fixtureFolders: RootSortFolder[] = FOLDERS.map(([id, name, path, pa
   parentId,
 }))
 
-/** [file name, folder id or null, confidence or null (unscored)], in the order the root lists them. */
 const FILES: Array<
   [name: string, folderId: string | null, confidence: number | null, reason: string]
 > = [
@@ -94,7 +87,6 @@ export const fixturePlacements: RootSortPlacement[] = FILES.flatMap(
       : []
 )
 
-/** Two new folders for leftovers no folder fits; one file is unsure, one is sure. */
 export const fixtureNewFolders: NewFolderProposal[] = [
   {
     path: '01 Entwurf/Dachaufbau',
@@ -110,8 +102,6 @@ export const fixtureNewFolders: NewFolderProposal[] = [
   },
 ]
 
-/** The working state: the judgement is part way through a root of 340 files. */
-/** The working states, by preview variant: what the server reports at each step, with the dialog's own readings. */
 export const fixtureProgress: Record<
   'working' | 'starting' | 'waiting' | 'grouping' | 'applying',
   RootSortProgressProps
@@ -136,7 +126,6 @@ export const fixtureProgress: Record<
   applying: { status: 'applying', done: 310, total: 760, waiting: false, recent: [], remainingSeconds: 50, elapsedSeconds: 0 },
 }
 
-/** The done state: 37 files moved, three did not. */
 export const fixtureOutcome = {
   moved: 37,
   failedCount: 3,

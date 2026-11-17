@@ -1,22 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Erasing a chat's private attachments — and, more to the point, what happens
- * when that erasure FAILS.
- *
- * The document row is the only handle that names a session document's external
- * state: its object in SeaweedFS and its chunks in the retrieval collection.
- * Nothing else lists them, no ledger entry survives without the row, and the
- * key is presignable by anyone who learns it. So the invariant these tests pin
- * is one sentence: **the row outlives every failure to erase what it names.**
- *
- * Both halves used to break it. `deleteDocumentObjects` swallowed every S3
- * error, and `purgeCollectionChunks` treated any answer at all — a 500, a 404
- * naming the wrong collection — as a completed purge. The loop then deleted the
- * rows regardless, which is how a transient blip became private data nobody can
- * ever remove.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { DeleteObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3'
 
@@ -64,10 +48,6 @@ function sessionDoc(overrides: Partial<Document> = {}): Document {
     organizationId: ORG_ID,
     conversationId: CONVERSATION_ID,
     scope: 'session',
-    // A real session row carries this — every `documents` row does, since 0063.
-    // Omitting it made the fixture a shape the application cannot produce, and
-    // `collectionFileRef` (correctly) refuses such a row, which is what turned
-    // the omission into a failing test rather than a silent one.
     authoredBy: 'user',
     filename: 'brandschutz.pdf',
     collectionName: CONVERSATION_ID,
@@ -77,7 +57,6 @@ function sessionDoc(overrides: Partial<Document> = {}): Document {
   } as unknown as Document
 }
 
-/** A fetch stand-in: `ok` is what the code must now read, and used not to. */
 function stubFetch(response: { ok: boolean; status?: number } | Error): void {
   vi.stubGlobal(
     'fetch',
@@ -110,8 +89,6 @@ describe('deleteDocumentObjects', () => {
       `org/${ORG_ID}/session/${CONVERSATION_ID}/doc/doc-1/_thumb.jpg`,
       `org/${ORG_ID}/session/${CONVERSATION_ID}/doc/doc-1/_render.pdf`,
     ])
-    // The rasters ingestion cut out of the PDF live under `_img/`; the sweep
-    // lists that prefix so none of them outlives the document.
     const listed = commands.find(
       (command): command is ListObjectsV2Command => command instanceof ListObjectsV2Command,
     )
@@ -128,9 +105,6 @@ describe('deleteDocumentObjects', () => {
     expect(result.reason).toContain('connection reset')
   })
 
-  // The thumbnail is rendered FROM the private file and the `_bim/` derivatives
-  // are the parsed building. Leaving either behind is a disclosure, not a
-  // cosmetic remainder, so neither may be swallowed the way both used to be.
   it('reports FAILURE when the thumbnail cannot be removed', async () => {
     send.mockResolvedValueOnce({}).mockRejectedValueOnce(new Error('thumb 503'))
 
@@ -149,17 +123,12 @@ describe('deleteDocumentObjects', () => {
     expect(result.reason).toContain('list timed out')
   })
 
-  // Idempotency is what lets a retry finish: it re-walks documents whose object
-  // it already deleted, so "not there" has to be the outcome we wanted.
   it('treats an object that is already gone as success', async () => {
     send.mockRejectedValueOnce(Object.assign(new Error('NoSuchKey'), { name: 'NoSuchKey' }))
 
     await expect(deleteDocumentObjects(sessionDoc())).resolves.toEqual({ ok: true })
   })
 
-  // `storage_key` is NOT NULL, so this is the legacy/hand-edited shape rather
-  // than one the upload path can produce — and a row naming no object has
-  // nothing to erase, which is success.
   it('is a no-op success for a row that names no object', async () => {
     await expect(deleteDocumentObjects(sessionDoc({ storageKey: '' }))).resolves.toEqual({ ok: true })
     expect(send).not.toHaveBeenCalled()
@@ -167,15 +136,11 @@ describe('deleteDocumentObjects', () => {
 })
 
 describe('purgeCollectionChunks', () => {
-  // Built through the constructor, like production: a bare filename is no
-  // longer callable, which is the point of the signature.
   const ref = (filename: string) => {
     const value = collectionFileRef({
       collectionName: CONVERSATION_ID,
       filename,
       authoredBy: 'user',
-      // A session attachment's own bytes: a person uploaded them, and a human
-      // upload owns its chunks whatever its version pointer says.
       publishedVersionId: null,
     })
     if (!value) throw new Error('fixture is not a user-authored row')
@@ -186,8 +151,6 @@ describe('purgeCollectionChunks', () => {
     await expect(purgeCollectionChunks(CONVERSATION_ID, [ref('a.pdf')])).resolves.toEqual({ ok: true })
   })
 
-  // The bug: `fetch` rejects only on a transport error, so a 500 resolved and
-  // every caller read that as "the chunks are gone".
   it('reports FAILURE on a non-2xx answer', async () => {
     stubFetch({ ok: false, status: 500 })
 
@@ -204,10 +167,6 @@ describe('purgeCollectionChunks', () => {
   })
 
   it('refuses a row that owns no chunks, so the purge cannot address another document', () => {
-    // The gate, at the one place a caller could still have passed a bare string.
-    // A machine-authored row is never ingested, so purging by its filename would
-    // delete the chunks of whatever human document shares that name — the leak
-    // this signature exists to make unrepresentable.
     expect(
       collectionFileRef({
         collectionName: CONVERSATION_ID,
@@ -237,18 +196,7 @@ describe('purgeSessionDocuments', () => {
     expect(deleteSessionDocumentsByIds).toHaveBeenCalledWith(['doc-1', 'doc-2'], ORG_ID, CONVERSATION_ID)
   })
 
-  /**
-   * THE regression. With the old code this test fails on both assertions: the
-   * S3 error was swallowed, the function returned void, and the row went with
-   * the rest of the page — leaving a private PDF in the tenant's bucket that
-   * nothing lists, nothing can delete, and that still counts against the
-   * organization's quota.
-   */
   it('never sends a machine-authored filename to the chunk purge', async () => {
-    // The sweep batches filenames per collection, and the batch is where a
-    // machine-authored row would have addressed a human document's chunks: the
-    // backend deletes by `file_ids`, so one wrong name in the list deletes
-    // somebody else's passages while their row keeps its „zitierbar" badge.
     listSessionDocumentsForCleanup.mockResolvedValue([
       sessionDoc(),
       sessionDoc({ id: 'doc-2', filename: 'brandschutz.pdf', authoredBy: 'agent' } as Partial<Document>),
@@ -273,7 +221,6 @@ describe('purgeSessionDocuments', () => {
 
     expect(result.ok).toBe(false)
     expect(result.retained).toBe(1)
-    // Called with NO ids: an empty delete, not a delete of the failed row.
     expect(deleteSessionDocumentsByIds).toHaveBeenCalledWith([], ORG_ID, CONVERSATION_ID)
   })
 
@@ -286,8 +233,6 @@ describe('purgeSessionDocuments', () => {
     expect(result.ok).toBe(false)
     expect(result.retained).toBe(1)
     expect(deleteSessionDocumentsByIds).toHaveBeenCalledWith([], ORG_ID, CONVERSATION_ID)
-    // The object is still swept — that is progress the retry need not repeat,
-    // and an object already gone is success for the retry too.
     expect(send).toHaveBeenCalled()
   })
 
@@ -305,12 +250,6 @@ describe('purgeSessionDocuments', () => {
     expect(deleteSessionDocumentsByIds).toHaveBeenCalledWith(['doc-good'], ORG_ID, CONVERSATION_ID)
   })
 
-  /**
-   * Retained rows stay in the listing at the same position, so a loop that
-   * re-read until the page came back empty would re-attempt the same page for
-   * ever. The old shape could not have this failure because it always emptied
-   * what it read; keeping rows is what introduces it.
-   */
   it('terminates when every row on the page is retained', async () => {
     listSessionDocumentsForCleanup.mockResolvedValue([sessionDoc()])
     send.mockRejectedValue(new Error('still down'))
@@ -354,7 +293,6 @@ describe('purgeSessionDocuments', () => {
       vi.fn(async (_url: string, init?: RequestInit) => {
         bodies.push(init?.body as string)
         calls += 1
-        // The first purge succeeds, the second one fails.
         return calls === 1 ? { ok: true, status: 200 } : { ok: false, status: 502 }
       }),
     )
@@ -379,13 +317,7 @@ describe('purgeSessionDocuments', () => {
   })
 })
 
-/**
- * The chat's collection as a whole: what the conversation delete erases after
- * the rows, so chunks no row names do not outlive the chat. Idempotent, because
- * most chats never had one and a retry finds it already gone.
- */
 describe('deleteSessionCollection', () => {
-  /** Answers in call order: the existence probe first, then the delete. */
   function stubFetchSequence(...statuses: number[]): ReturnType<typeof vi.fn> {
     const fetchMock = vi.fn()
     for (const status of statuses) {
@@ -408,8 +340,6 @@ describe('deleteSessionCollection', () => {
   })
 
   it('treats a missing collection as already erased, without deleting', async () => {
-    // The backend answers a DELETE of a missing collection with 500, so asking
-    // first is what keeps "never had attachments" from failing the chat delete.
     const fetchMock = stubFetchSequence(404)
 
     expect(await deleteSessionCollection(CONVERSATION_ID)).toEqual({ ok: true })

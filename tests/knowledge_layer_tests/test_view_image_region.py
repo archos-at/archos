@@ -1,21 +1,12 @@
-"""A region of a page, rendered alone: the box a person drew on the review canvas.
-
-The PDFs here are real ones, built with pypdfium2, with a red square in a known
-corner. That is what pins the two facts the crop maths rests on and pypdfium2
-only states in a docstring: ``page.get_size()`` is the page as shown (its
-``/Rotate`` applied), and ``render(crop=...)`` cuts points off the edges of that
-shown page, scaled and rounded up, allocating only what is left.
-"""
-
 from __future__ import annotations
 
 import io
 
-import knowledge_layer.ingest.adapter as llm_adapter
 import pypdfium2 as pdfium
 import pypdfium2.raw as pdfium_c
 import pytest
 from knowledge_layer import view_image as view
+from knowledge_layer.ingest import vision_credentials
 from knowledge_layer.view_image import ViewLimits
 from knowledge_layer.view_image import _crop_image_region
 from knowledge_layer.view_image import _render_pdf_region
@@ -33,7 +24,6 @@ WHITE = (255, 255, 255)
 
 
 def _pdf(width: float, height: float, rotation: int = 0) -> bytes:
-    """One page, a red square on the top-left quarter of the page as stored (PDF y runs up)."""
     doc = pdfium.PdfDocument.new()
     page = doc.new_page(width, height)
     square = pdfium_c.FPDFPageObj_CreateNewRect(0, height * 0.75, width * 0.25, height * 0.25)
@@ -60,11 +50,6 @@ def _centre(image: Image.Image) -> tuple[int, ...]:
     return image.getpixel((image.width // 2, image.height // 2))
 
 
-# ---------------------------------------------------------------------------
-# The maths
-# ---------------------------------------------------------------------------
-
-
 def test_the_crop_cuts_each_edge_of_the_shown_page_in_points():
     scale, crop = region_render_args((0.1, 0.2, 0.5, 0.25), *A4, max_dim=2048)
 
@@ -73,7 +58,6 @@ def test_the_crop_cuts_each_edge_of_the_shown_page_in_points():
     assert top == pytest.approx(168.4)
     assert right == pytest.approx(595 - 59.5 - 297.5)
     assert bottom == pytest.approx(842 - 168.4 - 210.5)
-    # The long edge of the box (297.5 pt wide) lands on max_dim pixels.
     assert scale * 297.5 == pytest.approx(2048)
 
 
@@ -120,11 +104,6 @@ def test_a_box_flush_with_the_edge_survives_float_rounding():
     assert parse_region([0.3, 0.0, 0.7000000000000001, 1.0]) == pytest.approx((0.3, 0.0, 0.7, 1.0))
 
 
-# ---------------------------------------------------------------------------
-# Real pages
-# ---------------------------------------------------------------------------
-
-
 def test_the_top_left_box_of_an_upright_page_is_the_red_square():
     jpeg, width, height, widened = _render_pdf_region(_pdf(*A4), 1, (0.0, 0.0, 0.25, 0.25), 2048)
 
@@ -145,8 +124,6 @@ def test_a_box_beside_the_square_shows_none_of_it():
 @pytest.mark.parametrize(
     ("rotation", "box"),
     [
-        # The square sits top left as stored; turned clockwise it is shown top right,
-        # then bottom right, then bottom left. The box is drawn on the page as shown.
         (90, (0.75, 0.0, 0.25, 0.25)),
         (180, (0.75, 0.75, 0.25, 0.25)),
         (270, (0.0, 0.75, 0.25, 0.25)),
@@ -165,8 +142,6 @@ def test_a_rotated_page_is_cropped_as_it_is_shown(rotation, box):
 def test_a_rotated_page_keeps_the_proportions_of_the_shown_box():
     _, width, height, _ = _render_pdf_region(_pdf(*A4, rotation=90), 1, (0.0, 0.0, 0.5, 0.25), 1024)
 
-    # Shown, the page is 842 wide and 595 high: half its width is 421 pt, a
-    # quarter of its height 148.75 pt.
     assert width / height == pytest.approx(421 / 148.75, rel=0.02)
 
 
@@ -191,7 +166,6 @@ def test_a_huge_page_never_allocates_the_whole_sheet(monkeypatch):
 
     _, width, height, _ = _render_pdf_region(_pdf(*A0), 1, (0.4, 0.4, 0.05, 0.05), 2048)
 
-    # The whole A0 sheet at the box's scale would be about 17 000 x 24 000 px.
     assert allocated == [(width, height)]
     assert max(allocated[0]) <= 2050
 
@@ -214,15 +188,10 @@ def test_an_uploaded_image_is_cropped_to_the_box():
     assert _near(_centre(_image(jpeg)), RED)
 
 
-# ---------------------------------------------------------------------------
-# Through the tool's body
-# ---------------------------------------------------------------------------
-
-
 @pytest.fixture
 def _viewable(monkeypatch, tmp_path):
     monkeypatch.setenv("VIEW_IMAGES_ENABLED", "true")
-    monkeypatch.setattr(llm_adapter, "_get_vlm_api_key", lambda: "sk-test")
+    monkeypatch.setattr(vision_credentials, "_get_vlm_api_key", lambda: "sk-test")
     path = tmp_path / "Grundriss_EG.pdf"
     path.write_bytes(_pdf(*A4))
     monkeypatch.setattr(view, "_find_pdf", lambda _name: str(path))

@@ -1,6 +1,5 @@
 import type { en } from '../en'
 
-/** chat namespace — populated during component i18n. */
 export const chat: typeof en.chat = {
   actions: {
     dismiss: 'Schließen',
@@ -31,29 +30,20 @@ export const chat: typeof en.chat = {
     cited: 'Zitiert',
     loadFailed: 'Die Quellenvorschau konnte nicht geladen werden. Bitte versuchen Sie es erneut.',
     bindingLabel: 'Bindungswirkung',
-    // Coarse binding classification beside the tier badge. `unbekannt` has no
-    // entry on purpose — an unclassified source shows no pill at all.
     binding: {
       binding: 'Bindend',
       declared_binding: 'Verbindlich erklärt',
       interpretive: 'Auslegend',
     },
     openExternal: 'Im RIS öffnen',
-    // Office-Dateien (Word, Excel, PowerPoint, ODF, RTF) zeigt der Viewer als
-    // PDF, das Piloti aus dem Original erzeugt (ADR-0070); das Original bleibt
-    // unverändert und herunterladbar.
     renditionNote: 'PDF-Vorschau des Originals',
     renditionPending: 'PDF-Vorschau wird erstellt…',
     downloadOriginal: 'Original herunterladen',
     openBesideChat: 'Neben dem Chat öffnen',
-    // Coarse source kind (ADR-0026) shown in the info popover. Preferred
-    // over `origins` because the origin token is kb/ris/web only, so a
-    // knowledge-base copy of a legal text reads as project material.
     kinds: {
       building_law: 'Baurecht & Richtlinien',
       office: 'Büroablage',
       project: 'Projektwissen',
-      // Eine Quelle aus einem anderen Projekt, die als Vorbild dient (ADR-0094); gleiche Farbe wie „Projektwissen“.
       praezedenz: 'Präzedenzfall',
       web: 'Webquelle',
     },
@@ -63,8 +53,6 @@ export const chat: typeof en.chat = {
       web: 'Webquelle',
     },
   },
-  // Dokumentraster: echte Projekt-/Büroablage-Dateien, die der Assistent als
-  // anklickbare Vorschaukarten anzeigt (`document_grid`-Karte / `surface_documents`).
   documentAnswer: {
     countOne: '1 Dokument',
     countOther: '{count} Dokumente',
@@ -73,40 +61,24 @@ export const chat: typeof en.chat = {
       project: 'Projekt',
       office: 'Büro',
     },
-    // Eine referenzierte Datei, die sich nicht mehr auf eine Dokumentzeile
-    // auflösen lässt — eine ehrliche, handlungsfähige Karte (in der Büroablage / in den
-    // Projektdateien öffnen) statt einer stummen toten Kachel.
     unresolvedHint: 'Der Assistent hat diese Datei referenziert.',
     openInOfficeShelf: 'In der Büroablage öffnen',
-    // Die Auswahl zeigt nur die besten Treffer; der Link öffnet dieselbe Suche mit allen.
     openInSearch: 'In der Suche öffnen',
     openInFiles: 'In den Projektdateien öffnen',
-    // Der Auflösungs-Abruf ist fehlgeschlagen — eine Wiederholaktion statt einer
-    // dauerhaft toten Kachel.
     loadError: 'Dokumente konnten nicht geladen werden.',
     retry: 'Erneut versuchen',
     openAria: 'Dokument öffnen: {label}',
     thisFile: 'Diese Unterlage',
     choose: 'Welche Datei?',
-    // Ruhige Quittung, wenn die Karte genau eine Datei neben dem Chat geöffnet hat.
     showing: '{label} wird angezeigt',
   },
-  // Eine Datei, die die Antwort im Fließtext beim Namen nennt („Beginnen Sie mit
-  // pd8280-2.pdf") — kein Beleg, sondern ein Zeiger auf ein Dokument, das die
-  // Leserin besitzt. Der Klick öffnet es neben der Antwort.
   fileReference: {
     openAria: 'Datei öffnen: {name}',
-    // Das Dokument, das Piloti lesen kann: Öffnen heißt hier zugleich, dass
-    // sich die nächste Frage darauf bezieht — eine Beschriftung, die nur die
-    // Hälfte davon nennt, überrascht genau die Leserin, für die sie da ist.
     openAskAria: '{name} öffnen und dazu fragen',
     open: 'Neben der Antwort öffnen',
     openAsk: 'Öffnen und dazu fragen',
     pages: '{count, plural, one {# Seite} other {# Seiten}}',
-    // Wenn die Antwort den Namen anders geschrieben hat als die Datei heißt.
     writtenAs: 'Im Text: {name}',
-    // Regal, aus dem die Datei stammt — dieselbe Unterscheidung wie bei den
-    // Quellen: geteiltes Projektwissen, die Büroablage, private Beilage.
     shelf: {
       project: 'Projektdateien',
       office: 'Büroablage',
@@ -115,21 +87,16 @@ export const chat: typeof en.chat = {
     notIndexed:
       'Abgelegt, nicht gelesen. Sie können die Datei öffnen, aber {productName} zitiert sie nicht.',
     failed: 'Lesen fehlgeschlagen. {productName} kann diese Datei nicht zitieren.',
-    // Von der Inhaltsprüfung zurückgehalten (ADR-0086): nie „freigeben“.
     held: 'Zurückgehalten: Die Inhaltsprüfung hält diese Datei von {productName} fern. {productName} zitiert sie erst, wenn jemand sie zulässt.',
   },
   composer: {
-    /** Shown when the reader holds project:view but not project:chat. */
     noProjectChatPermission:
       '{productName} steht Ihnen in diesem Projekt derzeit nicht zur Verfügung. Wenn Sie nur Lesezugriff haben, kann Ihnen eine Projektadministratorin oder ein Projektadministrator die Rolle „Mitwirkender“ erteilen.',
     placeholder: 'Fragen Sie {productName} zu diesem Projekt …',
     sources: 'Datengrundlage',
     sourcesAria: 'Datengrundlage – {enabled} von {total} Quellen aktiv. Öffnet die Datenquellen.',
-    // Mobile-only cue: the source/scope labels collapse to icons on phones, so a
-    // tiny one-line hint under the composer keeps the active source count legible.
     sourcesActiveMobile: '{count, plural, one {# Quelle} other {# Quellen}} aktiv',
   },
-  // Spracheingabe im Eingabefeld (features/dictation).
   dictation: {
     start: 'Diktieren',
     startHint:
@@ -157,9 +124,6 @@ export const chat: typeof en.chat = {
       notSaved: 'Die Aufnahme konnte nicht gespeichert werden. Bitte sprechen Sie es noch einmal ein.',
     },
   },
-  // Der Reiter einer Quellenkarte in der Herleitung: die grobe Ebene, wenn der
-  // Server keine feine Lane benannt hat, und das Regal, auf dem das Dokument
-  // laut Wire liegt (ADR-0047: Deutsch ist Darstellung, nie Transport).
   sourceTabs: {
     law: 'Baurecht',
     project: 'Projektwissen',
@@ -172,9 +136,6 @@ export const chat: typeof en.chat = {
       session: 'Private Sitzung',
       base: 'Basiswissen',
     },
-    // Die feine Spur eines Dokuments (`norm_registry`), in der Sprache der
-    // Lesenden: Das Backend schickt sie nur deutsch (`laneLabel`). Projekt,
-    // Büroablage und Web fehlen hier, sie sagt die Ablage oben.
     lanes: {
       building_law_oib: 'OIB-Richtlinie',
       building_law_oib_guide: 'OIB-Leitfaden',
@@ -190,6 +151,7 @@ export const chat: typeof en.chat = {
       authority: 'Behördliche Information',
       external_standard: 'Externe Norm',
       office_piloti: '{productName}-Dokument',
+      office_agent: '{productName}-Dokument',
       measurement: 'Modellmessung',
     },
   },
@@ -207,27 +169,15 @@ export const chat: typeof en.chat = {
     afternoon: 'Guten Tag',
     evening: 'Guten Abend',
     withName: '{greeting}, {name}.',
-    // Der leere Chat in einem Projekt sagt EINE Sache über sich: dass Piloti
-    // nicht nur antwortet, sondern schreibt. Sonst entdeckt das nur, wer eine
-    // Bitte zufällig als Auftrag formuliert (Ledger 23). Nur im Projekt, weil
-    // ohne Projekt kein Ablageort existiert, in den ein Entwurf ginge.
     projectWrites:
       '{productName} beantwortet nicht nur Fragen – auf Zuruf schreibt {productName} Aktenvermerke, Notizen und Entwürfe direkt in die Projektdateien.',
   },
-  // Wessen Zug eine Nachricht ist, nur für den Screenreader: am Bildschirm
-  // sagen es Blase und Antwortkarte, kein Rollen-Tab (Notion #38, Thema 9).
   roles: {
     input: 'Eingabe',
     result: 'Ergebnis',
-    // Rollen-Tab für eine konversationelle / klärende Antwort (routing_decision
-    // = 'meta' oder answer_meta.kind = 'direct': Begrüßungen, Fähigkeits- und
-    // Rückfragen) — deutlich abgesetzt von einem inhaltlichen Baurecht-'Ergebnis'.
     note: 'Hinweis',
-    // Walkthrough: eine geführte Antwort ohne Urteil — nicht das Ergebnis-Dokument.
     answer: 'Antwort',
   },
-  // Die Befundmatrix über dem Bericht: eine Zeile je Anforderung, die der
-  // Bericht gegen das Projekt gelesen hat.
   findings: {
     label: 'Befunde',
     page: 'S. {page}',
@@ -246,13 +196,9 @@ export const chat: typeof en.chat = {
       not_applicable: 'nicht anwendbar',
     },
     grounding: { sourced: 'belegt', derived: 'abgeleitet', open: 'ohne Beleg' },
-    // Ein offener Befund lässt sich als eigener Auftrag klären; der Lauf
-    // erscheint als Block in diesem Verlauf.
     clarify: 'Klären',
-    /** Unter der Matrix in einem abgeschlossenen Projekt, wo „Klären“ stünde (ADR-0090). */
     clarifyClosed: 'Abgeschlossenes Projekt: keine neue Recherche zu offenen Befunden.',
     commissioned: 'Aufgabe angelegt',
-    // Gegenüber dem vorigen Bericht zum selben Thema.
     change: {
       new: 'neu',
       changed: 'geändert',
@@ -262,29 +208,17 @@ export const chat: typeof en.chat = {
   answerSources: {
     label: 'Belegt durch',
     ariaLabel: 'Quellen, auf die sich diese Antwort stützt',
-    // Ehrliche „Lücke“-Zeile: eine inhaltliche Antwort ohne Quellenangabe zeigt
-    // dies in der neutralen --source-auto-Familie, statt die fehlende Beleglage
-    // zu verbergen (Designsprache — erstklassige Wissenslücken-Behandlung).
     gapLabel: 'Ohne Quellenbeleg',
     gapAria: 'Diese Antwort nennt keine Quellen',
-    // Die zusammengeführte Liste nummeriert jede Quelle so, wie die [N]-Marker
-    // im Antworttext sie zitieren, und nennt die belegte Seite nach dem Chip.
     sourceNumber: 'Quelle {number}',
     page: 'S. {page}',
     pages: 'S. {pages}',
-    // Die Meldezeile einer Präzedenz aus einem anderen Projekt: Projekt, Status, dann das Bundesland.
     precedentProject: '{name} · {status}',
     projectStatus: { active: 'laufend', paused: 'ruhend', closed: 'abgeschlossen' },
-    // Quellen jenseits der acht Chips falten sich hinter denselben Auslöser wie
-    // die gelesenen Quellen: die Zahl zuerst, jeder Name beim Aufklappen.
     more: '+{count} weitere',
     less: 'Weniger anzeigen',
-    // Die Fundstelle in der Zählung des Gesetzes selbst: ein Punkt der
-    // Richtlinie, wenn der Chunker einen ermittelt hat, sonst nur die Seite.
     clause: 'Pkt. {clause}',
     clausePage: 'Pkt. {clause} · S. {page}',
-    // Zitate zum Weiterverwenden — je Quelle als Fachtext, für die ganze
-    // Antwort in den Formaten, die externe Werkzeuge einlesen.
     copyCitation: 'Zitat kopieren',
     copied: 'Kopiert',
     copyCitationAria: 'Zitat kopieren: {label}',
@@ -299,45 +233,20 @@ export const chat: typeof en.chat = {
       ris: { label: 'EndNote/Zotero (.ris)', hint: 'Literaturverwaltung' },
       'csl-json': { label: 'CSL-JSON', hint: 'Zotero, Word, pandoc' },
     },
-    // Hinweis unter der Quellenzeile, wenn die Zitatprüfung nicht belegbare
-    // Quellenangaben entfernt hat (WP-A `citations_removed`).
     citationsRemoved:
       '{count, plural, one {# Quellenangabe entfernt} other {# Quellenangaben entfernt}} (nicht verifizierbar)',
     citationsRemovedReasonsLabel: 'Gründe',
-    // Die Recherche wurde an der Iterationsgrenze abgebrochen, nicht beendet.
-    // Eine Aussage über die BELEGLAGE, keine Fehlermeldung und kein Urteil über
-    // die Antwort — deshalb im selben Register wie die Quellenzeile darüber.
-    // Unabhängig von der Selbsteinschätzung: die bewertet, ob die Aussagen
-    // belegt sind, nicht ob die Suche zu Ende gelaufen ist.
     researchTruncated:
       'Recherche vorzeitig beendet — die Antwort stützt sich auf die bis dahin gefundenen Belege',
-    // Derselbe Sachverhalt, wenn die Antwort gar keine Quellen nennt: der Satz
-    // oben verspräche „die bis dahin gefundenen Belege“, die es nicht gibt.
     researchTruncatedWithoutSources: 'Recherche vorzeitig beendet, bevor Belege gefunden wurden',
-    // Die Suche lief und fand nichts; die Antwort steht trotzdem da (ADR-0125),
-    // und dieser Satz sagt, worauf sie dann beruht.
     lookupFoundNothing:
       'Die Suche hat keine Quellen gefunden. Diese Antwort beruht auf allgemeinem Wissen und ist nicht belegt.',
-    // WOMIT sie endete — als kurzer Zusatz in Klammern hinter dem jeweils
-    // zutreffenden Satz oben. Dass vorzeitig Schluss war, ist der Sachverhalt;
-    // woran es lag, entscheidet, ob eine erneute Anfrage etwas bringt.
-    //
-    // Schlüssel ist wörtlich das stabile Token des Backends, damit die Zuordnung
-    // gegen den Erzeuger prüfbar bleibt. Ein Token ohne Eintrag wird gar nicht
-    // gerendert: `wall_clock` darf nie beim Leser ankommen.
     truncationReason: {
       wall_clock: 'Zeitgrenze erreicht',
-      // Ein Timeout von unten (Anbieter/Transport), nicht das eigene Budget des
-      // Laufs. Für den Leser ist beides dasselbe: die Recherche endete an einer
-      // Zeitgrenze. Getrennt gezählt wird es nur intern.
       upstream_timeout: 'Zeitgrenze erreicht',
       step_limit: 'Schrittgrenze erreicht',
       user_requested: 'auf Ihren Wunsch beendet',
     },
-    // Wodurch diese gerettete Antwort schwächer ist als die eines sauberen
-    // Laufs. Gleiches Register wie oben — leise, sachlich, über die BELEGLAGE —
-    // aber jede Zeile nennt etwas, woran der Leser anknüpfen kann; deshalb
-    // stehen sie da und nicht im Abbruchsatz mit drin.
     degradedReason: {
       no_report_file:
         'Kein Recherchebericht abgelegt — diese Antwort ist die einzige Aufzeichnung des Laufs',
@@ -348,10 +257,6 @@ export const chat: typeof en.chat = {
       basis_unread:
         'Nicht alle als Grundlage benannten Unterlagen wurden gelesen — welche fehlen, steht am Ende des Berichts',
     },
-    // Die Gründe der Zitatprüfung, in der Sprache des Lesers. Das Backend nennt
-    // sie als Token (`url_not_in_registry`, …), und genau so standen sie bisher
-    // im Tooltip; ein nicht zugeordnetes Token entfällt jetzt, statt roh
-    // angezeigt zu werden.
     citationsRemovedReason: {
       url_not_in_registry: 'URL nicht unter den abgerufenen Quellen',
       citation_key_not_in_registry: 'Dokument nicht unter den abgerufenen Quellen',
@@ -361,27 +266,18 @@ export const chat: typeof en.chat = {
       quote_unverified: 'Zitat nicht verifizierbar',
     },
   },
-  // Die Antwort aus Piloti herausbekommen — für Prüfvermerk, Mail, Einreichung.
-  // Zwei Icon-Schaltflächen in der Metazeile der Antwort; die zweite gibt es nur,
-  // wenn die Antwort überhaupt Quellen aufgelöst hat.
   answerActions: {
     copy: 'Antwort kopieren',
     copyWithSources: 'Antwort mit ausgeschriebenen Quellenangaben kopieren',
     copied: 'Kopiert',
     copyFailed: 'Die Antwort konnte nicht kopiert werden.',
-    // Überschrift, unter der die ausgeschriebene Quellenliste steht — dieselbe,
-    // die die Antworten selbst schreiben, damit eine eingefügte Antwort gleich
-    // aussieht, egal über welche Schaltfläche sie kopiert wurde.
     sourcesHeading: 'Quellen',
     untitledSource: 'Quelle ohne Titel',
     downloadDocx: 'Als Word-Dokument herunterladen',
     downloadFailed: 'Das Word-Dokument konnte nicht erstellt werden.',
-    // Systemdialog „Teilen“ am Telefon: Beschriftung und Titel der geteilten Nachricht.
     share: 'Antwort teilen',
     shareTitle: 'Antwort von {productName}',
   },
-  // Die Abschnittsliste einer langen Antwort (Bericht): auf dem Telefon der Weg zu
-  // einem Abschnitt, ohne bis nach oben zu scrollen.
   outline: {
     label: 'Abschnitte',
     count: '{count, plural, one {# Abschnitt} other {# Abschnitte}}',
@@ -389,7 +285,6 @@ export const chat: typeof en.chat = {
     title: 'Abschnitte',
     description: 'Zu einem Abschnitt dieser Antwort springen.',
   },
-  // Der Zitat-Peek: was diese Fundstelle IST, bevor man sie öffnet.
   citationPeek: {
     pageThumbnail: 'Seite {page}',
     thumbnailLoading: 'Die Seite wird gezeichnet',
@@ -398,9 +293,6 @@ export const chat: typeof en.chat = {
     notOpenable: 'Zu dieser Quelle liegt in {productName} keine Datei vor.',
     sheetTitle: 'Quelle {number}',
     sheetDescription: 'Die Fundstelle im Wortlaut und der Weg ins Dokument.',
-    // Das Dokument IST da — nur sein Format kann Piloti nicht zeichnen. Ohne
-    // diesen Satz las sich das Fehlen der Öffnen-Schaltfläche als „die Datei
-    // ist weg", und genau das wurde gemeldet.
     noInlineViewer:
       'Dieses Dateiformat lässt sich in {productName} nicht anzeigen. Sie können das Dokument herunterladen und in Ihrem Programm öffnen.',
     download: 'Dokument herunterladen',
@@ -415,8 +307,6 @@ export const chat: typeof en.chat = {
     previousLocus: 'Vorherige Fundstelle',
     nextLocus: 'Nächste Fundstelle',
     retrievedOnly: 'Gelesen',
-    // Das Dokument ist eine Fassung, die eine Person durch eine neuere ersetzt hat. Die Zitation bleibt wahr
-    // für die Datei, die sie nennt; der Leser soll es nur wissen, bevor er sich darauf verlässt.
     olderRevision: 'Ältere Fassung – aktuell:',
     openCurrentRevisionAria: 'Aktuelle Fassung öffnen: {name}',
     currentRevisionUnavailable: 'Die aktuelle Fassung lässt sich nicht öffnen.',
@@ -436,9 +326,6 @@ export const chat: typeof en.chat = {
         'Bei „{subject}“ fehlt eine Angabe. Welche Angabe wird dafür benötigt, und woher bekomme ich sie?',
     },
 
-    // ── Gemeinsame Schematik-Chrome ────────────────────────────────────────
-    // `kit.tsx` zeichnet acht Karten. Sein Wortschatz steht hier, weil er
-    // auf jeder einzelnen erscheint: Verdikt, fehlende Angabe, Herkunft.
     kit: {
       eyebrow: 'Skizze',
       status: {
@@ -447,15 +334,12 @@ export const chat: typeof en.chat = {
         warning: 'grenzwertig',
         needsInput: 'Angabe fehlt',
       },
-      // Steht dort, wo eine Zahl stünde, die niemand kennt. Nie eine geratene
-      // Zahl — ein leeres Feld liest sich als Aussage über das Gebäude.
       missingValue: 'fehlende Angabe',
       provenance: {
         declared: 'laut Modell',
         computed: 'gemessen',
         inferred: 'vermutlich',
       },
-      // Langform im Tooltip, wo Platz ist, das Wort zu erklären.
       provenanceTitle: {
         declared: 'Diese Zahl steht so in der IFC-Datei — eine Angabe der Architektin.',
         computed: 'Aus der Geometrie gemessen, nicht deklariert. Die Toleranz gehört zur Aussage.',
@@ -467,12 +351,7 @@ export const chat: typeof en.chat = {
     followUps: {
       eyebrow: 'Weiterfragen',
       groupAria: 'Weiterführende Fragen',
-      // Der eine clientseitige Chip unter einer langen Antwort: das Angebot,
-      // das sonst niemand entdeckt — Piloti schreibt auch (Ledger 23).
       fileNote: 'Als Aktenvermerk schreiben',
-      // Was der Chip in den Eingabebereich schreibt. Bewusst nicht die
-      // Beschriftung: „Als Aktenvermerk schreiben“ ist ein Satzfragment und
-      // keine Bitte.
       fileNotePrefill: 'Schreib das als Aktenvermerk in mein Projekt.',
     },
     workReport: {
@@ -495,7 +374,6 @@ export const chat: typeof en.chat = {
       more: 'Mehr dazu',
       less: 'Weniger',
     },
-    // Ein auf wenige Zeilen gekürzter Text, der sich per Tipp öffnen lässt (ClampedText).
     clamp: {
       more: 'Mehr anzeigen',
       less: 'Weniger anzeigen',
@@ -504,26 +382,15 @@ export const chat: typeof en.chat = {
       eyebrow: 'Rechenweg',
       result: 'Ergebnis',
       limitLabel: 'Grenzwert',
-      // Ein Bereich als Grenzwert, etwa 59–65 cm der Schrittmaßregel. Der
-      // Gedankenstrich wird vom Code gesetzt, also steht die Form hier.
       limitRange: '{lower}–{upper} {unit}',
-      // Ein Operand, der das Ergebnis eines früheren Schritts ist.
       fromStep: 'aus Schritt {step}',
-      // Steht dort, wo das Ergebnis stünde. Nie eine halbe Zahl: einem
-      // Rechenweg ohne alle Werte fehlt das Ergebnis, und eines trotzdem
-      // hinzuschreiben ist genau der Fehler, den diese Karte ausschließt.
       undecidable: 'Mit den vorliegenden Angaben nicht berechenbar.',
       undefinedResult: 'Durch null geteilt — das Ergebnis ist nicht definiert.',
       sourcesMore: 'Woher die Zahlen kommen',
       sourcesLess: 'Weniger',
-      // Steht in der Aufklappung, wo die Eingangswerte ohnehin geprüft werden:
-      // gerechnet hat die Karte, zu prüfen sind die Werte.
       computedNote:
         'Das Ergebnis wird von dieser Karte aus den obigen Werten berechnet, nicht aus der Antwort übernommen.',
     },
-    // Eine benannte Rechenregel, deren Eingangswerte die Lesenden ändern
-    // können (ADR-0143). Gerechnet wird im Browser; eine geänderte Zahl ist
-    // „Ihre Annahme", nicht die der Quelle, und wird nirgends gespeichert.
     formula: {
       eyebrow: 'Was wäre, wenn',
       hint: 'Ändern Sie einen Wert: Das Ergebnis wird sofort neu berechnet. Gespeichert wird nichts.',
@@ -531,15 +398,10 @@ export const chat: typeof en.chat = {
       derivationLabel: 'Rechenweg',
       checksLabel: 'Beurteilung',
       notesLabel: 'Hinweise',
-      // Neben einem Wert, den die Lesenden geändert haben, und neben jeder
-      // Beurteilung, die auf ihm beruht. Er ist ihre Annahme, nicht die Angabe
-      // der Quelle, und das muss man sehen, bevor man ihn weitergibt.
       yourAssumption: 'Ihre Annahme',
-      // Neben der Beurteilung im Kopf der Karte, wenn sie auf einer Annahme beruht.
       withYourAssumptions: 'mit Ihren Annahmen',
       sourceValue: 'Quelle: {value}',
       sourceMissing: 'Quelle: kein Wert',
-      // Steht in einem leeren Feld, dessen Wert die Quelle nicht nennt.
       missingPlaceholder: 'fehlt',
       fixed: 'vorgegeben',
       reset: 'Zurücksetzen',
@@ -554,14 +416,9 @@ export const chat: typeof en.chat = {
       zeroNotPossible: '{quantity} = 0 ist nicht möglich.',
       invalidNumber: 'Keine Zahl.',
       outOfRange: 'Zulässig sind {min} bis {max} {unit}.',
-      // Für Screenreader, nachdem das Ergebnis neu berechnet ist: jede
-      // Beurteilung mit Größe, Wert, Grenzwert und Ergebnis.
       recomputed: 'Neu berechnet. {checks}',
       checkSpoken: '{name}: {value}, Grenzwert {bound}, {verdict}.',
-      // Wie checkSpoken, wo statt einer Beurteilung ein Hinweis steht; {reason} endet mit Punkt.
       checkHeldSpoken: '{name}: {value}, Grenzwert {bound}, Hinweis: {reason}',
-      // Statt einer Beurteilung, wo die Ausgabe, aus der die Grenzwerte stammen,
-      // am Standort nicht gilt oder niemand geprüft hat, welche gilt.
       hold: {
         label: 'Hinweis',
         otherEdition: 'Werte aus {edition}; am Standort gilt {binding}. Darum keine Beurteilung.',
@@ -598,7 +455,6 @@ export const chat: typeof en.chat = {
         roomDepth: 'Raumtiefe',
         overhangDepth: 'Auskragung',
       },
-      // Wofür „{quantity} = 0 ist nicht möglich." steht.
       zeroQuantity: {
         conductivity: 'λ',
         floorArea: 'Bodenfläche',
@@ -668,77 +524,43 @@ export const chat: typeof en.chat = {
           'Ist dem Fenster ein Wintergarten oder eine verglaste Loggia vorgelagert, gilt die Anforderung für die äußere und die innere Lichteintrittsfläche (Pkt. 9.1.5); die Karte prüft nur eine davon.',
       },
     },
-    // Ein Dokument, das Piloti in den Arbeitsordner dieser Unterhaltung
-    // geschrieben hat. Keine Projektunterlage: nichts davon ist abgelegt,
-    // indexiert oder zitierfähig, bis eine Person es ins Projekt übernimmt —
-    // genau das wird die (noch wirkungslose) Aktion unter der Karte tun.
     documentDraft: {
       eyebrow: 'Entwurf',
-      // Wie oft dieser Pfad in dieser Unterhaltung geschrieben wurde. Eigenes
-      // Token neben der Größe, damit eine Sprache das „v" fallen lassen kann.
       version: 'v{version}',
-      // Der Stand eines einmal geschriebenen Entwurfs: Ein Schreibvorgang ist
-      // keine Geschichte, also nennt die Karte den Zustand, statt ihn zu zählen.
       draftState: 'Entwurf',
-      // Der Entwurf liegt nur in dieser Unterhaltung. „Ins Projekt ablegen"
-      // legt ihn über die Ablagetür des BFF ab, in der Sitzung der Lesenden —
-      // ein Druck, keine Bitte, keine zweite Runde. Ein namensgleiches
-      // Dokument, das schon im Projekt liegt, ist ein 409, den die Karte mit
-      // einer ausdrücklichen Bestätigung beantwortet statt mit einer stillen
-      // zweiten Kopie.
       file: 'Ins Projekt ablegen',
       filing: 'Wird abgelegt …',
       fileError: 'Das Ablegen hat nicht geklappt. Bitte erneut versuchen.',
       fileConflict: 'Ein Dokument mit diesem Namen liegt bereits im Projekt.',
       fileAnyway: 'Trotzdem ablegen',
-      // Die Referenz ist abgelegt und eine Person hat die Fassung
-      // weitergereicht: nichts erneut zu versuchen und nichts zu bestätigen —
-      // ab hier sind die Dateien zuständig.
       fileSubmitted: 'Dieser Entwurf ist bereits abgelegt. Weiter unter Dateien.',
-      // Die Lesefläche des unabgelegten Entwurfs: Die Bytes liegen im
-      // Arbeitsordner des Agenten und kommen über die Entwurfs-Vorschautür des
-      // BFF. Ein Lesen, also schreibt sie nichts und bleibt presentational.
       preview: 'Entwurf ansehen',
       previewLoading: 'Entwurf wird geladen …',
       previewError: 'Der Entwurf konnte nicht geladen werden.',
       previewRetry: 'Erneut versuchen',
-      // Ab hier liegt das Dokument im Projekt.
       filed: 'Liegt als Entwurf im Projekt',
       open: 'Im Projekt öffnen',
       submit: 'Zur Freigabe einreichen',
       submitting: 'Wird eingereicht …',
       submitted: 'Zur Freigabe eingereicht – wartet auf eine Person',
-      // Der Zustand, den eine Person schon gesetzt hat. Kein Knopf: Was jetzt
-      // passiert, entscheidet sie unter Dateien.
       inReview: 'In Prüfung',
       changesRequested: 'Änderungen angefordert',
       approved: 'Freigegeben',
       published: 'Veröffentlicht',
-      // Eine Fassung, die eine neuere überholt hat: weder Entwurf noch
-      // Freigabe — sie ist gelesen, aber nicht mehr die aktuelle.
       ersetzt: 'Ersetzt',
       error: 'Das Einreichen hat nicht geklappt. Bitte unter Dateien erneut versuchen.',
     },
-    // Eine Aufgabe, die Piloti nach diesem Chat selbständig erledigt
-    // (ADR-0051). Die Karte bietet nichts an: die Zeile existiert schon, wenn
-    // sie erscheint, und der Laufblock darunter sagt, wie es steht — die Karte
-    // ist die Quittung (was, welcher Art, bis wann) und nennt keinen Status.
-    // Wo Piloti in einem Dokument hingesehen hat (ADR-0128): je Ansicht die
-    // Seite und die Stelle, und was Piloti in der Runde gezeigt hat.
     look: {
       eyebrow: 'Angesehen',
       looked: 'S. {page}',
       shown: 'Gezeigt auf S. {page}',
       wholePage: 'ganze Seite',
-      // Was Piloti von der Seite abgelesen hat, nie eine Messung (ADR-0125).
       reading: 'Gelesen: {reading}',
       readingNote: 'Von {productName} abgelesen, nicht gemessen.',
-      // Klappt auf, wonach {productName} gesucht und was es abgelesen hat.
       explanation: 'Erläuterung',
       embeddedImage: 'Bild {index}',
       open: '{document}, S. {page} öffnen',
     },
-    // Zwei Fassungen eines Dokuments, die Änderungen auf jeder eingerahmt (ADR-0128, V10).
     revisionCompare: {
       eyebrow: 'Fassungen verglichen',
       page: 'S. {page}',
@@ -750,7 +572,6 @@ export const chat: typeof en.chat = {
       eyebrow: 'Aufgabe',
       due: 'bis {date}',
       open: 'Chat öffnen',
-      // Die vier Arten, in den Worten, in denen die Nutzerin sie beauftragt hat.
       kind: {
         complianceCheck: 'Normprüfung',
         submissionCheck: 'Einreichcheck',
@@ -758,23 +579,14 @@ export const chat: typeof en.chat = {
         revision: 'Überarbeitung',
       },
     },
-    // Die Änderung an der Ablage, die Piloti VORGESCHLAGEN hat. Bis zum
-    // Annehmen ist nichts geschehen: Der Agent kann gar keine Dokumentzeile
-    // schreiben, die Karte ist also alles, was hinten passiert ist. Das
-    // Annehmen ruft dieselben Routen wie die Dateiablage — in der Sitzung der
-    // Lesenden.
     fileOperationProposal: {
-      // Eine Augenbraue je Verb: Welche Art von Änderung das ist, gehört vor
-      // die erste Zeile und nicht dahinter.
       eyebrow: {
         move: 'Verschieben',
         rename: 'Umbenennen',
         create_folder: 'Neuer Ordner',
         assign: 'Zuweisen',
       },
-      // Eine Verschiebung, die ihren Zielordner erst anlegt: Er steht vor den Zeilen.
       newFolder: 'Neuer Ordner',
-      // Die oberste Ebene hat keinen Pfad, aber einen Namen, den Menschen sagen.
       root: 'Oberste Ebene',
       applied: {
         move: '{count, plural, one {Datei verschoben.} other {# Dateien verschoben.}}',
@@ -782,27 +594,13 @@ export const chat: typeof en.chat = {
         create_folder: '{count, plural, one {Ordner angelegt.} other {# Ordner angelegt.}}',
         assign: '{count, plural, one {Datei zugewiesen.} other {# Dateien zugewiesen.}}',
       },
-      // Einige Einträge einer Karte, die vor den Vorschlägen auf dem Server
-      // entschieden wurde. WELCHE, wird dort nicht gespeichert (eine Entscheidung
-      // ist eine Entscheidung und ein Zeitpunkt) — die Karte sagt, wo man nachsieht,
-      // statt zu raten.
       partial:
         'Teilweise übernommen. Einige Einträge konnten nicht ausgeführt werden – sehen Sie unter Dateien nach.',
-      // Eine Karte, deren Vorschlag der Server hält, nennt die Zahl der
-      // gelungenen Einträge aus dem Ergebnis je Zeile.
       partialCount: '{applied} von {total} übernommen.',
       dismissed: 'Verworfen. Es wurde nichts geändert.',
-      // Eine Karte ohne gespeicherten Vorschlag (eine Antwort aus der Zeit
-      // davor, oder einer, den der Agent nicht ablegen konnte). Im Browser wird
-      // nichts mehr ausgeführt: Der Vorschlag bleibt lesbar, übernehmen lässt er
-      // sich nicht, und hier steht warum.
       notStored:
         'Konnte nicht als Vorschlag angelegt werden. Bitten Sie {productName}, die Änderung noch einmal vorzuschlagen.',
     },
-    // Ein Vorschlag, den der Server hält (ADR-0105), gleich welcher Art: Datei-
-    // änderung, Notiz oder Änderung am Projektkontext. Stand, Ergebnis und wer
-    // entschieden hat, kommen aus diesem Objekt — jede Leserin sieht die
-    // Entscheidung der Kollegin.
     proposalReceipt: {
       prompt: 'Übernehmen?',
       accept: 'Übernehmen',
@@ -819,9 +617,7 @@ export const chat: typeof en.chat = {
         failed: 'Versucht von {name} · {when}',
         dismissed: 'Verworfen von {name} · {when}',
       },
-      // Der Name ist dieser Leserin nicht bekannt.
       someone: 'einer Kollegin oder einem Kollegen',
-      // Der Klick kam an, nachdem jemand anderes entschieden hatte.
       overtaken: 'Inzwischen wurde darüber entschieden.',
       readOnly: 'Sie können diesen Vorschlag lesen, in diesem Projekt aber nicht übernehmen.',
       loadError: 'Der Stand dieses Vorschlags konnte nicht geladen werden.',
@@ -835,7 +631,6 @@ export const chat: typeof en.chat = {
         onlyInProject: 'Nur im Projekt merken',
         saving: 'Wird gespeichert …',
         saved: 'Notiz gemerkt.',
-        // Die Überschrift der entschiedenen Karte, wenn bekannt ist, wohin die Notiz kam.
         savedIn: { organization: 'Im Gedächtnis des Büros gemerkt.', project: 'Im Projekt gemerkt.' },
         dismissed: 'Verworfen. Es wurde nichts gemerkt.',
       },
@@ -844,14 +639,9 @@ export const chat: typeof en.chat = {
         dismissed: 'Verworfen. Der Projektkontext blieb unverändert.',
       },
     },
-    // Eine Aktion, die Piloti über die MCP-Schnittstelle VORGESCHLAGEN hat
-    // (ADR-0122). Bis zum Annehmen ist nichts geschehen; das Annehmen führt sie
-    // in der Sitzung der Lesenden aus, die Route prüft die Berechtigung.
     operationProposal: {
       eyebrow: 'Aktion',
-      // „{operation}“ ist der technische Name der Aktion, er bleibt unübersetzt.
       operation: 'Aktion: {operation}',
-      // Die Eingabefelder, die die meisten Aktionen haben, wie die Karte sie nennt (`NAMED_INPUT_KEYS`).
       inputKeys: {
         id: 'ID',
         name: 'Name',
@@ -898,7 +688,6 @@ export const chat: typeof en.chat = {
         permissions: 'Berechtigungen',
         sortOrder: 'Reihenfolge',
       },
-      // Eine Pfad-ID, nach dem Objekt benannt, das sie bezeichnet.
       targetType: {
         project: 'Projekt',
         document: 'Dokument',
@@ -910,7 +699,6 @@ export const chat: typeof en.chat = {
         member: 'Person',
       },
       inputLabel: 'Eingaben',
-      // Ein langer Wert ist erst gekürzt; „Übernehmen“ wartet, bis jeder ganz gelesen ist.
       showAll: 'Ganz anzeigen ({length} Zeichen)',
       showLess: 'Weniger anzeigen',
       readAllFirst: '{count, plural, one {Lies den gekürzten Wert ganz, bevor du übernimmst.} other {Lies die # gekürzten Werte ganz, bevor du übernimmst.}}',
@@ -930,23 +718,14 @@ export const chat: typeof en.chat = {
       applied: 'Die Aktion wurde ausgeführt.',
       dismissed: 'Verworfen. Die Aktion wurde nicht ausgeführt.',
     },
-    // Die Vorschlagskarte im Chat eines anderen Assistenten (Claude, ChatGPT,
-    // VS Code), als MCP App von Pilotis MCP-Server gezeichnet (ADR-0142). Dieselbe
-    // Quittung wie in Piloti; hier nur die Zeilen, die dieser Rahmen braucht.
     mcpApp: {
       source: 'Von {productName}',
       fileTitle: '{count, plural, one {Eine Änderung an einer Datei} other {# Änderungen an Dateien}}',
       memoryTitle: 'Eine Notiz, die {productName} sich merken soll',
-      // Eine Profiländerung zeigt Vorher und Nachher am aktuellen Profil, das der
-      // Rahmen nicht lesen kann: Darüber wird in Piloti entschieden.
       decideInAgent: 'Dieser Vorschlag ändert den Projektkontext. Öffnen Sie das Projekt in {productName}, um ihn mit den aktuellen Werten zu vergleichen und zu entscheiden.',
       unreadable: 'Dieser Vorschlag konnte nicht angezeigt werden.',
       waiting: 'Der Vorschlag wird geladen …',
     },
-    // Was Piloti an einem Dokument getan hat: Anmerkungen gesetzt, in einem
-    // Thread geantwortet. Je Anmerkung ein „Übernehmen“ oder „Verwerfen“, und
-    // der Weg in die Prüfansicht an genau diese Stelle. Eine Datei heißt hier
-    // Dokument, nie „Plan“.
     canvasActivity: {
       headline: {
         proposed: '{count, plural, one {# Anmerkung vorgeschlagen} other {# Anmerkungen vorgeschlagen}}',
@@ -982,8 +761,6 @@ export const chat: typeof en.chat = {
       },
       error: 'Konnte nicht gespeichert werden.',
       forbidden: 'Sie können diese Anmerkung nicht ändern.',
-      // Was Piloti auf Bitte der Person an einer Anmerkung geändert hat, in
-      // ihren Worten: „#4 erledigt“, „#4 Anna zugewiesen“.
       change: {
         taken: 'übernommen',
         reopened: 'wieder geöffnet',
@@ -1009,12 +786,9 @@ export const chat: typeof en.chat = {
       undone: 'Rückgängig gemacht',
       movedSince: 'Seitdem geändert, jetzt {state}',
       deleted: 'Anmerkung #{number} gelöscht',
-      // Who the turn acted for, and why an undo did not happen (ADR-0109).
       forPerson: 'für {name}',
       movedOn: 'Jemand hat das inzwischen geändert, daher bleibt es, wie es ist.',
       alreadyUndone: 'Das wurde bereits rückgängig gemacht.',
-      // Mehrere Vorschläge auf einmal (Übernehmen oder Verwerfen je Anmerkung
-      // bleibt) und der Stand des Threads auf einen Blick.
       batch: {
         acceptAll: 'Alle übernehmen',
         accepting: 'Wird übernommen …',
@@ -1041,10 +815,6 @@ export const chat: typeof en.chat = {
       confidenceMedium: 'mittlere Sicherheit',
       confidenceLow: 'geringe Sicherheit',
     },
-    // ── Beschriftungen in den Zeichnungen ──────────────────────────────────
-    // Was in der Skizze selbst steht. Symbole (±0,00, Ø, N), Einheiten und
-    // Normbezeichnungen (A++ … G, DnT,w) stehen bewusst nicht hier: sie sind
-    // in jeder Sprache dasselbe Zeichen.
     schematics: {
       daylight: {
         glassArea: 'Lichteintrittsfläche',
@@ -1108,9 +878,7 @@ export const chat: typeof en.chat = {
       stair: {
         section: 'SCHNITT',
         plan: 'GRUNDRISS',
-        // Stufennotation, wie sie im Schnitt eines Einreichplans steht.
         stepNotation: '{count} Stg · {rise}/{going} cm',
-        // Ohne Steigung und Auftritt bleibt nur die Anzahl.
         stepCount: '{count, plural, one {# Stufe} other {# Stufen}}',
       },
     },
@@ -1148,7 +916,6 @@ export const chat: typeof en.chat = {
     needsInput: '{productName} benötigt Ihre Eingabe',
     receivedInput: '{productName} hat Ihre Eingabe erhalten',
     approvePlan: 'Plan genehmigen',
-    // The current three-way plan decision (start / answer briefly / cancel).
     startResearch: 'Recherche starten',
     answerShallow: 'Kurz beantworten',
     answerShallowAria: 'Frage kurz beantworten, ohne Deep Research',
@@ -1160,41 +927,25 @@ export const chat: typeof en.chat = {
       'Starten Sie die Recherche, lassen Sie Ihre Frage stattdessen kurz beantworten, oder brechen Sie ab.',
     durationHint:
       'Die Deep-Research-Ausführung kann mehrere Minuten dauern und verbraucht Kontingent.',
-    // The plan bubble's scaffolding, localized in place of the backend's
-    // byte-stable English headers.
     planPreviewHeading: 'Rechercheplan',
     planTitleLabel: 'Titel:',
     planSectionsLabel: 'Abschnitte:',
-    // What the answered bubble echoes for a clicked decision — the wire
-    // keywords (approve/shallow/cancel/reject) never reach the reader.
     responseApproved: 'Recherche gestartet',
     responseShallow: 'Kurze Antwort angefordert',
     responseCancelled: 'Recherche abgebrochen',
-    // An answered plan folds to one line; the plan as approved is behind it.
     planRecord: 'Plan freigegeben · {count, plural, one {# Abschnitt} other {# Abschnitte}}',
     showPlan: 'Plan anzeigen',
     hidePlan: 'Plan ausblenden',
   },
-  // Die einzelne Aufklappung in der Antwortfußzeile für alles hinter der
-  // Quellenzeile und den Kopieraktionen (Konfidenz, Merknotiz, Skills,
-  // Prüfhinweise, Bewertung, Zeitstempel).
-  // Under an answer the reader stopped, where the writing ended.
   answerStoppedMarker: 'Gestoppt',
   answerDetails: {
     trigger: 'Antwortdetails',
     triggerAria: 'Details zu dieser Antwort anzeigen',
-    // The trigger when the details hold a warning (cut-off, salvaged run,
-    // stripped citations, low confidence): the dot beside it says so visually.
     triggerAriaAttention: 'Details zu dieser Antwort anzeigen, mit Hinweisen zur Antwort',
-    // How long the turn took, question sent to answer final.
     duration: 'Antwort nach {duration}',
-    // What the answer cost in the organization's unit: the credits billed for
-    // it, or tokens on the organization's own provider key.
     costCredits: '{value} Punkte',
     costTokens: '{value} Tokens',
     costBreakdown: 'Eingabe {prompt} · Ausgabe {completion} · davon Nachdenken {reasoning} Tokens',
-    // Gelesen, aber nicht zitiert: was die Recherche sonst noch gelesen hat.
-    // Nur Dokument-Chips — keine Stellen, keine neuen Aussagen.
     readSources: {
       label: 'Gelesen, nicht zitiert',
       more: '+{count} weitere',
@@ -1228,13 +979,9 @@ export const chat: typeof en.chat = {
       'Nicht gespeichert: Dieser Chat ist temporär, {productName} merkt sich daraus nichts. Speichern geht, sobald „Temporär“ ausgeschaltet ist.',
   },
   thinking: {
-    // Eine Zeile je Dokument, das Piloti angesehen hat (ADR-0128); die
-    // Vorschaubilder öffnen die Stelle.
     look: {
       place: 'S.\u00A0{page}, {where}',
       placeWhole: 'S.\u00A0{page}',
-      // Die Stelle einer Seite in Worten: Das Backend schickt sie deutsch
-      // (`page_region_words.py`), hier steht sie in der Sprache der Lesenden.
       region: {
         topLeft: 'oben links',
         topRight: 'oben rechts',
@@ -1247,47 +994,30 @@ export const chat: typeof en.chat = {
         pageCenter: 'in der Seitenmitte',
       },
     },
-    // Die Arbeitsliste der Herleitung (ADR-0132): eine Zeile je Aufruf, in
-    // Runden gruppiert. Die Sätze setzen sich aus den getypten Werten des
-    // Aufrufs zusammen, nie aus dem Text des Werkzeugs.
     work: {
       label: 'Arbeitsschritte',
-      // Der barrierefreie Name einer Zeile, die ein Dokument öffnet: der Satz der Zeile.
       open: '{target} – öffnen',
       running: 'läuft',
-      // Ein Aufruf, unter dem der Zug endete (Stopp, Fehler, Verbindung weg): kein Ergebnis.
       interrupted: 'abgebrochen',
       noHit: 'kein Treffer',
-      // Eine wörtliche Suche ohne Treffer, mit dem, was sie durchsucht hat.
       noHitIn: 'kein Treffer in {count, plural, one {#\u00A0Dokument} other {#\u00A0Dokumenten}}',
-      // Dasselbe im Dateisystem, wo jede Zahl Dateien zählt: „kein Treffer in 41 Dateien“.
       noHitInFiles: 'kein Treffer in {count, plural, one {#\u00A0Datei} other {#\u00A0Dateien}}',
       nothingFound: 'nichts gefunden',
-      // Ein Ordner oder Dokument, das es nicht gibt (ein gesperrter Ordner antwortet genauso).
       notFound: 'nicht gefunden',
-      // Eine Suche nach Dateinamen, auf die keine Datei passt.
       noFile: 'keine Datei',
       failed: 'fehlgeschlagen',
-      // Eine wörtliche Suche, die nicht alles durchsuchen konnte: ihre Zahl ist eine Untergrenze.
-      // Nur ohne Zahl; mit einer Zahl sagen die gestrichelte Form und die Notiz darunter, dass sie eine Untergrenze ist.
       incomplete: 'unvollständig',
       incompleteNote: {
         hits: 'nicht alles durchsucht – es kann weitere Treffer geben',
         noHit: 'nicht alles durchsucht – das ist kein Nein',
       },
-      // Hinter „fehlgeschlagen“: was daraus für die Antwort folgt.
       failedNote: 'die Antwort stützt sich nicht darauf',
-      // Mehr als fünf Aufrufe in einem Schritt: die schwersten zuerst, der Rest gefaltet.
       more: '+{count} weitere',
       moreAllFound: '+{count} weitere, alle mit Ergebnis',
       fewer: 'Weniger anzeigen',
-      // Gleichartige Aufrufe in einer Zeile.
       times: '×{count}',
-      // Anführungszeichen in einer Suchanfrage, die selbst in „…“ steht.
       innerQuote: '‚{text}‘',
-      // Unter dem Ausschnitt eines Blicks: abgelesen ist keine Messung.
       readOff: 'abgelesen, nicht gemessen',
-      // Die Art eines Schritts, aus den Verben seiner Aufrufe.
       kind: {
         search: 'Suchen',
         read: 'Lesen',
@@ -1303,39 +1033,32 @@ export const chat: typeof en.chat = {
         web: 'im Web',
         session: 'in diesem Chat',
       },
-      // Die Ablagen des Dateisystems (ADR-0133), wie eine Zeile sie nennt: als Gegenstand eines Verbs …
       place: {
         project: 'das Projekt',
         office: 'die Büroablage',
         chat: 'die Dateien dieses Chats',
         law: 'die OIB-Richtlinien',
         estate: 'alle Ablagen',
-        // … ein Ordner einer anderen Ablage unter ihrem Namen: als Gegenstand „die Büroablage › Vorlagen“,
-        // nach „in“ „in der Büroablage › Vorlagen“, in Anführungszeichen ohne Artikel „Büroablage › Vorlagen“.
         folderIn: '{place} ›\u00A0{folder}',
         crumb: {
           office: 'Büroablage',
           chat: 'Chat',
           law: 'OIB-Richtlinien',
         },
-        // Der Artikel vor dem Namen, wenn ein Ordner folgt: „den Chat › Pläne“, „im Chat › Pläne“.
         article: {
           office: { object: 'die', in: 'in der' },
           chat: { object: 'den', in: 'im' },
           law: { object: 'die', in: 'in den' },
         },
       },
-      // … und nach „in“: „Sucht Dateien „*.pdf“ im Projekt“.
       placeIn: {
         project: 'im Projekt',
         office: 'in der Büroablage',
         chat: 'in den Dateien dieses Chats',
         law: 'in den OIB-Richtlinien',
         estate: 'in allen Ablagen',
-        // Ein Ordner des Projekts: „in 03 Einreichung“.
         folder: 'in {folder}',
       },
-      // Das Verb steht gedämpft vor seinem Gegenstand: „Sucht wörtlich“ „„Brandabschnitt“ im Projekt“.
       verb: {
         search: 'Sucht',
         searchExact: 'Sucht wörtlich',
@@ -1343,11 +1066,8 @@ export const chat: typeof en.chat = {
         searchIn: 'Sucht in',
         searchExactIn: 'Sucht wörtlich in',
         searchRegexIn: 'Sucht nach Muster in',
-        // Ein Ordner, den Piloti aufmacht, um zu sehen, was darin liegt: „Öffnet 03 Einreichung“.
         list: 'Öffnet',
-        // Die wörtliche Suche im Dateisystem: „Durchsucht 03 Einreichung wörtlich nach „Brandabschnitt““.
         grep: 'Durchsucht',
-        // Die Suche nach Dateinamen: „Sucht im Projekt nach PDF-Dateien“.
         glob: 'Sucht',
         read: 'Liest',
         look: 'Betrachtet',
@@ -1357,7 +1077,6 @@ export const chat: typeof en.chat = {
         model: 'Fragt das Gebäudemodell ab:',
         workspace: 'Arbeitsbereich:',
       },
-      // Der Kopf eines fertigen Zugs mit genau einem Aufruf: was getan WURDE.
       done: {
         search: 'Gesucht: {name}',
         list: 'Geöffnet: {name}',
@@ -1388,13 +1107,10 @@ export const chat: typeof en.chat = {
         queryIn: '{target}: „{query}“',
         grepExact: '{place} wörtlich nach „{query}“',
         grepRegex: '{place} nach dem Muster „{query}“',
-        // Ein Muster, das nur Wörter verodert: „das Projekt wörtlich nach „EI 90“ oder „REI 90““.
-        // Dieselben Wörter mit Umlaut: die Mustersuche faltet „ü“ nicht wie die wörtliche Suche.
         grepWords: '{place} nach {words}',
         grepAny: '{place} wörtlich nach {words}',
         or: 'oder',
         names: '{place} nach {what}',
-        // Was eine Suche nach Dateinamen sucht, in Worten, wo das Muster einfach ist.
         namesWhat: {
           ext: '{ext}-Dateien',
           word: 'Dateien mit „{word}“ im Namen',
@@ -1405,7 +1121,6 @@ export const chat: typeof en.chat = {
         clause: '{target}, {pages}',
         where: '{target}, S.\u00A0{pages}, {where}',
       },
-      // Gleichartige Aufrufe in einer Zeile. Suchen tragen kein Verb: „4 Suchen im RIS“.
       many: {
         documents: '{count, plural, one {#\u00A0Dokument} other {#\u00A0Dokumente}}',
         folders: '{count, plural, one {#\u00A0Ordner} other {#\u00A0Ordner}}',
@@ -1436,14 +1151,11 @@ export const chat: typeof en.chat = {
         hits: '{count, plural, one {#\u00A0Treffer} other {#\u00A0Treffer}}',
         hitsDocuments:
           '{hits, plural, one {#\u00A0Treffer} other {#\u00A0Treffer}} in {documents, plural, one {#\u00A0Dokument} other {#\u00A0Dokumenten}}',
-        // Im Dateisystem zählt jede Zahl Dateien, wie die Ablage sie zählt.
         hitsFiles:
           '{hits, plural, one {#\u00A0Treffer} other {#\u00A0Treffer}} in {documents, plural, one {#\u00A0Datei} other {#\u00A0Dateien}}',
         documents: '{count, plural, one {#\u00A0Dokument} other {#\u00A0Dokumente}}',
-        // Ein Ordner, den es gibt und der nichts enthält: ein neues Projekt, ein Chat ohne Upload.
         emptyFolder: 'leer',
         passages: '{count, plural, one {#\u00A0Stelle} other {#\u00A0Stellen}}',
-        // Die Ablagen selbst (`ls /`): wie viele es gibt und was sie halten.
         places:
           '{folders, plural, one {#\u00A0Ablage} other {#\u00A0Ablagen}}, {files, plural, one {#\u00A0Datei} other {#\u00A0Dateien}}',
         listing:
@@ -1456,22 +1168,8 @@ export const chat: typeof en.chat = {
     working: 'Antwort wird erstellt …',
     waiting: 'Warten auf Antwort',
     elapsedAria: 'Vergangen: {seconds, plural, one {# Sekunde} other {# Sekunden}}',
-    // ── Turn-Events: die Worte zu dem, was das Backend GEMELDET hat ───────
-    //
-    // Der Agent erzählt sich selbst über `status:<slot>`-Schritte — und zwar in
-    // SCHLÜSSELN: eine stabile Punkt-ID plus Interpolationswerte. Alles, was
-    // Lesende sehen, steht hier, in ihrer Sprache. Früher stand es im Python
-    // und ging als fertiger deutscher Satz über die Leitung — genau so las eine
-    // englische Oberfläche Deutsch.
-    //
-    // Ein Schlüssel ohne Eintrag hier zeigt NICHTS — die Live-Zeile fällt auf
-    // die vorige sinnvolle Phrase zurück. Nie den Schlüssel, nie einen
-    // internen Bezeichner.
     turnStatus: {
-      // Korpus-NAMEN: „im Wissen“ ist Produkttext mit angeschweißter
-      // Präposition, kein Eigenname. Das Backend schickt die ID.
       corpus: {
-        // Dieselben Worte wie die Zeilen der Herleitung („Sucht in den Dokumenten“).
         knowledge: 'in den Dokumenten',
         ris: 'im RIS',
         web: 'im Web',
@@ -1479,145 +1177,68 @@ export const chat: typeof en.chat = {
         ifc: 'im Gebäudemodell',
         otherProjects: 'in anderen Projekten',
       },
-      // Verbindet zwei Korpora in einer Zeile. Grammatik, also auch hier.
       corpusJoin: ' und ',
       status: {
-        // Welche der eigenen Unterlagen gerade gesichtet werden. Ein
-        // Schlüssel pro Ebene statt einer Vorlage mit Platzhalter: Deutsch
-        // braucht den Dativ („aus der Büroablage“), Englisch gar keinen
-        // Artikel, also lässt sich der Name nicht in EINEN Satz einsetzen.
-        // Jede Zeile nennt den Namen, den die Lesenden im Produkt sehen —
-        // Büroablage, Projekt, Unterhaltung. Für mehrere Ebenen zugleich gibt
-        // es keinen: der Sammelbegriff dafür ist unser Wort, nicht ihres, also
-        // sagt `several` schlicht, WAS gelesen wird.
         documents: {
           officeShelf: 'Unterlagen aus der Büroablage werden gesichtet …',
           project: 'Unterlagen aus dem Projekt werden gesichtet …',
           session: 'Unterlagen aus diesem Chat werden gesichtet …',
           several: 'Ihre Unterlagen werden gesichtet …',
-          // Eine gerade hochgeladene Datei ist noch nicht fertig indiziert;
-          // die Antwort wartet kurz darauf, statt ohne sie zu antworten.
           waiting: 'Eine neue Datei wird noch gelesen — die Antwort wartet darauf …',
         },
-        // `{query}` sind die eigenen Worte der Lesenden, zurückgespiegelt —
-        // nie übersetzt, und vom Backend gekürzt, damit die Zeile passt.
         retrieval: {
           withQuery: 'Sucht {corpus}: „{query}“',
           plain: 'Sucht {corpus} …',
-          // Die Fundstelle steht schon fest und wird GELESEN — deshalb nennt
-          // die Zeile das Dokument statt eines Korpus. `{document}` ist der
-          // Name, den Herausgeber oder Büro vergeben haben: ein Eigenname, der
-          // unübersetzt durchgereicht wird.
           clause: 'Liest {document}, Pkt.\u00A0{clause} …',
           page: 'Liest {document}, S.\u00A0{page} …',
-          // Es wird mit anderen Formulierungen weitergesucht — die Aktion,
-          // nicht das Urteil: Die Zeile sagt, was GERADE geschieht, und sie
-          // ersetzt dabei die Suchzeile der Runde, also darf sie nicht mit
-          // einem Misserfolg eröffnen. Dass die erste Trefferliste nicht
-          // reichte, steht im Schlüssel (`requery`), nicht im Satz. Die
-          // Formulierungen selbst sind die des Modells und stehen deshalb
-          // nicht in der Zeile.
           requery: 'Sucht mit anderen Begriffen weiter …',
         },
-        // Werkzeuge, die keine Recherche sind, aber vom Nutzer gewollt waren.
-        // Ein Werkzeug ohne Eintrag bekommt gar keine Zeile: sein interner
-        // Name ist kein Status.
         action: {
           remember: 'Notiz wird gespeichert …',
           card: 'Ergebniskarte wird erstellt …',
-          // Der Arbeitsordner dieser Unterhaltung: ein Verb, eine Zeile. Kein
-          // „sucht“ — hier wird nichts gelesen, was eine Antwort belegen
-          // könnte, sondern am Dokument gearbeitet, das gerade entsteht.
           draftList: 'Entwürfe werden durchgesehen …',
           draftRead: 'Entwurf wird gelesen …',
           draftWrite: 'Entwurf wird geschrieben …',
           draftEdit: 'Entwurf wird überarbeitet …',
-          // Eine vorgeschlagene Änderung an der Ablage. Kein Verb und kein
-          // Dateiname: Die Karte sagt gleich darauf, welcher Vorgang welche
-          // Datei betrifft — mit den Schaltflächen daneben.
           fileProposal: 'Vorschlag für Ihre Ablage wird vorbereitet …',
-          // Die zwei Schritte, die die Unterhaltung verlassen. Eigene Zeilen,
-          // weil sich hier nicht der Entwurf ändert, sondern wo er liegt — und
-          // weil Ablegen und Einreichen für die Lesenden zwei verschiedene
-          // Dinge sind: das eine legt etwas hin, das andere bittet jemanden.
           draftFiled: 'Entwurf wird im Projekt abgelegt …',
           draftSubmitted: 'Entwurf wird zur Freigabe eingereicht …',
           taskCreated: 'Aufgabe wird angelegt …',
-          // Anmerkungen in einem Dokument. Eigene Befunde schlägt Piloti nur
-          // vor: Erst eine Person übernimmt oder verwirft sie. Setzen, ändern
-          // und löschen tut Piloti nur, worum die Person bittet.
           annotationsRead: 'Anmerkungen werden gelesen …',
           annotationsPropose: 'Anmerkungen werden vorgeschlagen …',
           annotationsSet: 'Anmerkungen werden gesetzt …',
           annotationsUpdate: 'Anmerkung wird geändert …',
           annotationsDelete: 'Anmerkung wird gelöscht …',
           annotationsReply: 'Antwort auf eine Anmerkung wird geschrieben …',
-          // Piloti sieht sich eine Seite oder einen Ausschnitt an (ADR-0128).
           look: 'Betrachtet das Dokument …',
-          // Ein Aufruf im Arbeitsbereich über Piloti selbst: Lesen läuft,
-          // Schreiben kommt als Vorschlag zurück.
           workspaceCall: 'Arbeitet im Arbeitsbereich …',
         },
-        // Die Werkzeuge sind durch, die Antwort wird geschrieben. Dieselben
-        // Worte wie `activity.composing` darüber: ein Vokabular für dieselbe
-        // Sache — ob die Zeile aus einem Turn-Event oder aus der
-        // Legacy-Klassifikation kommt, darf man ihr nicht ansehen.
         synthesis: 'Antwort wird formuliert …',
-        // Das Vertrauensversprechen des Produkts, laut ausgesprochen: geprüft
-        // wird nicht „irgendetwas an den Belegen“, sondern jede Fundstelle
-        // gegen das, was tatsächlich abgerufen wurde.
         citations: 'Belege werden gegen die Quellen geprüft …',
-        // Ein Zitat steht so in keiner Passage; es wird an Ort und Stelle auf
-        // den Wortlaut der zitierten Passage korrigiert (ADR-0067). Keine
-        // Nachrecherche, keine Neuformulierung; was nicht korrigiert werden
-        // kann, bleibt markiert.
         repair: 'Ein Zitat weicht vom Wortlaut der Quelle ab — wird am Original korrigiert …',
         escalation: 'Kurzrecherche reicht nicht — Tiefenrecherche startet',
-        // Eine Ergänzung, die die Person getippt hat, während Piloti
-        // arbeitet. `{text}` sind ihre eigenen Worte; `{round}` die Runde,
-        // in der Piloti sie gelesen hat.
         steer: {
           received: 'Ergänzt: „{text}“ — wird berücksichtigt …',
           applied: 'Ergänzung übernommen in Runde {round}: „{text}“',
         },
       },
     },
-    // Das eine Skill-Ereignis, das Lesende sehen, danach unterschieden, WER
-    // entschieden hat. Zwei Sätze statt eines mit getauschtem Verb — dieser
-    // Unterschied ist nicht in jeder Sprache ein Wort. `{skill}` ist der vom
-    // Büro vergebene `grid-title` und reist unverändert: es ist ihr Name für
-    // ihre eigene Arbeitsweise.
     skill: {
       activated: 'Skill „{skill}“ wird angewendet',
     },
-    // Kompakte Chips „was tatsächlich gelaufen ist" in der Herleitung-Basis —
-    // ein Chip pro ausgeführtem Agenten/Tool, ohne Technik-Opt-in.
     executedSteps: 'Ausgeführt:',
     stepName: {
       webSearch: 'Websuche',
       ris: 'RIS',
       corpus: 'Wissen',
-      // In anderen Projekten des Büros nachgeschlagen (ADR-0094), meist in den
-      // abgeschlossenen Referenzprojekten.
       otherProjects: 'Andere Projekte',
       reading: 'Lesen',
-      // Das Arbeitsverzeichnis der Unterhaltung: schreiben, lesen, ändern,
-      // auflisten — ein Wort für alle vier. Was Lesende interessiert, ist dass
-      // an einem Entwurf gearbeitet wurde, nicht wie oft.
       draft: 'Entwurf',
-      // Der Entwurf verlässt das Arbeitsverzeichnis: als Projektdokument
-      // abgelegt oder zur Freigabe eingereicht.
       filing: 'Ablage',
       task: 'Aufgabe',
-      // Anmerkungen im Dokument: gelesen, vorgeschlagen oder beantwortet.
       annotations: 'Anmerkungen',
-      // Die Dateiaktionen SCHLAGEN vor und schreiben nichts (ADR-0003).
       fileProposal: 'Ablagevorschlag',
-      // Gelesen oder vorgeschlagen im Arbeitsbereich (Mitglieder, Freigaben, Aufträge).
       workspace: 'Arbeitsbereich',
-      // Ein Chip pro Skill, den dieser Turn tatsächlich angewendet hat.
-      // `{name}` liefert die einzige Label-Instanz
-      // (features/skills/lib/skill-activity).
       skill: 'Skill: {name}',
       model: 'Gebäudemodell',
       measure: 'Messung',
@@ -1627,64 +1248,43 @@ export const chat: typeof en.chat = {
       card: 'Karte',
       compliance: 'Normprüfung',
     },
-    // Die Namen im Technik-Panel für die zwei Schrittarten ohne eigenes
-    // Werkzeug oder eigenen Slot. Werkzeuge nutzen `stepName.*` oben.
     nodeName: {
       clarification: 'Rückfrage',
       skillSelection: 'Skill-Auswahl',
     },
     interrupted: 'Unterbrochen',
-    // Kompakter Inline-Hinweis auf einer unterbrochenen Antwort, statt nur des
-    // stummen „Unterbrochen“-Chips. Erst, wenn der Server bestätigt hat, dass er
-    // keine Antwort hat und der Zug nicht mehr läuft: vorher ist sie nicht
-    // verloren, nur unterwegs. Die Verbindung ist dann nicht die Ursache.
     interruptedNotice: 'Diese Antwort wurde nicht fertig, und auf dem Server liegt keine. Bitte die Frage erneut senden.',
-    // Vorübergehender „Wird geprüft“-Zustand (FIX 3): angezeigt, solange der
-    // Wiederherstellungs-Abruf nach einer Wiederverbindung läuft, damit ein
-    // Zug, der nur unterbrochen AUSSIEHT, nicht sofort den „verloren“-Hinweis
-    // zeigt, bevor bestätigt ist, dass die Antwort wirklich fehlt.
     recovering: 'Antwort wird geholt',
     recoveringNotice:
       '{productName} arbeitet weiter — die Antwort erscheint hier, sobald sie fertig ist …',
     done: 'Fertig',
-    // Die Lesenden haben die Antwort angehalten: kein grünes Häkchen, kein
-    // „Fertig“ — so steht es auch an einem abgebrochenen Lauf.
     stopped: 'Gestoppt',
-    // Der Zug hat einen Auftrag angelegt: die Arbeit hat erst begonnen, im
-    // Laufblock darunter. Kein grünes Häkchen, kein „Fertig“.
-    // Der Zug ist gescheitert; die Fehlerkarte darunter sagt wie.
     failed: 'Fehlgeschlagen',
     handedOff: 'Aufgabe angelegt',
-    // Piloti hat die Frage nicht bearbeitet (abgelehnt oder nicht angenommen):
-    // das Banner darunter sagt warum. Neutral, kein „Fertig“.
     refused: 'Nicht bearbeitet',
     showThinking: 'Denkschritte anzeigen ({count})',
     showThinkingSteps: 'Denkschritte anzeigen ({count})',
-    // Die Kopfzeile der Herleitung. Keine Schrittzahl: gezählt wurden rohe
-    // Ereignisnamen der Agent-Laufzeit, nicht Züge oder Aufrufe (siehe ChatThinking). Die
-    // Quellen-Klausel FEHLT, wenn es keine gibt: „0 Quellen“ ist eine wahre
-    // Zahl, die sich wie ein Fehlschlag liest, und eine Antwort aus einer
-    // Messung am Modell hat zu Recht keine Zitate.
-    // Kopfzeile der Herleitung: Schritte, zitierte Quellen und höchstens EINE Warnung, die schwerste.
     derivationSteps: '{count, plural, one {#\u00A0Schritt} other {#\u00A0Schritte}}',
     derivationCited: '{count, plural, one {#\u00A0Quelle zitiert} other {#\u00A0Quellen zitiert}}',
     derivationWarning: {
       failed: '{count, plural, one {#\u00A0Abruf fehlgeschlagen} other {#\u00A0Abrufe fehlgeschlagen}}',
       open: '{count, plural, one {#\u00A0Punkt offen} other {#\u00A0Punkte offen}}',
+      unbacked: '{count, plural, one {#\u00A0Aussage ohne Beleg} other {#\u00A0Aussagen ohne Beleg}}',
+      contradicted:
+        '{count, plural, one {#\u00A0Aussage widerspricht der Quelle} other {#\u00A0Aussagen widersprechen der Quelle}}',
     },
-    // Ein Zug ohne jede Recherche: eine Zeile, nichts zum Aufklappen.
     noResearch: 'Ohne Recherche beantwortet',
     noResearchNote: 'Allgemeines Fachwissen, keine Quelle zitiert',
-    // Ein Zug mit genau einem Aufruf: die Kopfzeile ist die Herleitung.
+    askedBack: 'R\u00FCckfrage',
+    flagged: 'Mit Hinweis',
+    askedBackHeadline: 'R\u00FCckfrage gestellt',
+    askedBackNote: 'F\u00FCr eine belegte Antwort fehlt noch eine Angabe von Ihnen',
     singleCited: 'zitiert {markers}',
     derivationSummary: 'Herleitung',
     derivationSummaryWithSources: 'Herleitung\u00A0· {count, plural, one {#\u00A0Quelle} other {#\u00A0Quellen}}',
-    // aria-label naming the reasoning graph as one region for screen readers.
     reasoningGraphLabel: 'Herleitung',
     stepsLabel: 'Denkschritte',
     stepsHeading: 'Zwischenschritte',
-    // Teilagenten, die ein Zug laufen ließ (AG-UI 1.0 SUBAGENT_*): heute die
-    // Tiefenrecherche im Chat mit ihrer Planung, ihren Recherchen und dem Bericht.
     subagents: {
       heading: 'Teilagenten',
       steps: '{count, plural, one {# Schritt} other {# Schritte}}',
@@ -1707,18 +1307,13 @@ export const chat: typeof en.chat = {
     hitCount: '{count} Treffer',
     hitCountOne: '1 Treffer',
     gapHit: 'Nicht im Bestand',
-    // Ein Dokument, das die Recherche gelesen, die Antwort aber nicht zitiert
-    // hat — ein echtes Rechercheergebnis, keine Lücke.
     readNotUsed: 'abgerufen, nicht zitiert',
     moreSources: '+{count} weitere',
-    // Einzeiler, wenn dieser Turn von der Kurz- zur Tiefenrecherche eskaliert ist.
     escalationNarration: 'Eskaliert zur Tiefenrecherche: {reason}',
     node: {
       framingTab: 'Einordnung',
       framingTitle: 'Frage verstanden',
       framingQuestion: 'Sie fragen: „{question}“',
-      // Die letzte Karte der Herleitung: worauf die Antwort steht, als Entwurf.
-      // Nie „nachgewiesen“: Piloti listet die Grundlagen, das Urteil bleibt beim Büro.
       basis: {
         label: 'Grundlagen · Entwurf',
         pendingLabel: 'Grundlagen',
@@ -1728,28 +1323,30 @@ export const chat: typeof en.chat = {
         open: 'Offen',
         clause: 'Pkt.\u00A0{clause}',
         page: 'S.\u00A0{page}',
-        // Aus einem Aufruf ohne Treffer: wo gesucht wurde und wonach. Nie „Keine Informationen gefunden“.
+        pages: 'S.\u00A0{pages}',
+        more: '+{count} weitere',
+        binding: 'verbindlich über {act}',
+        bindingSince: 'verbindlich über {act} seit {since}',
+        unchecked: 'laut Plattformdaten, noch nie an der Quelle geprüft',
+        checkedOn: 'laut Plattformdaten, zuletzt am {date} an der Quelle geprüft',
+        uncurated: 'amtliche Quelle, nicht kuratiert',
+        withRecord: '{name} ({record})',
+        date: '{day}.{month}.{year}',
         openNoHitIn: 'Nicht beurteilbar, weil die Suche in {target} nach „{query}“ keine Fundstelle ergab.',
         openNoHitShelf: 'Nicht beurteilbar, weil die Suche {shelf} nach „{query}“ keine Fundstelle ergab.',
         openNoHit: 'Nicht beurteilbar, weil die Suche nach „{query}“ keine Fundstelle ergab.',
         openEmpty: 'Nicht beurteilbar, weil ein Aufruf nichts ergab: {what}.',
-        // Aus einem fehlgeschlagenen oder abgebrochenen Aufruf: der Aufruf als Hauptwort.
         openFailed: 'Nicht beurteilbar, weil {call} fehlgeschlagen ist.',
-        // Eine wörtliche Suche ohne Treffer, die nicht alles durchsuchen konnte: kein Nein.
         openIncomplete: 'Nicht beurteilbar, weil {call} nicht alles durchsuchen konnte.',
-        // Ein Ordner oder Dokument, das es nicht gibt.
         openNotFoundFolder: 'Nicht beurteilbar, weil der Ordner „{name}“ nicht gefunden wurde.',
         openNotFoundDocument: 'Nicht beurteilbar, weil die Datei „{name}“ nicht gefunden wurde.',
-        // Eine Suche nach Dateinamen ohne Treffer: `{place}` mit Präposition, `{what}` wie in der Zeile.
         openNoFile: 'Nicht beurteilbar, weil {place} keine {what} gefunden wurden.',
-        // Eine Suche im Dateisystem ohne Treffer: `{call}` sagt wie, wo und wonach.
         openNoHitPlace: 'Nicht beurteilbar, weil {call} keine Fundstelle ergab.',
         openInterrupted: 'Nicht beurteilbar, weil {call} abgebrochen wurde.',
         callQuery: '{call} nach „{query}“',
         callTarget: '{call} „{target}“',
         callPlace: '{call} {place}',
         callPlaceQuery: '{call} {place} nach „{query}“',
-        // Eine Mustersuche: „die Suche in der Büroablage › Vorlagen nach dem Muster „EI\s?90““.
         callPlacePattern: 'die Suche {place} nach dem Muster „{query}“',
         call: {
           search: 'die Suche',
@@ -1767,8 +1364,6 @@ export const chat: typeof en.chat = {
         },
       },
       cardLink: 'Aufrufe zu {name} hervorheben',
-      // Die nicht zitierten Quellen eines Schritts, in einer gestrichelten Karte.
-      // Solange die Antwort läuft, weiß niemand, was sie zitiert: dann „weitere“.
       uncited: {
         pill: 'Nicht zitiert',
         pillLive: 'Abgerufen',
@@ -1776,104 +1371,42 @@ export const chat: typeof en.chat = {
         nameLive: '+{count} weitere',
         hide: 'Nicht zitierte Quellen ausblenden',
       },
-      // Jede Abrufschicht auf der Herleitungs-Achse, in Ausführungsreihenfolge:
-      // ein Zähler, ein Wort. Die alte Zwei-Wort-Folge (`Suche 1`, dann
-      // `Folgerung 2…`) las sich als ein Lauf, zählte aber zwei Dinge — die
-      // Werkzeugaufrufe und die Schlussfolgerungen —, sodass die Nummern eine
-      // Schicht doppelt belegen konnten. WAS die Schicht getan hat, steht als
-      // typisierte Unterzeile dabei, nie als Nummer.
       stepTab: 'Schritt {n}',
-      // Die typisierte Unterzeile neben `stepTab`: was diese Schicht getan
-      // hat, aus Folgerung × Dateien der Runde gelesen, die die Achse ohnehin
-      // besitzt. Eine Schicht, die auf Grundlage des Abgerufenen folgert, ist
-      // ein Befund; ein nackter Abruf ohne Treffer ist eine Suche. `Lesen`
-      // übernimmt bewusst das Wort von `stepName.reading`: ein Vokabular,
-      // nicht zwei.
       stepKindSearch: 'Suche',
       stepKindRead: 'Lesen',
       stepKindFinding: 'Befund',
       stepKindConclusion: 'Schluss',
-      // Ein Abruf, den das Backend gesehen hat und der nichts zurückgab. Nicht
-      // „Suche": eine Schicht ohne Fächer las sich wie eine, die nichts
-      // fand, und war oft nur eine, deren Treffer der alte Draht nie stempelte.
-      // Erst das Ledger macht den Unterschied benennbar.
       stepKindNoHits: 'Kein Treffer',
-      // Eine Runde, die nur Ordner geöffnet hat: sie sucht keine Dokumente, also
-      // ist leer ausgehen kein Fehlschlag (ADR-0132).
       stepKindBrowse: 'Ordner öffnen',
-      // Eine Schicht, die ausschließlich Passagen bereits gefundener Dateien
-      // aufgeschlagen hat: sie hat nichts Neues gesucht. Genau diese Runde von
-      // einem frischen Abruf zu unterscheiden, ist der Sinn des Wortes.
       stepKindOpen: 'Öffnen',
-      // Zugeklappte Schicht: die Spur ihres Fächers — Anzahl plus oberste
-      // Dateinamen, nie eine nackte Zahl. Eine Zahl allein liest sich als
-      // „kein Beleg“. Weiterhin nie die Suchanfrage (PF-12).
       roundFoldOne: '{name} · {locus}',
       roundFoldOneBare: '{name}',
       roundFoldTwo: '{first} · {second}',
       roundFoldMany: '{count} Dateien · {first} u.a.',
-      // Die Fundstellen-Hälfte von `roundFoldOne`, in den Worten der Antwort
-      // (vgl. `answerSources.punktPage`): die Stelle, nicht der Mechanismus.
       roundFoldLocusPage: 'S.\u00A0{page}',
       roundFoldLocusClause: 'Pkt.\u00A0{clause}',
       roundFoldLocusClausePage: 'Pkt.\u00A0{clause}\u00A0· S.\u00A0{page}',
-      // Barrierefreier Name der Schaltfläche, die die Schicht auf- und zuklappt.
-      // Der Kartentext selbst ist eine Folgerung und taugt nicht als Name.
       roundFold: 'Schritt {n} zuklappen',
       roundUnfold: 'Schritt {n} aufklappen',
-      // Eine Datei, die eine frühere Runde schon gezeigt hat, steht an der
-      // Stelle der Trefferzahl. Die Zahl ist die Bilanz des ganzen Turns und
-      // damit bei jeder Wiederholung dieselbe — genau das ließ ein erneutes
-      // Aufschlagen wie einen zweiten Abruf aussehen.
       roundDocRepeat: 'bereits abgerufen',
       workspaceRead: 'Aus dem Arbeitsbereich gelesen',
       contextLabel: 'Kontext',
       sourcesTab: 'Quellen',
       sourcesTitle: 'Geprüfte Quellen',
-      // Die Recherche lief nicht zu Ende, sondern gegen ihre Iterationsgrenze.
-      // Im Stand-Knoten, weil er die Frage „was lag der Antwort
-      // zugrunde?“ beantwortet — und dazu gehört, wo die Kette abbrach.
-      // {tool} ist der zuletzt AUSGEFÜHRTE Schritt, nicht der nächste: welchen
-      // das Modell als Nächstes gewählt hätte, weiß niemand — es kam nicht mehr
-      // dazu, ihn vorzuschlagen.
       findingsTruncatedStep: 'Recherche hier beendet — zuletzt gelaufen: {tool}',
-      // Wenn kein Schritt zu benennen ist (das Budget war vor dem ersten
-      // Werkzeug erschöpft): lieber weniger sagen als etwas erfinden.
       findingsTruncated: 'Recherche hier beendet: das Budget war aufgebraucht',
-      // ── Was die Antwort NICHT ist ───────────────────────────────────────
-      //
-      // Zwei Aufzeichnungen, die die Tiefenrecherche über ihre eigenen Grenzen
-      // führt — beide auf dem technischen Kanal, beide bislang unsichtbar: ein
-      // Lauf, der in die Zeit- oder Schrittgrenze lief, und eine Antwort, die
-      // erkennbar schwächer ausgeliefert wurde. Bis sie hier standen, sah eine
-      // nach zwei von zehn geplanten Suchen abgebrochene Antwort genauso aus
-      // wie eine vollständige.
-      //
-      // Formuliert als Aussagen, mit denen Planende etwas anfangen können, nie
-      // als die Telemetrie, aus der sie stammen. Die Aufzeichnung führt auch
-      // die Berichtslänge in Zeichen mit; dafür gibt es bewusst keine Zeile —
-      // eine Zeichenzahl benennt einen Mechanismus, sonst nichts.
       limits: {
         label: 'Einschränkungen',
         deepCutoff: {
-          // Woran der Lauf endete. `other` deckt einen Grund ab, den dieser
-          // Build nicht kennt — DASS vorzeitig Schluss war, stimmt in jedem Fall.
           time: 'Die Tiefenrecherche erreichte die Zeitgrenze.',
           steps: 'Die Tiefenrecherche erreichte ihre Schrittgrenze.',
           other: 'Die Tiefenrecherche wurde vorzeitig beendet.',
-          // …und ob etwas davon zu retten war. Diese Hälfte entscheidet, wie
-          // viel Gewicht die Antwort darüber tragen kann.
           salvaged: 'Was bis dahin belegt war, ist in die Antwort eingegangen.',
           nothing: 'Ergebnisse lagen zu diesem Zeitpunkt keine vor.',
-          // Wie weit sie kam. Nur genannt, wenn es etwas zu nennen gibt: null
-          // Quellen ist eine wahre Zahl, die sich wie ein Urteil liest — und
-          // `nothing` oben sagt bereits die ehrliche Fassung davon.
           sources:
             '{count, plural, one {# Quelle war bis dahin gesichtet} other {# Quellen waren bis dahin gesichtet}}.',
           after: 'Abbruch nach {minutes, plural, one {# Minute} other {# Minuten}}.',
         },
-        // Die Antwort ging schwächer raus als ein sauberer Lauf. Diese Zeilen
-        // sind der Hinweis, vor dem Verlassen darauf selbst nachzusehen.
         degraded: {
           noReport:
             'Es wurde kein Recherchebericht abgelegt — die Antwort steht nur hier im Verlauf.',
@@ -1888,21 +1421,13 @@ export const chat: typeof en.chat = {
       branchesTab: 'Folgewege',
     },
   },
-  // Die leise Zeile über der Eingabe, während die Seite die Verbindung zum
-  // Chat von selbst wiederherstellt und eine Antwort oder eine Rückfrage
-  // darauf wartet. Ihre Nachbarn („Verbindung unterbrochen“, „Wieder
-  // verbunden“) stehen unter `research.chatArea.connection`.
   connection: {
     restoring: 'Verbindung wird wiederhergestellt …',
   },
   error: {
     showDetails: 'Details anzeigen',
     hideDetails: 'Details ausblenden',
-    // Wiederholaktion bei einer fehlgeschlagenen Antwort (Designsprache:
-    // „hilfreiche Meldung + erneut versuchen“).
     retry: 'Erneut versuchen',
-    // Die Kennung der fehlgeschlagenen Anfrage. Angezeigt werden die ersten
-    // acht Zeichen – genau die, die im Log stehen –, kopiert wird die ganze.
     reference: 'Referenz für den Support',
     referenceCopyAria: 'Referenz {id} kopieren',
     referenceCopied: 'Referenz kopiert',
@@ -1941,7 +1466,6 @@ export const chat: typeof en.chat = {
       title: 'Antwort fehlgeschlagen',
       message: 'Beim Erstellen einer Antwort ist beim Assistenten ein Fehler aufgetreten.',
     },
-    // Erst, wenn der Server bestätigt hat, dass er keine Antwort hat.
     responseInterrupted: {
       title: 'Antwort unterbrochen',
       message:
@@ -1965,8 +1489,6 @@ export const chat: typeof en.chat = {
       title: 'Etwas ist schiefgelaufen',
       message: 'Ein unerwarteter Fehler ist aufgetreten. Bitte versuchen Sie es erneut.',
     },
-    // Deep-Research-Auftrag wurde abgelehnt, weil die Warteschlange voll ist
-    // (WP-A `job_admission_rejected`). Warnung, nicht Fehler: erneut senden hilft.
     researchQueueFull: {
       title: 'Recherche ausgelastet',
       full: 'Die Recherche-Warteschlange ist gerade voll.',
@@ -1983,10 +1505,6 @@ export const chat: typeof en.chat = {
     adminMessage:
       'Das Nutzungsbudget ist aufgebraucht, daher können derzeit keine neuen Nachrichten gesendet werden. Erhöhen Sie die Limits unter Organisation → Verbrauch & Budgets.',
   },
-  /**
-   * Der Verbrauchshinweis über dem Eingabefeld (`UsageNotice.tsx`). `{budget}`
-   * ist eine der `budget.*`-Wendungen und steht immer am Satzanfang.
-   */
   usageNotice: {
     budget: {
       organization: { day: 'Das Tagesbudget des Büros', month: 'Das Monatsbudget des Büros' },
@@ -2041,7 +1559,6 @@ export const chat: typeof en.chat = {
       model: 'Modellansicht geöffnet',
     },
     refused: {
-      // Neutral: ein 404 sagt nicht, ob es das Dokument gibt.
       unavailable: 'Nicht geöffnet: Dokument nicht verfügbar',
       notRevisions: 'Nicht geöffnet: keine zwei Fassungen desselben Dokuments',
     },
@@ -2064,16 +1581,12 @@ export const chat: typeof en.chat = {
   memory: {
     noted: '{productName} hat sich gemerkt',
     notedAria: '{productName} hat sich {count, plural, one {# Notiz} other {# Notizen}} gemerkt',
-    // Die Überschrift nennt das Gedächtnis, in das die Notizen kamen; „mixed“,
-    // wenn sie in mehr als eines kamen.
     addedTo: {
       project: 'In das Projektgedächtnis aufgenommen',
       organization: 'In das Gedächtnis des Büros aufgenommen',
       personal: 'In Ihr Gedächtnis aufgenommen',
       mixed: 'In das Gedächtnis aufgenommen',
     },
-    // Mindestens eine Notiz hat eine frühere ersetzt (`supersedes`): das
-    // wichtigere Ereignis, daher eigenes Wort und eigenes Symbol am Chip.
     updated: 'Gedächtnis aktualisiert',
     updatedAria:
       '{productName} hat das Gedächtnis aktualisiert: {count, plural, one {# Notiz} other {# Notizen}}, davon {corrected} korrigiert',
@@ -2085,27 +1598,20 @@ export const chat: typeof en.chat = {
     correctedLabel: 'Korrigiert',
     replaced: 'Ersetzt:',
     manageHint: 'Diese Notizen können Sie im Projektgedächtnis verwalten und löschen.',
-    // Der Hinweis als Tür: führt zum Gedächtnis des Projekts (Einstellungen → Gedächtnis).
     manageLink: 'Im Projektgedächtnis verwalten',
-    // Dieselbe Tür für die eigenen Notizen („Mein Gedächtnis“).
     manageLinkPersonal: 'In „Mein Gedächtnis“ verwalten',
-    // Eine Notiz dort zurücknehmen, wo sie gezeigt wird (ADR-0180). Das löscht sie.
     remove: 'Entfernen',
     removeAria: 'Notiz entfernen: {note}',
     removing: 'Wird entfernt …',
     removed: 'Entfernt. Die Notiz ist gelöscht.',
-    // Die Notiz wurde bereits an anderer Stelle entfernt, verworfen oder ersetzt.
     gone: 'Nicht mehr im Gedächtnis.',
     removeFailed: 'Konnte nicht entfernt werden.',
     removeRetry: 'Erneut versuchen',
-    // Eine Notiz, die eine frühere ersetzt hat, wird hier nicht zurückgenommen: die frühere bliebe ersetzt.
     replacedNotRemovable: 'Hat eine frühere Notiz ersetzt und lässt sich hier nicht zurücknehmen.',
     openMemory: 'Gedächtnis öffnen',
-    // Wer eine Notiz liest, folgt aus ihrem Ort (ADR-0180): eigenes Gedächtnis, Projekt oder Büro.
     audience: {
       personal: 'Nur Sie',
       project: 'Liest das Projektteam',
-      // Projektgedächtnis, das auf einem eingeschränkten Ordner beruht (ADR-0087).
       restricted: 'Liest, wer den Ordner lesen darf',
       organization: 'Lesen alle im Büro',
     },
@@ -2114,7 +1620,6 @@ export const chat: typeof en.chat = {
       inTurn: 'während der Antwort notiert',
     },
   },
-  // Temporärer Chat (ADR-0180): aus ihm kommt nichts in ein Gedächtnis.
   temporary: {
     label: 'Temporär',
     switchOn: 'Temporären Chat einschalten',
@@ -2123,13 +1628,11 @@ export const chat: typeof en.chat = {
     switchOffTitle:
       'Temporären Chat ausschalten: Ab jetzt kann {productName} sich wieder etwas merken. Was bisher gesagt wurde, bleibt außen vor.',
     statement: 'Temporärer Chat. {productName} merkt sich aus diesem Chat nichts.',
-    // Solange der Server die Umstellung noch nicht bestätigt hat: nie „merkt sich nichts“, bevor es stimmt.
     turningOn: 'Temporärer Chat wird eingeschaltet …',
     turningOff: 'Temporärer Chat wird ausgeschaltet …',
     ownerOnly: 'Das kann nur ändern, wem der Chat gehört.',
     switchFailed: 'Die Einstellung wurde nicht gespeichert. Versuchen Sie es noch einmal.',
   },
-  // Wer den Chat liest: die Zeile unter dem Eingabefeld.
   privacy: {
     onlyYou: 'Nur Sie sehen diesen Chat, bis Sie ihn teilen.',
   },
@@ -2143,41 +1646,29 @@ export const chat: typeof en.chat = {
     ariaLabel: 'Selbsteinschätzung des Assistenten: {level}',
     tooltip:
       'Die eigene Einschätzung des Assistenten, wie gut diese Antwort durch seine Quellen gestützt ist. Sie kann falsch sein.',
-    // Was jede Stufe BEDEUTET — im Tooltip gezeigt, damit der Leser den Chip einordnen kann.
     levelMeanings: {
       high: 'Hoch: die Antwort ist direkt durch die abgerufenen Quellen belegt, die sie klar und konsistent stützen.',
       medium:
         'Mittel: teilweise belegt — Quellen stützen Teile, aber eine Lücke, eine Schlussfolgerung oder eine kleine Mehrdeutigkeit bleibt.',
       low: 'Niedrig: Quellen fehlen, widersprechen sich oder reichen nicht aus; die Antwort extrapoliert aus Allgemeinwissen.',
     },
-    // Label vor der eigenen Kurzbegründung des Modells (wortgetreu).
     reasonLabel: 'Begründung des Assistenten',
-    // Dasselbe Label, wenn die Einschätzung danach gedeckelt wurde: die
-    // Begründung beschreibt die Stufe VOR der Begrenzung, nicht die gezeigte.
     reasonLabelBeforeCap: 'Begründung des Assistenten vor der Begrenzung',
-    // Zusatzsatz, der im Tooltip erklärt, WARUM die Einschätzung gedeckelt
-    // wurde, je nach `answer_confidence_capped_reason` (WP-A, PB-9).
     cappedReasons: {
       ungrounded: 'Geringe Sicherheit: Antwort nicht durch Quellen belegt.',
       quoteUnverified:
         'Ein Zitat konnte nicht wörtlich in der Quelle bestätigt werden; die Einschätzung ist entsprechend begrenzt.',
       lawUnsettled:
         'Mittlere Sicherheit: die Antwort stützt sich auf Baurecht, dessen verbindliche Fassung für diesen Standort noch nicht geprüft feststeht.',
-      // Die Messung belegt die Zahl, nicht die Rechtsaussage daneben — deshalb
-      // bleibt die gemischte Antwort auf „gering", und der Tooltip sagt warum.
+      openPoint:
+        'Begrenzt durch die Antwort selbst: einen offenen Punkt, den sie nennt, oder ihre eigene niedrigere Einschätzung.',
       normativeClaimUncited:
         'Geringe Sicherheit: die Maße stammen aus dem Modell, die normative Aussage dazu ist aber nicht durch eine Quelle belegt.',
-      // Gemessen ist nicht zitiert: die Zahl ist nachvollziehbar, „hoch" bleibt
-      // aber der Antwort mit geprüfter Quellenangabe vorbehalten.
       measurementOnly:
         'Mittlere Sicherheit: die Angabe ist am Modell gemessen (mit Toleranz und Methode), aber nicht durch eine Quelle belegt.',
-      // Die Quelle stammt aus dem Gespräch, nicht aus dieser Antwort — sie
-      // belegt daher nur so viel wie eine Messung.
       citationFallback:
         'Mittlere Sicherheit: die angeführte Quelle wurde ergänzt, nicht von der Antwort selbst zitiert.',
     },
-    // Die Einschätzung seit ADR-0139: ein Prüfmodell liest die Antwort gegen
-    // alles, was die Antwort abgerufen hat, und nennt, was nicht belegt ist.
     checked: {
       ariaLabel: 'Belegprüfung der Antwort: {level}',
       tooltip:
@@ -2189,19 +1680,18 @@ export const chat: typeof en.chat = {
       },
       findingsLabel: 'Nicht belegt',
       problems: { unbacked: 'nicht belegt', contradicted: 'widerspricht der Quelle' },
-      // „{source}" ist die Quelle, wie das Prüfmodell sie benannt hat.
       checkedAgainst: 'geprüft gegen {source}',
       noSource: 'keine Quelle',
       quoteUnverified:
         'Ein Zitat konnte nicht wörtlich in der Quelle bestätigt werden; die Einschätzung ist deshalb begrenzt.',
       lawUnsettled:
         'Welche Fassung hier verbindlich ist, steht für diesen Standort noch nicht geprüft fest; die Einschätzung ist deshalb höchstens mittel.',
+      openPoint:
+        'Begrenzt durch die Antwort selbst: einen offenen Punkt, den sie nennt, oder ihre eigene niedrigere Einschätzung. Die Prüfung hebt die Stufe nicht darüber.',
       unavailable: 'Belegprüfung nicht verfügbar',
       unavailableTooltip:
         'Die Belegprüfung konnte für diese Antwort nicht laufen. {productName} zeigt deshalb keine Einschätzung; die Antwort selbst ist unverändert.',
     },
-    // Die Einschätzung seit ADR-0125: pro Aussage gerechnet, nicht pro Antwort.
-    // Ältere Antworten behalten die Texte oben, unter denen sie berechnet wurden.
     byClaim: {
       tooltip:
         'Die eigene Einschätzung des Assistenten, begrenzt durch die schwächste tragende Aussage der Antwort. Sie kann falsch sein.',
@@ -2217,8 +1707,7 @@ export const chat: typeof en.chat = {
           'Ein Zitat konnte nicht wörtlich in der Quelle bestätigt werden; die Einschätzung ist entsprechend begrenzt.',
         lawUnsettled:
           'Begrenzt durch Baurecht, dessen verbindliche Fassung für diesen Standort noch nicht geprüft feststeht.',
-        // Ein Eintrag im Arbeitsbereich oder eine Messung belegt Fakten über
-        // das Büro und das Gebäude, nie eine Aussage über das Recht.
+        openPoint: 'Begrenzt durch die Antwort selbst: einen offenen Punkt, den sie nennt, oder ihre eigene Einschätzung.',
         normativeClaimUncited:
           'Begrenzt durch eine Rechtsaussage ohne zitierte Quelle. Ein Eintrag im Arbeitsbereich oder eine Messung belegt keine Rechtsaussage.',
         measurementOnly:
@@ -2228,7 +1717,6 @@ export const chat: typeof en.chat = {
       },
     },
   },
-  // Antwort-Feedback per Daumen (WS-7).
   feedback: {
     question: 'War das hilfreich?',
     helpfulAria: 'Diese Antwort als hilfreich markieren',
@@ -2241,10 +1729,6 @@ export const chat: typeof en.chat = {
       other: 'Sonstiges',
     },
     thanks: 'Danke für Ihr Feedback.',
-    // States what the press COMMITTED rather than thanking: the vote is
-    // persisted on the press, so the reason and note are a second, optional
-    // act, and "danke" beside an open "Was war das Problem?" reads as if
-    // the exchange were already over.
     voteRecorded: 'Bewertung gespeichert.',
     commentLabel: 'Noch etwas?',
     commentPlaceholder: 'Optional — was ist schiefgelaufen?',
@@ -2252,22 +1736,15 @@ export const chat: typeof en.chat = {
     expectedPlaceholder: 'z. B. Brüstungshöhe 1,00 m laut OIB-RL 4',
     commentSubmit: 'Hinweis senden',
   },
-  // Nach einem Daumen nach unten: dieselbe Frage mit mehr Aufwand erneut stellen.
   retryThorough: {
     action: 'Gründlicher neu beantworten',
     aria: 'Dieselbe Frage mit höherem Aufwand erneut beantworten lassen',
   },
-  // Schaltfläche „Nachricht kopieren" auf den Nutzernachrichtenblasen
   copyMessage: {
     copy: 'Nachricht kopieren',
     copied: 'Kopiert',
     failed: 'Nachricht konnte nicht kopiert werden',
   },
-  /**
-   * Sensible Daten im Chat (ADR-0086): was der Composer vor dem Senden meldet.
-   * Die Platzhalter selbst sind Fachdaten und kommen aus `content-screen.ts`.
-   */
-  /** The notice once a chat's answers drew on another project (ADR-0094). */
   otherProjects: {
     chip: '{count, plural, one {Ein anderes Projekt} other {# andere Projekte}}',
     title: 'Dieser Chat stützt sich auf andere Projekte: {projects}.',

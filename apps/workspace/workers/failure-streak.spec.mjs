@@ -70,7 +70,6 @@ describe('createFailureStreak', () => {
     expect(log.log).toHaveBeenCalledWith('[purger] queue recovered after 2 failed ticks')
     expect(streak.count()).toBe(0)
 
-    // A new streak counts from zero: two more failures do not reach 3.
     streak.failed({ kind: 'database unavailable (57P03)' })
     streak.failed({ kind: 'database unavailable (57P03)' })
     expect(log.error).not.toHaveBeenCalled()

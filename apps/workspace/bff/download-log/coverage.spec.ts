@@ -2,69 +2,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The download log's coverage gate: a function that hands a document's bytes to
- * a person cannot skip `recordDocumentAccess`, and a route that reaches one
- * cannot appear without being listed here.
- *
- * Same shape as `authz-coverage.spec.ts`: it reads the source, and a change
- * that adds a way out for bytes fails HERE, in the commit that adds it, naming
- * what to classify. It reads the syntax tree, not the text, so a comment that
- * mentions `GetObjectCommand` is not a reader and a renamed import still is.
- *
- * ## Four layers
- *
- * 1. **Object readers.** Every unit of `src` that builds a `GetObjectCommand`
- *    or calls `getSignedUrl` is in {@link OBJECT_READERS}. A unit is a top-level
- *    function (`default` for an anonymous default export), each declarator of a
- *    variable statement, each member of a class, a class expression or an
- *    object literal (`Owner.member`, nested ones on down: `Owner.api.member`;
- *    `Owner.static member` for a static one, `Owner.get member` and
- *    `Owner.set member` for accessors), or any other statement that runs at the
- *    top of a module (`(top level, line N)`): every statement but a type, an
- *    import or a re-export, so none escapes the walk, and every function that
- *    can be called on its own is its own unit under a key no other has (two
- *    under one key fail the walk), so a check in one covers no other. Either
- *    it records the hand-over itself (and says which `kind`), or it is exempt
- *    with the reason, written down. A unit that calls `recordDocumentAccess` is
- *    in the table too, so the table is also the list of what is logged.
- * 2. **Pinned helpers.** A private helper several functions share
- *    ({@link PINNED_HELPERS}) is held to the exact list of its callers, so a new
- *    caller has to say whether it hands the bytes to a person.
- * 3. **Routes.** Every `app/api` route that reaches a logged function (by name,
- *    through any chain of functions in `src`), or builds a raw `Response`, is in
- *    {@link ROUTES}: logged through a named function, or exempt with the reason.
- * 4. **The access check comes first.** Every logged function asks
- *    `getAccessibleDocument` (itself, or through a function that does) before it
- *    reads, presigns or records anything. That is the one answer to "may this
- *    session have this document" (`lib/documents/access.ts`), so a reader that
- *    authorizes some other way, or after the bytes are on their way, fails here.
- *    A call is resolved to the function it names: one in the same file, one it
- *    imports (through re-exports, `import * as` and a default import), or, as
- *    `this.name()`, the member of whatever `this` is there: the instance in an
- *    instance member, the class in a static one, the object in a method of an
- *    object literal, and in an arrow function the `this` of where the arrow is
- *    written (none at the top of a module). A method call on any other
- *    object resolves to nothing, so a same-named function elsewhere in `src`
- *    never stands in for it. A check counts only on the path every call takes:
- *    not under a branch (`if`, `?:`, `&&`, `||`, `??`, `?.`, a `case`), in a
- *    loop, in a `try` with a `catch`, or in a callback. And only when its result
- *    is used: not a statement of its own, not `void`, not the left of a comma,
- *    not a `const` nothing reads, and not a promise whose refusal a `.catch` (or
- *    a `.then` with a rejection handler) swallows anywhere along its chain
- *    (`check().then(f).catch(g)` as much as `check().catch(g)`), through a
- *    name it is kept under (`const p = check(); await p.catch(g)`), or in a
- *    `Promise` combinator other than `Promise.all` (`allSettled` settles past
- *    a refusal). A method whose name is computed (`p[name](…)`) may be
- *    `catch`, so it fails closed.
- *
- *    What it cannot see: data flow beyond that. A check on a different id than
- *    the one whose bytes move, or one whose result is read and then not used for
- *    them, still passes. Layer 4 guards against a reader that forgets the check,
- *    makes it late or throws its answer away; it is not a proof, and review
- *    reads the arguments. Layer 3 follows names, so a route that reaches a
- *    default export under a name of its own is not followed there.
- */
 
 import { describe, expect, it } from 'vitest'
 import { readdirSync, readFileSync, existsSync } from 'node:fs'
@@ -77,15 +14,10 @@ import { SOURCE_DIRS, srcKey, srcPath } from '@/test-utils/source-tree'
 type Disposition =
   | { logged: readonly DownloadLogKind[] }
   | {
-      /** True when a person's browser can reach it, so a route that reaches it must be listed. */
       servesPerson?: true
       exempt: string
     }
 
-/**
- * Every function that reads or presigns an object, or records one.
- * Key: `<path under src>::<function>`.
- */
 const OBJECT_READERS: Record<string, Disposition> = {
   'lib/documents/document-delivery.ts::getDocumentDownload': { logged: ['download'] },
   'lib/documents/document-delivery.ts::getDocumentPreview': { logged: ['preview'] },
@@ -136,10 +68,6 @@ const OBJECT_READERS: Record<string, Disposition> = {
   },
 }
 
-/**
- * Private helpers whose callers decide whether bytes reach a person. Key as above;
- * `callers` is every function in the same file that names the helper.
- */
 const PINNED_HELPERS: Record<string, { callers: readonly string[]; reason: string }> = {
   'lib/documents/version-content.ts::readObjectText': {
     callers: ['fetchVersionText', 'readVersionForService'],
@@ -154,12 +82,10 @@ const PINNED_HELPERS: Record<string, { callers: readonly string[]; reason: strin
 
 type RouteDisposition = { via: string } | { exempt: string }
 
-/** Every `app/api` route that reaches a logged function or builds a raw `Response`. */
 const ROUTES: Record<string, RouteDisposition> = {
   'documents/[id]/download/route.ts': { via: 'getDocumentDownload' },
   'documents/[id]/preview/route.ts': { via: 'getDocumentPreview' },
   'documents/[id]/file/route.ts': { via: 'streamDocumentFile' },
-  // The same route serves a version's bytes (`?versionId=`) through streamVersionFile.
   'documents/[id]/text/route.ts': { via: 'getDocumentTextPreview' },
   'documents/[id]/versions/[versionId]/content/route.ts': { via: 'readVersionContent' },
   'documents/[id]/versions/diff/route.ts': { via: 'readVersionContent' },
@@ -191,7 +117,7 @@ const ROUTES: Record<string, RouteDisposition> = {
   },
   'a2a/route.ts': {
     exempt:
-      'the A2A server answers with JSON-RPC text: an ask, its answer text and the names of documents Piloti filed, read through the piloti-ask routes as the person (lib/a2a/request-handler.ts); it never hands a file’s bytes.',
+      'the A2A server answers with JSON-RPC text: an ask, its answer text and the names of documents the agent filed, read through the piloti-ask routes as the person (lib/a2a/request-handler.ts); it never hands a file’s bytes.',
   },
   'v1/[...path]/route.ts': { exempt: 'proxy of the allowlisted JSON endpoints of the agent service (lib/proxy/v1-allowlist); no file bytes.' },
   'knowledge-base/documents/[fileName]/route.ts': { exempt: 'the platform’s shared knowledge base (norms), served from the agent service; not an organization’s document.' },
@@ -201,16 +127,11 @@ const ROUTES: Record<string, RouteDisposition> = {
   'internal/document-versions/[versionId]/content/route.ts': { exempt: 'agent service only: opens a turn’s subject into its working directory.' },
 }
 
-// ---------------------------------------------------------------------------
-// Reading the source
-// ---------------------------------------------------------------------------
-
 function sourceFiles(dir?: string, found: string[] = []): string[] {
   if (!dir) return SOURCE_DIRS.flatMap((root) => sourceFiles(join(process.cwd(), root)))
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const path = join(dir, entry.name)
     if (entry.isDirectory()) {
-      // Dev previews are fixtures for pictures, never a route a customer reaches.
       if (path === join(process.cwd(), 'app', 'dev')) continue
       sourceFiles(path, found)
     } else if (/\.tsx?$/.test(entry.name) && !/\.(spec|test)\.tsx?$/.test(entry.name)) {
@@ -224,32 +145,16 @@ interface TopLevelFunction {
   key: string
   name: string
   file: string
-  /** Every identifier the function mentions. */
   identifiers: Set<string>
   callsRecord: boolean
-  /** The `kind` literals passed to `recordDocumentAccess`. */
   recordedKinds: string[]
   buildsObjectRead: boolean
-  /**
-   * What it calls (and `GetObjectCommand` when it builds one), in the order the
-   * calls complete: a call's arguments finish before the call, so a call is
-   * placed at its end. See {@link ResolvedCall}.
-   */
   calls: ResolvedCall[]
 }
 
-/**
- * One call, resolved. `target` is `<path under src>::<function>` for a function
- * of `src` (declared in the same file, or imported, through re-exports), the
- * bare name for anything else called by plain name (a package import, a
- * global), and `?.<name>` for a method on some other object, which resolves to
- * nothing. `conditional`: the call is not on the path every call of the
- * function takes (see the module note, layer 4).
- */
 interface ResolvedCall {
   target: string
   conditional: boolean
-  /** Its result is thrown away ({@link resultDiscarded}): it answers nothing, so it is no check. */
   discarded: boolean
 }
 
@@ -257,10 +162,6 @@ function topLevelFunctions(file: string): TopLevelFunction[] {
   return functionsInSource(srcKey(file), readFileSync(file, 'utf8'))
 }
 
-/**
- * `src`-relative path of a module specifier, or null for a package. A module
- * that is not on disk (a spec's synthetic source) is taken to be `<base>.ts`.
- */
 function moduleFile(fromRel: string, specifier: string): string | null {
   let base: string
   if (specifier.startsWith('@/')) base = specifier.slice(2)
@@ -280,14 +181,12 @@ function parsed(rel: string): ts.SourceFile | null {
   return parsedSources.get(rel) ?? null
 }
 
-/** Whether a statement is the module's default export (`export default function`, `export default <expr>`). */
 function isDefaultExport(statement: ts.Statement): boolean {
   if (ts.isExportAssignment(statement)) return !statement.isExportEquals
   if (!ts.isFunctionDeclaration(statement) && !ts.isClassDeclaration(statement)) return false
   return (ts.getCombinedModifierFlags(statement) & ts.ModifierFlags.Default) !== 0
 }
 
-/** The top-level names a module declares (functions, classes and `const`s), and `default` when it has a default export. */
 function declaredNames(source: ts.SourceFile): Set<string> {
   const names = new Set<string>()
   for (const statement of source.statements) {
@@ -299,7 +198,6 @@ function declaredNames(source: ts.SourceFile): Set<string> {
   return names
 }
 
-/** Where `name`, exported by module `rel`, is declared: through `export { a as b } from` and `export * from`. */
 function declarationOf(rel: string, name: string, seen = new Set<string>()): string {
   const source = parsed(rel)
   if (!source || seen.has(rel) || declaredNames(source).has(name)) return `${rel}::${name}`
@@ -322,7 +220,6 @@ function declarationOf(rel: string, name: string, seen = new Set<string>()): str
   return `${rel}::${name}`
 }
 
-/** What each name a module imports from `src` is: a function key, or a namespace (`ns:` and its file). */
 function importBindings(rel: string, source: ts.SourceFile): Map<string, string> {
   const bindings = new Map<string, string>()
   for (const statement of source.statements) {
@@ -352,7 +249,6 @@ const SHORT_CIRCUIT = new Set([
   ts.SyntaxKind.QuestionQuestionEqualsToken,
 ])
 
-/** Whether `child`, directly under `parent`, runs on only some of the paths through `parent`. */
 function branches(parent: ts.Node, child: ts.Node): boolean {
   if (ts.isIfStatement(parent)) return child !== parent.expression
   if (ts.isConditionalExpression(parent)) return child !== parent.condition
@@ -361,7 +257,6 @@ function branches(parent: ts.Node, child: ts.Node): boolean {
   return ts.isCaseClause(parent) || ts.isDefaultClause(parent) || ts.isCatchClause(parent) || ts.isIterationStatement(parent, false)
 }
 
-/** A node that hands its operand's value on unchanged, as far as a check's result goes. */
 function transparent(node: ts.Node): boolean {
   return (
     ts.isParenthesizedExpression(node) ||
@@ -372,35 +267,20 @@ function transparent(node: ts.Node): boolean {
   )
 }
 
-/** A method named by an expression the walk cannot read (`p[name]`): it may be `catch`. */
 const UNREAD_METHOD = '[computed]'
 
-/** The method `access` names, `p.then` and `p['then']` alike, {@link UNREAD_METHOD} for `p[name]`; null for anything else. */
 function accessedMethod(access: ts.Node, on: ts.Node): string | null {
   if (ts.isPropertyAccessExpression(access) && access.expression === on) return access.name.text
   if (!ts.isElementAccessExpression(access) || access.expression !== on) return null
   return ts.isStringLiteralLike(access.argumentExpression) ? access.argumentExpression.text : UNREAD_METHOD
 }
 
-/** Where a check's promise chain ends, read by {@link promiseChain}. */
 interface ChainEnd {
-  /** The chain's last value: what the rest of the function does with the answer. */
   end: ts.Node
-  /** Something along the chain can settle it past a refusal. */
   swallowed: boolean
-  /** An `await` was passed: from there on the value is the answer, not a promise. */
   settled: boolean
 }
 
-/**
- * Follows a promise up from `start` through every `.then(onFulfilled)` and
- * `.finally(…)`, which pass a refusal on, and through `Promise.all([…])`,
- * which refuses when one of them does, until it is awaited or used. Swallowed:
- * a `.catch(…)`, a `.then` with a rejection handler, a method whose name is
- * computed (it may be `catch`, so the walk fails closed), or an array that is
- * not `Promise.all`'s (`Promise.allSettled`, `any` and `race` settle past a
- * refusal, and a promise in any other array is one nothing here awaits).
- */
 function promiseChain(start: ts.Node): ChainEnd {
   let node = start
   let settled = false
@@ -430,17 +310,6 @@ function promiseChain(start: ts.Node): ChainEnd {
   }
 }
 
-/**
- * Whether a call's result is thrown away, so a refusal it carries stops
- * nothing: swallowed along its promise chain ({@link promiseChain}, so
- * `check().then(f).catch(g)` as surely as `check().catch(g)`), a statement of
- * its own (`await check(…)`, `void check(…)`), the left of a comma, a `const`
- * nothing reads, or a promise kept under a name and swallowed through it
- * (`const p = check(); await p.catch(g)`). `getAccessibleDocument` refuses by
- * throwing, so some of these still refuse; they are passed over all the same,
- * because a check whose document is never used is usually a check on
- * something other than what moves (module note, layer 4).
- */
 function resultDiscarded(call: ts.CallExpression, root: ts.Node): boolean {
   const { end, swallowed, settled } = promiseChain(call)
   if (swallowed) return true
@@ -452,7 +321,6 @@ function resultDiscarded(call: ts.CallExpression, root: ts.Node): boolean {
   return !settled && ts.isIdentifier(parent.name) && swallowedThrough(root, parent.name, new Set())
 }
 
-/** Whether a promise bound to `declared` is swallowed through a read of it, or of a name that read is bound to in turn. */
 function swallowedThrough(root: ts.Node, declared: ts.Identifier, seen: Set<string>): boolean {
   seen.add(declared.text)
   return readsOf(root, declared).some((read) => {
@@ -464,13 +332,11 @@ function swallowedThrough(root: ts.Node, declared: ts.Identifier, seen: Set<stri
   })
 }
 
-/** The names a declaration binds, through destructuring. */
 function bindingNames(name: ts.BindingName): ts.Identifier[] {
   if (ts.isIdentifier(name)) return [name]
   return name.elements.flatMap((element) => (ts.isOmittedExpression(element) ? [] : bindingNames(element.name)))
 }
 
-/** Every place `root` mentions the name `declared` binds, but that declaration. */
 function readsOf(root: ts.Node, declared: ts.Identifier): ts.Identifier[] {
   const found: ts.Identifier[] = []
   const visit = (node: ts.Node): void => {
@@ -481,20 +347,17 @@ function readsOf(root: ts.Node, declared: ts.Identifier): ts.Identifier[] {
   return found
 }
 
-/** A property's or member's name as its key spells it: `get`, `'x'`, `#x`, `[computed]`. */
 function propertyKey(name: ts.PropertyName): string {
   if (ts.isIdentifier(name) || ts.isPrivateIdentifier(name) || ts.isStringLiteralLike(name)) return name.text
   return name.getText()
 }
 
-/** `get ` and `set ` before an accessor's name, so a getter and a setter of one name are two units. */
 function accessorPrefix(member: ts.Node): string {
   if (ts.isGetAccessorDeclaration(member)) return 'get '
   if (ts.isSetAccessorDeclaration(member)) return 'set '
   return ''
 }
 
-/** A class member that is only a signature (an overload, an abstract member): it runs nothing. */
 function bodiless(member: ts.ClassElement): boolean {
   const bodied =
     ts.isMethodDeclaration(member) ||
@@ -504,47 +367,18 @@ function bodiless(member: ts.ClassElement): boolean {
   return bodied && member.body === undefined
 }
 
-/** Whether a member belongs to the class itself (`static`, a static block), whose `this` is the class. */
 function onClass(member: ts.ClassElement): boolean {
   if (ts.isClassStaticBlockDeclaration(member)) return true
   return ts.canHaveModifiers(member) && (ts.getModifiers(member) ?? []).some((modifier) => modifier.kind === ts.SyntaxKind.StaticKeyword)
 }
 
-/**
- * One unit the walk reads, named for its key: a function declaration (its name,
- * or `default`), each declarator of a variable statement (its name), each
- * member of a class, class expression or object literal (`Owner.member`,
- * `default.member` for an anonymous default class or object, and on down for
- * one nested in another), a default export of an expression (`default`), and
- * any other statement that runs code at the top of the module
- * (`(top level, line N)`). A static member is `Owner.static member`, a getter
- * and a setter `Owner.get member` and `Owner.set member`, a static block
- * `Owner.(static block, line N)`. Every statement but a type, an import or a
- * re-export is one, so a call to a byte step cannot sit where the walk does not
- * look; and every function that can be called on its own is a unit of its own,
- * under a key no other unit has ({@link accessCheckedFirst} refuses two), so
- * the first check in one never covers another.
- */
 interface Unit {
   name: string
   node: ts.Node
-  /**
-   * What `this.name()` in the unit resolves to, as a key prefix: `Owner.` in an
-   * instance member and in a method of an object literal, `Owner.static ` in a
-   * static member. An arrow function binds no `this`, so it keeps the one of
-   * where it is written (none at the top of a module).
-   */
   thisPrefix?: string
-  /**
-   * The function the unit is. Every other function inside the unit is a
-   * callback, which may run later, many times, or never; a unit with no root
-   * (a static block, a top-level statement, a value built by a call) has only
-   * callbacks.
-   */
   root?: ts.Node
 }
 
-/** An expression without what does not change which value it is: parentheses, `as`, `satisfies`, `!`, `<T>`. */
 function unwrapped(expression: ts.Expression): ts.Expression {
   let node = expression
   while (
@@ -559,13 +393,6 @@ function unwrapped(expression: ts.Expression): ts.Expression {
   return node
 }
 
-/**
- * The units a value bound to `name` is: one per member of a class expression or
- * an object literal, one rooted at a function, and otherwise one with no root.
- * `around` is the `this` where the value is written; `receiver` the one a
- * function expression gets when called as the member it is (the object, or for
- * a class property the class's own `this`).
- */
 function unitsOfValue(
   name: string,
   node: ts.Node,
@@ -597,7 +424,6 @@ function classUnits(className: string, declaration: ts.ClassLikeDeclaration): Un
   })
 }
 
-/** `around` is the `this` where the literal is written: an arrow member keeps it, a method gets the object. */
 function objectUnits(owner: string, literal: ts.ObjectLiteralExpression, around?: string): Unit[] {
   const thisAround = around === undefined ? {} : { thisPrefix: around }
   return literal.properties.flatMap((property): Unit[] => {
@@ -605,7 +431,6 @@ function objectUnits(owner: string, literal: ts.ObjectLiteralExpression, around?
       const line = property.getSourceFile().getLineAndCharacterOfPosition(property.getStart()).line + 1
       return [{ name: `${owner}.(spread, line ${line})`, node: property, ...thisAround }]
     }
-    // A shorthand property holds a name and runs nothing.
     if (ts.isShorthandPropertyAssignment(property)) return []
     const key = `${owner}.${accessorPrefix(property)}${propertyKey(property.name)}`
     if (ts.isPropertyAssignment(property)) return unitsOfValue(key, property, property.initializer, around, `${owner}.`)
@@ -643,11 +468,6 @@ function functionsInSource(rel: string, text: string): TopLevelFunction[] {
   const source = ts.createSourceFile(rel, text, ts.ScriptTarget.Latest, true)
   const locals = declaredNames(source)
   const imports = importBindings(rel, source)
-  /**
-   * `foo()` and `ns.foo()` to the function they name, `this.foo()` to the
-   * member of whatever `this` is there ({@link Unit.thisPrefix}); a method on
-   * anything else to nothing.
-   */
   const resolve = (expression: ts.Expression, thisPrefix: string | undefined): string | null => {
     if (ts.isIdentifier(expression)) {
       if (locals.has(expression.text)) return `${rel}::${expression.text}`
@@ -673,8 +493,6 @@ function functionsInSource(rel: string, text: string): TopLevelFunction[] {
       calls: [],
     }
     const ordered: Array<ResolvedCall & { end: number }> = []
-    // The unit's own function is the one being read; any other function inside
-    // it is a callback ({@link Unit.root}).
     const visit = (node: ts.Node, conditional: boolean): void => {
       if (ts.isIdentifier(node)) fn.identifiers.add(node.text)
       if (ts.isNewExpression(node) && node.expression.getText() === 'GetObjectCommand') fn.buildsObjectRead = true
@@ -705,22 +523,9 @@ function functionsInSource(rel: string, text: string): TopLevelFunction[] {
   return found
 }
 
-/** The one access decision for a document (`lib/documents/access.ts`), as a resolved call target. */
 const ACCESS_CHECK = 'lib/documents/access.ts::getAccessibleDocument'
-/** What reads, presigns or records a document's bytes directly. */
 const BYTE_STEPS = new Set(['GetObjectCommand', 'getSignedUrl', 'lib/download-log/service.ts::recordDocumentAccess'])
 
-/**
- * The functions (by key) that ask {@link ACCESS_CHECK} before anything reaches
- * bytes: among the calls each makes, in order, the first that is either an
- * access check (`getAccessibleDocument`, or a function already in this set) on
- * the path every call takes, or a byte step (a read, a presign, a record, or a
- * call to a function that does one without asking first), is an access check.
- * A check under a branch is passed over, not counted. Calls are resolved to
- * the function they name ({@link ResolvedCall}), to a fixed point. The set
- * holds keys, so two units under one key would let the check in one cover the
- * other: that throws instead.
- */
 function accessCheckedFirst(functions: readonly TopLevelFunction[]): Set<string> {
   const keys = functions.map((fn) => fn.key)
   const shared = keys.filter((key, index) => keys.indexOf(key) !== index)
@@ -757,7 +562,6 @@ const ALL_FUNCTIONS = FILES.flatMap(topLevelFunctions)
 const ROUTE_FILES = FILES.filter((file) => /[\\/]app[\\/]api[\\/].*route\.ts$/.test(file))
 const ROUTE_KEY = (file: string): string => relative(join(process.cwd(), 'app', 'api'), file).replace(/\\/g, '/')
 
-/** The `recordDocumentAccess` definition and its own module are not call sites. */
 const LOG_MODULE = 'lib/download-log/'
 const CALLERS = ALL_FUNCTIONS.filter((fn) => !fn.file.startsWith(LOG_MODULE))
 
@@ -840,7 +644,6 @@ describe('download log coverage: object readers', () => {
 
   it('resolves a call to the function it names, so a same-named check elsewhere in src or a method on another object does not count', () => {
     const functions = [
-      // Another file's `load` asks first; this file's `load` does not.
       ...functionsInSource(
         'lib/other.ts',
         `
@@ -987,8 +790,6 @@ describe('download log coverage: object readers', () => {
     expect(recording.sort()).toEqual(
       ['Holder.static api.serve', 'Reader.serve', 'api.checked', 'api.serve', 'default.serve', 'second', 'wrapped'].sort()
     )
-    // Only the member that asks first itself (through `this.load`, its own object's member) is checked. A
-    // value built by a call (`wrap({…})`) is no function of its own, so nothing inside it counts as a check.
     const checked = accessCheckedFirst(functions)
     expect(recording.filter((name) => checked.has(`lib/example.ts::${name}`))).toEqual(['api.checked'])
   })
@@ -1023,7 +824,6 @@ describe('download log coverage: object readers', () => {
       'default',
     ])
     expect(byKey.get('default')?.recordedKinds).toEqual(['download'])
-    // `this.load` resolves to the class's own member, which asks first.
     const checked = accessCheckedFirst(functions)
     expect(['Reader.checked'].filter((name) => !checked.has(`lib/example.ts::${name}`))).toEqual([])
     expect(['Reader.unchecked', 'default'].filter((name) => checked.has(`lib/example.ts::${name}`))).toEqual([])
@@ -1070,7 +870,6 @@ describe('download log coverage: object readers', () => {
         'Overloaded.load',
       ].sort()
     )
-    // The getter's check covers neither setter; a static `this.load` is the static member, an instance one the instance's.
     const checked = accessCheckedFirst(functions)
     expect(
       ['api.set doc', 'Box.set doc', 'Twin.serve'].filter((name) => checked.has(`lib/example.ts::${name}`))
@@ -1130,9 +929,7 @@ describe('download log coverage: object readers', () => {
     )
     const checked = accessCheckedFirst(functions)
     const key = (name: string) => `lib/example.ts::${name}`
-    // `this` in Reader.api.serve is the Reader, whose `load` asks nothing; at the top of a module it is nothing.
     expect(['Reader.api.serve', 'Holder.static api.serve', 'top.serve'].filter((name) => checked.has(key(name)))).toEqual([])
-    // A function expression is called on its object, so its `this.load` is the sibling; an arrow in Checked reaches Checked.load.
     expect(['Reader.api.method', 'Checked.api.serve'].filter((name) => !checked.has(key(name)))).toEqual([])
   })
 
@@ -1166,23 +963,19 @@ describe('download log coverage: object readers', () => {
 })
 
 describe('download log coverage: routes', () => {
-  /** The name a caller writes for a unit: a member's own name (`get` of `Reader.get`, `doc` of `Reader.static get doc`). */
   const calledAs = (name: string): string => name.slice(name.lastIndexOf('.') + 1).replace(/^(static )?([gs]et )?/, '')
 
-  /** Names of functions that hand bytes to a person (logged or reachable-by-browser exempt). */
   const seeds = new Set(
     Object.entries(OBJECT_READERS)
       .filter(([, disposition]) => 'logged' in disposition || ('servesPerson' in disposition && disposition.servesPerson))
       .map(([key]) => calledAs(key.split('::')[1]))
   )
 
-  /** Everything in `src` (or `functions`) that, through any chain of functions, reaches a seed by name. */
   function reaching(functions: readonly TopLevelFunction[] = CALLERS): Set<string> {
     const names = new Set(seeds)
     for (let grew = true; grew; ) {
       grew = false
       for (const fn of functions) {
-        // A route's own handler names (`GET`) are not functions anything calls.
         const name = calledAs(fn.name)
         if (/^app\/api\/.*route\.ts$/.test(fn.file) || names.has(name)) continue
         if ([...fn.identifiers].some((identifier) => identifier !== name && names.has(identifier))) {

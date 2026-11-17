@@ -1,26 +1,5 @@
 'use client'
 
-/**
- * Projects-home client island: the header row (page title, client-side name
- * filter, "New project" action), the resume rail, the projects list, and every
- * empty state. The index page stays server-rendered (DB reads, authz, the Archiv
- * entry card, recently-deleted); this component owns only the search state
- * and the `?new=1` auto-open wiring for the create dialog.
- *
- * Shape of the page, and why it is not one uniform card grid any more: the first
- * three projects are the ones this person actually works in, as the usual
- * `ProjectCard`s, and everything else is a dense `ProjectListRow` list. Both are
- * built from the same atoms (`project-atoms.tsx`) — the rail is a selection and
- * an ordering, not a new kind of card. A grid where every project is equally loud reads fine at
- * six and becomes a wall at forty — and the old ordering put the project someone
- * touched ten minutes ago below three they have never opened. The rail is a
- * fixed size regardless of how many projects exist, so the page's shape stops
- * changing once the list starts growing.
- *
- * Searching collapses both sections into one flat result list: with a query on
- * screen, "continue where you left off" is not the question being asked.
- */
-
 import type { JSX } from 'react'
 import { useMemo, useRef, useState } from 'react'
 import { Search } from 'lucide-react'
@@ -29,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { CountPill } from '@/components/ui/count-pill'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ItemList } from '@/components/ui/item'
+import { PAGE_TITLE_CLASS } from '@/components/ui/page-header'
 import { SearchField } from '@/components/ui/search-field'
 import { SectionLabel } from '@/components/ui/section-label'
 import { projectMatchesQuery } from '@/features/projects/lib/project-search'
@@ -53,27 +33,12 @@ import { ProjectListRow } from './project-list-row'
 
 interface ProjectsViewProps {
   projects: Project[]
-  /** Ingested document count per project id. */
   docCounts: Record<string, number>
-  /** ISO timestamp of the VIEWER's own last activity, keyed by project id. */
   viewerActivity?: Record<string, string>
-  /** Mails waiting for this viewer in each project's E-Mail-Eingang, keyed by project id (`waitingMailCounts`). */
   mailWaiting?: Record<string, number>
-  /** Open the create dialog on mount — wired to `/app/projects?new=1`. */
   autoOpenCreate?: boolean
 }
 
-/**
- * Section eyebrow with an optional count beside it.
- *
- * Both pieces come from the primitives — `SectionLabel` for the ~10.5px
- * eyebrow, `CountPill` for the quiet number next to a heading. This
- * wrapper is only the arrangement of the two. It briefly hand-rolled both, at
- * nearly double the documented tracking and with the count dimmed to
- * `text-muted-foreground` — about 2.2:1 on paper, which is not a hierarchy
- * signal, it is an unreadable number. The pill's fill does that job at full
- * contrast instead.
- */
 function SectionHeading({ id, children, count }: { id: string; children: string; count?: number }): JSX.Element {
   return (
     <div className="mb-3 flex items-center gap-2.5">
@@ -85,7 +50,6 @@ function SectionHeading({ id, children, count }: { id: string; children: string;
   )
 }
 
-/** Only work in progress takes a rail slot; a paused or closed project keeps its place in the list (ADR-0098). */
 const isRailable = (project: Project): boolean => project.status === 'active'
 
 export function ProjectsGrid({
@@ -99,17 +63,11 @@ export function ProjectsGrid({
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<ProjectStatusFilter>(() => defaultProjectStatusFilter(projects))
   const statusCounts = useMemo(() => countByStatus(projects), [projects])
-  // Offered only once there is something to tell apart: a list of active
-  // projects alone needs no control that would only ever show one answer. A
-  // segment with nothing in it is left out, except Aktiv and Alle.
   const showStatusFilter = statusCounts.closed > 0 || statusCounts.paused > 0
   const statusOptions = PROJECT_STATUS_FILTERS.filter(
     (option) => option === 'active' || option === 'all' || statusCounts[option] > 0
   )
-  // A segment that emptied (its last project moved) is gone, so it is no longer
-  // what the list shows either.
   const activeFilter: ProjectStatusFilter = statusOptions.includes(statusFilter) ? statusFilter : 'all'
-  // The list the filter replaced fades in, so the swap reads as its answer.
   const listRef = useRef<HTMLDivElement>(null)
   useSwapFade(listRef, activeFilter)
 
@@ -123,8 +81,6 @@ export function ProjectsGrid({
   }, [projects, needle, activeFilter, showStatusFilter])
   const emptyInStatus = showStatusFilter && !isSearching && filtered.length === 0
 
-  // One helper serves both modes: zero rail slots turns the split into "order
-  // everything by recency", which is exactly what a result list wants too.
   const { resume, rest, basis } = useMemo(
     () => splitForResume(filtered, viewerActivity, isSearching ? 0 : undefined, isRailable),
     [filtered, viewerActivity, isSearching],
@@ -150,13 +106,8 @@ export function ProjectsGrid({
           beside a full-width field), so this is a grid of three: title, search,
           action, placed per breakpoint. The h1 is the ramp's page title. */}
       <header className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-4 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:gap-x-2.5">
-        <h1 className="min-w-0 text-balance text-xl font-medium">{t('list.heading')}</h1>
+        <h1 className={`min-w-0 text-balance ${PAGE_TITLE_CLASS}`}>{t('list.heading')}</h1>
         {hasProjects && (
-          // The one search molecule: magnifier + input with the phone keyboard
-          // already told what Enter does. It matches name, address, Gemeinde and
-          // client (`projectMatchesQuery`), which is what an architect on site
-          // remembers a project by. The reset control is for a thumb that has
-          // just typed a wrong word; 44px on touch.
           <SearchField
             value={query}
             onChange={setQuery}
@@ -220,7 +171,7 @@ export function ProjectsGrid({
             title={t(`list.noneInFilter.${activeFilter === 'all' ? 'active' : activeFilter}`)}
             description={t('list.noneInFilter.description')}
             action={
-              <Button variant="outline" size="sm" onClick={() => setStatusFilter('all')}>
+              <Button variant="secondary" size="sm" onClick={() => setStatusFilter('all')}>
                 {t('list.noneInFilter.showAll')}
               </Button>
             }
@@ -233,7 +184,7 @@ export function ProjectsGrid({
               title={t('list.noMatch.title')}
               description={t('list.noMatch.description')}
               action={
-                <Button variant="outline" size="sm" onClick={() => setQuery('')}>
+                <Button variant="secondary" size="sm" onClick={() => setQuery('')}>
                   {t('list.noMatch.clear')}
                 </Button>
               }
@@ -252,8 +203,6 @@ export function ProjectsGrid({
             </section>
           )
         ) : (
-          // `gap-8` is the documented gap between major sections; whitespace
-          // does the separating, so neither heading needs a rule under it.
           <div className="flex flex-col gap-8 animate-in fade-in-0 duration-base ease-out motion-reduce:animate-none">
             {resume.length > 0 && (
               <section aria-labelledby="projects-resume">

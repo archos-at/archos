@@ -1,36 +1,5 @@
 'use client'
 
-/**
- * Dateien › E-Mail-Eingang (ADR-0137, DECISION §9): the list of held mail read
- * against the open mail, a split with no overlay (the „second pane“ case of
- * the design language's overlay table).
- *
- * LAYOUT BY CONTAINER, NOT BY VIEWPORT. The list is 22rem and the detail the
- * rest while this component's own box is wider than 48rem (`@3xl`); below
- * that it is list → detail, the detail a page of its own with the way back at
- * its top. The URL carries the open mail (`/files/mail/<id>`, pushed, so Back
- * closes it) and the filter (`?status=handled&outcome=…`, replaced: a filter
- * is not a place).
- *
- * THE KEYBOARD (group `inboundMail` in `components/shell/shortcuts.ts`):
- * J/K walk the rows, Enter opens the row, X selects it, Space previews the
- * open mail's first attachment, E files the open mail as the bar shows it,
- * ⌫ dismisses (the selection, or else the open mail). Each key goes through
- * the same control a pointer would press, so busy and confirm states hold.
- * None of them fires while a field has the focus or a dialog is open.
- *
- * „WIE VORGESCHLAGEN ABLEGEN“ comes in four sizes, all through one rule
- * (`fileableReason`, `asSuggested` in `../lib/completeness.ts`): a ready row's
- * own button (one mail, one press, no confirmation: the row already says
- * where its text goes, and the toast says where everything went), the „Bereit“
- * heading's „Alle … ablegen“, a thread group's press, and a selection's bulk
- * bar. Each knows from the list whether its mails are complete
- * (`incompleteReason`, the server's, on each row), reads them (at most twenty,
- * the most one request may decide) and checks them once more as they are now
- * before anything is sent. The request carries no acknowledgement (RT-S5); the
- * several-mail sizes confirm first, listing where everything goes.
- */
-
 import { CLAUSE_JOIN } from '@/lib/format'
 import type { JSX } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -83,27 +52,20 @@ export interface InboundMailWorkspaceProps {
   folders: readonly FolderOption[]
   status: InboundMailListStatus
   outcome: InboundMailOutcome | null
-  /** The first page as the server read it; null reads it here (or says it failed). */
   initialList: InboundMailListView | null
-  /** The open mail, or null for the list alone. */
   mailId: string | null
   initialMail: InboundMailView | null
   initialText?: InboundMailTextView | null
   client?: InboundMailClient
   addressClient?: InboundMailAddressClient
   paths?: InboundMailPaths
-  /** The list failed on the server: show its error instead of reading again. */
   initialListFailed?: boolean
-  /** Previews pin these. */
   now?: number
   decidedByOther?: boolean
-  /** Keep the list empty-and-loading (a preview of the skeleton). */
   listLoading?: boolean
-  /** Mails checked on arrival (a preview of the selection). */
   initialChecked?: readonly string[]
 }
 
-/** Where a filing as suggested was pressed, for PostHog. */
 type AsSuggestedSurface = 'row' | 'ready_section' | 'thread_group' | 'selection'
 
 function isTyping(target: EventTarget | null): boolean {
@@ -146,7 +108,6 @@ export function InboundMailWorkspace({
   const [quietOpen, setQuietOpen] = useState(false)
   const [closedNoticeHidden, setClosedNoticeHidden] = useState(false)
   const [addressOpen, setAddressOpen] = useState(false)
-  // The address heads the page (copy it for Cc) and says whether an empty list was ever used.
   const address = useInboundMailAddress(projectId, true, addressClient)
   const addressView = address.state.kind === 'ready' ? address.state.address : null
   const everReceived = addressView ? addressView.lastReceivedAt !== null : address.state.kind === 'error' ? true : null
@@ -158,7 +119,6 @@ export function InboundMailWorkspace({
     [t]
   )
 
-  // The page's first page of the waiting list is also the count every surface shows.
   useEffect(() => {
     if (initialList && status === 'waiting') {
       primeInboundMailWaiting(projectId, { count: initialList.items.filter((mail) => mail.status === 'waiting').length, more: initialList.nextCursor !== null })
@@ -174,7 +134,6 @@ export function InboundMailWorkspace({
     }
   }, [client, projectId, status, outcome])
 
-  // A filter change (or no first page from the server) reads the list here.
   const firstFilter = useRef(`${status}:${outcome ?? ''}`)
   useEffect(() => {
     if (listLoading) return
@@ -194,15 +153,10 @@ export function InboundMailWorkspace({
   const groups = useMemo(() => (list.kind === 'ready' ? list.threadGroups : []), [list])
   const sections = useMemo(() => listSections(items, { grouped: status === 'waiting', groups }), [items, status, groups])
   const rows = useMemo(() => visibleMails(sections, quietOpen), [sections, quietOpen])
-  // A desk-wide split never shows an empty reader: arriving with no mail open opens the first one (replaced).
   const firstMail = useOpenFirstMail({ mailId, firstId: rows[0]?.id ?? null, scope: `${status}:${outcome ?? ''}`, open: (id) => router.replace(paths.mail(id, filter)) })
 
-  // An empty waiting list is „never used“ or „all done“: the address says which, and is shown in the first.
   const empty = list.kind === 'ready' && list.items.length === 0
-  // Never used: the page is about one thing, the address, so the empty list holds it and the header does not.
   const never = empty && status === 'waiting' && everReceived === false
-
-  // ------------------------------------------------------------ selection and bulk
 
   const selectedIds = useMemo(() => items.filter((mail) => checked.has(mail.id)).map((mail) => mail.id), [items, checked])
   const [views, setViews] = useState<Map<string, InboundMailView>>(new Map())
@@ -212,7 +166,6 @@ export function InboundMailWorkspace({
   const [rowFiling, setRowFiling] = useState<string | null>(null)
   const [confirmDismiss, setConfirmDismiss] = useState(false)
 
-  /** Read the mails a bulk filing sends (at most twenty), keeping what is already read and current. */
   const readViews = useCallback(
     async (ids: string[]): Promise<Map<string, InboundMailView>> => {
       const updatedAt = new Map(items.map((mail) => [mail.id, mail.updatedAt]))
@@ -227,7 +180,6 @@ export function InboundMailWorkspace({
     [items, views, client, projectId]
   )
 
-  /** Why these mails cannot be filed as suggested in one request, the first reason with its count; null when they can. */
   const blockFor = useCallback((ids: string[], reasonOf: (id: string) => IncompleteReason | null): BulkBlock => {
     if (ids.length > INBOUND_MAIL_DECISION_MAX_MAILS) return { reason: 'too_many', count: ids.length }
     const reasons = new Map<IncompleteReason, number>()
@@ -239,7 +191,6 @@ export function InboundMailWorkspace({
     return first ? { reason: first[0], count: first[1] } : null
   }, [])
 
-  // The list says it per mail (`incompleteReason`), so the bar knows without reading a single mail.
   const summaryReason = useCallback(
     (id: string): IncompleteReason | null => {
       const mail = items.find((candidate) => candidate.id === id)
@@ -249,27 +200,20 @@ export function InboundMailWorkspace({
   )
   const selectionBlock = blockFor(selectedIds, summaryReason)
 
-  /** The destinations of a filing, in the confirmation's words: „In „Behörde/Bescheide“: 1“. */
   const destinationLine = (destination: BulkDestination): string =>
     destination.kind === 'folder' && destination.label === ''
       ? t('bulk.destination.root', { count: destination.count })
       : t(`bulk.destination.${destination.kind}`, { label: destination.label, count: destination.count })
 
-  /**
-   * Read these mails as they are now and build their filing as suggested; on a
-   * refusal, say why (or open a group's first mail) and answer null.
-   */
   const prepare = async (ids: string[], groupId: string | null): Promise<Extract<ReturnType<typeof asSuggested>, { ok: true }> | null> => {
     const refuse = (block: BulkBlock): boolean => {
       if (!block) return false
-      // A group that cannot go in one press is opened at its first mail.
       if (groupId) router.push(paths.mail(ids[0], filter))
       else toast.error(t(`bulk.blocked.${block.reason}`, { count: block.count, max: INBOUND_MAIL_DECISION_MAX_MAILS }))
       return true
     }
     if (refuse(blockFor(ids, summaryReason))) return null
     const read = await readViews(ids)
-    // The mails as they are now: one may have changed since the list was read.
     const current = ids.map((id) => read.get(id)).filter((view): view is InboundMailView => !!view)
     if (current.length < ids.length) {
       refuse({ reason: 'not_waiting', count: ids.length - current.length })
@@ -291,18 +235,15 @@ export function InboundMailWorkspace({
     if (built) setConfirmFile({ decisions: built.decisions, plan: built.plan, surface })
   }
 
-  /** Send a filing as suggested and say where everything goes. */
   const send = async (decisions: InboundMailDecision[], plan: BulkPlan, surface: AsSuggestedSurface): Promise<void> => {
     await client.file(projectId, { mails: decisions })
     toast.success(t('toast.filedAsSuggested', { count: decisions.length }), {
       description: plan.destinations.map(destinationLine).join(CLAUSE_JOIN),
     })
-    // Whether „Bereit“ is the way people file: by surface, how many mails per press.
     capturePosthog('inbound_mail_filed_as_suggested', { surface, mails: decisions.length, files: plan.files, texts: plan.texts })
     changed()
   }
 
-  /** A ready row's own press: one mail, read again and checked, then filed with no confirmation. */
   const fileOne = async (mailId: string): Promise<void> => {
     if (rowFiling) return
     setRowFiling(mailId)
@@ -355,8 +296,6 @@ export function InboundMailWorkspace({
       return next
     })
 
-  // ------------------------------------------------------------ keyboard
-
   const keyState = useRef({ rows, focusedId, mailId, selectedIds })
   keyState.current = { rows, focusedId, mailId, selectedIds }
   useEffect(() => {
@@ -384,7 +323,6 @@ export function InboundMailWorkspace({
       }
       if (key === 'x') {
         const target = index >= 0 ? visible[index] : null
-        // An impersonation is never part of a bulk decision (`bulkSelectable`): its row has no box, and X selects nothing.
         if (!target || !bulkSelectable(target)) return
         event.preventDefault()
         toggle(target.id, !checked.has(target.id))
@@ -410,8 +348,6 @@ export function InboundMailWorkspace({
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [router, paths, filter, checked])
-
-  // ------------------------------------------------------------ render
 
   const notice =
     projectClosed && !closedNoticeHidden ? (
@@ -441,7 +377,6 @@ export function InboundMailWorkspace({
       />
     ) : null
 
-  // On a phone the section's header draws the way back, on its title's line (`ProjectSectionBack`): one arrow, not two.
   const back = (
     <Button asChild variant="ghost" size="sm" className={cn('-ml-3.5 w-fit @3xl:hidden', backInHeader && 'phone:hidden')} /* its 14px padding given back */>
       <Link href={paths.list(filter)} data-testid="inbound-mail-back">
@@ -453,8 +388,6 @@ export function InboundMailWorkspace({
   )
 
   return (
-    // Dateien's container, as every tab of the section: centred with the others from a 1440px section, so the title
-    // and the tabs stand still when the tab changes (a full-width split moved them 80px).
     <div ref={firstMail.ref} className="@container listing-container flex h-full min-h-0 flex-col" data-testid="inbound-mail-workspace">
       <ProjectSectionActions onTitleLine>
         {/* An opened mail on a phone shows the mail; nothing is portalled, or the header kept an empty row's margin. */}
@@ -463,7 +396,9 @@ export function InboundMailWorkspace({
       {/* Nothing to pick, nothing to show beside it: an empty list takes the whole width, without the „Wählen Sie …“ pane. */}
       {/* At the split two whole objects on the title's edges (32px in): the list on the desk, the reader a sheet, 16px
           apart and 24px off the foot, so both show their corners. The rows sit 8px inside the desk's edge. */}
-      <div className={cn('flex min-h-0 flex-1 flex-col', !(empty && !mailId) && '@3xl:grid @3xl:grid-cols-[26rem_minmax(0,1fr)] @3xl:gap-4 @3xl:px-8 @3xl:pb-6')}>
+      {/* 24px under the header's rule (16px on a phone): the list's desk and the open mail started on the rule and
+          read as hung from it (review of 2026-11-11). */}
+      <div className={cn('flex min-h-0 flex-1 flex-col pt-4 @3xl:pt-6', !(empty && !mailId) && '@3xl:grid @3xl:grid-cols-[26rem_minmax(0,1fr)] @3xl:gap-4 @3xl:px-8 @3xl:pb-6')}>
         <div className={cn('min-h-0 flex-1 flex-col md:px-4', !(empty && !mailId) && '@3xl:flex @3xl:rounded-surface @3xl:bg-desk @3xl:px-2', mailId ? 'hidden' : 'flex')}>
           <InboundMailList
             state={list}
@@ -493,7 +428,6 @@ export function InboundMailWorkspace({
               setLoadingMore(true)
               try {
                 const page = await client.list(projectId, { status, outcome: outcome ?? undefined, cursor: list.nextCursor })
-                // A thread grouped on an earlier page keeps that group; a later page adds only threads it starts.
                 const known = new Set(list.threadGroups.map((group) => group.threadId))
                 setList({
                   kind: 'ready',
@@ -552,8 +486,6 @@ export function InboundMailWorkspace({
               yieldPrimary={selectedIds.length > 0}
             />
           ) : list.kind === 'loading' || firstMail.pending ? null /* nothing to pick yet, or the first mail on its way */ : (
-            // Bare, in the pane's middle, one muted line under a muted glyph (a narrow window's case now, the desk opens the
-            // first mail). While mails are picked it says what the bar does, not „2 ausgewählt“ beside the bar's count.
             <div className="text-muted-foreground flex h-full flex-col items-center justify-center gap-3 p-8 text-center" data-testid="inbound-mail-no-selection">
               <MailSearch className="size-5" aria-hidden />
               <p className="max-w-xs text-sm text-balance">{checked.size > 0 ? t('bulk.paneHint') : t('noSelection')}</p>
@@ -568,7 +500,6 @@ export function InboundMailWorkspace({
         open={addressOpen}
         onOpenChange={(open) => {
           setAddressOpen(open)
-          // The dialog may have made the address: the header and the empty list read it again.
           if (!open) void address.reload()
         }}
         client={addressClient}

@@ -2,9 +2,11 @@
  * @vitest-environment node
  */
 import { describe, expect, it } from 'vitest'
+import { LEGACY_METADATA_KEYS } from './legacy-names'
 import {
   createCategorySchema,
   createSkillSchema,
+  isCuratedPlatformSkill,
   isHiddenSkill,
   METADATA_AUTO_INVOKE,
   METADATA_CARDS,
@@ -55,7 +57,7 @@ describe('createSkillSchema / patchSkillSchema', () => {
   })
 
   it('rejects non-string metadata values and over-large metadata maps', () => {
-    expect(() => createSkillSchema.parse({ ...valid, metadata: { grid: 1 } })).toThrow()
+    expect(() => createSkillSchema.parse({ ...valid, metadata: { note: 1 } })).toThrow()
     const big = Object.fromEntries(Array.from({ length: 65 }, (_, i) => [`k${i}`, 'v']))
     expect(() => createSkillSchema.parse({ ...valid, metadata: big })).toThrow()
   })
@@ -83,7 +85,6 @@ describe('preferredCardsOf', () => {
     expect(
       preferredCardsOf({ [METADATA_CARDS]: 'calculation,memory_proposal,gibt_es_nicht' })
     ).toEqual(['calculation'])
-    // Retired types (ADR-0069) are Markdown now, never a card preference.
     expect(preferredCardsOf({ [METADATA_CARDS]: 'summary,verdict_header,legal_basis' })).toEqual([])
   })
 })
@@ -103,7 +104,6 @@ describe('createSkillSchema — grid-cards write boundary', () => {
     expect(() =>
       createSkillSchema.parse({ ...valid, metadata: { [METADATA_CARDS]: 'gibt_es_nicht' } })
     ).toThrow(/gibt_es_nicht/)
-    // A real union member, but tool-emitted: the model must never be asked for one.
     expect(() =>
       createSkillSchema.parse({ ...valid, metadata: { [METADATA_CARDS]: 'memory_proposal' } })
     ).toThrow(/memory_proposal/)
@@ -114,6 +114,12 @@ describe('createSkillSchema — grid-cards write boundary', () => {
 
   it('treats an empty value as no preference rather than an error', () => {
     expect(() => createSkillSchema.parse({ ...valid, metadata: { [METADATA_CARDS]: '' } })).not.toThrow()
+  })
+
+  it('validates a card list written under the stored spelling the same way', () => {
+    expect(() =>
+      createSkillSchema.parse({ ...valid, metadata: { [LEGACY_METADATA_KEYS.cards]: 'gibt_es_nicht' } })
+    ).toThrow(/gibt_es_nicht/)
   })
 })
 
@@ -133,6 +139,20 @@ describe('snapshotOf', () => {
   })
 })
 
+describe('a skill with only the new keys reads the same as one with only the old', () => {
+  it('reads catalog, hidden and cards alike', () => {
+    const fresh = { catalog: 'curated', hidden: 'true', cards: 'calculation' }
+    const stored = Object.fromEntries(
+      Object.entries(fresh).map(([key, value]) => [LEGACY_METADATA_KEYS[key as keyof typeof LEGACY_METADATA_KEYS], value]),
+    )
+    for (const metadata of [fresh, stored]) {
+      expect(isCuratedPlatformSkill(metadata)).toBe(true)
+      expect(isHiddenSkill(metadata)).toBe(true)
+      expect(preferredCardsOf(metadata)).toEqual(['calculation'])
+    }
+  })
+})
+
 describe('isHiddenSkill (grid-hidden)', () => {
   it('reads the truthy tokens case- and whitespace-insensitively', () => {
     for (const token of ['true', '1', 'yes', 'TRUE', '  Yes  ']) {
@@ -148,13 +168,10 @@ describe('isHiddenSkill (grid-hidden)', () => {
   })
 })
 
-// `grid-auto-invoke` is retired: no switch writes it and no reader honours it,
-// here or in the agent tier. The constant survives so a stored key has a name
-// the next reader can look up; this holds that nothing grew a reader back.
-describe('grid-auto-invoke is a name, not a decision', () => {
+describe('auto-invoke is a name, not a decision', () => {
   it('exports the key and nothing that acts on it', async () => {
     const skillTypes = await import('./types')
-    expect(METADATA_AUTO_INVOKE).toBe('grid-auto-invoke')
+    expect(METADATA_AUTO_INVOKE).toBe('auto-invoke')
     expect('isAutoInvokeSkill' in skillTypes).toBe(false)
   })
 })

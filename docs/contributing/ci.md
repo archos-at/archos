@@ -73,7 +73,7 @@ It also lists the third-party image pins the change adds or moves
 | Backend affected tests (`backend-affected`) | PRs, backend tier, selection possible | per suite (core, agent_host, `sources`, the Python packages), only the tests the change reaches (`task be:test:affected`), plus the claim queues on Postgres |
 | Backend core (`backend`) | backend tier: pushes, and PRs testmon cannot select for | the core suite in 4 shards (`task be:test:shard`), each writing coverage data |
 | Backend coverage gate (`backend-coverage`) | backend tier | combines the shards' data, the 65% gate, the PR comment |
-| Backend suites (`backend-suites`) | backend tier | three jobs side by side: the agent_host suite, the Python packages' suites (`sources`), and the migration test with the claim-queue suites on a real Postgres (`task be:test:postgres`) |
+| Backend suites (`backend-suites`) | backend tier | three jobs side by side: the agent_host suite, the Python packages' suites (`sources`), and the claim-queue suites on a real Postgres (`task be:test:postgres`) |
 | Workspace (`workspace`) | workspace tier | card schema check, lint, types, and the tenant-isolation suite against a real Postgres |
 | Workspace tests (`workspace-test`) | workspace tier; on a PR, unless nothing a UI spec reads changed | the vitest suite in 8 shards, split by recorded time (`tests/vitest-durations.json`, refreshed with `task workspace:test:durations`, read by `config/vitest/duration-sequencer.ts`); on a PR whose change a selection can see, only the specs it reaches (`task workspace:test:related`) |
 | Workspace accessibility (`task workspace:a11y`) | not in CI yet: run it locally, a shard at a time | axe-core, WCAG 2.2 AA, over every `/dev` preview route except those still listed in `apps/workspace/scripts/a11y-pending-routes.json` (not yet audited; the list only shrinks), light and dark, 1440 and 390 (`task workspace:a11y -- --shard i/4`). The script starts `next dev` itself with placeholder WorkOS settings; fails on a violation not in `apps/workspace/scripts/a11y-baseline.json` and on an entry that is gone. The CI job follows in a separate PR: its first run (4 shards) failed shards 1, 3 and 4 while the same shards pass locally, so the baseline does not yet hold on the runner. On GitHub Actions the script writes each difference as an `::error` annotation, which the check-run API returns where job logs cannot be fetched |
@@ -348,6 +348,13 @@ What it was made of, and what was done about each:
   of a collection's forty payload indexes is a sync (now `--tmpfs
   /qdrant/storage`). 228 s, then 144 s with the stub, then 104 s with both.
   Measure the suite with `QDRANT_TEST_URL` set, or the number is not CI's.
+  The tmpfs has no size of its own, so it is the kernel's default, half the
+  runner's memory (about 7.8 GiB on the 16 GB runner), and an empty test
+  collection takes about 300 MiB of it. The testmon run, the whole core suite
+  in one job, kept every test module's pair until its process exited, filled
+  it at 27 collections, and failed every push to `develop` from 2026-11-11 to
+  11-12 (`No space left on device: WAL buffer size exceeds available disk
+  space`). The fixture now holds one module's pair per process.
 - **The `sources` suite (the Python packages) is Qdrant collection setup.** About 130 tests each create and
   drop collections, and each collection was ~47 sequential payload-index
   calls. It runs in its own job beside the shards.

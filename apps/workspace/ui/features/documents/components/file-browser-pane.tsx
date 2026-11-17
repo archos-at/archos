@@ -42,41 +42,19 @@ import type { FileDropAim } from '../hooks/use-document-drag'
 import { AssignmentFaces } from './assignment-faces'
 import { CONTENT_MAX, FileBrowserSkeleton, levelTransition } from './file-browser-skeleton'
 
-/** Finder-style drill-down wiring — see `folder-navigation.tsx`. */
 export interface FolderNavigation {
   folders: FolderItem[]
-  /** The level the reader is standing in; null is the root. */
   currentFolderId: string | null
   onNavigate: (id: string | null) => void
   onCreateFolder: (name: string, parentId?: string) => Promise<boolean>
   onRenameFolder: (folderId: string, name: string) => Promise<boolean>
   onDeleteFolder: (folderId: string) => Promise<boolean>
-  /**
-   * A viewer who may look and not touch: the tree is walkable, and there is no
-   * „Neuer Ordner", no rename or delete, no context menu on a tile.
-   */
   readOnly?: boolean
-  /**
-   * Open the folder's access dialog (ADR-0088). Present only for a reader who
-   * manages the project; absent hides „Zugriff…" from the folder menu. A
-   * project's folders only: the Archiv's are governed by who manages it.
-   */
   onEditFolderAccess?: (folderId: string) => void
-  /**
-   * Open the folder's description (migration 0145): „Beschreibung …" in its
-   * menu and the edit on the line at the top of the folder. Absent for a
-   * reader who may not write the shelf.
-   */
   onDescribeFolder?: (folderId: string) => void
-  /**
-   * What the reader may do at the project root (ADR-0088): `read` hides the
-   * root's upload and new-folder affordances. Absent reads as `write`; each
-   * folder carries its own `access`. The server decides either way.
-   */
   rootAccess?: 'read' | 'write'
 }
 
-/** Whether the reader may write at `folderId` (null: the root), as the listing reported it. */
 export function mayWriteAt(folderNav: FolderNavigation | undefined, folderId: string | null): boolean {
   if (!folderNav) return true
   if (folderId === null) return folderNav.rootAccess !== 'read'
@@ -84,139 +62,37 @@ export function mayWriteAt(folderNav: FolderNavigation | undefined, folderId: st
 }
 
 interface FileBrowserPaneProps {
-  /** The CURRENT LEVEL's files (the caller applies the folder filter). */
   files: readonly FileItem[]
-  /**
-   * The order both views draw in, owned by the caller.
-   *
-   * The detail view used to hold this privately, so the card grid had no order
-   * at all and switching views discarded the one you had chosen. The pane
-   * orders what it hands to the cards and passes the same state to the list, so
-   * the list's column headers and the header's filter menu write to one place.
-   *
-   * Omitted by fixtures, which then get the default (newest first).
-   */
   sort?: FileSort
   onSortChange?: (next: FileSort) => void
   selectedFileId: string | null
   onSelectFile: (id: string | null) => void
   isLoading: boolean
-  /**
-   * What emptied this level, when a FILTER did rather than the folder being
-   * empty. The pane is handed already-filtered files and cannot tell the two
-   * apart; the caller owns the filter state, so it owns the sentence.
-   *
-   * Without it, turning on a filter that matches nothing rendered "this folder
-   * is empty" over a folder full of documents — which is how „Von Piloti" came
-   * to read as a broken or meaningless filter rather than an empty one.
-   */
   filterEmptyNotice?: { title: string; description: string; onClear: () => void } | null
-  /**
-   * Move a document into a folder by dragging it there. Absent turns the drag
-   * OFF (a read-only viewer): a card that lifts under the finger where nothing
-   * can receive it promises a move this surface cannot make.
-   */
   onDropDocumentInFolder?: (documentId: string, folderId: string | null) => void
-  /**
-   * Re-parent one folder into another by dragging it there. Absent turns the
-   * folder drag off entirely, for the same reason as the document drag.
-   */
   onDropFolderInFolder?: (draggedFolderId: string, parentId: string | null) => void
-  /**
-   * Files from the desktop released on a folder tile or a way up (a breadcrumb
-   * segment, „Zurück") go into THAT folder. Absent leaves every file drop to the
-   * surface around the pane, which files it in the folder on screen.
-   */
   onDropFilesInFolder?: DropFilesInFolder
-  /** Told which folder desktop files would land in while they hover a target, for the overlay to name it. */
   onFileAim?: (aim: FileDropAim | null) => void
-  /** Upload control rendered inside the first-run empty state. */
   uploadControl?: ReactNode
-  /**
-   * Folder drill-down: breadcrumb path on top, folder cards/rows beside the
-   * files, create/rename/delete in place. Omitted by callers that have no
-   * folder listing to show (a fixture, a failed folder read).
-   */
   folderNav?: FolderNavigation
-  /**
-   * The whole corpus (after the caller's other filters), for the type-ahead
-   * filter: a search escapes the current folder, so a document two levels down
-   * is findable from the root. Defaults to `files`.
-   */
   searchFiles?: readonly FileItem[]
-  /**
-   * Whether older Fassungen are listed. A search keeps one entry per document
-   * too: an older match is dropped when its current Fassung matched as well.
-   */
   showOlderRevisions?: boolean
-  /**
-   * The query and semantic mode, owned by the caller — see {@link FileSearch}.
-   * The pane filters and renders results; it does not draw the field, because
-   * on the Files page the field lives in the page header, one component above
-   * this one.
-   */
   search: FileSearch
-  /**
-   * How the listing renders. `cards` is the browsing surface; `list` is the
-   * explorer's sortable detail view for a corpus too large to skim as tiles.
-   * Search, folder filtering and selection are identical in both — the view is
-   * a presentation choice, never a different data path.
-   */
   view?: 'cards' | 'list'
   showAssignment?: boolean
-  /** Per-file rename / delete / download — shown on the card and the list row. */
   renderActions?: (file: FileItem) => ReactNode
-  /** Wrap a file card (right-click host). */
   wrapFile?: (file: FileItem, node: ReactNode) => ReactNode
   wrapFileRow?: (file: FileItem, row: ReactNode) => ReactNode
   onViewChange?: (view: 'cards' | 'list') => void
   onPickFiles?: () => void
   onPickFolder?: () => void
-  /**
-   * What Piloti knows about this level's whole subtree (`FolderBrief`), drawn
-   * above the level. The caller builds it because the caller holds the
-   * unfiltered corpus: the brief describes the folder, not the filter.
-   */
   brief?: ReactNode
-  /**
-   * A slice of the subtree the brief opened — every failed document under this
-   * folder, every Grundriss — drawn flat in place of the level, with the way
-   * back. A folder's documents are spread over its subfolders; walking each to
-   * find them is the chore the brief exists to remove. `loading` while the
-   * documents it is drawn from are still being read (ADR-0102).
-   */
   slice?: { files: readonly FileItem[]; label: string; onClear: () => void; loading?: boolean }
-  /**
-   * The level is read page by page (ADR-0102): the end of the grid or list
-   * reads the next page when the reader reaches it. Absent: everything is here.
-   */
   paging?: { hasMore: boolean; loading: boolean; failed: boolean; onLoadMore: () => void }
-  /**
-   * What every folder tile shows, counted by the server for the whole shelf
-   * (the shelf summary, ADR-0102). Absent: folded from `searchFiles ?? files`,
-   * which is the corpus only when the caller holds the whole shelf.
-   */
   folderStats?: { counts: ReadonlyMap<string, number>; tallies: ReadonlyMap<string, KnowledgeTally> }
-  /**
-   * Whether the shelf holds no document at all, when the caller knows better
-   * than the rows it handed over (a paged level, a search's results). Absent:
-   * `searchFiles ?? files` is empty.
-   */
   shelfEmpty?: boolean
-  /**
-   * The search matches file names only (a paged level asks the server, which
-   * reads names; the content is the semantic search's). The empty result then
-   * says so rather than suggesting a tag or a description.
-   */
   searchMatchesNamesOnly?: boolean
-  /**
-   * Picking several documents (`useDocumentSelection`, owned by the caller,
-   * who also owns what the picks are for). While `active`, a press on a card
-   * or row toggles it, the ⋯ and the drag step aside, and ranked semantic hits
-   * stay as they are: a result set is read, not filed.
-   */
   selection?: FileBrowserSelection
-  /** A phone: the root's „Auswählen“ and „Ordner anlegen“ are in the header's ⋯, so the root has no path row. */
   rootToolsInMenu?: boolean
 }
 
@@ -224,7 +100,6 @@ export interface FileBrowserSelection {
   active: boolean
   selectedIds: ReadonlySet<string>
   onToggle: (documentId: string) => void
-  /** „Auswählen" in the path row. Absent where nothing can be done to a selection. */
   onStart?: () => void
 }
 
@@ -238,22 +113,12 @@ interface FileTileProps {
   renderActions?: (file: FileItem) => ReactNode
   wrapFile?: (file: FileItem, node: ReactNode) => ReactNode
   draggable: boolean
-  /** Where it lies, first on its meta line: a search's results span every folder. */
   where?: string
-  /** Selection mode: the card is a toggle, `checked` says whether it is picked. */
   selecting: boolean
   checked: boolean
   onToggle: (documentId: string) => void
 }
 
-/**
- * One cell of the grid: the card and its menu.
- *
- * Memoised, and handed only stable functions by the workspace, so a pane that
- * re-renders (a poll patched one row, the reader typed, the preview opened
- * another file) re-renders the cells whose document or selection changed and
- * leaves the other few thousand alone.
- */
 const FileTile = memo(function FileTile({
   file,
   isSelected,
@@ -330,27 +195,16 @@ export function FileBrowserPane({
   const { semantic } = search
   const { clear: clearSearch } = search
   const searchUp = useMemo(() => ({ label: t('browser.clearSearch'), onSelect: clearSearch }), [t, clearSearch])
-  // Whether the path row went elsewhere (its tools to the tabs row or a phone's ⋯; inside a folder its path to the
-  // header's title and crumb): the brief then rises to the tabs.
   const tabSlot = useSectionTabActionsSlot()
   const placeSlot = useSectionPlaceSlot()
   const toolsGone = tabSlot || rootToolsInMenu
   const rootRowGone = toolsGone && ((folderNav?.currentFolderId ?? null) === null || placeSlot)
-  // The field answers every keystroke; the filter over the whole corpus, and
-  // everything drawn from it, follows a beat behind and is dropped for a newer
-  // keystroke. Typing stays immediate at five thousand documents.
   const query = useDeferredValue(search.query)
 
-  // The level, ordered. The list view re-applies the identical sort to the rows
-  // it is handed — a no-op, and cheaper than teaching every branch below which
-  // of the two views it is about to render into.
   const orderedFiles = useMemo(() => sortFiles(files, sort, locale), [files, sort, locale])
   const levelDocumentIds = useMemo(() => files.map((file) => file.id), [files])
   const orderedSlice = useMemo(() => (slice ? sortFiles(slice.files, sort, locale) : []), [slice, sort, locale])
 
-  // Client-side filter: name, plus AI tags, topics and summary when the backend
-  // generated them. A typed query escapes the current folder (the query is the
-  // context), so it runs over the corpus, not the level.
   const filteredFiles = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return orderedFiles
@@ -359,15 +213,7 @@ export function FileBrowserPane({
   }, [orderedFiles, files, searchFiles, query, sort, locale, showOlderRevisions, t])
 
   const currentFolderId = folderNav?.currentFolderId ?? null
-  // A level the reader may only read offers no upload and no new folder
-  // (ADR-0088); a notice says why. The server refuses either way.
   const writableHere = mayWriteAt(folderNav, currentFolderId)
-  /**
-   * Whether a document card lifts. Moving it out is a write where it is
-   * (ADR-0088): in a read-only level the server would refuse it. And not while
-   * a search is in force: the folders and the path, every place it could be
-   * dropped, are hidden then, so a card that lifted had nowhere to go.
-   */
   const liftable = Boolean(onDropDocumentInFolder) && writableHere && query.trim() === '' && !semantic.active
   const [createFolderIn, setCreateFolderIn] = useState<string | null | undefined>(undefined)
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null)
@@ -394,8 +240,6 @@ export function FileBrowserPane({
             ? () => setCreateFolderIn(currentFolderId)
             : undefined,
         onUploadFiles: writableHere ? onPickFiles : undefined,
-        // iOS Safari cannot pick a folder: the entry would open a plain file
-        // picker, so a finger is not offered it.
         onUploadFolder: writableHere && !touch ? onPickFolder : undefined,
         onViewChange,
         onSortChange,
@@ -493,16 +337,6 @@ export function FileBrowserPane({
     )
   }
 
-  /**
-   * Which way the level moved: deeper slides in from the right, shallower from
-   * the left. Zero is the first paint and every render that is not a level
-   * change, which is what keeps a server-rendered listing from sliding in under
-   * a reader who has not navigated anywhere.
-   *
-   * The derivation lives in {@link useLevelDirection} because the version that
-   * did not — two refs written during render — was wrong in a way that only
-   * showed up as "the animation goes the wrong way sometimes".
-   */
   const folderDepth = useMemo(() => {
     if (!folderNav || currentFolderId === null) return 0
     let depth = 0
@@ -518,21 +352,6 @@ export function FileBrowserPane({
 
   const navDirection = useLevelDirection(folderDepth)
 
-  /**
-   * Whether a folder may be dropped on a given target — asked DURING the drag,
-   * so a target that cannot take it never highlights.
-   *
-   * Three refusals, and the third is the one that matters. A folder is not its
-   * own parent; a move into the parent it already has is a no-op dressed up as
-   * a gesture; and a folder cannot go inside its own descendant, which would
-   * cut the subtree off from the tree entirely. `updateProjectFolder` refuses
-   * all three server-side — this is what stops the reader being invited to make
-   * a move that will be rejected.
-   *
-   * The ancestor walk is bounded by the folder count rather than trusting the
-   * tree to be acyclic: `parentId` comes off the wire, and a cycle here would
-   * be an infinite loop inside a `dragover` handler.
-   */
   const canAcceptFolder = useCallback(
     (draggedId: string, targetId: string | null): boolean => {
       if (draggedId === targetId) return false
@@ -551,42 +370,21 @@ export function FileBrowserPane({
     },
     [folderNav]
   )
-  /**
-   * What the menu's „Verschieben" may pick: where it may go, and where the
-   * reader may write (ADR-0088). A drag shows the second as a red, refusing
-   * target instead (the target's `refusal`), so the reader learns why.
-   */
   const canMoveFolderTo = useCallback(
     (draggedId: string, targetId: string | null) => canAcceptFolder(draggedId, targetId) && mayWriteAt(folderNav, targetId),
     [canAcceptFolder, folderNav]
   )
 
-  /** The folders directly inside the current level — the drill-down tiles. */
   const childFolders = useMemo(
     () => (folderNav?.folders ?? []).filter((f) => f.parentId === currentFolderId),
     [folderNav?.folders, currentFolderId]
   )
 
-  /**
-   * What every folder card shows — its item count, the newest thing under it
-   * and where its subtree stands with Piloti — for the WHOLE tree, in one pass.
-   *
-   * These were once functions called per rendered card, each re-scanning the
-   * corpus, so a project with 500 documents and 30 folders paid that on every
-   * keystroke and every poll. The subtree fold is `subtreeTallies`, shared with
-   * the folder brief so a tile and the brief above it cannot disagree about
-   * the same folder; the item count is direct children only and needs no walk.
-   */
   const folderAggregates = useMemo((): {
     counts: ReadonlyMap<string, number>
     tallies: ReadonlyMap<string, KnowledgeTally>
   } => {
-    // The server counted the whole shelf (ADR-0102): the rows on screen are
-    // one level's first pages and would undercount every folder.
     if (folderStats) return folderStats
-    // One entry per document, like the cards below the tiles: a folder holding
-    // Index A, B and C of one drawing counts one item unless older Fassungen
-    // are asked for (ADR-0099).
     const corpus = withoutOlderRevisions(searchFiles ?? files, showOlderRevisions)
     const allFolders = folderNav?.folders ?? []
     const counts = new Map<string, number>()
@@ -598,10 +396,8 @@ export function FileBrowserPane({
     return { counts, tallies: subtreeTallies(corpus, allFolders) }
   }, [folderStats, files, searchFiles, folderNav?.folders, showOlderRevisions])
 
-  /** Documents + subfolders directly inside `folderId`, for the count line. */
   const folderItemCount = (folderId: string): number => folderAggregates.counts.get(folderId) ?? 0
 
-  /** Most recent child timestamp — the folder's "last change", like file cards show. */
   const folderLastModified = (folderId: string): string | null =>
     folderAggregates.tallies.get(folderId)?.latest ?? null
 
@@ -611,13 +407,6 @@ export function FileBrowserPane({
     )
   }
 
-  // A FILTER EMPTIED IT, AND THAT OUTRANKS BOTH EMPTY STATES BELOW.
-  //
-  // Checked first because a filter that matches nothing empties the CORPUS,
-  // not just the level — which sent the reader to the first-run "no documents
-  // yet, upload one" panel in a project with a hundred documents in it. Both
-  // states below describe an absence of files; this one describes an absence
-  // of MATCHES, and only it can name what to do about it.
   if (filterEmptyNotice) {
     return (
       <div className="flex h-full items-center justify-center p-8">
@@ -636,9 +425,6 @@ export function FileBrowserPane({
     )
   }
 
-  // First-run empty state — nothing anywhere: no documents, no folders. An
-  // EMPTY FOLDER is not this case; it keeps the breadcrumb so the reader can
-  // walk back out or create something where they stand.
   const corpusEmpty = shelfEmpty ?? (searchFiles ?? files).length === 0
   if (corpusEmpty && (folderNav?.folders ?? []).length === 0) {
     return (
@@ -659,7 +445,6 @@ export function FileBrowserPane({
   const levelEmpty = files.length === 0 && childFolders.length === 0 && !paging?.hasMore
   const bothKinds = Boolean(folderNav) && childFolders.length > 0 && orderedFiles.length > 0
 
-  // The end of a paged level or search: the next page when the reader gets there.
   const pagingFooter = paging ? (
     <LoadMore
       hasMore={paging.hasMore}
@@ -673,10 +458,6 @@ export function FileBrowserPane({
   ) : null
 
   return (
-    // `min-h-full`, not `h-full`: the breadcrumb row pins to the top of the
-    // scroll container, and a sticky box only sticks inside its parent. At
-    // `h-full` the parent is exactly one screen tall and the row would let go
-    // after one screenful.
     <div className="flex min-h-full flex-col">
       {/* No banner over the results. It restated in a tinted strip what the
           listing below it already shows — how many hits, for which query —
@@ -738,7 +519,7 @@ export function FileBrowserPane({
           count={paging?.hasMore ? undefined : t('browser.searchCount', { count: filteredFiles.length })}
         />
       )}
-      {/* What Piloti knows about the level's whole subtree. Hidden while a
+      {/* What the agent knows about the level's whole subtree. Hidden while a
           query runs for the same reason the breadcrumb is: the query is the
           context then, and its results span the corpus. */}
       {/* The folder's description, where it has one, as the first line under the tabs; „Beschreiben …“ is in the
@@ -754,9 +535,9 @@ export function FileBrowserPane({
       )}
       {/* Under the tabs where the root's row went (tabs, ⋯). While picking the bar owns the action: no „Ordner anlegen“. */}
       {brief && !semantic.active && !searching && (
-        <div className={cn(CONTENT_MAX, 'px-4 phone:pt-2', rootRowGone && !currentFolder?.description ? 'pt-0' : 'pt-4')}>{brief}</div>
+        <div className={cn(CONTENT_MAX, 'px-4 phone:pt-2', rootRowGone && !currentFolder?.description ? 'pt-2' /* its line 24px under the header's rule */ : 'pt-4')}>{brief}</div>
       )}
-      {/* Piloti's filing suggestions for the documents of this level, one line
+      {/* The agent's filing suggestions for the documents of this level, one line
           per target folder, when one folder would collect two or more: the
           decision that moves several files, made where they are all in view. */}
       {!semantic.active && !searching && !slice && (
@@ -765,21 +546,12 @@ export function FileBrowserPane({
 
       <ActionMenu mode="context" entries={listingEntries}>
       {semantic.active ? (
-        // Semantic results — one card per matched file, each showing the match
-        // evidence (snippet + page + relevance). A backend error/timeout fails
-        // open to an empty result set (never a crash).
         semantic.isSearching ? (
-          // Placeholders shaped like the view the answer will arrive in. Card
-          // skeletons were drawn whatever the reader had chosen, so a search
-          // from the list flashed a wall of tiles and then snapped to a table.
           view === 'list' ? (
             <div className={CONTENT_MAX}>
               <FileListSkeleton />
             </div>
           ) : (
-            // The cap the answer will be drawn inside. Without it the running
-            // search filled the full width and the results snapped to 1200px
-            // under the reader the instant they arrived.
             <div className={`${CONTENT_MAX} p-4`}>
               <FileGrid>
                 {Array.from({ length: 6 }).map((_, i) => (
@@ -789,7 +561,6 @@ export function FileBrowserPane({
             </div>
           )
         ) : semantic.error ? (
-          // A SEARCH THAT NEVER RAN IS NOT ONE THAT FOUND NOTHING: a timeout read as „keine Treffer“ misinformed.
           <div className="p-8">
             <EmptyState
               variant="bare"
@@ -826,12 +597,6 @@ export function FileBrowserPane({
             />
           </div>
         ) : view === 'list' ? (
-          /* The view toggle keeps meaning while searching. It used to be read
-             only on the un-searched branch, so a reader who had deliberately
-             switched to the detail view was thrown back into cards the moment
-             they pressed Enter — and back again when they cleared the query.
-             `key` on the query so a new result set starts at the top of its own
-             ranking rather than inheriting the last one's sort and tab stop. */
           <div className={CONTENT_MAX}>
             <FileListView
               key={semantic.query ?? ''}
@@ -856,8 +621,6 @@ export function FileBrowserPane({
           </div>
         )
       ) : searching ? (
-        /* Substring-filtered listing (instant, as you type) — over the CORPUS,
-           so a match two folders down is reachable from anywhere. */
         filteredFiles.length === 0 && !paging?.hasMore && !paging?.loading ? (
           <div className="p-8">
             <EmptyState
@@ -897,8 +660,6 @@ export function FileBrowserPane({
           </div>
         )
       ) : slice ? (
-        /* A slice of the subtree the brief opened, flat — over every subfolder,
-           like a search, and with the same views. */
         <div className={CONTENT_MAX} data-testid="folder-brief-slice">
           <div className="flex items-center gap-2 px-4 pt-4">
             <p className="text-foreground min-w-0 flex-1 truncate text-sm font-medium">{slice.label}</p>
@@ -944,13 +705,9 @@ export function FileBrowserPane({
           )}
         </div>
       ) : levelEmpty ? (
-        /* An empty folder keeps its breadcrumb (above) — the way back out and
-           the "New folder" control stay where the reader expects them. */
         <motion.div
           key={`empty-${currentFolderId ?? 'root'}`}
           {...levelTransition(navDirection, 16)}
-          // On the column's left edge with the press under it (paper on a desk, „an empty state's object“), not centred
-          // in the pane at an edge of its own.
           className={cn(CONTENT_MAX, 'px-4 pt-6')}
         >
           {/* `data-empty-level`: its Hochladen is the pane's one ink press, so the phone's floating one steps out
@@ -970,7 +727,6 @@ export function FileBrowserPane({
         >
             {(orderedFiles.length > 0 || (folderNav && childFolders.length > 0)) && (
               <FileListView
-                // The folders are the table's first rows, under its one head and in its columns.
                 folderRows={folderNav && childFolders.length > 0 ? childFolders.map((folder) => <Fragment key={folder.id}>{folderTile(folder, true)}</Fragment>) : undefined}
                 files={orderedFiles}
                 selectedFileId={selectedFileId}
@@ -989,8 +745,6 @@ export function FileBrowserPane({
         <motion.div
           key={`grid-${currentFolderId ?? 'root'}`}
           {...levelTransition(navDirection, 20)}
-          // 32px from the brief's read line to the first label, so the line reads as the level's and not as the
-          // folders' caption (finding 11); 24px under the tool row where there is no brief.
           className={`${CONTENT_MAX} px-4 pb-4 pt-6`}
         >
             {/* ONE ENTRANCE FOR THE LEVEL, NOT ONE PER TILE. A `motion.div` per cell compounded with the level's own

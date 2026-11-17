@@ -197,7 +197,7 @@ failed file on the job (Step 4).
 
 ### Provenance (ADR-0054)
 
-A **published** document Piloti wrote and a person released carries four extra
+A **published** document the agent wrote and a person released carries four extra
 fields: `authored_by: "agent"`, `approved_by` (the approver's display name),
 `approved_at` and `producer`. The route drops all four unless `authored_by` is
 the token `agent` — a human document must reach the pipeline byte-for-byte as it
@@ -221,7 +221,7 @@ The ingestion route delegates to the active ingestor singleton, which is set up 
 
 ## Step 4: Background Ingestion (`LlamaIndex`)
 
-**File**: `packages/knowledge-layer/src/ingest/adapter.py`
+**File**: `packages/knowledge-layer/src/knowledge_layer/ingest/adapter.py` (the `LlamaIndexIngestor`); the job runs in `packages/knowledge-layer/src/knowledge_layer/ingest/ingest_run.py`, each file in `packages/knowledge-layer/src/knowledge_layer/ingest/file_ingest.py` (a PDF's reads in `packages/knowledge-layer/src/knowledge_layer/ingest/pdf_ingest.py`, an image or text file in `packages/knowledge-layer/src/knowledge_layer/ingest/file_extraction.py`), and the summary and facts after the write in `packages/knowledge-layer/src/knowledge_layer/ingest/document_facts.py`
 
 The `LlamaIndexIngestor.submit_job()` creates a job with `JobState.PENDING` and hands `_run_ingestion()` to the bounded ingest pool. An entry of `file_paths` is a local path (the multipart upload, the OIB sync) or a deferred download (`/v1/ingest`); the latter is kept unchecked, since nothing is on disk yet.
 
@@ -235,7 +235,7 @@ For each file:
 
    | Source | Unit | Locator (`clause_id`) | `page_label` |
    |---|---|---|---|
-   | OIB Richtlinie (`oib_doc_class` set) | a Punkt (`clause_chunking`) | `3.5.2`, `Tabelle 3` | first page |
+   | OIB Richtlinie (`oib_doc_class` set), or a released text: a file the platform's records name as an edition's text, known by the `knowledge_edition_id` its ingest job carries (ADR-0173), whatever its name (`oib-rl-2-2023-text-80c174ce27a0.pdf`) or its human-set `doc_class` (`chunking_choice.text_documents_for_pages`) | a Punkt (`clause_chunking`); an annex the contents page lists after the last Punkt, and the colophon, are per-page chunks | `3.5.2`, `Tabelle 3` | first page |
    | Any other PDF with a heading structure | chunks of ~640 tokens inside a section that may span pages, 96 tokens of overlap inside the section, heading breadcrumb as the first line (`section_chunking`) | the heading's number (`3.2`, `§ 4`, `Artikel 2`), else its title path (`Brandschutz › Allgemeines`) | page the chunk's own text starts on; `page_end` where it ends |
    | A PDF without one | one Document per page, split by `SentenceSplitter` | none | the page |
    | `.md` (the IFC digest too) | one section per ATX heading, packed to the same budget, breadcrumb first | the heading path under the document title (`Geschoße › EG`) | none |
@@ -243,11 +243,13 @@ For each file:
    | `.csv`/`.tsv` | row groups that each repeat the header | `Zeilen 2-41` (file lines) | none |
    | `.xlsx`/`.xlsm` sheet | row groups that each repeat the header, at most 10,000 rows a sheet; the rest are stated in the last group and counted as `rows_over_cap` on the file's job status | `Raumliste: Zeilen 2-41` | the sheet name |
 
+   A released text is a base-corpus file: an office's confirmed copy of an edition carries `knowledge_edition_id` too and is cut on its headings, as every office upload is. A released text the Punkt chunker cannot read (a glossary, a list of standards) takes the heading path; one that numbers long sections without being a Richtlinie (a Leitfaden) is cut on its Punkte, each piece citing the Punkt's first page. A corpus file named the old way keeps its pages. `platform-knowledge-sync` skips unchanged bytes, so a change here reaches an indexed file through `oib_sync.CHUNK_FORMAT_VERSION`: bump it, and the next sync re-ingests every file, its stored mark kept.
+
    A PDF counts as structured when it has at least three headings, at least half its text sits under one, and at most 30% of its lines are headings (`section_chunking.structure_is_usable`). A heading is a short line in a larger type than the body, in bold, or opened by a German numbering; lines that repeat at the top or bottom of most pages are running headers and are dropped. A transcribed page's Markdown ATX headings (`## 1 Befund`) are section headings. A numbered line in body type counts only when its title reads as one: at most 8 words, no finite verb, not ending mid-sentence. A line that runs on in lowercase into a line of another style is not a heading. Locators are normalised, so `§3` and `Art.3` become `§ 3` and `Art. 3`. `read_passage(page=N)` returns the chunks whose `[page_label, page_end]` range covers N, so a section chunk that starts on page 2 and ends on page 3 is found for page 3.
 2. **Table extraction** (PDF only, optional) — Uses `pdfplumber` to extract the tables the text pass did not already index as captioned tables; each becomes row groups that repeat the header row (`content_type: "table"`, `table_part` orders them), so the splitter never cuts a table into header-less rows. The tables are read right after the text, before the upload screen, and screened with it: the table pass opens the PDF on its own and also reads a page the text pass lost
 3. **Image extraction** (PDF only, optional) — Uses `pypdfium2` to extract the embedded rasters worth a caption, at least 100×100 px by the image object's own metadata, so an icon is filtered without being decoded. Every candidate is sized from metadata (`PdfImage.get_px_size()`, no pixels read), the per-document cap `MAX_IMAGES_PER_DOCUMENT` (64) is applied right there — largest first, everything past it never decoded — and only the kept rasters are decoded, one at a time, each downscaled to `VLM_MAX_IMAGE_DIM` before it is held. Peak memory is one raster instead of the document's, which is the bound that keeps an ingest pod inside its limit on a plan set ([ingest memory runbook](../deployment/ingest-memory-runbook.md)). Each kept raster is sent to the VLM API (default: `openai/gpt-6-luna` via OpenRouter — image input verified, caption quality on OIB drawings still open, see the Configuration table) for classification (chart vs image) and captioning; captions become `Document` objects with `content_type: "chart"` or `"image"` metadata
 
-   Every PDFium call in the process (page triage, page renders, image extraction, thumbnails, `look`) is serialized through `pdfium_lock` in `knowledge_layer/ingest/pdfium_lock.py`, because PDFium is not thread-safe; the lock is held for the PDFium work alone — reading a page's objects, decoding one raster — and image encoding happens after it is released.
+   Every PDFium call in the process (page triage, page renders, image extraction, thumbnails, `look`) is serialized through `pdfium_lock` in `knowledge_layer/ingest/pdfium_guard.py`, because PDFium is not thread-safe; the lock is held for the PDFium work alone — reading a page's objects, decoding one raster — and image encoding happens after it is released.
 
 4. **Summarization** (optional) — If `generate_summary` is enabled, the first and last chunks are combined and sent, as two **concurrent** calls to the same `summary_model` LLM, for a one-sentence summary and a tag classification (document type + OIB discipline; see "Backfilling tags" below). Both calls independently swallow exceptions/timeouts and return nothing on failure. A deterministic, text-derived fallback summary now fires whenever the LLM summary is missing — for any reason, independent of whether tag classification succeeded — so a document that finishes ingestion always gets a `document_metadata` row (see "Silent summary-row loss" below for the fix and the reconciliation backstop).
 5. **Indexing** — All `Document` objects are cut by a `SentenceSplitter` with the job's chunk size and overlap, embedded with the ingestor's embedder (OpenRouter, `openai/text-embedding-3-large` by default; see "Embedding-model changes" below — stored vectors only match query vectors from the same model) and written to Qdrant by `vector_store/writes.write_chunks`, which puts the office, project, document, folder, project facts, `indexed_at` and the facts people set on every point. A write Qdrant refuses fails the file (ADR-0115)
@@ -255,7 +257,7 @@ For each file:
 
 ### Upload screening, before the first model call
 
-A job whose config carries `screening` (the organization's policy, sent by the BFF on `POST /v1/ingest`; see the [endpoint contract](../api/python-endpoints.md)) checks each file's locally extracted text, read as a person reads it (invisible characters left out, a hyphen at a line break joined, a PDF's pages also joined without their running headers and footers), against the office's terms and detectors (`packages/knowledge-layer/src/ingest/screening.py`) before any of it is sent to a model. A match fails the file with its typed verdict on `file_details[].quarantine` (`{"reasons":[…],"checked":…}`, plus `"omitted":N` when the verdict leaves N reasons out; `QuarantineVerdict`, ADR-0113), the same verdict in the legacy `error_message` `quarantined:{…}` for one release, and the loop moves to the next file; nothing of a quarantined file is transcribed, captioned, summarised or embedded. The job without a policy (the OIB corpus sync) runs exactly as before. A policy that is present but cannot be applied (malformed, or naming no rule this build knows; `content_screen.screening_config_unusable`) fails closed: every file of the job fails with `screening_unavailable:` before it is read, category `configuration` (retryable, the next dispatch sends the policy afresh), and waits held like any file without a verdict. A PDF whose scanned pages were transcribed is screened again on the transcript before anything else reads it; a match there is held with `after_transcription: true`, since the vision model saw those pages.
+A job whose config carries `screening` (the organization's policy, sent by the BFF on `POST /v1/ingest`; see the [endpoint contract](../api/python-endpoints.md)) checks each file's locally extracted text, read as a person reads it (invisible characters left out, a hyphen at a line break joined, a PDF's pages also joined without their running headers and footers), against the office's terms and detectors (`packages/knowledge-layer/src/knowledge_layer/ingest/screening.py`) before any of it is sent to a model. A match fails the file with its typed verdict on `file_details[].quarantine` (`{"reasons":[…],"checked":…}`, plus `"omitted":N` when the verdict leaves N reasons out; `QuarantineVerdict`, ADR-0113), the same verdict in the legacy `error_message` `quarantined:{…}` for one release, and the loop moves to the next file; nothing of a quarantined file is transcribed, captioned, summarised or embedded. The job without a policy (the OIB corpus sync) runs exactly as before. A policy that is present but cannot be applied (malformed, or naming no rule this build knows; `content_screen.screening_config_unusable`) fails closed: every file of the job fails with `screening_unavailable:` before it is read, category `configuration` (retryable, the next dispatch sends the policy afresh), and waits held like any file without a verdict. A PDF whose scanned pages were transcribed is screened again on the transcript before anything else reads it; a match there is held with `after_transcription: true`, since the vision model saw those pages.
 
 Where it sits, per file, against the five places ingestion sends content out:
 
@@ -276,7 +278,7 @@ Each file of a screened job gets `file_details[].screening` on its job status: `
 
 ### Fassungen across file names (ADR-0099)
 
-Two steps run per file after its summary row is written, on the same `summary_llm` (`packages/knowledge-layer/src/ingest/revisions.py`, the prompts and parsers in `agent/knowledge/document_revisions.py`). Both are bounded by `REVISION_TIMEOUT_SECONDS`, fail-open, skipped for the base corpus (it replaces through its own hash registry) and skipped when summarising is off. Neither links, hides or re-files anything: only a person's `PUT /v1/collections/{collection}/revision` writes `superseded_by`.
+Two steps run per file after its summary row is written, on the same `summary_llm` (`packages/knowledge-layer/src/knowledge_layer/ingest/revisions.py`, the prompts and parsers in `agent/knowledge/document_revisions.py`). Both are bounded by `REVISION_TIMEOUT_SECONDS`, fail-open, skipped for the base corpus (it replaces through its own hash registry) and skipped when summarising is off. Neither links, hides or re-files anything: only a person's `PUT /v1/collections/{collection}/revision` writes `superseded_by`.
 
 | The file's name is | Step | Stored on the file's own row |
 |---|---|---|
@@ -589,8 +591,8 @@ Session-scoped collections (`s_*`) are automatically reaped by a background thre
 ### Fixed: silent summary-row loss on double LLM failure (2026-07-16)
 
 The summary and tag-classification calls in Step 4 above run concurrently
-against the same `summary_llm` (`packages/knowledge-layer/src/ingest/adapter.py`,
-~lines 1795–1965) and both fail open (log a warning, return `None`) on
+against the same `summary_llm` (`packages/knowledge-layer/src/knowledge_layer/ingest/enrichment.py`;
+the fallback is `_fallback_summary` in `packages/knowledge-layer/src/knowledge_layer/ingest/document_facts.py`) and both fail open (log a warning, return `None`) on
 error/timeout. `register_summary()` — the only call that writes a row into
 the `document_metadata` table — only runs when a summary value exists. Previously the
 deterministic fallback summary (derived from already-extracted text) only
@@ -747,7 +749,7 @@ defaults (`ingest_workflow.hold_seconds`).
 
 A terminal job also says *why* each file failed (`agent/knowledge/ingest_failures.py`):
 `FileProgress.failure_category` and `retryable`, and the job's `reader_version`
-(`packages/knowledge-layer/src/ingest/reader_version.py`). Step 2 writes them onto the row
+(`packages/knowledge-layer/src/knowledge_layer/ingest/reader_version.py`). Step 2 writes them onto the row
 (`ingest_failure_category`, `ingest_retryable`, `ingest_reader_version`, migration 0134),
 and `lib/documents/retry-policy.ts` (`canRetry`) decides from them whether reading the
 file again can come out differently:

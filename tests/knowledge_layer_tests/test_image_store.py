@@ -1,11 +1,3 @@
-"""Storing the rasters the ingest pipeline extracts, and reading them back.
-
-Three layers: the store module against stub presign/upload callables; the
-same module reached through ``_run_ingestion`` so the caption chunk carries
-``image_key``; and the hit renderer's ``Image:`` line, which appears only for
-a chunk that carries the key.
-"""
-
 from __future__ import annotations
 
 import time
@@ -14,17 +6,16 @@ from unittest.mock import MagicMock
 
 import pytest
 from knowledge_layer.ingest import LlamaIndexIngestor
-from knowledge_layer.ingest import adapter
 from knowledge_layer.ingest import image_store
+from knowledge_layer.ingest import pdf_rasters
+from knowledge_layer.ingest import pdf_text
+from knowledge_layer.ingest import vision_credentials
+from knowledge_layer.ingest import vision_reads
 from knowledge_layer.search import format_results
 from knowledge_layer_testing.vector_store import FakeEmbedder
 from knowledge_layer_testing.vector_store import capture_indexed_documents
 
 from agent.common.credential_resolution import ResolvedCredential
-
-# =============================================================================
-# store_extracted_images against stub callables
-# =============================================================================
 
 
 def _record(page: int, index: int, payload: bytes = b"\xff\xd8jpeg") -> dict:
@@ -32,8 +23,6 @@ def _record(page: int, index: int, payload: bytes = b"\xff\xd8jpeg") -> dict:
 
 
 class _Stubs:
-    """A presigner that answers up to ``ceiling`` slots, and an uploader that records PUTs."""
-
     def __init__(self, ceiling: int = 64, fail_upload_at: int | None = None):
         self.ceiling = ceiling
         self.fail_upload_at = fail_upload_at
@@ -86,7 +75,6 @@ def test_stops_at_the_first_refused_slot_and_keeps_the_captions():
     assert stored == 1
     assert "image_key" in results[0][0]
     assert "image_key" not in results[1][0] and "image_key" not in results[2][0]
-    # One refusal, then no more asking: a ceiling or a dead BFF costs one call.
     assert [index for _d, _c, index, _o in stubs.presigned] == [0, 1]
 
 
@@ -113,11 +101,6 @@ def test_records_without_bytes_are_skipped():
         == 1
     )
     assert stubs.presigned == [("d1", "p", 1, None)]
-
-
-# =============================================================================
-# request_upload_slot against the BFF (httpx stubbed)
-# =============================================================================
 
 
 def test_request_upload_slot_fail_open(monkeypatch):
@@ -155,7 +138,6 @@ def test_request_upload_slot_fail_open(monkeypatch):
     assert image_store.request_upload_slot("d1", "archiv_org_1", 0, "org_1") is not None
     assert calls[-1]["organizationId"] == "org_1"
 
-    # 404 is the BFF's "unknown document or ceiling reached": no slot, no raise.
     state["response"] = _Response(404, {})
     assert image_store.request_upload_slot("d1", "proj_1", 64) is None
 
@@ -167,11 +149,6 @@ def test_request_upload_slot_fail_open(monkeypatch):
 
     monkeypatch.setattr(httpx.Client, "post", _boom)
     assert image_store.request_upload_slot("d1", "proj_1", 0) is None
-
-
-# =============================================================================
-# Through _run_ingestion (heavy collaborators mocked)
-# =============================================================================
 
 
 @pytest.fixture
@@ -208,7 +185,6 @@ def _wait_terminal(ing, job_id, timeout=30):
     raise AssertionError("ingestion job did not terminate in time")
 
 
-#: What each file of the running test's jobs handed to chunking and embedding (``ingestor`` records it).
 _INDEXED: list[list] = []
 
 
@@ -218,10 +194,10 @@ def _indexed_documents():
 
 def _prepare_pdf_with_one_raster(tmp_path, monkeypatch):
     cred = ResolvedCredential(api_key="vlm-key", base_url="https://vlm.test/v1", model="test-vlm", source="env")
-    monkeypatch.setattr(adapter, "resolve_vlm_credential", lambda organization_id=None: cred)
-    monkeypatch.setattr(adapter, "_extract_text_from_pdf", lambda p: [])
+    monkeypatch.setattr(vision_credentials, "resolve_vlm_credential", lambda organization_id=None: cred)
+    monkeypatch.setattr(pdf_text, "_extract_text_from_pdf", lambda p: [])
     monkeypatch.setattr(
-        adapter,
+        pdf_rasters,
         "_extract_image_records",
         lambda *a, **k: (
             [
@@ -238,7 +214,7 @@ def _prepare_pdf_with_one_raster(tmp_path, monkeypatch):
             0,
         ),
     )
-    monkeypatch.setattr(adapter, "analyze_visual", lambda *a, **k: ("image", "A photo of the facade.", {}))
+    monkeypatch.setattr(vision_reads, "analyze_visual", lambda *a, **k: ("image", "A photo of the facade.", {}))
     import knowledge_layer.ingest.processing as processing_module
 
     monkeypatch.setattr(processing_module, "render_visual_pages_no_vlm", lambda *a, **k: [])
@@ -267,12 +243,10 @@ class TestRunIngestionStoresRasters:
         assert chunk.metadata["image_key"] == "org/o1/project/p1/doc/d1/_img/0.jpg"
         assert chunk.metadata["stored_image_index"] == 0
         assert chunk.metadata["page_label"] == "2"
-        # Addressing, not meaning: neither key is embedded.
         assert "image_key" in chunk.excluded_embed_metadata_keys
         assert "stored_image_index" in chunk.excluded_embed_metadata_keys
 
     def test_no_document_id_means_captions_only(self, tmp_path, monkeypatch, ingestor, summary_db):
-        """The corpus sync sends no id: nothing to store under, no BFF call."""
         pdf = _prepare_pdf_with_one_raster(tmp_path, monkeypatch)
         stubs = _Stubs()
         monkeypatch.setattr(image_store, "request_upload_slot", stubs.presign)
@@ -298,11 +272,6 @@ class TestRunIngestionStoresRasters:
         [chunk] = [d for d in _indexed_documents() if d.metadata.get("content_type") == "image"]
         assert chunk.text.endswith("A photo of the facade.")
         assert "image_key" not in chunk.metadata
-
-
-# =============================================================================
-# The Image: line on a hit
-# =============================================================================
 
 
 def _hit(metadata: dict):

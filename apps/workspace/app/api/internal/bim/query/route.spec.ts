@@ -11,8 +11,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-// The route factory statically imports the session guard, which pulls in
-// authkit; internal routes never call it.
 vi.mock('@/lib/auth/require-auth', () => ({ requireAuthorizedSession: vi.fn() }))
 
 vi.mock('@/lib/bim/repository', () => ({ listBimModels: vi.fn() }))
@@ -51,7 +49,6 @@ const model = (over: Partial<BimModelHeader> & Pick<BimModelHeader, 'id' | 'file
 
 const NEW = model({ id: '11111111-1111-1111-1111-111111111111', filename: 'Haus-A_V3.ifc' })
 const OLD = model({ id: '22222222-2222-2222-2222-222222222222', filename: 'Haus-A_V2.ifc' })
-/** Same organization, a project this conversation holds no grant on. */
 const OTHER_PROJECT = '33333333-3333-3333-3333-333333333333'
 
 const post = (body: unknown): Promise<Response> =>
@@ -88,11 +85,8 @@ describe('POST /api/internal/bim/query', () => {
     expect(runBimQuery).not.toHaveBeenCalled()
   })
 
-  // ADR-0087: the agent's routes carry no session to clear, and a model's
-  // building data is keyed by project, so every restricted subtree is hidden.
   it('never queries a model filed under a restricted folder', async () => {
     vi.mocked(getRestrictedFolderIds).mockResolvedValueOnce(['folder-verwaltung'])
-    // What the query does with the hidden folders: NEW is filed under one.
     vi.mocked(listBimModels).mockImplementation(async (_org, options) =>
       options?.hiddenFolderIds?.includes('folder-verwaltung') ? [OLD] : [NEW, OLD]
     )
@@ -163,9 +157,6 @@ describe('POST /api/internal/bim/query', () => {
     })
 
     it('refuses when the organization does not', async () => {
-      // The gate covered the upload and the pages but not this route, so
-      // revoking the flag left the agent answering questions about the
-      // building for as long as anyone kept asking.
       vi.mocked(isOrgFeatureEnabled).mockResolvedValue(false)
 
       const response = await post({ organizationId: 'org-1', projectId: PROJECT, modelId: NEW.id, query: { op: 'overview' } })
@@ -192,9 +183,6 @@ describe('POST /api/internal/bim/query', () => {
     })
 
     it('resolves `compliance-diff` the same way', async () => {
-      // It did not: the route only handled `compare`, so a diff arrived with
-      // whatever base the caller named and `runBimQuery` scoped it to the
-      // organization alone.
       await post({
         organizationId: 'org-1',
         projectId: PROJECT,
@@ -211,9 +199,6 @@ describe('POST /api/internal/bim/query', () => {
 
     for (const op of ['compare', 'compliance-diff'] as const) {
       it(`discards a \`${op}\` baseModelId supplied in the body`, async () => {
-        // Another project's building, in the same organization. The diff would
-        // report every one of its elements as `removed` — name, type and
-        // storey — for a project the caller holds no grant on.
         await post({
           organizationId: 'org-1',
           projectId: PROJECT,
@@ -252,9 +237,6 @@ describe('POST /api/internal/bim/query', () => {
     })
   })
 
-  // The office shelf (Büroablage) is in every project's model scope so a model can
-  // be named. It is never the project's own building: a project with no upload
-  // used to be answered with the shelf's single sample model.
   describe('a project with no IFC model of its own', () => {
     const SAMPLE = model({
       id: '55555555-5555-5555-5555-555555555555',

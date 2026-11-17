@@ -18,16 +18,11 @@ import path from 'node:path'
 
 const UI = path.resolve(import.meta.dirname, '..')
 const OUT = path.join(UI, '.disk-inputs')
-// The same test `ci/pr_selection.py` uses to find a spec that reads the tree.
 export const READS_DISK =
   /from ['"](?:node:)?fs(?:\/promises)?['"]|require\(['"](?:node:)?fs|readdirSync|readFileSync|globSync/
-// A spec that starts a process: what the child reads, the recorder never sees.
 const SPAWNS = /['"](?:node:)?child_process['"]/
 const SPEC = /\.(spec|test)\.(ts|tsx|mjs)$/
 const LINE = /^\s*\/\/\s*@disk-inputs:.*\n/gm
-// Past this many inputs a spec reads (nearly) the whole tree, from a file list
-// rather than a directory walk, and a declaration would buy no selection: it
-// keeps running on every selection, undeclared.
 const MOST_INPUTS = 60
 
 function specsReadingDisk() {

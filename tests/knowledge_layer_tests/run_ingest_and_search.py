@@ -1,41 +1,4 @@
 #!/usr/bin/env python3
-"""
-LlamaIndex Backend - End-to-End Test
-
-This script tests the complete knowledge layer workflow with LlamaIndex:
-1. Ingest PDFs with multimodal extraction (text, tables, charts, images)
-2. Store embeddings in Qdrant (QDRANT_URL)
-3. Test retrieval via semantic search
-
-Prerequisites:
-    - OPENROUTER_API_KEY environment variable (via export or .env file)
-    - LlamaIndex dependencies: uv pip install -e "packages/knowledge-layer[llamaindex]"
-
-Usage:
-    # Option 1: Export env var
-    export OPENROUTER_API_KEY=your-openrouter-key
-
-    # Option 2: Use .env file (auto-loaded, won't override existing vars)
-    echo 'OPENROUTER_API_KEY=your-openrouter-key' >> .env
-
-    # Run with default test file
-    python tests/knowledge_layer_tests/run_ingest_and_search.py
-
-    # Run with ALL PDFs in data directory
-    python tests/knowledge_layer_tests/run_ingest_and_search.py tests/knowledge_layer_tests/data/*.pdf
-
-    # Run with specific files
-    python tests/knowledge_layer_tests/run_ingest_and_search.py doc1.pdf doc2.pdf
-
-    # Text-only mode (faster, no VLM)
-    python tests/knowledge_layer_tests/run_ingest_and_search.py --text-only
-
-    # Generate one-sentence summary for each file
-    python tests/knowledge_layer_tests/run_ingest_and_search.py --generate-summary
-
-    # Skip retrieval test
-    python tests/knowledge_layer_tests/run_ingest_and_search.py --ingest-only
-"""
 
 import argparse
 import asyncio
@@ -46,11 +9,9 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-# Add project root to path for imports
 project_root = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-# Load environment variables from .env file (won't override existing vars)
 load_dotenv()
 
 
@@ -110,21 +71,17 @@ async def main():
     print("Knowledge Layer E2E Test - LlamaIndex with Multimodal Extraction")
     print("=" * 70)
 
-    # Import adapter to register it with the factory
     from knowledge_layer.ingest import LlamaIndexIngestor  # noqa: F401
     from knowledge_layer.search import LlamaIndexRetriever  # noqa: F401
 
     from agent.knowledge import get_ingestor
     from agent.knowledge import get_retriever
 
-    # Configuration
     collection_name = args.collection
 
-    # Determine files to ingest
     if args.files:
         file_paths = [Path(f) for f in args.files]
     else:
-        # Default test file (relative to tests/knowledge_layer_tests/)
         file_paths = [Path(__file__).parent / "data" / "multimodal_test.pdf"]
 
     print(f"\nFiles to ingest: {len(file_paths)}")
@@ -133,7 +90,6 @@ async def main():
     print(f"Qdrant: {os.environ.get('QDRANT_URL', '(QDRANT_URL not set)')}")
     print(f"Collection: {collection_name}")
 
-    # Validate files exist
     missing = [f for f in file_paths if not f.exists()]
     if missing:
         print("\nERROR: Files not found:")
@@ -141,20 +97,15 @@ async def main():
             print(f"  - {f}")
         return 1
 
-    # Check API key
     if not os.environ.get("OPENROUTER_API_KEY"):
         print("\nERROR: OPENROUTER_API_KEY not set. Run:")
         print('  export OPENROUTER_API_KEY="your-openrouter-key"')  # pragma: allowlist secret
         return 1
 
-    # =========================================================================
-    # STEP 1: Ingestion
-    # =========================================================================
     print("\n" + "-" * 70)
     print(f"STEP 1: Ingesting {len(file_paths)} PDF(s)")
     print("-" * 70)
 
-    # Configure extraction based on flags
     if args.text_only:
         ingest_config = {
             "extract_tables": False,
@@ -177,14 +128,12 @@ async def main():
 
     ingestor = get_ingestor("llamaindex", ingest_config)
 
-    # Submit ingestion job with all files
     job_id = ingestor.submit_job(
         file_paths=[str(f) for f in file_paths],
         collection_name=collection_name,
     )
     print(f"Job ID: {job_id}")
 
-    # Poll for completion
     start_time = time.time()
     while True:
         status = ingestor.get_job_status(job_id)
@@ -195,7 +144,6 @@ async def main():
             break
         time.sleep(1)
 
-    # Display results
     if status.is_success:
         total_chunks = sum(f.chunks_created for f in status.file_details)
         metadata = status.metadata or {}
@@ -208,7 +156,6 @@ async def main():
         print(f"  Images captioned: {metadata.get('images_captioned', 0)}")
         print(f"  Time: {elapsed:.1f}s")
 
-        # Display summaries if generated
         if args.generate_summary:
             print("\nGenerated Summaries:")
             files = ingestor.list_files(collection_name)
@@ -222,9 +169,6 @@ async def main():
         print(f"\nIngestion FAILED: {status.error_message}")
         return 1
 
-    # =========================================================================
-    # STEP 2: Retrieval (Semantic Search)
-    # =========================================================================
     if args.ingest_only:
         print("\n" + "-" * 70)
         print("Skipping retrieval test (--ingest-only)")
@@ -236,7 +180,6 @@ async def main():
 
         retriever = get_retriever("llamaindex")
 
-        # Use custom queries if provided, otherwise use defaults
         if args.query:
             queries = args.query
         else:
@@ -266,9 +209,6 @@ async def main():
                 print(f"        {chunk.display_citation}")
                 print(f"        {content_preview}...")
 
-    # =========================================================================
-    # Summary
-    # =========================================================================
     print("\n" + "=" * 70)
     print("Test Complete!")
     print("=" * 70)

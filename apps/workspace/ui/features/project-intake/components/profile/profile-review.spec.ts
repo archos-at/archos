@@ -1,7 +1,3 @@
-/**
- * What step 5 shows of the review: which rows come up front, what folds by
- * topic, what „take all" sends, and the words a row and the class card use.
- */
 import { describe, expect, it } from 'vitest'
 import { PROFILE_CONFIRMED, PROFILE_REVIEW } from '@/app/dev/_fixtures/project-setup-profile'
 import { DERIVATION_OPEN, DERIVATION_READY } from '@/app/dev/_fixtures/project-intake'

@@ -1,5 +1,3 @@
-"""A quote counts only when it stands in text this run read, in that file (ADR-0111)."""
-
 from __future__ import annotations
 
 import asyncio
@@ -27,7 +25,6 @@ class TestContains:
         assert _log().contains("baubeschreibung.PDF", "das gebäude wird in HOLZBAUWEISE errichtet") == 2
 
     def test_unicode_forms_are_folded(self):
-        """A decomposed „ä" in the model's quote matches the composed one the extractor wrote."""
         decomposed = unicodedata.normalize("NFD", "Das Gebäude hat drei")
         assert decomposed != "Das Gebäude hat drei"
         assert _log().contains("Baubeschreibung.pdf", decomposed) == 3

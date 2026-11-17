@@ -1,5 +1,3 @@
-/** The knowledge operations (ADR-0122). See `projects.ts` for the shape and `docs/architecture/agent-surface.md` for the rules. */
-
 import { z } from 'zod'
 import { geocodeQuerySchema } from '@/lib/geocoding/types'
 import { listNormsQuerySchema } from '@/lib/norms/norm-list-wire'
@@ -70,7 +68,6 @@ export const knowledgeOperations = [
       'organization and is guarded. Returns `{ token }`. Only useful to a client that renders WorkOS widgets.',
     method: 'GET',
     path: '/api/widgets/token',
-    // The route reads `searchParams` directly rather than through `parseQuery`; it is the gate.
     query: z.object({
       scope: z.string().optional().describe('A widget scope; repeat the parameter for several.'),
       org: z.string().optional().describe('Pass `platform` for the platform organization.'),

@@ -19,26 +19,14 @@ import { IntakeSetupView } from './intake-setup-view'
 
 export interface IntakeSetupProps {
   projectId: string
-  /** The project's name, for the page head. */
   projectName?: string
-  /** The project's RAG collection, which uploads go to. */
   collectionName: string
-  /** The review as the server read it; null when the project has no intake (set up by hand). */
   initial: IntakeView | null
-  /** A closed project takes no documents (ADR-0090). */
   projectClosed: boolean
-  /** The key the create dialog held a dropped folder under, from the redirect; null when none. */
   dropKey?: string | null
-  /** The typed client; the real one unless a spec brings its own. */
   client?: ProjectIntakeClient
 }
 
-/**
- * The setup page, connected: the review kept current (`useIntake`), documents
- * filed through the project's own upload (`useIntakeUpload`), and every
- * decision sent as one call. A project created for the wizard has no intake, and
- * says so with the way to its briefing.
- */
 export function IntakeSetup({ initial, ...rest }: IntakeSetupProps): JSX.Element {
   if (initial === null) return <NoIntake projectId={rest.projectId} />
   return <ConnectedSetup initial={initial} {...rest} />
@@ -53,7 +41,7 @@ function NoIntake({ projectId }: { projectId: string }): JSX.Element {
         title={t('empty.title')}
         description={t('empty.description')}
         action={
-          <Button asChild variant="outline">
+          <Button asChild variant="secondary">
             <Link href={`/app/projects/${projectId}/intake`}>{t('empty.action')}</Link>
           </Button>
         }
@@ -82,10 +70,6 @@ function ConnectedSetup({
       void refresh()
     },
   })
-  // Piloti's open filing suggestions for the project, read when the page is
-  // shown and again after a document lands or a suggestion is decided; asked
-  // every few seconds while documents are arriving or being read, because the
-  // judgement from their names follows the upload.
   const filingQuery = useMemo(() => ({ projectId }), [projectId])
   const filing = useFilingSuggestions({
     query: filingQuery,

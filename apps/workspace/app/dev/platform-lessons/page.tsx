@@ -1,18 +1,5 @@
 'use client'
 
-/**
- * Dev preview for Platform → Lessons: the failure-learning register. Renders
- * the REAL `PlatformLessons` with a fetch shim serving `/api/platform/lessons`,
- * so every register state is reviewable without a backend: an auditor-held
- * candidate, active lessons (one with its root cause already addressed), and a
- * capacity-evicted retirement. The bandage callout is part of the surface —
- * the framing is the feature.
- *
- * The shim is installed at MODULE scope, not in an effect: a child's effect
- * fires first and would race a parent's fetch patch.
- * Not linked from anywhere and 404s outside development (see ../layout.tsx).
- */
-
 import type { JSX } from 'react'
 import { PageHeader } from '@/components/ui/page-header'
 import { I18nProvider, useTranslations } from '@/i18n'
@@ -148,8 +135,6 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
         })
       }
       if (url.startsWith('/api/platform/lessons/') && init?.method === 'PATCH') {
-        // Echo the patched row, so the in-place update shows what a real
-        // server would answer instead of swapping in the first fixture.
         const id = url.split('/').pop()
         const lesson = LESSONS.find((row) => row.id === id) ?? LESSONS[0]
         const patch =

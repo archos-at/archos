@@ -1,10 +1,5 @@
 'use client'
 
-/**
- * Fixture sections for the atoms preview: the controls. Every control on this
- * page should show the 6px control radius; nothing here sets its own radius.
- */
-
 import type { JSX } from 'react'
 import { useState } from 'react'
 import { ArrowRight, Bold, Italic, Plus, Trash2 } from 'lucide-react'
@@ -31,7 +26,7 @@ export function ControlsSection(): JSX.Element {
         <div className="flex flex-wrap items-center gap-3">
           <Button>Default</Button>
           <Button variant="secondary">Secondary</Button>
-          <Button variant="outline">Outline</Button>
+          <Button variant="secondary">Outline</Button>
           <Button variant="ghost">Ghost</Button>
           <Button variant="destructive">Destructive</Button>
           <Button variant="link">Link</Button>
@@ -44,7 +39,7 @@ export function ControlsSection(): JSX.Element {
           <Button size="icon" aria-label="Add">
             <Plus aria-hidden />
           </Button>
-          <Button variant="outline" size="icon" aria-label="Delete">
+          <Button variant="secondary" size="icon" aria-label="Delete">
             <Trash2 aria-hidden />
           </Button>
           <Button>

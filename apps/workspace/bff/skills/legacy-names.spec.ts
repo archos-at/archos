@@ -1,14 +1,29 @@
-// @disk-inputs: ../../packages/agent/src/agent/skills/builtin.py, ../../packages/agent/src/agent/skills/builtin/oib/**
+// @disk-inputs: ../../packages/agent/src/agent/skills/legacy_names.py, ../../packages/agent/src/agent/skills/legacy_brand_names.py, ../../packages/agent/src/agent/skills/builtin/oib/**
 /**
  * @vitest-environment node
  */
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { canonicalSkillName, LEGACY_SKILL_NAMES, legacyNamesOf } from './legacy-names'
+import {
+  LEGACY_METADATA_KEYS,
+  LEGACY_PLATFORM_SKILL_NAMES,
+  LEGACY_SKILL_NAMES,
+  canonicalSkillName,
+  findSkillNamed,
+  legacyNamesOf,
+  readMetadata,
+  skillNameFamily,
+  writtenMetadataKey,
+} from './legacy-names'
 import { PLATFORM_SKILLS } from './platform-skills'
 
 const BUILTIN = join(process.cwd(), '..', '..', 'packages', 'agent', 'src', 'agent', 'skills')
+
+function pythonTable(python: string, name: string): Record<string, string> {
+  const block = new RegExp(`${name}: dict\\[str, str\\] = \\{([^}]*)\\}`).exec(python)?.[1] ?? ''
+  return Object.fromEntries([...block.matchAll(/"([a-z-]+)": "([a-z-]+)"/g)].map((match) => [match[1], match[2]]))
+}
 
 describe('builtin skill names written before the English names', () => {
   it('maps every old name to a builtin skill that ships and never to itself', () => {
@@ -27,11 +42,58 @@ describe('builtin skill names written before the English names', () => {
     expect(legacyNamesOf('hygiene')).toEqual([])
   })
 
+  it('names one skill by its current name and every old one, from either spelling', () => {
+    const [legacy, current] = Object.entries(LEGACY_PLATFORM_SKILL_NAMES)[0]!
+    expect(skillNameFamily(current)).toEqual([current, legacy])
+    expect(skillNameFamily(legacy)).toEqual([current, legacy])
+    expect(skillNameFamily('hygiene')).toEqual(['hygiene'])
+  })
+
   it('is the table the Python agent resolves with', () => {
-    const python = readFileSync(join(BUILTIN, 'builtin.py'), 'utf8')
-    const block = python.slice(python.indexOf('LEGACY_SKILL_NAMES: dict'), python.indexOf('def canonical_skill_name'))
-    const pairs = [...block.matchAll(/"([a-z-]+)": "([a-z-]+)"/g)].map((match) => [match[1], match[2]])
-    expect(Object.fromEntries(pairs)).toEqual(LEGACY_SKILL_NAMES)
+    const python = readFileSync(join(BUILTIN, 'legacy_names.py'), 'utf8')
+    expect(pythonTable(python, 'LEGACY_SKILL_NAMES')).toEqual(LEGACY_SKILL_NAMES)
+    const brand = readFileSync(join(BUILTIN, 'legacy_brand_names.py'), 'utf8')
+    expect(pythonTable(brand, 'LEGACY_PLATFORM_SKILL_NAMES')).toEqual(LEGACY_PLATFORM_SKILL_NAMES)
+    expect(pythonTable(brand, 'LEGACY_METADATA_KEYS')).toEqual(LEGACY_METADATA_KEYS)
     expect(readdirSync(join(BUILTIN, 'builtin', 'oib'))).not.toContain('einreichcheck')
+  })
+})
+
+describe('house skills stored under their old names', () => {
+  it('answers to the old and the new name, and each resolves to the other', () => {
+    for (const [legacy, current] of Object.entries(LEGACY_PLATFORM_SKILL_NAMES)) {
+      expect(canonicalSkillName(legacy)).toBe(current)
+      expect(legacyNamesOf(current)).toEqual([legacy])
+    }
+  })
+
+  it('finds a stored row under either name, the exact name first', () => {
+    const [[legacy, current]] = Object.entries(LEGACY_PLATFORM_SKILL_NAMES)
+    expect(findSkillNamed([{ name: legacy, id: 'old' }], current)?.id).toBe('old')
+    expect(findSkillNamed([{ name: legacy, id: 'old' }], legacy)?.id).toBe('old')
+    expect(findSkillNamed([{ name: current, id: 'new' }], legacy)?.id).toBe('new')
+    const both = [
+      { name: legacy, id: 'old' },
+      { name: current, id: 'new' },
+    ]
+    expect(findSkillNamed(both, current)?.id).toBe('new')
+    expect(findSkillNamed(both, legacy)?.id).toBe('old')
+    expect(findSkillNamed([{ name: legacy, id: 'old' }], 'hygiene')).toBeUndefined()
+  })
+})
+
+describe('metadata keys: readers take the new key and the old one, new winning', () => {
+  const { agents: stored } = LEGACY_METADATA_KEYS
+
+  it('reads a key from its new spelling, its old spelling, or prefers the new one', () => {
+    expect(readMetadata({ agents: 'researcher' }, 'agents')).toBe('researcher')
+    expect(readMetadata({ [stored]: 'deep_researcher' }, 'agents')).toBe('deep_researcher')
+    expect(readMetadata({ agents: 'researcher', [stored]: 'deep_researcher' }, 'agents')).toBe('researcher')
+    expect(readMetadata({}, 'agents')).toBeUndefined()
+  })
+
+  it('writes the stored spelling, so an older reader still understands the row', () => {
+    expect(writtenMetadataKey('agents')).toBe(stored)
+    expect(writtenMetadataKey('auto-invoke')).toBe(LEGACY_METADATA_KEYS['auto-invoke'])
   })
 })

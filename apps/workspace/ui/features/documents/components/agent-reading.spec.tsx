@@ -5,13 +5,6 @@ import type { FileItem } from '../file-types'
 import { AgentReading } from './agent-reading'
 import { PRODUCT_NAME } from '@/lib/brand'
 
-/**
- * What Piloti made of a citable document: the facts line, the type and
- * discipline chips it assigned, and the way to correct them. The editor it
- * opens is specced on its own in `document-tags-editor.spec.tsx`; here it is
- * only checked that the reading opens it, closes it and lets go of it when
- * the reader moves to another file.
- */
 const fileFixture = (overrides: Partial<FileItem> = {}): FileItem => ({
   id: 'doc-1',
   filename: 'plan.pdf',
@@ -129,7 +122,7 @@ describe('AgentReading', () => {
       expect(screen.getByRole('button', { name: 'Correct' })).toBeInTheDocument()
     })
 
-    it('offers Assign instead of Correct when Piloti found no type, and opens the editor from it', async () => {
+    it('offers Assign instead of Correct when the agent found no type, and opens the editor from it', async () => {
       const user = userEvent.setup()
       render(<AgentReading file={fileFixture({ tags: [] })} canManage />)
 

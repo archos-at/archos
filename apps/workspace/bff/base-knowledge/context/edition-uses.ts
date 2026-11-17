@@ -1,17 +1,3 @@
-/**
- * Which edition an answer used, in which role and at which pack sequences
- * (design §5.5 "Server-side record", E25, ADR-0173), written when the BFF
- * persists the backend's answer (`persistInternalConversationMessages`).
- *
- * The role, the edition and the sequences come from the knowledge context the
- * BFF resolves itself, never from the provenance a client sent; the backend's
- * cited sources only choose which of those uses the answer rested on: by the
- * id of the record each was read as (`edition_id`, `work_id`), and for a source
- * that states none, by its corpus file. A
- * hotfix notice and a replay read this table. Advisory: a failure here never
- * costs the answer its row.
- */
-
 import 'server-only'
 import { getDb } from '@/lib/db'
 import { messageEditionUses } from '@/lib/db/schema/knowledge-context'
@@ -19,7 +5,6 @@ import { withTenant } from '@/lib/db/tenant-context'
 import { turnContextOf } from './turn-snapshot'
 import type { KnowledgeContext } from './wire'
 
-/** Most uses one answer records: the context's own bound. */
 const MAX_RECORDED = 40
 
 export interface EditionUseRow {
@@ -30,7 +15,6 @@ export interface EditionUseRow {
   packSeqs: Record<string, number>
 }
 
-/** The base-corpus files an answer cited, from the backend's `sources` (`file_name`). Pure. */
 export function citedFiles(metadata: Record<string, unknown> | undefined): Set<string> {
   const sources = metadata?.sources
   if (!Array.isArray(sources)) return new Set()
@@ -43,7 +27,6 @@ export function citedFiles(metadata: Record<string, unknown> | undefined): Set<s
   )
 }
 
-/** The knowledge records an answer's cited sources were read as (`edition_id`, and `work_id` for law read live). Pure. */
 export function citedRecords(metadata: Record<string, unknown> | undefined): CitedRecords {
   const sources = Array.isArray(metadata?.sources) ? metadata.sources : []
   const ids = (key: 'edition_id' | 'work_id', only: (source: Record<string, unknown>) => boolean = () => true) =>
@@ -59,13 +42,11 @@ export function citedRecords(metadata: Record<string, unknown> | undefined): Cit
 
 export interface CitedRecords {
   editionIds: ReadonlySet<string>
-  /** Works cited with no edition: law read live at its source. */
   liveWorkIds: ReadonlySet<string>
 }
 
 const NO_RECORDS: CitedRecords = { editionIds: new Set(), liveWorkIds: new Set() }
 
-/** The uses of the context an answer rested on, by the records and files its sources name, with the context's pack sequences. Pure. */
 export function editionUsesOf(
   context: Pick<KnowledgeContext, 'packs' | 'uses'>,
   files: ReadonlySet<string>,
@@ -90,13 +71,6 @@ interface AnswerInput {
   metadata?: Record<string, unknown>
 }
 
-/**
- * Record the editions each persisted answer used, from the context its turn
- * was answered on (`turn-snapshot.ts`), never one resolved now: a release that
- * landed mid-turn must not be recorded as what the answer read (E42). Nothing
- * outside a project, without citations, or when no snapshot was kept (the flag
- * off, or expired): a missing record is safer than a wrong one.
- */
 export async function recordEditionUses(
   organizationId: string,
   projectId: string | null,

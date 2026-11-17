@@ -1,22 +1,3 @@
-/**
- * A country's stable release, moved between deployments (rollover-to-prod, step 2): built and reviewed on one,
- * imported into another without re-running the onboarding there.
- *
- * - Export reads the head (the stable revision) of every platform record of the country, as the proposal it was
- *   published from, with the captures its citations name and each attached text's name, URL and sha256.
- * - Import writes that bundle into a NEW DRAFT change request, nothing more: no submit, no review, no approval,
- *   no publish. The importing deployment reviews it with four eyes as any request. Every capture comes in as
- *   `operator_supplied`: nobody fetched it there, so a person other than the importer checks it against its source
- *   before any approval (0209, 0224), as for a page an operator pasted. A text comes in as its name and sha256; the
- *   operator attaches the same bytes (`platform-knowledge-text-import` or `-text-upload`) before it validates.
- *
- * The bundle travels as a gzipped JSON file: a country's captured pages are megabytes, past what a tool result
- * shows as text, and a file goes through the door whole (up to its inline limit) and back as an upload.
- *
- * A record that names another country's record (a territory under a union, a relation into another pack) imports
- * only once that record is released on the importing deployment. The same bundle again changes nothing.
- */
-
 import 'server-only'
 import { gunzipSync, gzipSync } from 'node:zlib'
 import { and, inArray, isNull, sql } from 'drizzle-orm'
@@ -25,7 +6,7 @@ import type { UserSession } from '@/lib/auth/types'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
 import { sqlTextArray } from '@/lib/db/sql-list'
 import { knowledgeRecords, type KnowledgeProvenance } from '@/lib/db/schema/knowledge-records'
-import { knowledgeCitationCaptures } from '@/lib/db/schema/knowledge-platform'
+import { type CarriedFrom, knowledgeCitationCaptures } from '@/lib/db/schema/knowledge-platform'
 import { citedCaptureIds, insertCapture, sha256Of } from './captures'
 import { recordIdOf, referencesOf } from './records'
 import { MAX_BUNDLE_RECORDS, RELEASE_BUNDLE_FORMAT, type ReleaseBundle, releaseBundleSchema, type ReleaseImportBody, type ReleaseImportResult } from './release-wire'
@@ -37,10 +18,8 @@ import { PROPOSED_RECORD_TYPES, type ProposedRecord, proposedRecordSchema } from
 
 const typeOrder = (record: ProposedRecord) => PROPOSED_RECORD_TYPES.indexOf(record.type)
 
-/** Every record id a record names: what must exist where it is imported. */
 const namedIds = (record: ProposedRecord) => [...referencesOf(record).map((reference) => reference.id), ...namedTerritories(record)]
 
-/** The bundle as the file the export answers: gzipped JSON, named after its country and release. */
 export function releaseFile(bundle: ReleaseBundle): Response {
   return new Response(new Uint8Array(gzipSync(JSON.stringify(bundle))), {
     headers: {
@@ -50,7 +29,6 @@ export function releaseFile(bundle: ReleaseBundle): Response {
   })
 }
 
-/** The bundle a file holds, gzipped or not; refused whole when it is not one. */
 export function bundleOf(bytes: Buffer): ReleaseBundle {
   let parsed: unknown
   try {
@@ -67,9 +45,12 @@ export function bundleOf(bytes: Buffer): ReleaseBundle {
   return bundle.data
 }
 
-/** The country's stable release as one bundle. Reads only. */
 export async function exportCountryRelease(session: UserSession | null, countryId: string): Promise<ReleaseBundle> {
   await requirePlatform(session, PLATFORM_PERMISSIONS.knowledgeReview)
+  return readCountryRelease(countryId)
+}
+
+export async function readCountryRelease(countryId: string): Promise<ReleaseBundle> {
   return platformTransaction(async (tx) => {
     const heads = await tx.execute<{ id: string; provenance: KnowledgeProvenance; corpus_file: string | null; sha256: string | null; disputed: boolean }>(sql`
       SELECT r.id, v.provenance, m.corpus_file, m.sha256, c.second_review IS NOT DISTINCT FROM 'disputed' AS disputed
@@ -86,7 +67,6 @@ export async function exportCountryRelease(session: UserSession | null, countryI
     const records: ProposedRecord[] = []
     for (const head of heads) {
       const parsed = proposedRecordSchema.safeParse(head.provenance.proposal)
-      // Unknown fails closed: a record released before the kit kept proposals cannot travel as one.
       if (!parsed.success) throw new ConflictError(`${head.id} was released without a readable proposal; propose and release it again first.`)
       records.push(parsed.data)
     }
@@ -128,20 +108,16 @@ export async function exportCountryRelease(session: UserSession | null, countryI
         const text = head.provenance.text
         return [{ manifestationKey: record.key, fileName: head.corpus_file, sha256: head.sha256, url: text?.url ?? null, sourceId: text?.sourceId ?? null }]
       }),
-      // Every record named outside the bundle; one no deployment holds says so with a null country.
       requires: outside.map((recordId) => ({ recordId, countryId: requires.find((row) => row.recordId === recordId)?.countryId ?? null })),
     }
   })
 }
 
-/** A record as the import proposes it: its citations on the imported captures, a source's recorded documents to be fetched again. */
 function onImportedCaptures(record: ProposedRecord, captureIds: ReadonlyMap<string, string>): ProposedRecord {
   const citations = record.citations.map((citation) =>
     citation.captureId ? { ...citation, captureId: captureIds.get(citation.captureId) ?? citation.captureId } : citation,
   )
   if (record.type !== 'source') return { ...record, citations }
-  // A fixture recorded from a capture needs a `fetched` capture through the source on this deployment (KC-7):
-  // left open, so validate names it until the operator captures the document here.
   const fixtures = record.fixtures.map((fixture) => ({
     ...fixture,
     responses: Object.fromEntries(Object.entries(fixture.responses).map(([url, response]) => [url, 'captureId' in response ? { captureId: null } : response])),
@@ -152,20 +128,28 @@ function onImportedCaptures(record: ProposedRecord, captureIds: ReadonlyMap<stri
 const importNote = (basis: string, retrievedAt: string) =>
   `Imported from another deployment's release (${basis} there, ${retrievedAt}). Nobody fetched it here: check it against its source.`
 
-/** Write a bundle into a new draft change request of its country. Never submits, approves or publishes. */
 export async function importCountryRelease(
   session: UserSession | null,
   body: ReleaseImportBody,
   proposedBy: 'person' | 'agent' = 'person',
 ): Promise<ReleaseImportResult> {
   const person = await requirePlatform(session, PLATFORM_PERMISSIONS.knowledgeWrite)
+  return importReleaseAs(person.userId, body, { proposedBy })
+}
+
+export async function importReleaseAs(
+  importer: string,
+  body: ReleaseImportBody,
+  options: { proposedBy: 'person' | 'agent'; carriedFrom?: CarriedFrom },
+): Promise<ReleaseImportResult> {
+  const person = { userId: importer }
+  const { proposedBy } = options
   const { bundle } = body
   const digest = sha256Of(canonicalJson(bundle))
   const ids = new Set(bundle.records.map(recordIdOf))
   const outside = [...new Set(bundle.records.flatMap(namedIds))].filter((id) => !ids.has(id))
   const counts = { records: bundle.records.length, captures: bundle.captures.length, texts: bundle.texts }
   return platformTransaction(async (tx) => {
-    // One import of a bundle at a time: the second waits, then finds the first.
     await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${digest}, 0))`)
     const [prior] = await tx.execute<{ id: string; status: string }>(sql`
       SELECT c.id, c.status FROM knowledge_change_requests c
@@ -187,6 +171,7 @@ export async function importCountryRelease(
       title: body.title ?? `Import of ${bundle.countryId} release ${bundle.releaseSeq}`,
       countryId: bundle.countryId,
       createdBy: person.userId,
+      ...(options.carriedFrom ? { carriedFrom: options.carriedFrom } : {}),
     })
     const captureIds = new Map<string, string>()
     for (const capture of bundle.captures) {
@@ -212,14 +197,11 @@ export async function importCountryRelease(
     const request = await lockChangeRequest(tx, requestId)
     if (!request) throw new ConflictError('The draft was not created; import again.')
     const records = bundle.records.map((record) => onImportedCaptures(record, captureIds))
-    // The kit as a proposal runs it, before anything is kept: a bundle that fails here leaves no draft behind. A
-    // text's bytes and a source's fixtures are the api tier's to check; validate runs them once they are attached.
     const later = new Map(records.filter(checkedOutsideKit).map((record) => [recordIdOf(record), []]))
     const problems = await runKit(tx, request, records, later)
     if (problems.length > 0) {
       throw new UnprocessableError(`The release fails ${problems.length} check(s) here; nothing was written.`, { problems: problems.slice(0, 50) })
     }
-    // Each manifestation names the released file and its sha256: validate holds the attached bytes to it (KC-1).
     const pins = new Map(bundle.texts.map((text) => [`manifestation:${text.manifestationKey}`, text.sha256]))
     await insertProposedRecords(tx, request, records, { createdBy: person.userId, proposedBy, pins, imported: { bundle: digest } })
     return { changeRequestId: requestId, status: 'created', requestStatus: 'draft', ...counts }

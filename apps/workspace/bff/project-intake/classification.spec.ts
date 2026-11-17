@@ -11,7 +11,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
 vi.mock('@/lib/project-intake/setup-records', async () => ({
-  // The records an operator publishes for Austria, as `readSetupRecords` hands them over (the database read is its own spec).
   readSetupRecords: async () => (await import('@/lib/project-intake/at-setup.fixtures')).AT_SETUP_RECORDS,
 }))
 vi.mock('@/lib/authz/projects', () => ({ requireProjectAccess: vi.fn() }))
@@ -34,12 +33,10 @@ const ON = '2026-11-10'
 
 const evaluate = (facts: Record<string, ProjectPrimitiveValue>, request = {}) => {
   const result = evaluateClassification(placedProfile(facts), projectIntakeDefinitionV1, { on: ON, ...request }, THREE_COUNTRIES)
-  // Every answer is what the wire carries.
   expect(classificationEvaluationSchema.parse(result)).toEqual(result)
   return result
 }
 
-/** A Viennese Mehrparteienhaus as a Bestand: three storeys, escape level 6.5 m, GK 3. */
 const VIENNA_BESTAND = {
   country: 'at',
   federal_state: 'vienna',
@@ -64,7 +61,6 @@ describe('classification-evaluate', () => {
     expect(result.classification).toMatchObject({ rulesetId: 'ruleset:at-oib-2023-building-class' })
     expect(result.existing).toMatchObject({ value: 3, missing: [] })
     expect(result.planned).toMatchObject({ value: null, missing: ['escape_level_m'] })
-    // Five storeys: GK 5 below 22 m, a high-rise above; never GK 3 again.
     expect(result.planned?.possible).toEqual([
       { value: null, highRise: true, applicable: true },
       { value: 5, highRise: false, applicable: true },
@@ -121,9 +117,7 @@ describe('classification-evaluate', () => {
     const evaluateWith = (records: typeof THREE_COUNTRIES) =>
       evaluateClassification(profile, projectIntakeDefinitionV1, { on: ON, buildingId: 'bldg1' }, records)
     expect(evaluateWith([])).toMatchObject({ status: 'not_published', classification: null, planned: null, requests: [] })
-    // Another country's records do not stand in for Austria's.
     expect(evaluateWith(GERMAN_RECORDS)).toMatchObject({ status: 'not_published', planned: null })
-    // Positive control: with Austria's records published the same project is classified.
     expect(evaluateWith(THREE_COUNTRIES).status).toBe('evaluated')
   })
 })

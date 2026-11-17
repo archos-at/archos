@@ -1,30 +1,5 @@
 'use client'
 
-/**
- * Organisation → Quarantäne: the files the content check held back (ADR-0086),
- * and the two things a reviewer can do with one.
- *
- * The server decides who sees what: an org admin gets the organization's
- * queue, a project admin their projects' part of it, everyone else an empty
- * list. So the page is open to every member and this list never re-derives a
- * permission. Each row says what the file is, where it was uploaded, when, and
- * which rule caught it on which pages, through the same `QuarantineFindings`
- * the Files preview shows. Detector samples arrive masked from the job.
- *
- * Rows can be picked and decided together, filtered by what held them
- * (`./quarantine-selection`): the server takes the selection as one request and
- * answers per file. Release sends the file to the models like any other
- * upload, so it asks first. Delete goes through the same decision route, which
- * deletes only a file that is still held and answers the uploader's request
- * for a review. A row leaves the list only once the server said yes.
- *
- * „Ansehen" opens the file where it is filed, in the project's Files view or
- * the Büroablage, on its preview, which opens at the first finding and offers
- * the same two decisions: a reviewer may open a held file there
- * (`getAccessibleDocument`), and should see it before deciding. A chat
- * attachment has no per-file view, so its row offers none.
- */
-
 import { type FC, useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Eye, FileWarning, ShieldCheck, ShieldOff, Trash2 } from 'lucide-react'
@@ -65,7 +40,6 @@ type PendingAction =
   | { kind: 'release' | 'delete'; item: QuarantineQueueItem }
   | { kind: 'releaseMany' | 'deleteMany'; ids: string[] }
 
-/** Outcomes that did what was asked, and what the toast then says. */
 const DONE: ReadonlySet<QuarantineDecisionOutcome> = new Set(['allowed', 'deleted', 'rechecking'])
 const DONE_TOAST = {
   allow: 'quarantine.releasedMany',
@@ -73,7 +47,6 @@ const DONE_TOAST = {
   recheck: 'quarantine.recheckingMany',
 } as const
 
-/** Outcomes after which a row is no longer in the queue: decided here, or by someone else first. */
 const LEAVES_QUEUE: ReadonlySet<QuarantineDecisionOutcome> = new Set([
   'allowed',
   'deleted',
@@ -82,7 +55,6 @@ const LEAVES_QUEUE: ReadonlySet<QuarantineDecisionOutcome> = new Set([
   'not_found',
 ])
 
-/** Project names for the "where" line. Best-effort: a failed read shows "a project". */
 function useProjectNames(): Map<string, string> {
   const [names, setNames] = useState<Map<string, string>>(new Map())
   useEffect(() => {
@@ -100,7 +72,6 @@ export const QuarantineQueue: FC = () => {
   const tc = useTranslations(commonCopy)
   const [items, setItems] = useState<QuarantineQueueItem[] | null>(null)
   const [failed, setFailed] = useState(false)
-  // The item stays set while the dialog animates out, so its title does not blank.
   const [pending, setPending] = useState<PendingAction | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const ask = (action: PendingAction): void => {
@@ -116,7 +87,6 @@ export const QuarantineQueue: FC = () => {
     try {
       const next = await listQuarantineQueue(signal)
       setItems(next)
-      // Picks someone else decided meanwhile no longer count against the cap.
       setSelected((prev) => new Set(next.filter((item) => prev.has(item.id)).map((item) => item.id)))
     } catch {
       if (!signal?.aborted) setFailed(true)
@@ -141,7 +111,6 @@ export const QuarantineQueue: FC = () => {
     }
     return byFinding
   }, [items])
-  // A filter whose rows are all decided falls back to everything.
   const activeFilter = filter !== 'all' && (counts.get(filter) ?? 0) === 0 ? 'all' : filter
   const shown = useMemo(
     () => (items ?? []).filter((item) => activeFilter === 'all' || findingsOfItem(item).has(activeFilter)),
@@ -174,7 +143,6 @@ export const QuarantineQueue: FC = () => {
     setSelected(new Set(ids.filter((id) => !gone.has(id))))
     if (done > 0) toast.success(t(DONE_TOAST[decision], { count: done }))
     if (stuck > 0) toast.error(t('quarantine.someFailed', { count: stuck }))
-    // Someone else decided some of them first: the rest of the list may be stale too.
     if (done + stuck < results.length) void load()
   }
 
@@ -185,7 +153,6 @@ export const QuarantineQueue: FC = () => {
       toast.success(t('quarantine.released', { name: item.filename }))
     } catch (error) {
       if (error instanceof ApiRequestError && (error.status === 409 || error.status === 404)) {
-        // Someone else released or deleted it first: the list was stale, not the action wrong.
         toast.error(t('quarantine.changed'))
         void load()
         return
@@ -194,8 +161,6 @@ export const QuarantineQueue: FC = () => {
     }
   }
 
-  // Through the decision route, as a selection's delete: it deletes only what
-  // is still held, and answers the uploader's „Prüfung anfragen".
   const remove = async (item: QuarantineQueueItem): Promise<void> => {
     const outcome = await decideQuarantinedDocuments('delete', [item.id])
       .then((results) => results[0]?.outcome ?? 'failed')
@@ -205,7 +170,6 @@ export const QuarantineQueue: FC = () => {
       toast.success(t('quarantine.deleted', { name: item.filename }))
       return
     }
-    // A chat attachment is not found for a reviewer who is not in that chat.
     const notInChat = item.scope === 'session' && outcome === 'not_found'
     toast.error(notInChat ? t('quarantine.deleteErrorSession') : outcome === 'changed' ? t('quarantine.changed') : t('quarantine.deleteError'))
     void load()
@@ -216,7 +180,7 @@ export const QuarantineQueue: FC = () => {
       <EmptyState
         title={t('quarantine.loadError')}
         action={
-          <Button variant="outline" size="sm" onClick={() => void load()}>
+          <Button variant="secondary" size="sm" onClick={() => void load()}>
             {tc('actions.retry')}
           </Button>
         }
@@ -248,7 +212,6 @@ export const QuarantineQueue: FC = () => {
         counts={counts}
         filter={activeFilter}
         onFilterChange={(next) => {
-          // Picks never hide behind a filter: what is acted on is what is shown.
           setFilter(next)
           setSelected(new Set())
         }}
@@ -371,7 +334,6 @@ const QuarantineRow: FC<{
           <QuarantineFindings verdict={item.verdict} withoutSentence testId={`quarantine-findings-${item.id}`} />
         )}
         {!hasReasons && (
-          // A sentence, not a label: it wraps instead of truncating on a phone.
           <ItemDescription className="whitespace-normal">
             {item.held === 'unscreened' ? t('quarantine.unscreened') : t('quarantine.noReason')}
           </ItemDescription>
@@ -390,7 +352,7 @@ const QuarantineRow: FC<{
             </Link>
           </Button>
         )}
-        <Button variant="outline" size="sm" onClick={onRelease} data-testid={`quarantine-release-${item.id}`}>
+        <Button variant="secondary" size="sm" onClick={onRelease} data-testid={`quarantine-release-${item.id}`}>
           {t('quarantine.release')}
         </Button>
         <Button variant="ghost" size="sm" onClick={onDelete} data-testid={`quarantine-delete-${item.id}`}>

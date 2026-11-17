@@ -1,19 +1,3 @@
-"""Write one folder card: a short German abstract and up to eight cited key facts (ADR-0127, tier 1).
-
-One model call per folder, on the summary model ingestion already resolved
-(``summary_model`` in the knowledge layer's config, pinned to zero data retention
-by ``openrouter.pin_chat_model`` at registration): the same machinery that writes
-each document's one-sentence summary, so a card is written by the model that wrote
-its children's summaries. The call is a Langfuse generation named ``folder-card``
-(``observed_generation``), with the collection, the depth and the prompt version as
-metadata, because it runs in the ingest worker and no agent-runtime workflow sees it.
-
-The prompt is English and the output German, which is domain data. :func:`validate`
-is the guard that matters: a key fact survives only when every document it names
-is directly in the folder, so a card can point at its children and at nothing else.
-A card is an index; an answer cites the document, never the card.
-"""
-
 from __future__ import annotations
 
 import hashlib
@@ -34,16 +18,12 @@ logger = logging.getLogger(__name__)
 
 GENERATION_NAME = "folder-card"
 
-#: The wire contract's bounds (``apps/workspace/bff/folder-cards/types.ts``).
 MAX_ABSTRACT_CHARS = 600
 MAX_ABSTRACT_SENTENCES = 3
 MAX_KEY_FACTS = 8
 MAX_STATEMENT_CHARS = 300
 MAX_FACT_DOCUMENTS = 8
 MAX_PAGES_CHARS = 40
-#: Output budget of one card. The card runs on the summary model, whose own cap
-#: (``summary_llm.max_tokens``, 100) is one sentence: an abstract with eight key
-#: facts was cut off mid-object and failed the schema.
 MAX_OUTPUT_TOKENS = 2000
 
 SYSTEM_PROMPT = (
@@ -83,9 +63,12 @@ class _KeyFactReply(BaseModel):
 
 
 class CardReply(BaseModel):
-    """What the model returns. Strict: every property required, optionals nullable."""
-
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "description": "What the model returns. Strict: every property required, optionals nullable."
+        },
+    )
 
     abstract: str
     key_facts: list[_KeyFactReply]
@@ -109,13 +92,10 @@ class FolderCardDraft:
     abstract: str
     key_facts: tuple[KeyFact, ...]
     abstract_hash: str
-    #: Facts the validator dropped for citing something that is not a child.
     dropped_facts: int = 0
 
 
 class GenerationRejected(ValueError):
-    """The provider answered (and charged) but the reply is no card; ``tokens`` is what the call cost."""
-
     def __init__(self, message: str, *, tokens: int) -> None:
         super().__init__(message)
         self.tokens = tokens
@@ -127,11 +107,6 @@ class Generation:
     model: str
     tokens: int
     trace_id: str | None
-
-
-# ---------------------------------------------------------------------------
-# The prompt
-# ---------------------------------------------------------------------------
 
 
 def _document_line(document: Any) -> str:
@@ -150,7 +125,6 @@ def _document_line(document: Any) -> str:
 
 
 def user_prompt(inputs: FolderInputs) -> str:
-    """The folder as the model reads it. Bounded: :data:`MAX_LISTED_DOCUMENTS` documents in full. Pure."""
     lines = ["## Folder", inputs.folder_path]
     if inputs.description:
         lines += ["", "## Description a person wrote (authoritative)", inputs.description]
@@ -189,7 +163,6 @@ def _named(label: str, entries: list[str]) -> list[str]:
 
 
 def incremental_prompt(inputs: FolderInputs, change: Any, abstract: str, key_facts: list[Mapping[str, Any]]) -> str:
-    """The current card and the diff alone: full detail for what entered or changed, names for what left. Pure."""
     documents = {document.file_name: document for document in inputs.documents}
     folders = {folder.name: folder for folder in inputs.folders}
     lines = ["## Folder", inputs.folder_path]
@@ -207,13 +180,7 @@ def incremental_prompt(inputs: FolderInputs, change: Any, abstract: str, key_fac
     return "\n".join(lines)
 
 
-# ---------------------------------------------------------------------------
-# The call
-# ---------------------------------------------------------------------------
-
-
 def _usage(response: Any) -> dict[str, int]:
-    """Prompt and completion tokens off a LangChain message, in the provider's key names."""
     metadata = getattr(response, "response_metadata", None) or {}
     usage = metadata.get("token_usage") if isinstance(metadata, Mapping) else None
     if isinstance(usage, Mapping) and usage:
@@ -225,7 +192,6 @@ def _usage(response: Any) -> dict[str, int]:
 
 
 def _completion_body(response: Any, text: str) -> dict[str, Any]:
-    """The reply in the chat-completion shape ``GenerationRecorder.finish`` reads."""
     metadata = getattr(response, "response_metadata", None) or {}
     body: dict[str, Any] = {
         "choices": [{"message": {"content": text}, "finish_reason": metadata.get("finish_reason")}],
@@ -237,7 +203,6 @@ def _completion_body(response: Any, text: str) -> dict[str, Any]:
 
 
 def _tokens(response: Any, prompt: str, text: str) -> int:
-    """What the budget is charged: the provider's count, else about four characters a token."""
     usage = _usage(response)
     total = usage["total_tokens"] or usage["prompt_tokens"] + usage["completion_tokens"]
     return total or (len(SYSTEM_PROMPT) + len(prompt) + len(text)) // 4
@@ -251,11 +216,6 @@ async def generate(
     mode: str = "full",
     diff_counts: Mapping[str, int] | None = None,
 ) -> Generation:
-    """One model call; raises when it fails or its reply does not parse (the worker retries).
-
-    ``prompt`` is :func:`incremental_prompt`'s text in the incremental mode; the full
-    mode writes :func:`user_prompt`. Either way the same schema, validator and trace.
-    """
     from langchain_core.messages import HumanMessage
     from langchain_core.messages import SystemMessage
 
@@ -293,11 +253,6 @@ async def generate(
     return Generation(reply=reply, model=model, tokens=_tokens(response, prompt, text), trace_id=generation.trace_id)
 
 
-# ---------------------------------------------------------------------------
-# The guard
-# ---------------------------------------------------------------------------
-
-#: German abbreviations a full stop does not end a sentence after.
 _ABBREVIATIONS = re.compile(
     r"\b(z\. ?B|u\. ?a|d\. ?h|bzw|ca|inkl|vgl|gem|lt|Nr|Abs|Art|Pkt|Hr|Fr|Dipl|Ing|Mag|Dr|bspw|ggf|evtl)\.",
     re.IGNORECASE,
@@ -319,18 +274,15 @@ def _clip(text: str, limit: int) -> str:
 
 
 def clean_abstract(text: str) -> str:
-    """One paragraph, at most three sentences and 600 characters. Pure."""
     flat = " ".join((text or "").split())
     return _clip(" ".join(_sentences(flat)[:MAX_ABSTRACT_SENTENCES]), MAX_ABSTRACT_CHARS)
 
 
 def abstract_hash(abstract: str) -> str:
-    """What a parent's input hash reads of this card: the abstract, whitespace-insensitive. Pure."""
     return hashlib.sha256(" ".join(abstract.split()).encode("utf-8")).hexdigest()
 
 
 def _fact(raw: _KeyFactReply, children: Mapping[str, str]) -> KeyFact | None:
-    """The fact, or ``None`` when it cites nothing or anything that is not a direct child."""
     statement = _clip(" ".join(raw.statement.split()), MAX_STATEMENT_CHARS)
     if not statement or not raw.documents:
         return None
@@ -346,10 +298,6 @@ def _fact(raw: _KeyFactReply, children: Mapping[str, str]) -> KeyFact | None:
 
 
 def validate(reply: CardReply, inputs: FolderInputs) -> FolderCardDraft:
-    """Bound the reply to the contract and drop every fact that cites a non-child. Pure.
-
-    Raises ``ValueError`` when no abstract is left: a card without one says nothing.
-    """
     abstract = clean_abstract(reply.abstract)
     if not abstract:
         raise ValueError("the folder card reply has no abstract")

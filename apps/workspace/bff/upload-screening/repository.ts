@@ -1,16 +1,9 @@
-/**
- * The content gate's quarantine decisions still owed to the audit trail
- * (migration 0119, ADR-0086). Written by `setDocumentReconciledStatus`, in the
- * transaction that moves the row; read, marked and deleted here.
- */
-
 import 'server-only'
 import { and, desc, eq, gt, inArray, isNotNull, isNull, lt, or } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { documentQuarantineDecisions, type DocumentQuarantineDecision } from '@/lib/db/schema/document-quarantine-decisions'
 import { withTenant } from '@/lib/db/tenant-context'
 
-/** The decisions about these documents that the trail does not have yet. */
 export async function listOwedQuarantineDecisions(
   organizationId: string,
   documentIds: readonly string[]
@@ -31,13 +24,6 @@ export async function listOwedQuarantineDecisions(
   )
 }
 
-/**
- * The sweep's discovery, across organizations: decisions still owed that were
- * taken in the window. The caller runs it under `withPlatformAccess` and sends
- * each inside `withTenant` for its own organization. Newest first, as the
- * batch sweep, so a decision WorkOS keeps refusing does not starve the ones
- * behind it.
- */
 export async function listOwedQuarantineDecisionsBetween(
   decidedAfter: Date,
   decidedBefore: Date,
@@ -58,7 +44,6 @@ export async function listOwedQuarantineDecisionsBetween(
     .limit(limit)
 }
 
-/** The trail has it. Guarded, so a second sender marks nothing. Returns whether this call marked it. */
 export async function markQuarantineDecisionAudited(
   organizationId: string,
   decisionId: string,
@@ -81,14 +66,6 @@ export async function markQuarantineDecisionAudited(
   return marked.length > 0
 }
 
-/**
- * Retention (0118): delete the decisions that are spent. A decision is kept to
- * reach the trail and for nothing else, so it goes once the trail has it
- * (`audited_at` set), and in any case once it was taken before `decidedBefore`,
- * the end of the window in which anything still sends it. Across
- * organizations: the caller runs it under `withPlatformAccess`, the one role
- * the table's guard lets delete. Returns how many it deleted.
- */
 export async function deleteSpentQuarantineDecisions(decidedBefore: Date, limit: number): Promise<number> {
   const db = getDb()
   const spent = db

@@ -12,7 +12,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
 vi.mock('@/lib/project-intake/setup-records', async () => ({
-  // The records an operator publishes for Austria, as `readSetupRecords` hands them over (the database read is its own spec).
   readSetupRecords: async () => (await import('@/lib/project-intake/at-setup.fixtures')).AT_SETUP_RECORDS,
 }))
 const { findProjectProfileInOrg, loadGraph, officeTimeZone, readOrganizationCountries } = vi.hoisted(() => ({
@@ -37,8 +36,8 @@ import { lawOf, projectLawFor } from './project-law'
 import { knowledgeContextForTurn } from './service'
 import { AT_SETUP_RECORDS } from '@/lib/project-intake/at-setup.fixtures'
 import { knowledgeContextSchema } from './wire'
+import { BINDING_HEADER } from '../chain/text'
 
-/** A synthetic scope shaped like a guideline for production buildings (ADR-0178); the real one is a record citing its clause. */
 const PRODUCTION_ONLY = {
   inputs: [{ key: 'uses', type: 'codes' }],
   output: { type: 'boolean' },
@@ -53,7 +52,6 @@ const placedWith = (uses: string[]) => ({
   profile: { facts: { country: { value: 'at' }, federal_state: { value: 'vienna' }, 'uses@bldg1': { value: uses } }, assumptions: {}, goals: {}, unknowns: [] },
 })
 
-/** Wien with its Bauordnung, OIB-RL 2 guiding there, and the HOAI connecting by the office's seat. */
 const graphAt = (coverageLevel: 'open' | 'core') => {
   const graph = graphFromProposals(
     [
@@ -76,7 +74,6 @@ const graphAt = (coverageLevel: 'open' | 'core') => {
       },
     ].map((record) => proposedRecordSchema.parse(record)),
   )
-  // Checked today: an uncurated edition nobody checked is stale and reads as information (E28).
   const editions = new Map(graph.editions)
   const bauordnung = editions.get('edition:bo-wien-2024')
   if (bauordnung) editions.set(bauordnung.id, { ...bauordnung, lastCheck: { checkedAt: new Date().toISOString(), result: 'current' } })
@@ -105,8 +102,6 @@ describe('projectLawFor', () => {
     expect(law.gate).toBe('open')
     expect(law.uses.find((use) => use.workId === 'work:bo-wien')).toMatchObject({ role: 'binding', qualifier: 'uncurated' })
     expect(law.uses.find((use) => use.workId === 'work:oib-rl-2')).toMatchObject({ role: 'information', qualifier: null })
-    // The chain alone would have called the Bauordnung plainly binding and OIB-RL 2 guidance.
-    // The page and the turn: the same uses, in the same roles.
     expect(law.uses.map(({ workId, editionId, role, qualifier }) => ({ workId, editionId, role, qualifier }))).toEqual(
       turn.uses.map(({ workId, editionId, role, qualifier }) => ({ workId, editionId, role, qualifier })),
     )
@@ -121,9 +116,7 @@ describe('projectLawFor', () => {
       applicability: { verdict: 'applies', basis: ['uses'], open: [], provision: 'scope clause (synthetic)' },
       sourceUrl: 'https://www.oib.or.at/kernaufgaben/oib-richtlinien/',
     })
-    // The fact is named in the country's own terms, from its fact definitions.
     expect(hall.factLabels).toEqual({ uses: 'Nutzungen' })
-    // A project filed before its country's fact definitions resolves on that day; the labels are still read today.
     const filed = await knowledgeContextForTurn('org_at', 'project_halle')
     expect(lawOf({ ...filed, date: '2020-01-01' }, AT_SETUP_RECORDS).factLabels).toEqual({ uses: 'Nutzungen' })
     const turn = await knowledgeContextForTurn('org_at', 'project_halle')
@@ -156,7 +149,6 @@ describe('projectLawFor', () => {
     readOrganizationCountries.mockRejectedValue(new Error('database gone'))
     const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined)
     expect(await projectLawFor('org_at', 'project_wien')).toEqual({ gate: 'knowledge_unavailable', uses: [], factLabels: {} })
-    // A page polls: its failure has its own marker, never the turn alert's line (ADR-0173).
     const lines = logged.mock.calls.map(([line]) => String(line))
     expect(lines.some((line) => line.startsWith('[knowledge_context_page_read=false]'))).toBe(true)
     expect(lines.some((line) => line.includes('knowledge_context_available=false'))).toBe(false)
@@ -194,13 +186,12 @@ describe('the one payload a turn reads (ADR-0175)', () => {
   it('writes the chain text in the roles its uses carry: guidance where curated, information where nobody curated it', async () => {
     loadGraph.mockResolvedValue({ graph: graphAt('core'), truncated: false })
     const core = await knowledgeContextForTurn('org_at', 'project_wien')
-    expect(core.text).toContain('Binding here:')
+    expect(core.text).toContain(BINDING_HEADER)
     expect(core.text).toContain('BO für Wien „Bauordnung für Wien“, edition LGBl. 2024/1')
     expect(core.text).toContain('OIB-RL 2 „Brandschutz“, edition 2023: guidance only')
     loadGraph.mockResolvedValue({ graph: graphAt('open'), truncated: false })
     const open = await knowledgeContextForTurn('org_at', 'project_wien')
     expect(open.uses.find((use) => use.workId === 'work:oib-rl-2')?.role).toBe('information')
-    // The chain alone calls OIB-RL 2 guidance; the turn reads it as information, and so does its text.
     expect(open.text).not.toContain('guidance only')
     expect(open.text).toContain('2 other editions are not in force here and are information only.')
   })
@@ -215,14 +206,14 @@ describe('lawOf', () => {
   it.each(['organization_unplaced', 'site_unknown', 'not_entitled', 'knowledge_unavailable', 'none'] as const)(
     'names nothing where the gate is %s, whatever the context holds',
     (state) => {
-      const use = { workId: 'work:x', editionId: null, role: 'binding' as const, qualifier: null, via: 'territory' as const, date: '2026-11-10', freshness: 'current' as const, lastCheckedAt: null, connectsBy: ['site' as const], labels: [], corpusFiles: [], designation: null, editionLabel: null, sourceRefs: [], sourceUrl: null, route: null, roleSince: null, language: null, textStatus: null, applicability: null }
+      const use = { workId: 'work:x', editionId: null, role: 'binding' as const, qualifier: null, via: 'territory' as const, date: '2026-11-10', freshness: 'current' as const, lastCheckedAt: null, connectsBy: ['site' as const], labels: [], corpusFiles: [], designation: null, editionLabel: null, issuer: null, sourceRefs: [], sourceUrl: null, route: null, roleSince: null, language: null, textStatus: null, applicability: null }
       const context = { gate: { state, reason: null, leaves: [] }, packs: [], chains: {}, date: '2026-11-10', procedures: [], uses: [use], text: null, retrieval: { countries: [] } }
       expect(lawOf(context, AT_SETUP_RECORDS)).toEqual({ gate: state, uses: [], factLabels: {} })
     },
   )
 
   it('shows the first uses the page holds where a site has more, binding first, and the page still parses', () => {
-    const use = (index: number) => ({ workId: `work:std-${index}`, editionId: `edition:std-${index}`, role: 'binding' as const, qualifier: null, via: 'relation' as const, date: '2026-11-10', freshness: 'current' as const, lastCheckedAt: null, connectsBy: ['site' as const], labels: [], corpusFiles: [], designation: null, editionLabel: null, sourceRefs: [], sourceUrl: null, route: null, roleSince: null, language: null, textStatus: null, applicability: null })
+    const use = (index: number) => ({ workId: `work:std-${index}`, editionId: `edition:std-${index}`, role: 'binding' as const, qualifier: null, via: 'relation' as const, date: '2026-11-10', freshness: 'current' as const, lastCheckedAt: null, connectsBy: ['site' as const], labels: [], corpusFiles: [], designation: null, editionLabel: null, issuer: null, sourceRefs: [], sourceUrl: null, route: null, roleSince: null, language: null, textStatus: null, applicability: null })
     const uses = Array.from({ length: MAX_PROJECT_LAW_USES + 5 }, (_, index) => use(index))
     const context = { gate: { state: 'core' as const, reason: null, leaves: [] }, packs: [], chains: {}, date: '2026-11-10', procedures: [], uses, text: null, retrieval: { countries: [] } }
     const law = projectLawSchema.parse(lawOf(context, AT_SETUP_RECORDS))

@@ -1,10 +1,3 @@
-/**
- * Step a golden run (ADR-0165 amendment): settle the asks that ended, ask the
- * next cases, and answer the run as it stands. Platform staff with
- * `platform:knowledge:write`; only the person who started the run steps it,
- * because its questions are asked as them.
- */
-
 import { parseJsonBody } from '@/lib/api/handler'
 import { platformApiRoute } from '@/lib/api/platform-handler'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'

@@ -1,12 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * `isPatchAlreadyApplied` tells a lost race that already holds the change from
- * one that does not. Two people confirming the same suggestion on the intake's
- * review write the same fact at two instants: the instants differ (`updatedAt`,
- * a person evidence's `at`, an alternative's `recordedAt`), the value does not.
- */
 
 import { describe, expect, it } from 'vitest'
 import { isPatchAlreadyApplied } from './patch-engine'

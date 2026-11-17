@@ -1,19 +1,13 @@
-/** The platform owner's cross-organization dashboard (ADR-0016). */
 export const platform = {
   title: 'Platform',
   subtitle: 'Cross-organization overview for the platform owner.',
   loading: 'Loading platform…',
   loadError: 'Could not load the platform overview.',
-  // Generic empty state for `SectionCard`, whose `emptyTitle` prop is optional.
-  // Every caller happens to pass one today, which is why the fallback pointing
-  // at a key that did not exist went unnoticed.
   empty: {
     title: 'Nothing here yet',
   },
   loadErrorHint: 'Something went wrong while fetching the data. Please try again.',
   refreshing: 'Updating…',
-  // Shared by every number field on the platform forms (price list, allowance,
-  // storage quota), which all read input through `lib/text/parse-decimal`.
   numberField: {
     notANumber: 'Enter a number, such as 2.5.',
     ambiguous: 'Unclear whether that is a decimal or a thousands separator. Write the number without one, such as 100000.',
@@ -162,6 +156,9 @@ export const platform = {
       open: 'Entries still to check: {count}',
       alone: 'You wrote in this request: a second person approves it, or you approve it alone with a reason.',
       wrong: 'Entries not correct: {count}. A request with a wrong entry cannot be approved.',
+    },
+    warnings: {
+      country_states_no_coverage: 'The country states no coverage: a site in it stays at gate none, without binding editions, unless a region on its chain states one.',
     },
     acceptAll: 'All correct',
     acceptChecked: 'Checked against the source, all correct',
@@ -462,18 +459,9 @@ export const platform = {
     unitChanged: 'The organization changed its budget unit. Close and reopen this allowance before saving.',
     saved: 'Organization allowance saved.',
   },
-  /**
-   * Platform → base knowledge, rebuilt on the shared admin primitives
-   * (SectionCard + DataToolbar + Table + Sheet + Pagination). Only the copy the
-   * new shape introduced lives here; the wording that survived the rebuild —
-   * upload, sync, delete, doc-class, rename — stays in `platform.knowledge`, so
-   * a single sentence is never worded two ways.
-   */
   knowledgeAdmin: {
-    // Upload is an action now, not a permanently open dropzone.
     addDocuments: 'Add documents',
     hideUpload: 'Hide upload',
-    // Corpus summary strip.
     summaryDocuments: 'Documents',
     summaryDocumentsHint: '{count} of them binding OIB foundations',
     summaryIndexed: 'Indexed',
@@ -484,7 +472,6 @@ export const platform = {
     summaryIssues: 'Issues',
     summaryIssuesHint: 'Need a re-index or removal',
     summaryIssuesNone: 'Nothing to do',
-    // Toolbar.
     searchLabel: 'Filter documents',
     searchClear: 'Clear filter',
     typeFilterLabel: 'Document type',
@@ -495,7 +482,6 @@ export const platform = {
     moreActions: 'More actions',
     reingestIssues: 'Re-index issues',
     readOnly: 'Read-only. Only platform admins can add, change or remove base documents.',
-    // Table.
     colDocument: 'Document',
     colType: 'Document type',
     colState: 'Status',
@@ -515,7 +501,6 @@ export const platform = {
     range: '{from}–{to} of {total}',
     previous: 'Previous',
     next: 'Next',
-    // Selection / bulk actions.
     selectedCount: '{count} selected',
     clearSelection: 'Clear',
     bulkReclassify: 'Change document type',
@@ -550,7 +535,6 @@ export const platform = {
     bulkDeleteDone: '{count, plural, one {# document} other {# documents}} removed',
     bulkDeleteFailed:
       '{count, plural, one {# document could} other {# documents could}} not be removed',
-    // Detail sheet.
     detailClose: 'Close',
     detailChunks: 'Indexed sections',
     detailSize: 'Size',
@@ -558,7 +542,6 @@ export const platform = {
     detailDisplayTitle: 'Display name',
     detailSummary: 'Summary',
     detailFacts: 'Details',
-    // Empty state.
     emptyTitle: 'No base documents yet',
     emptyDescription:
       'Add a PDF, or a ZIP holding many at once — every project grounds its answers on this corpus.',
@@ -636,10 +619,6 @@ export const platform = {
       cancel: 'Cancel',
       delete: 'Delete',
     },
-    /**
-     * Step 1 of the authoring flow. The rank decides everything downstream, so
-     * it is asked first — in plain language, not in enum labels.
-     */
     kinds: {
       legend: 'What kind of source is this?',
       hint: 'The kind decides what the catalog needs from you and where the agent files the entry.',
@@ -784,22 +763,15 @@ export const platform = {
     noMatches: 'No organization matches this search.',
     noMatchesHint: 'Try a different name, or clear the search to see every organization.',
     emptyHint: 'Organizations appear here as soon as the first one is created.',
-    // The directory reads one page from WorkOS. Saying so beats a bare "100+".
-    // Said once, on the tile; the search repeats it only when it explains a miss.
     cappedTile: 'Only the first {count} loaded, more exist',
     cappedNoMatchHint:
       'Only the first {count} organizations are loaded, so it may be among the rest. Try a different name.',
     refreshError: 'Could not refresh the overview. The figures shown may be out of date.',
   },
-  // The maintenance surface (the orphaned-vector sweep). Its own namespace, so
-  // the explainer, the confirm and the last-run summary can be read — and
-  // translated — as one continuous voice.
   vectorMaintenance: {
     title: 'Vector maintenance',
     description:
       'Reconcile the shared vector store against the document catalog, and delete indexed chunks whose document no longer exists.',
-    // The operator who needs this page is, by definition, confused about why
-    // retrieval disagrees with the catalog — so the answer lives here.
     howTitle: 'What reconciling does',
     howBody:
       'Deleting a document is two steps: drop its indexed chunks from the vector store, then drop its row from the catalog. When the first step is skipped or fails, the row disappears but the chunks stay behind — invisible everywhere in the app, yet still eligible to be retrieved and cited. Reconciling walks every collection, compares it against the catalog, and deletes the chunks no document owns any more. It then forgets the opposite leftover: an entry in the assistant’s document inventory whose file has no chunks left, so the assistant stops listing a file it cannot read.',
@@ -891,7 +863,6 @@ export const platform = {
       'The page got no confirmation, so it cannot tell how far the kill got. Workers may still be running. Check the backend and press again; a second press only stops what is still live.',
     readOnly: 'Only platform admins can run this.',
   },
-  /** Platform → Skills: the catalogue curated for every organization. */
   skills: {
     new: 'New curated skill',
     draft: 'Draft',
@@ -970,7 +941,6 @@ export const platform = {
       timing: 'The execution timeline of each turn: which step took how long and where it failed.',
     },
   },
-  /** Platform → Agents: connect your own assistant to the console and to the cluster's MCP servers. */
   agents: {
     urlLabel: 'MCP server address',
     urlCode: 'MCP URL',
@@ -1292,7 +1262,6 @@ export const platform = {
       subtitle: 'Connect your own AI assistant to the operator console and to the MCP servers in the cluster.',
     },
   },
-  /** Platform → lessons: the failure-learning register (bandage-framed). */
   lessons: {
     description:
       'Distilled automatically from down-voted answers: each report is anonymized, matched against the register, and — when it generalizes and passes the audit — activated as a process caution the assistant reads on every turn.',
@@ -1354,7 +1323,6 @@ export const platform = {
       root_cause_updated: 'Root-cause status changed',
     },
   },
-  /** Platform → cards: the agent's presentation vocabulary, rendered. */
   cards: {
     title: 'Card catalog',
     description:
@@ -1372,7 +1340,6 @@ export const platform = {
     emptyTitle: 'No card types',
     emptyDescription: 'This deployment’s catalog is empty. If a card is missing, request it.',
   },
-  /** Platform → models: the fleet-wide default model per agent group. */
   models: {
     title: 'Agent areas',
     readOnly: 'You can view these defaults, but you do not have permission to change them.',
@@ -1388,7 +1355,6 @@ export const platform = {
     effortInheritWith: 'Workflow: {level}',
     description:
       'The model each part of the agent runs on. Changing one here moves every organization that has not chosen its own model for that part — on their next message, with no deployment.',
-    // Per-group state.
     pinnedBadge: 'Platform default',
     yamlBadge: 'Workflow config',
     unknownFallback: 'Workflow config',
@@ -1401,14 +1367,11 @@ export const platform = {
     zdrListUnavailable:
       'The zero-data-retention list could not be loaded, so no model can be checked. Nothing is offered or saved until it is back.',
     noZdrResults: 'No model with a zero-data-retention endpoint matches.',
-    // Thinking level per group — the second lever on the same row.
     effortPinnedBadge: 'Platform level',
     effortInherit: 'Workflow config',
     effortClear: 'Thinking level back to the workflow configuration',
     effortSelectLabel: 'Thinking level for {group}',
     effortSaveError: 'The thinking levels could not be saved.',
-    // The levels themselves (OpenRouter vocabulary). The hint names the cost,
-    // not just the name — reasoning tokens are invisible until the bill arrives.
     levels: {
       none: {
         label: 'Off',
@@ -1423,11 +1386,9 @@ export const platform = {
         hint: 'Maximum thinking. Multiplies cost and runtime across hundreds of agent steps.',
       },
     },
-    // Picker.
     searchPlaceholder: 'Search models…',
     contextWindow: 'Context',
     noResults: 'No suitable model found.',
-    // Save.
     unsavedChanges: 'Unsaved changes.',
     note: 'Note',
     notePlaceholder: 'Why this change? (optional)',
@@ -1442,12 +1403,10 @@ export const platform = {
       'Every organization that has not picked its own model for these parts of the agent switches over on its next message. Organizations with their own choice are unaffected. Changed thinking levels apply to EVERY organization — higher levels multiply hidden reasoning tokens and runtime.',
     confirmSave: 'Change defaults',
   },
-  /** Platform → retrieval: the fleet-wide retrieval depths (chunks/results per search). */
   retrieval: {
     title: 'Retrieval depths',
     description:
       'How many chunks and results the individual searches fetch and merge. Changing one here applies to every organization — on its next request, with no deployment.',
-    // Per-setting state.
     pinnedBadge: 'Adjusted',
     defaultBadge: 'Default',
     defaultHint: 'Default: {value}',
@@ -1462,7 +1421,6 @@ export const platform = {
     emptyDescription: 'The server reports no adjustable values. Check that the backend serves the catalog.',
     reset: 'Back to default',
     updatedBy: 'by {email}',
-    // Save.
     unsavedChanges: 'Unsaved changes.',
     note: 'Note',
     notePlaceholder: 'Why this change? (optional)',
@@ -1481,7 +1439,6 @@ export const platform = {
   stats: {
     organizations: 'Organizations',
     projects: 'Projects',
-    // Cost is what OpenRouter charges, in USD, as charged — never converted.
     costToday: 'Cost today',
     costMonth: 'Cost this month',
     revenueMonth: 'Revenue this month',
@@ -1503,7 +1460,6 @@ export const platform = {
     colCreated: 'Created',
     platformBadge: 'Platform',
     ownKeyBadge: 'Own key',
-    // Narrow directory: revenue rides under the month's cost.
     revenueShort: 'Revenue {amount}',
     ownKeyHint: '{amount} this month ran on the organization’s own key. That is its bill, not ours, and not in the cost columns.',
     empty: 'No organizations yet.',
@@ -1584,11 +1540,9 @@ export const platform = {
     deleteFailed: 'Could not remove {name}',
     loadError: 'The knowledge base could not be loaded.',
     retry: 'Try again',
-    // Drag-and-drop upload zone.
     dropTitle: 'Drop PDFs or ZIPs here',
     dropHint: 'or click to choose files. A ZIP may hold many PDFs at once.',
     dropActive: 'Release to upload',
-    // Background-processing banner + ZIP member summary.
     processing: 'Processing — this can take a minute…',
     processingHint: 'You can keep working; new documents appear below as they finish. It is safe to wait.',
     indexingProgress: 'Indexing {done} of {total} document(s)…',
@@ -1600,12 +1554,10 @@ export const platform = {
     uploadPending: '{name} received — indexing in the background',
     zipQueued: 'ZIP received: {accepted} PDF(s) queued, {rejected} skipped',
     zipRejectedTitle: 'Skipped from the ZIP',
-    // Grouped sections.
     bindingTitle: 'Binding OIB foundations',
     bindingHint: 'The official OIB directives and related base laws — the authoritative building law {productName} must follow.',
     otherTitle: 'Further base documents',
     otherHint: 'Other norms, laws and supporting documents in the base corpus.',
-    // Dokumentart classifier.
     docClassLabel: 'Document type',
     docClassSuggestion: 'Read from the text: {label}',
     docClassSuggestionAccept: 'Accept',
@@ -1613,19 +1565,15 @@ export const platform = {
     docClassFilterAll: 'All document types',
     docClassUpdated: 'Document type of {name} set to “{label}”',
     docClassUpdateFailed: 'Could not change the document type of {name}',
-    // Display title (rename).
     displayTitleFor: 'Display name for {name}',
     displayTitlePlaceholder: 'Display name (leave empty to reset)',
     displayTitleSave: 'Save name',
     displayTitleCancel: 'Cancel rename',
     displayTitleUpdated: 'Renamed {name}',
     displayTitleUpdateFailed: 'Could not rename {name}',
-    // Row actions.
     viewPdf: 'View PDF',
     noMatch: 'No documents match your filter.',
     clearFilters: 'Clear filters',
-    // Document types. The German dictionary mirrors the backend's
-    // DOCUMENT_CLASS_LABELS (`lib/knowledge/doc-class.ts`).
     docClasses: {
       oib_guideline: 'OIB directive',
       oib_guide: 'OIB guideline',
@@ -1687,10 +1635,6 @@ export const platform = {
     copyFailed: 'Could not copy to the clipboard',
     titleWithheld: 'Title withheld: restricted folder',
   },
-  /**
-   * Citation health (citation_events ledger): how often citation verification
-   * had to intervene on a research turn, and why.
-   */
   citations: {
     title: 'Citation health',
     description:
@@ -1783,7 +1727,6 @@ export const platform = {
       },
     },
     export: 'Export diagnostics',
-    /** The scope a view is read in, after its date range: "Sep 1 – 30, 2026 · 2 organizations". */
     scopeLabel: {
       organizations: '{count, plural, one {# organization} other {# organizations}}',
       projects: '{count, plural, one {# project} other {# projects}}',
@@ -1908,7 +1851,6 @@ export const platform = {
       deep: 'Deep research',
     },
   },
-  /** Storage: every tenant's consumption and the quota that bounds it. */
   storage: {
     title: 'Usage by organization',
     description:
@@ -1923,7 +1865,6 @@ export const platform = {
     columnQuota: 'Quota',
     unlimited: 'Unlimited',
     inherited: 'Platform default',
-    /** `count` picks the noun, `formatted` is the same number grouped for the locale. */
     rowDocuments: '{count, plural, one {{formatted} document} other {{formatted} documents}}',
     rowOver: 'Quota reached, uploads refused',
     rowNear: 'Almost full',
@@ -1941,9 +1882,7 @@ export const platform = {
     empty: 'No organization has stored anything yet.',
     hint: 'Leave the quota empty to remove the limit. A quota below current usage is refused, since it would leave the organization no way to fix it.',
     columnUploadLimit: 'Max. file size',
-    /** An organization without its own upload limit; `size` is the deployment default. */
     uploadLimitDefault: 'Default ({size})',
-    /** Narrow layout, under the usage figure. */
     uploadLimitShort: 'max. {size} per file',
     quotaFor: 'Quota for {org}, in GB',
     uploadLimitFor: 'Max. file size for {org}, in MB',

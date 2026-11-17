@@ -1,10 +1,3 @@
-/**
- * The Herleitung's look rows (ADR-0128), from wire steps folded the way the
- * app folds them: the row a `look` call draws („Betrachtet <document>, S.
- * <page>, <where>“) with a thumbnail, consecutive looks at one document as one
- * row, a click opens the document at the place. And the graph shows them under
- * itself.
- */
 import { render, screen, waitFor, within } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, test, vi } from 'vitest'
@@ -73,7 +66,6 @@ describe('LookStepRows', () => {
     const user = userEvent.setup()
     render(<LookStepRows steps={storedSteps([look(1)])} />)
     const row = within(screen.getByTestId('look-step-rows')).getByTestId('work-row')
-    // The region comes German off the wire and reads in the reader's language.
     expect(row).toHaveTextContent('Looks at Grundriss EG.pdf, p. 2, top right')
     expect(row).toHaveTextContent('M 1:100')
     await waitFor(() => expect(within(row).getByTestId('region-mark')).toBeInTheDocument())

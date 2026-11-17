@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Opt-in integration test: real model-config version lifecycle against a real
- * Postgres with migration 0012 applied. Skipped unless TEST_DATABASE_URL
- * is set (CI has no database).
- */
 
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
@@ -29,7 +24,6 @@ describe.skipIf(!url)('model-config service against live Postgres', () => {
 
     const org = `org_test_${Date.now()}`
 
-    // No config yet: defaults.
     expect(await getActiveModelOverrides(org)).toBeNull()
 
     const v1 = await createAndActivateVersion({
@@ -55,22 +49,18 @@ describe.skipIf(!url)('model-config service against live Postgres', () => {
       shallow_research: 'vendor/model-c',
     })
 
-    // History is append-only, newest first.
     const versions = await listVersions(org)
     expect(versions.map((v) => v.version)).toEqual([2, 1])
 
-    // Rollback to v1 repoints without writing a new version.
     await activateVersion({ organizationId: org, versionId: v1.id, actorUserId: 'admin_2' })
     expect(await getActiveModelOverrides(org)).toEqual({ deep_research: 'vendor/model-a' })
     expect((await listVersions(org)).length).toBe(2)
     expect((await getOrgModelConfig(org)).updatedBy).toBe('admin_2')
 
-    // Foreign org's version id is rejected.
     await expect(
       activateVersion({ organizationId: 'org_other', versionId: v1.id, actorUserId: 'admin_2' }),
     ).rejects.toThrow(/not found/)
 
-    // Deactivate → defaults.
     await activateVersion({ organizationId: org, versionId: null, actorUserId: 'admin_2' })
     expect(await getActiveModelOverrides(org)).toBeNull()
   })

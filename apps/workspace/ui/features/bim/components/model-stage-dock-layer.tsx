@@ -22,18 +22,6 @@ export function ModelStageDockLayer({ controller }: { controller: ModelStageCont
   return (
     <>
           <ViewerDock
-            // The drawer is `z-30` and right-anchored full height; the dock is
-            // `z-20` and centred. On a 1024 px viewport the drawer sat on top
-            // of x-ray, the rail toggle and the button that OPENED it — press
-            // the visibly-pressed button again and nothing happened, because
-            // the drawer was intercepting the click. On a phone it covered
-            // every viewer control. The inspector was taught to step aside;
-            // the dock never was.
-            //
-            // Below `sm` the drawer is effectively full-screen, so there is no
-            // padding that helps: the dock yields entirely rather than
-            // presenting nine glyphs that cannot be pressed. Escape and the
-            // drawer's own X are the ways back, and both restore focus here.
             className={cn(advancedOpen && 'max-sm:hidden sm:pr-[27rem]')}
             layout={layout === 'phone' ? 'bar' : layout === 'phone-landscape' ? 'side' : 'floating'}
             sheet={layout === 'phone' ? compactSheet : undefined}
@@ -138,8 +126,6 @@ export function ModelStageDockLayer({ controller }: { controller: ModelStageCont
                           className="h-7 px-2 text-xs"
                           onClick={() => {
                             viewport.measure.clear()
-                            // The pill this button sits in goes with the list
-                            // when the tool is already off.
                             focusViewport()
                           }}
                         >
@@ -156,9 +142,6 @@ export function ModelStageDockLayer({ controller }: { controller: ModelStageCont
                   max={viewport.bounds.maxMetres}
                   value={section.atMetres}
                   display={t('viewer.section.metres', { value: formatMetresIn(section.atMetres, locale) })}
-                  // Per step: move the plane, now. Per gesture: write the
-                  // link. Both were the second one, which is why the slider
-                  // could not be dragged at all — see `viewer-slider.tsx`.
                   onChange={viewport.previewCut}
                   onCommit={(atMetres) => viewport.setSection({ ...section, atMetres })}
                   action={
@@ -196,11 +179,6 @@ export function ModelStageDockLayer({ controller }: { controller: ModelStageCont
                     icon={Layers}
                     onClick={() => {
                       viewport.visibility.showEverything()
-                      // This button exists only while something is hidden, so
-                      // pressing it deletes it. Its disappearance is also the
-                      // only confirmation that anything happened — losing the
-                      // reader's place on top of that leaves them with no
-                      // signal at all.
                       focusViewport()
                     }}
                   />
@@ -292,11 +270,6 @@ export function ModelStageDockLayer({ controller }: { controller: ModelStageCont
               been pressed-and-inert, for a different reason each time.
             */}
             <ViewerIconButton
-              // The name says WHY when it cannot act. A disabled control gets
-              // no tooltip — Radix's trigger never fires on a disabled button
-              // — so the reason documented in the comment above reached
-              // nobody: the reader was left with an inert eye and no way to
-              // discover that selecting a wall would turn it on.
               label={xrayNeedsTarget ? t('viewer.xrayNeedsTarget') : t('viewer.xray')}
               icon={Eye}
               active={view.xray ?? false}
@@ -316,18 +289,11 @@ export function ModelStageDockLayer({ controller }: { controller: ModelStageCont
           {modelId && model && (
             <ModelAdvancedSheet
               open={advancedOpen}
-              // Back to the button that opened it. The drawer's X unmounts
-              // itself, so without this closing a panel put the reader at the
-              // top of the dialog instead of back on the toolbar.
               onClose={closeAdvanced}
               projectId={projectId}
               model={model}
               models={models ?? []}
               elements={elementList}
-              // The Struktur tab reads an empty array as a building with no
-              // elements and blames a filter the reader never set — see
-              // `IfcElementTable`. The stage has known which of the three
-              // situations it is in all along; it just never said.
               elementsLoading={elementsLoading}
               elementsError={elementsError !== null}
               onReloadElements={reloadElements}
@@ -337,9 +303,6 @@ export function ModelStageDockLayer({ controller }: { controller: ModelStageCont
               onSelectStorey={(next) => setView({ storey: next ?? undefined, element: undefined })}
               selectedGlobalId={selectedGlobalId}
               onSelectElement={handleSelect}
-              // A finding becomes a VIEW: the offending elements are
-              // highlighted, the first is selected, and the URL now points at
-              // exactly that — so "here is the problem" is a link.
               onShowElements={(globalIds, status = 'fail') =>
                 setView({
                   element: globalIds[0],

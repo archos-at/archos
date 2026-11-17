@@ -4,11 +4,6 @@ import { describe, expect, test, vi } from 'vitest'
 import { BookOpenCheck } from 'lucide-react'
 import { SectionCard } from './section-card'
 
-/**
- * The point of this component is that every platform section shares ONE
- * loading / error / empty treatment. These tests pin that contract, because
- * the failure mode it replaces was each surface quietly growing its own.
- */
 describe('SectionCard', () => {
   test('renders children in the resolved state', () => {
     render(
@@ -66,8 +61,6 @@ describe('SectionCard', () => {
   })
 
   test('keeps showing the error while a retry is in flight', () => {
-    // A retry flips `loading` back on. Falling through to the skeleton would
-    // hide the button the user just pressed and read as "nothing happened".
     render(<SectionCard title="Base knowledge" error loading onRetry={() => undefined} />)
 
     expect(screen.queryByTestId('section-loading')).toBeNull()
@@ -98,8 +91,6 @@ describe('SectionCard', () => {
   })
 
   test('a refresh keeps the content on screen and marks it busy', () => {
-    // A mutation reloads the list. Swapping it for skeletons throws the
-    // reader's place (and keyboard focus) away on every click.
     render(
       <SectionCard title="Lessons" refreshing action={<button type="button">Sweep</button>}>
         <p>12 lessons</p>

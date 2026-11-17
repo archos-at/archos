@@ -1,15 +1,3 @@
-"""A screened job stops a matching file before any model sees a byte of it.
-
-Through ``_run_ingestion`` with real local extraction (pdfplumber on a hand-built
-PDF, the text-format reader on a ``.txt``) and every external call site replaced
-by a recorder: page transcription (``route_pdf_pages``), image captioning
-(``_build_image_documents``), VLM enrichment (``enrich_vlm_batch``), summary and
-tags (the summary LLM), and embeddings (the embed model, before anything is
-written to the store). A quarantined file must FAIL with a ``quarantined:`` reason and leave
-every recorder empty; the same file without a screening config must reach them,
-which is what proves the gate, not the stubs, kept them empty.
-"""
-
 from __future__ import annotations
 
 import json
@@ -19,10 +7,11 @@ from unittest.mock import MagicMock
 import pytest
 from knowledge_layer.ingest import QUARANTINED_PREFIX
 from knowledge_layer.ingest import LlamaIndexIngestor
-from knowledge_layer.ingest import adapter
+from knowledge_layer.ingest import caption_documents
 from knowledge_layer.ingest import page_triage
 from knowledge_layer.ingest import pdf_text
 from knowledge_layer.ingest import transcription
+from knowledge_layer.ingest import vision_credentials
 from knowledge_layer_testing.pdf_fixtures import build_pdf
 from knowledge_layer_testing.vector_store import FakeEmbedder
 from knowledge_layer_testing.vector_store import capture_indexed_documents
@@ -48,12 +37,11 @@ def summary_db(tmp_path):
 
 @pytest.fixture
 def calls(tmp_path, monkeypatch, summary_db, qdrant_store):
-    """Every external call site, recording; plus the ingestor that would make them."""
     from knowledge_layer.ingest import processing
 
     record: dict[str, list] = {"ocr": [], "image_caption": [], "vlm": []}
     cred = ResolvedCredential(api_key="vlm-key", base_url="https://vlm.test/v1", model="test-vlm", source="env")
-    monkeypatch.setattr(adapter, "resolve_vlm_credential", lambda organization_id=None: cred)
+    monkeypatch.setattr(vision_credentials, "resolve_vlm_credential", lambda organization_id=None: cred)
 
     def _route(path, text_pages, page_texts, **kwargs):
         record["ocr"].append(kwargs.get("triage", "measured-inside"))
@@ -70,7 +58,7 @@ def calls(tmp_path, monkeypatch, summary_db, qdrant_store):
         return [], []
 
     monkeypatch.setattr(transcription, "route_pdf_pages", _route)
-    monkeypatch.setattr(adapter, "_build_image_documents", _caption)
+    monkeypatch.setattr(caption_documents, "_build_image_documents", _caption)
     monkeypatch.setattr(processing, "enrich_vlm_batch", _enrich)
     monkeypatch.setattr(processing, "render_visual_pages_no_vlm", lambda *a, **k: [])
 
@@ -123,7 +111,6 @@ def _pdf(tmp_path, *lines: str):
 
 
 def _pdf_with_raster(tmp_path, lines: list[str]):
-    """One page: ``lines`` of Helvetica text, and a 160x160 grey raster drawn beside them."""
     side = 160
     pixels = bytes((x + y) % 256 for y in range(side) for x in range(side))
     content = b"".join(
@@ -158,7 +145,6 @@ def _pdf_with_raster(tmp_path, lines: list[str]):
     return path
 
 
-#: Enough text that triage reads the page as text, not as a drawing.
 _BODY = [f"Satz {n:02d}: Die Anforderungen an Bauteile sind gemaess Tabelle einzuhalten." for n in range(12)]
 
 
@@ -180,7 +166,6 @@ class TestAQuarantinedFileReachesNoModel:
             "checked": "full",
         }
         assert detail.screening == "quarantined"
-        # The typed verdict (ADR-0113) and the legacy string say the same thing.
         assert detail.quarantine is not None
         assert detail.quarantine.model_dump() == _reasons(detail.error_message)
         assert _external_calls(calls) == dict.fromkeys(_external_calls(calls), 0)
@@ -239,7 +224,6 @@ class TestTheGateIsConditional:
         assert detail.status == FileStatus.SUCCESS
         assert detail.screening == "clean"
         assert detail.quarantine is None
-        # The screen measured the PDF; transcription was handed that triage.
         [triage] = calls["ocr"]
         assert isinstance(triage, page_triage.PdfTriage)
         assert _external_calls(calls)["embeddings"] >= 1
@@ -261,7 +245,6 @@ class TestOutcomes:
 
         detail = _ingest(calls, path, "foto.png", _TERMS)
 
-        # Nothing of an image is readable before the model call, so a clean reading is partial.
         assert detail.status == FileStatus.SUCCESS
         assert detail.screening == "partial"
         assert calls["image_caption"] == ["foto.png"]
@@ -273,7 +256,7 @@ class TestOutcomes:
 
         payslip = [Document(text="Gehaltsabrechnung Oktober", metadata={"content_type": "image"})]
         monkeypatch.setattr(
-            adapter, "_build_image_documents", lambda *a, **k: calls["image_caption"].append(1) or payslip
+            caption_documents, "_build_image_documents", lambda *a, **k: calls["image_caption"].append(1) or payslip
         )
         path = tmp_path / "scan.jpg"
         path.write_bytes(b"\xff\xd8\xff" + b"\0" * 64)
@@ -283,7 +266,6 @@ class TestOutcomes:
         assert detail.status == FileStatus.FAILED
         assert detail.screening == "quarantined"
         assert detail.error_message.startswith(QUARANTINED_PREFIX)
-        # The vision model saw it, and the verdict says so; nothing after it ran.
         assert detail.quarantine.after_transcription is True
         assert _external_calls(calls) | {"image_caption": 0} == {
             "ocr": 0,
@@ -315,8 +297,6 @@ class TestOutcomes:
 
         assert detail.status == FileStatus.SUCCESS
         assert detail.screening == "partial"
-        # The page itself is text (nothing routed to OCR or drawing analysis):
-        # only the raster makes it partial, and the raster did reach the VLM.
         [triage] = calls["ocr"]
         assert not triage.transcribed and not triage.drawings
         [enrichment] = calls["vlm"]
@@ -331,7 +311,7 @@ class TestOutcomes:
 
     def test_without_a_vision_key_the_image_goes_nowhere_and_it_stays_clean(self, tmp_path, calls, monkeypatch):
         cred = ResolvedCredential(api_key="", base_url="https://vlm.test/v1", model="test-vlm", source="env")
-        monkeypatch.setattr(adapter, "resolve_vlm_credential", lambda organization_id=None: cred)
+        monkeypatch.setattr(vision_credentials, "resolve_vlm_credential", lambda organization_id=None: cred)
 
         detail = _ingest(calls, _pdf_with_raster(tmp_path, _BODY), "Bericht.pdf", _TERMS)
 
@@ -339,7 +319,6 @@ class TestOutcomes:
 
 
 def _ruled_table(rows: list[list[str]]) -> bytes:
-    """Content-stream ops for a grid of ruled cells with ``rows`` of text, the shape pdfplumber's table finder reads."""
     from knowledge_layer_testing.pdf_fixtures import _escape
 
     ops = bytearray()
@@ -353,7 +332,6 @@ def _ruled_table(rows: list[list[str]]) -> bytes:
 
 
 def _pdf_with_table_page(tmp_path, monkeypatch, rows: list[list[str]]):
-    """Five pages: four of body text, and page 2 holding nothing but a ruled table of ``rows``."""
     from knowledge_layer_testing import pdf_fixtures
 
     plain = pdf_fixtures._content
@@ -369,8 +347,7 @@ def _pdf_with_table_page(tmp_path, monkeypatch, rows: list[list[str]]):
 
 
 def _text_pass_loses_page(monkeypatch, lost: int) -> None:
-    """Page ``lost`` raises in the text pass, as a pdfplumber edge case does; the table pass still reads it."""
-    read = adapter._read_pdf_page
+    read = pdf_text._read_pdf_page
 
     def _read(page, page_num, previous, pdf_path):
         if page_num == lost:
@@ -382,8 +359,6 @@ def _text_pass_loses_page(monkeypatch, lost: int) -> None:
 
 class TestTablesAndCapsAreScreened:
     def test_a_term_only_in_a_table_on_a_page_the_text_pass_lost(self, tmp_path, calls, monkeypatch):
-        # One page of five is within the failed-page tolerance, so the file
-        # stands; the table pass opens the PDF on its own and reads that page.
         path = _pdf_with_table_page(tmp_path, monkeypatch, [["Posten", "Betrag"], ["Gehaltsabrechnung", "4200"]])
         _text_pass_loses_page(monkeypatch, 2)
 
@@ -471,14 +446,8 @@ class TestTablesAndCapsAreScreened:
         assert detail.screening == "clean"
 
 
-# =============================================================================
-# No derivative before the verdict (ADR-0086, 2026-10-08)
-# =============================================================================
-
-
 @pytest.fixture
 def thumbnails(monkeypatch, calls):
-    """Every thumbnail the job draws, by source path, in order with the screen."""
     from knowledge_layer.ingest import screening
 
     events: list[str] = []
@@ -567,18 +536,11 @@ class TestNoThumbnailBeforeTheVerdict:
 
         assert detail.screening == "clean"
         assert thumbnails == ["screen", f"thumbnail:{preview}"]
-        # Downloaded by the job, so deleted by it: in its `finally`, which runs
-        # after the status turns terminal, so the deletion is waited for.
         assert _deleted_within(preview, seconds=10)
 
 
 @pytest.fixture
 def permits(monkeypatch, calls):
-    """The permit ingest hook's two exits, recording: a record extracted and stored, a record dropped.
-
-    The tag decision types every document a Bescheid, and the job names a BFF row, so the hook
-    would read any file that reaches it.
-    """
     from knowledge_layer.ingest import document_presence
 
     seen: dict[str, list] = {"extracted": [], "dropped": []}
@@ -601,8 +563,6 @@ _PERMIT_JOB = {"organization_id": "org_1", "document_id": "d1"}
 
 
 class TestAQuarantinedFileIsNoPermit:
-    """The permit hook runs after the screen's ``continue`` (ADR-0086): a held Bescheid is never read for a record."""
-
     def test_a_quarantined_pdf_is_neither_extracted_nor_dropped(self, tmp_path, calls, permits):
         detail = _ingest(calls, _pdf(tmp_path, "Baubescheid", *_PAYSLIP), "Bescheid.pdf", _TERMS, **_PERMIT_JOB)
 
@@ -619,7 +579,6 @@ class TestAQuarantinedFileIsNoPermit:
         assert permits == {"extracted": [], "dropped": []}
 
     def test_the_same_files_screened_clean_are_read_for_a_record(self, tmp_path, calls, permits):
-        # What proves the gate, not the stubs, kept the hook away above.
         pdf = _ingest(calls, _pdf(tmp_path, "Baubescheid", "Auflage 1"), "Bescheid.pdf", _TERMS, **_PERMIT_JOB)
         path = tmp_path / "bescheid.txt"
         path.write_text("Baubescheid\n\nAuflage 1: Stellplaetze nachweisen.\n", encoding="utf-8")

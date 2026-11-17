@@ -1,14 +1,10 @@
-"""The formula card: a named rule whose inputs the reader may change.
-
-And the checks that keep a figure out of a name.
-"""
-
 import re
 import unicodedata
 from typing import Annotated
 from typing import Any
 from typing import Literal
 
+from pydantic import ConfigDict
 from pydantic import Field
 from pydantic import field_validator
 from pydantic import model_validator
@@ -30,7 +26,6 @@ FormulaRouteStart = Literal["room", "dwelling_entrance"]
 FormulaMeasure = Literal["new_build", "renovation", "major_renovation"]
 
 
-#: Citations: where a rule is written. Stripped before digits are counted.
 _CITATION = re.compile(
     r"\b(?:Pkt\.?|Punkt|Tabelle|Zeile|Abschnitt|Anhang|Abs\.?|Ziffer|Z\.)\s*\d+(?:\.\d+)*(?:\s*[a-z]\))?"
     r"|§\s*\d+[a-z]?"
@@ -39,34 +34,20 @@ _CITATION = re.compile(
 )
 
 
-#: Identifiers: names of places, components and variants, never quantities.
 _IDENTIFIER = re.compile(
-    # component codes of a Bauteilkatalog: Außenwand, Innenwand, Trennwand,
-    # Decke, Dach, Fußboden, Flachdach, Brandabschnitt, Bauteil, Bodenplatte
     r"\b(?:AW|IW|TW|DE|DA|FB|FD|BA|BT|BP)[ -]?\d{1,2}[a-z]?\b"
-    # storeys
     r"|\b\d{1,2}\.\s?(?:OG|UG|DG|KG|Obergescho(?:ß|ss)|Untergescho(?:ß|ss)|Dachgescho(?:ß|ss)|Stock)\b"
-    # a numbered dwelling, a numbered or dotted room
     r"|\bTop\s+\d{1,3}[a-z]?\b"
     r"|\b(?:Büro|Raum|Zimmer)\s+\d{1,2}(?:\.\d{2})?\b"
-    # a lettered or numbered building part or variant
     r"|\b(?:Haus|Stiege|Bauteil|Trakt|Achse|Variante)\s+(?:[A-Z]|\d{1,2})\b(?![.,]\d)"
-    # a plot
     r"|\bGst\.?-?Nr\.?\s+\d{1,5}(?:/\d{1,4})?\b"
 )
 
 
-#: Where a text names its documents: a plan code after a plan, section or
-#: elevation, an Index, a revision, a position of the structural analysis, a
-#: page, a date, a year. Allowed in a `source` and a note, never in a name.
 _NOT_A_DECIMAL = r"\b(?![.,]\d)"
 
 
 _DOCUMENT_REFERENCE = re.compile(
-    # a plan code after a NAMED plan word: a letter prefix (EP-01, A-101), or a
-    # bare integer, hyphen groups allowed (04-123); never a decimal, so
-    # „Lageplan 0.35" is a figure. The words are named, so „Durchschnitt" and
-    # „Abschnitt" (a citation word) do not open a plan code.
     r"\b(?:Einreichplan|Bestandsplan|Lageplan|Polierplan|Werkplan|Grundriss|Schnitt|Detailschnitt|Ansicht|Plan)"
     r"(?:-?Nr\.?)?\s+(?:[A-Z]{1,4}-?\d{1,4}(?:[-_/][A-Z0-9]{1,4})*|\d{1,4}(?:-\d{1,4})*)"
     + _NOT_A_DECIMAL
@@ -74,19 +55,16 @@ _DOCUMENT_REFERENCE = re.compile(
     + _NOT_A_DECIMAL
     + r"|\bRev\.?\s*\d{1,3}[a-z]?"
     + _NOT_A_DECIMAL
-    # a position of the structural analysis: an integer or integer.integer, no leading 0
     + r"|\bPos\.?\s*[1-9]\d{0,3}(?:\.[1-9]\d{0,2})?"
     + _NOT_A_DECIMAL
     + r"|\bSeite\s+\d{1,4}"
     + _NOT_A_DECIMAL
     + r"|\b\d{1,2}\.\s?\d{1,2}\.\s?(?:\d{4}|\d{2})\b"
     r"|\b\d{1,2}/\d{4}\b"
-    # a year, or a decade („Bestand 1960er")
     r"|\b(?:19|20)\d{2}(?:er)?" + _NOT_A_DECIMAL,
 )
 
 
-#: „OK" is a verdict, unless it is the Oberkante of a floor build-up.
 _TOP_EDGE = re.compile(r"\bOK\s*(?:FFB|RFB|FBOK|Rohdecke|Fertigfu(?:ß|ss)boden)\b")
 
 
@@ -96,7 +74,6 @@ _WORD_START = r"(?<![A-Za-zÄÖÜäöüß])"
 _WORD_END = r"(?![A-Za-zÄÖÜäöüß])"
 
 
-#: A verdict in words, in any of the spellings a model writes.
 _VERDICT = re.compile(
     _WORD_START + r"(?:nicht\s+)?(?:erf(?:ü|ue)llt|zul(?:ä|ae)ssig|unzul(?:ä|ae)ssig|eingehalten|(?:ü|ue)berschritten"
     r"|unterschritten|gen(?:ü|ue)gt|ausreichend|unzureichend|passt|in\s+Ordnung|i\.\s?O\.?|iO|NOK|okay|ok"
@@ -106,7 +83,6 @@ _VERDICT = re.compile(
     r"|pass(?:ed|es)?|fail(?:ed|s)?|(?:non-)?compliant)"
     + _WORD_END
     + r"|\bh(?:ä|ae)lt\b[^.;]{0,60}?\bein\b"
-    # a traffic-light colour as the verdict after an arrow or a dash („Stiege A – grün")
     + r"|[→\-–—]\s*(?:gr(?:ü|ue)n|rot|gelb)"
     + _WORD_END
     + r"|\b(?:unter|(?:ü|ue)ber|unterhalb|oberhalb|innerhalb|au(?:ß|ss)erhalb)\s+(?:dem\s+|des\s+|der\s+)?"
@@ -117,8 +93,6 @@ _VERDICT = re.compile(
 )
 
 
-#: A number with a unit, as a symbol or a word. Checked before any allow-list is
-#: stripped, so „Plan 17 Zentimeter" is not a plan code followed by a word.
 _MEASURE = re.compile(
     r"\d[\d.,]*\s*(?:mm|cm|dm|m²|m2|m³|m3|m|%|°|W\b|kWh|Millimeter|Zentimeter|Meter|Quadratmeter|Prozent|Grad)"
     + _WORD_END,
@@ -126,12 +100,9 @@ _MEASURE = re.compile(
 )
 
 
-#: A comparison in signs, which no text needs: a sign compares a figure.
 _COMPARISON_SIGN = re.compile(r"[≤≥<>⩽⩾=≈~±≠]")
 
 
-#: The alphabet of a name, once its citations and identifiers are stripped:
-#: letters, spaces and – · / , ( ) . - →. Anything else, a digit or a sign, is refused.
 _NAME_ALPHABET = re.compile(r"(?:[^\W\d_]|[\s–·/,().\-→])*")
 
 
@@ -143,7 +114,6 @@ def _is_symbol(char: str) -> bool:
 
 
 def _figure_in(value: str, *, name: bool) -> str | None:
-    """What makes ``value`` carry a figure or a verdict, or None. ``name``: a title or label, not a text."""
     text = _TOP_EDGE.sub(" ", unicodedata.normalize("NFKC", value))
     if _VERDICT.search(text):
         return "a verdict"
@@ -175,11 +145,16 @@ def _no_figure(value: str | None, field: str, *, name: bool = True) -> str | Non
 
 
 class FormulaInput(CardModel):
-    """One input of a named formula: the value the source gives, and whether the reader may change it.
-
-    The UNIT is the formula's, not this object's: it is stated in the field that
-    holds this input (``riser``: cm), and the renderer prints it.
-    """
+    model_config = ConfigDict(
+        json_schema_extra={
+            "description": (
+                "One input of a named formula: the value the source gives, and whether the reader may change it.\n"
+                "\n"
+                "The UNIT is the formula's, not this object's: it is stated in the field that\n"
+                "holds this input (``riser``: cm), and the renderer prints it."
+            )
+        }
+    )
 
     value: float | None = Field(
         default=None,
@@ -237,7 +212,9 @@ class FormulaInput(CardModel):
 
 
 class UValueLayer(CardModel):
-    """One homogeneous layer of a component, inside to outside."""
+    model_config = ConfigDict(
+        json_schema_extra={"description": "One homogeneous layer of a component, inside to outside."}
+    )
 
     label: str = Field(
         min_length=1, description="The layer's material, never its thickness: 'Mineralwolle', 'Stahlbeton'"
@@ -252,24 +229,29 @@ class UValueLayer(CardModel):
 
 
 class UValueFormula(CardModel):
-    """U = 1 / (R_si + Σ d/λ + R_se), for an opaque component of homogeneous layers (ÖNORM EN ISO 6946).
-
-    `component` picks the row of OIB-RL 6 Pkt. 4.4.1 the card holds the U-value
-    against, and with it the heat-flow direction for the surface resistances:
-    an external wall (row 1, horizontal), a ceiling or roof slope against
-    outside air (row 18, upward; a slope steeper than 60° counts as a wall),
-    a ceiling over outside air such as a passage (row 22, downward). Only
-    components against outside air: elsewhere R_se is not the standard's 0,04.
-    Air layers, inhomogeneous layers and the standard's corrections are out of
-    scope.
-
-    `measure` picks the requirement: a new build (Pkt. 4.4.1, the table), or a
-    renovation by single measures or the renewal of a component (Pkt. 4.5),
-    which without a Sanierungskonzept is the table value less 24 %. A major
-    renovation (größere Renovierung) is held to the energy figures of Pkt. 4.3,
-    not to a component's U-value, so the card computes U and does not judge it.
-    Unknown: the card cannot judge, because the bound depends on it.
-    """
+    model_config = ConfigDict(
+        json_schema_extra={
+            "description": (
+                "U = 1 / (R_si + Σ d/λ + R_se), for an opaque component of homogeneous layers (ÖNORM EN ISO 6946).\n"
+                "\n"
+                "`component` picks the row of OIB-RL 6 Pkt. 4.4.1 the card holds the U-value\n"
+                "against, and with it the heat-flow direction for the surface resistances:\n"
+                "an external wall (row 1, horizontal), a ceiling or roof slope against\n"
+                "outside air (row 18, upward; a slope steeper than 60° counts as a wall),\n"
+                "a ceiling over outside air such as a passage (row 22, downward). Only\n"
+                "components against outside air: elsewhere R_se is not the standard's 0,04.\n"
+                "Air layers, inhomogeneous layers and the standard's corrections are out of\n"
+                "scope.\n"
+                "\n"
+                "`measure` picks the requirement: a new build (Pkt. 4.4.1, the table), or a\n"
+                "renovation by single measures or the renewal of a component (Pkt. 4.5),\n"
+                "which without a Sanierungskonzept is the table value less 24 %. A major\n"
+                "renovation (größere Renovierung) is held to the energy figures of Pkt. 4.3,\n"
+                "not to a component's U-value, so the card computes U and does not judge it.\n"
+                "Unknown: the card cannot judge, because the bound depends on it."
+            )
+        }
+    )
 
     name: Literal["u_value"]
     component: FormulaComponent = Field(
@@ -291,7 +273,13 @@ class UValueFormula(CardModel):
 
 
 class StairStepRuleFormula(CardModel):
-    """2 × Stufenhöhe + Stufenauftritt = 62 ± 3 cm, and Tabelle 3's row for the stair (OIB-RL 4 Pkt. 3.2.1)."""
+    model_config = ConfigDict(
+        json_schema_extra={
+            "description": (
+                "2 × Stufenhöhe + Stufenauftritt = 62 ± 3 cm, and Tabelle 3's row for the stair (OIB-RL 4 Pkt. 3.2.1)."
+            )
+        }
+    )
 
     name: Literal["stair_step_rule"]
     stair_type: FormulaStairType = Field(
@@ -305,7 +293,9 @@ class StairStepRuleFormula(CardModel):
 
 
 class EscapeRouteSegment(CardModel):
-    """One leg of the escape route, measured along the walking line."""
+    model_config = ConfigDict(
+        json_schema_extra={"description": "One leg of the escape route, measured along the walking line."}
+    )
 
     label: str = Field(min_length=1, description="The leg, by its ends, never its length: 'Raum → Gang'")
     length: FormulaInput = Field(description="Length in m")
@@ -317,7 +307,11 @@ class EscapeRouteSegment(CardModel):
 
 
 class EscapeRouteLengthFormula(CardModel):
-    """The Gehweglänge, its legs added up, against 40 m (OIB-RL 2 Pkt. 5.1.1 and 5.1.2)."""
+    model_config = ConfigDict(
+        json_schema_extra={
+            "description": "The Gehweglänge, its legs added up, against 40 m (OIB-RL 2 Pkt. 5.1.1 and 5.1.2)."
+        }
+    )
 
     name: Literal["escape_route_length"]
     start: FormulaRouteStart = Field(
@@ -331,14 +325,19 @@ class EscapeRouteLengthFormula(CardModel):
 
 
 class DaylightRatioFormula(CardModel):
-    """Lichteintrittsfläche against the room's Bodenfläche (OIB-RL 3 Pkt. 9.1.1, 9.1.3, 9.1.4).
-
-    The required share is 12 %, raised to 15 % by an overhang over 1,50 m, by
-    2 % per started metre of overhang beyond 3,00 m, and by 1 % per started
-    metre of room depth beyond 5,00 m; the renderer derives it from the inputs.
-    The free light angle of 45° (Pkt. 9.1.2) is a precondition the card states
-    and does not check.
-    """
+    model_config = ConfigDict(
+        json_schema_extra={
+            "description": (
+                "Lichteintrittsfläche against the room's Bodenfläche (OIB-RL 3 Pkt. 9.1.1, 9.1.3, 9.1.4).\n"
+                "\n"
+                "The required share is 12 %, raised to 15 % by an overhang over 1,50 m, by\n"
+                "2 % per started metre of overhang beyond 3,00 m, and by 1 % per started\n"
+                "metre of room depth beyond 5,00 m; the renderer derives it from the inputs.\n"
+                "The free light angle of 45° (Pkt. 9.1.2) is a precondition the card states\n"
+                "and does not check."
+            )
+        }
+    )
 
     name: Literal["daylight_ratio"]
     opening_area: FormulaInput = Field(
@@ -360,15 +359,9 @@ FormulaSpec = Annotated[
 ]
 
 
-#: Most binding editions a card is stamped with. A site may bind hundreds of works; past the bound the stamp
-#: says it was cut (``truncated``), and a work it does not name then reads as unknown, not as not binding.
 MAX_SITE_EDITIONS = 64
 
-#: How far the turn's records settle what binds at the site: ``settled`` (core, full), ``unsettled`` (no
-#: reviewed base yet: none, open), ``site_unknown`` (no site, or no law of it this office holds) and
-#: ``unavailable`` (the context could not be read). Each is a different reason the card gives no verdict.
 SiteCoverage = Literal["settled", "unsettled", "site_unknown", "unavailable"]
-#: Every gate state but ``knowledge_unavailable``; one not listed fails closed as ``unavailable``.
 COVERAGE_OF_GATE: dict[str, SiteCoverage] = {
     "organization_unplaced": "site_unknown",
     "site_unknown": "site_unknown",
@@ -381,7 +374,14 @@ COVERAGE_OF_GATE: dict[str, SiteCoverage] = {
 
 
 class SiteEdition(CardModel):
-    """One work that binds at the turn's site, and the edition that binds, as the knowledge context names them."""
+    model_config = ConfigDict(
+        json_schema_extra={
+            "description": (
+                "One work that binds at the turn's site, and the edition that binds, as the knowledge context names "
+                "them."
+            )
+        }
+    )
 
     designation: str
     edition_label: str | None = Field(
@@ -391,11 +391,18 @@ class SiteEdition(CardModel):
 
 
 class SiteBinding(CardModel):
-    """Which editions bind at the turn's site, stamped by the server on every formula card (never the model's).
-
-    The card judges a bound only where the edition its values come from is the one that binds here and the
-    coverage is settled; everywhere else it shows the value against the bound as a hint, with the reason.
-    """
+    model_config = ConfigDict(
+        json_schema_extra={
+            "description": (
+                "Which editions bind at the turn's site, stamped by the server on every formula card (never the "
+                "model's).\n"
+                "\n"
+                "The card judges a bound only where the edition its values come from is the one that binds here and "
+                "the\n"
+                "coverage is settled; everywhere else it shows the value against the bound as a hint, with the reason."
+            )
+        }
+    )
 
     coverage: SiteCoverage
     editions: list[SiteEdition] = Field(default_factory=list, max_length=MAX_SITE_EDITIONS)
@@ -403,11 +410,6 @@ class SiteBinding(CardModel):
 
 
 def site_binding() -> dict[str, Any] | None:
-    """The turn's binding editions as a formula card carries them; None outside a turn. Pure but for the turn.
-
-    One entry per designation. Its label is the binding uses' one label, or None where they name two
-    editions (the card cannot tell which binds); ``scope_unsettled`` where any of them is still open.
-    """
     context = get_turn_knowledge_context()
     if context is None:
         return None
@@ -432,22 +434,28 @@ def site_binding() -> dict[str, Any] | None:
 
 
 class FormulaCard(CardModel):
-    """Emit for a number worked out by one of four named rules, so the reader can ask "what if" on the card.
-
-    The rules: a U-value from its layers (u_value), the Schrittmaßregel and the
-    stair table (stair_step_rule), an escape route's Gehweglänge
-    (escape_route_length), the Lichteintrittsfläche against the Bodenfläche
-    (daylight_ratio). Anything else worked out is a `calculation`.
-
-    YOU SUPPLY THE CASE AND THE INPUTS, NEVER A NUMBER OF YOUR OWN. Name the
-    case the rule asks for (`stair_type`, `component`, `start`) and fill each
-    input from the project's documents, the user's own figures or the norm,
-    with `source` saying where it is written. An input you do not have stays
-    null: the card says it cannot judge, and the reader can enter an
-    assumption. The card computes, takes the bound from the Richtlinie's table
-    for that case, judges, and recomputes when the reader changes an input.
-    The title names the component („U-Wert Außenwand AW 01"), never a value.
-    """
+    model_config = ConfigDict(
+        json_schema_extra={
+            "description": (
+                'Emit for a number worked out by one of four named rules, so the reader can ask "what if" on the '
+                "card.\n"
+                "\n"
+                "The rules: a U-value from its layers (u_value), the Schrittmaßregel and the\n"
+                "stair table (stair_step_rule), an escape route's Gehweglänge\n"
+                "(escape_route_length), the Lichteintrittsfläche against the Bodenfläche\n"
+                "(daylight_ratio). Anything else worked out is a `calculation`.\n"
+                "\n"
+                "YOU SUPPLY THE CASE AND THE INPUTS, NEVER A NUMBER OF YOUR OWN. Name the\n"
+                "case the rule asks for (`stair_type`, `component`, `start`) and fill each\n"
+                "input from the project's documents, the user's own figures or the norm,\n"
+                "with `source` saying where it is written. An input you do not have stays\n"
+                "null: the card says it cannot judge, and the reader can enter an\n"
+                "assumption. The card computes, takes the bound from the Richtlinie's table\n"
+                "for that case, judges, and recomputes when the reader changes an input.\n"
+                'The title names the component („U-Wert Außenwand AW 01"), never a value.'
+            )
+        }
+    )
 
     type: Literal["formula"]
     title: str = Field(
@@ -464,14 +472,14 @@ class FormulaCard(CardModel):
         default=None,
         description=(
             "Which editions bind at the turn's site, set where the card is validated and never by the model. "
-            "Absent: the site is not known, and the card shows hints rather than verdicts"
+            "Every turn stamps it, an unplaced site included. Absent outside a turn and on a card written before "
+            "the stamp, which the card judges as it did when it was written"
         ),
     )
 
     @model_validator(mode="before")
     @classmethod
     def _site_binding_is_the_servers(cls, data: Any) -> Any:
-        # Whatever the model wrote is replaced: a stamp it could set would buy it a verdict.
         if not isinstance(data, dict):
             return data
         return {**data, "site_binding": site_binding()}
@@ -494,7 +502,6 @@ _FORMULA_SLOTS: dict[str, tuple[str, ...]] = {
 
 
 def formula_inputs(card: dict[str, Any]) -> list[dict[str, Any]]:
-    """Every input object of a validated formula card's dict, in reading order. Pure."""
     formula = card.get("formula") or {}
     name = formula.get("name")
     if name == "u_value":
@@ -504,9 +511,6 @@ def formula_inputs(card: dict[str, Any]) -> list[dict[str, Any]]:
     return [formula[slot] for slot in _FORMULA_SLOTS.get(str(name), ()) if isinstance(formula.get(slot), dict)]
 
 
-#: Fields no computing card has: a model that writes one is stating what the
-#: renderer computes. They are dropped by validation like any unknown field,
-#: and counted (`card-validity`, outcome `stripped`) so the drop is seen.
 _STATED_RESULT_KEYS = frozenset({"result", "results", "limits"})
 
 
@@ -522,11 +526,6 @@ def _stated(node: Any) -> int:
 
 
 def stated_result_fields(payload: Any) -> int:
-    """How many fields of a raw computing card state what the card computes. Pure.
-
-    A ``calculation`` or ``formula`` payload, or a ``surface`` whose leaves
-    include them (a leaf names its type as ``component``).
-    """
     if not isinstance(payload, dict):
         return 0
     if payload.get("type") in _COMPUTING_CARDS:

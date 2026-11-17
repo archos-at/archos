@@ -1,12 +1,3 @@
-/**
- * A folder's full path, for a flat list of destinations.
- *
- * The submenu is deliberately flat rather than a nested cascade: picking a
- * destination is one decision, and making the reader walk the tree to reach a
- * folder they can already name turns it into several. `Brandschutz / Fluchtwege`
- * says where it is without asking them to travel there.
- */
-
 export interface PathFolder {
   id: string
   name: string
@@ -16,7 +7,6 @@ export interface PathFolder {
 export function folderPathLabel(folder: PathFolder, byId: Map<string, PathFolder>): string {
   const parts = [folder.name]
   let parentId = folder.parentId
-  // Bounded by the map size: a cycle cannot outlast the folders that exist.
   for (let hops = 0; parentId && hops < byId.size; hops += 1) {
     const parent = byId.get(parentId)
     if (!parent) break
@@ -26,7 +16,6 @@ export function folderPathLabel(folder: PathFolder, byId: Map<string, PathFolder
   return parts.join(' / ')
 }
 
-/** A folder a document can be moved into, with the full path it is listed by. */
 export interface FolderDestination {
   folder: PathFolder
   label: string

@@ -1,12 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The estate tree route is a thin adapter, and what is its own to hold is the
- * identity: the service token AND a verified envelope, the acting person the
- * envelope's (a pinned session), the tenant the envelope's, and a body that
- * cannot name a project, a collection or an organization.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -64,7 +58,7 @@ function envelopeHeaders(secret = SECRET) {
 }
 
 function request(body: unknown, headers: Record<string, string> = envelopeHeaders(), token: string | null = SECRET) {
-  return new Request('https://grid.test/api/internal/estate-tree', {
+  return new Request('https://example.test/api/internal/estate-tree', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...(token ? { 'x-grid-internal-token': token } : {}), ...headers },
     body: JSON.stringify(body),

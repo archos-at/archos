@@ -7,27 +7,16 @@ vi.mock('@/lib/db', () => ({
   getDb: vi.fn(),
 }))
 
-// What happens after a row comes to rest (its upload completes, a quarantine's
-// reviewers hear of it) is `upload-batches/settle`'s subject; here it is the
-// call reconciliation makes.
 vi.mock('@/lib/upload-batches/settle', () => ({ onDocumentsSettled: vi.fn().mockResolvedValue(undefined) }))
 
-// What PostHog hears is `lib/analytics/ingest-events.spec.ts`'s subject; here it is the
-// call reconciliation makes for the rows it moved.
 const captureServer = vi.hoisted(() => vi.fn(() => true))
 vi.mock('@/lib/analytics/posthog-server', () => ({ captureServer, getPosthogServer: () => null }))
 
-// The live channel's own subject is `shelf-live.spec.ts`; here it is which
-// shelves a reconciliation announces.
 vi.mock('./shelf-live', () => ({ publishShelfChanged: vi.fn() }))
 
-// The search row's own mapping is `lib/search/facets.spec.ts`'s subject; here
-// it is which readings reconciliation hands over, and when.
 vi.mock('@/lib/search/facets-projector', () => ({ projectReadings: vi.fn().mockResolvedValue(0) }))
 vi.mock('@/lib/search/facets-repository', () => ({ listCollectionDocumentsForProjection: vi.fn().mockResolvedValue([]) }))
 
-// The attempt and upload batch the event joins are read after the settle
-// (`findIngestAnnouncementFacts`); the table is mocked, so a case says them.
 const findIngestAnnouncementFacts = vi.hoisted(() => vi.fn(async () => new Map<string, { attempt: number | null; uploadBatchId: string | null }>()))
 vi.mock('./repository', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./repository')>()),
@@ -52,16 +41,7 @@ import {
 } from './reconcile-status'
 import { collectionFileRef } from './collection-file-ref'
 
-/**
- * The guarded status write, in its transaction. `moved: false` is the write
- * another read won: the row had already left the status (or the dispatch) this
- * read saw, so the UPDATE matched nothing. `values` is the quarantine decision
- * the same transaction records.
- */
 const makeDbMock = ({ moved = true }: { moved?: boolean } = {}) => {
-  // What the write returns as it lands: the row's place, and the verdict and
-  // the bytes it judged, which the same transaction records on the versions
-  // holding those bytes (migration 0131).
   const movedRow = {
     scope: 'project',
     projectId: 'p1',
@@ -84,22 +64,12 @@ const makeDbMock = ({ moved = true }: { moved?: boolean } = {}) => {
   return { update, set, where, insert, values }
 }
 
-/**
- * A row as the read paths hand it over. `authoredBy: 'user'` is the default
- * because a person uploading a file is what every row means until a commissioned
- * run writes one — and because it is REQUIRED: the fixture is typed as the real
- * `ReconcilableDocument`, so a case that means to exercise the machine-authored
- * path has to say so rather than inherit it.
- */
 const makeRow = (overrides: Partial<ReconcilableDocument> = {}): ReconcilableDocument => ({
   id: 'doc-1',
   status: 'pending',
   filename: 'plan.pdf',
   collectionName: 'proj_abc',
   authoredBy: 'user',
-  // Nothing published, which is what a human upload's row carried before
-  // migration 0082 and what the backfill gives it. A human row owns its chunks
-  // regardless; a case about a PUBLISHED Piloti document says so.
   publishedVersionId: null,
   errorMessage: null,
   metadata: { ingestJobId: 'job-1' },
@@ -124,8 +94,6 @@ describe('reconcileDocumentStatuses', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', mockFetch)
     mockFetch.mockReset()
-    // The collection-file-list cache is module-level and short-TTL; clear it so
-    // each case starts from a cold cache and its own mock data is honoured.
     clearCollectionFilesCache()
   })
 
@@ -136,8 +104,6 @@ describe('reconcileDocumentStatuses', () => {
 
   it('preserves terminal statuses and never issues a status batch call for them', async () => {
     const db = makeDbMock()
-    // Terminal rows still consult the collection file list for metadata, but
-    // their status must not change and no status write should occur.
     mockFetch.mockResolvedValue(collectionResponse([{ file_name: 'plan.pdf', status: 'success' }]))
     const rows = [makeRow({ status: 'completed' }), makeRow({ id: 'doc-2', status: 'failed' })]
 
@@ -167,17 +133,11 @@ describe('reconcileDocumentStatuses', () => {
     )
     expect(result.status).toBe('completed')
     expect(result.errorMessage).toBeNull()
-    // The row, then the versions holding the bytes the job judged (migration 0131).
     expect(db.update).toHaveBeenCalledTimes(2)
     expect(db.set).toHaveBeenNthCalledWith(1, expect.objectContaining({ status: 'completed', errorMessage: null }))
     expect(db.set).toHaveBeenNthCalledWith(2, { screenedHash: 'sha256:judged' })
   })
 
-  /**
-   * The backend refuses a status call of more than 200 job ids with a 422, which
-   * once read as an unreachable backend: two bulk uploads (309 and 219 documents)
-   * stayed `pending` for days although every job had finished.
-   */
   it('settles a bulk upload larger than the backend takes in one status call', async () => {
     makeDbMock()
     const calls: number[] = []
@@ -200,11 +160,6 @@ describe('reconcileDocumentStatuses', () => {
     expect(result.filter((r) => r.status === 'completed')).toHaveLength(309)
   })
 
-  /**
-   * The backend keeps a finished job's status 24 hours. A job it has forgotten,
-   * with no indexed file under the row's name, left the row `pending` for ever;
-   * past two days it is a retryable failure, and before that it is left alone.
-   */
   it('settles a row whose job the backend forgot, and which was never indexed, once it is two days old', async () => {
     const db = makeDbMock()
     mockFetch.mockImplementation(async (url: string) =>
@@ -275,12 +230,6 @@ describe('reconcileDocumentStatuses', () => {
     expect(result.errorMessage).toBe('unparseable PDF')
   })
 
-  /**
-   * A re-upload that fails to index keeps the previous version's chunks under
-   * the same filename, so the collection file list still reports that name as
-   * `success`. The job is what knows the NEW bytes failed, and it must win:
-   * reading the list here would turn a failed re-upload green.
-   */
   it('marks a failed re-upload failed although the previous version still lists as indexed', async () => {
     const db = makeDbMock()
     mockFetch.mockImplementation(async (url: string) =>
@@ -298,7 +247,6 @@ describe('reconcileDocumentStatuses', () => {
     const [result] = await reconcileDocumentStatuses([makeRow()], 'org-1', 'read')
 
     expect(result.status).toBe('failed')
-    // The file's cause, not the adapter's tally.
     expect(db.set).toHaveBeenCalledWith(
       expect.objectContaining({ status: 'failed', errorMessage: 'PDF is encrypted' })
     )
@@ -434,8 +382,6 @@ describe('reconcileDocumentStatuses', () => {
 
   it('leaves rows untouched when the backend fetch times out (same fail-open as unreachable)', async () => {
     const db = makeDbMock()
-    // AbortSignal.timeout() rejects fetch with a DOMException named TimeoutError;
-    // the fetchJson wrapper swallows it exactly like a connection refusal.
     mockFetch.mockRejectedValue(new DOMException('The operation timed out.', 'TimeoutError'))
 
     const [result] = await reconcileDocumentStatuses([makeRow()], 'org-1', 'read')
@@ -474,8 +420,6 @@ describe('reconcileDocumentStatuses metadata enrichment', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', mockFetch)
     mockFetch.mockReset()
-    // The collection-file-list cache is module-level and short-TTL; clear it so
-    // each case starts from a cold cache and its own mock data is honoured.
     clearCollectionFilesCache()
   })
 
@@ -687,8 +631,6 @@ describe('reconcileDocumentStatuses metadata enrichment', () => {
 
     const [result] = await reconcileDocumentStatuses([row], 'org-1', 'read')
 
-    // A file name is a fact about a document the reader may not see: it never
-    // rides on the row metadata other callers spread onto the wire.
     expect(JSON.stringify(result)).not.toContain('plan_B.pdf')
     expect(JSON.stringify(result)).not.toContain('plan_0.pdf')
     const ref = collectionFileRef(row)
@@ -750,7 +692,6 @@ describe('reconcileDocumentStatuses metadata enrichment', () => {
 
   it('shows no metadata when the filename is ambiguous within the collection', async () => {
     makeDbMock()
-    // Two backend files share the filename → the join is unsafe.
     mockFetch.mockResolvedValue(
       collectionResponse([
         { file_id: 'f-1', file_name: 'plan.pdf', status: 'success', summary: 'First.', chunk_count: 3 },
@@ -785,13 +726,6 @@ describe('reconcileDocumentStatuses metadata enrichment', () => {
     expect(result.chunkCount).toBeUndefined()
   })
 
-  /**
-   * The collision `generatedFilename` makes reachable, played out on the read
-   * path: one real Gutachten a person uploaded, and one report Piloti filed into
-   * the SAME project collection whose model-written title slugged to the same
-   * stem on the same day. The backend list has exactly one entry for that name —
-   * the human document's, because nothing machine-authored is ever ingested.
-   */
   const expertReportListing = () =>
     collectionResponse([
       {
@@ -819,16 +753,11 @@ describe('reconcileDocumentStatuses metadata enrichment', () => {
 
     const [result] = await reconcileDocumentStatuses([collidingRow('agent')], 'org-1', 'read')
 
-    // Every one of these belongs to somebody's actual Gutachten. `FileCard`
-    // renders `summary` with no gate, so before the authorship gate this row
-    // displayed that summary under „Von Piloti erstellt“, and
-    // `GET /api/documents/{id}/status` returned it to the chat peek pane.
     expect(result.summary).toBeUndefined()
     expect(result.pageCount).toBeUndefined()
     expect(result.chunkCount).toBeUndefined()
     expect(result.contentTypes).toBeUndefined()
     expect(result.tags).toBeUndefined()
-    // The row itself is untouched — this is a suppression, not a failure.
     expect(result.status).toBe('stored')
   })
 
@@ -849,8 +778,6 @@ describe('reconcileDocumentStatuses metadata enrichment', () => {
 
     await reconcileDocumentStatuses([collidingRow('agent')], 'org-1', 'read')
 
-    // The gate runs ahead of the fetch: the row owns nothing in that list either
-    // way, so deciding costs no backend round trip.
     expect(mockFetch).not.toHaveBeenCalled()
   })
 })
@@ -895,12 +822,6 @@ describe('reconcileDocumentStatuses authorship gate on the status pass', () => {
 
   it('never resolves a machine-authored row from a colliding entry in the file list', async () => {
     const db = makeDbMock()
-    // In flight AND machine-authored is already an anomaly — filing writes the
-    // terminal `stored`. The point is that the collection fallback must be
-    // closed by AUTHORSHIP and not merely by the status vocabulary: `stored`
-    // being outside IN_FLIGHT_STATUSES is a fact about the status column, and a
-    // row that reaches this pass anyway would otherwise adopt the human
-    // document's `success` and go green and „zitierbar“.
     mockFetch.mockResolvedValue(
       collectionResponse([
         { file_id: 'f-1', file_name: 'brandschutz-gutachten-2026-08-20.pdf', status: 'success' },
@@ -964,13 +885,11 @@ describe('reconcileDocumentStatuses collection-file-list caching', () => {
 
   it('does not refetch the collection file list for terminal rows within the TTL', async () => {
     makeDbMock()
-    // Terminal rows only consult the collection list for metadata enrichment.
     mockFetch.mockResolvedValue(
       collectionResponse([{ file_id: 'f-1', file_name: 'plan.pdf', status: 'success', chunk_count: 3 }])
     )
     const rows = [makeRow({ status: 'completed' })]
 
-    // First read fetches once and caches; a second read within the TTL reuses it.
     await reconcileDocumentStatuses(rows, 'org-1', 'read')
     await reconcileDocumentStatuses(rows, 'org-1', 'read')
 
@@ -985,7 +904,6 @@ describe('reconcileDocumentStatuses collection-file-list caching', () => {
     mockFetch.mockResolvedValue(
       collectionResponse([{ file_id: 'f-1', file_name: 'plan.pdf', status: 'pending' }])
     )
-    // Legacy in-flight row (no job id) → status reconciliation reads the list fresh.
     const rows = [makeRow({ status: 'pending', metadata: null })]
 
     await reconcileDocumentStatuses(rows, 'org-1', 'read')
@@ -1014,11 +932,6 @@ describe('reconcileDocumentStatuses enrichment on a status transition', () => {
   const collectionCalls = () =>
     mockFetch.mock.calls.filter(([url]) => String(url).includes('/v1/collections/proj_abc/documents'))
 
-  /**
-   * The backend as the file viewer meets it: the listing a steady-state read
-   * cached before the upload landed, then the job finishing with its summary
-   * registered. `listing` is swapped mid-test to play the backend moving on.
-   */
   const routeBackend = (jobs: Record<string, unknown>, listing: { current: unknown[] }) => {
     mockFetch.mockImplementation(async (url: string) =>
       url.includes('/v1/documents/status/batch') ? batchResponse(jobs) : collectionResponse(listing.current)
@@ -1040,8 +953,6 @@ describe('reconcileDocumentStatuses enrichment on a status transition', () => {
     const listing = { current: [] as unknown[] }
     routeBackend({ 'job-1': { status: 'completed', file_details: [{ status: 'success' }] } }, listing)
 
-    // A terminal sibling in the same collection primes the cache with the
-    // listing from before plan.pdf existed.
     await reconcileDocumentStatuses([makeRow({ id: 'doc-old', filename: 'old.pdf', status: 'completed' })], 'org-1', 'read')
     expect(collectionCalls()).toHaveLength(1)
 
@@ -1098,7 +1009,6 @@ describe('reconcileDocumentStatuses enrichment on a status transition', () => {
     )
     vi.mocked(listCollectionDocumentsForProjection).mockResolvedValueOnce([
       { id: 'doc-a', filename: 'plan-a.pdf', collectionName: 'proj_abc', authoredBy: 'user', publishedVersionId: null },
-      // A machine-written row sharing the name owns nothing over there.
       { id: 'doc-agent', filename: 'plan-a.pdf', collectionName: 'proj_abc', authoredBy: 'agent', publishedVersionId: null },
     ])
     const fetchesBefore = collectionCalls().length
@@ -1113,7 +1023,7 @@ describe('reconcileDocumentStatuses enrichment on a status transition', () => {
     expect(collectionCalls().length - fetchesBefore).toBe(1)
   })
 
-  it('never counts Piloti\'s suggestion as a replaced Fassung', async () => {
+  it('never counts the agent\'s suggestion as a replaced Fassung', async () => {
     makeDbMock()
     routeBackend(
       { 'job-1': { status: 'completed', file_details: [{ status: 'success' }] } },
@@ -1154,7 +1064,6 @@ describe('reconcileDocumentStatuses enrichment on a status transition', () => {
       [
         makeRow(),
         makeRow({ id: 'doc-2', filename: 'specs.pdf', metadata: { ingestJobId: 'job-2' } }),
-        // A legacy row resolved from the list shares the same fresh fetch.
         makeRow({ id: 'doc-3', filename: 'legacy.pdf', metadata: null }),
         makeRow({ id: 'doc-4', filename: 'old.pdf', status: 'completed' }),
       ],
@@ -1247,8 +1156,6 @@ describe('reconcileDocumentStatuses on a row the BFF is still working on', () =>
 
   it('ignores the job id a retried row still carries from its failed dispatch', async () => {
     const db = makeDbMock()
-    // `markDocumentProcessing` does not clear `metadata`, so a retry of a
-    // failed document still names the job that failed.
     mockFetch.mockImplementation(async (url: string) =>
       url.includes('/v1/documents/status/batch')
         ? batchResponse({ 'job-1': { status: 'failed', error_message: 'old failure' } })
@@ -1379,11 +1286,6 @@ describe('reconcileDocumentStatuses on a failure the backend settled as interrup
   })
 })
 
-/**
- * Until the backend answered "unknown" for a job past its status retention, it made up
- * `failed: Job ID not found`, and every row not settled within 24 hours was written failed,
- * indexed or not: 446 rows of one office on production in October 2026.
- */
 describe('reconcileDocumentStatuses on a failure written for a forgotten job', () => {
   const forgottenRow = (overrides: Partial<ReconcilableDocument> = {}) =>
     makeRow({ status: 'failed', errorMessage: 'Job ID not found', updatedAt: new Date('2026-10-28T19:49:42Z'), ...overrides })
@@ -1412,7 +1314,6 @@ describe('reconcileDocumentStatuses on a failure written for a forgotten job', (
     expect(result.status).toBe('completed')
     expect(result.errorMessage).toBeNull()
     expect(db.set).toHaveBeenCalledWith(expect.objectContaining({ status: 'completed', errorMessage: null }))
-    // A correction, not a fresh arrival: the settle hook announces no Fassung for it.
     expect(onDocumentsSettled).toHaveBeenCalledWith('org-1', [{ id: 'doc-1', status: 'completed', correction: true }])
   })
 
@@ -1629,8 +1530,6 @@ describe('describeBackendIngestState', () => {
   })
 
   it('reports absent when the backend forgot the job and holds no file', async () => {
-    // A restart wiped the in-memory job registry and the file never landed:
-    // the row's `processing` badge is a memory of work that exists nowhere.
     routeBackend({}, [])
 
     const knowledge = await describeBackendIngestState(makeRow({ status: 'processing' }))
@@ -1654,8 +1553,6 @@ describe('describeBackendIngestState', () => {
   })
 
   it("reports absent, not an earlier dispatch's failure, when the backend forgot the job", async () => {
-    // The persisted terminal would be the earlier job's verdict, recorded as
-    // this dispatch's; nothing the backend knows of is this dispatch.
     routeBackend({}, [{ file_name: 'plan.pdf', status: 'failed', error_message: 'quarantined:{}' }])
 
     expect(await describeBackendIngestState(makeRow({ status: 'processing' }))).toEqual({ state: 'absent' })
@@ -1690,12 +1587,6 @@ describe('describeBackendIngestState', () => {
   })
 })
 
-/**
- * ADR-0086: the content gate stops a job on purpose. The row must read as
- * quarantined (waiting on a person), never as an ordinary failure a retry
- * would re-dispatch into the same gate, and the job's screening outcome lands
- * on the row so the upload summary can say what was and was not checked.
- */
 describe('reconcileDocumentStatuses — upload screening', () => {
   const verdict =
     'quarantined:{"reasons":[{"kind":"term","term":"Lohnzettel","count":1,"pages":[1]}],"checked":"full"}'
@@ -1731,14 +1622,10 @@ describe('reconcileDocumentStatuses — upload screening', () => {
         status: 'quarantined',
         errorMessage: verdict,
         screeningOutcome: 'quarantined',
-        // A job from before the typed field: its message is read once, here, and stored as data.
         quarantine: { reasons: [{ kind: 'term', term: 'Lohnzettel', count: 1, pages: [1] }], checked: 'full' },
       })
     )
-    // The versions holding the bytes this job judged lose any earlier pass (migration 0131).
     expect(db.set).toHaveBeenNthCalledWith(2, { screenedHash: null })
-    // The decision, keyed on its dispatch, owed to the audit trail (ADR-0086):
-    // kinds and terms, never the masked sample or the page list.
     expect(db.values).toHaveBeenCalledWith({
       organizationId: 'org-1',
       documentId: 'doc-1',
@@ -1753,8 +1640,6 @@ describe('reconcileDocumentStatuses — upload screening', () => {
     })
   })
 
-  // ADR-0113: the job's typed verdict decides and is what the row stores, and
-  // its message is not read when the verdict is there.
   const typed = {
     reasons: [
       { kind: 'iban', count: 2, pages: [3, 4], sample: 'AT61 •••• •••• •••• 3201' },
@@ -1828,10 +1713,6 @@ describe('reconcileDocumentStatuses — upload screening', () => {
 
   it('quarantines from a failed job too', async () => {
     const db = makeDbMock()
-    // The shape the adapter really produces for a one-file upload it held: the
-    // job carries the tally, the verdict sits on the file. The spec once put the
-    // verdict on the job, a shape no job has, and passed while every real
-    // quarantine was stored as an ordinary failure.
     mockFetch.mockResolvedValue(
       batchResponse({
         'job-1': {
@@ -1879,10 +1760,6 @@ describe('reconcileDocumentStatuses — upload screening', () => {
     expect(db.values).toHaveBeenCalledWith(expect.objectContaining({ jobId: null }))
   })
 
-  // The backend lists the first failed entry of a name it still tracks, so a
-  // released file's old quarantine is what the list says while the new
-  // dispatch's job is forgotten. Adopting it put the file back in quarantine
-  // and recorded job-2 as having quarantined it.
   it('takes no failure from the file list for a row whose job the backend forgot', async () => {
     const db = makeDbMock()
     mockFetch
@@ -1963,9 +1840,6 @@ describe('reconcileDocumentStatuses — settling uploads', () => {
   })
 
   it('settles nothing when another read moved the row first, and still reports its new status', async () => {
-    // Two reads (two tabs, uploader and reviewer, the sweep) resolve the same
-    // in-flight row at once. Only the read whose guarded write moved it may
-    // settle it, or the quarantine is audited and its reviewers told twice.
     makeDbMock({ moved: false })
     const verdict = 'quarantined:{"reasons":[{"kind":"iban"}],"checked":"full"}'
     mockFetch.mockResolvedValue(

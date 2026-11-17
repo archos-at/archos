@@ -1,14 +1,3 @@
-"""The typed quarantine verdict's producer side of ``tests/fixtures/quarantine_verdict_cases.json``.
-
-The ingest job records why the upload screen held a file back as
-``FileProgress.quarantine`` (ADR-0113), and the BFF reads it with ``verdictSchema``
-(``apps/workspace/bff/upload-screening/quarantine.ts``), whose spec reads the
-same file. Here: each verdict round-trips through the model in exactly the
-fixture's shape, screening a case's pages produces exactly its verdict, the
-legacy ``quarantined:`` string is the same JSON, and the job status and the
-collection file list carry it as written.
-"""
-
 import dataclasses
 import json
 from pathlib import Path
@@ -16,9 +5,9 @@ from pathlib import Path
 import pytest
 from knowledge_layer.ingest import QUARANTINED_PREFIX
 from knowledge_layer.ingest import ScreeningRules
+from knowledge_layer.ingest import _file_info_from_job
 from knowledge_layer.ingest import quarantine_error
 from knowledge_layer.ingest import screen_pages
-from knowledge_layer.ingest.adapter import _file_info_from_job
 
 from agent.knowledge.schema import FileProgress
 from agent.knowledge.schema import FileStatus

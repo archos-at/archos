@@ -1,0 +1,9 @@
+---
+operators:
+  - >
+    When the answer check cannot rate an answer, Langfuse now says why: the
+    score confidence-judge-unavailable-reason names timeout, error,
+    unparseable or no reply, and the trace carries the elapsed time, the size
+    of what was sent and whether the reply was cut off. Run
+    task langfuse:provision -- --apply once per environment to create the
+    new score config.

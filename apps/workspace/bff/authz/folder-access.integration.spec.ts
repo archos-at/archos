@@ -29,7 +29,6 @@ const OTHER_ORG = `${ORG}_other`
 const USER = 'user_folders'
 const COLLECTION = `proj_folders_${Date.now()}`
 
-/** A folder's own list as the database holds it: whether everyone reads. Its people are WorkOS's. */
 type OwnList = { everyoneReads: boolean }
 
 describe.skipIf(!url)('read/write folder access against Postgres', () => {
@@ -49,7 +48,6 @@ describe.skipIf(!url)('read/write folder access against Postgres', () => {
   const inTenant = <T>(run: () => Promise<T>, organizationId = ORG): Promise<T> =>
     withTenant({ organizationId, userId: USER }, run)
   const firstId = (rows: Iterable<{ id: string }>): string => String(Array.from(rows)[0]?.id)
-  /** What WorkOS would report for someone holding these folder roles in the project. */
   const holding = (levels: FolderClearance['levels']): FolderClearance => ({ levels, seesEverything: false })
 
   async function insertFolder(name: string, parentId: string | null, path: string, list: OwnList | null) {
@@ -94,10 +92,6 @@ describe.skipIf(!url)('read/write folder access against Postgres', () => {
         `)
       )
     )
-    //   Verwaltung/                inherits
-    //     Verträge/                its own list (in WorkOS: GF write, PL write, BH read)
-    //       Honorare/              its own list (in WorkOS: GF write)
-    //   Statik/                    its own list, everyone reads
     folder.admin = await insertFolder('Verwaltung', null, 'Verwaltung', null)
     folder.contracts = await insertFolder('Verträge', folder.admin, 'Verwaltung/Verträge', { everyoneReads: false })
     folder.fees = await insertFolder('Honorare', folder.contracts, 'Verwaltung/Verträge/Honorare', { everyoneReads: false })
@@ -192,7 +186,6 @@ describe.skipIf(!url)('read/write folder access against Postgres', () => {
   it('takes a custom folder with no grant row (0128 dropped the 1–20 trigger), and still refuses one nobody set', async () => {
     const own = await insertFolder('Eigen', null, 'Eigen', null)
     try {
-      // Made custom with nothing in project_folder_grants: its people are folder roles in WorkOS.
       await inTenant(() =>
         db.execute(sql`
           UPDATE project_folders SET access_mode = 'custom', access_changed_by = ${USER}, access_changed_at = now()
@@ -201,7 +194,6 @@ describe.skipIf(!url)('read/write folder access against Postgres', () => {
       )
       const tree = await accessRepo.listProjectFolderTree(ORG, projectId)
       expect(tree.find((entry) => entry.id === own)).toMatchObject({ accessMode: 'custom', everyoneReads: false })
-      // A custom folder nobody set: the 0111 CHECK stays.
       await expect(
         inTenant(() => db.execute(sql`UPDATE project_folders SET access_changed_by = NULL WHERE id = ${own}::uuid`))
       ).rejects.toThrow()
@@ -261,7 +253,6 @@ describe.skipIf(!url)('read/write folder access against Postgres', () => {
     await inTenant(() =>
       db.execute(sql`UPDATE project_folders SET deleted_at = now(), deleted_by = ${USER} WHERE id = ${officeShelf}::uuid`)
     )
-    // The name is free again for a living sibling.
     const again = await insertFolder('Archiv', null, 'Archiv', null)
     expect(again).not.toBe(officeShelf)
 
@@ -271,16 +262,10 @@ describe.skipIf(!url)('read/write folder access against Postgres', () => {
     const lookup = access.folderTree(tree)
     expect(access.effectiveFolderLevel(lookup, holding({ [officeShelf]: 'read' }), officeShelf)).toBe('read')
     expect(access.effectiveFolderLevel(lookup, access.ANY_MEMBER, officeShelf)).toBe('none')
-    // Hidden from every listing, for everyone.
     expect(access.computeFolderAccess(tree, access.EVERY_FOLDER, COLLECTION).isVisible(officeShelf)).toBe(false)
   })
 })
 
-/**
- * Restricted folders do not hold IFC models (ADR-0087). The unit specs prove
- * the BIM read paths pass the hidden folders on and the guard asks for the
- * count; this proves the two queries that receive them.
- */
 describe.skipIf(!url)('IFC models and restricted folders against Postgres', () => {
   const IFC_ORG = `org_ifc_folders_${Date.now()}`
   let db: ReturnType<typeof import('@/lib/db').getDb>

@@ -1,5 +1,3 @@
-/** Stage B, Grundstück & Widmung: the plot and its zoning. */
-
 import { FOUND_IN } from '../intake-options'
 import type { ProjectIntakeStage } from '../intake-types'
 import { PRODUCT_NAME } from '@/lib/brand'
@@ -11,9 +9,6 @@ export const PLOT_STAGE: ProjectIntakeStage = {
   description:
     'Widmung, Bebauungsplan-Kernset, Standortrisiken und Erschließung. Jede Kennzahl einzeln offen lassbar.',
   questions: [
-    // The Grundbuch's name for the plot and its area: what the location
-    // register asks the Grundbuchauszug for (ticket 31, „Standort-
-    // informationen aus den Unterlagen", `lib/project-intake/location-register.ts`).
     {
       id: 'B0_ez',
       label: 'Einlagezahl und Katastralgemeinde',
@@ -55,8 +50,6 @@ export const PLOT_STAGE: ProjectIntakeStage = {
       foundIn: [FOUND_IN.zoning, FOUND_IN.developmentPlan, FOUND_IN.permit],
     },
     {
-      // v1.0's B1_orig, now unconditionally visible: the original wording
-      // OR the user's own words both land here.
       id: 'B1_text',
       core: true,
       label: 'Widmung im Originalwortlaut oder eigenen Worten',
@@ -80,11 +73,6 @@ export const PLOT_STAGE: ProjectIntakeStage = {
       foundIn: [FOUND_IN.developmentPlan, FOUND_IN.permit, FOUND_IN.buildingDescription],
     },
     {
-      // Spec: unconditional `upload` for B-Plan OR FWP. Ours binds the
-      // `development_plan` role, so it stays behind B2 = ja; the
-      // Flächenwidmungsplan has its own Modul I slot. Same document space
-      // either way (ADR: document_roles), so "dort abgelegte Dokumente hier
-      // als erledigt anzeigen" holds by construction.
       id: 'B2_upl',
       core: true,
       label: 'Bebauungsplan ablegen',
@@ -139,8 +127,6 @@ export const PLOT_STAGE: ProjectIntakeStage = {
       foundIn: [FOUND_IN.developmentPlan, FOUND_IN.siteLayout, FOUND_IN.permit],
     },
     {
-      // Absorbs v1.0's A8 (Schutzzone / Altstadterhaltung) — part of the
-      // B-Plan-Kernset now.
       id: 'B3_bes',
       label: 'Besondere Bestimmungen inkl. Schutzzone',
       type: 'text',
@@ -163,10 +149,6 @@ export const PLOT_STAGE: ProjectIntakeStage = {
       foundIn: [FOUND_IN.developmentPlan, FOUND_IN.permit],
     },
     {
-      // v1.0's B4 + B5 (Altlast) + B9 (Baumbestand) + B10 (Schutzgebiet)
-      // as ONE multi-select. The storage key stays `hazard_zones`: the old
-      // values are a strict subset of the new vocabulary, so every stored
-      // answer remains valid, and a key rename would strand them.
       id: 'B4',
       label: 'Standortrisiken & Schutzgüter',
       type: 'multi_select',

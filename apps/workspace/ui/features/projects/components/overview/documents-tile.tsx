@@ -9,7 +9,6 @@ import { settingsCopy } from '@/i18n/namespaces/settings'
 import { formatBytes } from '@/lib/format'
 import type { OverviewDocument } from '../../types'
 
-/** How many documents, how much they weigh, and the newest three. */
 export function DocumentsTile({
   documentCount,
   totalFileSize,

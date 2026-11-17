@@ -2,16 +2,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * `public/sw.js`, the service worker (ADR-0112), as plain logic and as a
- * registered worker.
- *
- * The first half loads the file as a module and tests its pure functions. The
- * second half runs the whole file in a sandbox that stands in for the worker's
- * global scope, fires its events, and checks what it asks the browser to do:
- * which is also how "no fetch handler" and "no cache" are held, as facts about
- * the file rather than intentions in a comment.
- */
 
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
@@ -19,10 +9,13 @@ import { join } from 'node:path'
 import { runInNewContext } from 'node:vm'
 import { describe, expect, it, vi } from 'vitest'
 import { PRODUCT_NAME } from '@/lib/brand'
+import { LEGACY_WORKER_MESSAGES } from './legacy-worker-names'
 
 const SW_PATH = join(process.cwd(), 'public', 'sw.js')
 const SOURCE = readFileSync(SW_PATH, 'utf8')
 const sw = createRequire(import.meta.url)(SW_PATH) as {
+  INBOX_TAG: string
+  LEGACY_NAMES: { close: string; navigate: string; tag: string }
   MESSAGE_CLOSE: string
   MESSAGE_NAVIGATE: string
   notificationOptions: (m: ReturnType<typeof parse>) => Record<string, unknown>
@@ -33,7 +26,7 @@ const sw = createRequire(import.meta.url)(SW_PATH) as {
   urlBase64ToBytes: (value: string) => Uint8Array
 }
 const parse = sw.parseMessage
-const ORIGIN = 'https://app.piloti.test'
+const ORIGIN = 'https://app.example.test'
 
 describe('the payload the server sends', () => {
   it('becomes a notification with its words, address and tag', () => {
@@ -55,6 +48,23 @@ describe('the payload the server sends', () => {
       expect(message.title).toBe(PRODUCT_NAME)
       expect(message.url).toBe('/app/inbox')
     }
+  })
+
+  it('is shown under the inbox tag when the payload names none', () => {
+    expect(sw.INBOX_TAG).toBe('inbox')
+    expect(parse(JSON.stringify({ title: 'x' })).tag).toBe('inbox')
+  })
+})
+
+describe('the names the worker and the page both carry', () => {
+  it('agrees with the page-side legacy module on the old message names', () => {
+    expect(sw.LEGACY_NAMES.close).toBe(LEGACY_WORKER_MESSAGES.closeNotifications)
+    expect(sw.LEGACY_NAMES.navigate).toBe(LEGACY_WORKER_MESSAGES.navigate)
+  })
+
+  it('sends and reads the new names', () => {
+    expect(sw.MESSAGE_CLOSE).toBe('close-notifications')
+    expect(sw.MESSAGE_NAVIGATE).toBe('navigate')
   })
 })
 
@@ -97,6 +107,12 @@ describe('closing notifications the page says are no longer news', () => {
     expect(sw.notificationsToClose(shown, {})).toEqual([])
     expect(sw.notificationsToClose(shown, null)).toEqual([])
   })
+
+  it('closes the inbox tag under both its names, so a notification an older worker showed still closes', () => {
+    const inbox = [{ tag: 'inbox' }, { tag: sw.LEGACY_NAMES.tag }, { tag: 'other' }]
+    expect(sw.notificationsToClose(inbox, { tags: ['inbox'] })).toEqual([inbox[0], inbox[1]])
+    expect(sw.notificationsToClose(inbox, { tags: [sw.LEGACY_NAMES.tag] })).toEqual([inbox[0], inbox[1]])
+  })
 })
 
 describe('the application server key', () => {
@@ -106,7 +122,6 @@ describe('the application server key', () => {
   })
 })
 
-/** The worker's global scope, as far as sw.js touches it. */
 function boot(options: { windows?: unknown[]; fetchImpl?: (url: string, init?: Record<string, unknown>) => Promise<unknown> } = {}) {
   const listeners: Record<string, (event: Record<string, unknown>) => void> = {}
   const shown: Array<{ title: string; options: Record<string, unknown> }> = []
@@ -252,7 +267,8 @@ describe('the registered worker', () => {
     }
     const { fire } = boot({ windows: [client] })
     await fire('notificationclick', { notification: { close: vi.fn(), data: { url: '/app/inbox' } } })
-    expect(client.postMessage).toHaveBeenCalledWith({ type: 'piloti:navigate', url: '/app/inbox' })
+    expect(client.postMessage).toHaveBeenCalledWith({ type: 'navigate', url: '/app/inbox' })
+    expect(client.postMessage).toHaveBeenCalledWith({ type: LEGACY_WORKER_MESSAGES.navigate, url: '/app/inbox' })
   })
 
   it('opens a window when none is open, and never to a foreign address', async () => {
@@ -262,14 +278,22 @@ describe('the registered worker', () => {
     expect(opened).toEqual([`${ORIGIN}/app/inbox`, `${ORIGIN}/app/inbox`])
   })
 
-  it('closes the notifications the page names', async () => {
+  it.each([
+    ['the new message', 'close-notifications'],
+    ['the old message, from a page one release old', LEGACY_WORKER_MESSAGES.closeNotifications],
+  ])('closes the notifications the page names, from %s', async (_label, type) => {
     const { fire, notifications } = boot()
     notifications.push({ tag: 'a', close: vi.fn() }, { tag: 'b', close: vi.fn() })
-    await fire('message', { data: { type: 'piloti:close-notifications', tags: ['a'] } })
+    await fire('message', { data: { type, tags: ['a'] } })
     expect(notifications[0]?.close).toHaveBeenCalled()
     expect(notifications[1]?.close).not.toHaveBeenCalled()
+  })
+
+  it('ignores a message it does not know', async () => {
+    const { fire, notifications } = boot()
+    notifications.push({ tag: 'b', close: vi.fn() })
     await fire('message', { data: { type: 'something-else', all: true } })
-    expect(notifications[1]?.close).not.toHaveBeenCalled()
+    expect(notifications[0]?.close).not.toHaveBeenCalled()
   })
 
   it('subscribes again and tells the server which address replaced which', async () => {
@@ -309,8 +333,6 @@ describe('the registered worker', () => {
     expect(created.unsubscribe).toHaveBeenCalled()
   })
 
-  // Without the old address nothing proves the browser was the signed-in
-  // person's device; posting it would hand whoever is signed in the browser.
   it('claims nothing for a change that names no old subscription, and drops the new one', async () => {
     const fresh = { toJSON: () => ({ endpoint: 'https://fcm.googleapis.com/fcm/send/fresh', keys: {} }), unsubscribe: vi.fn(async () => true) }
     const harness = boot({

@@ -1,19 +1,3 @@
-"""A turn whose transcript still carries a call to a retired look tool runs (ADR-0128, plan risk R1).
-
-The previous turn's tool calls and results stay in the transcript for one turn
-(``history.prune_tool_results``), so the first follow-up after the deploy that
-retired ``view_knowledge_image`` and ``canvas__look`` sends the model a call to
-a tool that is no longer bound. Through the COMPILED GRAPH: the old call and its
-result reach the model as a pair (a call without its result is what a provider
-refuses), nothing on this side re-runs, drops or rejects it, and the turn looks
-with ``look`` and answers.
-
-What this cannot show is whether every provider accepts a historical call to an
-undeclared tool, so ``history.replay_retired_look_names`` does not ask: it shows
-the model the old calls (and their results) as ``look``, arguments renamed, for
-one release. The first test runs it through the compiled graph; the rest pin the mapping.
-"""
-
 from __future__ import annotations
 
 from unittest.mock import AsyncMock
@@ -26,27 +10,25 @@ from langchain_core.messages import HumanMessage
 from langchain_core.messages import ToolMessage
 from langchain_core.tools import tool
 
-from agent.agents.piloti.agent import ChatAgent
-from agent.agents.piloti.history import prune_tool_results
-from agent.agents.piloti.history import replay_retired_look_names
-from agent.agents.piloti.models import ResearchAgentState
 from agent.citations.entries import SourceEntry
 from agent.citations.registry import SourceRegistry
 from agent.common import LLMProvider
 from agent.common import turn_status
+from agent.core.agent import ChatAgent
+from agent.core.history import prune_tool_results
+from agent.core.history import replay_retired_look_names
+from agent.core.models import ResearchAgentState
 
 RAN: list[str] = []
 
-#: What each retired tool was called with in a stored turn.
 RETIRED_CALLS = {
     "view_knowledge_image": {"file_name": "Grundriss_EG.pdf", "page_number": 2, "collection": "proj_1"},
     "canvas__look": {"page": 2, "region": [0.1, 0.1, 0.3, 0.2]},
 }
 
 
-@tool("look")
+@tool("look", description="Look at a page of a document.")
 def look(document: str = "", page: int = 1) -> str:
-    """Look at a page of a document."""
     RAN.append(f"look:{document}:{page}")
     return f"Seite {page}: Tür 1,00 m"
 
@@ -62,11 +44,10 @@ def _clean_slate():
 
 @pytest.fixture(autouse=True)
 def _bypass_citation_pipeline():
-    """The answer pipeline is not what these tests are about."""
     with (
         patch.object(SourceRegistry, "all_sources", return_value=[SourceEntry(url="https://example.com")]),
-        patch("agent.agents.piloti.answer_pipeline.verify_citations") as verify,
-        patch("agent.agents.piloti.answer_pipeline.sanitize_report") as sanitize,
+        patch("agent.core.answer_pipeline.verify_citations") as verify,
+        patch("agent.core.answer_pipeline.sanitize_report") as sanitize,
     ):
         verify.side_effect = lambda content, reg, reference_sources=None, **_: MagicMock(
             verified_report=content, removed_citations=[]
@@ -76,7 +57,6 @@ def _bypass_citation_pipeline():
 
 
 def _previous_turn(retired: str) -> list:
-    """A stored turn that looked with ``retired``: the question, the call, its image result, the answer."""
     return [
         HumanMessage(content="Wie breit ist die Tür im EG?"),
         AIMessage(content="", tool_calls=[{"name": retired, "args": RETIRED_CALLS[retired], "id": "old-1"}]),
@@ -109,7 +89,7 @@ def _agent(model: Scripted) -> tuple[ChatAgent, MagicMock]:
     llm.ainvoke = AsyncMock(side_effect=model.respond)
     provider = MagicMock(spec=LLMProvider)
     provider.get = MagicMock(return_value=llm)
-    return ChatAgent(llm_provider=provider, tools=[look], system_prompt="Du bist Piloti."), llm
+    return ChatAgent(llm_provider=provider, tools=[look], system_prompt="Du bist der Agent."), llm
 
 
 @pytest.mark.parametrize("retired", sorted(RETIRED_CALLS))
@@ -123,14 +103,10 @@ async def test_a_follow_up_after_a_retired_look_looks_with_look_and_answers(reti
 
     result = await agent.run(ResearchAgentState(messages=history))
 
-    # The turn looked with the one tool there is, and answered.
     assert RAN == ["look:Grundriss_OG.pdf:1"]
     assert result.messages[-1].content == "Im OG ist die Tür ebenfalls 1,00 m breit."
-    # Only `look` is bound; the retired name is never offered again.
     bound = [t.name for call in llm.bind_tools.call_args_list for t in call.args[0]]
     assert retired not in bound and "look" in bound
-    # Every request carries the old call WITH its result, both under the name that is bound now:
-    # a call without a result, or to an undeclared tool, is what a provider refuses.
     for request in model.requests:
         old = [c for m in request if isinstance(m, AIMessage) for c in m.tool_calls if c["id"] == "old-1"]
         results = [m for m in request if isinstance(m, ToolMessage) and m.tool_call_id == "old-1"]
@@ -141,7 +117,6 @@ async def test_a_follow_up_after_a_retired_look_looks_with_look_and_answers(reti
 
 @pytest.mark.parametrize("retired", sorted(RETIRED_CALLS))
 def test_one_turn_later_the_retired_call_is_pruned_with_its_result(retired: str) -> None:
-    """The transcript forgets the old name by itself after one more turn: nothing stored carries it for long."""
     later = [
         *_previous_turn(retired),
         HumanMessage(content="Und im OG?"),
@@ -162,10 +137,8 @@ def test_the_retired_call_is_replayed_as_look_with_its_arguments_renamed() -> No
 
     call = replayed[1].tool_calls[0]
     assert call["name"] == "look"
-    # file_name -> document, page_number -> page; look takes no collection.
     assert call["args"] == {"document": "Grundriss_EG.pdf", "page": 2}
     assert replayed[2].name == "look" and replayed[2].tool_call_id == "old-1"
-    # The stored transcript is not edited.
     assert old[1].tool_calls[0]["name"] == "view_knowledge_image"
     assert old[1].tool_calls[0]["args"]["file_name"] == "Grundriss_EG.pdf"
 

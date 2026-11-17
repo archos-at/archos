@@ -1,10 +1,3 @@
-"""The lead-time meter attributes each develop push to the deploy that shipped it.
-
-`ci/lead_time.py` is the number a CI change is judged by, so it must count what
-a person waited: from their merge to staging running it, including the minutes
-their run sat queued or was dropped in favour of a newer one.
-"""
-
 from __future__ import annotations
 
 import importlib.util
@@ -61,7 +54,6 @@ def test_a_push_is_measured_from_its_merge_to_its_green_deploy_in_stages(mod):
 
 
 def test_a_dropped_run_counts_until_the_newer_commits_deploy(mod):
-    # b's run was cancelled while queued; c's run covered it and deployed.
     pushes = [ci("b", 1, 1, "cancelled"), ci("c", 3, 10)]
 
     samples, _ = mod.merge_to_staging(pushes, [deploy("c", 10, 15)])
@@ -111,7 +103,6 @@ def test_percentiles_of_nothing_and_of_one(mod):
 
 
 def test_a_push_is_not_credited_to_an_older_commits_deploy(mod):
-    # b lands while a's CI runs; a's deploy finishes after b's push but ships a.
     pushes = [ci("a", 0, 8), ci("b", 2, 12)]
     deploys = [deploy("a", 8, 14), deploy("b", 12, 18)]
 

@@ -1,24 +1,5 @@
 #!/usr/bin/env python3
 
-"""Render the processor page's tables and the DPA annex from the data-flow register.
-
-The register (``configs/subprocessors/*.yaml``, checked by
-``scripts/check_data_flow_register.py``) is the one source. This writes:
-
-- ``apps/workspace/bff/legal/content/subprocessors.generated.ts``: the tables
-  and lists of the public page ``/legal/subprocessors`` in German and English,
-  which ``de.ts`` and ``en.ts`` place between their hand-written paragraphs;
-- ``docs/compliance/dpa-subprocessor-annex.md``: the annex of the DPA (AVV),
-  with what the page leaves out: the contract, the data classes and purposes
-  in the W3C Data Privacy Vocabulary (DPV), and deletion at contract end.
-
-Run with::
-
-    .venv/bin/python scripts/generate_subprocessor_pages.py
-
-The ``data-flow-register`` pre-commit hook runs it, and
-``tests/test_data_flow_register.py`` fails a committed file that differs.
-"""
 
 from __future__ import annotations
 
@@ -41,14 +22,12 @@ TS_PATH = REPO_ROOT / "apps" / "workspace" / "bff" / "legal" / "content" / "subp
 ANNEX_PATH = REPO_ROOT / "docs" / "compliance" / "dpa-subprocessor-annex.md"
 LANGS = ("de", "en")
 
-#: The page's column heads, per language.
 PROCESSOR_HEADERS = {
     "de": ["Dienst", "Zweck", "Verarbeitete Daten", "Standort", "Übermittlungsgrundlage", "Erforderlich?"],
     "en": ["Service", "Purpose", "Data processed", "Location", "Transfer safeguard", "Required?"],
 }
 SELF_HOSTED_HEADERS = {"de": ["Komponente", "Zweck", "Gespeicherte Daten"], "en": ["Component", "Purpose", "Data held"]}
 
-#: What each transfer value means, in the words of the privacy policy's section 5.
 TRANSFER_TEXT = {
     "eea": {"de": "Keine Drittlandübermittlung (EU/EWR)", "en": "No third-country transfer (EU/EEA)"},
     "eu_storage_us_access": {
@@ -64,7 +43,6 @@ TRANSFER_TEXT = {
         "certified",
     },
 }
-#: DPV (https://w3id.org/dpv) terms for the annex: the standard vocabulary, not ours.
 DPV_PURPOSE = {
     "service_provision": "dpv:ServiceProvision",
     "quality_evaluation": "dpv:ImproveExistingProductsAndServices",
@@ -87,7 +65,6 @@ def _copy(row: dict, name: str, lang: str) -> str:
 
 
 def _source_in_use(source: dict) -> bool:
-    """A public source the page lists: one an office's work fetches from."""
     return source.get("status", "active") == "active"
 
 
@@ -101,7 +78,6 @@ def _public_source_line(source: dict) -> str:
 
 
 def page_tables(register: Register, lang: str) -> dict:
-    """Every generated part of the page in one language."""
     listed = [row for row in register.rows if row["status"] in LISTED]
     latent = [row for row in register.rows if row["status"] == "latent"]
     return {
@@ -135,7 +111,6 @@ def page_tables(register: Register, lang: str) -> dict:
 
 
 def render_ts(register: Register) -> str:
-    """The TypeScript module: data only, `{productName}` filled in by its readers."""
     data = {lang: page_tables(register, lang) for lang in LANGS}
     body = json.dumps(data, ensure_ascii=False, indent=2)
     return (
@@ -157,7 +132,6 @@ def _cell(text: str) -> str:
 
 
 def _transfer_basis(row: dict) -> str:
-    """The DPV transfer basis, but only where a contract exists to carry it: SCCs are a contract."""
     if row["transfer"] == "eea" or row["contract"] in {"dpa", "terms"}:
         return DPV_TRANSFER[row["transfer"]]
     return "**basis to confirm** (no contract on record)"
@@ -205,12 +179,10 @@ def _flow_rows(register: Register) -> list[str]:
     return lines
 
 
-#: What `agreement` may hold: the contracting entity and where its DPA is, as the vendor publishes them.
 AGREEMENT_FIELDS = frozenset({"entity", "dpa", "dpa_url", "subprocessors", "note", "checked", "sources"})
 
 
 def agreement_errors(register: Register) -> list[str]:
-    """`agreement` is optional; where present it names the entity, the DPA and the day someone read them."""
     errors = []
     for row in register.rows:
         agreement = row.get("agreement") or {}
@@ -229,7 +201,6 @@ def _link(url: str | None) -> str:
 
 
 def _agreement_rows(register: Register) -> list[str]:
-    """Who the contract is with and where its DPA is, for each listed row that records it."""
     lines = [
         "| Recipient | Contracting entity | DPA: how it is concluded | DPA text | Its subprocessors | Note | Checked |",
         "|---|---|---|---|---|---|---|",
@@ -251,7 +222,6 @@ def _toolchain(register: Register) -> list[str]:
 
 
 def render_annex(register: Register) -> str:
-    """The DPA annex in Markdown."""
     unconfirmed = [_cell(row["name"]) for row in register.rows if row["status"] in LISTED and row["contract"] != "dpa"]
     parts = [
         "<!-- AUTO-GENERATED from configs/subprocessors/*.yaml by scripts/generate_subprocessor_pages.py. "
@@ -291,7 +261,6 @@ def render_annex(register: Register) -> str:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """Validate the register, then write both files."""
     argparse.ArgumentParser(description="Render the processor page and the DPA annex from the register.").parse_args(
         argv
     )

@@ -30,7 +30,7 @@ ws://<host>/websocket?v=2&projectId=<uuid>&conversationId=<session_id>
 
 - **Browser:** same origin; `server.js` proxies to the agent tier.
 - **`v=2` is required.** The server closes any other version with **`4426`**
-  (`CLOSE_CLIENT_OUTDATED`); the client turns that into "Piloti was updated,
+  (`CLOSE_CLIENT_OUTDATED`); the client turns that into "{productName} was updated,
   reload". An older bundle gets its ordinary connection-failed banner: nothing
   is said to it in its own dialect.
 - **The server speaks first: `hello`.** Once the version and the caller have
@@ -251,7 +251,7 @@ narration.
 | `routing_decision` | `"meta" \| "shallow" \| "deep" \| "error"` | Which path the turn took, OBSERVED after the answer, never decided up front (ADR-0052): `meta` when the agent consulted no data source and gave no self-assessment (a direct reply), `shallow` otherwise, `deep` on a hand-off to deep research, `error` on a failed turn. Kept on the wire for the post-answer stages and transparency; there is no "Warum dieser Weg?" line any more because there is no upfront decision to attribute. |
 | `escalation_reason` | `string` | Present only when a shallow→deep escalation happened this turn: the model's own one-clause reason from its answer envelope. Rendered as `Eskaliert zur Tiefenrecherche: <reason>` in the thinking panel and above the deep-research banner. |
 | `answer_confidence_reason` | `string` (≤300 chars) | The model's own one-clause justification for its self-assessed confidence, parsed from the `[CONFIDENCE:<level> \| <reason>]` marker. Shown verbatim in the ConfidenceChip tooltip under "Assistant's reason". |
-| `answer_confidence_capped_reason` | `"ungrounded" \| "quote_unverified" \| "normative_claim_uncited" \| "measurement_only" \| "citation_fallback"` | Present only when confidence was downgraded by the deterministic overconfidence guard. `ungrounded` — no citation grounding and nothing measured. `quote_unverified` — a quoted span matched no retrieved passage. `normative_claim_uncited` — the answer WAS grounded in an IFC measurement but also asserts something normative with no verified citation, so it is held at "low" rather than riding out on the measurement's evidence. `measurement_only` — measured and purely descriptive, so a self-reported "high" was reduced to "medium" (measurement grounding never reaches "high"). `citation_fallback` — nothing the model cited survived verification and the grounding is the one source the agent attached from the cumulative session registry, which may predate this turn; it lifts the answer no further than a measurement does. Adds a sentence to the ConfidenceChip tooltip. |
+| `answer_confidence_capped_reason` | `"ungrounded" \| "quote_unverified" \| "law_unsettled" \| "open_point" \| "normative_claim_uncited" \| "measurement_only" \| "citation_fallback"` | Present only when a cap lowered the answer check's level (the quote gate, the law gate, or the answer's own ceiling); clients read an unknown value as absent (`x-unknown-as-null`). `ungrounded` — no citation grounding and nothing measured. `quote_unverified` — a quoted span matched no retrieved passage. `law_unsettled` — the answer rests on building law the turn's records do not settle (at most "medium"). `open_point` — the answer's own words hold it lower: an open point its main point depends on, in its prose or its confidence reason as the answer check read them (at most "medium"), or its own lower self-report (at most that level). `normative_claim_uncited` — the answer WAS grounded in an IFC measurement but also asserts something normative with no verified citation, so it is held at "low" rather than riding out on the measurement's evidence. `measurement_only` — measured and purely descriptive, so a self-reported "high" was reduced to "medium" (measurement grounding never reaches "high"). `citation_fallback` — nothing the model cited survived verification and the grounding is the one source the agent attached from the cumulative session registry, which may predate this turn; it lifts the answer no further than a measurement does. Adds a sentence to the ConfidenceChip tooltip. |
 | `citations_removed` | `{ count: number, reasons: string[] }` | Present only when citation verification removed ≥1 citation. Renders a muted note under the sources row (reasons in a tooltip). |
 | `read_sources` | `Array<{ document_id?, citation_key?, file_name?, page?, collection?, shelf?, kind?, lane?, lane_label?, title?, url? }>` | Retrieved-but-uncited documents this turn: identity + placement, NO prose. Renders the collapsed "Gelesen, nicht zitiert" disclosure inside the answer details (muted document chips, capped at eight with an overflow count). Absent when everything retrieved was cited. |
 | `job_admission_rejected` | `boolean` (default `false`) | Marks the answer text as a queue-rejection notice (NOT a research answer). The client renders a warning banner (error code `research.queue_full`) and leaves the composer unlocked. |
@@ -261,7 +261,7 @@ narration.
 | `research_truncated` | `boolean` (default `false`) | The turn's research was cut off at its budget ceiling. The answer says so, and the mark is persisted so a reopened thread keeps saying it. |
 | `retrieval_ledger` | `RetrievalLedgerEntry[]` | The backend's own account of this turn's retrieval rounds: per announced round what it was asked (query, tools), what it returned, and which documents it did work on (`new_docs`); `hits`/`documents` are tallies over `docs`. Absent when no round was announced. One `docs` entry is one PASSAGE — a document (`name`, `title`, `shelf`) at a page or Punkt (`detail`) — carrying `repeat: boolean`: true when an earlier round already returned that exact (document, `detail`) pair, or when an earlier round OPENED that document with a locator tool (`read_passage`). A search that merely ranked a document does not make the later open of it a repeat. `new_docs` is the document-level derivation of the same marks: a document is listed when at least one of its passages here is not a repeat. `repeat` is absent on turns stored before the backend stamped it, and the renderer then falls back to `new_docs`. The Herleitung spine draws each round's fan from it, one card per document: the pages or Punkte that round reached, listed under the card, „bereits abgerufen" on the passages it fetched a second time, and an „Öffnen" step kind for a round that only opened passages. Persisted into message metadata/provenance so reloads read the same account. Nothing retrieves outside it: the answer repair corrects a quote against a passage already in this turn's registry and retrieves nothing (ADR-0067). |
 | `quote_stamps` | `Array<{ text, status: "verbatim" \| "not_found" \| "unchecked", number?, title?, file_name?, page?, punkt?, url? }>` | The server's check of each quote line `> „…“ [N]` of the answer, one entry per line in document order (`common/quote_stamps.py`), against the passages the prose's own quote check reads. `verbatim` names the passage that holds the wording and its `[N]` (absent when the passage was read, not cited); `not_found` means no retrieved passage holds it; `unchecked` means nothing to check against, or a span under 20 characters. `text` is the wording between the quote marks as the final text writes it. The excerpt renders „Wortlaut belegt [N]" and „Stelle öffnen" from it, never from the model. Absent when the answer quotes nothing. Persisted into message metadata under the same key. |
-| `confidence_check` | `{ status: "judged" \| "unavailable", level?: "low" \| "medium" \| "high", findings?: Array<{ statement, problem: "unbacked" \| "contradicted", reason, source }> }` | What the answer check found (`common/claim_judge.py`, ADR-0139): one model call grading the final answer against everything the turn registered. `judged`: `answer_confidence` is its `level` under the quote gate, and `findings` (at most eight, absent when none) names the statements the answer relies on that the evidence does not back or contradicts, with the evidence label each was checked against (`none` when nothing addressed it). `unavailable`: the check could not run, `answer_confidence` is absent, and the chip says „Belegprüfung nicht verfügbar". Absent when the answer graded nothing. Persisted into message provenance as `confidenceCheck`. |
+| `confidence_check` | `{ status: "judged" \| "unavailable", level?: "low" \| "medium" \| "high", findings?: Array<{ statement, problem: "unbacked" \| "contradicted", reason, source }> }` | What the answer check found (`common/claim_judge.py`, ADR-0139): one model call grading the final answer against everything the turn registered. `judged`: `answer_confidence` is its `level` under the quote gate, and `findings` (at most eight, absent when none) names the statements the answer relies on that the evidence does not back or contradicts, with the evidence label each was checked against (`none` when nothing addressed it). `unavailable`: the check could not run, `answer_confidence` is absent, and the chip says „Belegprüfung nicht verfügbar"; `unavailable_reason: { cause: "no_judge" \| "timeout" \| "error" \| "unparseable" \| "no_reply", error_type?, finish_reason?, truncated?, elapsed_ms?, evidence_chars?, answer_chars? }` says why (`truncated`: the reply stopped at the output budget), for operators and the eval, never shown. Absent when the answer graded nothing. Persisted into message provenance as `confidenceCheck`. |
 | `claim_stamps` | `Array<{ text, provenance, claim_type, load_bearing, numbers?, operation?, unmatched? }>` | No longer sent. Turns stored under rule 2 (ADR-0125) carry it in their metadata, and the chip renders them with it as before. |
 | `answer_confidence_version` | `1 \| 2` | Which rule computed `answer_confidence`: `2` a checked answer (ADR-0139; told apart from a stored per-sentence turn of ADR-0125 by `confidence_check`), `1` the answer-level floors. Absent when no level is surfaced. |
 | `lookup_found_nothing` | `boolean` (default `false`) | A search ran and found nothing; the answer is shown with a note that it rests on general knowledge. A `ruling` in that case is refused instead. |
@@ -320,7 +320,11 @@ ends, each pinned by a test in `apps/agent-host/tests/test_chat_socket.py`:
   `RUN_ERROR{workflow_error, details: "turn_deadline_exceeded: …"}`.
 - **A bounded teardown.** A Stop waits at most `PRODUCER_TEARDOWN_SECONDS`
   (`workflow_stream`, 10 s) for the workflow's `finally` blocks, then ends the
-  turn without them.
+  turn without them, and without its admission slots: whatever the workflow
+  still holds goes back then (`turn_admission.TurnSlots`), so a teardown that
+  hangs does not keep an organization's slot. A draining replica waits that
+  bound plus `DRAIN_CANCEL_MARGIN_SECONDS` (5 s) for the turns it cancelled,
+  so their terminals and outcome notices go out before it exits.
 - **No hidden queue.** The chat runs with the runtime's per-replica semaphore off; the
   one concurrency gate is ADR-0040's admission (`MAX_ACTIVE_TURNS`), which
   refuses a turn at once with a retry hint rather than holding it after
@@ -434,7 +438,7 @@ Absence of every field is the unscoped project turn: the signed header stands
 as-is.
 
 `focus_file_name` is not only a retrieval hint. It is lifted onto
-`ConversationState` and rendered into the answering prompt (`piloti.j2`),
+`ConversationState` and rendered into the answering prompt (`system.j2`),
 because a turn that says "fass zusammen" carries its subject in the composer bar
 and nowhere in its text: with retrieval scoped correctly but the model told
 nothing, the answer was "which document do you mean?" over an open PDF. The
@@ -461,8 +465,8 @@ version nobody has published there are no chunks to prefer.
 
 Only a published version reaches the retrieval index (ADR-0054), so a draft has
 no chunks, the focus filter matches nothing, and it falls open to the whole
-corpus (`packages/knowledge-layer/src/register.py`) — the reader asks about the
-Befund Piloti filed a minute ago and gets an answer sourced from everything
+corpus (`packages/knowledge-layer/src/knowledge_layer/register.py`) — the reader asks about the
+Befund the agent filed a minute ago and gets an answer sourced from everything
 except that Befund. Told which version the subject is, the backend reads that
 version's own bytes through
 `GET /api/internal/document-versions/[versionId]/content` and writes them into
@@ -519,7 +523,7 @@ the server's `hello`, sends client messages, reconnects with jittered backoff an
 an auth refresh before each attempt, and sends `attach` for every open turn once
 the hello has arrived. Every event is parsed with `parseWireEvent`
 (`adapters/api/wire-v2.ts`) and folded by `foldTurnEvent`
-(`features/chat/lib/turn-fold.ts`), the one interpretation of the wire: the live
+(`bff/turns/turn-fold.ts`), the one interpretation of the wire: the live
 socket, the replay after `attach` and the spectator stream all use it. Design:
 [`design/chat-wire-v2.md`](../design/chat-wire-v2.md) §e.
 
@@ -528,9 +532,9 @@ clock, and ends visibly:
 
 | The server… | The client | The reader sees |
 |---|---|---|
-| opens and says nothing for 5 s (`HELLO_TIMEOUT_MS`), or opens with anything but a v2 `hello` | drops the socket and tries again on the ladder; when it is spent the status is `incompatible` | `connection.server_incompatible` („Piloti ist gerade nicht erreichbar"), not "check your network". The health poll does not clear it, since an old agent is healthy; the next question tries a new socket, and its hello clears it |
-| sends, after the hello, a frame this bundle cannot parse | closes the socket: `outdated`, as for `4426` | „Piloti wurde aktualisiert", reload. A turn whose next `seq` cannot be read could never fold its terminal. Additive drift is not this: an unknown key in a server-to-client frame is stripped, and a v2 turn event of an unknown `type`, step `kind` or `CUSTOM` name is folded as a no-op that keeps `seq` continuous (`parseWireEvent`, [chat-wire-v2 §a Compatibility](../design/chat-wire-v2.md#compatibility-additive-changes-are-safe)). A renamed, retyped or newly required field still lands here |
-| does not answer a `user_message` within 15 s (`ACK_TIMEOUT_MS`): no `RUN_STARTED`, no `rejected`, no frame of the turn | reopens the socket, which sends the question again; a second miss ends the turn | an `agent.no_response` warning card („Keine Rückmeldung": Piloti did not react to the question, nor to a second try) with „Erneut versuchen", after the server was asked once for a finished answer; the Herleitung goes from live to „Fehlgeschlagen" |
+| opens and says nothing for 5 s (`HELLO_TIMEOUT_MS`), or opens with anything but a v2 `hello` | drops the socket and tries again on the ladder; when it is spent the status is `incompatible` | `connection.server_incompatible` („{productName} ist gerade nicht erreichbar"), not "check your network". The health poll does not clear it, since an old agent is healthy; the next question tries a new socket, and its hello clears it |
+| sends, after the hello, a frame this bundle cannot parse | closes the socket: `outdated`, as for `4426` | „{productName} wurde aktualisiert", reload. A turn whose next `seq` cannot be read could never fold its terminal. Additive drift is not this: an unknown key in a server-to-client frame is stripped, and a v2 turn event of an unknown `type`, step `kind` or `CUSTOM` name is folded as a no-op that keeps `seq` continuous (`parseWireEvent`, [chat-wire-v2 §a Compatibility](../design/chat-wire-v2.md#compatibility-additive-changes-are-safe)). A renamed, retyped or newly required field still lands here |
+| does not answer a `user_message` within 15 s (`ACK_TIMEOUT_MS`): no `RUN_STARTED`, no `rejected`, no frame of the turn | reopens the socket, which sends the question again; a second miss ends the turn | an `agent.no_response` warning card („Keine Rückmeldung": the agent did not react to the question, nor to a second try) with „Erneut versuchen", after the server was asked once for a finished answer; the Herleitung goes from live to „Fehlgeschlagen" |
 | lets a running turn go silent for three beats | drops and reopens the socket, re-attaching the turn; a second silent socket in a row with nothing of the turn folded ends it | the answer, if the server finished it; otherwise `agent.response_interrupted` |
 | refuses an `attach` or a `cancel_turn` as `invalid_message` or `conversation_mismatch` | treats it as `turn_not_found`: nothing is following the turn any more | as for `turn_not_found` |
 | answers a `cancel_turn` with `turn_not_found` because the answer finished before the Stop reached it | stores the answer as it stood at the press and asks the BFF to cut the server's whole row to it (`keepStoppedAnswer`, or `stoppedLate` when the terminal crossed the Stop; `POST …/messages/{id}/stopped`, [`design/chat-wire-v2.md`](../design/chat-wire-v2.md) §c) | the answer they stopped on, after a reload too |
@@ -606,7 +610,7 @@ what it did before the canvas could ask.
 | `focus_region` | `{page, x, y, w, h, annotation_id?}` | A box a person drew on a page of the document the question is about. `page` counts from 1; `x`, `y`, `w`, `h` are shares of the page **as shown** (its rotation applied), origin top left, the frame an Anmerkung's region uses: `0 ≤ x, y ≤ 1`, `0 < w, h ≤ 1`, `x + w ≤ 1` and `y + h ≤ 1` (a rounding slack of 1e-6 is allowed; the JSON Schema cannot state the sums, so the server's model does and refuses the message). `annotation_id` names the Anmerkung the box is the region of, when the question was asked in its thread. |
 | `reply_in_thread` | `boolean` | The question was asked in the thread of `focus_region.annotation_id`. Without an `annotation_id` it means nothing. |
 
-What the turn does with them (`turn/payload.py`, `agents/piloti/prompt.py`):
+What the turn does with them (`turn/payload.py`, `core/prompt.py`):
 the system prompt gains a „Fokusbereich“ section naming the document, page and
 box in words, and telling the model to look at exactly that crop
 (`look` with `region=[x, y, w, h]`) before it answers. With
@@ -620,12 +624,12 @@ no document. Both fields are on the turn's trace as `turn_surface`
 
 Because `accepts` is itself withheld while `WIRE_V2_ADDITIVE_FIELDS` is
 off, a page sends neither field with that flag off. It is on by default; `off`
-is the rollback, and with it off a canvas question reaches Piloti without its
+is the rollback, and with it off a canvas question reaches the agent without its
 box and no reply lands in its thread.
 
 ### Steering a running turn (`steer`)
 
-What a person types while Piloti works on their own question goes into that
+What a person types while the agent works on their own question goes into that
 turn, not into a new one (`common/steering.py`, the steering research of
 2026-10-13):
 
@@ -651,14 +655,14 @@ turn, not into a new one (`common/steering.py`, the steering research of
   or was refused) is asked as the next question by the asker's client once the
   terminal has arrived, unless the asker stopped the turn.
 - **Where it is typed.** The chat composer, while the asker's own turn runs
-  and the hello offers `steer`: the placeholder says „Piloti lenken …“, a small
+  and the hello offers `steer`: the placeholder says „{productName} lenken …“, a small
   „lenkt“ chip sits by the field, and Enter sends the note. The review
-  canvas: the working card takes a note, and a box drawn while Piloti works is
+  canvas: the working card takes a note, and a box drawn while the agent works is
   sent as the note's `focus_region`.
 
 Like every optional entry, `steer` is in `accepts` only while
 `WIRE_V2_ADDITIVE_FIELDS` is on, its default; with it set off, the composer keeps its
-type-ahead behaviour and the canvas says Piloti is busy.
+type-ahead behaviour and the canvas says the agent is busy.
 
 ### A turn an event woke (`trigger` / `if_idle`)
 
@@ -682,6 +686,10 @@ a server whose hello lists it (`user_message.trigger`, `user_message.if_idle`).
   then marked `headless` (and `skip_clarifier`), so the clarifier and its plan
   approval are skipped and `ask_user` refuses without prompting; the model asks
   in the thread instead of waiting thirty minutes on a socket nobody reads.
+  An ask through an agent door (`agent_consult`) also sends `x-turn-door`
+  (`mcp`, `a2a`) and `x-turn-session-source` (`mcp`, `script`), the door its
+  turn's `answer_finished` is filed under. The backend reads them only on a
+  headless socket, and `server.js` strips both from a browser's upgrade.
 - **Before sending,** read the hello: `accepts` must hold
   `user_message.trigger` and `user_message.if_idle`. A server without them
   (or `WIRE_V2_ADDITIVE_FIELDS` set off) would supersede a typed turn; do not

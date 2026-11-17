@@ -54,7 +54,6 @@ const CONFIRMED: SimilarProject = {
 
 const UNRELATED: SimilarProject = { ...CONFIRMED, id: 'proj-wels', name: 'Halle Wels', alike: false, sharedTraits: [] }
 
-/** A page whose current project has only its Land recorded: the briefing can still add the rest. */
 function page(projects: SimilarProject[], more = 0, editable = true): SimilarProjectsPage {
   const basis = fingerprintOf({
     facts: { federal_state: { value: 'niederoesterreich', confidence: 'confirmed', source: 'onboarding', updatedAt: '' } },
@@ -114,7 +113,6 @@ describe('SimilarProjects', () => {
 
   test('marks a shared trait only one side has from its documents as unconfirmed', () => {
     render(<SimilarProjects projectId="current" page={page([WOHNHAUS])} />)
-    // The edition and „GK 4“: two marks, the confirmed Land and Holzbau none.
     expect(screen.getAllByText(referencesCopy.messages.en.fields.unconfirmed)).toHaveLength(2)
   })
 
@@ -137,11 +135,11 @@ describe('SimilarProjects', () => {
     expect(screen.getByRole('link', { name: 'Halle Wels' })).toBeInTheDocument()
   })
 
-  test('counts what the project holds, not what the card shows, and asks Piloti in a new chat of THIS project', () => {
+  test('counts what the project holds, not what the card shows, and asks the agent in a new chat of THIS project', () => {
     render(<SimilarProjects projectId="current" page={page([WOHNHAUS])} />)
     expect(screen.getByText('7 decisions · 1 permit')).toBeInTheDocument()
     const ask = screen.getByRole('link', { name: referencesCopy.messages.en.ask.action })
-    const href = new URL(ask.getAttribute('href') ?? '', 'https://piloti.test')
+    const href = new URL(ask.getAttribute('href') ?? '', 'https://example.test')
     expect(href.pathname).toBe('/app/projects/current/chat')
     expect(href.searchParams.get('new')).toBe('1')
     expect(href.searchParams.get('ask')).toBe('What can we take from the project “Wohnhaus Mödling” for this project?')

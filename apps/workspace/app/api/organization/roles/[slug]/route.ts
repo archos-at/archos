@@ -1,14 +1,3 @@
-/**
- * One custom role (ADR-0087). `org:members:manage` for both methods; the
- * service refuses a platform role (403), a slug that is not this
- * organization's (404), adding a permission the editor lacks (403), and
- * deleting a role somebody still holds (409).
- *
- * PATCH  { name?, description?, permissions? } — the slug never changes.
- * DELETE — removes the role in WorkOS; 409 `role-assigned` while somebody
- *          holds it.
- */
-
 import { BadRequestError } from '@/lib/api/errors'
 import { apiRoute, parseJsonBody } from '@/lib/api/handler'
 import { ORG_PERMISSIONS } from '@/lib/authz/permissions'

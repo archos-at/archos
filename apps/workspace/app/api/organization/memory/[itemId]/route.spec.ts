@@ -15,9 +15,13 @@ vi.mock('@/lib/projects/memory-service', () => ({
   updateProjectMemoryItem: vi.fn(),
   deleteProjectMemoryItem: vi.fn(),
 }))
+vi.mock('@/lib/projects/office-memory-topics', () => ({
+  withOfficeTopic: vi.fn(async (_organizationId: string, input: unknown) => input),
+}))
 
 import { BadRequestError, ConflictError } from '@/lib/api/errors'
 import { updateProjectMemoryItem } from '@/lib/projects/memory-service'
+import { withOfficeTopic } from '@/lib/projects/office-memory-topics'
 import { PATCH } from './route'
 
 const ITEM = '11111111-1111-4111-8111-111111111111'
@@ -60,6 +64,20 @@ describe('PATCH /api/organization/memory/[itemId]', () => {
 
   it('refuses a status no note can be in', async () => {
     expect((await patch({ status: 'proposed' })).status).toBe(400)
+    expect(updateProjectMemoryItem).not.toHaveBeenCalled()
+  })
+
+  it('resolves a moved topic against the office shelf before the update', async () => {
+    await patch({ topic: 'brandschutz' })
+
+    expect(withOfficeTopic).toHaveBeenCalledWith('org_1', { topic: 'brandschutz' })
+    expect(updateProjectMemoryItem).toHaveBeenCalledWith({ organizationId: 'org_1' }, ITEM, { topic: 'brandschutz' })
+  })
+
+  it('answers 400 for a topic longer than the bound', async () => {
+    vi.mocked(withOfficeTopic).mockRejectedValueOnce(new BadRequestError('A topic is at most 40 characters.'))
+
+    expect((await patch({ topic: 'x'.repeat(41) })).status).toBe(400)
     expect(updateProjectMemoryItem).not.toHaveBeenCalled()
   })
 })

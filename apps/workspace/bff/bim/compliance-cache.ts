@@ -1,48 +1,9 @@
-/**
- * A small in-process memo for the compliance catalogue.
- *
- * ## Why this is cacheable at all
- *
- * One extraction is immutable: `completeBimModel` writes the element rows once
- * and nothing edits them until the next extraction. That one can land under the
- * SAME model id — a same-name re-upload keeps the document, and `startBimModel`
- * upserts on it — and it moves `updatedAt` in the transaction that replaces the
- * rows. So a catalogue run is a pure function of
- * `(modelId, updatedAt, buildingClass, mainUse, site)`, and the same five inputs can
- * only ever produce the same verdicts. Recomputing is always *correct*; it is
- * just expensive.
- *
- * ## What it costs not to have one
- *
- * Measured against a seeded 400 000-element model: one `compliance` run is
- * ~1.5 s wall and ~126 MB of resident memory, of which ~900 ms is the driver
- * parsing 50 000 rows of jsonb on the single-threaded event loop. Nothing
- * cached it — the route is a POST, so no HTTP cache applies, and the client
- * hook is a bare `useEffect` with no dedupe. Opening the Prüfbuch tab, then
- * exporting BCF, then having a chat card render the same requirements, was
- * three full passes over the same unchanged rows.
- *
- * ## Why an LRU and not a table
- *
- * Persisting `bim_checks` per revision is the right long-term shape and is
- * still open on the roadmap. This is the cheap 90%: no migration, no
- * invalidation logic to get wrong (an entry can never go stale, because its
- * key names one extraction), and it disappears with the pod. The cap is on
- * ENTRY COUNT rather than bytes because a rule result set is bounded by
- * construction — `VISIBLE_VERDICTS` caps the rows per rule and the catalogue
- * has a fixed number of rules — so entries are kilobytes, not megabytes.
- *
- * A TTL exists anyway as a backstop: a long-lived pod holding verdicts for
- * models nobody has opened in an hour is holding them for no reason.
- */
-
 import type { BimComplianceSummary, BimRuleResult } from './rules'
 
 export interface CachedCompliance {
   compliance: BimRuleResult[]
   complianceSummary: BimComplianceSummary
   complianceShoppingList: Array<{ path: string; elements: number; rules: string[] }>
-  /** The element loader capped — carried so the warning survives the cache. */
   truncated: boolean
 }
 
@@ -51,52 +12,39 @@ interface Entry {
   storedAt: number
 }
 
-/** Entries, not bytes — see the note above on why that is safe here. */
 const MAX_ENTRIES = 64
 const TTL_MS = 60 * 60 * 1000
 
 const cache = new Map<string, Entry>()
 
-/** One extraction of a model: `updatedAt` moves with the rows it replaces. */
 export interface ComplianceCacheModel {
   id: string
   updatedAt: Date
 }
 
-/**
- * The cache key.
- *
- * `model.id` alone is not enough: the same revision judged at Gebäudeklasse 4
- * and at 5 produces different fire-resistance verdicts, and serving one for
- * the other is exactly the class of silent wrong answer this subsystem exists
- * to avoid. Both facts are part of the identity of the result, and so is the
- * site (`siteKey`): an OIB rule binds in Austria and nowhere else.
- */
 function key(
   model: ComplianceCacheModel,
   buildingClass: number | null,
   mainUse: string | null,
-  site: string
+  basis: string
 ): string {
-  return `${model.id}|${model.updatedAt.getTime()}|${buildingClass ?? ''}|${mainUse ?? ''}|${site}`
+  return `${model.id}|${model.updatedAt.getTime()}|${buildingClass ?? ''}|${mainUse ?? ''}|${basis}`
 }
 
 export function readComplianceCache(
   model: ComplianceCacheModel,
   buildingClass: number | null,
   mainUse: string | null,
-  site: string,
+  basis: string,
   now: number = Date.now()
 ): CachedCompliance | null {
-  const id = key(model, buildingClass, mainUse, site)
+  const id = key(model, buildingClass, mainUse, basis)
   const entry = cache.get(id)
   if (!entry) return null
   if (now - entry.storedAt > TTL_MS) {
     cache.delete(id)
     return null
   }
-  // Re-insert so the Map's insertion order is a recency order — that is what
-  // makes the eviction below least-recently-USED rather than oldest-written.
   cache.delete(id)
   cache.set(id, entry)
   return entry.value
@@ -106,11 +54,11 @@ export function writeComplianceCache(
   model: ComplianceCacheModel,
   buildingClass: number | null,
   mainUse: string | null,
-  site: string,
+  basis: string,
   value: CachedCompliance,
   now: number = Date.now()
 ): void {
-  const id = key(model, buildingClass, mainUse, site)
+  const id = key(model, buildingClass, mainUse, basis)
   cache.delete(id)
   cache.set(id, { value, storedAt: now })
   while (cache.size > MAX_ENTRIES) {
@@ -120,7 +68,6 @@ export function writeComplianceCache(
   }
 }
 
-/** Test seam. Never called in production — entries cannot go stale. */
 export function clearComplianceCache(): void {
   cache.clear()
 }

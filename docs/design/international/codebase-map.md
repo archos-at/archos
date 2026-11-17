@@ -28,7 +28,7 @@ the agent has two halves. One is a Next.js UI plus BFF (`apps/workspace`, which 
 **Corpus, the "Normen vs. Gesetze" split as built.** Legal knowledge reaches the agent through three channels:
 1. **Base corpus.** OIB-Richtlinien PDFs that an operator uploads to the platform bucket under `base-corpus/`. They are tracked in `oib_corpus_files` (no edition, validity, licence or source URL), ingested by a Hatchet job, chunked per Punkt (`CHUNK_FORMAT_VERSION = 4`), and indexed into Qdrant logical scope `oib_knowledge` inside the shared physical collection `corpus`. Every office reads it.
 2. **Norm registry.** 24 curated pointers into RIS (`configs/norms/at/registry.yml`, admin store table `norm_registry` keyed by `country`), with prose `binding_note`/`review_note` and only a `verified_at` timestamp. Ranks are `federal_law | state_law | ordinance | authority_info | external_standard`. No seed entry uses `external_standard` or `authority_info` beyond one MA 37 entry [S].
-3. **Live RIS adapter.** `ris_lookup` (the agent's native `law-lookup`), plus `ris_search`, `ris_fetch_document` and `ris_catalog_lookup`. Results are cached 7 days in Dragonfly (`RIS_CACHE_TTL_DAYS`, `packages/ris-adapter/src/cache.py:51`) [V].
+3. **Live RIS adapter.** `ris_lookup` (the agent's native `law-lookup`), plus `ris_search`, `ris_fetch_document` and `ris_catalog_lookup`. Results are cached 7 days in Dragonfly (`RIS_CACHE_TTL_DAYS`, `packages/ris-adapter/src/ris_adapter/cache.py:51`) [V].
 
 ÖNORMs exist only as names. The prompt says their text is unavailable (`chat_static.md`, `<building_law>`) [V]. The split between norms and law shows up in only two places: the rank enum and the `binding_status` derivation in `citations/binding.py`. Austrian law forms (RIS hosts, OIB doc classes) are hard-coded there [S, partly V].
 
@@ -46,7 +46,7 @@ the agent has two halves. One is a Next.js UI plus BFF (`apps/workspace`, which 
 **Tenancy.** The tenant is a WorkOS organisation id. Postgres isolation uses RLS on `organization_id = grid_current_org()` (migration 0031), which fails closed. Qdrant isolation works by logical `scope` (a collection name in a signed envelope). The indexed `office_id` field is written but **never filtered** in `vector_store/scope.py` [V]. SeaweedFS gives each org its own bucket in prod (`seaweedfsPerOrgBuckets: "true"`) [V]. Platform-wide config sits in global tables with no org column (`platform_model_defaults`, `platform_skills`, `platform_lessons`, …), read-only to tenants via `grid_secure_platform_table` [S]. Org overrides beat platform defaults, which beat YAML (model config). The norm registry follows the same idea, with an admin store taking precedence over the YAML seed.
 
 **Data location.** One Pulumi program deploys one Kubernetes cluster (IPAX managed k0s; the repo states no physical location). Domains are `piloti.at` and `dev.piloti.at` [V]. All stores are in-cluster: CNPG Postgres, SeaweedFS, Qdrant, Dragonfly, self-hosted Langfuse and Hatchet. Data leaves the cluster on these paths: <!-- brand-history -->
-- every model call (chat, embeddings, VLM, reranker, decisions) to OpenRouter (`openrouter.ai`, US) by default, or directly to an organization's own non-OpenRouter endpoint when it brings its own key (5.2, 5.4); embeddings never take the organization's key and always go to the platform's configured endpoint (`knowledge-layer/src/embedding.py`, `resolve_embed_api_key`), so document chunks reach that endpoint (OpenRouter by default) even for an office on BYOK;
+- every model call (chat, embeddings, VLM, reranker, decisions) to OpenRouter (`openrouter.ai`, US) by default, or directly to an organization's own non-OpenRouter endpoint when it brings its own key (5.2, 5.4); embeddings never take the organization's key and always go to the platform's configured endpoint (`knowledge-layer/src/knowledge_layer/embedding.py`, `resolve_embed_api_key`), so document chunks reach that endpoint (OpenRouter by default) even for an office on BYOK;
 - Tavily web search (US);
 - keystroke address search to `photon.komoot.io`;
 - identity and audit events to WorkOS (US);
@@ -109,22 +109,22 @@ Paths are relative to `/home/user/archos`.
 | # | Coupling | Path | Sev |
 |---|---|---|---|
 | C1 | `DEFAULT_COUNTRY = "at"`, the single registration, hooks bound to OIB functions | `common/country_profile.py:45, 113-135` [V] | S2 |
-| C2 | `resolve_country` regex `\bcountry=([a-z]{2})\b`, default `"at"`. `country=other` does not match (no word boundary after "ot"), so the result is `at`. `country=de`/`ch` match, `get_country_profile` returns `None`, and every caller falls back to AT doctrine, AT corpus note and AT collection | `common/norm_registry.py:544-558`, callers `:589`, `:705`, `:736`; `knowledge-layer/src/search/scope.py:45-72` [V] | S2, **correctness defect today**: the intake offers `de`, `ch`, `other` |
+| C2 | `resolve_country` regex `\bcountry=([a-z]{2})\b`, default `"at"`. `country=other` does not match (no word boundary after "ot"), so the result is `at`. `country=de`/`ch` match, `get_country_profile` returns `None`, and every caller falls back to AT doctrine, AT corpus note and AT collection | `common/norm_registry.py:544-558`, callers `:589`, `:705`, `:736`; `knowledge-layer/src/knowledge_layer/search/scope.py:45-72` [V] | S2, **correctness defect today**: the intake offers `de`, `ch`, `other` |
 | C3 | `load_registry` globs `*/registry.yml` and **merges every country**; `render_block_for_prompt` takes no country. The admin store is read only for `at` (`load_norms_file`) | `norm_registry.py:431-466`, `:561-578` [V] | S2 |
 | C4 | `BUNDESLAENDER`, `FEDERAL_STATE_TOKENS` (with `outside_austria → None`) and the `bundesland=` legacy regex | `norm_registry.py:93-125` [V] | S3 (copies) |
 | C5 | `RequestContext` federal-state whitelist `_FEDERAL_STATE_TOKENS`; unknown tokens are dropped silently | `project_context.py:192-238` [V] | S2 |
-| C6 | OIB applicability verdicts (GK 1-5, Fluchtniveau bands 7/11/22, sub-codes 2.1-2.3). `render_project_block` is called **directly** by the agent (`agents/piloti/prompt.py:43, 363`) and by `render_block_for_prompt` (`norm_registry.py:713`), never through `profile.applicability`, and with **no country check**. A German project gets OIB verdicts | `common/applicability.py:252, 462-479` [V] | S3 (TS twin C17) | <!-- brand-history -->
+| C6 | OIB applicability verdicts (GK 1-5, Fluchtniveau bands 7/11/22, sub-codes 2.1-2.3). `render_project_block` is called **directly** by the agent (`core/prompt.py:43, 363`) and by `render_block_for_prompt` (`norm_registry.py:713`), never through `profile.applicability`, and with **no country check**. A German project gets OIB verdicts | `common/applicability.py:252, 462-479` [V] | S3 (TS twin C17) | <!-- brand-history -->
 | C7 | Trigger hints name Vienna's Kleingartengesetz and Garagengesetz for any Land | `applicability.py:77-96` [V] | S1, correctness defect for non-Vienna projects |
 | C8 | `oib_doc_class` called directly by `citations/binding.py:248`, `norm_registry.py:891,1049,1312` and `knowledge-layer/.../ingest/adapter.py:1302`, so the `corpus_doc_class` hook is bypassed | [V] | S2 |
 | C9 | `lane_for_hit`: hard-coded hosts `ris.bka.gv.at` and `wien.gv.at`, `"Baurecht"` fallback | `norm_registry.py:~1290-1327` [S] | S2 |
 | C10 | Binding classification: RIS host regex, `ris_` tool names, OIB doc classes | `citations/binding.py:29-41, 137, 225-282` [S] | S2 |
-| C11 | `parcel_note(documents)` called **without a country** by both the agent (`agents/piloti/prompt.py:499`) and the deep researcher (`agents/deep_researcher/factory.py:170`) | [V] | S1 | <!-- brand-history -->
+| C11 | `parcel_note(documents)` called **without a country** by both the agent (`core/prompt.py:499`) and the deep researcher (`agents/deep_researcher/factory.py:170`) | [V] | S1 | <!-- brand-history -->
 | C12 | Permit extraction: `FederalStateToken` Literal of 9 AT values, prompt "a building project in Austria", tag `Bescheid` | `knowledge/permit_extraction.py:59, 200, 269` [V] | S2 |
 | C13 | Closed-project fingerprint prompts say "in Austria" three times; `oibEdition` fact | `knowledge/project_experience.py:225, 235, 246` [V]; `bff/references/types.ts:78` [S] | S2 |
-| C14 | RIS adapter: hosts, document-number grammar, ~40 OGD silos, nine `_FEDERAL_STATE_PARAMS`, `FassungVom` **only for `BrKons`** (federal), not `LrKons` (Land law) | `packages/ris-adapter/src/client.py:38-51`, `register.py:81-90, 129-166` [V for 129-166] | S2 (one adapter per source, by design) |
+| C14 | RIS adapter: hosts, document-number grammar, ~40 OGD silos, nine `_FEDERAL_STATE_PARAMS`, `FassungVom` **only for `BrKons`** (federal), not `LrKons` (Land law) | `packages/ris-adapter/src/ris_adapter/client.py:38-51`, `register.py:81-90, 129-166` [V for 129-166] | S2 (one adapter per source, by design) |
 | C15 | Gebäudeklasse validator GK 1-5 or 0 on the BIM tool | `tools/bim/register.py:222-230` [S] | S2 |
 | C16 | DXF cadastre: BEV layers, MGI EPSG 31254-31256, Grenzkataster vs Grundsteuerkataster | `drawings/dxf_source.py:57-68`, `site_ops.py` [S] | S2 per country |
-| C16a | German BM25 analyser and Snowball German stemmer on all points; German umlaut folding for retrieval | `knowledge-layer/src/vector_store/schema.py:49, 166-176` [V]; `common/german_text.py` [S] | S3 (multilingual) |
+| C16a | German BM25 analyser and Snowball German stemmer on all points; German umlaut folding for retrieval | `knowledge-layer/src/knowledge_layer/vector_store/schema.py:49, 166-176` [V]; `common/german_text.py` [S] | S3 (multilingual) |
 
 **TypeScript, BFF**
 
@@ -148,11 +148,11 @@ Paths are relative to `/home/user/archos`.
 
 | # | Coupling | Path | Sev |
 |---|---|---|---|
-| P1 | The agent's `<building_law>` chain (Gesetz > Verordnung > OIB > ÖNORM > Leitfaden; MA 37; "Outside Austria … OIB and RIS do not bind: give comparative guidance") and `<voice>` ("Austrian technical German … Sie-Form", decimal comma). This repo file is the **bundled fallback**. The live text is the Langfuse prompt `piloti-system-static` (`agents/piloti/prompt.py:79-83`) [V] | `agents/piloti/prompts/chat_static.md` | S3 | <!-- brand-history -->
+| P1 | The agent's `<building_law>` chain (Gesetz > Verordnung > OIB > ÖNORM > Leitfaden; MA 37; "Outside Austria … OIB and RIS do not bind: give comparative guidance") and `<voice>` ("Austrian technical German … Sie-Form", decimal comma). This repo file is the **bundled fallback**. The live text is the Langfuse prompt `piloti-system-static` (`core/prompt.py:79-83`) [V] | `core/prompts/chat_static.md` | S3 | <!-- brand-history -->
 | P2 | `NORM_DOCTRINE` and `JURISDICTION_GROUNDING` constants (Landesbauordnung, OIB, RIS, MA 37, `wien.gv.at/flaechenwidmung`). Only the deep researcher reads them, through `doctrine_for` (`deep_researcher/factory.py:168`) | `norm_registry.py:131-200` [V partial] | S1 (already registry-overridable) |
 | P3 | Deep-research prompts open with "a colleague in an Austrian architecture and planning office" | `agents/deep_researcher/prompts/{orchestrator,researcher,planner,writer}.j2:1` [S] | S1 |
 | P4 | Intake agent: Bundesland, Geschoße, Fluchtniveau, Gebäudeklasse; summary "in German" | `agents/intake/prompts/system.j2` [V] | S1 |
-| P5 | `piloti.j2` turn context: `oib_applicability` and "Bundesland/OIB edition" in reference projects | `agents/piloti/prompts/piloti.j2:60-91` [S] | S1 | <!-- brand-history -->
+| P5 | `system.j2` turn context: `oib_applicability` and "Bundesland/OIB edition" in reference projects | `core/prompts/system.j2:60-91` [S] | S1 | <!-- brand-history -->
 | P6 | Tool descriptions with OIB, GK and "Austria runs UTC+1/+2" | `tools/bim/measure_input.py:176`, `tools/cross_project/register.py:332, 776`, `tools/bim/register.py:222`, `tools/documents/tools.py:142-172` (`/law/oib/` mount) [S] | S1 each |
 | P7 | MCP door copy: `knowledge-base-get`, `norm-list` ("Austrian laws", `federalState` "Wien"), `project-standards-get` (OIB), `bim-check-*` ("OIB rule catalogue"), `door/prompts/building-law-check.md`, `door/guide.md`, `discovery.ts:627-631` | `apps/workspace/bff/agent-api/...` [S] | S2 |
 | P8 | German canned replies and German HyDE / query expansion tie answers to the German corpus | `common/canned_replies.py:14-36`, `common/hyde.py`, `common/query_expansion.py` [S] | S2 |
@@ -208,7 +208,7 @@ Paths are relative to `/home/user/archos`.
 | `doctrine` | `norm_registry.doctrine_for` → deep researcher only | live, partial (the agent uses the static prompt) |
 | `corpus_note` | `render_block_for_prompt` → deep researcher only (`factory.py:157`) | live, deep-research only |
 | `parcel_tags` | `_parcel_tags_for(country)`, but both callers pass no country, so always AT | effectively constant |
-| `corpus_collection` | `knowledge-layer/src/search/scope.py:resolve_base_collection` (re-routes only when the config equals the AT default) | live |
+| `corpus_collection` | `knowledge-layer/src/knowledge_layer/search/scope.py:resolve_base_collection` (re-routes only when the config equals the AT default) | live |
 | `states` | overridden from the file, **never read**. Jurisdiction reads `FEDERAL_STATE_TOKENS` directly | dead (so an admin edit of `states` has no effect) |
 | `state_probe_order` | none | dead |
 | `language` | none | dead |
@@ -275,12 +275,12 @@ So 6 of 11 fields have no reader. The contract fails its own docstring, which li
 | `country-extensibility.md` phase 1: "add `registry.yml`" | `load_registry` merges all files; store and admin AT-only | misleading [V] |
 | `country-extensibility.md`: `oib_knowledge` at 6 sites | about 38 non-test files | stale [V] |
 | ADR-0025: the pre-move path of `norm_registry.py` (before the package moved to `packages/agent`), German ranks | `packages/agent/src/agent/common/norm_registry.py`, English ranks plus `LEGACY_NORM_RANK` read-only aliases | stale [V] |
-| ADR-0025 Consequences: "Statute texts are re-fetched per session (no persistent RIS cache)" | 7-day Dragonfly cache (`ris-adapter/src/cache.py`, `RIS_CACHE_TTL_DAYS` default 7) | stale [V] |
+| ADR-0025 Consequences: "Statute texts are re-fetched per session (no persistent RIS cache)" | 7-day Dragonfly cache (`ris-adapter/src/ris_adapter/cache.py`, `RIS_CACHE_TTL_DAYS` default 7) | stale [V] |
 | ADR-0025: the Punkt chunker was deleted for shredding OIB text | `ingest/clause_chunking.py` cuts per Punkt again (`chunking: "clause"`), `CHUNK_FORMAT_VERSION = 4` | reintroduced; the ADR does not say so [V] |
 | ADR-0025: "Bundesland vocabulary and doctrine move to data when country #2 ships" | doctrine overridable; Bundesland is code and validated in `_validated_entries` | partly stale |
 | `backend-deep-dive.md` §6b: `resolve_country` handles `at/de/ch/other` | `other` resolves to `at` | wrong [S per scout 01, consistent with V regex] |
 | `agentic-project-intake.md`: typed line kept as `standort_adresse`; intake records `oib_edition` | key is `site_address`; no intake writer of `oib_edition` | stale [V] |
-| `piloti.j2:4` calls the static prompt `piloti_static.md` | file `chat_static.md` (fallback), Langfuse name `piloti-system-static` | naming drift [V] | <!-- brand-history -->
+| `system.j2:4` calls the static prompt `piloti_static.md` | file `chat_static.md` (fallback), Langfuse name `piloti-system-static` | naming drift [V] | <!-- brand-history -->
 | ADR-0116: every filter carries `office_id` | `scope_filter` keys on `scope` only | wrong [V] |
 | `qdrant-retrieval-design.md` §4: `country`, `edition` corpus fields | absent from schema | design, not built [V] |
 | `agent-surface.md:371`: RIS texts withheld | `law-lookup` external | doc stale [V] |
@@ -296,7 +296,7 @@ So 6 of 11 fields have no reader. The contract fails its own docstring, which li
 **Bundesland token set.** Every scout found part of this. The union, with what I verified:
 1. `norm_registry.BUNDESLAENDER`, `FEDERAL_STATE_TOKENS` [V]
 2. `project_context._FEDERAL_STATE_TOKENS` [V]
-3. `ris-adapter/src/register.py:81-90` `_FEDERAL_STATE_PARAMS` [S]
+3. `ris-adapter/src/ris_adapter/register.py:81-90` `_FEDERAL_STATE_PARAMS` [S]
 4. `apps/agent-host/.../routes/norms.py:36` [S]
 5. `scripts/build_ris_catalog.py:84` [S]
 6. `permit_extraction.FederalStateToken` [V]
@@ -367,7 +367,7 @@ Physical location of the cluster is not in the repo. The sales FAQ says IPAX in 
 
 ### 5.3 What enforces location today
 
-The model-call seam (`common/openrouter.py`, held by `test_openrouter_call_sites.py`, with `provider_limiter`) applies zero retention by default and prefers EU providers, but allows fallback. Upload screening (`iban`, `at_svnr`, `credit_card`) detects sensitive content in a file's text layer before any model reads it, with two exceptions: a scanned page is screened in the vision model's transcript, so that model has seen it, and the images embedded in a PDF go to the vision model unscreened (the file is marked `partial`; `knowledge-layer/src/ingest/adapter.py`, `_screen_or_quarantine`, `_record_unscreened_rasters`). It does not choose a processing region. Neither guarantees regional processing. Nothing records the processing location per call. Nothing allowlists egress (network policy is open on purpose). No data-class tag exists on any store or flow. The org has no residency field, and there is one deployment.
+The model-call seam (`common/openrouter.py`, held by `test_openrouter_call_sites.py`, with `provider_limiter`) applies zero retention by default and prefers EU providers, but allows fallback. Upload screening (`iban`, `at_svnr`, `credit_card`) detects sensitive content in a file's text layer before any model reads it, with two exceptions: a scanned page is screened in the vision model's transcript, so that model has seen it, and the images embedded in a PDF go to the vision model unscreened (the file is marked `partial`; `knowledge-layer/src/knowledge_layer/ingest/adapter.py`, `_screen_or_quarantine`, `_record_unscreened_rasters`). It does not choose a processing region. Neither guarantees regional processing. Nothing records the processing location per call. Nothing allowlists egress (network policy is open on purpose). No data-class tag exists on any store or flow. The org has no residency field, and there is one deployment.
 
 ### 5.4 Sales FAQ promises, checked
 
@@ -379,7 +379,7 @@ The model-call seam (`common/openrouter.py`, held by `test_openrouter_call_sites
 | Only the relevant excerpt is sent | retrieval sends chunks; `read_document`/`document-look` send whole pages; permit extraction sends up to 24k chars [S]. Broadly true, not absolute |
 | BYOK | yes, LLM only (`llm-credentials/providers.ts`) [S] |
 | Exclusion list, sensitive-data quarantine, folder roles, DPA, export and deletion | exclusion list and screening exist (ADR-0086); deletion pipeline exists; PostHog, WorkOS audit and `llm_usage_events` are not purged [S] |
-| "For Austria and Germany the most important law texts are in" | **False for Germany** [V]: `configs/norms/` holds only `at/`; no German statute, corpus, adapter or Länder vocabulary exists; the only German-law tokens in code are a citation-reference regex (`knowledge-layer/src/references.py:75` lists `BauGB\|BauNVO\|LBO`) and a docstring example "§ 33 BayBO". The intake help text itself says "Für Deutschland werden Fragebogen und Regelwerks-Layer noch angepasst" (`project-basis.ts`) [V]. For Austria: 24 pointers, live RIS, the OIB 2023 corpus |
+| "For Austria and Germany the most important law texts are in" | **False for Germany** [V]: `configs/norms/` holds only `at/`; no German statute, corpus, adapter or Länder vocabulary exists; the only German-law tokens in code are a citation-reference regex (`knowledge-layer/src/knowledge_layer/references.py:75` lists `BauGB\|BauNVO\|LBO`) and a docstring example "§ 33 BayBO". The intake help text itself says "Für Deutschland werden Fragebogen und Regelwerks-Layer noch angepasst" (`project-basis.ts`) [V]. For Austria: 24 pointers, live RIS, the OIB 2023 corpus |
 | "Because we keep older versions, older projects get the law that applied then" | **False** [V]: corpus table and Qdrant payload carry no edition or validity; the family key strips the edition; older OIB files are hidden by a filename exclusion list; `ris_lookup` cannot ask for a date and cites `GeltendeFassung`; `ris_search` supports a date only for federal law; ADR-0111 says "the corpus holds one" edition |
 
 ---
@@ -428,7 +428,7 @@ The ADR's own diagnosis: "the machinery re-modeled knowledge that already lives 
 4. The prompt view renders every fact as `- key=value` under `confirmed:` and derives `country=at` for legacy profiles (`prompt-view.ts:181-203`).
 5. `RequestContext` has `federal_state`, no `country` (`project_context.py:192-238, 462, 610`).
 6. `load_registry` merges all `*/registry.yml`; the store is read only for `at`; the admin routes take no country; the store table is keyed by country (`norm_registry.py:431-578`, `routes/norms.py:109-163`, `norm_store.py:189-248`).
-7. OIB applicability runs with no country gate, called directly by the agent and the deep researcher (`applicability.py:462-479`, `piloti/prompt.py:353-366`, `norm_registry.py:713`). The TS twin has no `country` reference. <!-- brand-history -->
+7. OIB applicability runs with no country gate, called directly by the agent and the deep researcher (`applicability.py:462-479`, `core/prompt.py:353-366`, `norm_registry.py:713`). The TS twin has no `country` reference. <!-- brand-history -->
 8. Trigger hints are Vienna-specific (`applicability.py:77-96`).
 9. `parcel_note` is called without a country in both agents.
 10. The the agent static prompt hard-codes the Austrian chain and voice. It is the bundled fallback for the Langfuse prompt `piloti-system-static`. <!-- brand-history -->

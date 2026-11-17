@@ -1,16 +1,6 @@
-"""Unit tests for the spreadsheet extractor (xlsx/xlsm).
-
-The regression these guard: without ``llama-index-readers-file`` installed,
-``SimpleDirectoryReader`` reads an office file's raw zip bytes as text
-(``PK\\x03…``), which the binary-content guard then rejects. Real files are
-built with the same library the extractor uses, so the tests exercise the
-actual parse. Word and presentation files are indexed from their PDF rendition
-(ADR-0071); the pptx notes companion is tested in ``test_rendition_extraction``.
-"""
-
 import pytest
+from knowledge_layer.ingest import _looks_like_image
 from knowledge_layer.ingest import office_extractors
-from knowledge_layer.ingest.adapter import _looks_like_image
 
 
 class TestXlsx:
@@ -35,8 +25,6 @@ class TestXlsx:
         assert docs[0].metadata["content_type"] == "table"
 
     def test_a_long_sheet_is_row_groups_that_each_repeat_the_header(self, tmp_path):
-        """The old cap indexed the first 1000 rows as ONE Document, which the splitter cut
-        into header-less runs of numbers; every group now names its columns and rows."""
         openpyxl = pytest.importorskip("openpyxl")
         workbook = openpyxl.Workbook()
         sheet = workbook.active
@@ -85,8 +73,6 @@ class TestRouting:
         assert office_extractors.extract_office_documents(str(path), "notiz.txt", 1) is None
 
     def test_word_and_presentation_have_no_reader_of_their_own(self, tmp_path):
-        """They are indexed from their PDF rendition only (ADR-0071); the
-        docx2txt and slide-text readers are gone, not bypassed."""
         path = tmp_path / "konzept.docx"
         path.write_bytes(b"PK")
         assert office_extractors.extract_office_documents(str(path), "konzept.docx", 1) is None

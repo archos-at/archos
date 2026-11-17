@@ -1,5 +1,3 @@
-"""A direct model call becomes one Langfuse generation, or nothing when there is no collector (ADR-0089)."""
-
 from __future__ import annotations
 
 import json
@@ -36,6 +34,7 @@ def fresh_provider(monkeypatch):
     monkeypatch.delenv(direct_trace.ENDPOINT_ENV, raising=False)
     monkeypatch.setenv("APP_ENV", "staging")
     monkeypatch.setenv("GIT_SHA", "abc123")
+    monkeypatch.setenv("POSTHOG_APP_HOST", "app.dev.example.test")
     direct_trace.reset_tracer_provider()
     yield
     direct_trace.reset_tracer_provider()
@@ -104,7 +103,11 @@ async def test_a_call_becomes_one_root_generation_with_usage_cost_and_content(ex
     assert attributes["langfuse.trace.name"] == "conversation-title"
     assert attributes["langfuse.environment"] == "staging"
     assert attributes["langfuse.release"] == "abc123"
-    assert list(attributes["langfuse.trace.tags"]) == ["feature:conversation-title", "surface:auxiliary"]
+    assert list(attributes["langfuse.trace.tags"]) == [
+        "feature:conversation-title",
+        "surface:auxiliary",
+        "app_host:app.dev.example.test",
+    ]
     assert attributes["langfuse.session.id"] == "conv-1"
     assert attributes["langfuse.trace.metadata.feature"] == "conversation-title"
     assert attributes["langfuse.trace.metadata.step"] == "distill"
@@ -149,7 +152,6 @@ async def test_no_session_is_claimed_without_a_conversation(exporter):
 
     (span,) = _spans(exporter)
     assert "langfuse.session.id" not in span.attributes
-    # No usage object, no invented zeros.
     assert "langfuse.observation.usage_details" not in span.attributes
 
 
@@ -204,9 +206,25 @@ async def test_a_broken_tracer_never_raises_into_the_route(monkeypatch, exporter
     assert _spans(exporter) == ()
 
 
-class TestObservedSpan:
-    """A unit of background work (one ingested file) is one trace, its model calls nested under it."""
+class TestDeployment:
+    def test_a_span_the_hatchet_sdk_starts_on_the_provider_names_the_deployment(self, exporter):
+        direct_trace.tracer_provider().get_tracer("hatchet_sdk").start_span("hatchet.start_step_run").end()
 
+        (span,) = _spans(exporter)
+        assert span.attributes["langfuse.environment"] == "staging"
+        assert span.attributes["langfuse.release"] == "abc123"
+        assert list(span.attributes["langfuse.trace.tags"]) == ["app_host:app.dev.example.test"]
+
+    async def test_without_a_host_no_deployment_tag_is_invented(self, monkeypatch, exporter):
+        monkeypatch.delenv("POSTHOG_APP_HOST")
+        async with direct_trace.observed_generation("conversation-title", model="m", messages=_MESSAGES) as generation:
+            generation.finish(_RESPONSE)
+
+        (span,) = _spans(exporter)
+        assert list(span.attributes["langfuse.trace.tags"]) == ["feature:conversation-title", "surface:auxiliary"]
+
+
+class TestObservedSpan:
     def test_a_generation_inside_the_span_is_its_child_and_one_outside_is_a_root(self, exporter):
         with direct_trace.observed_span("ingest-file", metadata={"file_type": "pdf", "job_id": "job-1"}) as span:
             with direct_trace.observed_generation("ingest-vision", model="m", messages=[]) as generation:
@@ -224,14 +242,14 @@ class TestObservedSpan:
         assert parent.attributes["langfuse.trace.metadata.seconds_vision"] == 25.4
 
     def test_a_nested_generation_never_claims_its_files_trace(self, exporter):
-        """Langfuse reads trace attributes off any span: a child that wrote them renamed the file's trace."""
         with direct_trace.observed_span("ingest-file", metadata={"job_id": "job-1"}):
             with direct_trace.observed_generation("ingest-vision", model="m", messages=[]) as generation:
                 generation.finish({"choices": [{"message": {"content": "ok"}, "finish_reason": "stop"}]})
 
         spans = {span.name: span for span in _spans(exporter)}
         child, parent = spans["ingest-vision"].attributes, spans["ingest-file"].attributes
-        assert not [key for key in child if key.startswith("langfuse.trace.")], dict(child)
+        assert [key for key in child if key.startswith("langfuse.trace.")] == ["langfuse.trace.tags"], dict(child)
+        assert list(child["langfuse.trace.tags"]) == ["app_host:app.dev.example.test"]
         assert "langfuse.session.id" not in child
         assert child["langfuse.observation.metadata.feature"] == "ingest-vision"
         assert child["langfuse.observation.metadata.finish_reason"] == "stop"

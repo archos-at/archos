@@ -1,11 +1,5 @@
 'use client'
 
-/**
- * Fixture sections for the atoms preview: badges and chips, alerts, progress,
- * skeletons, the stepper and list items. Chips, badges and the count pill are
- * pills (rounded-full), keys are inline (4px); avatars and status dots are round.
- */
-
 import type { JSX } from 'react'
 import { useState } from 'react'
 import { Check, FileText, Info } from 'lucide-react'

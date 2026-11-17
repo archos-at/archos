@@ -1,14 +1,5 @@
 import type { en } from '../en'
 
-/**
- * Läufe — wie ein Lauf im Verlauf liest, der ihn beauftragt hat (der Laufblock).
- *
- * Das Ledger trägt ASCII-Schlüssel (`planen`, `laeuft`); hier stehen die Wörter
- * dafür und der Satz, den jeder Status dem Leser schuldet. Keine Kennung
- * erreicht den Leser, jede Phase ist ein Wort, jeder Status ein Wort und ein
- * Satz, und eine Zahl steht nur dort, wo sie ändert, was der Leser als Nächstes
- * tut.
- */
 export const runs: typeof en.runs = {
   phase: {
     planning: 'Planen',
@@ -66,7 +57,6 @@ export const runs: typeof en.runs = {
     cancel: 'Abbrechen',
     writeNow: 'Jetzt schreiben',
     continue: 'Bericht fortschreiben',
-    /** Statt „Bericht fortschreiben“ in einem abgeschlossenen Projekt (ADR-0090): ein Lauf legt dort ab. */
     continueClosed: 'Abgeschlossenes Projekt: keine neue Recherche',
   },
   documents: {

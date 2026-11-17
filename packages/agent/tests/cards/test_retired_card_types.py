@@ -1,14 +1,3 @@
-"""The retired card types no longer exist, and every channel says what replaced them.
-
-An answer is Markdown prose; a card carries what Markdown cannot (an
-interaction, geometry drawn to scale, a computed number, a live model binding).
-The table-, list- and quote-shaped cards, the envelope's former card twins and
-`follow_ups` were deleted from the `AnswerCard` union
-(`catalog.RETIRED_CARD_TYPES`). Deleting them makes every channel refuse them as
-unknown; the refusal must still TELL the model what to write instead, and no
-model-facing surface may offer one.
-"""
-
 from __future__ import annotations
 
 import json
@@ -83,7 +72,6 @@ class TestEveryChannelRefusesIt:
 
         assert validated is None
         assert refusal is not None and refusal.kind == REFUSED_RETIRED_TYPE
-        # Refused before the shape check: no shape to repair it into.
         assert refusal.hint is None
         assert RETIRED_CARD_REPLACEMENTS[card_type] in refusal.message
 
@@ -108,7 +96,7 @@ class TestEveryChannelRefusesIt:
         assert [card["type"] for card in validate_cards([_payload(card_type), GOOD])] == ["ifc_model_picker"]
 
     def test_the_dsml_salvage_drops_it(self, card_type):
-        from agent.agents.piloti.dsml import _salvage_card
+        from agent.core.dsml import _salvage_card
 
         registry = get_or_create_card_registry(f"conv-dsml-retired-{card_type}")
         registry.clear()
@@ -155,8 +143,6 @@ class TestEveryChannelRefusesIt:
 
 
 class TestRetiredContentIsKept:
-    """A retired card's content, laid out as Markdown (``retired_card_markdown``)."""
-
     def test_a_legal_basis_becomes_its_title_and_a_quote_line(self):
         from agent.cards.catalog import retired_card_markdown
 
@@ -184,7 +170,6 @@ class TestRetiredContentIsKept:
 
 
 def test_the_refusals_teach_no_dialect_block():
-    """They reach deep research and the repair model, whose PDF prints `:::` as text."""
     for replacement in RETIRED_CARD_REPLACEMENTS.values():
         assert ":::" not in replacement and ":energy-class" not in replacement
 

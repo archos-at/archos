@@ -1,20 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Boundaries and degenerate inputs (spec SH-16, MN-13, IB-3, IB-8, MG-2).
- *
- * Every bound here exists because the unbounded version is an abuse vector or a
- * silent data-loss bug: a message naming two hundred people, a roster shared with
- * the whole organization, a padded note copied verbatim into someone's inbox, a
- * per-anchor group key with no anchor (which would collapse and DROP every mention
- * after the first), a legacy conversation with no container to gate on, a directory
- * lookup that comes back empty.
- *
- * The real registry, the real access resolution and the real rate-limit constants
- * are used throughout — only the counters and the repositories are stubbed, because
- * the bounds themselves are the thing under test.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -35,8 +21,6 @@ vi.mock('@/lib/authz/project-membership', () => ({
   isUserInOrganization: vi.fn(),
 }))
 
-// ADR-0087/0086: no conversation here recorded a restricted folder, so every
-// widening is allowed; the rule itself is `restricted-use.spec.ts`.
 vi.mock('@/lib/conversations/restricted-use', () => ({
   peopleWhoMayRead: vi.fn(async (_org: string, _id: string, userIds: readonly string[]) => new Set(userIds)),
   lockedConversationIds: vi.fn(async () => new Set<string>()),
@@ -90,14 +74,11 @@ vi.mock('@/lib/inbox/repository', () => ({
   upsertInboxItems: vi.fn(),
 }))
 
-// The real `unknownPerson` fallback is exactly what row E32 protects.
 vi.mock('@/lib/sharing/directory', async (importActual) => ({
   ...(await importActual<typeof import('@/lib/sharing/directory')>()),
   loadOrganizationDirectory: vi.fn(),
 }))
 
-// The real bounds (10 mentions per message, 200 per roster) are the rules under
-// test; only the counter is stubbed.
 vi.mock('@/lib/limits', async (importActual) => ({
   ...(await importActual<typeof import('@/lib/limits')>()),
   consumeLimit: vi.fn(),
@@ -229,7 +210,6 @@ function send(mentions: string[], extra: { note?: string; excerpt?: string } = {
 beforeEach(() => {
   stubConversation()
   stubContainer('project-editor')
-  // Anna already holds a grant, so mentioning her needs no invitation.
   vi.mocked(findGrantForSubject).mockResolvedValue(null)
   stubGrants([{ subjectUserId: ANNA, role: 'collaborator' }])
   vi.mocked(loadOrganizationDirectory).mockResolvedValue(
@@ -244,9 +224,6 @@ beforeEach(() => {
   vi.mocked(countPendingInboxItems).mockResolvedValue(0)
   vi.mocked(canUserAccessProject).mockResolvedValue(true)
   vi.mocked(isUserInOrganization).mockResolvedValue(true)
-  // Every candidate reaches the project unless a test says otherwise — the
-  // mention path now asserts the container precondition for participants too
-  // (spec MN-6), so this mirrors `canUserAccessProject` above.
   vi.mocked(filterUsersWithProjectAccess).mockImplementation(
     async (_session, _projectId, candidateUserIds) => new Set(candidateUserIds),
   )
@@ -262,23 +239,18 @@ beforeEach(() => {
 
 describe('the per-message mention cap (matrix E26, spec MN-13)', () => {
   it('refuses the whole message rather than sending the first ten mentions', async () => {
-    // Mention-bombing is the attack, and a message naming two hundred people is
-    // what it looks like. A partial send would be worse than a refusal: the author
-    // could not tell which names took effect.
     const many = Array.from({ length: MAX_MENTIONS_PER_MESSAGE + 1 }, (_, index) => `user_${index}`)
 
     const failure = await send(many).catch((error: unknown) => error)
 
     expect(failure).toBeInstanceOf(ForbiddenError)
     expect((failure as ForbiddenError).details).toEqual({ reason: 'mention-rate-limited' })
-    // Bounded before the authorization probe, let alone a write.
     expect(findConversationTenancy).not.toHaveBeenCalled()
     expect(insertMentionRequests).not.toHaveBeenCalled()
     expect(upsertInboxItems).not.toHaveBeenCalled()
   })
 
   it('accepts a message exactly at the cap', async () => {
-    // The bound is a ceiling, not an off-by-one refusal at the limit.
     const atCap = Array.from({ length: MAX_MENTIONS_PER_MESSAGE }, (_, index) => `user_${index}`)
 
     await expect(send(atCap)).resolves.toBeDefined()
@@ -301,7 +273,6 @@ describe('the grant roster cap (matrix E27, spec SH-16)', () => {
 
     expect(failure).toBeInstanceOf(ConflictError)
     expect((failure as ConflictError).message).toContain(String(SHARE_ROSTER_LIMIT))
-    // "Share with everyone" is not a feature: no grant, no audit entry.
     expect(upsertGrant).not.toHaveBeenCalled()
     expect(recordAuditEvent).not.toHaveBeenCalled()
   })
@@ -331,8 +302,6 @@ describe('user-controlled text in a notification (matrix E28, spec IB-3, MN-12)'
       excerpt: string | null
     }
 
-    // Bounded on BOTH sides of the hand-off: the stored request and the copy that
-    // rides into someone else's inbox and is re-read on every render.
     expect(storedNote.length).toBeLessThan(note.length)
     expect(storedNote.endsWith('…')).toBe(true)
     expect(payload.excerpt).toBe(storedNote)
@@ -358,8 +327,6 @@ describe('user-controlled text in a notification (matrix E28, spec IB-3, MN-12)'
 
 describe('the per-anchor group key (matrix E29, spec IB-8)', () => {
   it('throws for a per-anchor type with no anchor instead of collapsing mentions together', () => {
-    // Collapsing would make the second mention in a thread overwrite the first —
-    // a lost request for help, which is the one failure this feature must not have.
     for (const anchor of [undefined, null, '']) {
       expect(() =>
         inboxGroupKey('mention.requested', 'conversation', CONVERSATION_ID, anchor),
@@ -374,7 +341,6 @@ describe('the per-anchor group key (matrix E29, spec IB-8)', () => {
   })
 
   it('does collapse the type that MUST collapse, anchor or not', () => {
-    // Ambient activity is the opposite requirement: twenty messages, one row.
     expect(inboxGroupKey('conversation.activity', 'conversation', CONVERSATION_ID, 'msg_9')).toBe(
       inboxGroupKey('conversation.activity', 'conversation', CONVERSATION_ID),
     )
@@ -383,8 +349,6 @@ describe('the per-anchor group key (matrix E29, spec IB-8)', () => {
 
 describe('a legacy conversation with no container (matrix E30, spec MG-2)', () => {
   beforeEach(() => {
-    // Pre-project-stamping rows: no project membership could describe them, so
-    // there is nothing to gate on and nothing to crash on.
     stubConversation({ projectId: null })
     stubContainer('denied')
   })
@@ -408,8 +372,6 @@ describe('a legacy conversation with no container (matrix E30, spec MG-2)', () =
   })
 
   it('still checks that the invitee is in the ORGANIZATION — no container is not no precondition', async () => {
-    // "Nothing to gate on" used to mean "nothing checked": a grant could name a
-    // user in another tenant, and the fan-out would publish to their channel.
     await grantResourceAccess(session, 'conversation', CONVERSATION_ID, {
       subjectUserId: BOB,
       role: 'collaborator',
@@ -421,7 +383,6 @@ describe('a legacy conversation with no container (matrix E30, spec MG-2)', () =
 
 describe('duplicate mention targets in one message (matrix E31, spec MN-13)', () => {
   it('costs one request, one notification and one unit of budget', async () => {
-    // The composer can emit the same target twice (typed once, re-picked once).
     const result = await send([ANNA, ANNA, ANNA])
 
     expect(result.addressees).toEqual({ agent: false, users: [ANNA] })
@@ -433,8 +394,6 @@ describe('duplicate mention targets in one message (matrix E31, spec MN-13)', ()
 
 describe('an unresolvable person (matrix E32, spec SH-17)', () => {
   it('still renders a roster entry when the directory comes back empty', async () => {
-    // WorkOS is authoritative for identity and the app keeps no user table, so a
-    // directory outage must degrade to ids and initials, never to a broken page.
     vi.mocked(loadOrganizationDirectory).mockResolvedValue(new Map())
     stubGrants([{ subjectUserId: ANNA, role: 'collaborator' }])
 
@@ -457,15 +416,12 @@ describe('an unresolvable person (matrix E32, spec SH-17)', () => {
     const state = await getAwaitingState(session, CONVERSATION_ID)
 
     expect(state.pending[0]!.person.name).toBe('user_ghost')
-    // The asker stays null rather than fabricating a person out of an id.
     expect(state.pending[0]!.requestedBy).toBeNull()
   })
 
   it('drops an unresolvable mention target rather than failing the message', async () => {
     const result = await send(['user_ghost'])
 
-    // A stale picker entry is not something to fail a send over — but the message
-    // still has to be answered by somebody, so it falls back to the agent.
     expect(result.addressees).toEqual({ agent: true, users: [] })
     expect(insertMentionRequests).not.toHaveBeenCalled()
   })

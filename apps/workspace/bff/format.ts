@@ -1,32 +1,8 @@
-/** Shared display formatters. */
-
-/**
- * EUR currency — the app's single money-display rule. Pass the active locale
- * so German users see "12,34 €" and English users "€12.34". Locale is
- * optional so non-React callers without locale context keep working (they
- * get the runtime default).
- */
-/**
- * The separator between a line's clauses („PDF\u00A0· 2,4 MB\u00A0· vor 3 Tagen“): a middot bound to the clause
- * before it by a no-break space, so a wrapped line never starts with one, and one width of space on either side
- * wherever the surface joins clauses in text (the chat's `JOIN` says the same).
- */
 export const CLAUSE_JOIN = '\u00A0· '
 
 export const formatEur = (value: number, locale?: string): string =>
   new Intl.NumberFormat(locale, { style: 'currency', currency: 'EUR' }).format(value)
 
-/**
- * USD — what OpenRouter actually charges, shown as such on platform surfaces.
- * There is deliberately no conversion anywhere (ADR-0053): a hand-set rate is
- * neither the bank's nor OpenRouter's, and a figure nobody is charged is not a
- * figure worth showing.
- *
- * A positive amount below the smallest unit shown reads "< $0.01", never
- * "$0.00": a model call costs fractions of a cent, and "$0.00" says it was
- * free. `maximumFractionDigits` widens the unit for rates (a credit priced at
- * $0.0001), and the floor moves with it.
- */
 export const formatUsd = (
   value: number,
   locale?: string,
@@ -44,29 +20,17 @@ export const formatUsd = (
   return format.format(value)
 }
 
-/** A plain count ("1,720" / "1.720"), grouped for the locale, never compacted. */
 export const formatCount = (value: number, locale?: string): string =>
   new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(
     Number.isFinite(value) ? value : 0
   )
 
-/**
- * A calendar date without a time ("14 Jul 2026" / "14.07.2026"), for columns
- * where the day is the fact: when an organization was created, when a price
- * list took effect. Falls back to the raw string for unparseable input.
- */
 export const formatDate = (isoDate: string, locale?: string): string => {
   const date = new Date(isoDate)
   if (Number.isNaN(date.getTime())) return isoDate
   return new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(date)
 }
 
-/**
- * An inclusive range of UTC calendar days, `YYYY-MM-DD` at both ends, in the
- * locale's own range form: "1.–30. Sept. 2026" / "Sep 1 – 30, 2026", and one
- * date when both ends are the same day. UTC because the days are UTC buckets;
- * read in the viewer's zone, the 1st would print as 31 August west of UTC.
- */
 export const formatDayRange = (from: string, to: string, locale?: string): string => {
   const start = new Date(`${from}T00:00:00Z`)
   const end = new Date(`${to}T00:00:00Z`)
@@ -79,11 +43,6 @@ export const formatDayRange = (from: string, to: string, locale?: string): strin
   }).formatRange(start, end)
 }
 
-/**
- * Tokens — the usage unit of an organization on its own key (ADR-0053). Big
- * numbers, so compact once past a thousand ("1.2M"), exact below; the unit
- * word is the caller's, from the dictionary, like `formatCredits`.
- */
 export const formatTokens = (value: number, locale?: string): string => {
   const safe = Number.isFinite(value) ? value : 0
   return new Intl.NumberFormat(locale, {
@@ -92,12 +51,6 @@ export const formatTokens = (value: number, locale?: string): string => {
   }).format(safe)
 }
 
-/**
- * Credits — the tenant's usage unit (ADR-0053). A whole number once it is
- * worth counting, one decimal below ten so a cheap call is "0.4" rather than
- * a misleading "0". The unit word ("credits" / "Punkte") is the caller's,
- * from the dictionary, so this stays a number formatter like `formatBytes`.
- */
 export const formatCredits = (value: number, locale?: string): string => {
   const safe = Number.isFinite(value) ? value : 0
   return new Intl.NumberFormat(locale, {
@@ -106,32 +59,6 @@ export const formatCredits = (value: number, locale?: string): string => {
   }).format(safe)
 }
 
-/**
- * Byte sizes for humans ("1.4 GB" / "1,4 GB").
- *
- * **The one byte formatter.** There used to be two — this, and a
- * `formatFileSize` in `lib/utils/` that counted in 1024s — so the same
- * 1,048,576-byte document read as "1.0 MB" on its card and contributed
- * "1 MB" to a storage figure, and an administrator's 1 GB quota rendered as
- * 0.93 of itself. Two functions computing the same quantity differently is a
- * fork whose copies each look locally correct; there is now one.
- *
- * Decimal units (1000-based), not binary, because that is what the numbers
- * beside them mean: a quota is entered in GB (`BYTES_PER_GB = 1e9`), an upload
- * ceiling is configured in MB, and a disk is sold in TB. Showing 1 GB of quota
- * as "0.93 GiB used" reads as a bug.
- *
- * `Intl.NumberFormat`'s `unit` style owns the separator, the spacing and the
- * unit word, so German gets "1,4 GB" without a second code path — with ONE
- * exception, the byte tier: CLDR's short form for `byte` is the literal word
- * ("878 byte"), which reads as a typo in a column of "4.8 MB". Sub-kilobyte
- * values therefore get a formatted number and a plain `B`.
- *
- * One decimal place from MB up, none below: "1.4 GB" is a size, "1.4 kB" is
- * noise. Null, undefined, negative and non-finite input all render as "0 B" —
- * a size is never below zero, and a bad subtraction upstream should not appear
- * as "-2 MB".
- */
 export const formatBytes = (bytes: number | null | undefined, locale?: string): string => {
   const safe = typeof bytes === 'number' && Number.isFinite(bytes) && bytes > 0 ? bytes : 0
   const units: Array<{ unit: string; scale: number }> = [
@@ -163,11 +90,6 @@ export const formatBytes = (bytes: number | null | undefined, locale?: string): 
   }).format(value)
 }
 
-/**
- * A transfer's progress as two sizes in one unit, the total's, each with one decimal from MB up: „3,0 von 6,0 MB“.
- * Each size rounded on its own read „3 MB von 6 MB“ beside rows of „4,8 MB“ and „1,2 MB“ (review of 2026-11-10,
- * finding 20). The unit is said once, after the total; the copy joins them (`{done} von {total}`).
- */
 export const formatByteProgress = (done: number, total: number, locale?: string): { done: string; total: string } => {
   const whole = formatBytes(total, locale)
   const scale = [1e12, 1e9, 1e6, 1e3].find((step) => total >= step) ?? 1
@@ -178,14 +100,6 @@ export const formatByteProgress = (done: number, total: number, locale?: string)
   return { done: number(done), total: `${number(total)}\u00a0${unit}` }
 }
 
-/**
- * Localized relative timestamp ("3 hours ago" / "vor 3 Stunden"). Falls back
- * to the raw ISO string for unparseable input. Truncates toward zero at unit
- * boundaries so a value never rounds up into a misleading "in 60 minutes".
- * Shared by the research-runs list and the sessions-panel Deep Research section.
- * `now` is the moment it is relative to: a caller that decided by its own `now`
- * whether to say a relative time at all must format against the same one.
- */
 export const formatRelativeTime = (
   isoDate: string,
   locale?: string,
@@ -226,8 +140,6 @@ export const formatRelativeTime = (
     if (absSeconds < limit) {
       const divisor = divisors[unit]
       const value = Math.trunc(diffSeconds / divisor)
-      // Months and years in numbers („vor 1 Monat“), as every other step reads: „letzten Monat“ beside „vor 4
-      // Monaten“ was two forms for one scale. Days and hours keep „gestern“, „vor 3 Stunden“.
       if (unit === 'month' || unit === 'year') return numericRtf.format(value, unit)
       return rtf.format(value, unit)
     }
@@ -236,12 +148,6 @@ export const formatRelativeTime = (
   return rtf.format(Math.round(diffSeconds / divisors.year), 'year')
 }
 
-/**
- * Localized time of day ("09:30" / "9:30 AM"). Used where the surrounding
- * layout already states the DAY — the sessions panel groups rows under a day
- * heading, so a row repeating "18 days ago" under "12 Jul 2026" says the same
- * thing twice while the actual time of the chat goes missing.
- */
 export const formatTimeOfDay = (isoDate: string, locale?: string): string => {
   const date = new Date(isoDate)
   if (Number.isNaN(date.getTime())) return isoDate
@@ -249,11 +155,6 @@ export const formatTimeOfDay = (isoDate: string, locale?: string): string => {
   return new Intl.DateTimeFormat(locale, { timeStyle: 'short' }).format(date)
 }
 
-/**
- * Localized calendar date ("14 Jul 2026" / "14.07.2026"), for a day that
- * matters and a time of day that does not: when a folder was deleted, when
- * its purge runs.
- */
 export const formatCalendarDate = (isoDate: string, locale?: string): string => {
   const date = new Date(isoDate)
   if (Number.isNaN(date.getTime())) return isoDate
@@ -261,22 +162,12 @@ export const formatCalendarDate = (isoDate: string, locale?: string): string => 
   return new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(date)
 }
 
-/**
- * A UTC calendar day (`YYYY-MM-DD`, a due date) in the same form as {@link formatCalendarDate}: one absolute
- * date format on a surface („08.11.2026“ beside „06.10.2026“, not „8. Nov. 2026“). UTC, as the day is a bucket.
- */
 export const formatCalendarDay = (day: string, locale?: string): string => {
   const date = new Date(`${day}T00:00:00Z`)
   if (Number.isNaN(date.getTime())) return day
   return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeZone: 'UTC' }).format(date)
 }
 
-/**
- * Localized absolute date/time ("14 Jul 2026, 09:30"), used as the hover
- * tooltip that pins a relative timestamp to an exact moment. Without
- * `timeZone` it reads in the runtime's own zone, so text that is rendered on the
- * server and hydrated in the browser must pass one (`OFFICE_TIME_ZONE`).
- */
 export const formatAbsoluteTime = (isoDate: string, locale?: string, timeZone?: string): string => {
   const date = new Date(isoDate)
   if (Number.isNaN(date.getTime())) return isoDate
@@ -284,19 +175,6 @@ export const formatAbsoluteTime = (isoDate: string, locale?: string, timeZone?: 
   return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short', timeZone }).format(date)
 }
 
-/**
- * A short, localized span of time ("45 sec", "3 min", "1.2 hr" / "45 Sek.",
- * "3 Min.", "1,2 Std."), for elapsed timers and transfer estimates.
- *
- * Quantized, not exact: an estimate that reads 47, then 44, then 45 seconds
- * spends its precision on jitter and reads as unreliable even when it is
- * right. Under a minute it steps in fives, above it in whole minutes — the
- * resolution a person actually acts on.
- *
- * Built on `Intl.NumberFormat`'s `unit` style so the unit word, the separator
- * and the spacing come from the locale rather than from a dictionary entry
- * that would have to be kept in step with it.
- */
 export const formatDurationShort = (seconds: number, locale?: string): string => {
   const safe = Number.isFinite(seconds) && seconds > 0 ? seconds : 0
   const unit: Intl.NumberFormatOptions['unit'] =
@@ -318,15 +196,6 @@ export const formatDurationShort = (seconds: number, locale?: string): string =>
   }).format(value)
 }
 
-/**
- * A duration that already happened ("12 s", "3 min", "1,2 h"), as a fact.
- *
- * `formatDurationShort` rounds seconds UP to the next five because it states an
- * estimate of what is still to come, where „15 s" is honest and „12 s" is
- * false precision. A phase that took twelve seconds took twelve, so this one
- * keeps the figure and only changes unit once the number would stop being
- * readable — whole minutes under an hour, one decimal above.
- */
 export const formatDurationElapsed = (seconds: number, locale?: string): string => {
   const safe = Number.isFinite(seconds) && seconds > 0 ? seconds : 0
   const unit: Intl.NumberFormatOptions['unit'] =
@@ -343,46 +212,19 @@ export const formatDurationElapsed = (seconds: number, locale?: string): string 
   }).format(value)
 }
 
-/**
- * A transfer rate ("4.2 MB/s" / "4,2 MB/s"), built from the shared byte
- * formatter so a speed and a size are punctuated identically on the same row.
- */
 export const formatTransferRate = (bytesPerSecond: number, locale?: string): string =>
   `${formatBytes(bytesPerSecond, locale)}/s`
 
-/**
- * The reader's own calendar day as `YYYY-MM-DD`, the shape a Postgres `date`
- * arrives in, so a stored day compares with it as a string. Local, not UTC:
- * a Frist that ends today is not overdue at 00:30 in Vienna because UTC is
- * still on yesterday.
- */
 export const localCalendarDay = (date: Date = new Date()): string => {
   const pad = (value: number) => String(value).padStart(2, '0')
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
 }
 
-/**
- * The clock of an office that has none of its own, and of what runs for every
- * office at once: a server in UTC would date a late-evening export to the next
- * morning, and remind of tomorrow's Frist a day early. Where an organization is
- * in scope, read its own clock instead: `officeTimeZone` in
- * `@/lib/organizations/time-zone` (`organizations.time_zone`, migration 0200).
- * Still read here, for want of an organization in scope: the protocol export's
- * formatters, the due-reminder sweep's day, mail and forward dates, and the
- * client's `TimeAgo` and protocol file names.
- */
 export const OFFICE_TIME_ZONE = 'Europe/Vienna'
 
-/**
- * The calendar day `YYYY-MM-DD` it is in `timeZone` at `date`: the office's day
- * for a server that runs in UTC (`en-CA` writes ISO calendar days). A Frist
- * that ends today in Vienna is not overdue at 00:30 because UTC is still on
- * yesterday, and a reminder sent at 23:30 UTC belongs to the next day there.
- */
 export const calendarDayIn = (timeZone: string, date: Date = new Date()): string =>
   new Intl.DateTimeFormat('en-CA', { timeZone }).format(date)
 
-/** `day` (`YYYY-MM-DD`) moved by whole calendar days, without a clock or a time zone to slip on. */
 export const addCalendarDays = (day: string, days: number): string => {
   const at = new Date(`${day}T00:00:00Z`)
   at.setUTCDate(at.getUTCDate() + days)

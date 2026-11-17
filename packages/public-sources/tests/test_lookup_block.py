@@ -1,5 +1,3 @@
-"""A source record's ``lookup`` block: what a law lookup reads instead of code (``public_sources.lookup``)."""
-
 from __future__ import annotations
 
 import copy
@@ -12,7 +10,6 @@ from public_sources.source import parse_source
 
 
 def _ris_raw() -> dict:
-    """The shipped RIS record as a mapping, so a test can break one field of it."""
     source = get_source("at-ris")
     raw = source.model_dump(mode="json", exclude_none=True)
     raw["fixtures"] = [f.model_dump(mode="json") for f in source.fixtures]
@@ -104,7 +101,6 @@ def test_a_lookup_names_only_what_a_fixed_protocol_serves():
 
 
 def _listed_portal(**lookup) -> dict:
-    """A portal that lists its documents and offers no search (``web_document``), as released to a turn."""
     return {
         "id": "xa-gazette",
         "title": "Gazette of Xanadu",

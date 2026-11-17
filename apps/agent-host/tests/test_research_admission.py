@@ -1,10 +1,3 @@
-"""Admission waits instead of refusing (ADR-0079, ADR-0150, ``jobs/submit.py``).
-
-Capacity makes a research job WAIT on Hatchet; the only 429 left is an
-organization's own waiting jobs past their bound. A waiting job is ``submitted``
-in ``job_info``, its organization on its ``job_access`` row; both are real here (SQLite).
-"""
-
 from __future__ import annotations
 
 import pytest

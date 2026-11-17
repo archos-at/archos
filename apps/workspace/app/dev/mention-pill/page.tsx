@@ -1,33 +1,12 @@
 'use client'
 
-/**
- * Dev preview for the mention pill and the person card behind it.
- *
- * The REAL `MentionText` inside a real `MentionPeopleProvider`, so the screenshot
- * is evidence about the shipping component and not about a mock. Four rows, each a
- * distinct decision:
- *
- *   1. a colleague — the quiet reference;
- *   2. YOU — the one mention that asks something of the reader, so it is filled ink;
- *   3. Piloti — the assistant, tinted between the two;
- *   4. someone no longer in the roster — deliberately NOT interactive, because a
- *      pill that opens an empty panel is worse than plain text.
- *
- * Plus the card itself, rendered open beside them: a popover cannot be captured in
- * a static screenshot, so `PersonPeek` is shown directly in the three shapes it
- * takes. What the pill opens and what is shown here is the same component.
- *
- * Not linked from anywhere; 404s outside development. Pinned to German — the
- * product's primary language — so the evidence carries the copy that ships.
- */
-
 import { notFound } from 'next/navigation'
 
 import { MentionText } from '@/features/collaboration/components/MentionText'
 import { PersonPeek } from '@/features/collaboration/components/PersonPeek'
 import { MentionPeopleProvider } from '@/features/collaboration/context/mention-people'
 import { I18nProvider } from '@/i18n'
-import { AGENT_MENTION_ID } from '@/lib/mentions/types'
+import { LEGACY_AGENT_MENTION_ID } from '@/lib/mentions/legacy-mention-ids'
 import { PRODUCT_NAME } from '@/lib/brand'
 import { SectionLabel } from '@/components/ui/section-label'
 
@@ -92,7 +71,7 @@ export default function MentionPillPreviewPage() {
             <Row label="Der Assistent">
               <MentionText
                 content={"@" + PRODUCT_NAME + " bitte auf dieser Grundlage weiterarbeiten."}
-                mentions={[{ targetId: AGENT_MENTION_ID, display: PRODUCT_NAME }]}
+                mentions={[{ targetId: LEGACY_AGENT_MENTION_ID, display: PRODUCT_NAME }]}
                 currentUserId={ME.userId}
               />
             </Row>
@@ -121,7 +100,7 @@ export default function MentionPillPreviewPage() {
                 <PersonPeek person={ME} isYou isParticipant />
               </div>
               <div className="bg-popover w-64 rounded-2xl border p-3 shadow-md">
-                <PersonPeek person={{ userId: AGENT_MENTION_ID, name: PRODUCT_NAME }} isAgent />
+                <PersonPeek person={{ userId: LEGACY_AGENT_MENTION_ID, name: PRODUCT_NAME }} isAgent />
               </div>
             </div>
           </div>

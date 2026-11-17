@@ -1,13 +1,5 @@
 'use client'
 
-/**
- * The wizard's field renderer, one control per question type: text, number,
- * number with its answer mode, yes/no, select, chips. Lifted out of
- * `project-intake-wizard.tsx` unchanged so the setup page's Rückfragen
- * (`features/project-intake`) ask a question with the very same control the
- * wizard does, and the two cannot drift.
- */
-
 import { useId, useState } from 'react'
 import { HelpCircle } from 'lucide-react'
 import { motion, springGlide } from '@/components/motion'
@@ -30,11 +22,6 @@ import { projectsCopy } from '@/i18n/namespaces/projects'
 
 type Answers = Record<string, ProjectPrimitiveValue>
 
-/**
- * The control a question is answered with, by its type, with its label and its
- * „Warum fragen wir das?". The wizard's field and the setup page's Rückfragen
- * render the very same one.
- */
 export function QuestionControl({
   question,
   answerKey,
@@ -71,8 +58,6 @@ export function QuestionControl({
             value={typeof value === 'string' ? value : ''}
             placeholder={question.placeholder}
             aria-invalid={error ? true : undefined}
-            // Return is „Weiter“ here (the form's submit goes to the next
-            // module), and the key says so.
             enterKeyHint="next"
             onChange={(e) => onSetAnswer(answerKey, e.target.value)}
             className="max-w-md"
@@ -249,21 +234,6 @@ export function QuestionHeader({ question, domId }: { question: ProjectIntakeQue
             aria-controls={whyId}
             aria-label={t('intake.why')}
             title={t('intake.why')}
-            // 44px of REAL layout space, not a negative-margin overhang.
-            //
-            // The overhang is the tempting version — it grows the target and
-            // moves nothing — and it is wrong here because this control has
-            // neighbours on every side it would grow into: the `<Label>` is 8px
-            // to its left and the field it annotates is 4px below. A 14px
-            // overhang therefore covers the end of the label (which focuses the
-            // field) and the top edge of the field itself, so the two taps a
-            // reader is most likely to make in this row would both open the
-            // rationale instead. A target that big by theft is worse than a
-            // small one: it is wrong on purpose rather than by omission.
-            //
-            // The cost is the honest one — the label row is 44px tall on touch.
-            // `pointer-coarse:items-center` below keeps the glyph and the label
-            // aligned once the row is taller than its baseline.
             className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/40 pointer-coarse:size-11 inline-flex size-4 shrink-0 items-center justify-center self-center rounded-full outline-none transition-colors duration-quick ease-out focus-visible:ring-2 motion-reduce:transition-none"
           >
             <HelpCircle className="size-3.5" aria-hidden />
@@ -271,9 +241,6 @@ export function QuestionHeader({ question, domId }: { question: ProjectIntakeQue
         )}
       </div>
       {question.why && whyOpen && (
-        // A quiet tinted surface with the card radius, rather than a second
-        // differently-alpha'd action ink, and no side stripe
-        // (design-language.md, "Emphasis without a stripe").
         <p
           id={whyId}
           className="bg-muted text-muted-foreground max-w-prose rounded-control px-3 py-2 text-xs"
@@ -286,7 +253,6 @@ export function QuestionHeader({ question, domId }: { question: ProjectIntakeQue
   )
 }
 
-/** Number input with a value/estimate/open answer-mode segmented control. */
 export function NumberTriControl({
   domId,
   question,
@@ -344,7 +310,6 @@ export function NumberTriControl({
 
 type SegmentTone = 'default' | 'warning' | 'muted'
 
-/** A compact segmented single-choice control (yes/no/open, answer modes). */
 export function Segmented({
   value,
   options,
@@ -358,8 +323,6 @@ export function Segmented({
   ariaLabel: string
   size?: 'sm' | 'md'
 }) {
-  // One pill per control: several Segmented share a page, so the shared-layout
-  // id is scoped to this instance or the fill would fly between questions.
   const pillId = useId()
   return (
     <div
@@ -379,14 +342,10 @@ export function Segmented({
             className={cn(
               'border-border relative isolate inline-flex items-center justify-center transition-colors duration-quick ease-out motion-reduce:transition-none',
               i > 0 && 'border-l',
-              // The pointer decides, not the width: a finger gets 44px on a phone
-              // and on a tablet past `md` alike, a cursor gets the dense size on
-              // a narrow desktop window too. (`sm` was 36px on a phone, and a
-              // segment beside a number field is exactly where a thumb lands.)
               size === 'sm'
                 ? 'min-h-8 px-2.5 text-[11px] font-medium pointer-coarse:min-h-11 pointer-coarse:px-3.5 pointer-coarse:text-xs'
                 : 'min-h-9 px-3.5 text-sm pointer-coarse:min-h-11 pointer-coarse:px-4',
-              !active && 'bg-card text-foreground hover:bg-muted',
+              !active && 'bg-card text-foreground hover:bg-sheet-hover',
               active && tone === 'default' && 'text-primary-foreground',
               active && tone === 'warning' && 'text-white',
               active && tone === 'muted' && 'text-background'
@@ -413,7 +372,6 @@ export function Segmented({
   )
 }
 
-/** Multi-select rendered as toggleable chips. */
 export function ChipMultiSelect({
   question,
   value,
@@ -439,7 +397,7 @@ export function ChipMultiSelect({
               'inline-flex min-h-9 items-center justify-center rounded-full border px-3.5 py-1.5 text-sm transition-colors duration-quick ease-out motion-reduce:transition-none pointer-coarse:min-h-11 pointer-coarse:px-4',
               active
                 ? 'border-primary bg-primary text-primary-foreground'
-                : 'border-border bg-card text-foreground hover:border-primary/50 hover:bg-primary/5'
+                : 'border-border bg-card text-foreground hover:border-primary/50 hover:bg-sheet-hover'
             )}
           >
             {opt.label}

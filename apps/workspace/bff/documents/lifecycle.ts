@@ -1,46 +1,3 @@
-/**
- * The document lifecycle service: one transition function, one effects registry
- * (ADR-0054, ADR-0055).
- *
- * ## What this module is, and what it deliberately is not
- *
- * It is the ONE place a `document_versions` row changes state. Every caller —
- * the ten HTTP routes, the human upload path, the agent's internal route — goes
- * through {@link transitionDocumentVersion} or through one of the three entry
- * points that create a version. There is no second path, which is what ADR-0055
- * means by "no service function is reached from a second path": the audit
- * event, the inbox item, the pointer move and the compare-and-swap are true of
- * every transition because there is only one that runs them.
- *
- * It is NOT a state-machine engine. The table lives in `./lifecycle-types` as
- * data, and the authority for "may this go from here to there" is Postgres: the
- * CHECKs on the table plus `UPDATE … WHERE state = $expected`. This module reads
- * the row of the table, checks the things a CHECK cannot see (who is asking,
- * what the body carries), and hands the swap to the database.
- *
- * ## It imports no producer
- *
- * `agent-document.ts` (the Markdown producer) imports THIS; this imports
- * nothing of it. That direction is what makes "a new producer is one map key
- * plus one caller plus one renderer" true — a producer is a call site of
- * {@link createDocumentVersion}, never a branch inside it. `lifecycle.spec.ts`
- * asserts the import direction.
- *
- * ## What lives next door
- *
- * `./version-content` holds everything that touches the object store — the
- * storage keys, the producer's renderer and the marking re-check, the quota
- * admission, the reads, and `archiveDocument`. This module imports it; it
- * imports nothing back. That is the seam: states here, bytes there.
- *
- * ## Effects are a registry, not a switch
- *
- * `EFFECT_REGISTRY` is a `Record<DocumentVersionEffect, …>`, so `tsc` fails
- * until every name in the tuple has a function, and a new consumer of the
- * lifecycle (a webhook, a task, the ingest of slice 4) is a registry entry plus
- * a name in a row's `effects` — never an `if` inside `publish`.
- */
-
 import { documentShelf } from '@/lib/documents/shelf'
 import { publishShelfChanged } from '@/lib/documents/shelf-live'
 import 'server-only'
@@ -117,82 +74,19 @@ import {
   type DocumentVersionSummary,
 } from './version-repository'
 
-/** What a transition needs beyond the row it is acting on. */
 export interface TransitionInput {
-  /** Required by the rows whose `requires.comment` is set. */
   comment?: string | null
-  /** Who is asked to review. Empty falls back to the document's assignees. */
   reviewerUserIds?: readonly string[]
-  /**
-   * The Auftragssatz, in one sentence, for a `submit`.
-   *
-   * Per-round request text, not version history: it lives in the inbox payload
-   * (the request record, anchored on this version) and on the audit event, and
-   * deliberately NOT on the version row — a version is bytes plus editorial
-   * state, and the ask about them belongs to the round that asks it. Validated
-   * at the schema (`submitOrderMessageSchema`); the service trusts it but
-   * trims defensively.
-   */
   orderMessage?: string | null
-  /**
-   * Optional Frist for the round, as an ISO date string on the wire.
-   * Normalised to an ISO timestamp for the payload; like the order it lives in
-   * the request record, not on the version row.
-   */
   dueAt?: string | null
-  /** The `content_hash` the caller believes it is replacing. */
   ifMatch?: string | null
-  /** Source request, for the audit event's IP + user agent context. */
   request?: Request
-  /**
-   * Whether the caller is a person in their own session.
-   *
-   * `false` is the agent's internal route, and it is the whole publish door: a
-   * row whose `actor` is `human` is refused for a machine caller before any
-   * permission is read. Defaults to `true` because every OTHER caller of this
-   * function is a route holding a real session — a default of `false` would make
-   * the ten human routes depend on remembering to pass it.
-   */
   actingHuman?: boolean
-  /**
-   * „Piloti überarbeiten lassen" — the reviewer's third action on
-   * `request_changes`.
-   *
-   * Without it, a version filed from a live conversation reaches that
-   * conversation as a `REVIEW_DECISIONS v1` block and no task is opened; with
-   * it, a `revision` task is opened as well, because the reviewer has said they
-   * do not want to wait for somebody to type the next message. A version with no
-   * origin conversation opens one either way — see the `openRevisionTask` effect.
-   *
-   * Refused before the swap for a document in a folder some project member may
-   * not read: a task is listed to the whole project (ADR-0087).
-   */
   delegateRevision?: boolean
-  /** The language of a refusal; the agent's route leaves it German. */
   locale?: Locale
-  /**
-   * Set by {@link assertReviewGuards}, never by a caller.
-   *
-   * `true` when this project has nobody but the submitter who could release the
-   * version, so „der Einreichende darf nicht freigeben" is waived. It reaches
-   * the audit event and nothing else.
-   */
   selfReview?: boolean
 }
 
-/** The context every effect receives. Read-only; effects do not chain. */
-/**
- * A person's document published from a draft: its new bytes are screened and
- * indexed like an upload's (ADR-0086, migration 0123).
- *
- * The upload shelves dispatch what they store, and an upload's version is born
- * `published` without passing through here. A draft forked from a person's
- * document and published swaps the item's bytes in `promoteVersionToPublished`,
- * and nothing dispatched them: the item served bytes nobody had screened under
- * the previous bytes' `clean`. The verdict is now bound to the bytes it judged,
- * so those bytes are held until this dispatch's verdict lands; bytes the gate
- * already judged (a draft never edited) are not sent again.
- */
 async function ingestPublishedUpload(
   session: AuthorizedSession,
   document: Document,
@@ -216,7 +110,6 @@ interface EffectContext {
   session: AuthorizedSession
   document: Document
   version: DocumentVersion
-  /** The version this one replaces, when there is one. */
   previous: DocumentVersion | null
   transition: DocumentVersionTransition
   input: TransitionInput
@@ -224,36 +117,15 @@ interface EffectContext {
 
 type EffectRunner = (context: EffectContext) => Promise<void>
 
-/**
- * The inbox group key for one version's review round.
- *
- * `per-anchor` on the VERSION, so two review rounds on one document are two
- * rows rather than one counted row: each asks a different question about
- * different bytes, and collapsing them would hide the second.
- */
 function reviewGroupKey(documentId: string, versionId: string): string {
   return inboxGroupKey('document.review_requested', 'document', documentId, versionId)
 }
 
-/**
- * The Auftragssatz as stored/displayed: trimmed, or `null` when absent.
- *
- * The schema already enforces non-empty ≤500 when present; this is the
- * defensive trim at the service boundary so `"  "` never reaches a payload.
- */
 function normaliseOrderMessage(value: string | null | undefined): string | null {
   const trimmed = value?.trim() ?? ''
   return trimmed ? trimmed : null
 }
 
-/**
- * The Frist as an ISO timestamp, or `null` when absent.
- *
- * The schema already refused the invalid date with a 400; here an unparsable
- * value degrades to `null` rather than throwing inside an effect — effects run
- * after the compare-and-swap, and a throw there would leave the version
- * `in_review` with no inbox row pointing at it.
- */
 function normaliseDueAt(value: string | null | undefined): string | null {
   const trimmed = value?.trim() ?? ''
   if (!trimmed) return null
@@ -262,30 +134,12 @@ function normaliseDueAt(value: string | null | undefined): string | null {
   return parsed.toISOString()
 }
 
-/**
- * The inbox excerpt for a review round: the order, with the Frist appended.
- *
- * The generic row renders `payload.excerpt` and knows nothing about review
- * rounds; carrying the Frist inside it is what makes an existing row show both
- * without a new view field. The structured `orderMessage`/`dueAt` ride beside
- * it for the surface that will render them separately.
- */
 function reviewExcerpt(orderMessage: string | null, dueAtIso: string | null): string | null {
   if (!orderMessage) return null
   if (!dueAtIso) return orderMessage
   return `${orderMessage} — Frist: ${dueAtIso.slice(0, 10)}`
 }
 
-/**
- * The version a diff compares against: the highest version number below the
- * submitted one, or `null` for a first version.
- *
- * Read here rather than carried in the effect context because the context's
- * `previous` is the publish path's superseded row — for a submit (a
- * non-promoting transition) it is always `null`. A miss degrades to `null`
- * rather than failing the round: triage then opens the file instead of
- * pretending to compare.
- */
 async function findPreviousVersionId(
   documentId: string,
   organizationId: string,
@@ -300,16 +154,6 @@ async function findPreviousVersionId(
 }
 
 const EFFECT_REGISTRY: Record<DocumentVersionEffect, EffectRunner> = {
-  /**
-   * The audit event, with the row's own action.
-   *
-   * The NON-throwing variant, unlike `document.generated`. That action throws
-   * because "a machine wrote this on a human's authority" has no domain table to
-   * fall back on; here the version row IS that table — it records who submitted,
-   * who approved and when, durably and inside the tenant boundary — so losing
-   * the WorkOS line costs an export, not the fact. Failing an approval because
-   * an audit API was slow would be the worse trade.
-   */
   audit: async ({ session, document, version, transition, input }) => {
     await recordAuditEvent({
       organizationId: session.organizationId,
@@ -324,16 +168,7 @@ const EFFECT_REGISTRY: Record<DocumentVersionEffect, EffectRunner> = {
         state: version.state,
         projectId: document.projectId ?? '',
         withComment: Boolean(input.comment?.trim()),
-        // The sole-editor waiver, on the trail rather than only in the code
-        // that granted it: „freigegeben" and „freigegeben, weil es niemanden
-        // sonst gibt" are different facts about the same signature, and an
-        // export that could not tell them apart would be the wrong record of a
-        // professional act.
         selfReview: input.selfReview === true,
-        // The Auftragssatz and Frist of a submit, on the trail with the round
-        // they opened. Like the order itself they live here and in the inbox
-        // payload — the version row records bytes plus editorial state, and the
-        // ask about them belongs to the request, not to the history.
         orderMessage: input.orderMessage?.trim() || null,
         dueAt: normaliseDueAt(input.dueAt),
       },
@@ -341,18 +176,6 @@ const EFFECT_REGISTRY: Record<DocumentVersionEffect, EffectRunner> = {
     })
   },
 
-  /**
-   * The round is opened for the reviewers {@link assertReviewGuards} already
-   * found — the transition put them in `input.reviewerUserIds` before the
-   * compare-and-swap ran.
-   *
-   * This effect used to do the resolving AND the refusing, and the refusal came
-   * one statement too late: the version was already `in_review`, durably, and
-   * the caller got a 422 saying nobody could review it. The document was then
-   * stuck in a state whose only exits are a person's decisions, with no inbox
-   * item pointing anybody at it. A guard that runs after the swap is not a
-   * guard.
-   */
   openReviewInbox: async (context) => {
     const { reviewers } = await resolveReviewers(
       context.session,
@@ -376,16 +199,6 @@ const EFFECT_REGISTRY: Record<DocumentVersionEffect, EffectRunner> = {
         anchorId: context.version.id,
         actorUserId: context.session.userId,
         groupKey: reviewGroupKey(context.document.id, context.version.id),
-        // `subject` is what the inbox ROW renders — the generic renderer reads
-        // it out of the payload and interpolates it into „{actor} bittet Sie um
-        // die Freigabe von {subject}". Without it the row named no file and the
-        // reader had to open the link to find out which one was waiting.
-        //
-        // `excerpt` is the Auftragssatz (with the Frist appended): the row
-        // renders it under the title, which is what closes the ceremony that
-        // used to gate Einreichen on a sentence the request never carried.
-        // `previousVersionId` names the version a diff compares against — null
-        // for a first version, when triage opens the file instead of comparing.
         payload: {
           versionId: context.version.id,
           versionNumber: context.version.versionNumber,
@@ -399,13 +212,6 @@ const EFFECT_REGISTRY: Record<DocumentVersionEffect, EffectRunner> = {
     )
   },
 
-  /**
-   * Resolve the round the submit opened, for EVERY reviewer.
-   *
-   * Not only the one who acted: a decision has been taken, so the question is
-   * settled for everybody who was asked. Leaving the others actionable would
-   * park a row in three people's badges that nothing can ever resolve.
-   */
   resolveReviewInbox: async (context) => {
     const { reviewers } = await resolveReviewers(
       context.session,
@@ -414,7 +220,6 @@ const EFFECT_REGISTRY: Record<DocumentVersionEffect, EffectRunner> = {
     )
     const groupKey = reviewGroupKey(context.document.id, context.version.id)
     await resolveInboxItemsFor(
-      // The actor too: they may well have been one of the people asked.
       [...new Set([...reviewers, context.session.userId])].map((recipientUserId) => ({
         organizationId: context.session.organizationId,
         recipientUserId,
@@ -423,14 +228,6 @@ const EFFECT_REGISTRY: Record<DocumentVersionEffect, EffectRunner> = {
     )
   },
 
-  /**
-   * A hint on the event hub, never the new state.
-   *
-   * Published to the people who have a stake in this version — the actor, the
-   * author, the submitter — because there is no document channel and inventing
-   * one to carry a nudge would be a second subscription surface. Fail-open by
-   * construction: `publishToUsers` swallows, and every receiver re-reads.
-   */
   eventHint: async ({ session, document, version }) => {
     const audience = [session.userId, version.createdBy, version.submittedBy].filter(
       (userId): userId is string => Boolean(userId),
@@ -443,68 +240,19 @@ const EFFECT_REGISTRY: Record<DocumentVersionEffect, EffectRunner> = {
     })
   },
 
-  /**
-   * Index the version that was just published, with the provenance that says
-   * who wrote it and who cleared it (ADR-0054 § Indexing). A person's document
-   * published from a draft is dispatched as an upload is, so its new bytes are
-   * screened before anyone but its uploader and reviewers sees them
-   * ({@link ingestPublishedUpload}).
-   *
-   * The slot was named before it did anything, and that is why the door could
-   * be opened without moving a call site: "only a published version is ever
-   * dispatched" is a property of the transition table — this effect appears on
-   * the promoting review rows (`approve`, which publishes in one step since
-   * ADR-0104 rule 5, and `publish` for a version approved before that) and
-   * nowhere else — rather than of somebody remembering
-   * where to put the dispatch. Do not call `dispatchDocument` from anywhere
-   * else in this module.
-   *
-   * ## Purge first, then dispatch
-   *
-   * The previous published version's chunks go BEFORE the new bytes are sent,
-   * and the order is not tidiness. A version does not have a filename; the ITEM
-   * does (`documents.filename` is written once and never renamed), so both
-   * versions address the same chunks. Purging after the dispatch would delete
-   * the passages that had just been written. Purging first also decides the
-   * failure case correctly: when the backend is down, the superseded version's
-   * chunks are already gone and the new ones never arrive, so the document
-   * stops answering rather than answering out of the version somebody
-   * replaced. `unregister_summary` on the backend takes the document-metadata
-   * row with them, so the superseded version's provenance does not outlive its
-   * chunks.
-   *
-   * ## What is NOT decided here
-   *
-   * The `doc_class` is untouched. Provenance is its own axis
-   * (`docs/architecture/agent-document-provenance.md`): `doc_class` is a closed
-   * norm-hierarchy vocabulary whose fail-open lane is "Basisdokument", and
-   * filing authorship there would file a Piloti document under the hierarchy of
-   * authority. The shelf is untouched for the same reason — the document really
-   * does sit on the project or Archiv shelf, and `collectionName` already says
-   * which.
-   */
   ingestPublished: async ({ session, document, version, previous }) => {
     if (document.authoredBy === 'user') {
       await ingestPublishedUpload(session, document, version)
       return
     }
 
-    // Both halves of `collectionFileRef`'s restated rule, asked before anything
-    // is sent: a row outside the `piloti/` namespace would be indexed under a
-    // name no purge can address, because every purge builds its ref from the
-    // row and that constructor would answer `null`. Refusing to index it is the
-    // safe direction and the only one that keeps "indexed" and "purgeable" the
-    // same set. Reachable for a document filed before the namespace existed.
     if (!isAgentDocumentFilename(document.filename)) {
       console.warn(
-        `[documents] published version ${version.id} is not under the piloti/ namespace; not indexed`,
+        `[documents] published version ${version.id} is not under the agent document namespace; not indexed`,
       )
       return
     }
 
-    // Cycle-broken on purpose: `document-dispatch.ts` reaches this module (via `shelf-upload.ts`) for
-    // `recordUploadedVersion`, so a static import back would be a load-order cycle. Same device, same
-    // reason, as `sharing/service.ts` reaching the mentions service.
     const { dispatchDocument, AgentAuthoredDocumentNotIndexableError } = await import('./document-dispatch')
 
     if (previous) {
@@ -525,28 +273,11 @@ const EFFECT_REGISTRY: Record<DocumentVersionEffect, EffectRunner> = {
         provenance: await agentProvenance(session.organizationId, document, version),
       })
     } catch (error) {
-      // The one refusal this effect can provoke and must not turn into a failed
-      // publish: the version row is durable and a person approved it, so the
-      // editorial act stands whether or not the index accepted the bytes. Every
-      // other outcome — a backend timeout, a non-2xx — is already absorbed by
-      // `dispatchIngest`, which records `failed` on the row. Anything else is a
-      // real fault and is re-raised rather than swallowed.
       if (!(error instanceof AgentAuthoredDocumentNotIndexableError)) throw error
       console.warn(`[documents] ingest refused the published version ${version.id}`)
     }
   },
 
-  /**
-   * A published version that replaces an earlier one is a new Fassung of the
-   * document: tell the people who follow it (`./revision-notify`).
-   *
-   * `previous` is the version this transition superseded, so it is `null` for a
-   * document's first version, which is news to nobody. For a person's upload the
-   * document is still held here (its new bytes are screened after this runs) and
-   * the notifier says nothing; the settle hook calls it again once they pass.
-   * Detached because it asks the directory about each person, and the
-   * publisher's answer should not wait for that.
-   */
   announceNewRevision: async ({ session, document, version, previous }) => {
     if (!previous) return
     void announceNewRevision({
@@ -559,67 +290,21 @@ const EFFECT_REGISTRY: Record<DocumentVersionEffect, EffectRunner> = {
     })
   },
 
-  /**
-   * Hand a sent-back version to Piloti as a `revision` task — when there is
-   * nobody in a conversation to hand it to instead.
-   *
-   * ## Why this is a condition and not a second button
-   *
-   * „Request changes reaches the agent twice" is the design's own phrasing, and
-   * the two are not alternatives to pick between: a version filed from a live
-   * chat already has a reader and a thread, and the next turn there carries the
-   * comment verbatim (`./review-decisions.ts`). Opening a task for that case as
-   * well would queue a run for work the person is about to ask for in their next
-   * sentence, spend their budget on it, and put a second draft beside the one
-   * the conversation is holding. So the origin decides, and the reviewer can
-   * override it — `delegateRevision` is the one thing that opens a task for a
-   * conversation-born version.
-   *
-   * ## Why it cannot fail the transition
-   *
-   * The reviewer's decision is recorded the moment the compare-and-swap lands;
-   * everything here is what happens NEXT. A queue that will not take the run, a
-   * requester who has left the organization, a project whose skills feature is
-   * off — none of those is a reason to tell a Ziviltechniker that their
-   * „Änderungen anfordern" did not go through. The failure is logged and the
-   * comment still stands on the row, which is where the Files pane reads it.
-   *
-   * ## Why a restricted folder opens none
-   *
-   * The task's goal (the comment), its plan (the draft's text) and the filename
-   * it files are listed to every project member (`listTasks`), and tasks carry
-   * no folder audience of their own. So a draft in a folder some member may not
-   * read gets no task, whoever filed it: the reviewer who asked outright was
-   * refused with the reason before the swap, and a version nobody asked about
-   * keeps its comment on the row for its author (ADR-0087).
-   */
   openRevisionTask: async ({ session, document, version, input }) => {
     const delegated = input.delegateRevision === true
     if (version.originConversationId && !delegated) return
-    // A document with no project has no task table to hang off: the org-wide
-    // Archiv and a conversation's private attachments are both project-less, and
-    // `tasks.project_id` is NOT NULL for the tenant predicate's sake.
     if (!document.projectId) return
-    // A held document (ADR-0086) opens no task: the run hands its text to a
-    // model, and the task's goal and file name are listed to the whole project.
     if (!hasPassedScreening(document)) {
       console.warn(`[documents] no revision task for version ${version.id}: its document has not passed screening`)
       return
     }
 
     try {
-      // Inside the try: a folder tree that cannot be read opens no task.
       if (await folderRestrictsReading(session.organizationId, document.projectId, document.folderId)) {
         console.warn(`[documents] no revision task for version ${version.id}: its folder restricts reading`)
         return
       }
-      // Cycle-broken like the ingest dispatch above: `lib/tasks/delegation`
-      // imports the jobs service, which imports the tasks service, which imports
-      // THIS module for the filing it does at completion.
       const { delegateTask } = await import('@/lib/tasks/delegation')
-      // Read in the REVIEWER's session, which has just been checked against this
-      // document — the run itself has no session and the worker holds no
-      // envelope, so the bytes have to be fetched by whoever is standing here.
       const source = await readVersionTextForTask(session, document.id, version.id).catch(() => null)
       await delegateTask(session, {
         projectId: document.projectId,
@@ -631,16 +316,7 @@ const EFFECT_REGISTRY: Record<DocumentVersionEffect, EffectRunner> = {
           comment: input.comment?.trim() ?? '',
         },
         sourceText: source,
-        // A version filed from a live chat that the reviewer ALSO asked Piloti to
-        // revise („Piloti überarbeiten lassen") keeps its thread: the run answers
-        // where the draft was made. The ordinary case here has no origin at all —
-        // that is the condition this effect fires on — and gets the definition's
-        // own thread instead.
         conversationId: version.originConversationId ?? null,
-        // The permissions the RE-FILING has to carry are the ones the original
-        // filing carried: whoever wrote this draft. The reviewer authorizes the
-        // delegation — it is their decision — and does not lend their own
-        // permissions to the work.
         requester: { userId: version.createdBy, email: null },
       })
     } catch (error) {
@@ -652,34 +328,12 @@ const EFFECT_REGISTRY: Record<DocumentVersionEffect, EffectRunner> = {
   },
 }
 
-/**
- * Forget the chunks the version being replaced left behind.
- *
- * Through `collectionFileRef` like every other `(collection, filename)` call:
- * `null` means "this row owns nothing over there", which is the honest answer
- * for a document nobody ever published. Best-effort, because the publish itself
- * is durable and the platform's vector reconcile is the sweep that catches a
- * backend that said no.
- */
 async function purgeSupersededChunks(document: Document): Promise<void> {
   const ref = collectionFileRef(document)
   if (!ref) return
   await purgeIngestedChunks(getBackendUrl(), ref, BACKEND_PURGE_TIMEOUT_MS)
 }
 
-/**
- * The four keys a published Piloti document carries into every chunk.
- *
- * `approved_by` is the person's DISPLAY NAME and not their user id, because the
- * value is rendered into a German line the model and the reader both see
- * („freigegeben von Maria Huber am 01.09.2026"). Resolved through
- * `resolvePeople`, which is how every collaboration surface in this tier turns
- * an id into a name, so the grounding block and the share roster cannot
- * disagree about what somebody is called. An id the directory cannot resolve —
- * a deactivated member, a WorkOS hiccup — yields `null` rather than a raw id:
- * the label degrades to the bare „Piloti-Dokument" instead of printing a
- * `user_01…` at an architect.
- */
 async function agentProvenance(
   organizationId: string,
   document: Document,
@@ -696,18 +350,6 @@ async function agentProvenance(
   }
 }
 
-/**
- * Read a machine's published document into the index again, as its published
- * version: what a Papierkorb restore owes a Piloti document whose chunks went
- * when its folder was deleted (`projects/folder-bin-jobs.ts`).
- *
- * The same dispatch `ingestPublished` makes, with the version and provenance it
- * names, because `dispatchDocument` indexes a machine's row only for its
- * published version. Without either half (no published version, a name outside
- * the `piloti/` namespace) it refuses the way the dispatcher does, so a caller
- * cannot mistake "not indexable" for a backend failure. No purge first: the
- * chunks this replaces are already gone.
- */
 export async function redispatchPublishedVersion(
   organizationId: string,
   document: Document,
@@ -733,25 +375,12 @@ export async function redispatchPublishedVersion(
   })
 }
 
-/** Every effect a transition names, in order. */
 async function runEffects(context: EffectContext): Promise<void> {
   for (const effect of context.transition.effects) {
     await EFFECT_REGISTRY[effect](context)
   }
 }
 
-/**
- * The permission gate for one row.
- *
- * `alsoRequires` is a CONJUNCTION and never a substitution — ADR-0047's third
- * addendum, one level up: filing a generated document is still a document
- * write, so `project:documents:generate` is asked IN ADDITION to
- * `project:documents:write`, never instead of it.
- *
- * A document with no project (the org-wide Archiv, a chat attachment) has no
- * project to check against; `getAccessibleDocument` has already resolved that
- * shelf's own permission from the row, which is the honest gate for it.
- */
 async function requireTransitionPermission(
   session: AuthorizedSession,
   document: Document,
@@ -764,7 +393,6 @@ async function requireTransitionPermission(
   }
 }
 
-/** The guards a CHECK cannot see: who is asking, and what the body carries. */
 function assertGuards(
   session: AuthorizedSession,
   version: DocumentVersion,
@@ -777,13 +405,6 @@ function assertGuards(
   if (transition.requires.comment && !input.comment?.trim()) {
     throw new UnprocessableError('This decision needs a comment', { op: transition.op })
   }
-  // A version with NO stored digest has no `If-Match` to satisfy. The column is
-  // nullable — a row backfilled by migration 0082 from a document that predates
-  // `content_hash` (0078) carries null — and comparing against it made the
-  // guard unsatisfiable: no string equals null, so every caller got a 409 and
-  // the only way past was to send a literal `''`, which is what the task
-  // outcome path was reduced to doing. "Nothing to match" is the honest reading
-  // and it is the one a person editing such a document needs.
   if (
     transition.requires.ifMatch &&
     version.contentHash !== null &&
@@ -797,43 +418,6 @@ function assertGuards(
   }
 }
 
-/**
- * The guards that have to ask who else is in the project.
- *
- * Kept apart from {@link assertGuards} because these two cost a directory read
- * and an FGA check each, and because they are the two rules that are ABOUT the
- * other people in the project rather than about the request.
- *
- * ## „Der Einreichende darf nicht freigeben", and its two exceptions
- *
- * The rule is that the office asserting a Befund means somebody OTHER than its
- * author read it. Both exceptions are cases where that sentence is not what the
- * row says:
- *
- *   * **the submission was a machine's** (`submitted_by_actor = 'agent'`,
- *     migration 0085). `submitted_by` on a version Piloti filed is the
- *     COMMISSIONING human, whose session the run acted in — not the author. The
- *     guard read that id and refused the one person who had asked for the
- *     report the right to release it. Approving it IS the first human reading.
- *   * **there is nobody else who could** — a one-person project. The waiver is
- *     recorded on the audit event (`selfReview`) rather than granted silently,
- *     so the trail distinguishes „freigegeben" from „freigegeben, weil es
- *     niemanden sonst gibt".
- *
- * ## Resolving the round BEFORE the swap
- *
- * A row whose `requires.reviewer` is set opens an actionable item for each
- * person it names, and who those people are used to be decided inside the
- * `openReviewInbox` effect — which runs AFTER the state has moved. When that
- * resolution came back empty it threw, and the version was left durably
- * `in_review` with nobody told about it and no exit that is not a decision one
- * of those people would have to make. The chain in `./reviewers` is now total
- * (its last link is the submitter, as a recorded waiver), so there is nothing
- * left to refuse — but the resolution still happens here, where a future link
- * that CAN refuse would refuse in time.
- *
- * Returns what it resolved, so nothing downstream asks the same question twice.
- */
 async function assertReviewGuards(
   session: AuthorizedSession,
   document: Document,
@@ -858,7 +442,6 @@ async function assertReviewGuards(
   return { reviewers: resolved.reviewers, selfReview: resolved.selfReview }
 }
 
-/** The columns a transition stamps, by the state it lands in. */
 function stampFor(
   transition: Pick<DocumentVersionTransition, 'to' | 'op'>,
   session: AuthorizedSession,
@@ -867,8 +450,6 @@ function stampFor(
 ): Record<string, unknown> {
   const comment = input.comment?.trim() || null
   const { to } = transition
-  // „Freigeben" approves and publishes in one step (ADR-0104 rule 5): both
-  // stamps, one person, one moment.
   if (transition.op === 'approve') {
     return {
       state: to,
@@ -885,9 +466,6 @@ function stampFor(
       return {
         state: to,
         submittedBy: session.userId,
-        // WHOSE HAND, beside whose authority (migration 0085). Taken from the
-        // same flag the publish door reads, so a caller cannot tell the door
-        // one thing and the row another.
         submittedByActor: input.actingHuman === false ? ('agent' as const) : ('human' as const),
         submittedAt: now,
       }
@@ -897,20 +475,12 @@ function stampFor(
     case 'published':
       return { state: to, publishedBy: session.userId, publishedAt: now }
     case 'draft':
-      // A revision clears the reviewer's words: they were about the bytes that
-      // have just been replaced, and a comment that outlives its subject reads
-      // as an outstanding objection to something nobody wrote.
       return { state: to, reviewComment: null, reviewedBy: null, reviewedAt: null }
     default:
       return { state: to }
   }
 }
 
-/**
- * What a transition writes to the version's review rounds (migration 0136,
- * ADR-0104), beside the stamp {@link stampFor} writes on the version. Only the
- * four review ops touch a round; publish, update and archive do not.
- */
 function reviewRoundFor(
   op: DocumentVersionOp,
   session: AuthorizedSession,
@@ -936,21 +506,6 @@ function reviewRoundFor(
   }
 }
 
-/**
- * Move one version through one transition.
- *
- * The order is deliberate and is the whole of the concurrency story:
- *
- *   1. resolve the document through its own shelf's access rule;
- *   2. read the version, find the row of the transition table for
- *      `(its state, this op)` — no row is a 409, not a 400: the caller asked for
- *      something legal on a version that has moved on;
- *   3. check the guards the database cannot see;
- *   4. check the permission;
- *   5. **compare and swap** — `WHERE state = $expected`. A caller that lost the
- *      race between (2) and (5) gets the 409 here rather than a lost update;
- *   6. run the effects, on the row the database handed back.
- */
 export async function transitionDocumentVersion(
   session: AuthorizedSession,
   documentId: string,
@@ -972,20 +527,10 @@ export async function transitionDocumentVersion(
 
   assertGuards(session, version, transition, input)
   await requireTransitionPermission(session, document, transition)
-  // A held document (ADR-0086) opens no review round: the inbox row names it,
-  // with its Auftragssatz, to reviewers who need be neither its uploader nor
-  // one of its quarantine reviewers. Its uploader reaches this path, because
-  // the hold lets them see their own file, so it is refused here, before the
-  // swap, while the version is still a draft they can submit once it passes.
   if (transition.effects.includes('openReviewInbox') && !hasPassedScreening(document)) {
     throw new ConflictError('The document has not passed screening yet', { op, reason: 'held' })
   }
-  // Before the swap, so a submission that would reach nobody is refused while
-  // the version is still a draft the caller can fix.
   const review = await assertReviewGuards(session, document, version, transition, input)
-  // Before the swap too: „Piloti überarbeiten lassen" on a draft no task may
-  // quote is refused with the reason, and the reviewer can still ask for the
-  // changes without Piloti. The effect checks again for the case nobody asked.
   if (input.delegateRevision === true && transition.effects.includes('openRevisionTask')) {
     if (await folderRestrictsReading(session.organizationId, document.projectId, document.folderId)) {
       throw confinementRefusal('revision', input.locale ?? AGENT_REFUSAL_LOCALE)
@@ -999,8 +544,6 @@ export async function transitionDocumentVersion(
 
   const stamp = stampFor(transition, session, effectInput, new Date())
   const round = reviewRoundFor(transition.op, session, effectInput)
-  // `promotes` rows go through the transaction that also supersedes the
-  // previous published version and moves the item's pointer; see the flag.
   const promoted = transition.promotes
     ? await promoteVersionToPublished(
         versionId,
@@ -1017,8 +560,6 @@ export async function transitionDocumentVersion(
   if (!swapped) {
     throw new ConflictError('The version changed while you were deciding', { op })
   }
-  // The row's Freigabe state, its size and date (a promotion swaps the item's
-  // bytes) changed for everyone reading the shelf.
   publishShelfChanged(session.organizationId, documentShelf(document))
 
   await runEffects({
@@ -1032,7 +573,6 @@ export async function transitionDocumentVersion(
   return swapped
 }
 
-/** What a caller hands in to create a version from nothing. */
 export interface CreateVersionInput {
   document: Document
   op: Extract<DocumentVersionOp, 'upload' | 'create'>
@@ -1043,29 +583,9 @@ export interface CreateVersionInput {
   contentHash: string | null
   request?: Request
   actingHuman?: boolean
-  /**
-   * The chat conversation this version was filed from (migration 0084).
-   *
-   * Supplied only by the agent's internal route, out of the VERIFIED envelope.
-   * It is why a reviewer's „Änderungen anfordern" can reach the next turn of
-   * that conversation instead of opening a task nobody asked for.
-   */
   originConversationId?: string | null
 }
 
-/**
- * Record a version that did not come from another version — a human upload, or
- * a producer's first draft.
- *
- * Both go through the transition table's `from: null` rows rather than
- * inserting directly, so the permission, the audit action and the effects of
- * "a person uploaded a file" and "Piloti filed a draft" are stated in the same
- * place as every other transition. The bytes are already stored by the time
- * this runs: whoever wrote them owns the quota admission, because that is the
- * path the object went through (`admitOrDiscard` for an upload,
- * `fileGeneratedDocument` for a draft) and a second charge here would double
- * count.
- */
 export async function createDocumentVersion(
   session: AuthorizedSession,
   input: CreateVersionInput,
@@ -1089,21 +609,11 @@ export async function createDocumentVersion(
     contentHash: input.contentHash,
     createdBy: session.userId,
     originConversationId: input.originConversationId ?? null,
-    // An upload is published by the person who put it there, and approved by
-    // nobody: the person is the assertion, and an approver column filled with
-    // their name would record a review that never happened (migration 0137).
     ...(transition.to === 'published'
       ? { state: 'published' as const, origin: 'upload' as const, publishedBy: session.userId, publishedAt: now }
       : { state: transition.to, origin: 'draft' as const }),
   }
 
-  // A row born `published` cannot be INSERTED and then have its predecessor
-  // superseded: `uniq_document_versions_published_per_document` is a plain
-  // partial unique index, checked per statement rather than deferred, so the
-  // insert is refused while the previous version is still published — which is
-  // every re-upload. The supersede, the insert and the pointer move are
-  // therefore one transaction (`insertPublishedVersion`), and the order inside
-  // it is supersede first.
   const promoted = transition.promotes ? await insertPublishedVersion(values) : null
   const version = promoted?.version ?? (await insertDocumentVersion(values))
 
@@ -1118,10 +628,6 @@ export async function createDocumentVersion(
   return version
 }
 
-/**
- * „There is already a draft", naming it — the fork's one 409, whether the probe
- * saw the open version or the index refused a concurrent second insert.
- */
 function openVersionConflict(open: DocumentVersion): ConflictError {
   return new ConflictError('This document already has an open version', {
     versionId: open.id,
@@ -1129,22 +635,6 @@ function openVersionConflict(open: DocumentVersion): ConflictError {
   })
 }
 
-/**
- * Start a new draft from the published version.
- *
- * The draft SHARES the published version's storage key until its content is
- * replaced. That is not a shortcut: a fork that copied the bytes would charge
- * the quota twice for a file nobody has changed yet, and the object it made
- * would be identical to the one beside it. The first `PUT content` is what
- * allocates the draft its own key, under `v<n>/`, so the published version's
- * bytes are never written over.
- *
- * One open version per document is the database's rule (a partial unique
- * index); this reports it as a 409 with the existing draft named, because "there
- * is already a draft" is something the caller can act on. The probe answers the
- * sequential case; the index answers two forks at once, and its refusal is
- * mapped to the same 409 (ADR-0054 correction 14) instead of escaping as a 500.
- */
 export async function forkDraftVersion(
   session: AuthorizedSession,
   documentId: string,
@@ -1178,17 +668,9 @@ export async function forkDraftVersion(
     contentType: source.contentType,
     fileSize: source.fileSize,
     contentHash: source.contentHash,
-    // The verdict travels with the bytes it is bound to (migration 0131): it
-    // counts only while it equals `contentHash`, so the first edit of the draft
-    // leaves it behind, and a draft published unedited, which is not screened
-    // again (`ingestPublishedUpload`), keeps the verdict its bytes already have.
     screenedHash: source.screenedHash,
     createdBy: session.userId,
   }).catch(async (error: unknown) => {
-    // Two forks both passed the probe above, and the index refused the second
-    // insert. The loser gets the SAME 409 the probe gives — the contract names
-    // the draft that exists, so the caller can open it — rather than a 500. If
-    // the winner is already gone again, the mapped error is itself a 409.
     if (!(error instanceof OpenVersionExistsError)) throw error
     const winner = await findOpenVersion(documentId, session.organizationId)
     throw winner ? openVersionConflict(winner) : error
@@ -1205,53 +687,6 @@ export async function forkDraftVersion(
   return version
 }
 
-/**
- * Replace an open version's bytes, whole-body, with `If-Match` on the digest.
- *
- * **Whole body, never a string replacement.** The API has no patch verb, and
- * that is a decision rather than an omission: exact-string editing happens in
- * the working directory (slice 1), where the model can read what it is editing;
- * filing is a whole document. An API that offered `old_string`/`new_string`
- * would re-derive the uniqueness check, the newline hints and six error strings
- * on the wrong side of the boundary.
- *
- * ## Two writers holding the same `If-Match`
- *
- * `If-Match` is checked against the row read at the start ({@link assertGuards}),
- * and that read is stale by the time anything is written. The swap used to
- * filter on `state = 'draft'` alone, and `update` goes draft → draft, so two
- * writers holding the same digest BOTH won, both wrote the same object key, and
- * an interleaving could leave the row's hash and size describing one writer's
- * bytes while the object held the other's.
- *
- * Two changes close it, and they only work together:
- *
- *   - **the swap asserts what was read**: `state`, `content_hash` and
- *     `storage_key` all have to still be what this request read, so the second
- *     of two writers matches no row and gets the 409 `If-Match` promised;
- *   - **every write gets its own object** (`v<n>/<write id>/…`,
- *     `writeVersionContent`), written BEFORE the swap. A loser's bytes land
- *     under a key no row will ever name and are deleted; the winner's row can
- *     only ever name bytes that are already stored in full. Writing to a shared
- *     key after the swap — the previous order — left a window in which the row
- *     named a hash the object did not yet hold, and a failed PUT left it that
- *     way.
- *
- * The draft's previous object is deleted once nothing names it: a draft is not
- * history. A draft forked from the published version shares that version's key
- * until its first replace, and that object is left alone — the published row
- * still names it.
- *
- * ## The order
- *
- *   1. **render**, through the producer's own renderer, and re-check that the
- *      AI marking is in the bytes. The caller sends the model's raw Markdown;
- *      the branding and the marking belong to the file, not to the request.
- *   2. **write and swap** (`writeVersionContent`): the quota courtesy check,
- *      the object under a fresh key, then one transaction that swaps the row
- *      and mirrors the item.
- *   3. **effects**, for the winner only.
- */
 export async function replaceVersionContent(
   session: AuthorizedSession,
   documentId: string,
@@ -1260,13 +695,7 @@ export async function replaceVersionContent(
   ifMatch: string | null | undefined,
   options: {
     request?: Request
-    /** False for the agent's internal route and the task outcome path. */
     actingHuman?: boolean
-    /**
-     * The conversation the new content came out of, for the agent's rewrite. Content from a thread that drew on a
-     * restricted folder goes only into a document filed at least as narrowly
-     * (ADR-0087, `restricted-egress.ts`), exactly as a new filing does.
-     */
     origin?: ConversationOrigin
   } = {},
 ): Promise<DocumentVersion> {
@@ -1312,43 +741,12 @@ export async function replaceVersionContent(
   return swapped
 }
 
-/**
- * Record the version a human upload just stored.
- *
- * Called by all three upload shelves AFTER the bytes are admitted. The quota is
- * not charged again here: `admitOrDiscard` / `admitReplacementOrDiscard` is the
- * one admitting path and this is bookkeeping on top of it.
- *
- * `stored` is what THIS upload wrote. It used to be read back off the item row,
- * which is right only while nobody else writes that row: two overlapping
- * re-uploads of one filename each rewrite it, and the one that recorded its
- * version second could read the OTHER upload's key — two versions over one
- * object, and its own object named by nothing. Passing it in makes each version
- * describe the bytes its own request stored. Omitted only by callers that have
- * no bytes of their own in flight.
- *
- * A re-upload's previous version is superseded by the same transaction and
- * KEEPS ITS OBJECT — which is why the callers no longer call
- * `discardSupersededObjects`. That was correct while a document had one set of
- * bytes; with a history it deletes the object a row still names.
- *
- * ## A delete that lands after the upload's write
- *
- * The row was written a moment ago, and somebody can delete it before this
- * runs: the lookup below misses, or — between the lookup and the insert — the
- * version's foreign key refuses the insert (`DocumentDeletedError` from the
- * repository). Either way this returns `null` and records nothing. A caller
- * that has bytes in flight must not carry on as if a version existed: use
- * {@link recordUploadedVersionOrDiscard}, which turns the `null` into a 409.
- */
 export async function recordUploadedVersion(
   session: AuthorizedSession,
   documentId: string,
   request?: Request,
   stored?: UploadedBytes,
 ): Promise<DocumentVersion | null> {
-  // The upload wrote this row a moment ago, and its bytes are still held
-  // (ADR-0086); the version records them whatever the gate will say.
   const document = await findDocumentInOrg(documentId, session.organizationId, internalRead('just-written'))
   if (!document) return null
   const bytes = stored ?? document
@@ -1369,28 +767,11 @@ export async function recordUploadedVersion(
   }
 }
 
-/** The columns an upload stored, which its version must describe. */
 type UploadedBytes = Pick<
   DocumentVersion,
   'storageKey' | 'storageBucket' | 'contentType' | 'fileSize' | 'contentHash'
 >
 
-/**
- * {@link recordUploadedVersion}, for an upload that must stop when its document
- * is gone — the project and Archiv shelves.
- *
- * A `null` there used to be read by nobody: the upload dispatched the deleted
- * document for ingest, wrote „document.uploaded" and answered 200. Here it
- * discards `stored`'s object and throws `DocumentDeletedError` (a 409,
- * `deleted_during_upload`), so nothing downstream runs (ADR-0054 correction
- * 17). The delete usually took the object already — it ran after this upload
- * pointed the row at it — but not when it read the row before the upload's
- * write committed, and then nothing else will ever name these bytes. Deleting a
- * missing key is a no-op.
- *
- * Not a retry: the upload's write committed before the delete, so in commit
- * order the file being gone is the delete's outcome.
- */
 export async function recordUploadedVersionOrDiscard(
   session: AuthorizedSession,
   documentId: string,
@@ -1403,10 +784,8 @@ export async function recordUploadedVersionOrDiscard(
   throw new DocumentDeletedError(documentId)
 }
 
-/** The version number the next upload of this document will be. */
 export { nextVersionNumber }
 
-/** `GET /api/documents/[id]/versions` */
 export async function listDocumentVersionViews(
   session: AuthorizedSession,
   documentId: string,
@@ -1426,12 +805,6 @@ export async function listDocumentVersionViews(
   }
 }
 
-/**
- * Who the newest version's review round is still waiting on. Only a version in
- * review has an open round; the recipients are read off the round's own inbox
- * items, because that is where the reviewers a submitter NAMED are recorded
- * (the fallback chain in `./reviewers` would answer with who MIGHT be asked).
- */
 async function openReviewRound(
   organizationId: string,
   documentId: string,
@@ -1445,11 +818,6 @@ async function openReviewRound(
   return openRecipientsOf(organizationId, reviewGroupKey(documentId, newest.id))
 }
 
-/**
- * `GET /api/review/queue`: what waits for the person's Freigabe (or what they sent to review), across
- * projects. The documents are narrowed by the screening reader, then project and folder access are
- * asked again per row; the cursor follows the rows read, so a page of hidden ones still moves on.
- */
 export async function listReviewQueueViews(
   session: AuthorizedSession,
   query: ReviewQueueQuery,
@@ -1506,7 +874,6 @@ export async function listReviewQueueViews(
   }
 }
 
-/** Every user id the versions name as having done something to them. */
 function versionActors(versions: readonly DocumentVersionView[]): string[] {
   return versions.flatMap((version) =>
     [version.createdBy, version.submittedBy, version.reviewedBy, version.approvedBy, version.publishedBy].filter(
@@ -1515,18 +882,6 @@ function versionActors(versions: readonly DocumentVersionView[]): string[] {
   )
 }
 
-/**
- * The editorial state of documents a caller has ALREADY listed.
- *
- * Authorization is the listing's. These ids come out of `listDocuments`, which
- * ran `requireProjectAccess` before it returned them, and this adds no field a
- * reader of that listing may not see — how many versions a file has and what
- * state the newest one is in are the two facts the Files badge renders. Passing
- * the ids rather than a project id is what keeps it that way: this function
- * cannot widen a listing, only annotate one.
- *
- * Returned as a Map because every caller merges it row by row.
- */
 export async function summarizeDocumentVersions(
   organizationId: string,
   documentIds: readonly string[],
@@ -1535,7 +890,6 @@ export async function summarizeDocumentVersions(
   return new Map(summaries.map((summary) => [summary.documentId, summary]))
 }
 
-/** `GET /api/documents/[id]/versions/[versionId]` */
 export async function getDocumentVersionView(
   session: AuthorizedSession,
   documentId: string,
@@ -1547,6 +901,5 @@ export async function getDocumentVersionView(
   return toDocumentVersionView(version)
 }
 
-/** Every transition, re-exported so a spec reads one list rather than two. */
 export { DOCUMENT_VERSION_TRANSITIONS }
 export type { DocumentVersionSummary }

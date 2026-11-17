@@ -1,17 +1,5 @@
 'use client'
 
-/**
- * The switch for a temporary chat (ADR-0180 rule 2), in the composer beside
- * the effort dial: the other setting that belongs to one conversation, and the
- * one place that exists both before a chat has started and after. The thread
- * header's menu, where Share lives, appears only with the first message, which
- * is too late to start a chat that keeps nothing.
- *
- * Only the conversation's owner may switch it (`setConversationTemporary` on
- * the server), so a collaborator or a viewer gets no control: the line under
- * the composer (`ConversationPrivacyLine`) still tells them what holds.
- */
-
 import { useEffect, type JSX } from 'react'
 import { MessageCircleDashed } from 'lucide-react'
 import { toast } from 'sonner'
@@ -25,14 +13,12 @@ import { onTemporaryRefused, setConversationTemporary, useTemporarySwitch } from
 
 export interface TemporaryChatToggleViewProps {
   pressed: boolean
-  /** A switch is on its way to the server. */
   pending?: boolean
   disabled?: boolean
   onPressedChange: (pressed: boolean) => void
   className?: string
 }
 
-/** The control alone, for the composer and for the preview. */
 export function TemporaryChatToggleView({
   pressed,
   pending = false,
@@ -65,7 +51,6 @@ export function TemporaryChatToggleView({
 }
 
 export interface TemporaryChatToggleProps {
-  /** The open conversation; none yet on the start screen, where the switch mints one. */
   conversationId: string | null | undefined
   disabled?: boolean
   className?: string
@@ -77,13 +62,9 @@ export function TemporaryChatToggle({
   className,
 }: TemporaryChatToggleProps): JSX.Element | null {
   const t = useTranslations(chatCopy)
-  // What the server holds, or that a switch is on its way (`temporary-switch-machine.ts`).
   const view = useTemporarySwitch(conversationId)
-  // Published by the shared-thread seam. Null in a private thread, where the
-  // reader is its only member and so its owner.
   const role = useThreadRole(conversationId)
 
-  // A switch the server refused: the toggle already shows what holds; this says why.
   useEffect(
     () =>
       onTemporaryRefused((error) => {
@@ -96,8 +77,6 @@ export function TemporaryChatToggle({
   if (role !== null && role !== 'owner') return null
 
   const handleChange = (next: boolean): void => {
-    // The start screen has no conversation until the first keystroke: mint it
-    // now, so the choice has something to be kept on.
     const id = conversationId ?? useChatStore.getState().ensureSession()
     if (id) setConversationTemporary(id, next)
   }

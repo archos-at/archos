@@ -7,7 +7,7 @@
  * Every error string the server, the knowledge layer or a transport writes is
  * English and meant for whoever reads the log: an API envelope's `error`, a
  * stored ingest failure (`pdf_pages_unreadable: 7 of 12 pages could not be
- * read`), an exception's `.message`. A German office onboarding Piloti read
+ * read`), an exception's `.message`. A German office onboarding to the workspace read
  * such strings in the middle of its project setup and reported that „the
  * language jumped to English" (19.10.2026). The words have to come from the
  * dictionary, with the raw text in the console or behind a „Details" disclosure.
@@ -30,9 +30,7 @@ import { describe, expect, it } from 'vitest'
 import { SOURCE_DIRS, srcKey } from '@/test-utils/source-tree'
 
 
-/** `{file.errorMessage}` as a child, not as a prop value (`message={…}`). */
 const ERROR_MESSAGE_CHILD = /(?<!=)\{\s*[\w.?]+\.errorMessage\s*\}/
-/** `toast.error(body?.error ?? …)`, `toast.error(data.error)`. */
 const TOAST_OF_BODY = /toast\.(?:error|warning|info|message)\(\s*\w+\??\.error\b/
 
 const ERROR_MESSAGE_CHILD_ALLOWED: Record<string, string> = {

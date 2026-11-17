@@ -22,7 +22,6 @@ describe('nextDue', () => {
   it('moves a schedule to its next occurrence after now, in its own time zone', () => {
     const now = new Date('2026-03-23T10:00:00Z') // a Monday, after 09:00 Vienna (CET)
 
-    // The next Monday is after the clocks went forward: 09:00 CEST is 07:00 UTC.
     expect(nextDue(definition({}), now)).toEqual({ nextRunAt: new Date('2026-03-30T07:00:00Z'), enabled: true, fire: true })
   })
 

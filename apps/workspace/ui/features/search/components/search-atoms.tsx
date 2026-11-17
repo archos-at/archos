@@ -1,18 +1,5 @@
 'use client'
 
-/**
- * The search's own atoms: the parts the search organisms are built from, and
- * the only file under `features/search` that writes Tailwind.
- *
- * Each owns one decision. The frame decides where the rail sits (beside the
- * results from `md`, in a bottom sheet behind „Filter“ under it) and that a hairline,
- * not a box, separates the two; a facet option is one dense row that toggles
- * and counts in tabular figures; a result row is the product's list row
- * (`Item`) as a link, the name in the strong weight and everything else on one
- * muted meta line; the register is a table whose header stays put while the
- * page scrolls its rows, and a stack of entries on a phone. The organisms arrange them and never style them.
- */
-
 import type { FormEvent, JSX, ReactNode } from 'react'
 import { useContext, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import Link from 'next/link'
@@ -46,14 +33,6 @@ import { MatchedSegments } from './match-mark'
 import { ResultRowFrameContext, useCompactRow } from './row-frame'
 import { fitColumns, minimumRem, type ColumnFit } from '../lib/register-fit'
 
-// ─── Frame ──────────────────────────────────────────────────────────────────
-
-/**
- * The page: the toolbar and the chips on top, the rail beside the results with
- * a hairline between. Under `md` there is no rail beside anything: it opens
- * in the filter sheet (`FilterSheet`), so the first result stays under the
- * field instead of a screen of counts further down. `rail` is null there.
- */
 export function SearchFrame({ toolbar, rail, children }: { toolbar: ReactNode; rail: ReactNode; children: ReactNode }): JSX.Element {
   return (
     <div className="flex min-w-0 flex-col gap-4" data-testid="search-frame">
@@ -73,13 +52,6 @@ export function SearchFrame({ toolbar, rail, children }: { toolbar: ReactNode; r
   )
 }
 
-/**
- * The rail on a phone: the kit's bottom sheet (a `Dialog`, which below `sm`
- * anchors to the bottom edge with a grabber and a pinned footer), the facets
- * and filters scrolling under a fixed title, and two actions where the thumb
- * is: take every filter off, and go back to the answer with its size on the
- * button. Filters apply as they are set, so closing it discards nothing.
- */
 export function FilterSheet({
   open,
   onOpenChange,
@@ -100,7 +72,6 @@ export function FilterSheet({
   clearLabel: string
   onClear: () => void
   canClear: boolean
-  /** „14 Treffer zeigen“. */
   showLabel: string
   children: ReactNode
 }): JSX.Element {
@@ -115,7 +86,7 @@ export function FilterSheet({
           {children}
         </div>
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClear} disabled={!canClear} data-testid="search-sheet-clear">
+          <Button type="button" variant="secondary" onClick={onClear} disabled={!canClear} data-testid="search-sheet-clear">
             {clearLabel}
           </Button>
           <Button type="button" onClick={() => onOpenChange(false)} data-testid="search-sheet-show">
@@ -127,7 +98,6 @@ export function FilterSheet({
   )
 }
 
-/** The row with the field: the field takes the room, the controls group at the right and wrap under it on a phone. */
 export function SearchToolbar({ field, controls }: { field: ReactNode; controls: ReactNode }): JSX.Element {
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-2" data-testid="search-toolbar">
@@ -137,33 +107,20 @@ export function SearchToolbar({ field, controls }: { field: ReactNode; controls:
   )
 }
 
-/** A toolbar button's words: hidden on a phone, where the icon and the accessible name carry it. */
 export function ToolbarLabel({ children }: { children: ReactNode }): JSX.Element {
   return <span className="max-sm:sr-only">{children}</span>
 }
 
-/**
- * The shortcut that focuses the field, inside it: ⌘ K or Strg K, from the
- * shell's one key renderer so it names the key as the palette does.
- * (`SearchField` hides it on a phone and under a finger.)
- */
 export function FieldShortcut(): JSX.Element {
   return <ShortcutKeys segments={FOCUS_FIELD_KEYS} />
 }
 
 const FOCUS_FIELD_KEYS: readonly KeySegment[] = [{ kind: 'chord', caps: [MOD, 'K'] }]
 
-/** A hint about keys, in a status line: gone under a finger and on a phone-sized screen. */
 export function KeysHint({ children }: { children: ReactNode }): JSX.Element {
   return <span className="max-sm:hidden pointer-coarse:hidden">{children}</span>
 }
 
-/**
- * A row of choices that may be wider than the column (the kinds with their
- * counts, on a phone): it scrolls sideways, and the edge that hides one says
- * so with a fade and a chevron. The fade alone faded into the strip's own pale
- * well and read as its end, with Projekte and Chats past it.
- */
 export function ChoiceStrip({ label, children }: { label: string; children: ReactNode }): JSX.Element {
   return (
     <HorizontalScroll cue aria-label={label} className="-mx-1 px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -172,9 +129,6 @@ export function ChoiceStrip({ label, children }: { label: string; children: Reac
   )
 }
 
-// ─── Rail ───────────────────────────────────────────────────────────────────
-
-/** A group of the rail: its name folds it, so a long rail is read one group at a time. */
 export function RailSection({
   title,
   children,
@@ -186,7 +140,6 @@ export function RailSection({
   children: ReactNode
   testId?: string
   defaultOpen?: boolean
-  /** Always open, its name a plain heading: the group the rail starts with. */
   fixed?: boolean
 }): JSX.Element {
   const [open, setOpen] = useState(defaultOpen)
@@ -221,7 +174,6 @@ export function RailSection({
   )
 }
 
-/** One filter value with its count: a click switches it on or off. */
 export function FacetOption({
   label,
   count,
@@ -242,11 +194,9 @@ export function FacetOption({
       onClick={onToggle}
       data-testid={testId}
       className={cn(
-        // A long name (a project's address) wraps to a second line rather than
-        // ending in an ellipsis whose rest only a tooltip knew.
         'flex min-h-7 w-full min-w-0 items-start gap-2 rounded-sm px-1 py-1 text-left text-sm leading-5 transition-colors duration-snap ease-out motion-reduce:transition-none pointer-coarse:min-h-11 pointer-coarse:items-center',
         FOCUS_RING_INSET,
-        active ? 'bg-secondary font-medium text-foreground' : 'text-foreground/80 hover:bg-secondary/60 hover:text-foreground'
+        active ? 'bg-secondary font-medium text-foreground' : 'text-foreground/80 hover:bg-hover hover:text-foreground'
       )}
     >
       <span
@@ -270,42 +220,30 @@ export function FacetOption({
   )
 }
 
-/** A field over a facet group's values that narrows them by name, once the whole list is open. */
 export function FacetFind({ children }: { children: ReactNode }): JSX.Element {
   return <div className="px-1 pb-1.5 pointer-fine:[&_input]:h-8">{children}</div>
 }
 
-/** A control under a rail group or a form, at its own width: „Alle zeigen“, „Hinzufügen“. */
 export function RailAction({ children }: { children: ReactNode }): JSX.Element {
   return <div className="flex min-w-0 flex-wrap items-center gap-2 px-1">{children}</div>
 }
 
-/**
- * The typed filters' column. Its fields are the rail's compact size under a
- * mouse (32px, as the toolbar's controls), the full 44px under a finger.
- */
 export function RailBody({ children }: { children: ReactNode }): JSX.Element {
   return <div className="flex min-w-0 flex-col gap-3 px-1 pb-2 pt-1 pointer-fine:[&_input]:h-8">{children}</div>
 }
 
-/** Two fields one above the other: a date's from and to, which do not fit side by side in the rail. */
 export function FieldStack({ children }: { children: ReactNode }): JSX.Element {
   return <div className="flex min-w-0 flex-col gap-2">{children}</div>
 }
 
-/** Plannummer and Index on one row: the number takes the room, the Index (a letter or two) a narrow field. */
 export function KeyFieldRow({ children }: { children: ReactNode }): JSX.Element {
   return <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_4.5rem] items-start gap-2">{children}</div>
 }
 
-/** Two short fields side by side: min and max. */
 export function FieldPair({ children }: { children: ReactNode }): JSX.Element {
   return <div className="grid min-w-0 grid-cols-2 gap-2">{children}</div>
 }
 
-// ─── Above the results ──────────────────────────────────────────────────────
-
-/** The filters that are set, each a chip that takes itself off. */
 export function ActiveFilters({ children }: { children: ReactNode }): JSX.Element {
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-1.5" data-testid="search-active-filters">
@@ -325,7 +263,6 @@ export function RemovableChip({ label, removeLabel, onRemove }: { label: string;
   )
 }
 
-/** The answer's size and state, read out when it changes: „18 Treffer“, „Sucht…“. */
 export function ResultsStatus({ children, busy }: { children: ReactNode; busy: boolean }): JSX.Element {
   return (
     <p className="flex min-h-5 items-center gap-2 text-xs tabular-nums text-muted-foreground" role="status" aria-live="polite" data-testid="search-status">
@@ -336,7 +273,6 @@ export function ResultsStatus({ children, busy }: { children: ReactNode; busy: b
   )
 }
 
-/** A note about the answer, not an error: facts still being read, content searched in part. A quiet line, not a box. */
 export function SearchNote({ children, icon: Icon, testId }: { children: ReactNode; icon: LucideIcon; testId?: string }): JSX.Element {
   return (
     <p className="flex items-start gap-1.5 text-pretty text-xs text-muted-foreground" data-testid={testId}>
@@ -346,21 +282,16 @@ export function SearchNote({ children, icon: Icon, testId }: { children: ReactNo
   )
 }
 
-/** The actions under an empty answer, side by side, wrapping on a phone. */
 export function EmptyActions({ children }: { children: ReactNode }): JSX.Element {
   return <div className="flex flex-wrap items-center justify-center gap-2">{children}</div>
 }
 
-/** The kinds as a row of choices with their counts. */
 export function KindCount({ children }: { children: ReactNode }): JSX.Element {
   return <span className="ml-1 tabular-nums text-muted-foreground">{children}</span>
 }
 
-// ─── Result list ────────────────────────────────────────────────────────────
-
 export { ResultRowFrameProvider, useCompactRow, type ResultRowFrameProps } from './row-frame'
 
-/** One kind's results: its name and count over the rows, „Mehr“ under them. */
 export function ResultSection({
   title,
   count,
@@ -374,7 +305,6 @@ export function ResultSection({
   children: ReactNode
   footer?: ReactNode
   testId?: string
-  /** The rows' listbox, which the search field's combobox controls. */
   listId?: string
 }): JSX.Element {
   return (
@@ -392,26 +322,11 @@ export function ResultSection({
 }
 
 
-/** The row's box: icon, then the name over the meta line; the page's row grows, the palette's stays compact. */
 const RESULT_ROW_LAYOUT = 'items-start gap-x-3 px-2 py-2.5'
 
-/**
- * The row the arrow keys are on: a 2px ink rule down its leading edge over the
- * selected tint, so it reads as where the keyboard is, never as the pointer's
- * hover, which tints alone.
- */
 const ACTIVE_ROW = 'aria-selected:bg-accent/60 aria-selected:shadow-[inset_2px_0_0_0_var(--foreground)]'
 
 
-/**
- * One hit, at most three lines: its name in the strong weight (the focal
- * point, with any state such as „Ersetzt“ beside it), one muted line of where
- * it lives and what it is, and what matched under it. In the palette each of
- * the three is one line, and the third is on every row that has one, never
- * only on the row the arrows are on: a passage that opened under the selection
- * pushed every row below it down by a line on each arrow press, so the list
- * moved under the reader's eye as they walked it.
- */
 export function ResultRow({
   href,
   icon: Icon,
@@ -427,18 +342,12 @@ export function ResultRow({
   href: string
   icon: LucideIcon
   title: ReactNode
-  /** One line of where it lives and what it is: „Kaiserstraße 43 › Einreichung · Einreichplan · EP-03 · Index C“ (`MetaLine`). */
   meta?: ReactNode
-  /** On the name's line, after it: a state (`SupersededMark`). */
   aside?: ReactNode
-  /** The passage, the excerpt, what it was found in. */
   children?: ReactNode
-  /** The row the arrow keys are on. */
   active?: boolean
   testId?: string
-  /** The option's id, which the field's `aria-activedescendant` names while the row is active. */
   id?: string
-  /** The row's ⋯ (`DocumentHitMenu`): beside the link, never inside it, at the row's end. Not drawn in a frame. */
   actions?: ReactNode
 }): JSX.Element {
   const Frame = useContext(ResultRowFrameContext)
@@ -461,7 +370,6 @@ export function ResultRow({
           <span
             className={cn(
               'block min-w-0 text-xs leading-5 text-muted-foreground',
-              // The palette keeps one line: a part that would wrap is left out whole, never cut mid-word.
               compact && 'h-5 overflow-hidden'
             )}
           >
@@ -491,21 +399,10 @@ export function ResultRow({
   )
 }
 
-/** A part of the meta line; identifiers (Plannummer, Index, Maßstab) in the mono face, as the design language sets them. */
 export function MetaPart({ children, code = false }: { children: ReactNode; code?: boolean }): JSX.Element {
   return <span className={cn('whitespace-nowrap', code && 'font-mono text-xs text-foreground/80')}>{children}</span>
 }
 
-/**
- * The meta line's parts that are there, a dot between each, and never a dot at
- * either end of a line: each part carries its dot before it, in a gutter the
- * line pulls into its clipped left edge, so the dot of a part that starts a
- * wrapped line is cut away with the gutter. `lead` parts (where it lives: the
- * shelf's mark, then the folder) come first with no dot between them, but
- * every part keeps the full gutter, a dot in it or not: a narrower one let the
- * clip that eats a wrapped line's dot eat half the folder icon of a lead part
- * that started the phone's second line.
- */
 export function MetaLine({
   parts,
   lead = [],
@@ -533,12 +430,6 @@ export function MetaLine({
   )
 }
 
-/**
- * Where a hit is kept, by the provenance signal: icon, label and colour
- * together. In a cell (`wrap` off) it keeps to one line and gives the full
- * name to its title; in a result row's where line it wraps, so a long project
- * name is read whole without a pointer.
- */
 export function ShelfMark({
   shelf,
   label,
@@ -548,11 +439,6 @@ export function ShelfMark({
   shelf: 'project' | 'office_shelf'
   label: string
   wrap?: boolean
-  /**
-   * The signal on the icon alone, the name in the meta line's ink: the ⌘K
-   * palette, where the same project stands on most rows, and a tinted pill on
-   * each was the loudest thing in the panel, louder than the names searched for.
-   */
   quiet?: boolean
 }): JSX.Element {
   const Icon = shelf === 'office_shelf' ? Archive : FolderKanban
@@ -579,17 +465,7 @@ export function ShelfMark({
   )
 }
 
-/**
- * A folder in the where line: an icon and its name, in ink, never a colour.
- * After a shelf mark it is set apart by the meta line's gutter, not by a chevron: the
- * tinted mark and the folder glyph already read as two steps, and a chevron
- * that wrapped with the folder started the phone's second line on a lone „›“.
- * `label` („Ordner“) is read before the name by a screen reader, which does
- * not see the icon.
- */
 export function WherePart({ children, label }: { children: ReactNode; label: string }): JSX.Element {
-  // The palette's meta line is one line of plain words: the folder stands
-  // first in it, which already says where, and a glyph per part crowded it.
   const compact = useCompactRow()
   return (
     <span className="inline-flex min-w-0 items-center gap-1 text-foreground/75">
@@ -602,18 +478,10 @@ export function WherePart({ children, label }: { children: ReactNode; label: str
   )
 }
 
-/**
- * „Ersetzt“: a newer Fassung replaces this document. Ink outline and the
- * History icon, never the warning amber, which the provenance signal already
- * spends on the Büroablage (design language, principle 2).
- */
 export function SupersededMark({ className, quiet = false }: { className?: string; quiet?: boolean }): JSX.Element {
   const tDocument = useTranslations(searchCopy, 'document')
-  // In the palette as a word in the meta line's ink: an outlined chip with an
-  // icon was the loudest mark in a panel whose rows are otherwise text.
   if (quiet) {
     return (
-      // `h-5`: the title's own line box, so the word sits on the title's line rather than above it.
       <span className={cn('inline-flex h-5 items-center gap-1 text-xs text-muted-foreground', className)} title={tDocument('supersededHint')} data-testid="superseded-mark">
         <History className="size-3" aria-hidden />
         {tDocument('superseded')}
@@ -628,7 +496,6 @@ export function SupersededMark({ className, quiet = false }: { className?: strin
   )
 }
 
-/** A short state beside a hit: Ersetzt, Offen, Mangel. */
 export function HitBadge({ children, tone = 'muted' }: { children: ReactNode; tone?: 'muted' | 'warning' | 'outline' }): JSX.Element {
   return (
     <Chip size="sm" variant={tone}>
@@ -637,15 +504,7 @@ export function HitBadge({ children, tone = 'muted' }: { children: ReactNode; to
   )
 }
 
-/**
- * The passage that matched, behind a quiet rule like a quotation, with the
- * page it is on first, so the page stands in the same place on every row. The
- * matched words are set apart by weight on a faint ink wash, the wash exactly
- * as wide as the match: no padding, so the rest of a compound („Fluchtweg|e“)
- * runs on without a gap.
- */
 export function PassageQuote({ segments, page }: { segments: readonly TextSegment[]; page?: string }): JSX.Element {
-  // The palette holds it to one quiet line (`CompactPassage`).
   if (useCompactRow()) return <CompactPassage segments={segments} page={page} />
   return (
     <p className="mt-1 flex min-w-0 items-baseline gap-2 border-l-2 border-border pl-2.5 text-sm leading-relaxed text-foreground/80" data-testid="search-passage">
@@ -661,20 +520,16 @@ export function PassageQuote({ segments, page }: { segments: readonly TextSegmen
   )
 }
 
-/** A name with the searched words set apart, as the passage sets them, so a match on the name is seen and not told. */
 export function MatchedText({ segments }: { segments: readonly TextSegment[] }): JSX.Element {
   return <MatchedSegments segments={segments} testId="search-title-match" keepUnits={false} />
 }
 
-/** A plain excerpt (an annotation's body, a folder's description). */
 export function Excerpt({ children }: { children: ReactNode }): JSX.Element {
   const compact = useCompactRow()
   return <p className={cn('text-foreground/75', compact ? 'truncate text-xs leading-5 text-muted-foreground' : 'mt-0.5 line-clamp-2 text-pretty text-sm')}>{children}</p>
 }
 
-/** A quiet line under a hit: what the words were found in, when the row shows nothing that matched („Gefunden in Zusammenfassung“), what a Fassung changed. Present, never loud. */
 export function MatchHint({ label, parts, testId = 'search-matched-on' }: { label: string; parts: readonly string[]; testId?: string }): JSX.Element {
-  // In the palette it takes the passage's form (`CompactMatchHint`).
   if (useCompactRow()) return <CompactMatchHint label={label} parts={parts} testId={testId} />
   return (
     <span className="mt-0.5 text-xs text-muted-foreground" data-testid={testId}>
@@ -683,7 +538,6 @@ export function MatchHint({ label, parts, testId = 'search-matched-on' }: { labe
   )
 }
 
-/** The shape of the first answer while it is on its way. */
 export function ResultsSkeleton({ rows = 6 }: { rows?: number }): JSX.Element {
   return (
     <div className="flex flex-col divide-y divide-border/70 border-y border-border/70" data-testid="search-skeleton" aria-hidden>
@@ -700,7 +554,6 @@ export function ResultsSkeleton({ rows = 6 }: { rows?: number }): JSX.Element {
   )
 }
 
-/** The results while a newer answer is read: they stay, quieter, so the page does not jump. */
 export function ResultsBody({ stale, children }: { stale: boolean; children: ReactNode }): JSX.Element {
   return (
     <div
@@ -713,9 +566,6 @@ export function ResultsBody({ stale, children }: { stale: boolean; children: Rea
   )
 }
 
-// ─── Register ───────────────────────────────────────────────────────────────
-
-/** What a register states about itself, above its rows: „Nur aktuelle Fassung“ at the start, the column and sort menus at the end. */
 export function RegisterBar({ start, end }: { start: ReactNode; end: ReactNode }): JSX.Element {
   return (
     <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2" data-testid="search-register-bar">
@@ -725,7 +575,6 @@ export function RegisterBar({ start, end }: { start: ReactNode; end: ReactNode }
   )
 }
 
-/** A switch with its words beside it, the words part of the control: „Nur aktuelle Fassung“. */
 export function LabelledSwitch({
   id,
   label,
@@ -749,14 +598,6 @@ export function LabelledSwitch({
   )
 }
 
-/**
- * The register's box. The page is its one vertical scroller, so the header row
- * stays put above the rows as the page scrolls. Each column claims the width
- * its header needs and the width its values on the page need, and the room is
- * shared out by `fitColumns`, the name taking the rest; only when the chosen
- * columns cannot fit beside a readable name does the table scroll sideways,
- * behind the kit's fade and chevron, which say there is more to the right.
- */
 export function RegisterTable({
   children,
   caption,
@@ -769,21 +610,12 @@ export function RegisterTable({
   children: ReactNode
   caption: string
   testId?: string
-  /** The id the search field's `aria-controls` names. */
   id?: string
-  /** One per column in order: what it needs and what it would like, in rem (`register-fit.ts`). */
   columns: readonly ColumnFit[]
-  /** The name of the region when it scrolls sideways. */
   scrollLabel: string
-  /**
-   * The rows' ⋯ column (`RegisterActionsCell`), last, in rem. Its room comes
-   * out of the name's minimum, so the menu never tips a register that fits
-   * into scrolling sideways.
-   */
   actionsRem?: number
 }): JSX.Element {
   const box = useRef<HTMLDivElement>(null)
-  // The box's width in rem; 0 until measured, which is every minimum.
   const [boxRem, setBoxRem] = useState(0)
   const minRem = minimumRem(columns)
   const wide = boxRem > 0 && minRem > boxRem + 0.0625
@@ -837,7 +669,6 @@ export function RegisterHead({ children }: { children: ReactNode }): JSX.Element
   )
 }
 
-/** A header cell, the kit's `SortableHead`: every register column orders the search. Figures align right, as their column does. */
 export function RegisterHeadCell({
   label,
   numeric = false,
@@ -872,12 +703,8 @@ export function RegisterRow({ children, active = false, testId, id }: { children
     <TableRow
       ref={ref}
       id={id}
-      // No `data-state`: the kit's muted selected fill would race the accent below.
       aria-selected={active || undefined}
-      // Hairlines separate the rows, no stripes: a stripe competed with the
-      // selection. The row the arrow keys are on takes the list's selected
-      // fill and its 2px ink rule, on the first cell (a row draws no shadow of its own).
-      className="h-9 border-b-0 [&>td]:border-b [&>td]:border-border/50 aria-selected:bg-accent aria-selected:hover:bg-accent aria-selected:[&>td:first-child]:shadow-[inset_2px_0_0_0_var(--foreground)]"
+      className="h-9 border-b-0 [&>td]:border-b [&>td]:border-border/50 aria-selected:bg-selected aria-selected:hover:bg-selected aria-selected:[&>td:first-child]:shadow-[inset_2px_0_0_0_var(--foreground)]"
       data-testid={testId}
     >
       {children}
@@ -885,7 +712,6 @@ export function RegisterRow({ children, active = false, testId, id }: { children
   )
 }
 
-/** A cell: one line, cut with an ellipsis at its column's width; figures right-aligned in tabular digits, identifiers in the mono face. */
 export function RegisterCell({
   children,
   kind = 'text',
@@ -893,10 +719,8 @@ export function RegisterCell({
   span,
 }: {
   children?: ReactNode
-  /** `mark`: a chip (where it is kept, a state) that gives way to its column's width. */
   kind?: 'text' | 'strong' | 'code' | 'figure' | 'muted' | 'mark'
   title?: string
-  /** Columns the cell covers: the name runs on into the empty cells after it (`titleSpan`). */
   span?: number
 }): JSX.Element {
   return (
@@ -918,7 +742,6 @@ export function RegisterCell({
   )
 }
 
-/** The name cell's content: the name, cut at the column, then its state („Ersetzt“) at its end, never cut. */
 export function RegisterTitle({ children, mark }: { children: ReactNode; mark?: ReactNode }): JSX.Element {
   if (!mark) return <>{children}</>
   return (
@@ -929,7 +752,6 @@ export function RegisterTitle({ children, mark }: { children: ReactNode; mark?: 
   )
 }
 
-/** The register's name cell: a link that opens the document. */
 export function RegisterLink({ href, children }: { href: string; children: ReactNode }): JSX.Element {
   return (
     <Link href={href} className={cn('rounded-sm hover:underline', FOCUS_RING_INSET)}>
@@ -938,7 +760,6 @@ export function RegisterLink({ href, children }: { href: string; children: React
   )
 }
 
-/** The register on a phone: no table to scroll sideways, one stacked entry per document. */
 export function RegisterStack({ children, label, testId, id }: { children: ReactNode; label: string; testId?: string; id?: string }): JSX.Element {
   return (
     <ul id={id} role="listbox" className="flex min-w-0 flex-col divide-y divide-border/70 border-y border-border/70" aria-label={label} data-testid={testId}>
@@ -947,13 +768,6 @@ export function RegisterStack({ children, label, testId, id }: { children: React
   )
 }
 
-/**
- * One document on a phone: Plannummer and Index in the mono face over the
- * name, the state at the end of the name's line (where every view puts
- * „Ersetzt“), what else the register shows on a muted line under it, and where
- * it is kept on a line of its own, so a long project name is read whole and
- * the meta line never ends on a separator before it.
- */
 export function RegisterStackRow({
   href,
   code,
@@ -967,19 +781,14 @@ export function RegisterStackRow({
   actions,
 }: {
   href: string
-  /** „EP-03 · C“; absent for a document without a number. */
   code?: ReactNode
   title: ReactNode
-  /** What else the register shows, part by part: dated, scaled, typed, authored. */
   meta?: ReadonlyArray<ReactNode | null | undefined | false>
-  /** Where it is kept: the `ShelfMark`. */
   where?: ReactNode
   aside?: ReactNode
   active?: boolean
   testId?: string
-  /** The option's id, named by the field's `aria-activedescendant` while it is active. */
   id?: string
-  /** The entry's ⋯, beside the link at its end. */
   actions?: ReactNode
 }): JSX.Element {
   const ref = useRef<HTMLAnchorElement>(null)
@@ -996,7 +805,7 @@ export function RegisterStackRow({
         aria-selected={active}
         data-testid={testId}
         className={cn(
-          'flex min-w-0 flex-col gap-0.5 px-1 py-2.5 transition-colors duration-snap ease-out hover:bg-secondary/60 motion-reduce:transition-none',
+          'flex min-w-0 flex-col gap-0.5 px-1 py-2.5 transition-colors duration-snap ease-out hover:bg-hover motion-reduce:transition-none',
           FOCUS_RING_INSET,
           ACTIVE_ROW,
           actions && ROW_ACTIONS_ROOM
@@ -1019,13 +828,6 @@ export function RegisterStackRow({
   )
 }
 
-// ─── Saved searches ─────────────────────────────────────────────────────────
-
-/**
- * A saved search in the list: its name applies it, one muted line under it
- * says what it asks (whole in the tooltip when cut), and the control after it
- * is its ⋯ or, for a colleague's, the colleague's mark.
- */
 export function SavedSearchRow({
   name,
   summary,
@@ -1060,7 +862,6 @@ export function SavedSearchRow({
   )
 }
 
-/** A dialog's form: header, fields and footer apart by the dialog's own rhythm. */
 export function DialogForm({ children, onSubmit }: { children: ReactNode; onSubmit: (event: FormEvent<HTMLFormElement>) => void }): JSX.Element {
   return (
     <form className="flex min-w-0 flex-col gap-5" onSubmit={onSubmit} noValidate>
@@ -1069,7 +870,6 @@ export function DialogForm({ children, onSubmit }: { children: ReactNode; onSubm
   )
 }
 
-/** Beside a colleague's saved search, where the owner's controls would be: who it came from, as a mark. */
 export function ColleagueMark(): JSX.Element {
   return <Users className="size-4 shrink-0 text-muted-foreground" aria-hidden />
 }
@@ -1078,12 +878,10 @@ export function SavedSearchList({ children }: { children: ReactNode }): JSX.Elem
   return <ul className="flex max-h-72 min-w-0 flex-col divide-y overflow-y-auto">{children}</ul>
 }
 
-/** A popover's body: a heading line and what follows. */
 export function PanelBody({ children }: { children: ReactNode }): JSX.Element {
   return <div className="flex min-w-0 flex-col gap-3">{children}</div>
 }
 
-/** A line of muted text where a list would be. */
 export function QuietLine({ children, testId }: { children: ReactNode; testId?: string }): JSX.Element {
   return (
     <p className="text-sm text-muted-foreground" data-testid={testId}>
@@ -1092,21 +890,16 @@ export function QuietLine({ children, testId }: { children: ReactNode; testId?: 
   )
 }
 
-/** The search inside a shelf's own frame (Dateien, Büroablage), which lends no page padding. */
 export function SearchInset({ children }: { children: ReactNode }): JSX.Element {
   return <div className="min-w-0 px-4 py-4 md:px-6">{children}</div>
 }
 
-// ─── Hit actions and the composer's `#` ─────────────────────────────────────
-/** The room a row leaves at its end for its ⋯, so the mark at the end never sits under it. */
 const ROW_ACTIONS_ROOM = 'pr-11'
 
-/** A row's ⋯, over the row's end beside its link (a control inside a link is no control). */
 function RowActions({ children }: { children: ReactNode }): JSX.Element {
   return <span className="absolute right-1 top-1.5 flex items-center">{children}</span>
 }
 
-/** The header over the rows' ⋯: no words on screen, its name for a screen reader. */
 export function RegisterActionsHead({ label }: { label: string }): JSX.Element {
   return (
     <th scope="col" className="h-8 px-1">
@@ -1115,24 +908,16 @@ export function RegisterActionsHead({ label }: { label: string }): JSX.Element {
   )
 }
 
-/** A row's ⋯ in the register's last column. */
 export function RegisterActionsCell({ children }: { children: ReactNode }): JSX.Element {
   return <TableCell className="px-1 py-0.5 text-right">{children}</TableCell>
 }
 
-/** The width of the register's ⋯ column, in rem. */
 export const REGISTER_ACTIONS_WIDTH = 2.75
 
-/**
- * The composer's `#` panel: the surface of the composer's other pickers (`@`,
- * `/`): a popover card above the composer, the list scrolling inside it, and
- * the keys as a footer for a fine pointer only (a phone has no arrows), the
- * palette's own footer (`CommandHints`), so each key reads as it does there.
- */
 export function ComposerPickerFrame({ children, hints, testId }: { children: ReactNode; hints: CommandHintLabels; testId?: string }): JSX.Element {
   return (
     <div
-      className="flex max-h-[360px] w-full flex-col overflow-hidden rounded-xl border bg-popover text-popover-foreground shadow-lg animate-in fade-in-0 slide-in-from-bottom-1 duration-snap ease-out motion-reduce:animate-none"
+      className="flex max-h-[360px] w-full flex-col overflow-hidden rounded-xl bg-popover text-popover-foreground shadow-lg animate-in fade-in-0 slide-in-from-bottom-1 duration-snap ease-out motion-reduce:animate-none"
       data-testid={testId}
     >
       <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
@@ -1141,9 +926,5 @@ export function ComposerPickerFrame({ children, hints, testId }: { children: Rea
   )
 }
 
-/**
- * The `#` picker's list as the ⌘K palette draws its own (`CommandDialog`):
- * quiet kind headings, the palette's item padding, so a hit looks the same in both.
- */
 export const COMPOSER_COMMAND_CLASS =
   'bg-transparent [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-2 [&_[cmdk-item]_svg]:size-4'

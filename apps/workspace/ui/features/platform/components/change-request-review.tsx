@@ -1,19 +1,5 @@
 'use client'
 
-/**
- * Reviewing one change request (ADR-0165), in the order a reviewer works: what
- * this request is and where it stands (the step rail and one sentence saying
- * what to do now), then each record under its own name with each field in
- * words and its source one click away, then the one action that comes next,
- * at the bottom, disabled with its reason until it can run.
- *
- * Every claim is checked against its source: „Stimmt“ or „Stimmt nicht“, or
- * all of a record's at once. A request with a claim that is not correct cannot
- * be approved; it is rejected, and the proposer corrects it in a new one.
- * Approve, publish and rollback ask first: each is the person's own decision,
- * and the last two change what offices read.
- */
-
 import type { JSX, ReactNode } from 'react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
@@ -87,19 +73,14 @@ function Value({ shown }: { shown: ShownValue }): JSX.Element {
 
 interface RecordProps {
   revision: RevisionView
-  /** The request's captures by id: what each citation's quote is checked against. */
   captures: ReadonlyMap<string, CaptureView>
   canDecide: boolean
   busy: boolean
-  /** `sourceChecked`: the reviewer compared a pasted (operator-supplied) page with its source. */
   onDecide: (claims: { path: string; decision: Verdict }[], sourceChecked?: boolean) => void
-  /** The manifestation's text was uploaded or only named, not fetched from a source: accepting says it was compared too. */
   unfetchedText?: boolean
-  /** A manifestation's text, shown beside its sources (`ManifestationText`). */
   children?: ReactNode
 }
 
-/** One citation as the reviewer checks it: the page, the quote taken from it, and whether nobody fetched it. */
 function Source({ citation, capture }: { citation: RevisionView['citations'][number]; capture: CaptureView | undefined }): JSX.Element {
   const t = useTranslations(platformCopy)
   const href = citation.url ?? capture?.url
@@ -128,10 +109,7 @@ function RecordCard({ revision, captures, canDecide, busy, onDecide, unfetchedTe
   const claims = byReadingOrder(revision.claims)
   const open = claims.filter((claim) => claim.decision !== 'accepted')
   const sources = revision.citations.filter((citation) => citation.url || citation.note || citation.captureId)
-  // A page nobody fetched from a reviewed source (pasted, or fetched through a source still in a draft): accepting the
-  // record says the reviewer compared it with its source.
   const pastedPage = revision.citations.some((citation) => citation.captureId && captures.get(citation.captureId)?.countsAsFetched === false)
-  // The same holds for a text a person uploaded or fetched that way: the verdict vouches for it (migration 0224).
   const pasted = pastedPage || unfetchedText
   return (
     <section className="flex flex-col gap-3 border-b pb-6 last:border-b-0" data-testid="change-request-record">
@@ -143,7 +121,7 @@ function RecordCard({ revision, captures, canDecide, busy, onDecide, unfetchedTe
         {canDecide && open.length > 0 ? (
           <Button
             size="sm"
-            variant="outline"
+            variant="secondary"
             disabled={busy}
             onClick={() => onDecide(open.map((claim) => ({ path: claim.path, decision: 'accepted' })), pasted)}
           >
@@ -264,8 +242,6 @@ export function ChangeRequestReview({
   const wrong = claims.filter((claim) => claim.decision === 'rejected' || claim.decision === 'edited').length
   const open = claims.length - checked - wrong
   const stage = stageOf(view, open, wrong)
-  // A request approved alone stays under review until another person gives its second review (ADR-0176).
-  // Keyed off status as the server is: only an approved request (or later) takes its second review.
   const secondReviewDue = view.secondReview?.state === 'due' && REVIEWED_AFTER_APPROVAL.includes(view.status)
   const disputed = view.secondReview?.state === 'disputed'
   const authored = Boolean(user?.id) && view.revisions.some((revision) => revision.createdBy === user?.id)

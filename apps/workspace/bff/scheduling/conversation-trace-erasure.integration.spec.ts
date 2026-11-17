@@ -1,19 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Opt-in integration test: the `conversation-trace-erasure` sweep against a
- * REAL Postgres with every migration applied, as the restricted runtime role.
- * Langfuse is doubled; the queue, the conversations and the legal holds are not.
- *
- * The unit suite (`workers/maintenance-sql.spec.mjs`) reads the SQL's text.
- * Only this can prove what it selects: that a chat the purger erased, whose
- * trace step then failed up to the attempt cap, still has its traces erased
- * although its row reads `failed`; and that a `failed` row whose chat still
- * exists, or is under a legal hold, keeps them.
- *
- *   bash scripts/rls-test-db.sh --only bff/scheduling/conversation-trace-erasure.integration.spec.ts
- */
 
 import postgres from 'postgres'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -31,7 +18,6 @@ vi.mock('../../workers/langfuse-traces.js', () => ({
   readTraceRetentionDays: () => ({ days: 30 }),
 }))
 
-// The sweep's own client, so the suite can close it.
 let client: ReturnType<typeof postgres>
 vi.mock('../../workers/app-database.js', () => ({ createSql: () => client }))
 
@@ -39,15 +25,10 @@ const STAMP = Date.now()
 const ORG = `org_traces_${STAMP}`
 const USER = `user_traces_${STAMP}`
 const chat = {
-  /** Erased by the BFF; the purger's trace step failed up to the cap. */
   gone: `s_traces_gone_${STAMP}`,
-  /** The BFF's erasure itself failed up to the cap: the chat is still there, marked deleting. */
   present: `s_traces_present_${STAMP}`,
-  /** Erased, trace step failed, and a legal hold on the chat since. */
   held: `s_traces_held_${STAMP}`,
-  /** Erased by the delete request, which closed its own row. */
   purged: `s_traces_purged_${STAMP}`,
-  /** Erased, failed a minute ago: a turn may still be exporting spans. */
   fresh: `s_traces_fresh_${STAMP}`,
 }
 const OURS = new Set(Object.values(chat))
@@ -78,7 +59,6 @@ describe.skipIf(!url)('conversation trace erasure sweep against live Postgres', 
     VALUES ('conversation', ${entityId}, 'Chat', ${ORG}, ${USER}, now() - interval '1 day', 'failed', 10,
             now() - ${lastClaim}::interval, 'Langfuse answered 503')`
 
-  /** The chats of this suite the sweep asked Langfuse about. */
   const erased = () => eraseSessionTraces.mock.calls.map(([, sessionId]) => sessionId).filter((id) => OURS.has(id))
 
   beforeAll(async () => {
@@ -130,7 +110,6 @@ describe.skipIf(!url)('conversation trace erasure sweep against live Postgres', 
     expect(row).toMatchObject({ status: 'purged', stamped: true, last_error: null })
     expect(row.purged_at).toBeInstanceOf(Date)
 
-    // Done once: the next run does not ask Langfuse again.
     eraseSessionTraces.mockClear()
     await sweepConversationTraces()
     expect(erased()).toEqual([])

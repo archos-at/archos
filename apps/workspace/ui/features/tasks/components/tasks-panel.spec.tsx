@@ -1,20 +1,3 @@
-/**
- * The Tasks panel: runs and standing tasks, fetched on mount, re-asked while
- * visible, read as a list or as a week.
- *
- * A task moves with no socket open in this tab — its worker finishes it, a
- * colleague reviews it — so a fetch-once list would wear a stale "Läuft" until
- * somebody reloaded. The panel polls both lists while visible, parks while
- * hidden, and re-asks on focus. Polls are QUIET: no skeleton and no error
- * state over lists the reader already has.
- *
- * Task-first: the runs timeline and the standing arrangements (scheduled or
- * manual) are one tab with two views. `?task=` opens a run drawer,
- * `?schedule=` a standing-task drawer, `?view=` picks list or timetable.
- * Creating opens the wizard in place — a run's "keep as a standing task"
- * lands there pre-filled, with no tab switch in between.
- */
-
 import type { ReactNode } from 'react'
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
@@ -22,13 +5,10 @@ import type { Job } from '@/adapters/api/jobs-client'
 import { TASKS_POLL_MS, TasksPanel } from './tasks-panel'
 import type { TaskRunView } from '../lib/task-view'
 
-// The header slot belongs to the section frame; unit tests have none.
 vi.mock('@/components/shell/project-section-frame', () => ({
   ProjectSectionActions: ({ children }: { children: ReactNode }) => <>{children}</>,
 }))
 
-// The wizard is a four-step form with its own suite; here it is a door that
-// reports what it was opened with and how it was left.
 let wizardProps: { job: Job | null; draft: { name: string; prompt: string } | null } | null = null
 vi.mock('@/features/jobs/components/schedule-wizard', () => ({
   ScheduleWizard: ({
@@ -181,7 +161,6 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-/** Let the mount fetches land before asserting on what they produced. */
 async function settle(): Promise<void> {
   await act(async () => {
     await Promise.resolve()
@@ -289,8 +268,6 @@ describe('the run drawer and its deep link', () => {
     await settle()
     const detail = screen.getByTestId('task-detail')
     expect(detail).toBeInTheDocument()
-    // The drawer resolves the id against the live list rather than holding a
-    // copy, so the title inside it is the list's row.
     expect(within(detail).getByText('Aktenvermerk Fluchtwege')).toBeInTheDocument()
   })
 

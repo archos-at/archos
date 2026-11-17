@@ -15,8 +15,6 @@ import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 const UI_ROOT = path.resolve(import.meta.dirname, '..')
-// Inside the UI's node_modules, so the bundle's package imports resolve as they
-// do from `dist-jobs/` in the image.
 const CACHE = path.join(UI_ROOT, 'node_modules', '.cache')
 
 /** Imports the bundle and every package it imports only on demand, in Node. */
@@ -60,18 +58,14 @@ describe('the bff-jobs slice bundle', () => {
     })
     expect(probe.status, probe.stderr).toBe(0)
     const result = JSON.parse(probe.stdout.trim().split('\n').at(-1))
-    expect(result.exports).toEqual(expect.arrayContaining(['initSliceHost', 'startJobWorker', 'shutdownSliceHost']))
-    // The packages a handler imports only when it runs (an IFC parser, the
-    // citation formats) are not exercised by loading the bundle; import them too.
+    expect(result.exports).toEqual(expect.arrayContaining(['initSliceHost', 'startJobWorker', 'shutdownSliceHost', 'rederiveBuildingClasses']))
     expect(result.lazy.length).toBeGreaterThan(0)
     expect(result.failed).toEqual([])
   }, 120_000)
 
   it('is compiled for production', () => {
     const source = readFileSync(file, 'utf8')
-    // The production build of `react/jsx-dev-runtime` exports no `jsxDEV`.
     expect(source).not.toContain('react/jsx-dev-runtime')
-    // Node's ESM loader needs the file name of a `next/*` entry.
     expect(source.match(/from "next\/[a-z-]+"/g) ?? []).toEqual([])
   })
 

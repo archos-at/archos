@@ -1,14 +1,3 @@
-/**
- * The wire of the platform's base knowledge (ADR-0165): the records a change
- * request proposes, the review, approval, publish and rollback bodies, the
- * entitlement bodies, and what the platform view reads. Pure zod, shared by the
- * routes, the agent operations and the UI.
- *
- * A record is proposed by its key; the same key proposed again in the same
- * draft appends a revision to the same record, so a repaired batch is resent
- * as it is. Record ids are `<type>:<key>`, a territory's is its territory id.
- */
-
 import { z } from 'zod'
 import {
   APPROVAL_ROLES,
@@ -38,20 +27,17 @@ import { appliesWhenTableSchema } from '@/lib/base-knowledge/wire/applies-when'
 import { transitionTableSchema } from '@/lib/base-knowledge/wire/time'
 import { zoneSchema } from '@/lib/base-knowledge/wire/zone'
 
-/** ISO 3166-1 alpha-2: what an office is entitled to and a platform record belongs to. */
 export const countryIdSchema = z
   .string()
   .trim()
   .toUpperCase()
   .regex(/^[A-Z]{2}$/, 'an ISO 3166-1 alpha-2 code such as AT')
 
-/** A territory id: ISO 3166 (`AT`, `AT-6`, `EU`) or `<CC>:<scheme>:<code>` (`AT:gkz:60101`). Frozen, never parsed. */
 export const territoryIdSchema = z
   .string()
   .trim()
   .regex(/^[A-Z]{2}(-[A-Z0-9]{1,3})?$|^[A-Z]{2}:[a-z]{2,8}:[A-Za-z0-9]{1,20}$/, 'an ISO 3166 code such as AT-6, or CC:scheme:code')
 
-/** A record's key within the platform: lower-case words, dots and dashes. */
 const keySchema = z
   .string()
   .trim()
@@ -59,14 +45,8 @@ const keySchema = z
 
 const isoDate = z.iso.date()
 
-/** A capture's id, from platform-knowledge-citation-capture. */
 const captureIdSchema = z.uuid()
 
-/**
- * Where a value was taken from: what a reviewer checks the claim against. A
- * platform record cites at least one capture of its change request, with the
- * words that support it (KC-6, ADR-0170); a bare `url` is no citation.
- */
 export const citationSchema = z.object({
   captureId: captureIdSchema.optional().describe('A capture of this change request, from platform-knowledge-citation-capture.'),
   quote: z
@@ -115,7 +95,6 @@ const workRecord = z.object({
     )
     .refine((identifiers) => Object.keys(identifiers).length <= MAX_SOURCE_REFS, `at most ${MAX_SOURCE_REFS} identifiers`)
     .superRefine((identifiers, ctx) => {
-      // ELI is a European standard, not a country's: the one scheme whose value is checked here.
       const eli = identifiers.eli
       if (eli !== undefined && !(z.url().safeParse(eli).success && eli.endsWith('/'))) {
         ctx.addIssue({ code: 'custom', path: ['eli'], message: 'an ELI is a URL ending with "/"' })
@@ -155,7 +134,6 @@ const manifestationRecord = z.object({
   editionKey: keySchema,
   form: z.enum(['text', 'link']).default('text'),
   language: z.string().trim().min(2).max(35).default('de'),
-  // The platform holds no licensed text (0202's CHECK); the class is offered without it.
   licenceClass: z.enum(['public_open', 'public_restricted']),
   corpusFile: z
     .string()
@@ -197,10 +175,8 @@ const territoryRecord = z.object({
   zone: zoneSchema.nullable().default(null).describe('The IANA time zone a day is read in here; null inherits the nearest parent that states one. Without any, an open procedure’s window is undetermined (zone_unknown).'),
   ...common,
 })
-  // `parentIds` and `datedParents` became `parents` (0219): a proposal still naming them is refused, never stripped.
   .strict()
 
-/** An AKN eId (`par_4__abs_2`, `pkt_3.1`, `cl_4.2`): what an anchor names, never prose. */
 const anchorIdSchema = z.string().trim().regex(/^[a-z]{2,6}_[A-Za-z0-9.]{1,20}(__[a-z]{2,6}_[A-Za-z0-9.]{1,20}){0,5}$/, 'an AKN eId such as par_4__abs_2 or pkt_3.1')
 
 const relationEnd = z.object({
@@ -257,7 +233,6 @@ const rulesetRecord = z.object({
   ...common,
 })
 
-/** A public source (ADR-0174): its key is the source id the fetcher, captures and monitors name. */
 const sourceRecord = z
   .object({
     type: z.literal('source'),
@@ -265,15 +240,12 @@ const sourceRecord = z
     ...common,
   })
   .superRefine((record, ctx) => {
-    // The fetcher refuses a record whose copies are its own hosts (public_sources `Source`): refused here,
-    // or it would be released and every lookup would fall back past it.
     const own = new Set(record.hosts)
     record.copyHosts.forEach((host, index) => {
       if (own.has(host)) ctx.addIssue({ code: 'custom', path: ['copyHosts', index], message: `${host} is one of hosts, not a copy` })
     })
   })
 
-// A golden case (0228): one question of a country's quality bar (`wire/golden-case.ts`).
 const goldenCaseRecord = z.object({ type: z.literal('golden_case'), key: keySchema, ...goldenCaseFields(territoryIdSchema, keySchema), ...common })
 
 export const proposedRecordSchema = z.discriminatedUnion('type', [
@@ -289,7 +261,6 @@ export const proposedRecordSchema = z.discriminatedUnion('type', [
 ])
 export type ProposedRecord = z.infer<typeof proposedRecordSchema>
 
-/** The most records one proposal carries. */
 export const MAX_PROPOSED_RECORDS = 200
 
 export const createChangeRequestBodySchema = z.object({
@@ -302,23 +273,16 @@ export const proposeRecordsBodySchema = z.object({
   dryRun: z.boolean().default(false).describe('Validate only; nothing is written.'),
 })
 
-/** One record of a proposal: what became of it, and its problems (RFC 9457 members with a JSON Pointer into it). */
 export interface ProposalRecordResult {
   index: number
   key: string
   recordId: string
-  /** valid (dry run, no problems), invalid, written (a new revision), unchanged (the same proposal is already the request's newest). */
   status: 'valid' | 'invalid' | 'written' | 'unchanged'
   revisionId: string | null
   problems: KitProblemView[]
-  /**
-   * What the record still waits for before the request validates, each with what to do: a source whose fixture
-   * names no capture yet (`captureId: null`) is written into the draft with this set, and fails validate until it is recorded.
-   */
   awaiting?: string[]
 }
 
-/** A problem of the validation kit as the wire carries it (`validate.ts`). */
 export interface KitProblemView {
   type: string
   code: string
@@ -332,24 +296,20 @@ export interface KitProblemView {
 
 export interface ProposalView {
   dryRun: boolean
-  /** No record has a problem. A batch with one is refused (422) unless it is a dry run, and nothing of it is written. */
   valid: boolean
   results: ProposalRecordResult[]
 }
 
 export interface ValidationView {
   changeRequestId: string
-  /** Every record the request holds passes the kit: it may be submitted. */
   valid: boolean
   records: number
   checks: readonly string[]
   problems: KitProblemView[]
 }
 
-/** The most text a capture keeps: the Bauordnung für Wien is 760k characters, the ABGB 970k. */
 export const MAX_CAPTURE_TEXT_CHARS = 2_000_000
 
-/** A configured public source's id (`configs/sources/<country>/<name>`): `at-ris`, `ch-fedlex`. */
 export const sourceIdSchema = z.string().trim().regex(/^[a-z]{2}-[a-z0-9-]{1,60}$/, 'a configured source id such as at-ris')
 
 export const captureBodySchema = z.discriminatedUnion('basis', [
@@ -372,29 +332,19 @@ export interface CaptureView {
   changeRequestId: string
   basis: 'fetched' | 'operator_supplied'
   sourceId: string | null
-  /** What a fetch went through: a built-in source, a source record's released revision, or one still in this draft. */
   sourceOrigin: 'built_in' | 'released' | 'draft' | null
-  /**
-   * Whether the product fetched it through a reviewed source. False for an operator's text and for a fetch through a
-   * source proposed in a draft or released by one person alone: another person checks those against the source
-   * (`sourceChecked`) before any approval.
-   */
   countsAsFetched: boolean
   url: string
   finalUrl: string | null
   contentType: string | null
   sha256: string
   bytes: number
-  /** Characters of text kept for the quote check; 0 when the capture holds none. */
   textChars: number
-  /** A PDF's pages, its text joined by form feeds; null for any other capture or a PDF that kept no text. */
   pages: number | null
-  /** What the reader or the operator said about the text: a PDF's pages with no text layer, why it was not fetched. */
   note: string | null
   retrievedAt: string
 }
 
-/** Every record type `records-propose` takes, in the order the guide proposes them; held to `proposedRecordSchema`'s union by `wire.spec.ts`. */
 export const PROPOSED_RECORD_TYPES = ['territory', 'authority', 'work', 'edition', 'manifestation', 'relation', 'ruleset', 'source', 'golden_case'] as const
 
 export const schemaQuerySchema = z.object({
@@ -442,13 +392,11 @@ export const reviewBodySchema = z.object({
     )
     .min(1)
     .max(500)
-    // Two verdicts on one claim in one body would leave which one stands to insertion order.
     .refine((decisions) => new Set(decisions.map((d) => `${d.revisionId}|${d.claimPath}`)).size === decisions.length, {
       message: 'Each claim (revisionId, claimPath) takes one decision per review.',
     }),
 })
 
-/** The shortest reason an override takes: a sentence somebody can follow up, not a word (ADR-0176). */
 export const MIN_OVERRIDE_REASON = 20
 
 export const approvalBodySchema = z.object({
@@ -477,14 +425,12 @@ export const publishBodySchema = z.object({
 })
 
 export type ReleaseChannelBody = z.infer<typeof publishBodySchema>
-/** A review as the service takes it: `sourceChecked` may be left out (false). */
 export type ReviewDecisionBody = z.input<typeof reviewBodySchema>
 
 export const rollbackBodySchema = z.object({
   reason: z.string().trim().min(1).max(1000),
 })
 
-/** A page of change requests: the default and the most one call returns. */
 export const CHANGE_REQUEST_PAGE = 50
 export const MAX_CHANGE_REQUEST_PAGE = 200
 
@@ -510,7 +456,6 @@ export const entitleBodySchema = z.object({
 
 export const homeCountryBodySchema = z.object({ countryId: countryIdSchema })
 
-/** One claim of one revision, with the reviewer's newest verdict on it. */
 export interface ClaimView {
   path: string
   value: unknown
@@ -531,13 +476,10 @@ export interface ChangeRequestView extends Omit<ChangeRequestSummary, 'revisionC
   publishedAt: string | null
   revisions: RevisionView[]
   texts: import('./text-wire').AttachedTextView[]
-  /** The pages the records cite, as captured (ADR-0170); their text stays on the server. */
   captures: CaptureView[]
-  /** A record cites an operator-supplied capture, or names a text nobody fetched, that nobody but its author checked against its source: nobody approves until another person does, alone or not. */
   sourcesUnchecked: boolean
-  /** Each role approved alone and its second review (ADR-0176); empty on a four-eyes request. */
+  warnings: import('./validate').ReleaseWarning[]
   secondReviewRoles: SecondReviewRoleView[]
-  /** `overrideReason` is set on an author's own approval through the override (ADR-0176). */
   approvals: { approver: string; role: string; decisionSource: string; decidedAt: string; overrideReason: string | null }[]
   releases: {
     seq: number
@@ -550,7 +492,6 @@ export interface ChangeRequestView extends Omit<ChangeRequestSummary, 'revisionC
   }[]
 }
 
-/** One role approved alone, and where its second review stands. */
 export interface SecondReviewRoleView {
   role: ApprovalRole
   state: 'due' | SecondReviewDecision
@@ -566,25 +507,18 @@ export interface ChangeRequestSummary {
   createdBy: string
   createdAt: string
   revisionCount: number
-  /** operator, or monitor: a source monitor found its source changed (ADR-0174). */
   origin: (typeof CHANGE_REQUEST_ORIGINS)[number]
-  /** The source a monitor's request is about; null for an operator's. */
   sourceRecordId: string | null
-  /** What the monitor found: the previous and current etag, sha256 and version, the terms, and needs[]. */
   monitorFinding: Record<string, unknown> | null
-  /** four_eyes, or single: its author approved it alone through the override, and a second review is owed (ADR-0176). */
   approval: ChangeRequestApproval
-  /** The review a single approval owes; null on a four-eyes request. */
   secondReview: { state: SecondReviewState; by: string | null; at: string | null } | null
 }
 
 export interface CountryCoverage {
   countryId: string
-  /** Released records by type. */
   released: Record<string, number>
   openRequests: number
   entitledOffices: number
-  /** Released editions whose newest platform check is past its freshness target, or that were never checked. */
   overdueEditions: number
 }
 
@@ -598,5 +532,4 @@ export interface IndexStatusView {
   texts: { revisionId: string; corpusFile: string; state: 'requested' | 'queued' | 'failed' | 'indexed'; failure: string | null }[]
 }
 
-// Where each office is placed (its home country and entitlements): `./organization-countries-wire.ts`.
 export * from './organization-countries-wire'

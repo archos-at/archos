@@ -1,11 +1,5 @@
 'use client'
 
-/**
- * Dev preview for Platform → Agents (ADR-0126, ADR-0154): the section in every
- * state the server can decide, from fixtures. Not linked from anywhere; 404s
- * outside development. Pinned to German, the product's primary language.
- */
-
 import type { JSX, ReactNode } from 'react'
 import { notFound } from 'next/navigation'
 

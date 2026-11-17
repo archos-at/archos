@@ -1,7 +1,3 @@
-/**
- * `AnswerCardItem`'s surface id: A2UI keys a surface by it, and `A2uiCard`
- * promises it is unique within the page.
- */
 import { describe, expect, it } from 'vitest'
 import { render, waitFor } from '@/test-utils'
 import { AnswerCardItem } from './AnswerCards'

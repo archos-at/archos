@@ -35,7 +35,6 @@ const SEPTEMBER: QualityScope = {
   organizationIds: [],
   projectIds: [],
 }
-/** The repository filter `SEPTEMBER` stands for. */
 const SEPTEMBER_FILTER = {
   start: new Date('2026-09-01T00:00:00.000Z'),
   endExclusive: new Date('2026-10-01T00:00:00.000Z'),
@@ -109,7 +108,6 @@ describe('listProfiledConversations', () => {
     const result = await listProfiledConversations(SEPTEMBER, { query: 'bauantrag' })
 
     expect(mockListProfiledConversations).toHaveBeenCalledWith(SEPTEMBER_FILTER, 'bauantrag')
-    // Nothing was asked about one conversation, so nothing is answered.
     expect(mockFindProfiledConversation).not.toHaveBeenCalled()
     expect(result).not.toHaveProperty('selected')
     expect(result.capped).toBe(true)
@@ -176,7 +174,6 @@ describe('listProfiledConversations', () => {
       query: 'x',
       conversationId: 'conv_far',
     })
-    // Asked of the scope alone: the search narrows the list, not membership.
     expect(mockFindProfiledConversation).toHaveBeenCalledWith(SEPTEMBER_FILTER, 'conv_far')
     expect(inScope.selected).toMatchObject({
       conversationId: 'conv_far',
@@ -189,7 +186,6 @@ describe('listProfiledConversations', () => {
   })
 })
 
-/** The repository result for a conversation whose whole history was loaded. */
 const loaded = (spans: AgentProfilerSpan[]) => ({
   spans,
   totalTurns: new Set(spans.map((entry) => entry.turnId)).size,
@@ -280,8 +276,6 @@ describe('getConversationTimeline', () => {
   })
 
   it('picks the earliest turn span as root when several spans have no parent, and keeps the rest', async () => {
-    // Regression: the LAST parentless span in row order became the root, and
-    // every other parentless span vanished from the tree.
     const spans = [
       span({
         spanId: 'late_tool',
@@ -353,7 +347,6 @@ describe('getConversationTimeline', () => {
     )
 
     const timeline = await getConversationTimeline('conv_1')
-    // Serializable at all is the point: a cycle used to make the response throw.
     expect(() => JSON.stringify(timeline)).not.toThrow()
     expect(timeline.turns[0].root.children.map((child) => child.spanId)).toEqual(['a', 'b', 'self'])
   })
@@ -379,8 +372,6 @@ describe('getConversationTimeline', () => {
   })
 
   it('gives a turn whose root span was lost a synthetic root spanning its spans', async () => {
-    // Regression: root was null while spanCount > 0, so the timeline showed a
-    // turn with spans and no tree to show them in.
     mockGetSpansForConversation.mockResolvedValue(
       loaded([
         span({

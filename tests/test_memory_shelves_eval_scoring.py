@@ -1,5 +1,3 @@
-"""The memory-shelves eval scoring and cases, offline; a run needs a model (``task be:eval:memory-shelves``)."""
-
 from __future__ import annotations
 
 from collections import Counter

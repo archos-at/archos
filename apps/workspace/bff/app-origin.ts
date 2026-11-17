@@ -1,13 +1,3 @@
-/**
- * The app's origin as the deployment pins it, for links built outside a
- * request (an issue body, a mail) and for return URLs that must not trust the
- * inbound Host header.
- *
- * The AuthKit redirect URI already names the real origin per deployment.
- * `WORKOS_REDIRECT_URI` first, for the reason the callback route gives: Next
- * can inline a `NEXT_PUBLIC_` variable at build time, and the image is built
- * without one.
- */
 export function configuredAppOrigin(
   env: Record<string, string | undefined> = process.env
 ): string | null {
@@ -18,4 +8,10 @@ export function configuredAppOrigin(
   } catch {
     return null
   }
+}
+
+/** The host this deployment serves the app on (`app.archos.tech`): the redirect URI's, else the MCP resource URL's. */
+export function configuredAppHost(env: Record<string, string | undefined> = process.env): string | null {
+  const origin = configuredAppOrigin(env) ?? configuredAppOrigin({ WORKOS_REDIRECT_URI: env.MCP_RESOURCE_URL })
+  return origin ? new URL(origin).host : null
 }

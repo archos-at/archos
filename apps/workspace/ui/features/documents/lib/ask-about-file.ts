@@ -1,8 +1,3 @@
-/**
- * From a file into the project chat. The file comes with you as a peek.
- * The user types the question; retrieval is told the filename separately.
- */
-
 import { useChatStore } from '@/features/chat/store'
 import type { DraftMention } from '@/lib/mentions/mention-text'
 import { documentDisplayName } from '@/lib/documents/display-name'
@@ -27,9 +22,6 @@ export function askAboutFile(options: {
   } else {
     preview.open(options.file, 'peek', { projectId: options.projectId, scope: 'files' })
   }
-  // The mode above is the DESTINATION's, and the destination does not exist
-  // yet — this call is followed by a `navigate`. Until the chat is on screen
-  // the pane holds what it was showing; see `handoff` in the store.
   preview.beginHandoff()
 
   const subject = {
@@ -54,7 +46,5 @@ export function askAboutFile(options: {
     chat.startNewSessionDraft()
   }
   chat.setComposerPrefill(ask, options.mentions, subject)
-  // Always land on `?new=1&doc=&file=` so a remount can restore the bar
-  // and peek even if the store draft is cleared on the way.
   options.navigate(href)
 }

@@ -2,13 +2,6 @@
  * @vitest-environment node
  */
 
-/**
- * A formula card exported: its inputs as the source gives them, without the
- * field's own UI state. An input's `step` is the arrow-key increment, and must
- * not be printed as „Aus Schritt 0,5", the label a calculation operand's step
- * REFERENCE carries; that one stays.
- */
-
 import { describe, expect, it } from 'vitest'
 import { answerExportCopy } from '@/i18n/namespaces/answer-export'
 import { cardBlocks } from './cards'

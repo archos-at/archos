@@ -1,15 +1,5 @@
 'use client'
 
-/**
- * Import an Outlook archive into the project (ADR-0085): choose a .pst or .ost,
- * watch it go up, then follow the imports of this project as the background
- * job files them.
- *
- * The dialog is only the sending half's home. Closing it does not stop a send,
- * and the filing never needed it: the row says where things stand when it is
- * opened again, and the inbox says when an import ends.
- */
-
 import type { JSX } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
@@ -65,7 +55,6 @@ export function MailImportDialog({ projectId, open, onOpenChange }: MailImportDi
   return <MailImportDialogView projectId={projectId} open={open} onOpenChange={onOpenChange} state={state} />
 }
 
-/** The dialog over a given state: what the `/dev/mail-import` preview renders with fixtures. */
 export function MailImportDialogView({
   projectId,
   open,
@@ -83,7 +72,6 @@ export function MailImportDialogView({
   const isSending = state.sending !== null
   const sentFraction = state.sending ? state.sending.sentBytes / Math.max(1, state.sending.totalBytes) : 0
 
-  // The button that started the send is gone once it runs; keep focus in the dialog.
   useEffect(() => {
     if (isSending) sendingRef.current?.focus()
   }, [isSending])
@@ -290,10 +278,6 @@ function ImportRow({
   const resumable = row.status === 'uploading' && row.ownedByViewer && !sendingThis
   const total = row.totalItems
   return (
-    // `flex-wrap`: a phone has no room for the name AND two buttons on one
-    // line, and the name is the one that lost it (the running row rendered
-    // only a spinner and its buttons). The actions drop under the text,
-    // indented to its left edge, and share the line again from `sm`.
     <Item as="li" className="flex-wrap items-start sm:flex-nowrap sm:items-center" data-testid="mail-import-row" data-status={row.status}>
       <ItemMedia className="mt-0.5 sm:mt-0">
         <StatusIcon status={row.status} />
@@ -375,7 +359,6 @@ function ImportRow({
   )
 }
 
-/** 0.39 as „39 %" — whole numbers; a progress label has no use for a decimal. */
 function formatPercent(fraction: number, locale: string): string {
   return new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 0 }).format(
     Math.min(1, Math.max(0, fraction))
@@ -408,7 +391,6 @@ function StatusIcon({ status }: { status: MailImportView['status'] }): JSX.Eleme
   return <Loader2 className="size-4 animate-spin text-info motion-reduce:animate-none" aria-hidden />
 }
 
-/** Why a picked file cannot be sent, or null. */
 function pickRefusal(
   t: Translate,
   locale: string,

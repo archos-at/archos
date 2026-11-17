@@ -1,5 +1,3 @@
-"""A web search's sources are its result records, never every address in its text (citations spec G26)."""
-
 from __future__ import annotations
 
 from agent.citations.extraction import extract_sources_from_tool_result
@@ -45,7 +43,6 @@ def test_the_deep_search_instance_is_read_the_same_way():
 
 
 def test_a_web_result_with_no_record_states_no_source():
-    """Its answer is final: text a web tool returned without a record is not mined for addresses."""
     assert extract_sources_from_tool_result(WEB_TOOL, "Nothing structured, but https://stray.example.com/x.") == []
 
 
@@ -74,6 +71,5 @@ def test_one_address_is_one_source():
 
 
 def test_another_tool_s_text_still_falls_to_the_generic_extractor():
-    """Only the web path changed: a tool with no parser keeps registering the addresses it returns."""
     entries = extract_sources_from_tool_result("paper_search", "1. **A paper** (2024)\nhttps://papers.example.org/1")
     assert [entry.url for entry in entries] == ["https://papers.example.org/1"]

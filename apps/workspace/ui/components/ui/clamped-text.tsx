@@ -6,7 +6,6 @@ import { ChevronDown } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
-/** Spelled out so Tailwind sees every class it has to generate. */
 const CLAMP = {
   1: 'line-clamp-1',
   2: 'line-clamp-2',
@@ -16,22 +15,11 @@ const CLAMP = {
   6: 'line-clamp-6',
 } as const
 
-/**
- * A paragraph clamped to `lines` until the reader asks for the rest.
- *
- * The toggle appears only when text is genuinely hidden: measured, not guessed
- * from a character count, because the same string wraps differently in a wide
- * dialog and on a phone. The Files preview's indexed summary and the upload
- * summary's file rows both say a document's summary through this, so the two
- * clamp and expand the same way.
- */
 export interface ClampedTextProps {
   children: string
-  /** Lines shown before the toggle. */
   lines: keyof typeof CLAMP
   moreLabel: string
   lessLabel: string
-  /** Classes for the paragraph, so each surface keeps its own type ramp. */
   className?: string
   testId?: string
 }
@@ -45,8 +33,6 @@ export function ClampedText({ children, lines, moreLabel, lessLabel, className, 
     const element = textRef.current
     if (!element) return
 
-    // Only meaningful while the clamp is applied; once expanded the element is
-    // its own full height by definition and would measure as "nothing hidden".
     const measure = () => {
       if (expanded) return
       setIsTruncated(element.scrollHeight - element.clientHeight > 2)

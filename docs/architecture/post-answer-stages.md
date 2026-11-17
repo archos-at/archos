@@ -78,7 +78,7 @@ of them is the reflection stage:
 1. **The in-turn `remember` tool** emits a `memory_proposal` card
    (`packages/agent/src/agent/memory/register.py:38-65`). That card goes into
    the conversation-scoped `CardRegistry`, is lifted onto the answer as
-   `response.cards` (`piloti/conversation_register.py:1204-1206`), rides
+   `response.cards` (`core/conversation_register.py:1204-1206`), rides
    `_STREAM_EXTRA_FIELDS` (`register.py:200-221`) onto the terminal
    `finish_reason="stop"` chunk (`register.py:337-375`), is attached to the
    WebSocket frame (`agent_host/websocket_reconnect.py:1059-1063`) and rendered
@@ -88,7 +88,7 @@ of them is the reflection stage:
    `knowledge/project_memory.insert_memory_item` →
    `POST /api/internal/memory`), tagged `provenance_type="distillation"`
    (`reflection.py:354`). **Nothing about this touches the stream.**
-3. **The "Piloti noted N" chip** (`features/chat/components/MemoryNotedChip.tsx`)
+3. **The "{productName} noted N" chip** (`features/chat/components/MemoryNotedChip.tsx`)
    renders the union of (1) and (2), fed by the poll. It labels the two apart —
    `distillation` → „nach der Antwort ergänzt" (`MemoryNotedChip.tsx:46-50`,
    `i18n/dictionaries/de/chat.ts:983`).
@@ -150,7 +150,7 @@ needs the channel built. Section 4 builds it out of parts that already exist.
 
 ### 1.2 How it is scheduled and forced
 
-`piloti/conversation_register.py:1222-1253`, inside the streaming generator, **after
+`core/conversation_register.py:1222-1253`, inside the streaming generator, **after
 the answer is fully built and before the deltas are yielded** (`register.py:1258`):
 
 ```
@@ -246,7 +246,7 @@ primitive:
 > `user_message`'s `message_id`, which the agent tier makes the `turn_id`, and
 > the answer's row id is `uuid5(grid:assistant:<conversation>:<turn>)`, which
 > `RUN_STARTED` names. A stage event carries the `turn_id` and folds into the
-> turn's view like every other event (`features/chat/lib/turn-fold.ts`).
+> turn's view like every other event (`bff/turns/turn-fold.ts`).
 
 The agent tier's only handle on the turn is the third one — the agent runtime (NeMo Agent Toolkit, a third-party library) stores it as
 `self._message_parent_id` (`nat/front_ends/fastapi/message_handler.py:125`).
@@ -298,7 +298,7 @@ would remove the limitation later.
   `useConversationMemory(projectId, conversationId)` is called inside
   `AgentResponseComponent` (`AgentResponse.tsx:416`) and every item with a
   matching `sourceConversationId` is rendered (`:70`, `MemoryNotedChip.tsx:52`).
-  So after turn 5, turn 1's answer also reads „Piloti noted 5". Nothing scopes an
+  So after turn 5, turn 1's answer also reads „{productName} noted 5". Nothing scopes an
   item to the turn that produced it.
 - **The poll is per-rendered-answer, not per-thread.** The prop comment says
   "Fetched ONCE by the answer that owns the footer"
@@ -394,7 +394,7 @@ override, and the ADR-0022 BYOK credential swap by construction.
 ### 2.3 What a stage receives
 
 `TurnFacts` — frozen, request-context-free, captured at schedule time by the one
-call site (`piloti/conversation_register.py`, from `turn.context` and
+call site (`core/conversation_register.py`, from `turn.context` and
 `turn.response.post_answer_turn_facts`):
 
 ```
@@ -458,7 +458,7 @@ handler to invent output.
  Import-time registration, same shape as the runtime's
 `@register_function` that the whole agent tier already uses.
 
-**One call site.** `piloti/conversation_register.py:1222-1253` — the bespoke
+**One call site.** `core/conversation_register.py:1222-1253` — the bespoke
 reflection block — is replaced by:
 
 ```python
@@ -468,7 +468,7 @@ schedule_post_answer_stages(TurnFacts.from_turn(result, response, ctx))
 Adding a stage never touches `register.py` again. That is the test of the design.
 
 > **[as built]** The assembly is `_post_answer_turn_facts(...)` in
-> `piloti/conversation_register.py`, not a `TurnFacts.from_turn` classmethod, and the
+> `core/conversation_register.py`, not a `TurnFacts.from_turn` classmethod, and the
 > models ride alongside it as `llms={AgentGroup.MEMORY_REFLECTION: …}`. Reading
 > graph state (`_result_field`, `user_intent`, `research_truncated`) is the
 > *caller's* knowledge; putting it on `TurnFacts` would import chat-researcher
@@ -518,7 +518,7 @@ A stage that declares `delivery="frame"` needs to push a frame down a socket the
 agent tier does not own. That inversion already exists in this repo, in the
 opposite direction: `conversation_context.register_context_appender`
 (`packages/agent/src/agent/conversation_context.py:52-56`, registered at
-`piloti/conversation_register.py:822`) — "`agent_host` owns the socket, `agent`
+`core/conversation_register.py:822`) — "`agent_host` owns the socket, `agent`
 owns the graph".
 
 So: `packages/agent/src/agent/stages/delivery.py` declares
@@ -682,7 +682,7 @@ means `FollowUpsCard.tsx` renders either source unchanged, and the migration in
 
 ### 4.3 Client behaviour, normatively
 
-1. The turn fold (`foldTurnEvent`, `features/chat/lib/turn-fold.ts`) stores
+1. The turn fold (`foldTurnEvent`, `bff/turns/turn-fold.ts`) stores
    each stage event under `stages[stage]` of the turn's view. It is folded like
    any other event: a stage arrives *by definition* after the turn stopped
    streaming, and the fold has no streaming guard to route around.
@@ -1275,7 +1275,7 @@ Keep the old header for one release so a mixed deployment does not go dark.
 > `defaultOn` in `POST_ANSWER_STAGE_FLAGS` moved to `true` with it, and for a
 > reason the flag state alone does not carry: `defaultOn` is what a deployment
 > *without* the flag product reads, and with the card retired a `false` there
-> would mean a Piloti with no follow-up questions at all and nothing to switch on.
+> would mean an agent with no follow-up questions at all and nothing to switch on.
 > The stage is a shipped core capability now, on the same footing as
 > `memory_reflection` — capability bit included, so a workflow config with no
 > `follow_ups_llm` is still a no-op rather than a failure.

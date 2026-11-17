@@ -1,76 +1,24 @@
-/**
- * Public DNS (Cloudflare), validated eagerly: every mistake here produces records Cloudflare accepts.
- */
 import * as pulumi from "@pulumi/pulumi";
 import { formerHostnames } from "../app/former-domain";
 import { hostsOutsideZone, managedHosts } from "../platform/dns";
 import { bool, num } from "./readers";
 
 export interface DnsConfig {
-  /** Manage records for this stack's hosts. When false nothing here is read. */
   enabled: boolean;
-  /** Cloudflare zone id (dashboard → the zone → Overview → API section). */
   zoneId: string;
-  /**
-   * The zone's apex name (`piloti.at`), which is NOT `baseDomain` — a stack
-   * can live on a subdomain of its zone. Used to name the zone-level records
-   * and to check that every managed host actually falls inside this zone.
-   */
   zoneName: string;
-  /** Token with Zone:DNS:Edit, plus Zone:Dynamic URL Redirects:Edit on the baseline stack (it writes the apex or www redirect). */
   apiToken: pulumi.Output<string>;
-  /** Address every host record points at — the Envoy LoadBalancer's external IP. */
   targetIp: string;
-  /**
-   * The hosts that get an A record: exactly the Gateway's HTTPS listeners
-   * (`platform/gateway.ts`), derived once here so the two cannot drift.
-   */
   hosts: string[];
-  /** TTL in seconds for unproxied records. */
   ttl: number;
-  /**
-   * Whether THIS stack owns the zone-level records (`www`, `_dmarc`, and the
-   * apex or www redirect) rather than just its own hosts. Required on the
-   * stack that serves the apex.
-   *
-   * At most one stack may set it. Two stacks that both claim the zone do not
-   * conflict in any way Cloudflare reports — the later `pulumi up` overwrites
-   * the earlier one's records and prints success — so `loadConfig` refuses
-   * the combinations it can detect and this flag carries the rest.
-   */
   zoneBaseline: boolean;
-  /**
-   * Value of the `_dmarc` TXT record. Optional, and carried in config rather
-   * than hardcoded because a DMARC policy is a property of the domain's mail
-   * posture, not of this deployment.
-   */
   dmarc?: string;
-  /**
-   * Absolute URL the apex and `www` redirect to, for the window in which no
-   * stack serves the apex yet.
-   *
-   * Scaffolding with an explicit end: as soon as a stack's `baseDomain` IS
-   * the zone apex, that stack serves it for real and this must be unset.
-   * `loadConfig` refuses to have both at once.
-   */
   apexRedirectTo?: string;
-  /**
-   * The former domain's hosts during a domain move (`formerBaseDomain`,
-   * app/former-domain.ts), or empty. Each keeps its A record at the Gateway,
-   * because its 301 is served there: without the record the redirect has
-   * nothing to answer and cert-manager cannot renew its certificate.
-   * Kept under the same resource names they had as this stack's own hosts, so
-   * the move does not delete and re-create them.
-   */
   formerHosts: string[];
-  /**
-   * Zone of `formerHosts`: `formerDnsZoneId`, or this stack's own zone when
-   * the move stays inside it. The one API token must be able to edit both.
-   */
   formerZoneId: string;
+  formerZoneBaseline?: { zoneName: string; dmarc?: string };
 }
 
-/** A Cloudflare zone id is 32 hex digits; anything else is a placeholder or a pasted name. */
 const ZONE_ID = /^[0-9a-f]{32}$/;
 
 export function loadDns(
@@ -106,11 +54,6 @@ export function loadDns(
           "on purpose: a half-configured zone leaves some hosts managed and the rest silently stale.",
       );
     }
-    // The whole point of managing DNS here is that the address is known and
-    // stable. Without `loadBalancerIp` the provider assigns one on first deploy
-    // and can assign a different one after a Gateway re-creation — records
-    // written from an unpinned address are wrong the moment that happens, and
-    // nothing in this program would notice.
     if (loadBalancerIp === undefined || loadBalancerIp === "") {
       throw new Error(
         "grid-oib:dnsEnabled requires grid-oib:loadBalancerIp. The A records need an address to " +
@@ -129,8 +72,12 @@ export function loadDns(
       }
     }
     refuseStrayFormerHosts(formerHosts, { dnsZoneName, formerZoneName, formerZoneId });
-    // Each host's record is named after the host, so a former host this stack still serves
-    // would register the same resource twice: refuse it here, by name, not as a duplicate URN.
+    if (cfg.get("formerDnsDmarc") !== undefined && !(dnsZoneBaseline && formerZoneName !== "")) {
+      throw new Error(
+        `${pulumi.getProject()}:formerDnsDmarc keeps the former zone's _dmarc while the baseline stack moves; ` +
+          "it needs dnsZoneBaseline and formerDnsZoneName.",
+      );
+    }
     const shared = formerHosts.filter((host) => dnsHosts.includes(host));
     if (shared.length > 0) {
       throw new Error(
@@ -148,10 +95,6 @@ export function loadDns(
           "at the zone that actually contains these hosts.",
       );
     }
-    // The redirect is scaffolding for a zone apex no stack serves yet. Once a
-    // stack's own baseDomain IS the apex, that stack publishes a real A record
-    // for it — and both would be the same Cloudflare record, so whichever
-    // resource is created second wins and the outcome depends on graph order.
     if (dnsApexRedirectTo !== undefined && webDomain === dnsZoneName) {
       throw new Error(
         `grid-oib:dnsApexRedirectTo is set while this stack already serves the apex ` +
@@ -172,11 +115,6 @@ export function loadDns(
           "Cloudflare sends it to the browser as a Location header verbatim.",
       );
     }
-    // The apex is a zone-level record, so the stack that serves it owns the
-    // baseline. Anything else splits the zone: this stack writes the apex while
-    // another writes www — and that other stack's www either still redirects
-    // away from the site (how piloti.at kept bouncing to dev after prod shipped)
-    // or points unproxied at a Gateway with no listener for it.
     if (webDomain === dnsZoneName && !dnsZoneBaseline) {
       throw new Error(
         `grid-oib:dnsZoneBaseline must be true on the stack that serves the apex ` +
@@ -189,29 +127,20 @@ export function loadDns(
     enabled: dnsEnabled,
     zoneId: dnsZoneId,
     zoneName: dnsZoneName,
-    // `??` only reached when disabled — the guard above requires the token
-    // whenever `dnsEnabled`, so `installDns` never sees this empty.
     apiToken: cloudflareApiToken ?? pulumi.secret(""),
     targetIp: loadBalancerIp ?? "",
     hosts: dnsHosts,
-    // 600s, matching what these records already carried at the previous
-    // operator. Low enough that a LoadBalancer IP change is a ten-minute
-    // event rather than an hour-long one, high enough not to matter.
     ttl: num(cfg, "dnsTtl", 600),
     zoneBaseline: dnsZoneBaseline,
     dmarc: cfg.get("dnsDmarc"),
     apexRedirectTo: dnsApexRedirectTo,
     formerHosts,
     formerZoneId: formerZoneId !== "" ? formerZoneId : dnsZoneId,
+    formerZoneBaseline:
+      dnsZoneBaseline && formerZoneName !== "" ? { zoneName: formerZoneName, dmarc: cfg.get("formerDnsDmarc") } : undefined,
   };
 }
 
-/**
- * The former hosts must land in a zone this stack names: its own, or the one
- * `formerDnsZoneName`/`formerDnsZoneId` give. Outside it, Cloudflare would file
- * `app.old.example` as `app.old.example.<zone>` and report success, and the
- * 301s would answer nobody.
- */
 function refuseStrayFormerHosts(
   formerHosts: string[],
   zones: { dnsZoneName: string; formerZoneName: string; formerZoneId: string },

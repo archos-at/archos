@@ -1,23 +1,3 @@
-/**
- * Build the MCP Apps views Piloti's door serves (ADR-0142): one self-contained
- * HTML document per `ui://` resource, written to `mcp-app-views/`.
- *
- *   Usage:
- *     bun scripts/build-mcp-app-views.ts            # into mcp-app-views/
- *     bun scripts/build-mcp-app-views.ts --out DIR  # elsewhere (the specs)
- *
- * A host draws the document in a sandboxed iframe under the strict default CSP
- * (MCP Apps 2026-01-26: `default-src 'none'`, inline script and style only,
- * `connect-src 'none'`), so everything is inline: the script bundled by Bun,
- * the stylesheet compiled by Tailwind from `view.css`, no URL to fetch. The
- * document is the same for every office and every person: data reaches it only
- * through the tool result the host hands the view.
- *
- * Run by `bun run build` before `next build` and by `bun run dev:next`; the
- * output is not committed (`.gitignore`). `next build` does not bundle it: the
- * door reads the file at request time (`viewDocument` in `lib/agent-api/mcp-apps.ts`).
- */
-
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -25,7 +5,6 @@ import postcss from 'postcss'
 import tailwind from '@tailwindcss/postcss'
 import { APP_VIEWS } from '../bff/agent-api/catalog/app-views'
 
-/** The slice of Bun's build API this script uses; `@types/bun` is not installed (Bun is the toolchain here, ADR-0103). */
 interface BunResolveArgs {
   readonly path: string
   readonly importer: string
@@ -44,11 +23,6 @@ declare const Bun: {
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
-/**
- * Each view of the catalog (`APP_VIEWS`, `catalog/app-views.ts`): its document
- * is its `file`, its code lives in `ui/features/mcp-apps/<name>/`, entered at
- * `main.tsx` and styled by `view.css`.
- */
 const VIEWS = APP_VIEWS.map((view) => ({
   file: view.file,
   title: view.title,
@@ -56,18 +30,9 @@ const VIEWS = APP_VIEWS.map((view) => ({
   css: `ui/features/mcp-apps/${view.name}/view.css`,
 }))
 
-/** A script inlined in HTML must not close its own element. */
 const inlineScript = (code: string): string => code.replace(/<\/script/gi, '<\\/script')
 const inlineStyle = (css: string): string => css.replace(/<\/style/gi, '<\\/style')
 
-/**
- * Modules a view never needs whole, resolved to a small stand-in: the answer's
- * Markdown renderer, which the A2UI catalog imports for its `Text` leaf and
- * which carries mermaid, KaTeX and the chat stores (~7 MB). Why it is safe is
- * in the stand-in's own header. The dictionaries need none: each component
- * imports the namespace it reads (`i18n/namespace.ts`), so a view bundles
- * the copy it draws and no other.
- */
 const STAND_INS: ReadonlyArray<{ filter: RegExp; path: string }> = [
   { filter: /MarkdownRenderer\/MarkdownRenderer$/, path: 'ui/features/mcp-apps/markdown-stand-in.tsx' },
 ]

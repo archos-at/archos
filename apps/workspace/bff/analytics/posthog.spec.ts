@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import type { CapturedNetworkRequest } from 'posthog-js'
+import { SERVICE_HEADERS } from '../proxy/ws-upgrade-headers.js'
 import {
   DISABLED_POSTHOG_CONFIG,
   adoptServerIdentity,
@@ -18,6 +19,7 @@ import {
   registerPosthogContext,
   resetPosthog,
   scrubEvent,
+  SERVICE_HEADER_NAMES,
   stripUrlQuery,
   type PostHogConfig,
 } from './posthog'
@@ -48,12 +50,6 @@ const sdk = vi.hoisted(() => ({
 
 vi.mock('posthog-js', () => ({ default: sdk }))
 
-/**
- * Fail-open contract: without a configured host/token the client never
- * initializes and every emit is a silent no-op. Analytics must never take
- * the app down with it — this is the ratchet for the dev-time throw the
- * PostHog wizard originally shipped.
- */
 describe('posthog analytics facade', () => {
   test('stays disabled when initialized without configuration', () => {
     initPosthogClient(DISABLED_POSTHOG_CONFIG)
@@ -87,6 +83,7 @@ describe('posthog analytics facade', () => {
       replaySampleRate: 0,
       proxy: false,
       release: '',
+      deployment: '',
     })
   })
 })
@@ -221,6 +218,31 @@ describe('session replay privacy options', () => {
     expect(masked.responseHeaders).toEqual({ 'content-type': 'application/json' })
   })
 
+  test('strips every service header under the name the backend reads it by', () => {
+    const masked = maskReplayNetworkRequest(
+      request({
+        requestHeaders: {
+          ...Object.fromEntries(SERVICE_HEADER_NAMES.map((name) => [name, 'SECRET'])),
+          accept: 'application/json',
+        },
+      })
+    )
+
+    expect(masked.requestHeaders).toEqual({ accept: 'application/json' })
+  })
+
+  test('redacts the same service headers the WebSocket proxy strips from a client', () => {
+    expect(new Set(SERVICE_HEADER_NAMES)).toEqual(new Set(SERVICE_HEADERS))
+  })
+
+  test('redacts the internal service token under its new name', () => {
+    const masked = maskReplayNetworkRequest(
+      request({ requestHeaders: { 'x-internal-token': 'SECRET', accept: 'application/json' } })
+    )
+
+    expect(masked.requestHeaders).toEqual({ accept: 'application/json' })
+  })
+
   test('keeps the bodies of a failed request, which is what explains it', () => {
     const masked = maskReplayNetworkRequest(request({ status: 422, responseBody: '{"error":"invalid"}' }))
     expect(masked.requestBody).toBe('{"q":"Absturzhoehe"}')
@@ -287,8 +309,6 @@ describe('posthog init options', () => {
   })
 
   test('sends the tracing headers to the app itself and to nobody else', () => {
-    // The BFF puts the session on its request span (bff/api/trace-session.ts);
-    // a third-party host must never receive the session or distinct id.
     expect(buildPosthogInitOptions(enabledConfig, identity, 'app.example').tracing_headers).toEqual(['app.example'])
     expect('tracing_headers' in buildPosthogInitOptions(enabledConfig, identity)).toBe(false)
   })
@@ -356,8 +376,6 @@ describe('adoptServerIdentity', () => {
     expect(sdkClient.identify).not.toHaveBeenCalled()
   })
 
-  // posthog-js keeps a DIFFERENT persisted, identified person and only logs a
-  // warning: the new person's visit would be filed under the old one.
   test('resets before identifying when the browser still holds another person', () => {
     const sdkClient = client('user_00')
     adoptServerIdentity(sdkClient, 'user_01')
@@ -381,6 +399,16 @@ describe('adoptServerIdentity', () => {
     expect(postHogConfigFromEnv({ GIT_SHA: 'abc1234' }).release).toBe('abc1234')
     expect(postHogConfigFromEnv({ GIT_SHA: 'unknown' }).release).toBe('')
   })
+
+  test('registers the deployment the server names beside the release, and nothing for a blank one', () => {
+    const config = { ...enabledConfig, ...postHogConfigFromEnv({ GIT_SHA: 'abc1234', POSTHOG_DEPLOYMENT: ' prod ' }) }
+    const sdkClient = { get_distinct_id: () => 'user_01', reset: vi.fn(), identify: vi.fn(), register: vi.fn() }
+    ;(buildPosthogInitOptions(config, identity).loaded as (client: unknown) => void)(sdkClient)
+    expect(sdkClient.register).toHaveBeenCalledWith({ release: 'abc1234', deployment: 'prod' })
+
+    expect(postHogConfigFromEnv({ POSTHOG_DEPLOYMENT: '  ' }).deployment).toBe('')
+    expect(postHogConfigFromEnv({}).deployment).toBe('')
+  })
 })
 
 describe('scrubEvent (before_send)', () => {
@@ -392,13 +420,13 @@ describe('scrubEvent (before_send)', () => {
       capture({
         $current_url: 'https://app.example/api/auth/callback?code=x&state=y',
         $pathname: '/api/auth/callback',
-        $referrer: 'https://idp.example/authorize?state=y&client=grid',
+        $referrer: 'https://idp.example/authorize?state=y&client=example',
       })
     )
     expect(scrubbed?.properties).toEqual({
       $current_url: 'https://app.example/api/auth/callback',
       $pathname: '/api/auth/callback',
-      $referrer: 'https://idp.example/authorize?client=grid',
+      $referrer: 'https://idp.example/authorize?client=example',
     })
   })
 
@@ -427,8 +455,6 @@ describe('scrubEvent (before_send)', () => {
       $set_once: { $initial_current_url: 'https://app.example/cb?code=c' },
     } as NonNullable<Parameters<typeof scrubEvent>[0]>)
     expect(scrubbed?.$set_once).toEqual({ $initial_current_url: 'https://app.example/cb' })
-    // posthog-js no longer types the argument as nullable; the guard stays for a
-    // before_send chain that hands on an earlier hook's dropped event.
     expect(scrubEvent(null as unknown as Parameters<typeof scrubEvent>[0])).toBeNull()
   })
 
@@ -440,10 +466,6 @@ describe('scrubEvent (before_send)', () => {
   })
 })
 
-/**
- * Enabled path against a mocked posthog-js. The module keeps `initialized` in a
- * closure, so each test re-imports it fresh.
- */
 describe('posthog enabled path', () => {
   const load = async (): Promise<typeof import('./posthog')> => {
     vi.resetModules()
@@ -535,6 +557,14 @@ describe('posthog enabled path', () => {
     expect(sdk.reset).toHaveBeenCalledTimes(1)
   })
 
+  test('reset keeps the release and the deployment on the next person’s events', async () => {
+    const mod = await load()
+    mod.registerBuild(sdk, { release: 'abc1234', deployment: 'prod' })
+    sdk.register.mockClear()
+    mod.resetPosthog()
+    expect(sdk.register).toHaveBeenCalledWith({ release: 'abc1234', deployment: 'prod' })
+  })
+
   test('support context: hands the server the replay session, and no widget session', async () => {
     const mod = await load()
     expect(mod.getPosthogSupportContext()).toEqual({ sessionId: '0199d7f2-5b3a-7c4e-9a1d-3e8f2b6c5d70' })
@@ -549,11 +579,6 @@ describe('posthog enabled path', () => {
   })
 })
 
-/**
- * The session id travels with each chat turn so Langfuse's PostHog export can
- * link a trace to its recording. It is read from the SDK, per call, and only
- * ever a UUID-shaped string; anything else is `null`.
- */
 describe('posthog session id', () => {
   const load = async (sessionId: unknown) => {
     vi.resetModules()

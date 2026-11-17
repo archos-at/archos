@@ -1,16 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the platform admin primitives, shown as one worked example:
- * SectionCard chrome wrapping a DataToolbar + Table + Pagination, with a Sheet
- * for row detail.
- *
- * This is the pattern every platform section is being converted to, so it is
- * also the reference: if a surface needs something this page does not show, the
- * primitive is missing and should be added rather than hand-rolled. Not linked
- * from anywhere; 404s outside development.
- */
-
 import type { JSX } from 'react'
 import { useMemo, useState } from 'react'
 import { BookOpenCheck, MoreHorizontal, Trash2, Upload } from 'lucide-react'
@@ -30,7 +19,6 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { SectionCard } from '@/features/platform/components/section-card'
 
-// Names must be unique — they are the React key AND the selection identity.
 const ROWS = Array.from({ length: 14 }, (_, index) => ({
   name: `OIB-RL${index + 1}-2023.pdf`,
   title: `OIB-Richtlinie ${index + 1} — Ausgabe 2023`,
@@ -94,10 +82,10 @@ function Preview(): JSX.Element {
             clearSelectionLabel="Clear"
             selectionActions={
               <>
-                <Button variant="outline" size="sm">
+                <Button variant="secondary" size="sm">
                   Reclassify
                 </Button>
-                <Button variant="outline" size="sm" className="text-destructive">
+                <Button variant="secondary" size="sm" className="text-destructive">
                   <Trash2 className="size-3.5" aria-hidden />
                   Delete
                 </Button>
@@ -123,10 +111,6 @@ function Preview(): JSX.Element {
                 <TableRow>
                   <TableHead>
                     <Checkbox
-                      // Indeterminate on a partial page, and select-all touches
-                      // only THIS page's rows — matching base-knowledge. This
-                      // page is the conversion reference, so it has to show the
-                      // behaviour the real sections implement.
                       checked={
                         allOnPageSelected
                           ? true

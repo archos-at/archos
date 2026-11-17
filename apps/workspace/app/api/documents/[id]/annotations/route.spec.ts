@@ -1,20 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The Anmerkungen routes and their service, driven through the TYPED CLIENT
- * (ADR-0055): the browser uses the same functions, so a path or a field the two
- * disagreed on would fail here.
- *
- * The document reader, the repository and the room are mocked; what is under
- * test is the service's rules between them: access follows the document, a
- * read-only reader gets the list without the controls, the Fassung a mark was
- * set on decides whether it is drawn, a region stays on its page, a proposal
- * becomes the office's only by a person, a status move carries its
- * bookkeeping and loses to a colleague's earlier move, only the person who set
- * a mark (or Piloti, for the person it set it for) deletes it, the person a
- * reply was posted for deletes that, and every write tells the room.
- */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -35,7 +21,6 @@ vi.mock('@/lib/sharing/directory', () => ({ loadOrganizationDirectory: vi.fn() }
 vi.mock('@/lib/realtime/document-channel', () => ({ publishToDocumentRoom: vi.fn().mockResolvedValue(undefined) }))
 vi.mock('@/lib/audit/service', () => ({ recordAuditEvent: vi.fn() }))
 vi.mock('@/lib/analytics/posthog-server', () => ({ captureServer: vi.fn() }))
-// Whom new marks tell, at its seam: the rest of the attention runs as it is.
 vi.mock('@/lib/annotations/attention', async (original) => ({
   ...(await original<typeof import('@/lib/annotations/attention')>()),
   onMarksSet: vi.fn(async () => undefined),
@@ -121,7 +106,7 @@ const ROUTES: Array<{ pattern: RegExp; method: string; handler: Handler; params:
 ]
 
 const run = async (path: string, init?: RequestInit) => {
-  const url = new URL(path, 'https://grid.test')
+  const url = new URL(path, 'https://example.test')
   const method = init?.method ?? 'GET'
   const route = ROUTES.find((entry) => entry.pattern.test(url.pathname) && entry.method === method)
   if (!route) throw new Error(`no route for ${method} ${url.pathname}`)
@@ -429,9 +414,9 @@ describe('PATCH /api/documents/[id]/annotations/[annotationId]', () => {
     expect(publishToDocumentRoom).not.toHaveBeenCalled()
   })
 
-  describe("a decision on Piloti's proposed mark, in the audit trail", () => {
+  describe("a decision on the agent’s proposed mark, in the audit trail", () => {
     const decided = () =>
-      vi.mocked(recordAuditEvent).mock.calls.map(([input]) => input).filter((input) => input.action === 'piloti.mark.decided')
+      vi.mocked(recordAuditEvent).mock.calls.map(([input]) => input).filter((input) => input.action === 'agent.mark.decided')
     afterEach(() => {
       for (const [input] of vi.mocked(recordAuditEvent).mock.calls) expectRegistered(input)
     })
@@ -446,7 +431,7 @@ describe('PATCH /api/documents/[id]/annotations/[annotationId]', () => {
 
       expect(decided()).toEqual([
         {
-          action: 'piloti.mark.decided',
+          action: 'agent.mark.decided',
           organizationId: 'org_1',
           actor: { userId: 'user_1', email: 'a@example.test' },
           targetType: 'document_annotation',
@@ -468,7 +453,6 @@ describe('PATCH /api/documents/[id]/annotations/[annotationId]', () => {
       vi.mocked(updateDocumentAnnotation).mockResolvedValueOnce(null)
       await updateAnnotation('doc_1', 'ann_p', { status: 'dismissed', expectedStatus: 'proposed' }, { run }).catch(() => null)
 
-      // A person's own mark, and a reword of a proposal: no decision on Piloti's work.
       vi.mocked(findDocumentAnnotation).mockResolvedValue(RECORD)
       await updateAnnotation('doc_1', 'ann_1', { status: 'resolved' }, { run })
       vi.mocked(findDocumentAnnotation).mockResolvedValue(PROPOSAL)
@@ -494,7 +478,7 @@ describe('DELETE /api/documents/[id]/annotations/[annotationId]', () => {
     expect(publishToDocumentRoom).toHaveBeenCalledWith('doc_1', expect.objectContaining({ change: 'deleted' }))
   })
 
-  it("refuses one somebody else set, and Piloti's proposals, which are dismissed instead", async () => {
+  it("refuses one somebody else set, and the agent’s proposals, which are dismissed instead", async () => {
     for (const record of [{ ...RECORD, createdBy: 'user_2' }, PROPOSAL]) {
       vi.mocked(findDocumentAnnotation).mockResolvedValue(record)
       const error = await deleteAnnotation('doc_1', record.id, { run }).catch((caught: unknown) => caught)
@@ -520,7 +504,7 @@ describe('DELETE /api/documents/[id]/annotations/[annotationId]', () => {
     })
     const LINK = { annotationId: 'ann_x', documentId: 'doc_2', number: 7 }
 
-    it('is still deleted while only its author and Piloti wrote in its thread', async () => {
+    it('is still deleted while only its author and the agent wrote in its thread', async () => {
       const quiet = { ...RECORD, replies: [answer({ createdBy: 'user_1' }), answer({ id: 'rep_2', authorKind: 'piloti', createdBy: 'user_2' })] }
       vi.mocked(findDocumentAnnotation).mockResolvedValue(quiet)
       vi.mocked(listDocumentAnnotations).mockResolvedValue([quiet])
@@ -534,7 +518,6 @@ describe('DELETE /api/documents/[id]/annotations/[annotationId]', () => {
       const cases: Array<[AnnotationRecord, string, 'discussed' | 'carried']> = [
         [{ ...RECORD, replies: [answer({})] }, 'mark-discussed', 'discussed'],
         [{ ...RECORD, carriedFromId: 'ann_x', carriedFrom: LINK }, 'mark-carried', 'carried'],
-        // The source on the replaced document, closed by the carry: the link back from the other end.
         [{ ...RECORD, status: 'resolved', closedBy: 'user_1', closedAt: new Date(), carriedTo: LINK }, 'mark-carried', 'carried'],
       ]
       for (const [record, reason, refused] of cases) {
@@ -556,9 +539,7 @@ describe('DELETE /api/documents/[id]/annotations/[annotationId]', () => {
     })
   })
 
-  describe("a mark Piloti set (author 'piloti')", () => {
-    // Piloti works in the asker's session, so `created_by` is the asker; `accepted_by` is the asker when the mark was
-    // born open at their request.
+  describe("a mark the agent set (author 'piloti')", () => {
     const SET_FOR_ASKER: AnnotationRecord = { ...RECORD, id: 'ann_s', authorKind: 'piloti', createdBy: 'user_1', acceptedBy: 'user_1' }
 
     it('is deleted by the person it was set for, like their own, and shown to them as deletable', async () => {
@@ -573,11 +554,8 @@ describe('DELETE /api/documents/[id]/annotations/[annotationId]', () => {
 
     it('is refused to another member, to whoever took a proposal over that was not theirs, and for an untaken proposal', async () => {
       const others: AnnotationRecord[] = [
-        // Set for user_2; user_1 is only a colleague.
         { ...SET_FOR_ASKER, createdBy: 'user_2', acceptedBy: 'user_2' },
-        // Proposed in user_2's turn, taken over by user_1: two people behind it, so it is resolved, never deleted.
         { ...SET_FOR_ASKER, createdBy: 'user_2', acceptedBy: 'user_1' },
-        // Proposed in user_1's turn and taken over by user_2.
         { ...SET_FOR_ASKER, createdBy: 'user_1', acceptedBy: 'user_2' },
         { ...PROPOSAL, createdBy: 'user_1' },
       ]
@@ -617,7 +595,7 @@ describe('deleteReply (the service; undo is its caller)', () => {
   const withReplies = (...replies: AnnotationRecord['replies']) =>
     vi.mocked(findDocumentAnnotation).mockResolvedValue({ ...RECORD, replies })
 
-  it("deletes the person's own reply and Piloti's reply posted for them, and tells the room", async () => {
+  it("deletes the person's own reply and the agent’s reply posted for them, and tells the room", async () => {
     for (const authorKind of ['piloti', 'person'] as const) {
       vi.mocked(publishToDocumentRoom).mockClear()
       withReplies(reply({ authorKind }))
@@ -652,7 +630,6 @@ describe('deleteReply (the service; undo is its caller)', () => {
     })
     expect(deleteAnnotationReply).not.toHaveBeenCalled()
 
-    // It changed between the read and the delete: the repository's compare finds no row.
     withReplies(reply())
     vi.mocked(deleteAnnotationReply).mockResolvedValueOnce(false)
     await expect(deleteReply(session, 'doc_1', 'ann_1', 'rep_1', { expectedBody: 'Auf Mittwoch gesetzt.' })).rejects.toMatchObject({
@@ -677,7 +654,6 @@ describe('POST /api/documents/[id]/annotations/[annotationId]/replies', () => {
         addressesAgent: false,
         mentions: [],
       },
-      // A reply on a person's mark that does not address Piloti wakes nothing.
       undefined
     )
     expect(publishToDocumentRoom).toHaveBeenCalledWith('doc_1', expect.objectContaining({ change: 'replied' }))
@@ -708,7 +684,6 @@ describe('what the marks tell PostHog (the one door every client passes)', () =>
     expect(JSON.stringify(events())).not.toContain('Fluchtweg')
   })
 
-  // The service itself, as the inbox, the card and Piloti reach it: the route's own request budget is not under test.
   const session = {
     userId: 'user_1',
     organizationId: 'org_1',
@@ -744,7 +719,7 @@ describe('what the marks tell PostHog (the one door every client passes)', () =>
     ])
   })
 
-  it('counts a proposal dismissed as a close of Piloti’s mark', async () => {
+  it('counts a proposal dismissed as a close of the agent’s mark', async () => {
     vi.mocked(findDocumentAnnotation).mockResolvedValue(PROPOSAL)
     vi.mocked(updateDocumentAnnotation).mockResolvedValue({ ...PROPOSAL, status: 'dismissed' })
     await service.updateAnnotation(session, 'doc_1', 'ann_p', { status: 'dismissed', expectedStatus: 'proposed' })
@@ -755,7 +730,7 @@ describe('what the marks tell PostHog (the one door every client passes)', () =>
   })
 })
 
-describe('whom Piloti’s proposals tell', () => {
+describe('whom the agent’s proposals tell', () => {
   const session = {
     userId: 'user_1',
     organizationId: 'org_1',
@@ -776,7 +751,7 @@ describe('whom Piloti’s proposals tell', () => {
     expect(onMarksSet).not.toHaveBeenCalled()
   })
 
-  it('tells them once a person takes it over, as Piloti’s mark set for that person, minus its Zuständige', async () => {
+  it('tells them once a person takes it over, as the agent’s mark set for that person, minus its Zuständige', async () => {
     vi.mocked(findDocumentAnnotation).mockResolvedValue({ ...PROPOSAL, assigneeUserId: 'user_in' })
     vi.mocked(updateDocumentAnnotation).mockResolvedValue({ ...PROPOSAL, status: 'open', acceptedBy: 'user_1' })
 

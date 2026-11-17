@@ -1,5 +1,3 @@
-"""Tests for deep researcher graph and middleware factory helpers."""
-
 from unittest.mock import MagicMock
 from unittest.mock import patch
 
@@ -37,9 +35,8 @@ from agent.common import LLMRole
 from agent.skills import SkillRuntime
 
 
-@tool
+@tool(description="Search the web for information.")
 def web_search_tool(query: str) -> str:
-    """Search the web for information."""
     return f"Results for: {query}"
 
 
@@ -56,7 +53,6 @@ def _llm_provider() -> LLMProvider:
 
 
 def _deferred_schemas(middleware: list) -> list:
-    """Schemas of the DeferredStructuredOutputMiddleware instances in a middleware stack."""
     return [m.strategy.schema for m in middleware if isinstance(m, DeferredStructuredOutputMiddleware)]
 
 
@@ -124,7 +120,6 @@ def _graph_context(
 
 
 def test_tool_set_keeps_helper_researcher_and_writer_tools_separate():
-    """Factory tool grouping keeps source tools away from writer-only helpers."""
     _, tool_set, _ = _tool_set_and_middleware()
 
     assert tool_set.source_tool_names == {"web_search_tool"}
@@ -135,7 +130,6 @@ def test_tool_set_keeps_helper_researcher_and_writer_tools_separate():
 
 
 def test_middleware_set_adds_orchestrator_batch_tool_name():
-    """The orchestrator sanitizer accepts run_research_batch while shared stacks accept source tools."""
     registry, tool_set, middleware_set = _tool_set_and_middleware()
 
     researcher_sanitizer = _sanitizer(middleware_set.researcher)
@@ -162,7 +156,6 @@ def _pruning_middleware(middleware: list[object]) -> ToolResultPruningMiddleware
 
 
 def test_tool_retry_never_re_executes_run_research_batch_and_skips_value_errors():
-    """Deliberate tool error signals reach the model instead of amplifying retries."""
     _, _, middleware_set = _tool_set_and_middleware()
 
     stacks = (
@@ -180,23 +173,19 @@ def test_tool_retry_never_re_executes_run_research_batch_and_skips_value_errors(
 
 
 def test_writer_pruning_middleware_scales_with_research_volume():
-    """The writer stack keeps enough tool results for plan + every note + verified sources."""
     _, _, middleware_set = _tool_set_and_middleware()
 
     writer_pruning = _pruning_middleware(middleware_set.writer)
     researcher_pruning = _pruning_middleware(middleware_set.researcher)
     orchestrator_pruning = _pruning_middleware(middleware_set.orchestrator)
-    # 6 (max_research_concurrency) * assumed max batches + headroom.
     assert writer_pruning.keep_last_n >= 50
     assert writer_pruning.max_chars >= 20_000
-    # Non-writer stacks keep the tighter defaults.
     assert researcher_pruning.keep_last_n == 10
     assert researcher_pruning.max_chars == 2000
     assert orchestrator_pruning.keep_last_n == 10
 
 
 def test_subagents_route_tools_and_writer_skills():
-    """Source-router excludes source tools, planner receives source tools, and writer receives configured skills."""
     runtime = DeepAgentsRuntime(
         skills=DeepResearchSkillsConfig(
             agents={"writer-agent": ("synthesis",)},
@@ -232,7 +221,6 @@ def test_subagents_route_tools_and_writer_skills():
 
 
 def test_skill_filesystem_permissions_filter_unassigned_skill_collections():
-    """Filesystem tools only expose skill collections assigned to the current agent."""
     permissions = skill_filesystem_permissions(["/skills/synthesis/"])
     entries = [
         {"path": "/skills/research/", "is_dir": True, "size": 0, "modified_at": ""},
@@ -247,7 +235,6 @@ def test_skill_filesystem_permissions_filter_unassigned_skill_collections():
 
 
 def test_graph_uses_researcher_config_key_for_researcher_skills():
-    """The researcher runnable uses the public `researcher` skill config key."""
     registry, tool_set, middleware_set = _tool_set_and_middleware()
     runtime = DeepAgentsRuntime(skills=DeepResearchSkillsConfig(agents={"researcher-agent": ("oib",)}))
     fake_graph = MagicMock()
@@ -283,7 +270,6 @@ def _skills_sources(middleware) -> list[str] | None:
 
 
 def test_the_office_skills_go_to_the_writer_alone():
-    """An office skill is an instruction about the answer, and the writer writes it (ADR-0135)."""
     from agent.skills.models import Skill
 
     runtime = DeepAgentsRuntime(
@@ -310,7 +296,6 @@ def test_a_run_without_skills_mounts_none_and_gates_nothing():
 
 
 def test_graph_passes_checkpointer_through_alongside_inmemory_store():
-    """checkpointer (execution-state durability) and store (longterm memory) are independent (T3-8)."""
     registry, tool_set, middleware_set = _tool_set_and_middleware()
     runtime = DeepAgentsRuntime()
     fake_graph = MagicMock()
@@ -339,15 +324,12 @@ def test_graph_passes_checkpointer_through_alongside_inmemory_store():
 
     kwargs = create.call_args.kwargs
     assert kwargs["checkpointer"] is fake_checkpointer
-    # The longterm-memory store stays an independent, always-in-memory instance
-    # regardless of whether a durable checkpointer is configured.
     from langgraph.store.memory import InMemoryStore
 
     assert isinstance(kwargs["store"], InMemoryStore)
 
 
 def test_graph_defaults_checkpointer_to_none():
-    """Omitting checkpointer preserves current in-memory-only behavior."""
     registry, tool_set, middleware_set = _tool_set_and_middleware()
     runtime = DeepAgentsRuntime()
     fake_graph = MagicMock()
@@ -376,7 +358,6 @@ def test_graph_defaults_checkpointer_to_none():
 
 
 def test_subagents_can_disable_source_router():
-    """The source-router subagent can be omitted without changing the rest of the workflow."""
     provider = _llm_provider()
     provider.get = MagicMock(wraps=provider.get)
 
@@ -396,7 +377,6 @@ def test_subagents_can_disable_source_router():
 
 
 def test_researcher_runnable_uses_rendered_prompt_and_runtime_middleware():
-    """Researcher runnable construction stays behavior-compatible but has a smaller interface."""
 
     class FakeSummarizationMiddleware(AgentMiddleware):
         pass
@@ -432,8 +412,6 @@ def test_researcher_runnable_uses_rendered_prompt_and_runtime_middleware():
     assert kwargs["model"] is researcher_model
     assert kwargs["tools"] == [web_search_tool]
     assert kwargs["system_prompt"] == "rendered researcher prompt"
-    # No response_format on the tool loop: strict structured output is deferred
-    # to the researcher's exit turn via middleware (backlog T2-8).
     assert "response_format" not in kwargs
     assert _deferred_schemas(kwargs["middleware"]) == [ResearchNotes]
     assert middleware_names.index("DeferredStructuredOutputMiddleware") < middleware_names.index("MagicMock")
@@ -447,8 +425,6 @@ def test_researcher_runnable_uses_rendered_prompt_and_runtime_middleware():
 
 
 class _FakeModelRequest:
-    """Minimal stand-in for the ModelRequest the middleware sees (messages + override)."""
-
     def __init__(self, messages):
         self.messages = messages
 
@@ -471,40 +447,31 @@ async def _sent_messages(middleware: ToolResultPruningMiddleware, messages: list
 
 
 class TestToolResultPruningCacheStability:
-    """Truncation must be monotonic: once a message is sent truncated, its bytes never change again."""
-
     @pytest.mark.asyncio
     async def test_truncated_message_stays_byte_identical_as_history_grows(self):
         middleware = ToolResultPruningMiddleware(keep_last_n=2, max_chars=100)
         history = [_tool_msg(i, 500) for i in range(3)]
 
         first = await _sent_messages(middleware, list(history))
-        # msg_0 fell out of the window and was truncated; the last two stayed full.
         assert first[0].content.endswith("[... truncated ...]")
         assert len(first[1].content) == 500
         frozen = first[0].content
 
-        # History grows: with a naive sliding window msg_1 would now flip to
-        # truncated AND msg_0 already-truncated content must not change.
         history.append(_tool_msg(3, 500))
         second = await _sent_messages(middleware, list(history))
         assert second[0].content == frozen
         assert second[1].content.endswith("[... truncated ...]")
 
-        # And a third call sends both truncated messages byte-identically again.
         third = await _sent_messages(middleware, list(history))
         assert [m.content for m in third[:2]] == [m.content for m in second[:2]]
 
     @pytest.mark.asyncio
     async def test_small_results_do_not_occupy_window_slots(self):
         middleware = ToolResultPruningMiddleware(keep_last_n=2, max_chars=100)
-        # Two big results followed by many trivial ones (think: "Thought recorded.").
         messages = [_tool_msg(0, 500), _tool_msg(1, 500)] + [_tool_msg(i, 20) for i in range(2, 10)]
 
         sent = await _sent_messages(middleware, messages)
 
-        # The two oversized results are still within the last-2 OVERSIZED window:
-        # trivial results must not evict them.
         assert len(sent[0].content) == 500
         assert len(sent[1].content) == 500
         assert all(len(m.content) == 20 for m in sent[2:])
@@ -536,8 +503,6 @@ def _look_call(idx: int, **args) -> AIMessage:
 
 
 class TestToolResultPruningImages:
-    """An image result is measured by its text, and an old one becomes a stub, never cut base64."""
-
     async def test_recent_image_result_is_sent_intact(self):
         middleware = ToolResultPruningMiddleware(keep_last_n=2, max_chars=100)
         messages = [_look_call(0, file_name="plan.pdf", page_number=3), _image_result(0)]
@@ -583,7 +548,6 @@ class TestToolResultPruningImages:
         long_text = _tool_msg(9, 250)
         sent = await _sent_messages(middleware, [_image_result(0, b64_size=1_000_000), long_text])
 
-        # The image's 1 MB of base64 did not blow the 300-char budget, so nothing was evicted.
         assert sent[0].content == _image_result(0, b64_size=1_000_000).content
         assert len(sent[1].content) == 250
 

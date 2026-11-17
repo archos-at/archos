@@ -2,13 +2,6 @@ import { describe, expect, it } from "vitest";
 import { composeCollectorConfig, renderCollectorConfig } from "./collector-config";
 import { parseCollectorConfig, pipeline } from "../test-support/collector";
 
-/**
- * The invariants every collector in the stack carries, held once here instead
- * of per consumer. Each one, broken, is a failure that only shows in the
- * running cluster: a producer logging an export error on every batch, a
- * collector refusing to start, a fragment silently overwriting another's
- * exporter.
- */
 describe("composeCollectorConfig", () => {
   const traces = { exporters: { "otlp_http/a": { traces_endpoint: "http://a" } }, pipelines: { traces: { receivers: ["otlp"], exporters: ["otlp_http/a"] } } };
 
@@ -61,7 +54,6 @@ describe("composeCollectorConfig", () => {
     ]);
     const yaml = renderCollectorConfig(config);
     expect(parseCollectorConfig(yaml)).toEqual(config);
-    // A version header must stay a string: an unquoted 4 is an int to the collector.
     expect(yaml).toContain("v: '4'");
   });
 });

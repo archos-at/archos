@@ -1,11 +1,3 @@
-/**
- * German dictionary.
- *
- * Each namespace is annotated with `typeof en.<ns>`, so any key added to the
- * English source that is missing here is a compile error — the two locales
- * can never structurally drift.
- */
-
 import { common } from './common'
 import { nav } from './nav'
 import { profile } from './profile'
@@ -17,6 +9,7 @@ import { collaboration } from './collaboration'
 import { files } from './files'
 import { dossier } from './dossier'
 import { officeShelf } from './office-shelf'
+import { baseKnowledge } from './base-knowledge'
 import { lawMap } from './law-map'
 import { bim } from './bim'
 import { knowledge } from './knowledge'
@@ -54,6 +47,7 @@ import { search } from './search'
 import { whatsNew } from './whats-new'
 import { personalMemory } from './personal-memory'
 import { memoryNotes } from './memory-notes'
+import { memoryTopics } from './memory-topics'
 import type { Dictionary } from '../index'
 
 export const de: Dictionary = {
@@ -71,6 +65,7 @@ export const de: Dictionary = {
   files,
   dossier,
   officeShelf,
+  baseKnowledge,
   lawMap,
   bim,
   knowledge,
@@ -105,4 +100,5 @@ export const de: Dictionary = {
   whatsNew,
   personalMemory,
   memoryNotes,
+  memoryTopics,
 }

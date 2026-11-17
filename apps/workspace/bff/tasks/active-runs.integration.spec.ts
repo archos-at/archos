@@ -2,7 +2,7 @@
  * @vitest-environment node
  *
  * The count of a project's runs in flight (`countActiveRunsInProject`), which
- * the turn's WORKSPACE block tells Piloti, against a REAL Postgres through the
+ * the turn's WORKSPACE block tells the agent, against a REAL Postgres through the
  * restricted runtime role:
  *
  *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \
@@ -46,7 +46,6 @@ describe.skipIf(!url)('countActiveRunsInProject against Postgres', () => {
       )[0]?.id
     )
 
-  /** `count` runs of one status, created `minutesAgo` before now. */
   const runs = (organizationId: string, projectId: string, status: string, count: number, minutesAgo: number) =>
     inOrg(organizationId, () =>
       db.execute(sql`
@@ -66,7 +65,6 @@ describe.skipIf(!url)('countActiveRunsInProject against Postgres', () => {
     ids.project = await project(ORG, 'own')
     ids.other = await project(ORG, 'other')
     ids.foreign = await project(OTHER_ORG, 'foreign')
-    // One run still running behind a full page of newer finished ones.
     await runs(ORG, ids.project, 'running', 1, 600)
     await runs(ORG, ids.project, 'succeeded', repo.RUN_LIST_LIMIT, 10)
     await runs(ORG, ids.project, 'queued', 2, 1)
@@ -84,13 +82,11 @@ describe.skipIf(!url)('countActiveRunsInProject against Postgres', () => {
 
   it('counts every queued or running run of the project, the one behind a full page of newer runs included', async () => {
     expect(await inOrg(ORG, () => repo.countActiveRunsInProject(ids.project, ORG))).toBe(3)
-    // The page the old count filtered holds none of the running one.
     const page = await inOrg(ORG, () => repo.listRunsInProject(ids.project, ORG))
     expect(page.filter((run) => run.status === 'queued' || run.status === 'running')).toHaveLength(2)
   })
 
   it('pages a filtered run list by cursor, through rows that share one created_at, without a gap or a repeat', async () => {
-    // The hundred finished runs were inserted by one statement: one created_at, so the id breaks every tie.
     const first = await inOrg(ORG, () => repo.listRunPage(ids.project, ORG, { limit: 60, cursor: null, status: 'succeeded' }))
     const second = await inOrg(ORG, () => repo.listRunPage(ids.project, ORG, { limit: 60, cursor: first.next, status: 'succeeded' }))
     const seen = [...first.rows, ...second.rows].map((run) => run.id)

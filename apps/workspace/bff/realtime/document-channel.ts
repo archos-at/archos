@@ -1,30 +1,3 @@
-/**
- * The document room as a live channel: `doc:<documentId>` (ADR-0110; the
- * vocabulary is `lib/annotations/room-types.ts`).
- *
- * Being in the room is reading the document: `getAccessibleDocument(read)`,
- * so a held upload, a restricted folder and a document of another tenant have
- * no room for this reader, by the same rule that hides the document.
- *
- * Besides the browsers, two server-side speakers write into the room, and
- * neither authorizes here, because each follows a decision that was made:
- *
- * - the Anmerkungen service, whose every write is an `annotations.changed`
- *   hint ({@link publishToDocumentRoom});
- * - Piloti, a participant of its own on the canvas ({@link publishAsAgent}):
- *   present, pointing, saying what it does, and highlighting a region. Its
- *   identity is stamped here, `kind: 'piloti'`, one peer per conversation,
- *   with the name of the person it acts for (`forName`), so the room always
- *   sees whose request it works on (ADR-0105; EU AI Act Art. 50). A browser
- *   cannot be Piloti, nor say whom it acts for: the send path stamps every
- *   browser `person` from its session, and the browser's vocabulary
- *   (`roomPostSchema`) has no activity, highlight, label or `forName` to send.
- *
- * Every relayed claim and fact also lands in the server roster (`./roster`),
- * which {@link roomSnapshot} reads: who is here, on which page, scrolled where,
- * with which mark selected and which region half drawn.
- */
-
 import 'server-only'
 import { getAccessibleDocument } from '@/lib/documents/access'
 import { loadOrganizationDirectory } from '@/lib/sharing/directory'
@@ -46,22 +19,19 @@ import { defineChannel } from './channel'
 import { publish } from './hub'
 import { flushRoster, forgetRosterPeer, noteRosterPeer, readRoster, rosterKey, type RosterEntry, type RosterFacts } from './roster'
 import { PRODUCT_NAME } from '@/lib/brand'
+import type { AgentKind } from '@/lib/agent-kind'
+import { LEGACY_AGENT_KIND } from '@/lib/legacy-agent-kind'
 
-/** How often an open stream checks that its reader may still read the document. */
 export const DOCUMENT_REAUTHORIZE_MS = 30_000
 
-/** How long a sign of life that is not a presence claim keeps a peer in the server roster. */
 const LEASE_MS = PRESENCE_REFRESH_MS * 2
 
 const DOCUMENT_ID = /^[A-Za-z0-9_-]{1,128}$/
 
-/** The channel key a browser opens for a document. */
 export const documentChannelKey = (documentId: string) => `doc:${documentId}`
 
-/** The hub topic the room travels on. */
 export const documentRoomTopic = (documentId: string) => `rt:doc:${documentId}`
 
-/** Note what was said in a room in its server roster. */
 function observeRoom(documentId: string, organizationId: string, events: ReadonlyArray<{ kind: string }>): void {
   const key = rosterKey(organizationId, documentChannelKey(documentId))
   for (const raw of events) {
@@ -99,7 +69,6 @@ export const documentChannel = defineChannel({
   upstream: {
     schema: roomPostSchema,
     limit: ROOM_LIMIT,
-    // Presence and the selected mark are claims: motion must never refuse them.
     claims: { limit: ROOM_CLAIM_LIMIT, fields: ['selected'] },
     handle: (post, peer) => {
       const events: RoomEvent[] = []
@@ -127,18 +96,10 @@ export const documentChannel = defineChannel({
   observe: (events, { documentId }, organizationId) => observeRoom(documentId, organizationId, events),
 })
 
-/** Publish one event to everyone in a document's room. Never throws. */
 export async function publishToDocumentRoom(documentId: string, event: RoomEvent): Promise<void> {
   await publish(documentRoomTopic(documentId), event)
 }
 
-// ── Piloti in the room ──────────────────────────────────────────────────────
-
-/**
- * Who Piloti is in a room: one peer per conversation, so two conversations
- * working on one document are two, carrying the name of the person it acts
- * for when there is one.
- */
 export function agentPeer(conversationId: string, onBehalfOf: string, forName?: string | null): RoomPeer {
   const id = conversationId.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 56)
   const name = forName?.trim().slice(0, 120)
@@ -146,30 +107,20 @@ export function agentPeer(conversationId: string, onBehalfOf: string, forName?: 
     peerId: `piloti-${id}`.padEnd(8, '0'),
     userId: onBehalfOf,
     name: PRODUCT_NAME,
-    kind: 'piloti',
+    kind: LEGACY_AGENT_KIND,
     ...(name ? { forName: name } : {}),
   }
 }
 
-/**
- * The display name of the person Piloti acts for, from the organization
- * directory (itself cached per organization). Fails open to no name: a WorkOS
- * hiccup costs the „für Anna" on the canvas, never Piloti's move.
- */
 async function actingName(organizationId: string, userId: string): Promise<string | null> {
   const directory = await loadOrganizationDirectory(organizationId).catch(() => null)
   return directory?.get(userId)?.name ?? null
 }
 
-/** What Piloti can do in a room. Boxes and points are shares of the page, 0…1, top-left origin. */
 export type AgentRoomOp =
-  /** Enter (refresh within {@link PRESENCE_TTL_MS}, or it times out of every roster) or leave the room. */
   | { op: 'presence'; state: 'here' | 'gone' }
-  /** Point at a spot, with a few words beside the pointer; `null` takes the pointer off the pages. */
   | { op: 'cursor'; cursor: RoomCursor | null; label?: string }
-  /** Say what it is doing („sieht sich Seite 2 an"), optionally with the region it reads; `idle` clears it. */
   | { op: 'activity'; label?: string; state?: AgentActivityState; box?: RoomBox }
-  /** Draw a box for a moment to show what it means. */
   | { op: 'highlight'; box: RoomBox; label?: string; ttlMs?: number }
 
 const label = (text: string | undefined) => {
@@ -177,7 +128,6 @@ const label = (text: string | undefined) => {
   return trimmed ? { label: trimmed } : {}
 }
 
-/** The room event an agent op becomes, validated as any other room event. Throws on a malformed op. */
 export function agentRoomEvent(peer: RoomPeer, op: AgentRoomOp): RoomEvent {
   const event: RoomEvent =
     op.op === 'presence'
@@ -190,11 +140,6 @@ export function agentRoomEvent(peer: RoomPeer, op: AgentRoomOp): RoomEvent {
   return roomEventSchema.parse(event)
 }
 
-/**
- * Act in a document's room as Piloti. The CALLER has authorized: the asker
- * whose conversation this is may read the document. Never fails on delivery;
- * throws only for a malformed op (a box outside the page, a label too long).
- */
 export async function publishAsAgent(
   documentId: string,
   organizationId: string,
@@ -208,22 +153,16 @@ export async function publishAsAgent(
   return event
 }
 
-/** One participant of a room, as the server last heard of them. */
 export interface RoomSnapshotPeer {
   peerId: string
   userId: string
   name: string
-  kind: 'person' | 'piloti'
-  /** For Piloti: the person it acts for. */
+  kind: 'person' | AgentKind
   forName?: string
-  /** The page their pointer was last on; null when it is off the pages or never was on them. */
   page: number | null
   viewport: { page: number; y: number } | null
-  /** The Anmerkung they have selected. */
   selected: string | null
-  /** The region they are dragging out. */
   draft: { page: number; x: number; y: number; w: number; h: number } | null
-  /** When their claim runs out, ISO 8601. */
   expiresAt: string
 }
 
@@ -240,13 +179,7 @@ const toSnapshotPeer = (entry: RosterEntry): RoomSnapshotPeer => ({
   expiresAt: new Date(entry.expiresAt).toISOString(),
 })
 
-/**
- * Who is in a document's room now, as the server last heard (within about a
- * second; `./roster`). Bounded and TTL'd; `[]` when nobody is or the store is
- * down. The CALLER has authorized the reader.
- */
 export async function roomSnapshot(documentId: string, organizationId: string): Promise<RoomSnapshotPeer[]> {
-  // This process's own last second goes first, so Piloti sees what was just said here.
   await flushRoster()
   const entries = await readRoster(rosterKey(organizationId, documentChannelKey(documentId)))
   return entries.map(toSnapshotPeer)

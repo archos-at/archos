@@ -1,9 +1,3 @@
-/**
- * The setup page's frame: which step it opens on, that the step lives in the
- * address, the stepper's notes, the drop on every step, and the notices above
- * the step. The five step organisms are stubbed: each owns its content and its
- * specs; here they only show the props the frame hands them.
- */
 import { act, fireEvent, render, screen, within } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -36,8 +30,6 @@ vi.mock('@/shared/context', () => ({
   }),
 }))
 
-// Next's router follows `history.pushState` into `useSearchParams`; this does
-// the same from the address jsdom keeps, so a step written there is read back.
 const address = vi.hoisted(() => {
   const listeners = new Set<() => void>()
   return {
@@ -65,7 +57,6 @@ vi.mock('next/navigation', async () => {
   }
 })
 
-// Each step as a stub that names itself and the props the frame gave it.
 vi.mock('./steps/project-step', () => ({ ProjectStep: (props: SetupStepProps) => <StubStep id="project" {...props} /> }))
 vi.mock('./steps/filing-step', () => ({
   FilingStep: (props: SetupStepProps & { children?: React.ReactNode; filing?: unknown }) => (
@@ -140,7 +131,6 @@ function setup(view: IntakeView, props: Partial<IntakeSetupViewProps> = {}) {
   )
 }
 
-/** Open the page at an address, as a link or a reload would. */
 function at(search: string): void {
   window.history.replaceState(null, '', `/app/projects/p1/setup${search}`)
 }
@@ -186,14 +176,12 @@ describe('IntakeSetupView', () => {
       const nothing = { counts: { ...INTAKE_READING.counts, suggested: 0 }, groups: [] }
       expect(defaultSetupStep({ ...INTAKE_READING, ...nothing })).toBe('reading')
       expect(defaultSetupStep({ ...INTAKE_FAILED, ...nothing })).toBe('reading')
-      // Documents are in and the first reading has not begun.
       expect(defaultSetupStep({ ...INTAKE_WAITING, counts: { ...INTAKE_WAITING.counts, unreadDocuments: 4 }, groups: [] })).toBe(
         'reading'
       )
     })
 
     it('opens on the Rückfragen when only a location document is missing, and counts it in the stepper', () => {
-      // Nothing decisive is open, but the register still asks for the Grundbuchauszug.
       const view = { ...QUESTIONS_READY, contradictions: [], questions: [] }
       expect(defaultSetupStep(view)).toBe('questions')
       expect(defaultSetupStep({ ...view, locationRegister: undefined })).toBe('profile')
@@ -245,7 +233,6 @@ describe('IntakeSetupView', () => {
       expect(params.get('step')).toBe('filing')
       expect(params.get('from')).toBe('inbox')
       expect(params.get('drop')).toBeNull()
-      // A new history entry, so back returns to the step before.
       expect(pushState).toHaveBeenCalledTimes(1)
     })
 
@@ -254,7 +241,6 @@ describe('IntakeSetupView', () => {
       await userEvent.click(stepButton(/^5\. Profile/))
       expect(shown()).toBe('profile')
 
-      // Back to the entry without a step: the step it opened on.
       act(() => {
         window.history.replaceState(null, '', '/app/projects/p1/setup')
         address.notify()
@@ -372,7 +358,6 @@ describe('IntakeSetupView', () => {
       const head = screen.getByTestId('intake-setup-head')
       expect(head).toHaveTextContent('Setup')
       expect(head).toHaveTextContent('Wohnanlage Gartenstraße 12')
-      // One link on a desk, one (the back arrow) on a phone; both go to the overview.
       const later = within(head).getAllByRole('link', { name: /Leave the setup for the project overview/ })
       expect(later).toHaveLength(2)
       for (const link of later) expect(link).toHaveAttribute('href', `/app/projects/${INTAKE_READY.projectId}/settings`)
@@ -382,7 +367,6 @@ describe('IntakeSetupView', () => {
     it('marks a step before the shown one done only when it asks nothing more', () => {
       at('?step=profile')
       setup(INTAKE_READY)
-      // Filing asks nothing (documents are in); the Rückfragen still have three open.
       expect(stepButton(/^2\. Filing/).querySelector('svg')).not.toBeNull()
       expect(stepButton(/^4\. Questions/)).toHaveTextContent('4')
       expect(stepButton(/^4\. Questions/).querySelector('svg')).toBeNull()
@@ -408,7 +392,6 @@ describe('IntakeSetupView', () => {
       setup(INTAKE_CLOSING)
       const footer = screen.getByTestId('intake-setup-footer')
       expect(within(footer).queryByRole('button', { name: /^On to/ })).toBeNull()
-      // The aside twice: beside the count on a desk, under the action on a phone.
       expect(within(footer).getAllByRole('button', { name: 'stub aside' })).toHaveLength(2)
       expect(screen.getAllByRole('progressbar', { name: '1 of 6 done' })).toHaveLength(2)
       await userEvent.click(within(footer).getByRole('button', { name: 'stub complete' }))

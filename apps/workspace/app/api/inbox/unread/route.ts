@@ -1,12 +1,3 @@
-/**
- * `POST /api/inbox/unread` — mark items unread again („Als ungelesen
- * markieren“), the inverse of `POST /api/inbox/read { itemIds }`.
- *
- * Bounded like the read form, quiet for ids that are not the caller's, and
- * answered with the recomputed badge count. Gated per ITEM TYPE (see
- * `/api/inbox`).
- */
-
 import { apiRoute, parseJsonBody } from '@/lib/api/handler'
 import { markUnreadSchema } from '@/lib/inbox/inbox-wire'
 import { markUnread } from '@/lib/inbox/service'

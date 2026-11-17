@@ -1,18 +1,4 @@
-/**
- * Copy of /e-mail-eingang/ (/en/project-mail/), the help page for project mail
- * (ADR-0137), both locales. `{name}` is the brand name, filled by `withName`;
- * `{domain}` is the brand domain, filled by the view; project mail is received
- * on its `inbox.` subdomain (ADR-0138). Two readers land here:
- * a member of an office that uses the product, from „Anleitung“ in the address
- * dialog, and somebody whose mail was not taken, from the link in the reply. So
- * it says plainly what happens to a mail sent to a project address.
- *
- * The `dkim` section keeps its id: the address dialog links to `#dkim`
- * (`anchors` in `contracts/public-site.json`, held here by `../public-site.test.ts`).
- */
-
 export interface ProjectMailSection {
-  /** The section's anchor, stable: links point at it. */
   id: string;
   heading: string;
   paragraphs: string[];

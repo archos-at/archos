@@ -15,15 +15,8 @@ import { REVIEW_PARAM, showDocumentBeside } from '@/features/documents/lib/open-
 
 export interface ProjectChatClientProps {
   projectId: string
-  /**
-   * Whether the collaboration surfaces are available (ADR-0032…0035).
-   * Dark-launched, so the server page resolves it and it is prop-drilled here
-   * rather than defaulting on.
-   */
   canCollaborate?: boolean
-  /** Whether the reader holds `project:chat` on this project. */
   canChatInProject?: boolean
-  /** Project name for the thread header. */
   projectName: string | null
 }
 
@@ -39,36 +32,20 @@ const ProjectChatContent = ({
   const setComposerPrefill = useChatStore((s) => s.setComposerPrefill)
   const startNewSessionDraft = useChatStore((s) => s.startNewSessionDraft)
   const selectConversation = useChatStore((s) => s.selectConversation)
-  // Retry triggers, not values: a deep-linked id this browser has never seen
-  // only becomes resolvable once the server list lands (or identity arrives).
   const sessionConversationCount = useChatStore((s) => s.conversations.length)
   const sessionServerLoaded = useChatStore((s) => s.serverConversationsLoaded)
   const sessionUserId = useChatStore((s) => s.currentUserId)
 
-  // The deep links this route answers are `?session=`, `?run=`, `?ask=`,
-  // `?doc=`, `?file=` and `?new=` — every one of them lands the reader in the
-  // thread. `?job=<jobId>&tab=` used to open the legacy research panel instead;
-  // a run is read in the thread that commissioned it now (ADR-0062), so the
-  // params resolve to nothing and the panel has no door left.
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
 
 
-  // Deep link from Overview's "Ask Piloti" actions: /projects/:id/chat?ask=<question>.
-  // Seed the store-backed composer prefill (consumed once by InputArea) and then
-  // strip the param from the URL so a refresh/back-nav doesn't re-inject it. The
-  // guard ref keeps this to a single application per distinct question.
   const askPrefill = searchParams?.get('ask') ?? null
   const docPrefill = searchParams?.get('doc') ?? null
   const filePrefill = searchParams?.get('file') ?? null
   const consumedAskRef = useRef<string | null>(null)
 
-  // Sidebar "Chat" entry point: /projects/:id/chat?new=1 always lands on
-  // a fresh, empty chat rather than the last thread. Consume the flag once —
-  // reset the store to a new-session draft via the SAME mechanism the toolbar's
-  // "New chat" uses (startNewSessionDraft) — then strip ?new so a refresh or
-  // back-nav doesn't re-trigger it. The guard ref keeps it to a single run.
   const newParam = searchParams?.get('new') ?? null
   const consumedNewRef = useRef(false)
 
@@ -76,10 +53,6 @@ const ProjectChatContent = ({
     if (!newParam || !isAuthenticated || consumedNewRef.current) return
     consumedNewRef.current = true
     startNewSessionDraft()
-    // Sidebar Chat (`?new=1` alone) is an empty draft — drop the
-    // previous peek (#441). `?new=1&doc=` is "new chat ABOUT this file"
-    // from Piloti dazu fragen; closing the peek there leaves no visual
-    // of the subject.
     if (newChatDropsFilePreview(searchParams?.get('doc'))) {
       useFilePreviewStore.getState().close()
     }
@@ -94,29 +67,14 @@ const ProjectChatContent = ({
 
   useEffect(() => {
     setProjectId(projectId)
-    // Hydrate this project's server-side sessions into the store: the
-    // app-wide initial load is org-wide and capped, so a busy org could
-    // otherwise miss this project's conversations in the sessions panel.
     void loadServerConversations(projectId)
     return () => setProjectId(null)
   }, [projectId, setProjectId, loadServerConversations])
 
-  // `?session=` deep link — including the job-output threads the sessions
-  // panel hides. `useSessionUrl` (mounted inside MainLayout below) resolves a
-  // session only against the personal list, so a task row's "continue in
-  // chat" link into a job-produced conversation reads as a stale id there,
-  // gets stripped from the URL, and lands on whatever thread was last active.
-  // This hydrates the same param against every conversation in THIS project
-  // first: the lookup deliberately includes job conversations
-  // (`lib/project-scope.ts` promises `?session=<id>` selects one), while the
-  // switch itself stays with `selectConversation`, whose ownership and
-  // project-context guards remain authoritative (UX-8).
   const sessionParam = searchParams?.get('session') ?? null
   const sessionHydratedRef = useRef<string | null>(null)
 
   useEffect(() => {
-    // A fresh draft wins over a thread: `?new=1` always lands on an empty
-    // chat, and hydrating a session underneath it would undo that.
     if (!isAuthenticated || !sessionParam || newParam) return
     if (sessionHydratedRef.current === sessionParam) return
     const state = useChatStore.getState()
@@ -124,32 +82,18 @@ const ProjectChatContent = ({
       sessionHydratedRef.current = sessionParam
       return
     }
-    // The thread this link opens is on its way: until it is here (or the link
-    // proves stale), the thread shows it loading, not the empty canvas or
-    // whatever was open before, which would greet the reader and then be
-    // replaced under them.
     state.setPendingMessagesFor(sessionParam)
-    // Given up on: whatever is open stays, as it is.
     const giveUp = () => {
       sessionHydratedRef.current = sessionParam
       if (useChatStore.getState().pendingMessagesFor === sessionParam) state.setPendingMessagesFor(null)
     }
-    // Identity first, like `useSessionUrl`: the selection guard stamps rows
-    // to the fetcher, so attempting before the user is known can only refuse.
     if (!sessionUserId) return
     const target = state.conversations.find((c) => c.id === sessionParam)
     if (!target) {
-      // Not stale, just not fetched yet: a deep-linked id this browser never
-      // saw only resolves once the server list lands. Giving up here would
-      // strand every task link on its first open.
       if (!sessionServerLoaded) return
       giveUp()
       return
     }
-    // Never activate another project's session under this socket, and never
-    // another person's: both stay `selectConversation`'s call, which refuses
-    // them the same way. Unknown ids are left for `useSessionUrl`'s stale
-    // handling rather than landing on the wrong thread here.
     if (!conversationMatchesProject(target, projectId) || target.userId !== sessionUserId) {
       giveUp()
       return
@@ -167,8 +111,6 @@ const ProjectChatContent = ({
     selectConversation,
   ])
 
-  // A link left before it resolved (another link, the route unmounted) no
-  // longer holds the thread in its loading state.
   useEffect(
     () => () => {
       const state = useChatStore.getState()
@@ -179,17 +121,6 @@ const ProjectChatContent = ({
     [sessionParam]
   )
 
-  // `?run=<runId>` — a deep link that names the RUN and not its thread.
-  //
-  // The run id is the public key of a run (ADR-0062): its backend job id expires
-  // with the job store, and its conversation is not something a caller should
-  // have to know. So this resolves the run and rewrites the URL to the
-  // `?session=` the rest of this file already handles, keeping the
-  // `#message-<id>` anchor — `useMessageAnchor` captured that at mount, so the
-  // scroll still lands once the thread renders.
-  //
-  // `?job=` keeps working underneath: rows older than run messages have nothing
-  // to resolve here and open the research panel exactly as before.
   const runParam = searchParams?.get('run') ?? null
   const resolvedRunRef = useRef<string | null>(null)
 
@@ -214,14 +145,6 @@ const ProjectChatContent = ({
     }
   }, [isAuthenticated, runParam, sessionParam, projectId, pathname, router, searchParams])
 
-  // `?doc=<id>&review=1[&mark=<id>]` is a link INTO a document's review, the
-  // one „Link kopieren" on a thread writes. There `doc` is the review's
-  // address, not an ask's subject: the document opens beside the chat, the
-  // pane opens the review and strips `review` and `mark`, and then `doc` goes
-  // too, so a reload does not read it as an ask. The ref holds the address
-  // until it has left the URL, so the prefill below never takes it in between.
-  // (In-app moves, a chat card's „Im Dokument zeigen", open the peek
-  // themselves and write `review` and `mark` alone: `open-review.ts`.)
   const reviewDoc =
     searchParams?.get(REVIEW_PARAM) && docPrefill && isUuid(docPrefill) ? docPrefill : null
   const reviewDocRef = useRef<string | null>(null)
@@ -245,9 +168,6 @@ const ProjectChatContent = ({
   }, [reviewDoc, docPrefill, projectId, projectName, canCollaborate, pathname, router, searchParams])
 
   useEffect(() => {
-    // Files, IFC walls and applicable standards all land here: one Ask Piloti
-    // pipe (`setComposerPrefill`). `doc` is the optional subject of that ask,
-    // not a second chat — unless it is a review link's address (above).
     if (reviewDoc || (docPrefill !== null && docPrefill === reviewDocRef.current)) return
     const token = `${askPrefill ?? ''}|${docPrefill ?? ''}|${filePrefill ?? ''}`
     if ((!askPrefill && !docPrefill) || consumedAskRef.current === token) return
@@ -279,13 +199,9 @@ const ProjectChatContent = ({
   const composerSubject = useChatStore((s) => s.composerSubject)
   const subjectId = composerSubject?.resourceId ?? docPrefill
 
-  // Citations are the signal to show a project/Büro file — do not wait for
-  // the agent to call surface_documents. Mounted once on the chat client.
   useCitationPeek({ projectId, projectName, canCollaborate })
 
   useEffect(() => {
-    // `?doc=` is a documents.id. A filename here used to hit
-    // GET /api/documents/<filename>/status and 500 (#572).
     if (!subjectId || !isUuid(subjectId)) return
     const preview = useFilePreviewStore.getState()
     if (preview.file?.id === subjectId) {
@@ -330,11 +246,6 @@ const ProjectChatContent = ({
   )
 }
 
-/**
- * Client half of the project chat route. The server page resolves what needs
- * the session (the collaboration gate, the reader's `project:chat` right) and
- * passes it here; it reaches the chat surfaces via MainLayout.
- */
 export const ProjectChatClient = (props: ProjectChatClientProps): ReactNode => {
   return (
     <Suspense fallback={null}>

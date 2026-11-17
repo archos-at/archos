@@ -78,7 +78,6 @@ describe('recoverStuckProcessing', () => {
 
     const result = await recoverStuckProcessing(NOW)
 
-    // Held to the job the sweep read, so a row read again since is not failed.
     expect(markDocumentIngestFailed).toHaveBeenCalledWith('doc-1', 'org_1', 'Ingestion could not be started', {
       backgroundJobId: 'job-dead',
     })

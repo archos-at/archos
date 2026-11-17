@@ -1,15 +1,3 @@
-/**
- * The motion kit's numbers, checked against the contracts its comments make.
- *
- * A spring's parameters are three opaque integers; its CHARACTER is the damping
- * ratio derived from them, and nothing in the type system connects the two. So
- * every claim the module documents — "ζ = 0.658", "6.4% overshoot", "travel
- * ≤ 24px" — is recomputed here from the shipped config. A future tweak to
- * `stiffness` that quietly turns a spring overdamped fails this file rather
- * than shipping as a spring in name only, which is exactly what happened to the
- * two springs this kit replaced.
- */
-
 import { renderHook } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -42,17 +30,14 @@ import {
   type SpringTransition,
 } from './index'
 
-/** ζ = damping / (2·√(stiffness·mass)) — the one number that is the spring. */
 const dampingRatio = ({ stiffness, damping, mass }: SpringTransition): number =>
   damping / (2 * Math.sqrt(stiffness * mass))
 
-/** Peak excursion past the target, as a fraction of the distance travelled. */
 const overshoot = (spring: SpringTransition): number => {
   const zeta = dampingRatio(spring)
   return zeta >= 1 ? 0 : Math.exp((-Math.PI * zeta) / Math.sqrt(1 - zeta * zeta))
 }
 
-/** Parses a CSS `linear()` easing into its control points. */
 const parseLinear = (value: string): number[] => {
   const match = /^linear\((.+)\)$/.exec(value)
   expect(match, `not a linear() function: ${value}`).not.toBeNull()
@@ -62,8 +47,6 @@ const parseLinear = (value: string): number[] => {
 describe('spring configs', () => {
   describe('springPress — the interruptible one', () => {
     it('is critically damped, so a released gesture never lands an overshoot late', () => {
-      // ζ = 1 exactly is the boundary; 600/38/0.6 sits a hair above it, which is
-      // the safe side (never overshoots) rather than the fast side.
       expect(dampingRatio(springPress)).toBeGreaterThanOrEqual(0.98)
       expect(dampingRatio(springPress)).toBeLessThanOrEqual(1.02)
     })
@@ -85,9 +68,6 @@ describe('spring configs', () => {
     })
 
     it('keeps overshoot inside the 1–2px budget across its documented travel range', () => {
-      // The contract is stated in PIXELS because pixels are what the eye sees.
-      // Below ~16px the flourish stops being visible; above 24px it starts
-      // barging into whatever sits next to it, which is why the ceiling exists.
       expect(overshoot(springSnap) * 24).toBeGreaterThan(1)
       expect(overshoot(springSnap) * 24).toBeLessThan(2)
     })
@@ -125,24 +105,16 @@ describe('spring configs', () => {
       expect(overshoot(springGlide) * 100).toBeCloseTo(0.157, 2)
     })
 
-    /**
-     * The contract that distinguishes it from the other three. They each hold
-     * the budget up to a documented ceiling; this one holds it with no ceiling
-     * at all, which is the only reason to reach for it. 448px is a `sm:max-w-md`
-     * sheet — about as far as anything in this app can travel.
-     */
     it('keeps overshoot under a pixel at ANY travel, with no documented ceiling', () => {
       expect(overshoot(springGlide) * 288).toBeLessThan(1)
       expect(overshoot(springGlide) * 448).toBeLessThan(1)
       expect(overshoot(springGlide) * 1000).toBeLessThan(2)
     })
 
-    /** Still a spring: it has to settle, or it should have been a tween. */
     it('still overshoots — it is a settle, not an ease-out in disguise', () => {
       expect(overshoot(springGlide)).toBeGreaterThan(0)
     })
 
-    /** Same arrival time as the drawer; only the landing differs. */
     it("shares springDrawer's natural frequency", () => {
       const wn = (s: SpringTransition) => Math.sqrt(s.stiffness / (s.mass ?? 1))
       expect(wn(springGlide)).toBeCloseTo(wn(springDrawer), 6)
@@ -179,7 +151,6 @@ describe('linear() equivalents', () => {
   })
 
   it.each(cases)('$name starts at rest and ends exactly on target', ({ css }) => {
-    // A curve that does not end at 1 leaves the property short of its keyframe.
     const points = parseLinear(css)
     expect(points[0]).toBe(0)
     expect(points[points.length - 1]).toBe(1)
@@ -197,8 +168,6 @@ describe('linear() equivalents', () => {
 
   it('states the snap settle once, in seconds, and derives the CSS duration from it', () => {
     expect(springSnapLinearDuration).toBe(`${springSnapSettleSeconds * 1000}ms`)
-    // Longer than the base tween: a choreography waiting for the snap to land
-    // must wait for the settle, not for the first crossing of the target.
     expect(springSnapSettleSeconds).toBeGreaterThan(motionBase.duration as number)
   })
 })
@@ -215,9 +184,6 @@ describe('tween scale', () => {
   it('runs an exit one step shorter than its entrance, on a curve that starts at once', () => {
     expect(motionQuickExit.duration).toBe(motionQuick.duration)
     expect(motionQuickExit.duration).toBeLessThan(motionBase.duration as number)
-    // An ease-in exit (the old 0.4, 0, 1, 1) barely moved for the first third
-    // of its run, the moment the reader watches to see the dismissal land. The
-    // first control point must sit above the diagonal: fast off the mark.
     const [x1, y1] = motionQuickExit.ease as [number, number, number, number]
     expect(y1).toBeGreaterThan(x1)
   })
@@ -228,8 +194,6 @@ describe('tween scale', () => {
   })
 
   it('gives entrances an ease-OUT curve, not the CSS default ease that ramps in', () => {
-    // cubic-bezier(0.25, 0.1, …) is CSS `ease`: its first control point pulls
-    // the curve into a slow start. An arrival must be decided at the start.
     const [x1, y1] = motionEntrance.ease as [number, number, number, number]
     expect(y1).toBeGreaterThan(x1)
   })
@@ -259,16 +223,11 @@ describe('stagger cap', () => {
   })
 
   it('finishes the whole cascade inside one base duration', () => {
-    // 200ms total, under the 240ms an individual item takes to arrive — so the
-    // list reads as one arrival, not as a queue. The seven-item caller that
-    // used to hold its last section back by 350ms now waits 200ms.
     expect(delayFor(30)).toBeLessThanOrEqual(motionBase.duration as number)
   })
 })
 
 describe('useMotionToken', () => {
-  // motion/react reads `prefers-reduced-motion` through matchMedia; jsdom has
-  // none, so each case installs the answer it is testing.
   const stubReducedMotion = (reduce: boolean) =>
     vi.stubGlobal(
       'matchMedia',
@@ -300,8 +259,6 @@ describe('useMotionToken', () => {
   })
 
   it('asks matchMedia once, however often its subscribers render', () => {
-    // React reads the snapshot on every render of every subscriber, and each
-    // matchMedia call builds a new MediaQueryList.
     stubReducedMotion(false)
     const matchMedia = vi.fn(window.matchMedia)
     vi.stubGlobal('matchMedia', matchMedia)
@@ -314,8 +271,6 @@ describe('useMotionToken', () => {
 })
 
 describe('iconSwapTransition', () => {
-  // Opacity never springs: on a spring it ran ~500ms as a WAAPI linear() curve,
-  // and reduced motion (which drops transforms only) kept it.
   it('springs the scale on springSnap and tweens opacity on motionQuick', () => {
     const { opacity, ...scale } = iconSwapTransition as Record<string, unknown>
     expect(scale).toEqual(springSnap)

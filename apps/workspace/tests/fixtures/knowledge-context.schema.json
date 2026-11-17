@@ -380,6 +380,17 @@
                   "null"
                 ]
               },
+              "issuer": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "sourceRefs": {
                 "maxItems": 8,
                 "type": "array",
@@ -504,6 +515,7 @@
               "corpusFiles",
               "designation",
               "editionLabel",
+              "issuer",
               "sourceRefs",
               "sourceUrl",
               "language",

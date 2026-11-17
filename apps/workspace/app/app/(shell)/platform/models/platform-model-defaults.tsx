@@ -1,39 +1,5 @@
 'use client'
 
-/**
- * Platform → models: the default model AND thinking level every organization
- * inherits.
- *
- * The default a group runs on used to be a literal in the workflow YAML, so
- * moving the fleet to a newer model meant a commit and a backend redeploy. Here
- * it is one save: pick a model per agent group, and every tenant that has not
- * chosen its own model for that group follows on its next turn.
- *
- * Two things this surface owes the person using it, because both are invisible
- * otherwise:
- *
- *  - What a group falls back to when no default is pinned (the YAML model), so
- *    "reset" names a concrete thing instead of an abstraction.
- *  - Zero data retention. Every organization is ZDR unless it opted out, so a
- *    default must have a ZDR endpoint that serves its group: the picker lists
- *    only such models and the save refuses anything else. A default already
- *    saved can still lose its last ZDR endpoint upstream; the row then warns
- *    that every ZDR organization inheriting it has that group's requests
- *    refused until the default changes.
- *
- * Model and reasoning effort live on ONE row because they are two settings of
- * one decision: together they determine what a turn costs and how good it is,
- * and tuning either blind to the other is how a fleet ends up on an expensive
- * model at a high thinking level. They are persisted through two endpoints
- * (a model change is catalog-validated and an upstream outage can block it; an
- * effort change never is, so turning reasoning spend DOWN always works), and a
- * save that half-succeeds says exactly which half.
- *
- * The effort layer is platform-only — no org override, unlike the model. A
- * tenant choosing its own model is a product feature; a tenant dialling its own
- * reasoning spend is not.
- */
-
 import { type FC, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Check, ChevronDown, Lock, RotateCcw, ShieldAlert } from 'lucide-react'
 import { toast } from 'sonner'
@@ -105,7 +71,6 @@ interface PayloadDto {
   agentGroups: AgentGroupDto[]
   defaults: Record<string, DefaultDto>
   workflowDefaults: Record<string, string | null>
-  /** Live ZDR status of each group's workflow YAML model; null when unknown. */
   workflowDefaultsZdrSafe?: Record<string, boolean | null>
 }
 
@@ -120,13 +85,11 @@ interface EffortPayloadDto {
   workflowEfforts: Record<string, string | null>
 }
 
-/** Which halves of the draft a reload replaces with the server's state. */
 interface LoadOptions {
   resetModels: boolean
   resetEfforts: boolean
 }
 
-/** Sentinel for "no platform level — follow the workflow config". */
 const INHERIT = 'inherit'
 
 const modelDraftOf = (body: PayloadDto): Record<string, string> =>
@@ -153,9 +116,6 @@ const ModelPicker: FC<{
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
-  // Only the newest search may write state: a slow earlier request resolving
-  // after a later one would otherwise leave the list showing results for a
-  // query the user has already typed past.
   const requestId = useRef(0)
 
   const search = useCallback(
@@ -193,8 +153,6 @@ const ModelPicker: FC<{
     searchInputRef.current?.focus()
   }, [search])
 
-  // Clear the pending debounce on unmount — the popover closes as soon as a
-  // model is picked, and a late timer would search against a dead component.
   useEffect(
     () => () => {
       if (debounce.current) clearTimeout(debounce.current)
@@ -208,7 +166,6 @@ const ModelPicker: FC<{
     debounce.current = setTimeout(() => search(value), 300)
   }
 
-  /** USD per million tokens, from the catalog's per-token price. */
   const perMillion = (perToken: number): string => formatUsd(perToken * 1_000_000, locale)
 
   return (
@@ -279,7 +236,6 @@ const ModelPicker: FC<{
 export const PlatformModelDefaults: FC = () => {
   const t = useTranslations(platformCopy)
   const tc = useTranslations(commonCopy)
-  // Rejection reasons share one vocabulary with the organization surface.
   const to = useTranslations(organizationCopy)
   const canManage = usePlatformCan(PLATFORM_PERMISSIONS.settingsManage)
   const [payload, setPayload] = useState<PayloadDto | null>(null)
@@ -293,8 +249,6 @@ export const PlatformModelDefaults: FC = () => {
   const [saving, setSaving] = useState(false)
   const [pickerGroup, setPickerGroup] = useState<string | null>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
-  // Set once the first load landed: every later load is a refresh that keeps
-  // the rows on screen instead of collapsing them into skeletons.
   const loaded = useRef(false)
 
   const load = useCallback(
@@ -306,9 +260,6 @@ export const PlatformModelDefaults: FC = () => {
       else setRefreshing(true)
       setError(false)
       try {
-        // Two endpoints, one screen: fetched together so the card never renders
-        // half its state. Either failing is a load failure — a row that showed a
-        // model but no thinking level would read as "no level set".
         const [res, effortRes] = await Promise.all([
           fetch('/api/platform/model-defaults'),
           fetch('/api/platform/reasoning-efforts'),
@@ -319,15 +270,10 @@ export const PlatformModelDefaults: FC = () => {
         const effortBody = (await effortRes.json()) as EffortPayloadDto
         setPayload(body)
         setEffortPayload(effortBody)
-        // Only the halves that landed are replaced by the server's state. A
-        // draft whose save failed stays on screen, so the owner can fix the
-        // rejected pick and save again instead of re-entering every change.
         if (resetModels) setDraft(modelDraftOf(body))
         if (resetEfforts) setEffortDraft(effortDraftOf(effortBody))
         loaded.current = true
       } catch {
-        // A failed refresh keeps what is on screen; only a first load with
-        // nothing to show becomes the error state.
         if (first) setError(true)
         else toast.error(t('models.loadError'))
       } finally {
@@ -346,10 +292,6 @@ export const PlatformModelDefaults: FC = () => {
     () => Object.fromEntries(Object.entries(payload?.defaults ?? {}).map(([g, v]) => [g, v.model])),
     [payload]
   )
-  // Compared per key, not via JSON.stringify: `draft` is rebuilt by delete +
-  // spread, so resetting a group and re-picking the model it already had
-  // reorders the keys. Stringifying would call that dirty and let Save fire a
-  // real PUT — and a fleet-wide audit event — for a no-op.
   const savedEfforts = useMemo(
     () => (effortPayload ? effortDraftOf(effortPayload) : {}),
     [effortPayload]
@@ -365,7 +307,6 @@ export const PlatformModelDefaults: FC = () => {
     return [...keys].some((key) => effortDraft[key] !== savedEfforts[key])
   }, [effortDraft, savedEfforts])
 
-  /** PUT the models half; returns an error string, or null on success/no-op. */
   const saveModels = useCallback(async (): Promise<string | null> => {
     if (!dirty) return null
     const defaults = Object.fromEntries(Object.entries(draft).map(([g, model]) => [g, { model }]))
@@ -389,7 +330,6 @@ export const PlatformModelDefaults: FC = () => {
     }
   }, [dirty, draft, note, t, to, payload])
 
-  /** PUT the thinking-level half; returns an error string, or null. */
   const saveEfforts = useCallback(async (): Promise<string | null> => {
     if (!effortDirty) return null
     try {
@@ -408,18 +348,11 @@ export const PlatformModelDefaults: FC = () => {
   const handleSave = useCallback(async () => {
     setSaving(true)
     try {
-      // Sequential, models first: the model save is the one an upstream catalog
-      // outage can reject, and a rejected model must not leave the fleet on a
-      // thinking level chosen for a model that never landed.
       const modelError = await saveModels()
       const effortError = modelError ? null : await saveEfforts()
-      // A half-failure is named as such: silently reporting success for the part
-      // that worked is how an owner walks away believing both took effect.
       if (modelError) toast.error(modelError)
       else if (effortError) toast.error(effortError)
       else toast.success(t('models.saved'))
-      // A rejected model save changed nothing on the server, so there is
-      // nothing to re-read and the whole draft (and the note) stays put.
       if (modelError) return
       setNote('')
       await load({ resetModels: true, resetEfforts: !effortError })
@@ -430,7 +363,6 @@ export const PlatformModelDefaults: FC = () => {
 
   const groups = payload?.agentGroups ?? []
 
-  /** The thinking level a group inherits, named the way the select names levels. */
   const inheritLabel = (fallback: string | null): string => {
     if (!fallback) return t('models.effortInherit')
     const level = isReasoningEffort(fallback) ? t(`models.levels.${fallback}.label`) : fallback
@@ -483,8 +415,6 @@ export const PlatformModelDefaults: FC = () => {
         {groups.map((group) => {
           const pinned = draft[group.id]
           const fallback = payload?.workflowDefaults?.[group.id] ?? null
-          // The saved state's ZDR verdict, checked live by the server: the pinned
-          // default's, or the workflow model's when nothing is pinned.
           const savedModel = saved[group.id]
           const zdrSafe = savedModel
             ? (payload?.defaults?.[group.id]?.zdrSafe ?? null)
@@ -542,7 +472,7 @@ export const PlatformModelDefaults: FC = () => {
                   >
                     <PopoverTrigger asChild>
                       <Button
-                        variant="outline"
+                        variant="secondary"
                         size="sm"
                         className="w-full justify-between font-mono font-normal"
                         aria-label={t('models.changeFor', {

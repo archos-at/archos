@@ -6,7 +6,6 @@ import { STREAM_FRAMES } from '@/app/dev/_fixtures/stream-frames'
 
 const TEXT = 'Ein zweiter Fluchtweg ist erforderlich, wenn das Fluchtniveau über 11 m liegt. '
 const FINAL = `${TEXT}Ausnahmen regelt die OIB-RL 2 für Gebäude der Gebäudeklassen 1 und 2.`
-/** One animation frame. */
 const FRAME_MS = 16
 
 const setVisibility = (state: DocumentVisibilityState) => {
@@ -30,7 +29,6 @@ describe('usePacedText', () => {
       initialProps: { text, streaming },
     })
 
-  /** Stream `TEXT` until `shown` of it is on screen but not all. */
   const partway = () => {
     const hook = render(TEXT, true)
     act(() => vi.advanceTimersByTime(FRAME_MS * 4))
@@ -51,7 +49,6 @@ describe('usePacedText', () => {
     for (let t = 0; t < MAX_LAG_MS; t += FRAME_MS) {
       act(() => vi.advanceTimersByTime(FRAME_MS))
       lengths.add(result.current.text.length)
-      // A word appears whole: the shown text ends at a word gap, or is all of it.
       expect(result.current.text === TEXT || /\s$/.test(result.current.text)).toBe(true)
     }
     expect(lengths.size).toBeGreaterThan(5)
@@ -63,9 +60,7 @@ describe('usePacedText', () => {
   it('is idle only once the reveal has stood still, and not idle again on the next word', () => {
     const { result, rerender } = render(TEXT, true)
     act(() => vi.advanceTimersByTime(FRAME_MS * 4))
-    // Words are advancing: the caret stands solid.
     expect(result.current.idle).toBe(false)
-    // Everything arrived is shown and nothing more comes: a stall.
     act(() => vi.advanceTimersByTime(MAX_LAG_MS))
     expect(result.current.text).toBe(TEXT)
     act(() => vi.advanceTimersByTime(IDLE_AFTER_MS))
@@ -80,7 +75,6 @@ describe('usePacedText', () => {
     const { result, rerender } = render(TEXT, true)
     act(() => vi.advanceTimersByTime(MAX_LAG_MS))
     const before = result.current.text.length
-    // The settled snapshot changes a word near the top.
     const settled = TEXT.replace('zweiter', 'weiterer') + 'Ausnahmen regelt die OIB-RL 2. '
     rerender({ text: settled, streaming: true })
     expect(result.current.text.length).toBeGreaterThanOrEqual(before)
@@ -91,7 +85,6 @@ describe('usePacedText', () => {
     const { result, rerender } = partway()
     const at = result.current.text.length
     rerender({ text: FINAL, streaming: false })
-    // The frame the terminal lands in: nothing jumps, nothing settles.
     expect(result.current).toMatchObject({ text: FINAL.slice(0, at), settled: false })
     const seen: PacedText[] = []
     const duration = finishDuration(FINAL.length - at)
@@ -99,7 +92,6 @@ describe('usePacedText', () => {
       act(() => vi.advanceTimersByTime(FRAME_MS))
       seen.push(result.current)
     }
-    // It moved in steps, and the answer settled with its last word, not before.
     const partial = seen.filter((s) => s.text.length > at && s.text.length < FINAL.length)
     expect(partial.length).toBeGreaterThan(1)
     for (const s of seen) expect(s.settled).toBe(s.text === FINAL)
@@ -157,7 +149,6 @@ describe('usePacedText', () => {
 
   it('settles on a timer when the frames stop', () => {
     const { rerender, result } = partway()
-    // From here on no frame is ever delivered.
     const raf = vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 0)
     rerender({ text: FINAL, streaming: false })
     act(() => vi.advanceTimersByTime(MAX_SETTLE_MS - FRAME_MS * 10))
@@ -176,10 +167,6 @@ describe('usePacedText', () => {
     expect(result.current).toMatchObject({ text: TEXT, settled: true })
   })
 
-  // The ratchet for the audit's first finding: over the two recorded answers,
-  // with their settled snapshot and their terminal rewriting the prose, what
-  // the reader sees never shrinks, and the finished answer lands whole at the
-  // end of the short finish after the terminal, where the answer settles.
   it.each(Object.keys(STREAM_FRAMES) as (keyof typeof STREAM_FRAMES)[])(
     'never takes back text it showed over the recorded %s answer, and lands it whole',
     (name) => {
@@ -260,9 +247,6 @@ describe('usePacedText after Stop', () => {
   })
 })
 
-// L27, L28: an answer that mounts in the middle of its turn with its text
-// already there (a reload's replay, a thread opened again) shows that text at
-// once and paces only what arrives after.
 describe('usePacedText, mounting mid-turn', () => {
   beforeEach(() => {
     vi.useFakeTimers({
@@ -294,8 +278,6 @@ describe('usePacedText, mounting mid-turn', () => {
     expect(result.current.text).toBe('')
   })
 
-  // A fresh answer is born with its masthead's summary whole, ahead of the
-  // first prose words: the head does not make it a turn joined mid-way.
   const SUMMARY = `${'Für ein konkretes Vorhaben ist zuerst der passende Teil zu bestimmen. '.repeat(5)}\n\n`
 
   it('paces a fresh answer born with a long written-in head from its first word', () => {
@@ -304,7 +286,6 @@ describe('usePacedText, mounting mid-turn', () => {
     expect(SENTENCE.length).toBeLessThan(ARRIVED_AT_MOUNT_CHARS)
     const { result } = renderHook(() => usePacedText(text, true, true, false, 'headed', SUMMARY.length))
     expect(result.current.text).toBe('')
-    // Written in, not dumped: a word at first, the whole head within the lag ceiling.
     act(() => vi.advanceTimersByTime(16))
     expect(result.current.text.length).toBeGreaterThan(0)
     expect(result.current.text.length).toBeLessThan(SUMMARY.length)
@@ -318,10 +299,6 @@ describe('usePacedText, mounting mid-turn', () => {
     expect(result.current.text).toBe(text)
   })
 
-  // The summary is decided in the render after the mount, so a headed answer
-  // joined mid-way mounted with its prose alone and got the head a render
-  // later. That read as a rewrite: the shown prose shrank by the head's length
-  // and was typed out again on every thread switch and reload.
   it('keeps the shown prose when a head arrives in front of it after a mid-way mount', () => {
     const { result, rerender } = renderHook(
       ({ text, lead }) => usePacedText(text, true, true, false, 'headed-after', lead),

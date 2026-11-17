@@ -1,16 +1,3 @@
-/**
- * The platform operations (ADR-0122): the GRID operator console. See
- * `projects.ts` for the shape and `docs/architecture/agent-surface.md` for the rules.
- *
- * Every route here is declared through `platformApiRoute`, so only a platform
- * operator's call gets past the route's own gate; the catalog does not widen
- * it. The quality views (`/api/platform/answer-feedback`, `citation-health`,
- * `profiler`, `quality/scope-options`) read their scope with hand-written
- * parsers (`parseQualityScopeStrict`, `requireFeedbackQuery`), not zod, so the
- * `query` schemas below describe those parameters for the agent; the route's
- * parser stays the gate.
- */
-
 import { z } from 'zod'
 import { CONVERSATION_TAG_KEYS } from '@/lib/conversations/tags'
 import {
@@ -61,7 +48,6 @@ const fileNameParams = z.object({
     .describe('The base-corpus file name, exactly as the knowledge corpus status lists it (knowledge-corpus operations).'),
 })
 
-/** The scope every quality view shares (`parseQualityScopeStrict`). */
 const qualityScopeQuery = z.object({
   from: z.string().optional().describe('First day, YYYY-MM-DD, UTC, inclusive. Give `from` and `to` together.'),
   to: z.string().optional().describe('Last day, YYYY-MM-DD, UTC, inclusive. At most 366 days after `from`.'),
@@ -73,7 +59,6 @@ const qualityScopeQuery = z.object({
   project: z.array(z.string()).optional().describe('Limit to these project ids; empty means every project.'),
 })
 
-/** The ratings filters on top of the scope (`requireFeedbackQuery`). */
 const ratingsQuery = qualityScopeQuery.extend({
   verdict: z.enum(['up', 'down', 'all']).optional().describe('Thumbs filter.'),
   reason: z.array(z.enum(FEEDBACK_REASON_FILTERS)).optional().describe('Down-vote reasons to keep.'),
@@ -86,7 +71,6 @@ const ratingsQuery = qualityScopeQuery.extend({
 })
 
 export const platformOperations = [
-  // Overview, storage, audit
   {
     name: 'platform-overview-get',
     domain: 'platform',
@@ -119,13 +103,11 @@ export const platformOperations = [
       'platform audit log: hand it to nobody else.',
     method: 'POST',
     path: '/api/platform/audit-portal',
-    // Mints an Admin Portal credential: a write that hands out a secret, never a read.
     idempotent: false,
     sensitivity: 'secret',
     load: () => import('@/app/api/platform/audit-portal/route'),
   },
 
-  // Per-organization limits
   {
     name: 'platform-org-budget-get',
     domain: 'platform',
@@ -202,7 +184,6 @@ export const platformOperations = [
     load: () => import('@/app/api/platform/organizations/[organizationId]/upload-limit/route'),
   },
 
-  // Models, reasoning, retrieval, pricing
   {
     name: 'platform-model-defaults-get',
     domain: 'platform',
@@ -225,7 +206,6 @@ export const platformOperations = [
     method: 'PUT',
     path: '/api/platform/model-defaults',
     body: modelDefaultsPutSchema,
-    // Fleet-wide: one call reaches every organization, so the client confirms it with the person (ADR-0126).
     destructive: true,
     load: () => import('@/app/api/platform/model-defaults/route'),
   },
@@ -265,7 +245,6 @@ export const platformOperations = [
     method: 'PUT',
     path: '/api/platform/reasoning-efforts',
     body: reasoningEffortsPutSchema,
-    // Fleet-wide: one call reaches every organization, so the client confirms it with the person (ADR-0126).
     destructive: true,
     load: () => import('@/app/api/platform/reasoning-efforts/route'),
   },
@@ -290,7 +269,6 @@ export const platformOperations = [
     method: 'PUT',
     path: '/api/platform/retrieval-settings',
     body: retrievalSettingsPutSchema,
-    // Fleet-wide: one call reaches every organization, so the client confirms it with the person (ADR-0126).
     destructive: true,
     load: () => import('@/app/api/platform/retrieval-settings/route'),
   },
@@ -315,14 +293,11 @@ export const platformOperations = [
     method: 'PUT',
     path: '/api/platform/pricing',
     body: pricingPutSchema,
-    // Fleet-wide: one call reaches every organization, so the client confirms it with the person (ADR-0126).
     destructive: true,
-    // Each call saves a new pricing version; the same input twice is two versions.
     idempotent: false,
     load: () => import('@/app/api/platform/pricing/route'),
   },
 
-  // Norms
   {
     name: 'platform-norm-registry-get',
     domain: 'platform',
@@ -344,7 +319,6 @@ export const platformOperations = [
     method: 'PUT',
     path: '/api/platform/norms',
     body: putNormRegistryBodySchema,
-    // Fleet-wide: one call reaches every organization, so the client confirms it with the person (ADR-0126).
     destructive: true,
     load: () => import('@/app/api/platform/norms/route'),
   },
@@ -362,7 +336,6 @@ export const platformOperations = [
     load: () => import('@/app/api/platform/norms/verify/route'),
   },
 
-  // Platform skills: catalog/platform-skills.ts (each publish reaches every office, so the person decides).
   {
     name: 'platform-skill-category-list',
     domain: 'platform',
@@ -409,7 +382,6 @@ export const platformOperations = [
     load: () => import('@/app/api/platform/skill-categories/[categoryId]/route'),
   },
 
-  // Lessons
   {
     name: 'platform-lesson-list',
     domain: 'platform',
@@ -460,7 +432,6 @@ export const platformOperations = [
     load: () => import('@/app/api/platform/lessons/[lessonId]/route'),
   },
 
-  // Product feedback triage
   {
     name: 'platform-feedback-list',
     domain: 'platform',
@@ -513,7 +484,6 @@ export const platformOperations = [
     load: () => import('@/app/api/platform/feedback/claim/route'),
   },
 
-  // Answer quality
   {
     name: 'platform-quality-scope-options',
     domain: 'platform',
@@ -630,14 +600,13 @@ export const platformOperations = [
     load: () => import('@/app/api/platform/cards/route'),
   },
 
-  // Base knowledge corpus
   {
     name: 'platform-knowledge-document-delete',
     domain: 'platform',
-    summary: 'Delete an uploaded base-corpus document',
+    summary: 'Delete a base-corpus document',
     description:
-      'Removes an admin-uploaded PDF from the shared base corpus for every organization: source file, registry entry and ' +
-      'indexed chunks. It cannot be undone, and repo-shipped corpus files cannot be deleted. The file name comes from the corpus listing.',
+      'Removes a PDF from the shared base corpus for every organization: stored file, registry entry and indexed chunks. It cannot be undone. ' +
+      'A file a platform record names as its text is refused (409) until that request is rolled back or rejected. The file name comes from platform-knowledge-base-get.',
     method: 'DELETE',
     path: '/api/platform/knowledge/documents/[fileName]',
     params: fileNameParams,
@@ -683,7 +652,6 @@ export const platformOperations = [
     path: '/api/platform/knowledge/reingest',
     body: reingestKnowledgeSchema,
     idempotent: true,
-    // Fleet-wide: one call reaches every organization, so the client confirms it with the person (ADR-0126).
     destructive: true,
     load: () => import('@/app/api/platform/knowledge/reingest/route'),
   },
@@ -699,7 +667,6 @@ export const platformOperations = [
     load: () => import('@/app/api/platform/knowledge/sync/route'),
   },
 
-  // Maintenance
   {
     name: 'platform-kill-runs',
     domain: 'platform',

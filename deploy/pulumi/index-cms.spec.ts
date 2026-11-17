@@ -4,24 +4,12 @@ import { baseStackConfig } from "./src/test-support/stack-config";
 import { readFileSync } from "node:fs";
 import { objectName } from "./src/names";
 
-/** The program's project (Pulumi.yaml), the prefix of every stack key. */
 const PROJECT = /^name:\s*(\S+)/m.exec(readFileSync(new URL("./Pulumi.yaml", import.meta.url), "utf8"))![1];
 const key = (name: string) => `${PROJECT}:${name}`;
-/** The app namespace, the Gateway and the app's S3 identity, by the names this project gives them (src/names.ts). */
 const appNs = () => objectName("namespace", PROJECT);
 const gatewayName = () => objectName("gateway", PROJECT);
 
-/**
- * The website's CMS (ADR-0155), the whole program built once with it on. Each
- * assertion is a string that plans clean and is wrong only on a cluster: a
- * listener whose routes the Gateway refuses from another namespace, a CMS that
- * cannot verify its database's certificate, a bucket outside its S3 identity, a
- * NetworkPolicy that times the website out, a read-only root the server cannot
- * start on. The off side is the last block.
- */
-
 const HOST = "cms.dev.example.test";
-/** The platform Connect application the CMS host is gated by, as on every stack that runs it. */
 const GATE = {
   [key("otelOidcIssuer")]: "https://grid.authkit.app",
   [key("otelOidcClientId")]: "client_otel",
@@ -114,14 +102,12 @@ describe("the CMS, switched on", () => {
     expect(policy.spec.oidc.forwardAccessToken).toBe(true);
     expect(policy.spec.authorization.defaultAction).toBe("Deny");
     expect(policy.spec.authorization.rules.map((r: { principal: { jwt: { scopes: string[] } } }) => r.principal.jwt.scopes)).toEqual([["platform:organizations:view"]]);
-    // The Secret sits beside the policy: a SecurityPolicy reads Secrets of its own namespace only.
     expect(find("kubernetes:core/v1:Secret", "cms-oidc").metadata.namespace).toBe("cms");
 
     const media = find("kubernetes:gateway.networking.k8s.io/v1:HTTPRoute", "cms-media-route");
     expect(media.metadata).toMatchObject({ name: "cms-media", namespace: "cms" });
     expect(media.spec.hostnames).toEqual([HOST]);
     expect(media.spec.rules).toEqual([{ matches: [{ path: { type: "PathPrefix", value: "/api/media/file/" } }], backendRefs: [{ name: "cms", port: 3000 }] }]);
-    // The CMS signs a person in from the gate's token, against the gate's issuer.
     expect(envOf(podOf("kubernetes:apps/v1:Deployment", "cms").containers[0]).CMS_EDGE_OIDC_ISSUER).toBe("https://grid.authkit.app");
   });
 
@@ -132,7 +118,6 @@ describe("the CMS, switched on", () => {
     expect(container.imagePullPolicy).toBe("IfNotPresent");
     expect(pod.securityContext).toMatchObject({ runAsNonRoot: true, runAsUser: 1001 });
     expect(container.securityContext).toMatchObject({ readOnlyRootFilesystem: true, allowPrivilegeEscalation: false });
-    // Next's cache and /tmp are the only writable paths, and the server's probe touches no database.
     expect(container.volumeMounts?.map((m) => m.mountPath).sort()).toEqual(["/app/.next/cache", "/etc/cms-pg-ca", "/tmp"]);
     expect(container.startupProbe?.httpGet).toEqual({ path: "/healthz", port: 3000 });
     const env = envOf(container);
@@ -146,7 +131,6 @@ describe("the CMS, switched on", () => {
       WEBSITE_PUBLIC_URL: "https://dev.example.test",
     });
     const deployment = find("kubernetes:apps/v1:Deployment", "cms").spec;
-    // The policy pack: a declared singleton may Recreate, but still soaks and states its grace period.
     expect(deployment.strategy).toEqual({ type: "Recreate" });
     expect(deployment.replicas).toBe(1);
     expect(deployment.minReadySeconds).toBeGreaterThan(0);
@@ -190,12 +174,11 @@ describe("the CMS, switched on", () => {
   });
 
   it("pulls its private image with a pull Secret of its own namespace, as the app's pods do", () => {
-    // The 2026-11-05 first deploy: no Secret in `cms`, so GHCR answered 401 and the
-    // pod sat in ImagePullBackOff until the apply timed out.
     const secret = find("kubernetes:core/v1:Secret", "cms-registry-pull");
     expect(secret.metadata.namespace).toBe("cms");
     expect(secret.type).toBe("kubernetes.io/dockerconfigjson");
     const pod = podOf("kubernetes:apps/v1:Deployment", "cms") as PodSpec & { imagePullSecrets?: Array<{ name: string }> };
+    // 2026-11-05 first deploy: no pull Secret in `cms`, GHCR answered 401 and the pod sat in ImagePullBackOff.
     expect(pod.imagePullSecrets).toEqual([{ name: secret.metadata.name }]);
   });
 

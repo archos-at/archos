@@ -1,15 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the platform overview (ADR-0016). Renders the REAL component
- * with fixture data so the stat tiles, the spend trend, the searchable/sortable
- * organization directory and the platform-team card can be reviewed and
- * screenshotted without a backend. A module-scope fetch shim (browser + dev
- * only) serves the overview payload; the WorkOS users widget is stubbed the way
- * the spec stubs it, so no widget token is ever requested. Not linked from
- * anywhere and 404s outside development.
- */
-
 import type { JSX } from 'react'
 import { PlatformOverview } from '@/app/app/(shell)/platform/platform-overview'
 import { platformOrgBudgetPutSchema, type PlatformOrgBudget } from '@/lib/budgets/platform-contract'
@@ -29,10 +19,8 @@ const NAMES = [
   'Generalplanung Dornbirn',
 ]
 
-/** The price list the fixture is priced at: 2.5× margin, one credit = $0.10. */
 const PRICING = { marginMultiplier: 2.5, usdPerCredit: 0.1, explicit: true }
 
-/** Cost in USD as charged, priced at the fixture's price list (ADR-0053). */
 const spendWindow = (costUsd: number, events: number) => ({
   costUsd,
   ownKeyCostUsd: 0,
@@ -42,8 +30,6 @@ const spendWindow = (costUsd: number, events: number) => ({
   events,
 })
 
-// Descending month revenue, so the fixture arrives ordered the way the service
-// orders it — the preview then shows the default sort, not a re-sort.
 const ORGANIZATIONS = NAMES.map((name, index) => ({
   id: `org_${index}`,
   name,
@@ -54,8 +40,6 @@ const ORGANIZATIONS = NAMES.map((name, index) => ({
   month: spendWindow(Math.max(0, 420 - index * 33), Math.max(0, 9400 - index * 700)),
 }))
   .map((org, index) =>
-    // The fourth organization runs on its own key: its cost is its own bill, so
-    // the overview badges it and leaves it out of the platform's cost.
     index === 3
       ? {
           ...org,
@@ -65,8 +49,6 @@ const ORGANIZATIONS = NAMES.map((name, index) => ({
       : org
   )
   .map((org, index) =>
-    // Ingestion is part of the month's cost, shown under it in the directory;
-    // the last organization spent a fraction of a cent today ("< $0.01").
     index === 1 || index === 2
       ? { ...org, month: { ...org.month, ingestCostUsd: 42.5 - index * 9 } }
       : index === NAMES.length - 1
@@ -97,7 +79,6 @@ const sumWindows = (key: 'day' | 'month') =>
 
 const OVERVIEW = {
   organizations: ORGANIZATIONS,
-  // Exercises the truncation copy — the honest replacement for a bare "+".
   organizationsCapped: true,
   dailyTrend: DAILY_TREND,
   totals: {
@@ -128,7 +109,6 @@ const ORG_BUDGETS = new Map<string, PlatformOrgBudget>(
   })
 )
 
-/** The price list card's payload: a set list with one earlier version behind it. */
 const PRICING_PAYLOAD = {
   pricing: {
     versionId: 'ver_2',
@@ -171,12 +151,6 @@ const PRICING_PAYLOAD = {
   referenceRequest: { promptTokens: 4000, completionTokens: 800 },
 }
 
-/**
- * The WorkOS Users Management widget talks to WorkOS directly, so the preview
- * stands in for it the way the spec does: a token the widget never validates
- * locally, plus the two reads it makes on mount. Without this the card would
- * render a third-party auth error next to the section under review.
- */
 const WIDGET_MEMBERS = {
   data: [
     {
@@ -240,8 +214,6 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
       if (url.startsWith('/api/platform/pricing')) {
         const request = new Request(new URL(url, window.location.origin), init)
         if (request.method === 'PUT') {
-          // Echo the save the way the route does: the new view, as the active
-          // version on top of the history.
           const input = (await request.json()) as Record<string, unknown>
           const version = {
             ...PRICING_PAYLOAD.pricing.history[0],
@@ -276,8 +248,6 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
       if (url.startsWith('https://api.workos.com/_widgets/UserManagement/roles-and-config')) {
         return Response.json(WIDGET_ROLES)
       }
-      // Anything else the widget reaches for: an honest empty list beats a
-      // network error box in a screenshot.
       if (url.startsWith('https://api.workos.com/_widgets/')) {
         return Response.json({ data: [], list_metadata: { before: null, after: null } })
       }
@@ -293,7 +263,7 @@ export default function PlatformOverviewDevPage(): JSX.Element {
       className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-8"
     >
       <div>
-        <h1 className="text-lg font-semibold">Platform — Overview</h1>
+        <h1 className="text-page-title font-medium phone:text-section">Platform — Overview</h1>
         <p className="text-muted-foreground mt-1 text-sm">
           Headline figures, the 30-day cost trend, the organization directory (columns drop by
           container width; on a phone revenue and the allowance action fold into the remaining

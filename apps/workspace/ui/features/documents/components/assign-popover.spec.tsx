@@ -1,8 +1,3 @@
-/**
- * Assign popover: candidates come from the assignment endpoint, and a failed
- * load is an error — never "no one in this project".
- */
-
 import { describe, expect, it, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
 import { render, screen, waitFor, within } from '@/test-utils'
@@ -81,8 +76,6 @@ describe('AssignPopover', () => {
     await openPopover()
     await userEvent.click(await screen.findByRole('button', { name: /Anna Weber/ }))
 
-    // The write used to `return` on a non-ok response: the row simply did not
-    // change, which in a popover about who is responsible reads as success.
     expect(await screen.findByTestId('assign-write-error')).toHaveTextContent('Anna Weber')
     expect(onChanged).not.toHaveBeenCalled()
   })
@@ -135,8 +128,6 @@ describe('AssignPopover', () => {
     expect(await screen.findByText('Bob Klein')).toBeInTheDocument()
     await waitFor(() => expect(calls).toBe(2))
   })
-  // The review's Zuständige picker read „An“ (the ask dialog's „To“) and kept
-  // a fixed 13rem list, so two names opened a mostly empty box over the thread.
   it('says what its search looks through, and is as tall as its people', async () => {
     server.use(
       http.get('/api/assignments/document/:id/candidates', () =>

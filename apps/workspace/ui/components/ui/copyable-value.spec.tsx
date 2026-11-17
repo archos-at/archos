@@ -1,9 +1,3 @@
-/**
- * A GlobalId is 22 characters of base64 and the string an architect pastes into
- * a BCF topic. It used to end in an ellipsis whose full text was a `title`, and
- * a phone has no hover.
- */
-
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { CopyableValue } from './copyable-value'

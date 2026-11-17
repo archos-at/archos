@@ -1,10 +1,3 @@
-"""A PDF version's parsed document is stored once and read back on a retry (``parsed_store``).
-
-The proof that matters: a run served from the stored artefact produces the same
-pages, triage and tables as a fresh run of the passes, and does not run them.
-Offline: an in-memory object store behind the presign seam.
-"""
-
 from __future__ import annotations
 
 import json
@@ -12,10 +5,12 @@ from types import SimpleNamespace
 
 import pytest
 from knowledge_layer.ingest import PageTable
-from knowledge_layer.ingest import adapter
 from knowledge_layer.ingest import file_version
 from knowledge_layer.ingest import page_triage
 from knowledge_layer.ingest import parsed_store
+from knowledge_layer.ingest import pdf_tables
+from knowledge_layer.ingest import pdf_text
+from knowledge_layer.ingest import text_chunks
 
 from .test_ingest_screen_before_tables import _ingest
 from .test_ingest_screen_before_tables import calls  # noqa: F401 - fixtures, shared with the harness
@@ -25,8 +20,6 @@ from .test_upload_screening_ingestion import _pdf_with_table_page
 
 
 class _ObjectStore:
-    """The BFF's presign and SeaweedFS, in memory: one key per (document, part)."""
-
     def __init__(self) -> None:
         self.objects: dict[str, bytes] = {}
         self.puts = 0
@@ -55,10 +48,9 @@ def _parsed_store(objects: _ObjectStore) -> parsed_store.ParsedStore:
 
 
 def _run(path: str, objects: _ObjectStore):
-    """The pass as the pipeline runs it: text, triage, tables, then the save after the screen."""
     with parsed_store.file_parse(_parsed_store(objects), file_version(path)) as parse:
         text_pages = parse.text_pages(path)
-        page_texts = adapter.page_texts_for_visual_heuristic(text_pages)
+        page_texts = text_chunks.page_texts_for_visual_heuristic(text_pages)
         triage = parse.triage(path, page_texts, min_text_chars=200, min_paths=300)
         taken = {page["page_number"]: page.get("table_boxes") or [] for page in text_pages}
         tables = parse.tables(path, taken, list(text_pages.dense_pages))
@@ -69,8 +61,8 @@ def _run(path: str, objects: _ObjectStore):
 def _passes(monkeypatch) -> dict[str, int]:
     ran = {"text": 0, "triage": 0, "tables": 0}
     for name, attr, module in (
-        ("text", "_extract_text_from_pdf", adapter),
-        ("tables", "_extract_tables_from_pdf", adapter),
+        ("text", "_extract_text_from_pdf", pdf_text),
+        ("tables", "_extract_tables_from_pdf", pdf_tables),
         ("triage", "triage_pdf", page_triage),
     ):
         real = getattr(module, attr)
@@ -100,11 +92,13 @@ def test_a_retry_reads_back_the_same_pages_triage_and_tables_without_the_passes(
         assert getattr(cached_pages, attr) == getattr(fresh_pages, attr)
     assert cached_triage == fresh_triage
     assert cached_tables == fresh_tables and fresh_tables, "the ruled table was read"
-    assert adapter.page_texts_for_visual_heuristic(cached_pages) == adapter.page_texts_for_visual_heuristic(fresh_pages)
+    assert text_chunks.page_texts_for_visual_heuristic(cached_pages) == text_chunks.page_texts_for_visual_heuristic(
+        fresh_pages
+    )
 
 
 def test_the_codec_keeps_tuples_and_captioned_tables_exact():
-    pages = adapter.PdfTextPages(
+    pages = pdf_text.PdfTextPages(
         [
             {
                 "page_number": 3,
@@ -181,8 +175,6 @@ def test_a_store_that_fails_costs_the_artefact_not_the_file(tmp_path, monkeypatc
 
 
 class TestThroughTheIngest:
-    """`_ingest_job` itself, on the offline harness: the second attempt of one version parses nothing."""
-
     def test_a_retry_skips_the_passes_and_writes_the_same_chunks(self, tmp_path, calls, monkeypatch, objects):  # noqa: F811
         from knowledge_layer.ingest import page_text_store
         from knowledge_layer.vector_store import writes

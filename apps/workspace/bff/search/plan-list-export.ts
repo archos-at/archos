@@ -1,20 +1,4 @@
-/**
- * The current search result as a Planliste: the file an office prints for the
- * Jour fixe and sends with a Planlieferung (`POST /api/search/export`).
- *
- * It is a view of what Piloti read, not a list somebody maintains: the rows are
- * exactly the documents {@link listSearchDocumentsForExport} finds for this
- * reader, in the search's order, and the columns are the register's. CSV for
- * a spreadsheet in a German locale (semicolon, UTF-8 with a BOM, every cell
- * through `csvCell`, which defuses a cell that would open as a formula); XLSX
- * with a header row, a filter and frozen panes.
- *
- * Nothing here calls a model. Each export is the audit event
- * `search.plan_list.exported`, with counts and the scope's kind only.
- */
-
 import 'server-only'
-// Default import: exceljs is CommonJS (see `lib/feedback/export-workbook.ts`).
 import ExcelJS from 'exceljs'
 import type { Dictionary as FullDictionary } from '@/i18n/dictionaries'
 import { dossierCopy } from '@/i18n/namespaces/dossier'
@@ -27,19 +11,16 @@ import { csvCell } from '@/lib/text/csv-cell'
 import { listSearchDocumentsForExport } from './document-search'
 import type { DocumentHit, SearchBody, SearchScopeQuery } from './search-wire'
 
-/** The most documents one Planliste carries. */
 export const PLAN_LIST_MAX_ROWS = 5000
 
 export const PLAN_LIST_FORMATS = ['csv', 'xlsx'] as const
 export type PlanListFormat = (typeof PLAN_LIST_FORMATS)[number]
 
-/** The two namespaces the export reads. */
 export type Dictionary = Pick<FullDictionary, 'dossier' | 'searchExport'>
 
 type ColumnKey = keyof Dictionary['searchExport']['columns']
 type Cell = string | number | null
 
-/** The register's columns, in the order a Planliste reads. */
 const COLUMNS: ReadonlyArray<{ key: ColumnKey; value: (hit: DocumentHit, dictionary: Dictionary) => Cell; width: number }> = [
   { key: 'planNumber', value: (hit) => hit.planNumber, width: 14 },
   { key: 'planIndex', value: (hit) => hit.planIndex, width: 8 },
@@ -64,14 +45,12 @@ const COLUMNS: ReadonlyArray<{ key: ColumnKey; value: (hit: DocumentHit, diction
   { key: 'status', value: (hit) => hit.status, width: 12 },
 ]
 
-/** The rows as a German-locale CSV: header of the column names, `;` between cells, CRLF. Pure. */
 export function renderPlanListCsv(hits: readonly DocumentHit[], dictionary: Dictionary): string {
   const header = COLUMNS.map((column) => csvCell(dictionary.searchExport.columns[column.key])).join(';')
   const lines = hits.map((hit) => COLUMNS.map((column) => csvCell(column.value(hit, dictionary) ?? '')).join(';'))
   return `\uFEFF${[header, ...lines].join('\r\n')}\r\n`
 }
 
-/** The rows as a workbook with one sheet. */
 export async function renderPlanListWorkbook(hits: readonly DocumentHit[], dictionary: Dictionary): Promise<Uint8Array> {
   const workbook = new ExcelJS.Workbook()
   const sheet = workbook.addWorksheet(dictionary.searchExport.sheet, { views: [{ state: 'frozen', ySplit: 1 }] })
@@ -90,7 +69,6 @@ export interface ExportedPlanList {
   bytes: Uint8Array
 }
 
-/** The Planliste of a search, for `session`, in `format`. */
 export async function exportPlanList(
   session: AuthorizedSession,
   scopeQuery: SearchScopeQuery,
