@@ -19,7 +19,7 @@ Qdrant's own guidance recommends.
 
 ## 1. What retrieval has to do
 
-Piloti answers from three bodies of text: the legal corpus (`baurecht`), the
+The agent answers from three bodies of text: the legal corpus (`baurecht`), the
 office's own filing (`buero`, the Büroablage) and its projects (`projekt`).
 Retrieval serves these questions, ordered from most to least frequent:
 

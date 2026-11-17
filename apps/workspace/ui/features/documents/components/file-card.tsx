@@ -312,7 +312,7 @@ export const FileCard = memo(function FileCard({
                 statement about the CONTENT and „Unvergeben" one about
                 responsibility (ADR-0047's addendum, ADR-0054). Silent without a
                 history: one version distinguishes nothing, so the badge appears
-                only once a second version exists — even for a draft Piloti wrote. */}
+                only once a second version exists — even for a draft the agent wrote. */}
             {/* An older Fassung says that and only that: „Ersetzt" beside it
                 was the same fact twice, without saying by what. A current one
                 carries its approval state and, after it as quiet text rather
@@ -363,7 +363,7 @@ export const FileCard = memo(function FileCard({
         </FileTileBody>
       </button>
       {/* The footer is the button's sibling, not its child: it carries
-          Piloti's filing chip, a button of its own, on the left, and a button
+          the agent's filing chip, a button of its own, on the left, and a button
           cannot hold a button. A click on the rest of it opens the file as the
           card does; the keyboard opens it through the card's button.
           Its height is the same with a chip or without one (the chip's margin

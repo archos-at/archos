@@ -5,7 +5,7 @@
  *
  * Two callers, one copy. `server.js` proxies a browser's upgrade and sets these
  * on the forwarded request; the wake job (`lib/annotations/wake-job.ts`) opens
- * the socket itself, as the person whose act woke Piloti (ADR-0106). Both
+ * the socket itself, as the person whose act woke the agent (ADR-0106). Both
  * build the headers here, from the same data, so a field one of them forgets
  * cannot exist: before this, the mapping lived inline in `server.js` and the
  * wake would have been its second copy.
@@ -147,8 +147,9 @@ const base64urlJson = (value) => Buffer.from(JSON.stringify(value), 'utf8').toSt
 
 /**
  * Every header the upgrade carries for one turn context: the individual
- * `x-grid-*` headers (the DUAL-WRITE the backend still reads beside the
- * envelope) and the signed envelope, built from the SAME values.
+ * service headers under their new names (`x-budget`, `x-organization-id`, ...,
+ * the DUAL-WRITE the backend reads beside the envelope) and the signed
+ * envelope, built from the SAME values.
  *
  * An authenticated context (organization and user) sends its prompt blocks by
  * the per-turn `POST /api/internal/turn-context` instead (`contextTransport:

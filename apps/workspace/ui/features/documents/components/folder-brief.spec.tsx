@@ -233,7 +233,7 @@ describe('FolderBrief - from the shelf summary', () => {
     expect(screen.getByTestId('folder-brief-read-again')).toHaveTextContent('Read again')
   })
 
-  it('does not claim Piloti recognised no document type: it offers to load what it did', async () => {
+  it('does not claim the agent recognised no document type: it offers to load what it did', async () => {
     const onLoadDetails = vi.fn()
     renderPartial({ onLoadDetails })
     await userEvent.click(screen.getByTestId('folder-brief-about-toggle'))

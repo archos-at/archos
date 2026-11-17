@@ -1,4 +1,4 @@
-# Piloti writes: the working directory, the document lifecycle, and the publish door
+# Agent writes: the working directory, the document lifecycle, and the publish door
 
 > **Status:** Design of record for the build, 2026-09-10, second revision.
 > The first revision was reviewed adversarially against the code (30 findings,
@@ -18,7 +18,7 @@
 
 ## 0. The verdict, and the two tiers
 
-Piloti still feels like question-and-answer because a chat turn can only
+The agent still feels like question-and-answer because a chat turn can only
 leave a message, a card, or a memory note. The filing path for machine-authored
 documents is built, guarded, audited, marked in the bytes and on by default.
 Nothing the model can call reaches it, a filed document is never indexed, and
@@ -49,7 +49,7 @@ flowchart LR
 ## 1. The working directory
 
 **What it is.** DeepAgents' file tools (`ls`, `read_file`, `write_file`,
-`edit_file`) bound into Piloti's existing tool node, over a
+`edit_file`) bound into the agent's existing tool node, over a
 `StoreBackend` whose namespace is the conversation. Verified by probe on the
 installed `deepagents` 0.6.12: the tools run inside a plain `StateGraph`
 because `ToolNode` injects the runtime they need; `BackendProtocol` has no
@@ -223,7 +223,7 @@ are enumerated from the registry.
 
 **UI.** Files shows the version state as a neutral badge (Entwurf, In
 Prüfung, Freigegeben, Veröffentlicht, Ersetzt, Archiviert) beside the
-existing `Von Piloti erstellt` byline, never in the assignment row. The
+existing `Vom Agenten erstellt` byline, never in the assignment row. The
 document page and the report card carry Freigeben, Änderungen anfordern,
 Ablehnen, Veröffentlichen, and a version list. The inbox item deep-links to
 the version.
@@ -257,7 +257,7 @@ ingest.
   labels a lane "Baurecht" (`document_classification.py:104-131`,
   `norm_registry.py:980-988`). An agent-authored published document is a
   `buero` source kind with its own lane, `buero_piloti`, label
-  "Piloti-Dokument · freigegeben von {name}, {date}", added to
+  "Agenten-Dokument · freigegeben von {name}, {date}", added to
   `source_kinds.py` and mirrored in `source-kinds.ts` in the same commit.
   Chunk metadata carries `authored_by`, `approved_by`, `approved_at`, and
   the grounding block prints them.
@@ -315,7 +315,7 @@ directory and cannot file; the tool says so.
   `revision`. The two engines exist; their Markdown output files as a draft
   version through §2 instead of a transient panel. A scheduled deep-research
   report files the same way, so one producer serves both.
-- **Talk to a document.** „Mit Piloti besprechen" on a document, on the report card and
+- **Talk to a document.** „Mit dem Agenten besprechen" on a document, on the report card and
   in the inbox item opens a conversation with `subject_resource = document`
   (already supported). For a published version the turn retrieves its
   chunks. For a draft or in-review version, which has no chunks, the turn
@@ -364,9 +364,9 @@ i18n keys, release note and doc updates in the same commit.
 | 1 | Working directory: store backend, NFC, four tools, budget, action keys, `document_draft` card, prompt block | | "schreib den Aktenvermerk" leaves a file; "kürze Punkt 3" edits it in place |
 | 2 | Lifecycle API: migration, transition table, effects registry, routes, typed client, audit actions, inbox type, i18n, Files badges and review controls, ADR amending 0047, API-first ADR | | a draft version can be submitted, approved, published, archived from the UI, with the database refusing an unapproved publish |
 | 3 | Agent filing: `file_draft` tool, envelope conversation id and BFF-side verification, internal route with pinned session, producer `agent_document`, Markdown renderer with marking | 1, 2 | the agent files a draft from the working directory and it appears in Files as Entwurf, unindexed, in the reviewer's inbox after submit |
-| 4 | Publish indexes with provenance: dispatcher guard, filename namespace, index widening, chunk metadata, `buero_piloti` lane and TS mirror, grounding block, verdict-reference gate, chunk purge on supersede and archive | 2 | a published Piloti document is retrievable, labelled with its approver, and can never be a Fundstelle for a value |
+| 4 | Publish indexes with provenance: dispatcher guard, filename namespace, index widening, chunk metadata, `buero_piloti` lane and TS mirror, grounding block, verdict-reference gate, chunk purge on supersede and archive | 2 | a published agent document is retrievable, labelled with its approver, and can never be a Fundstelle for a value |
 | 5 | Talk to a document, for published and unpublished versions | 3, 4 | "warum steht in Abschnitt 3 GK 4?" answers from the document's own content |
-| 6 | Revision and delegation: request-changes into the next turn, `revision` tasks, `create_task`, deep-research reports as draft versions | 3 | a rejected-with-comment draft comes back as a new version; "@Piloti mach den Einreichcheck" yields a task, a draft and an inbox item |
+| 6 | Revision and delegation: request-changes into the next turn, `revision` tasks, `create_task`, deep-research reports as draft versions | 3 | a rejected-with-comment draft comes back as a new version; "@Agent mach den Einreichcheck" yields a task, a draft and an inbox item |
 | 7 | Folder tools as proposal cards | 1 | "leg die Einreichunterlagen in einen Ordner" yields a card the user accepts and the files move |
 
 Slices 1 and 2 run in parallel; 4 and 7 run beside 3; 5 and 6 follow.
@@ -389,7 +389,7 @@ Measurements: share of turns that leave a draft; time from `in_review` to
 | Idempotency key forbids versions | `document_versions`; the item keeps its ref |
 | `discardSupersededObjects` deletes objects, not chunks | chunk purger on supersede and archive |
 | Audit actions unregistered unfile the document | registered in the same commit; provisioning is a deploy step |
-| DeepAgents "buys nothing" | overturned by probe: tools run in Piloti's graph; the backend is four methods; only NFC is ours |
+| DeepAgents "buys nothing" | overturned by probe: tools run in the agent's graph; the backend is four methods; only NFC is ours |
 | Interaction budget cannot absorb writes | 6 to 9 with the derivation |
 | `artifacts` on the strict envelope | dropped; a system card from the tool result |
 | Slice 0 tool table is ceremony | dropped; one basename list |

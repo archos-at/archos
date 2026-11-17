@@ -755,7 +755,7 @@ describe('InboxItemRow — a new Fassung (document.new_revision)', () => {
   })
 })
 
-describe('InboxItemRow — what Piloti did, in the reader’s words', () => {
+describe('InboxItemRow — what the agent did, in the reader’s words', () => {
   const onMark = (overrides: Partial<InboxItemView> = {}) =>
     item({
       type: 'piloti.work_done',
@@ -827,7 +827,7 @@ describe('InboxItemRow — what Piloti did, in the reader’s words', () => {
     expectBodyOnlyInPush(onMark({ variant: 'assigned' }), 'Die Anmerkung liegt wieder bei Ihnen.')
   })
 
-  test('a Piloti row wears Piloti’s glyph, and a person’s row its type icon', () => {
+  test('an agent row wears the agent’s glyph, and a person’s row its type icon', () => {
     const { unmount } = german(onMark())
     expect(document.querySelector('[data-slot="agent-glyph"]')).not.toBeNull()
     unmount()
@@ -914,7 +914,7 @@ describe('InboxItemRow — a colleague’s work on a mark, in the reader’s wor
     expect(screen.getByTestId('inbox-item-link')).toHaveAttribute('href', '/app/projects/p1/files?doc=doc-eg&review=1&mark=mark-4')
   })
 
-  test('says Piloti did it for the colleague when Piloti assigned it', () => {
+  test('says the agent did it for the colleague when the agent assigned it', () => {
     german(onMark({ variant: 'piloti' }))
     expect(screen.getByText(`${PRODUCT_NAME} hat Ihnen für Anna Weber Anmerkung 4 in „Grundriss EG“ zugewiesen`)).toBeInTheDocument()
   })
@@ -963,9 +963,9 @@ describe('InboxItemRow — a colleague’s work on a mark, in the reader’s wor
     expect(screen.getByText('3 neue Antworten zu Anmerkung 4, zuletzt von Anna Weber')).toBeInTheDocument()
     noName.unmount()
 
-    const piloti = german(onMark({ ...reply, count: 1, actorName: null, actorUserId: null }))
+    const agentRow = german(onMark({ ...reply, count: 1, actorName: null, actorUserId: null }))
     expect(screen.getByText('Neue Antwort zu Anmerkung 4 in „Grundriss EG“')).toBeInTheDocument()
-    piloti.unmount()
+    agentRow.unmount()
 
     german(onMark({ ...reply, state: 'read', read: true, count: 0 }))
     expect(screen.getByText('Antworten zu Anmerkung 4 in „Grundriss EG“')).toBeInTheDocument()
@@ -1205,7 +1205,7 @@ describe('InboxItemRow — a row about a mark acts on the mark', () => {
     })
   })
 
-  test('answers Piloti’s question, but does not resolve the mark for it', () => {
+  test('answers the agent’s question, but does not resolve the mark for it', () => {
     render(<InboxItemRow item={markRow({ type: 'piloti.asks_you', actorName: null, actorUserId: null })} markClient={client()} />)
     expect(screen.getByTestId('inbox-mark-reply')).toBeInTheDocument()
     expect(screen.queryByTestId('inbox-mark-resolve')).not.toBeInTheDocument()
@@ -1218,7 +1218,7 @@ describe('InboxItemRow — a row about a mark acts on the mark', () => {
     expect(screen.queryByTestId('inbox-mark-resolve')).not.toBeInTheDocument()
   })
 
-  test('leads Piloti’s question to the review when the answer must be asked from there, and claims no answer here', () => {
+  test('leads the agent’s question to the review when the answer must be asked from there, and claims no answer here', () => {
     render(
       <InboxItemRow
         item={markRow({ type: 'piloti.asks_you', actorName: null, actorUserId: null, answerIn: 'review' })}
@@ -1231,7 +1231,7 @@ describe('InboxItemRow — a row about a mark acts on the mark', () => {
     expect(screen.queryByTestId('inbox-mark-reply')).not.toBeInTheDocument()
   })
 
-  test('says how to reach Piloti when an answer sent from the row met a wake rule nothing acts on', async () => {
+  test('says how to reach the agent when an answer sent from the row met a wake rule nothing acts on', async () => {
     const marks = client({ reply: vi.fn(async () => answered('off')) })
     render(<InboxItemRow item={markRow()} markClient={marks} />)
     fireEvent.click(screen.getByTestId('inbox-mark-reply'))
@@ -1295,7 +1295,7 @@ describe('InboxItemRow — a row about a mark acts on the mark', () => {
     expect(await screen.findByTestId('inbox-mark-outcome')).toHaveTextContent('Jakob Huber was not told.')
   })
 
-  test('offers @Piloti where events wake Piloti, and sends it as the reply’s flag', async () => {
+  test('offers the agent where events wake it, and sends it as the reply’s flag', async () => {
     candidates()
     const marks = client({ reply: vi.fn(async () => answered('queued', [{ targetId: 'agent:piloti', display: PRODUCT_NAME }])) })
     render(<InboxItemRow item={markRow({ pilotiWakes: true })} markClient={marks} />)
@@ -1312,7 +1312,7 @@ describe('InboxItemRow — a row about a mark acts on the mark', () => {
     )
   })
 
-  test('offers no @Piloti where nothing would wake it', async () => {
+  test('offers no agent mention where nothing would wake it', async () => {
     candidates()
     render(<InboxItemRow item={markRow({ pilotiWakes: false })} markClient={client()} />)
     fireEvent.click(screen.getByTestId('inbox-mark-reply'))
@@ -1360,7 +1360,7 @@ describe('InboxItemRow — who and what at a glance', () => {
     expect(screen.queryByTestId('inbox-item-type-badge')).not.toBeInTheDocument()
   })
 
-  test('a system row keeps its glyph, and Piloti’s row keeps Piloti’s face, drawn as a line', () => {
+  test('a system row keeps its glyph, and the agent’s row keeps the agent’s face, drawn as a line', () => {
     const { unmount } = render(
       <InboxItemRow item={item({ type: 'storage.quota_warning', actorName: null, actorUserId: null, resourceType: 'organization', href: '/app/organization/storage' })} />,
     )
@@ -1517,7 +1517,7 @@ describe('InboxItemRow — every way to its target counts as opening it', () => 
     expect(onOpen).toHaveBeenCalledTimes(1)
   })
 
-  test('„Mit Piloti besprechen“ marks the row read, and is an icon with its name kept for the ear and the tooltip', () => {
+  test('the discuss action marks the row read, and is an icon with its name kept for the ear and the tooltip', () => {
     const onOpen = vi.fn()
     render(
       <InboxItemRow

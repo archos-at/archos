@@ -74,6 +74,13 @@ def test_requires_matching_token_when_configured(client, monkeypatch):
     assert ok.json()["llms"]["chat_llm"] == "deepseek/deepseek-v4-flash"
 
 
+def test_reads_the_token_under_the_new_name_as_well(client, monkeypatch):
+    monkeypatch.setenv("INTERNAL_API_TOKEN", "secret-token")
+
+    assert client.get("/v1/config/llm-defaults", headers={"x-internal-token": "wrong"}).status_code == 403
+    assert client.get("/v1/config/llm-defaults", headers={"x-internal-token": "secret-token"}).status_code == 200
+
+
 def test_reports_the_reasoning_effort_each_llm_ships_with(client, monkeypatch):
     monkeypatch.delenv("INTERNAL_API_TOKEN", raising=False)
     efforts = client.get("/v1/config/llm-defaults").json()["reasoningEfforts"]

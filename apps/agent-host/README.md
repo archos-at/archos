@@ -1,6 +1,6 @@
 # Agent host API
 
-Unified API plugin for the AI-Q blueprint: **Knowledge API** (collections, documents) and **Async Job API** (agent-agnostic jobs with SSE streaming).
+Unified API plugin for the agent host: **Knowledge API** (collections, documents) and **Async Job API** (agent-agnostic jobs with SSE streaming).
 
 ## Quick Start
 

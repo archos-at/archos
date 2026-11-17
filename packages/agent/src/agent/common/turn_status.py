@@ -33,7 +33,7 @@ emitted data is language-specific**. What travels now is
 Which means every value in ``values`` must survive being dropped into an
 English sentence. Three rules, applied per value:
 
-1. **A proper noun travels as itself.** A skill's authored ``grid-title``
+1. **A proper noun travels as itself.** A skill's authored ``title``
    ("Brandschutznachweis") is that office's name for their own working method;
    it is the same word in every locale, and translating it would be inventing a
    name nobody uses.

@@ -412,7 +412,7 @@ describe('listInbox — projection', () => {
     expect(byId.get('gone')!.related).toBeNull()
   })
 
-  it('carries which wording a row reads (why Piloti could not work a mark) only as a key segment, and withholds it when redacted', async () => {
+  it('carries which wording a row reads (why the agent could not work a mark) only as a key segment, and withholds it when redacted', async () => {
     vi.mocked(repository.listInboxItems).mockResolvedValue([
       row({ id: 'ok', type: 'piloti.work_failed', resourceId: 'conv_ok', payload: { related: '4', variant: 'budget' } }),
       row({ id: 'path', type: 'piloti.work_failed', resourceId: 'conv_ok', payload: { variant: 'budget.body' } }),
@@ -1254,16 +1254,16 @@ describe('listInbox — where a request on a mark may be answered (answerIn)', (
     expect(vi.mocked(canWriteDocument).mock.calls.map(([, documentId]) => documentId).sort()).toEqual(['doc_r', 'doc_w'])
   })
 
-  it('sends Piloti’s Rückfrage to the Prüfansicht while events do not wake Piloti, and keeps it in the row when they do', async () => {
+  it('sends the agent’s Rückfrage to the Prüfansicht while events do not wake the agent, and keeps it in the row when they do', async () => {
     vi.mocked(repository.listInboxItems).mockResolvedValue([onMark({ id: 'asks', type: 'piloti.asks_you' })])
 
     expect((await listInbox(session)).items[0]!.answerIn).toBe('review')
 
-    const wakes = makeSession({ featureFlags: ['collaboration', 'piloti-wakes'] })
+    const wakes = makeSession({ featureFlags: ['collaboration', 'agent-thread-replies'] })
     expect((await listInbox(wakes)).items[0]!.answerIn).toBe('row')
   })
 
-  it('lets an answer from the row address Piloti only where events wake it, and only where the row answers', async () => {
+  it('lets an answer from the row address the agent only where events wake it, and only where the row answers', async () => {
     vi.mocked(repository.listInboxItems).mockResolvedValue([
       onMark({ id: 'writer' }),
       onMark({ id: 'reader', resourceId: 'doc_r', groupKey: 'g_r' }),
@@ -1275,7 +1275,7 @@ describe('listInbox — where a request on a mark may be answered (answerIn)', (
       ['reader', false],
     ])
 
-    const on = await listInbox(makeSession({ featureFlags: ['collaboration', 'piloti-wakes'] }))
+    const on = await listInbox(makeSession({ featureFlags: ['collaboration', 'agent-thread-replies'] }))
     expect(on.items.map((item) => [item.id, item.pilotiWakes])).toEqual([
       ['writer', true],
       ['reader', false],

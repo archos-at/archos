@@ -22,7 +22,7 @@ import {
   type SkillSnapshot,
 } from './types'
 import { operationScorer, queryLineMatcher } from '@/lib/text/operation-search'
-import { canonicalSkillName } from './legacy-names'
+import { canonicalSkillName, findSkillNamed, readMetadata } from './legacy-names'
 import { findPlatformSkill, listPlatformSkills, type PlatformSkill } from './platform-skills'
 
 function assertSkillsFeatureOn(session: AuthorizedSession): void {
@@ -195,7 +195,7 @@ export async function setCuratedSkillEnabled(
   assertSkillsFeatureOn(session)
   if (!canManageSkills(session)) throw new ForbiddenError('You need org skills management rights.')
 
-  const offer = (await curatedOffers()).find((skill) => skill.name === canonicalSkillName(name))
+  const offer = findSkillNamed(await curatedOffers(), name)
   if (!offer) throw new NotFoundError(`Unknown platform skill "${name}".`)
 
   await repository.upsertCuratedSkillActivation({
@@ -287,8 +287,7 @@ export async function readSkill(
   const { skills } = await resolveSelectableSkills(session.organizationId)
   const wanted = name.trim().toLowerCase()
   const skill =
-    skills.find((candidate) => candidate.name.toLowerCase() === wanted) ??
-    skills.find((candidate) => candidate.name === canonicalSkillName(wanted))
+    skills.find((candidate) => candidate.name.toLowerCase() === wanted) ?? findSkillNamed(skills, wanted)
   if (!skill) throw new NotFoundError(`Unknown skill "${name}".`)
   return { skill: { name: skill.name, description: skill.description, origin: skill.origin, body: skill.body } }
 }
@@ -467,8 +466,7 @@ export async function resolveSkillSnapshot(
       origin: orgSkill.origin,
     }
   }
-  const platformName = canonicalSkillName(name)
-  const platform = findPlatformSkill(platformName)
+  const platform = findPlatformSkill(name) ?? findPlatformSkill(canonicalSkillName(name))
   if (platform && !isCuratedPlatformSkill(platform.metadata)) {
     return {
       name: platform.name,
@@ -479,7 +477,7 @@ export async function resolveSkillSnapshot(
     }
   }
 
-  const offer = (await curatedOffers()).find((skill) => skill.name === platformName)
+  const offer = findSkillNamed(await curatedOffers(), name)
   if (offer) {
     const activations = await repository.listCuratedSkillActivations(organizationId)
     if (!isActivated(activations, offer.name)) {
@@ -572,7 +570,7 @@ export async function resolveSelectableSkills(
 }
 
 function skillTargetsAgent(metadata: Record<string, string>, agent: string): boolean {
-  const raw = metadata[METADATA_AGENTS]
+  const raw = readMetadata(metadata, METADATA_AGENTS)
   if (!raw) return true
   const listed = raw
     .split(',')

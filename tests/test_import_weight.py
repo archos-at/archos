@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 LAZY_PACKAGES = [
     "agent",
     "agent.agents",
-    "agent.agents.piloti",
+    "agent.core",
     "agent.agents.deep_researcher",
     "agent.common",
     "knowledge_layer",

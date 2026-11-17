@@ -48,7 +48,7 @@ import type { AuthorizedSession } from '@/lib/auth/types'
 
 const session = (overrides: Partial<AuthorizedSession> = {}): AuthorizedSession => ({
   userId: 'user_1',
-  email: 'someone@grid.com',
+  email: 'someone@example.test',
   name: 'Someone',
   accessToken: 'token',
   organizationId: 'org_1',

@@ -7,6 +7,8 @@ import { createMcpHandler } from '@modelcontextprotocol/server'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { AGENT_OPERATIONS } from './catalog'
 import { MCP_INSTRUCTIONS, buildMcpServer, createAgentDoorHandler, resolveMode } from './mcp-server'
+import { LEGACY_MODE_HEADER } from './legacy-names'
+import { OFFICE_SERVER_NAME } from './server-name'
 import { BACKEND_OPERATIONS } from './backend-operations'
 import { visibleBackendOperations, visibleOperations } from './policy'
 import type { AgentPrincipal } from './principal'
@@ -15,10 +17,10 @@ import { APP_TOOLS } from './catalog/app-views'
 const principal: AgentPrincipal = {
   actor: 'external_agent',
   clientId: 'c',
-  scopes: ['piloti:sensitive'],
+  scopes: ['documents:sensitive'],
   session: {
     userId: 'user_1',
-    email: 'a@piloti.test',
+    email: 'a@example.test',
     name: null,
     accessToken: '',
     organizationId: 'org_1',
@@ -36,9 +38,9 @@ beforeAll(() => {
 type ListedTool = { name: string; inputSchema: unknown; annotations?: Record<string, unknown>; _meta?: Record<string, unknown> }
 
 function legacyRequest(body: unknown, accept: string, mode: 'search' | 'tools' = 'search'): Request {
-  return new Request('https://app.piloti.test/api/mcp', {
+  return new Request(`https://app.example.test/api/mcp?mode=${mode}`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', accept, 'mcp-protocol-version': '2025-11-25', 'x-piloti-mcp-mode': mode },
+    headers: { 'content-type': 'application/json', accept, 'mcp-protocol-version': '2025-11-25' },
     body: JSON.stringify(body),
   })
 }
@@ -52,7 +54,7 @@ afterEach(() => {
 async function listTools(mode: 'search' | 'tools'): Promise<ListedTool[]> {
   const handler = createMcpHandler(() => buildMcpServer(principal, mode), { responseMode: 'json' })
   const response = await handler.fetch(
-    new Request('https://app.piloti.test/api/mcp', {
+    new Request('https://app.example.test/api/mcp', {
       method: 'POST',
       headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' },
       body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} }),
@@ -109,15 +111,16 @@ describe('search mode', () => {
 describe('mode and instructions', () => {
   const at = (url: string, headers: Record<string, string> = {}) => new Request(url, { headers })
 
-  it('defaults to search and honours the header and the query', () => {
+  it('defaults to search and reads the query, then the legacy header', () => {
     expect(resolveMode(at('https://x.test/api/mcp'))).toBe('search')
     expect(resolveMode(at('https://x.test/api/mcp?mode=tools'))).toBe('tools')
-    expect(resolveMode(at('https://x.test/api/mcp', { 'x-piloti-mcp-mode': 'tools' }))).toBe('tools')
+    expect(resolveMode(at('https://x.test/api/mcp?mode=tools', { [LEGACY_MODE_HEADER]: 'search' }))).toBe('tools')
+    expect(resolveMode(at('https://x.test/api/mcp', { [LEGACY_MODE_HEADER]: 'tools' }))).toBe('tools')
     expect(resolveMode(at('https://x.test/api/mcp?mode=nonsense'))).toBe('search')
-    expect(resolveMode(at('https://x.test/api/mcp', { 'x-piloti-mcp-mode': 'discovery' }))).toBe('search')
+    expect(resolveMode(at('https://x.test/api/mcp', { [LEGACY_MODE_HEADER]: 'discovery' }))).toBe('search')
   })
 
-  it('introduces Piloti as the architects\' workspace and says where to start', () => {
+  it('introduces the app as the architects\' workspace and says where to start', () => {
     expect(MCP_INSTRUCTIONS).toMatch(/workspace for architects/)
     expect(MCP_INSTRUCTIONS).toMatch(/project-list/)
     expect(MCP_INSTRUCTIONS).toMatch(/search-operations/)
@@ -139,6 +142,13 @@ describe('the agent door handler', () => {
       expect(message.result.tools.map((tool) => tool.name)).toContain('call-operation')
     },
   )
+
+  it('names the office server with the name the connect card suggests', async () => {
+    const init = { jsonrpc: '2.0', id: 3, method: 'initialize', params: { protocolVersion: '2025-11-25', capabilities: {}, clientInfo: { name: 't', version: '1' } } }
+    const response = await handler.fetch(legacyRequest(init, 'application/json'), { authInfo: authInfoFor('search') })
+    const message = (await response.json()) as { result: { serverInfo: { name: string } } }
+    expect(message.result.serverInfo.name).toBe(OFFICE_SERVER_NAME)
+  })
 
   it('lets call-operation reach an agent read tool whose own `query` is a string', async () => {
     vi.stubEnv('INTERNAL_API_TOKEN', '')

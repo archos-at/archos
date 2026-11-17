@@ -31,7 +31,7 @@ composer-prefill semantics and what a hint is; the ``follow_ups`` paragraph of
 ``_POST_HOC_CRAFT`` plus ``_POST_HOC_GROUNDING`` (``cards/prompt.py``), which
 were already written for a model that sees only a finished text — exactly this
 stage's situation; and the German „Anschlussfragen: vier verschiedene Züge"
-section of the seeded ``piloti-cards`` skill, whose bad/good worked example is
+section of the seeded ``answer-cards`` skill, whose bad/good worked example is
 the only place the four *kinds* of move are shown rather than described.
 
 See docs/architecture/post-answer-stages.md §5.2, §7.5 and §7.6.

@@ -5,7 +5,7 @@
   "apps/workspace/AGENTS.md": 32,
   "packages/AGENTS.md": 38,
   "packages/agent/src/agent/AGENTS.md": 41,
-  "packages/agent/src/agent/agents/piloti/AGENTS.md": 26,
+  "packages/agent/src/agent/core/AGENTS.md": 26,
   "packages/agent/src/agent/memory/AGENTS.md": 31,
   "packages/agent/src/agent/tools/AGENTS.md": 20
 }

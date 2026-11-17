@@ -1,7 +1,7 @@
 """``look``: a page of a document, a region of it, or an embedded image, as an image the model sees.
 
 One tool for one act in every context (ADR-0128): the chat, the review canvas,
-``piloti-ask`` and deep research bind it, and the external door serves it as
+``agent-requests`` and deep research bind it, and the external door serves it as
 ``document-look``. It replaced two tools that were the same function under two
 names and two argument shapes, the canvas group's ``canvas__look`` and the
 knowledge layer's ``view_knowledge_image``.
@@ -11,7 +11,7 @@ What ``look`` decides is WHICH file, and from which collection
 check, the per-turn budget, the vision gate and the restricted-folder report are
 the renderer's (``knowledge_layer.view_image.view_image``), unchanged. When the
 document is a workspace document, everyone who has it open sees the box glow
-while Piloti reads (``canvas/presence.show_reading``), whether the question came
+while the agent reads (``canvas/presence.show_reading``), whether the question came
 from the canvas or the chat; only a chat turn glows, because only its harness
 takes the glow down again.
 

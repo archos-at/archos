@@ -36,11 +36,11 @@ describe('proposal decisions', () => {
     for (const name of DECISIONS) expect(findOperation(name), `${name} left the catalog`).toBeDefined()
   })
 
-  it.each(DECISIONS)('%s is absent from Piloti’s catalog and offered to an external agent', (name) => {
-    const piloti: AgentPrincipal = { actor: 'piloti', session: SESSION, clientId: null, scopes: [] }
+  it.each(DECISIONS)('%s is absent from the agent’s catalog and offered to an external agent', (name) => {
+    const officeAgent: AgentPrincipal = { actor: 'piloti', session: SESSION, clientId: null, scopes: [] }
     const agent: AgentPrincipal = { actor: 'external_agent', session: SESSION, clientId: 'claude', scopes: [] }
-    expect(visibleOperations(piloti).map((op) => op.name)).not.toContain(name)
-    expect(findVisibleOperation(piloti, name)).toBeUndefined()
+    expect(visibleOperations(officeAgent).map((op) => op.name)).not.toContain(name)
+    expect(findVisibleOperation(officeAgent, name)).toBeUndefined()
     expect(findVisibleOperation(agent, name)?.name).toBe(name)
   })
 
@@ -69,16 +69,16 @@ describe('an operation off the office door (ADR-0122, amendment of 2026-10-21)',
   )
 })
 
-describe('an operation Piloti does with a native tool (exposure.config.ts, `native:<tool>`)', () => {
+describe('an operation the agent does with a native tool (exposure.config.ts, `native:<tool>`)', () => {
   const memory: OperationPayload = {
     operation: 'project-memory-create',
     input: { params: { id: '6f1c2b8e-3d4a-4b6c-8d7e-9f0a1b2c3d4e' }, body: { kind: 'decision', content: 'Die Bauherrin will alle Pläne als PDF.' } },
     summary: 'Keep a note',
   }
 
-  it('is hidden from Piloti and still applies when the person accepts an old card', async () => {
-    const piloti: AgentPrincipal = { actor: 'piloti', session: SESSION, clientId: null, scopes: [] }
-    expect(findVisibleOperation(piloti, memory.operation)).toBeUndefined()
+  it('is hidden from the agent and still applies when the person accepts an old card', async () => {
+    const officeAgent: AgentPrincipal = { actor: 'piloti', session: SESSION, clientId: null, scopes: [] }
+    expect(findVisibleOperation(officeAgent, memory.operation)).toBeUndefined()
     expect(() => requireProposableOperation(memory)).not.toThrow()
     vi.mocked(callOperation).mockResolvedValue({ status: 201, ok: true, body: { id: 'note_1' } })
     const results = await applyOperation(memory, { session: SESSION })

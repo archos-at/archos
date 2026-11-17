@@ -51,11 +51,13 @@ export function resolveSlashInvocation(
   const afterSlash = text.slice(start + 1)
   const boundary = afterSlash.search(/\s/)
   const token = boundary === -1 ? afterSlash : afterSlash.slice(0, boundary)
-  const skillName = canonicalSkillName(token)
-  if (!token || !(knownNames.includes(token) || knownNames.includes(skillName))) return null
+  const skillName =
+    knownNames.find((known) => known === token) ??
+    knownNames.find((known) => canonicalSkillName(known) === canonicalSkillName(token))
+  if (!token || skillName === undefined) return null
 
   return {
-    skillName: knownNames.includes(token) ? token : skillName,
+    skillName,
     token,
     argument: boundary === -1 ? '' : afterSlash.slice(boundary).trim(),
   }

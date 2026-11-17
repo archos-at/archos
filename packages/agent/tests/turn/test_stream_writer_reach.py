@@ -5,7 +5,7 @@ queue with ``get_stream_writer()``: the conversation graph runs under
 ``astream(stream_mode=["custom", ...], subgraphs=True)`` and every producer
 writes a wire body. That holds only if the writer reaches every place a
 producer sits: a node of a graph that another node ``ainvoke``s through an
-ordinary async function (Piloti's inner graph behind its agent-runtime function), an LLM
+ordinary async function (the agent's inner graph behind its agent-runtime function), an LLM
 token callback, a tool inside ``ToolNode``, a child task, and an
 ``asyncio.to_thread`` worker (the settle). It must also be a no-op under
 ``ainvoke`` (a deep-research job worker) and raise outside any graph (the setup
@@ -78,11 +78,11 @@ _INNER = _graph(_inner_node)
 
 
 class _OwnCallbacks(AsyncCallbackHandler):
-    """Piloti's inner graph passes callbacks of its own (``agent._graph_config``)."""
+    """The agent's inner graph passes callbacks of its own (``agent._graph_config``)."""
 
 
 async def _through_a_function_boundary(state: _State) -> _State:
-    """What the agent runtime's ``Function.ainvoke`` does between the conversation graph and Piloti's.
+    """What the agent runtime's ``Function.ainvoke`` does between the conversation graph and the agent's inner graph.
 
     It pushes the active function on the agent runtime's context and awaits the function in
     the same task (``nat/builder/function.py``), and the inner graph is invoked

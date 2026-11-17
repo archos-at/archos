@@ -519,7 +519,7 @@ export function FileBrowserPane({
           count={paging?.hasMore ? undefined : t('browser.searchCount', { count: filteredFiles.length })}
         />
       )}
-      {/* What Piloti knows about the level's whole subtree. Hidden while a
+      {/* What the agent knows about the level's whole subtree. Hidden while a
           query runs for the same reason the breadcrumb is: the query is the
           context then, and its results span the corpus. */}
       {/* The folder's description, where it has one, as the first line under the tabs; „Beschreiben …“ is in the
@@ -537,7 +537,7 @@ export function FileBrowserPane({
       {brief && !semantic.active && !searching && (
         <div className={cn(CONTENT_MAX, 'px-4 phone:pt-2', rootRowGone && !currentFolder?.description ? 'pt-2' /* its line 24px under the header's rule */ : 'pt-4')}>{brief}</div>
       )}
-      {/* Piloti's filing suggestions for the documents of this level, one line
+      {/* The agent's filing suggestions for the documents of this level, one line
           per target folder, when one folder would collect two or more: the
           decision that moves several files, made where they are all in view. */}
       {!semantic.active && !searching && !slice && (

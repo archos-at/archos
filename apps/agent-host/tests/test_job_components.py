@@ -416,7 +416,7 @@ class TestRunAgentStateFields:
     @pytest.mark.asyncio
     async def test_run_agent_skips_unsupported_state_fields(self):
         """Fields absent from a state model are not passed (no validation errors)."""
-        from agent.agents.piloti.models import ResearchAgentState
+        from agent.core.models import ResearchAgentState
         from agent_host.jobs.runner import _run_agent
 
         captured: dict = {}
@@ -426,7 +426,7 @@ class TestRunAgentStateFields:
                 captured["state"] = state
                 return state
 
-        FakeChatAgent.__module__ = "agent.agents.piloti.agent"
+        FakeChatAgent.__module__ = "agent.core.agent"
         FakeChatAgent.__name__ = "ChatAgent"
         FakeChatAgent.state_model = ResearchAgentState
 
@@ -2268,7 +2268,7 @@ class TestVerifiedCitedSourceStream:
         assert cited_urls == ["https://example.com/a"]
 
     def test_the_runners_second_emit_does_not_duplicate_citations(self):
-        """The runner re-emits the same report with Grid cards attached."""
+        """The runner re-emits the same report with response cards attached."""
         callback = DeepResearchEventCallback(source_registry=_kb_registry())
         emitted, patcher = _capture_artifacts(callback)
         with patcher:

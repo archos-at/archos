@@ -1,4 +1,4 @@
-# Rate limiting & load protection — state of the art, and what Piloti should build
+# Rate limiting & load protection — state of the art, and what the agent should build
 
 > Research note and the design it produced. Commissioned as "a sophisticated
 > rate limiter that plays nicely with Kubernetes and doesn't need requirements
@@ -482,7 +482,7 @@ because `server.js` has no unit seam.
 
 ### L3 — interactive-turn admission (`packages/agent/src/agent/common/turn_admission.py`)
 
-A lease-based semaphore around `agent.run(...)` in `piloti/conversation_register.py`:
+A lease-based semaphore around `agent.run(...)` in `core/conversation_register.py`:
 slots held for the duration of a turn, per organization and globally, refused
 turns answered with a friendly message the way a budget refusal already is.
 

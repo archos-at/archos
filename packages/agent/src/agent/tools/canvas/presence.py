@@ -5,7 +5,7 @@ everyone who has the document open. Both are ephemeral, and both must go when
 the turn that made them is over, however it ends: a cursor left behind says
 Piloti is still looking. So the tools note each document they appeared on
 here, and the turn harness sends ONE ``leave`` per document once the answer is
-out (``agents/piloti/conversation_register.py``). That call is presence, not
+out (``core/conversation_register.py``). That call is presence, not
 content: it writes nothing a person reads, which is why the harness may make it
 on the model's behalf.
 

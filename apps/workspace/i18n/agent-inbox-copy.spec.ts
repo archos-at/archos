@@ -30,7 +30,7 @@ const LOCALES = [
   ['en', en],
 ] as const
 
-describe('Piloti’s inbox notices', () => {
+describe('inbox notices from the agent', () => {
   for (const [locale, dictionary] of LOCALES) {
     it(`${locale}: every failure class says why, in words of its own`, () => {
       const missing = WAKE_END_REASON_KINDS.filter(

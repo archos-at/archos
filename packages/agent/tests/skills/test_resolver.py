@@ -347,3 +347,28 @@ def test_served_skills_never_raise_without_a_token(monkeypatch: pytest.MonkeyPat
 def test_served_skills_swallow_a_hard_resolution_failure() -> None:
     with mock.patch.object(SkillResolver, "resolve", side_effect=RuntimeError("boom")):
         assert resolve_served_skills("deep_researcher", "org-1") == ()
+
+
+def test_a_skill_with_only_the_new_keys_is_gated_and_curated_like_one_with_the_old() -> None:
+    from agent.skills.legacy_names import LEGACY_METADATA_KEYS
+    from agent.skills.resolver import _agent_allows
+    from agent.skills.resolver import _is_curated
+
+    new = Skill(
+        name="n",
+        description="d.",
+        body="b",
+        origin="platform",
+        metadata={"agents": "deep_researcher", "catalog": "curated"},
+    )
+    old = Skill(
+        name="o",
+        description="d.",
+        body="b",
+        origin="platform",
+        metadata={LEGACY_METADATA_KEYS[key]: value for key, value in new.metadata.items()},
+    )
+    for skill in (new, old):
+        assert _agent_allows(skill, "deep_researcher") is True
+        assert _agent_allows(skill, "researcher") is False
+        assert _is_curated(skill) is True

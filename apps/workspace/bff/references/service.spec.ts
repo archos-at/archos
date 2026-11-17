@@ -279,7 +279,7 @@ describe('getSimilarProjects: what each project shares and records', () => {
     expect(near.decisions.every((entry) => entry.kind === 'decision' || entry.kind === 'constraint')).toBe(true)
   })
 
-  it('gives each decision its origin: a person, the documents, or Piloti’s own note', async () => {
+  it('gives each decision its origin: a person, the documents, or the agent’s own note', async () => {
     state.memory.set('closed-near', [
       decision('person', { provenanceType: 'user', verification: 'user_confirmed' }),
       decision('documents', {

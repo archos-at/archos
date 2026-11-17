@@ -168,7 +168,7 @@ export const ProfileControls: FC<ProfileControlsProps> = ({
         </div>
       )}
 
-      {/* Whether Piloti opens the places it cites beside the chat (ADR-0144): per browser, like the row's switch */}
+      {/* Whether the agent opens the places it cites beside the chat (ADR-0144): per browser, like the row's switch */}
       <ViewerActionsSettings />
 
       {/* Usage analytics: a per-browser opt-out of the PostHog storage and traffic */}

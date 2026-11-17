@@ -103,8 +103,8 @@ def test_discovery_missing_dir() -> None:
 
 
 def test_a_renamed_builtin_still_answers_to_the_name_it_had():
-    from agent.skills.builtin import LEGACY_SKILL_NAMES
-    from agent.skills.builtin import canonical_skill_name
+    from agent.skills.legacy_names import LEGACY_SKILL_NAMES
+    from agent.skills.legacy_names import canonical_skill_name
 
     shipped = {skill.name for skill in discover_builtin_skills()}
     for legacy, current in LEGACY_SKILL_NAMES.items():
@@ -113,3 +113,14 @@ def test_a_renamed_builtin_still_answers_to_the_name_it_had():
         assert canonical_skill_name(legacy) == current
     assert canonical_skill_name("hygiene") == "hygiene"
     assert canonical_skill_name("an-org-skill") == "an-org-skill"
+
+
+def test_a_stored_house_skill_is_found_under_either_name():
+    from agent.skills.legacy_names import LEGACY_PLATFORM_SKILL_NAMES
+    from agent.skills.legacy_names import find_skill
+
+    for legacy, current in LEGACY_PLATFORM_SKILL_NAMES.items():
+        assert find_skill({legacy: "row"}, current) == "row"
+        assert find_skill({legacy: "row"}, legacy) == "row"
+        assert find_skill({current: "row"}, legacy) == "row"
+    assert find_skill({"answer-cards": "row"}, "hygiene") is None

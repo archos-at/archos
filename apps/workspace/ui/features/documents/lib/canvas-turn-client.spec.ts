@@ -232,7 +232,7 @@ beforeEach(() => {
   vi.restoreAllMocks()
 })
 
-describe('a note for the turn Piloti is working on', () => {
+describe('a note for the turn the agent is working on', () => {
   const started = () => ({ type: 'RUN_STARTED', message_id: 'answer-1' })
   const finishedBody = { type: 'RUN_FINISHED', outcome: 'answered', result: { message_id: 'answer-1', text: 'Die Treppe.' } }
 

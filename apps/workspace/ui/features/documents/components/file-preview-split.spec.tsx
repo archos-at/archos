@@ -123,7 +123,7 @@ describe('FilePreviewSplit — the file panel actually opens', () => {
   beforeEach(reset)
   afterEach(reset)
 
-  it('EXPANDS the panel, not just resizes it, when Ask Piloti lands on chat', () => {
+  it('EXPANDS the panel, not just resizes it, when Ask the agent lands on chat', () => {
     useFilePreviewStore.getState().open(FILE, 'peek', { projectId: 'p1' })
     const { rerender } = render(
       <FilePreviewBridge>

@@ -714,7 +714,7 @@ describe('the brief and the tiles from the shelf summary', () => {
     }
   })
 
-  it('says it is partial, and claims nothing about what Piloti put on the documents', () => {
+  it('says it is partial, and claims nothing about what the agent put on the documents', () => {
     const brief = buildFolderBriefFromSummary(summary, S_TREE, null)
     expect(brief.partial).toBe(true)
     expect(brief.files).toEqual([])

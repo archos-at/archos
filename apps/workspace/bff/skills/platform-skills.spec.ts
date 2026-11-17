@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { listPlatformSkills } from './platform-skills'
+import { readMetadata } from './legacy-names'
 import { KNOWN_SKILL_AGENTS, METADATA_AGENTS } from './types'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -60,7 +61,7 @@ describe('every builtin scopes itself to the agent that can run it', () => {
   it.each(listPlatformSkills().map((skill) => [skill.name, skill] as const))(
     '%s declares grid-agents',
     (_name, skill) => {
-      const raw = skill.metadata[METADATA_AGENTS] ?? ''
+      const raw = readMetadata(skill.metadata, METADATA_AGENTS) ?? ''
       const listed = raw
         .split(',')
         .map((part) => part.trim())

@@ -56,7 +56,7 @@ describe('recordAuditEvent (WorkOS-native audit trail)', () => {
   })
 
   it('emits an org-scoped WorkOS audit event with actor, target and context', async () => {
-    const request = new Request('https://grid.example/api/organization/budgets', {
+    const request = new Request('https://app.example.test/api/organization/budgets', {
       headers: { 'x-forwarded-for': '203.0.113.7, 10.0.0.1', 'user-agent': 'vitest' },
     })
     await recordAuditEvent({
@@ -494,19 +494,19 @@ describe('trustedAppOrigin', () => {
   it('falls back to the request origin when unconfigured', () => {
     delete process.env.WORKOS_REDIRECT_URI
     delete process.env.NEXT_PUBLIC_WORKOS_REDIRECT_URI
-    expect(trustedAppOrigin(new Request('https://grid.example/api/x'))).toBe('https://grid.example')
+    expect(trustedAppOrigin(new Request('https://app.example.test/api/x'))).toBe('https://app.example.test')
   })
 })
 
 describe('generateAuditPortalLink', () => {
   it('requests a native Admin Portal audit-logs link for the org', async () => {
     generateLink.mockResolvedValue({ link: 'https://portal.workos.com/x' })
-    const link = await generateAuditPortalLink('org_1', 'https://grid.example/app/organization')
+    const link = await generateAuditPortalLink('org_1', 'https://app.example.test/app/organization')
     expect(link).toBe('https://portal.workos.com/x')
     expect(generateLink).toHaveBeenCalledWith({
       intent: 'audit_logs',
       organization: 'org_1',
-      returnUrl: 'https://grid.example/app/organization',
+      returnUrl: 'https://app.example.test/app/organization',
     })
   })
 })

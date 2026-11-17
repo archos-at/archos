@@ -5,7 +5,7 @@ something changed: a new guideline in the knowledge base, a different default
 model, a planned maintenance window. It is a PostHog **product tour** of the
 *announcement* (a window in the middle of the screen) or *banner* (a strip at the
 top) type. PostHog shows it, remembers per browser who has seen or closed it, and
-counts reach. Nothing in Piloti has to be deployed for a new one.
+counts reach. Nothing in the app has to be deployed for a new one.
 
 What it is not: an email (PostHog has no address of anyone, see the privacy
 posture in `apps/workspace/bff/analytics/posthog.ts`), and not a record a
@@ -40,7 +40,7 @@ their profile does not see announcements either.
    | `locale` | `de`, `en` | One language |
 
    A person gets these on their next page load after sign-in; anyone who has
-   not opened Piloti since 2026-10-27 has none yet, so a filter on them misses
+   not opened the app since 2026-10-27 has none yet, so a filter on them misses
    them.
 
    **Always add a URL condition**: staging and production share project 269895,

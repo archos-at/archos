@@ -437,7 +437,7 @@ describe('optional fields, by what the hello accepts', () => {
       type: 'user_message',
       conversation_id: 'conv_1',
       message_id: 'w1',
-      text: '@Piloti?',
+      text: '@Agent?',
       trigger: { kind: 'thread_mention', event_id: 'r-1', annotation_id: 'a-1' },
       if_idle: true,
     } as const

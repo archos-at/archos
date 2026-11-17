@@ -10,11 +10,11 @@ events by [chat wire v2](chat-wire-v2.md) (ADR-0068): the sections
 describe that wire. The settle and verify rules, the paced reveal and the
 storage rules are unchanged by it. Streaming is the default delivery; there is
 no runtime flag beyond the platform switch below.
-**Related:** the per-turn chat path (`agents/piloti/conversation_register.py`,
+**Related:** the per-turn chat path (`core/conversation_register.py`,
 `note_settled_replaced`), the chat socket (`apps/agent-host/src/agent_host/chat_socket.py`),
 the turn fold (`apps/workspace/bff/turns/turn-fold.ts`) and the chat
 store. Live prose: `common/answer_prose_stream.py` and
-`agents/piloti/answer_pipeline.py` (`LiveAnswer`, `settle_streamed_citations`).
+`core/answer_pipeline.py` (`LiveAnswer`, `settle_streamed_citations`).
 The events themselves: [`websocket-protocol.md`](../api/websocket-protocol.md).
 What the reader sees at every phase and edge of a turn, with the fixture and
 check for each: [`lifecycles/chat-turn.md`](lifecycles/chat-turn.md).
@@ -130,7 +130,7 @@ call that put nothing on the wire is not retracted.
 
 The settle runs the terminal's shape pass as well. A mindmap whose words are
 at least 70% a table's in the same answer (`drop_restated_mindmaps`,
-`agents/piloti/answer_shape.py`, `MINDMAP_TABLE_COVERAGE`) goes when the prose
+`core/answer_shape.py`, `MINDMAP_TABLE_COVERAGE`) goes when the prose
 settles rather than at the terminal; the reader may still see it while the
 prose streams.
 
@@ -421,7 +421,7 @@ delivered. A watchdog, hello or acknowledgement deadline that fired late,
 having slept through a freeze, counts nothing against the turn or the server.
 A socket that gives up on the network (`failed`, explained as
 `connection.failed`) ends no turn either: the turn keeps its words and its
-cursor, the status dock says „Verbindung unterbrochen · Piloti macht weiter,
+cursor, the status dock says „Verbindung unterbrochen · Der Agent macht weiter,
 sobald sie wieder steht", and the socket that reopens attaches it. Only a
 give-up waiting cannot cure (a budget, an expired session, another wire) ends
 the turns, by asking the server for each answer. The tab's realtime stream
@@ -932,7 +932,7 @@ every flush: 25 programmatic scrolls in one switch and back (motion audit,
 ### The status dock and the composer
 
 **The status dock** is one quiet line just above the composer, positioned out
-of the thread's flow: a dropped connection („Verbindung unterbrochen · Piloti
+of the thread's flow: a dropped connection („Verbindung unterbrochen · Der Agent
 verbindet sich neu …", then „Wieder verbunden" for 2.4 s), or in a shared thread a colleague typing. Both used to
 live in the thread: the connection error as a card that collapsed out on
 reconnect, the typing line at the list's end, which bobbed the thread every

@@ -596,7 +596,7 @@ describe('DocumentDraftCard — already with a reviewer', () => {
     expect(screen.queryByRole('button', { name: 'Submit for approval' })).not.toBeInTheDocument()
   })
 
-  it('never says a Piloti draft is approved just because a version state is', () => {
+  it('never says an agent draft is approved just because a version state is', () => {
     render(<DocumentDraftCard {...FILED} versionState="approved" />)
     expect(screen.getByTestId('document-draft-state')).toHaveTextContent('Approved')
     expect(screen.queryByRole('button', { name: 'Submit for approval' })).not.toBeInTheDocument()

@@ -22,6 +22,8 @@ from fastapi import APIRouter
 from fastapi import HTTPException
 from fastapi import Request
 
+from agent_host.routes.internal_auth import _TOKEN_HEADERS
+
 logger = logging.getLogger(__name__)
 
 
@@ -29,8 +31,8 @@ def _token_ok(request: Request) -> bool:
     expected = os.environ.get("INTERNAL_API_TOKEN")
     if not expected:
         return True
-    provided = request.headers.get("x-grid-internal-token") or ""
-    return hmac.compare_digest(provided, expected)
+    matched = [hmac.compare_digest(request.headers.get(name) or "", expected) for name in _TOKEN_HEADERS]
+    return any(matched)
 
 
 def add_config_info_routes(router: APIRouter, llm_configs: Mapping[str, Any]) -> None:

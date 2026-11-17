@@ -1,4 +1,4 @@
-"""FastAPI routes for unified AI-Q API."""
+"""FastAPI routes for the unified API."""
 
 from .cleanup_proposal import add_cleanup_proposal_routes
 from .collections import add_collection_routes

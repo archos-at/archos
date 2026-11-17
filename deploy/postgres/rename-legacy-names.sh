@@ -1,6 +1,6 @@
 #!/bin/sh
 # Rename the databases and the application role the platform inherited from the
-# AI-Q blueprint to names without a brand (ADR-0145 row 10d):
+# upstream blueprint to names without a brand (ADR-0145 row 10d):
 #
 #   aiq_jobs        -> jobs
 #   aiq_checkpoints -> checkpoints

@@ -52,11 +52,11 @@ function germanIn(found: readonly Found[]): string[] {
 const principal: AgentPrincipal = {
   actor: 'external_agent',
   clientId: 'c',
-  scopes: ['piloti:sensitive'],
+  scopes: ['documents:sensitive'],
   sensitiveOptIns: ['access', 'secret'],
   session: {
     userId: 'user_1',
-    email: 'a@piloti.test',
+    email: 'a@example.test',
     name: null,
     accessToken: '',
     organizationId: 'org_1',
@@ -148,7 +148,7 @@ describe('everything an agent reads is English', () => {
   })
 
   it('in the OpenAPI document', () => {
-    const document = buildOpenApiDocument(AGENT_OPERATIONS, { serverUrl: 'https://piloti.example' })
+    const document = buildOpenApiDocument(AGENT_OPERATIONS, { serverUrl: 'https://app.example.test' })
     expect(germanIn(strings(document, 'openapi', []))).toEqual([])
   })
 

@@ -194,7 +194,7 @@ describe('openRealtimeStream', () => {
     expect(hubStats()).toEqual({ topics: 0, listeners: 0 })
   })
 
-  it('carries what Piloti is reading, as a Piloti peer acting for its person', async () => {
+  it('carries what the agent is reading, as the agent\'s peer acting for its person', async () => {
     const read = reader(await openRealtimeStream(SESSION, ['doc:doc_1'], request('')))
     await settle()
 

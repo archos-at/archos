@@ -1,6 +1,6 @@
 # Kubernetes deployment (Pulumi)
 
-This is the operator guide for running the full Piloti stack on a Kubernetes
+This is the operator guide for running the full stack on a Kubernetes
 cluster. The infrastructure is defined as code in
 [`deploy/pulumi`](../../deploy/pulumi) (Pulumi / TypeScript); this document
 explains the architecture, the storage/SeaweedFS decisions, how to deploy, and
@@ -2655,7 +2655,7 @@ filter:
 
 | Pipeline | Exporter | Filter | Switch |
 |---|---|---|---|
-| `logs/posthog` | `otlp_http/posthog` | below WARN dropped (`severity_number < 13`, records without a severity too); then `transform/posthog_redact` withholds the text: the body keeps only a leading `[area]` tag, attributes only code location, exception and error type and HTTP status (`POSTHOG_LOG_ATTRIBUTES`; positive control `posthog-log-redaction.spec.ts`) | `posthogLogsEnabled` (default `true`) plus `posthogHost` and `posthogProjectToken` (both default to Piloti's project; an empty `posthogHost` opts the stack out) |
+| `logs/posthog` | `otlp_http/posthog` | below WARN dropped (`severity_number < 13`, records without a severity too); then `transform/posthog_redact` withholds the text: the body keeps only a leading `[area]` tag, attributes only code location, exception and error type and HTTP status (`POSTHOG_LOG_ATTRIBUTES`; positive control `posthog-log-redaction.spec.ts`) | `posthogLogsEnabled` (default `true`) plus `posthogHost` and `posthogProjectToken` (both default to the platform's project; an empty `posthogHost` opts the stack out) |
 
 PostHog Logs takes `{posthogHost}/i/v1/logs` with `Authorization: Bearer
 <project token>`. The token is PostHog's public `phc_` key, the same one the
@@ -2942,7 +2942,7 @@ next token, within the five-minute access-token lifetime. The Langfuse account
 stays behind, unreachable; remove it in Langfuse to keep the member list honest.
 
 Analysts in the platform org also pass the app's platform-staff check
-(`isPlatformStaff`), so Piloti shows them the platform area and its nav. Every
+(`isPlatformStaff`), so the app shows them the platform area and its nav. Every
 section's data route requires its own permission and answers them 403; hiding
 the area from observability-only staff is an open UI follow-up.
 

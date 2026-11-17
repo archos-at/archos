@@ -95,7 +95,7 @@ const NOT_AN_AGENT_CAPABILITY: Record<string, Exemption> = {
   },
   '* /api/a2a': {
     category: 'other',
-    reason: 'the A2A endpoint (ADR-0124): another protocol onto the piloti-ask operations, which an MCP client calls directly',
+    reason: 'the A2A endpoint (ADR-0124): another protocol onto the ask operations, which an MCP client calls directly',
   },
   '* /api/v1/[...path]': {
     category: 'other',

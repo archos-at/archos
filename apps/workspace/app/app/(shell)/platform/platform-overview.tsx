@@ -207,7 +207,7 @@ export const PlatformOverview: FC = () => {
             from the next request on, so the overview reloads them, in place. */}
         <PlatformPricingCard onSaved={retry} />
 
-        {/* Platform team — WorkOS widget scoped to the GRID Platform org */}
+        {/* Platform team — WorkOS widget scoped to the platform org */}
         <SectionCard
           title={t('team.title')}
           description={t('team.description')}

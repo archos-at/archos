@@ -1,6 +1,6 @@
 # Platform agent door runbook
 
-For GRID platform operators who want their own agent (Claude, Cursor) to work
+For platform operators who want their own agent (Claude, Cursor) to work
 the operator console. The decision is ADR-0126; the mechanics are in
 [`../architecture/agent-surface.md`](../architecture/agent-surface.md#the-platform-door-a-second-server).
 
@@ -25,7 +25,7 @@ in, pick the **GRID Platform** organization; a token issued in an office is
 refused with 403.
 
 ```bash
-claude mcp add --transport http piloti-platform https://<app-host>/api/platform/mcp
+claude mcp add --transport http workspace-platform https://<app-host>/api/platform/mcp
 ```
 
 Cursor and Claude Desktop take the same URL as the office door does

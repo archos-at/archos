@@ -77,7 +77,7 @@ const CONTRACTS = 'aaaaaaaa-0000-4000-8000-000000000001'
 
 const SESSION: AuthorizedSession = {
   userId: 'user_1',
-  email: 'someone@grid.com',
+  email: 'someone@example.test',
   name: 'Someone',
   accessToken: 'token',
   organizationId: 'org_1',

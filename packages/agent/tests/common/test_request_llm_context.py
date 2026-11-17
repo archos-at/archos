@@ -85,14 +85,14 @@ class TestTheReader:
 
 class TestTheAgentsReadThroughIt:
     async def test_the_clarifier_reads_the_dials_off_the_loop(self, threads):
-        from agent.agents.piloti.clarify import Clarifier
-        from agent.agents.piloti.clarify import ClarifierSettings
-        from agent.agents.piloti.models.clarify import ClarifyRequest
+        from agent.core.clarify import Clarifier
+        from agent.core.clarify import ClarifierSettings
+        from agent.core.models.clarify import ClarifyRequest
 
         clarifier = Clarifier.build(_identity_provider(), [], None, ClarifierSettings(llm="l"), AsyncMock())
         request = ClarifyRequest(messages=[HumanMessage(content="q")])
 
-        with patch("agent.agents.piloti.clarify.clarify", new=AsyncMock(return_value="done")) as run:
+        with patch("agent.core.clarify.clarify", new=AsyncMock(return_value="done")) as run:
             assert await clarifier(request) == "done"
 
         _assert_off_the_loop(threads)

@@ -66,7 +66,7 @@ Two failure modes make the naive fix worse than the gap:
    this is the change that makes it load-bearing rather than tidy.
 
 3. **`Unvergeben` is the promotion primitive.** A generated report lands with
-   **zero assignees**. The human act that turns Piloti's draft into somebody's
+   **zero assignees**. The human act that turns the agent's draft into somebody's
    work product is `Zuweisen`, the gesture that already exists, already renders
    as a word rather than an empty avatar, and already has a project-health
    ritual around it (F9, *"the lead clears Unvergeben before the
@@ -96,7 +96,7 @@ Two failure modes make the naive fix worse than the gap:
    error` has no state for "the bytes are here and indexing was deliberately
    skipped", and leaving such a row at `pending` renders a spinner that never
    resolves. `stored` is terminal, and its designed state is the honest one:
-   no `Piloti dazu fragen`, hint *"Von Piloti erstellt — nicht in der
+   no `{productName} dazu fragen`, hint *"Von {productName} erstellt — nicht in der
    Wissensbasis"*.
 
 7. **Provenance survives the export.** The `.docx` carries a first-page
@@ -124,18 +124,18 @@ Two failure modes make the naive fix worse than the gap:
 9. **The folder is a convenience; `authored_by` is the index.** How a report is
    *filed* and how it is *found* are different questions, and tying the second
    to the first is what makes a folder convention load-bearing. Every "show me
-   what Piloti wrote" surface queries the column:
+   what the agent wrote" surface queries the column:
 
    - a partial index `documents_agent_authored_idx ON documents (project_id,
      created_at DESC) WHERE authored_by = 'agent'` — partial for the same
      reason `documents_conversation_idx` is, since agent rows are the small
      minority;
-   - a `Von Piloti` filter chip beside the existing `Alle · Meine ·
+   - a `Von {productName}` filter chip beside the existing `Alle · Meine ·
      Unvergeben` strip, ANDed with folder and search like the others;
    - `authoredBy` as a listing filter on the documents API.
 
    So moving, renaming or abandoning `Berichte` later costs nothing, and a
-   future "everything Piloti has written for this project" view is a query
+   future "everything the agent has written for this project" view is a query
    that already works rather than a migration. Cross-**project** aggregation is
    deliberately out of v1 — there is no cross-project document surface today
    (`cross-project-rag-vision.md` is a vision doc, not a feature) — but the
@@ -184,7 +184,7 @@ ALTER TABLE documents
 
 Plus the partial index from decision 9 — `WHERE authored_by = 'agent'` — which
 carries no entry for the overwhelming majority of rows and is what makes "show
-me everything Piloti wrote" a point query rather than a scan. And the folder
+me everything the agent wrote" a point query rather than a scan. And the folder
 uniqueness the fixed destination needs:
 
 ```sql
@@ -205,7 +205,7 @@ they must not collapse.
   *"Bericht abgelegt · Zuweisen · Öffnen"* — the existing ingest-toast pattern
   with its two actions.
 - **G2 — Find it.** It appears in Files with `Unvergeben` in the footer and a
-  quiet `Von Piloti erstellt` line. The `Unvergeben` filter chip finds it, which
+  quiet `Von {productName} erstellt` line. The `Unvergeben` filter chip finds it, which
   is the same chip the lead already uses before an Einreichung.
 - **G3 — Take responsibility.** `Zuweisen` → `Mir zuweisen`. One
   `resource_assignments` row, one audit event. Nothing about the document
@@ -482,7 +482,7 @@ deployment, which is why they are recorded rather than folded into a fix:
 - **The compensation's two steps were coupled.** Sharing one `try` made the
   object delete conditional on the row delete succeeding, so the single failure
   the ordering was chosen to survive skipped the object and left a filed,
-  quota-charged, visible „Von Piloti erstellt" row with no audit record. The
+  quota-charged, visible „Von {productName} erstellt" row with no audit record. The
   ordering was always right; the coupling never was.
 
 ### 3. Documentation this change owed, and where it landed
@@ -518,7 +518,7 @@ Decision 4 gated the filing on `project:documents:write` and called that "a
 capability an organization can withhold, which is what ADR-0038 §3 created
 `project:documents:write` for". The second half was false. That permission also
 authorizes an ordinary **human upload**, a delete and a whole-project re-index
-(`lib/documents/document-dispatch.ts`, `document-edits.ts`, `reindex.ts`), so an organization that wanted Piloti to answer
+(`lib/documents/document-dispatch.ts`, `document-edits.ts`, `reindex.ts`), so an organization that wanted the agent to answer
 without writing into its file system had exactly one lever, and pulling it
 stopped its own architects uploading plans.
 
@@ -640,7 +640,7 @@ default**, and a default leaves no diff to review.
    is triggered by a GET of the report, so once the row is gone the idempotency
    probe finds nothing and the next open of that run re-renders the report,
    files it under a new id, charges the quota again and emits a second
-   `document.generated`. An architect who deletes Piloti's report gets it back.
+   `document.generated`. An architect who deletes the agent's report gets it back.
 
    For a document removed on legal instruction that is the wrong failure, and it
    is why ADR-0047's "an agent-authored document is erasable on day one" needs

@@ -1,14 +1,14 @@
-# Piloti UI
+# Workspace UI
 
-Piloti is the workspace for architects and planning offices. The UI is organized around projects: each project owns its files, folders, context, collaborators, and Piloti assistant conversations. Building law (OIB, RIS) is one of the things the assistant knows.
+The workspace is for architects and planning offices. The UI is organized around projects: each project owns its files, folders, context, collaborators, and agent conversations. Building law (OIB, RIS) is one of the things the agent knows.
 
-Chat is an important project feature, but it is not the product frame. The primary workspace is the project overview and file library, with the assistant available wherever project context and documents need to be interpreted.
+Chat is an important project feature, but it is not the product frame. The primary workspace is the project overview and file library, with the agent available wherever project context and documents need to be interpreted.
 
 Built with Next.js, React, TypeScript, TailwindCSS, and NVIDIA KUI Foundations.
 
 ## Overview
 
-The Piloti UI provides an accessible, feature-rich frontend for the agent backend. It features:
+The UI provides an accessible, feature-rich frontend for the agent backend. It features:
 
 - **Next.js** with App Router and Turbopack
 - **React** with TypeScript (strict mode)

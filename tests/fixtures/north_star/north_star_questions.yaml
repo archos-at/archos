@@ -228,7 +228,7 @@ questions:
   # door around it is held by apps/workspace/bff/agent-asks/service.spec.ts.
   - id: ns-chat-ask
     scene: [4]
-    capability: an outside agent consults Piloti
+    capability: an outside client consults the agent
     fixture: files
     question: Welche Geschäftszahl hat die Baubewilligung für die Hubergasse 14, und welche Fassung der Einreichpläne hat sie bewilligt?
     expect:

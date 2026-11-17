@@ -18,7 +18,7 @@ Two reads, two meanings. ``download_files`` is the middleware loading the
 catalog, and records nothing. ``read`` is the ``read_file`` tool handing a body
 to the model, and is the one place a skill becomes ACTIVATED (``on_read``): the
 "Skills used" disclosure reports what reached the model, not what was listed.
-The ``grid-cards`` preference rides only on that read, because a card shape is
+The ``cards`` preference rides only on that read, because a card shape is
 worth nothing until the skill is in play.
 
 Read-only by construction: every write verb refuses. There is nothing on disk
@@ -44,6 +44,7 @@ from deepagents.backends.protocol import WriteResult
 from deepagents.backends.utils import create_file_data
 from deepagents.backends.utils import slice_read_response
 
+from .legacy_names import skill_name_family
 from .models import Skill
 
 SKILLS_ROOT = "/skills/"
@@ -98,6 +99,13 @@ class SkillsBackend(StateBackend):
     ) -> None:
         super().__init__()
         self._skills = {skill_path(source, s.name): s for source, skills in sources.items() for s in skills}
+        aliases = {
+            skill_path(source, alias): skill_path(source, s.name)
+            for source, skills in sources.items()
+            for s in skills
+            for alias in skill_name_family(s.name)
+        }
+        self._aliases = {alias: path for alias, path in aliases.items() if alias not in self._skills}
         self._files = {path: create_file_data(skill_document(s)) for path, s in self._skills.items()}
         self._on_read = on_read
         self._read_suffix = read_suffix
@@ -136,6 +144,7 @@ class SkillsBackend(StateBackend):
         )
 
     def read(self, file_path: str, offset: int = 0, limit: int = 2000) -> ReadResult:
+        file_path = self._aliases.get(file_path, file_path)
         skill = self._skills.get(file_path)
         if skill is None:
             result = super().read(file_path, offset=offset, limit=limit)

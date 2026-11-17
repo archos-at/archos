@@ -827,7 +827,7 @@ def lane_for_hit(
 
     ``authored_by`` is the stated PROVENANCE of the document
     (``common/provenance.py``), and it outranks everything else here — the
-    doc_class included. A published Piloti document is filed on the project or
+    doc_class included. A published agent-authored document is filed on the project or
     the Archiv shelf like any other document, so every rule below would place
     it as Projektwissen or Büroablage and lose the one fact a reader must not
     miss; and a doc_class stamped on it by ingest would place it in the norm

@@ -15,7 +15,7 @@ const SESSION = vi.hoisted(() => ({
   role: 'member',
   permissions: [] as string[],
   accessToken: '',
-  featureFlags: ['piloti-ask'],
+  featureFlags: ['agent-requests'],
 }))
 
 vi.mock('@/lib/auth/require-auth', () => ({ requireAuthorizedSession: vi.fn(async () => SESSION) }))
@@ -54,7 +54,7 @@ const view = (over: Partial<AskView> = {}): AskView => ({
 })
 
 const post = (body: unknown) =>
-  new Request('http://piloti.test/api/agent-asks', {
+  new Request('http://example.test/api/agent-asks', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
@@ -67,7 +67,7 @@ beforeEach(() => {
 })
 
 describe('POST /api/agent-asks', () => {
-  it('answers 202 while Piloti works, so the agent polls', async () => {
+  it('answers 202 while the agent works, so the agent polls', async () => {
     vi.mocked(askAgent).mockResolvedValue(view())
     const response = await ask(post({ question: 'Welche Fluchtweglänge gilt?' }))
     expect(response.status).toBe(202)
@@ -109,13 +109,13 @@ describe('POST /api/agent-asks', () => {
 describe('GET /api/agent-asks/[id]', () => {
   it('reads the ask, waiting as long as asked', async () => {
     vi.mocked(getAsk).mockResolvedValue(view())
-    const response = await read(new Request(`http://piloti.test/api/agent-asks/${ID}?waitSeconds=25`), params(ID))
+    const response = await read(new Request(`http://example.test/api/agent-asks/${ID}?waitSeconds=25`), params(ID))
     expect(response.status).toBe(200)
     expect(getAsk).toHaveBeenCalledWith(SESSION, ID, 25)
   })
 
   it('refuses a wait past the bound with 400', async () => {
-    const response = await read(new Request(`http://piloti.test/api/agent-asks/${ID}?waitSeconds=41`), params(ID))
+    const response = await read(new Request(`http://example.test/api/agent-asks/${ID}?waitSeconds=41`), params(ID))
     expect(response.status).toBe(400)
     expect(getAsk).not.toHaveBeenCalled()
   })
@@ -124,7 +124,7 @@ describe('GET /api/agent-asks/[id]', () => {
 describe('POST /api/agent-asks/[id]/cancel', () => {
   it('stops the ask', async () => {
     vi.mocked(cancelAsk).mockResolvedValue(view({ state: 'canceled', pollAfterSeconds: null }))
-    const response = await cancel(new Request(`http://piloti.test/api/agent-asks/${ID}/cancel`, { method: 'POST' }), params(ID))
+    const response = await cancel(new Request(`http://example.test/api/agent-asks/${ID}/cancel`, { method: 'POST' }), params(ID))
     expect(response.status).toBe(200)
     expect(cancelAsk).toHaveBeenCalledWith(SESSION, ID)
   })

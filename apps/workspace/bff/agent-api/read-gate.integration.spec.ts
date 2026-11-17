@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  *
- * Piloti's workspace reads in a conversation, against a REAL Postgres through
+ * The in-product agent's workspace reads in a conversation, against a REAL Postgres through
  * the restricted runtime role (ADR-0093, ADR-0094, ADR-0122):
  *
  *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \
@@ -84,7 +84,7 @@ describe('the read-gate suite is not silently skipped in CI', () => {
   })
 })
 
-describe.skipIf(!url)('Piloti’s workspace reads against Postgres', () => {
+describe.skipIf(!url)('the in-product agent’s workspace reads against Postgres', () => {
   let db: ReturnType<typeof import('@/lib/db').getDb>
   let withTenant: typeof import('@/lib/db/tenant-context').withTenant
   let gate: typeof import('./read-gate')

@@ -1,6 +1,6 @@
 # Fassungen: how a document keeps its history
 
-A document in Piloti is one entry with every Fassung inside it. This page follows
+A document in the agent is one entry with every Fassung inside it. This page follows
 that from the upload to the answer, and says which module owns each step. What
 the word means: [`CONTEXT.md`](../../CONTEXT.md), „Fassung“. What a person sees
 and does: [`documents.md`](../user-guides/documents.md#fassungen-und-freigabe).
@@ -57,7 +57,7 @@ the listing is read.
   and download and compare behind its ⋯. An earlier upload under the same name
   offers none of the three to a reader who may not receive its bytes
   (`bytesReadable` on the version listing, see Privacy). The header speaks about the newest
-  Fassung and names the older one Piloti still answers from by number
+  Fassung and names the older one the agent still answers from by number
   (`features/documents/lib/revision-standing.ts`). Which one that is follows the
   reading status as well as the review state: a published upload that is still
   being read, or failed, is not current, and the upload it replaced is
@@ -67,7 +67,7 @@ the listing is read.
 
 ## Detection
 
-Piloti recognises a new Fassung in five places, cheapest first. Each one produces
+The agent recognises a new Fassung in five places, cheapest first. Each one produces
 a suggestion or a decision. None of them links two documents without a person.
 
 | Layer | Reads | Says | Model call | Code |
@@ -229,7 +229,7 @@ reversible purge, and the specs of each caller above pin which one it sends.
 `(collection, file name)` in `document_revision_retained`: the row's own
 `superseded_by`, its refusals (`dismissed_of`), and a change line whose
 `change_basis` is another file (one told against the document's own earlier
-upload describes bytes the re-read replaces, and an open suggestion is Piloti's,
+upload describes bytes the re-read replaces, and an open suggestion is the agent's,
 read again). The links other rows hold TO it are left alone. While it is gone they
 read as nothing, because `_attach_supersedes` and `get_superseded_files` count a
 link only while both rows exist: the older Fassung it replaced answers again. The
@@ -262,16 +262,16 @@ content of a version. It is not the link between two documents.
   a version. `ingestPublished` appears on the `approve` and `publish` rows of the
   transition table and nowhere else (`lib/documents/lifecycle-types.ts`).
 - **„Freigeben“ is one step** (ADR-0104 rule 5). Approving a version in review
-  publishes it: it becomes the one Piloti answers from, and the open review round
+  publishes it: it becomes the one the agent answers from, and the open review round
   is decided in the same transaction. `publish` remains only for a version
   approved before this.
 - **A person's upload is born published, and approved by nobody**
   (`origin = 'upload'`, migration 0137). Putting the file there is the assertion;
   no approver column carries the uploader's name. Approval matters for what
-  Piloti wrote and for revisions that need a second pair of eyes.
-- **Piloti answers from the published version** while a newer one is in review,
+  the agent wrote and for revisions that need a second pair of eyes.
+- **The agent answers from the published version** while a newer one is in review,
   and from the previous upload while a person's re-upload is still being read
-  or after its reading failed. The section says so („Piloti antwortet weiter aus
+  or after its reading failed. The section says so („{productName} antwortet weiter aus
   Fassung 1.“).
 - **Publishing purges first.** The previous version's chunks go before the new
   bytes are sent, so a failed dispatch stops the document answering instead of
@@ -279,7 +279,7 @@ content of a version. It is not the link between two documents.
   Fassung stays indexed, keyed by its id) is accepted and not built: until it
   is, search sees only the current Fassung of a name. Fassungen under
   different file names are both indexed.
-- **Actors.** Approve, request changes, reject and publish are a person's. Piloti
+- **Actors.** Approve, request changes, reject and publish are a person's. The agent
   may create, update and submit.
 
 The two notions meet in the timeline, and nowhere else: a Fassung under another
@@ -293,7 +293,7 @@ Four things, in rising cost.
 |---|---|---|---|
 | **Look** | Two Fassungen side by side, overlaid (older cyan, newer orange) or swiped, page by page, through the preview's pdf.js runtime | No | `features/documents/components/revision-compare/` |
 | **Pages and values** | For the agent: which pages changed, the values that moved in the printed text, the quantities and dimension strings that changed in the drawing reading, and the Plankopf. Read from the index, so nothing is read again | No | `packages/agent/src/agent/knowledge/revision_diff.py`, `list_files(compare_to=…)` |
-| **Marks** | On request, or unasked where the office switched it on (below, „Piloti notices a new Fassung“), Piloti boxes what changed on the newer page and says it in words | One vision call per page pair, cached | `lib/documents/revision-compare-service.ts`, `routes/revision_compare.py`, `packages/agent/src/agent/knowledge/revision_compare.py` |
+| **Marks** | On request, or unasked where the office switched it on (below, „Piloti notices a new Fassung“), the agent boxes what changed on the newer page and says it in words | One vision call per page pair, cached | `lib/documents/revision-compare-service.ts`, `routes/revision_compare.py`, `packages/agent/src/agent/knowledge/revision_compare.py` |
 | **Words** | The change summary: what differs between two descriptions | Summary model, at ingest or at confirmation | `document_revisions.py`, `summarize_change` |
 
 `POST /api/documents/[id]/revision-compare` takes `{ older, page }`.
@@ -401,7 +401,7 @@ name, each labelled as what it is.
   „Fassungen vergleichen“: `…?doc=<newer>&compare=<older>`
   (`features/documents/lib/revision-compare-link.ts`), which the files workspace
   reads (`hooks/use-compare-param.ts`) to open the preview with the visual
-  comparison on top. „Mit Piloti besprechen“ follows it.
+  comparison on top. „Mit {productName} besprechen“ follows it.
 - **Once.** Each Fassung is announced once: `notifyNewRevision` claims the newer
   document and the item's anchor (the new version, or the older document for a
   link) in `document_revision_announcements` (migration 0130) before it writes,
@@ -486,7 +486,7 @@ an earlier upload's bytes is kept on its version: `document_versions.screened_ha
   the item must have passed, and a version holding a person's upload
   (`published`, `superseded`) must hold bytes a passing verdict judged, its own
   (`screened_hash = content_hash`) or the item's. Workflow text follows the
-  item, Piloti's own documents are never held.
+  item, the agent's own documents are never held.
 - **So** a member opens, downloads and compares every screened earlier upload,
   and an upload replaced while it was still being read, after its reading
   failed or while quarantined stays closed to everyone but its uploader and the
@@ -522,7 +522,7 @@ sequenceDiagram
     participant IN as Ingest job
     participant KL as Knowledge layer<br/>document_metadata
     participant PV as Preview
-    participant AG as Piloti
+    participant AG as the agent
 
     P->>UI: drops EG_Grundriss_Index_C.pdf
     UI->>BFF: probe the names (revision-candidates)

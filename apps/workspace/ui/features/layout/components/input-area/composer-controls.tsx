@@ -52,7 +52,7 @@ export function ComposerControls({ controller }: { controller: InputAreaControll
         </AnimatePresence>
 
         <div className="contents">
-          {/* Datenbasis — the one control for WHERE Piloti may look.
+          {/* Datenbasis — the one control for WHERE the agent may look.
                   WITHHELD for now (product decision, 2026-08): the picker is
                   commented out rather than deleted so it can return. While it is
                   hidden, every turn goes out with the fetch default — every
@@ -120,7 +120,7 @@ export function ComposerControls({ controller }: { controller: InputAreaControll
               disabled={controller.cannotContribute}
             />
 
-            {/* How hard Piloti thinks, for this chat. A HITL response is
+            {/* How hard the agent thinks, for this chat. A HITL response is
                         not a question, so the dial has nothing to say there. It is
                         hidden rather than unmounted: it keeps its box, so the
                         buttons to its right do not shift when a prompt arrives. */}
@@ -234,7 +234,7 @@ export function ComposerControls({ controller }: { controller: InputAreaControll
 
         {/* Who this message goes to — ALWAYS, whenever collaboration exists at
                   all. The point of it being unconditional: if it only appeared in the
-                  unusual case, "Piloti is next" would remain something the user has to
+                  unusual case, "the agent is next" would remain something the user has to
                   infer from an absence. Borderless on purpose — it is a statement
                   standing among buttons, and must not read as one. */}
         {controller.canCollaborate && (

@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  *
- * The body of `POST /api/projects`: Piloti sets a project up unless the person
+ * The body of `POST /api/projects`: the agent sets a project up unless the person
  * says otherwise, and every new field has its bound.
  */
 import { describe, expect, it } from 'vitest'
@@ -21,7 +21,7 @@ const location: GeocodeResult = {
 }
 
 describe('createProjectSchema', () => {
-  it('defaults the setup to piloti', () => {
+  it('defaults the setup to the agent', () => {
     expect(createProjectSchema.parse({ name: 'Haus' })).toEqual({ name: 'Haus', setup: 'piloti' })
   })
 

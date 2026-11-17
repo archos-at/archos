@@ -22,12 +22,14 @@ from fastapi import Request
 
 from agent.project_context import ORGANIZATION_ID_HEADER
 
+from ..legacy_headers import legacy_name
+
 logger = logging.getLogger(__name__)
 
 _DEV_DEFAULT_TOKEN = "grid-internal-dev-token"
 _DEV_APP_ENVS = {"development", "dev", "local"}
 
-_TOKEN_HEADERS: tuple[str, ...] = ("x-grid-internal-token", "x-internal-token")
+_TOKEN_HEADERS: tuple[str, ...] = (legacy_name(b"x-internal-token").decode("ascii"), "x-internal-token")
 
 
 def _require_internal_token(request: Request) -> None:

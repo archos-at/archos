@@ -13,7 +13,7 @@ const session = {
   name: 'Anna Berger',
   role: 'member',
   permissions: [] as string[],
-  featureFlags: ['piloti-wakes'] as string[] | null,
+  featureFlags: ['agent-thread-replies'] as string[] | null,
 }
 
 vi.mock('@/lib/auth/require-auth', () => ({ requireAuthorizedSession: vi.fn(async () => session) }))
@@ -128,7 +128,7 @@ const ROUTES: Array<{ pattern: RegExp; method: string; handler: Handler; params:
 ]
 
 const run = async (path: string, init?: RequestInit) => {
-  const url = new URL(path, 'https://grid.test')
+  const url = new URL(path, 'https://example.test')
   const method = init?.method ?? 'GET'
   const route = ROUTES.find((entry) => entry.pattern.test(url.pathname) && entry.method === method)
   if (!route) throw new Error(`no route for ${method} ${url.pathname}`)
@@ -183,7 +183,7 @@ let writable = true
 beforeEach(() => {
   vi.clearAllMocks()
   vi.stubEnv('REQUIRE_AUTH', 'true')
-  session.featureFlags = ['piloti-wakes']
+  session.featureFlags = ['agent-thread-replies']
   writable = true
   vi.mocked(getAccessibleDocument).mockImplementation(async (_session, _id, intent) => {
     if (intent === 'write' && !writable) throw new ForbiddenError()
@@ -224,7 +224,7 @@ afterEach(() => {
   vi.unstubAllEnvs()
 })
 
-describe('a reply that wakes Piloti', () => {
+describe('a reply that wakes the agent', () => {
   it('enqueues exactly one wake, in the reply’s transaction, under the id of the reply, and says the server answers', async () => {
     const result = await replyToAnnotation(DOC_ID, MARK_ID, { body: 'Stimmt das?', addressesPiloti: true }, { run })
 
@@ -253,7 +253,7 @@ describe('a reply that wakes Piloti', () => {
     expect(insertWake).toHaveBeenCalledWith(TX, expect.objectContaining({ id: wakeTurnId(REPLY_ID), status: 'queued' }))
   })
 
-  it('wakes Piloti for a reply on its own open question, without an @', async () => {
+  it('wakes the agent for a reply on its own open question, without an @', async () => {
     vi.mocked(findDocumentAnnotation).mockResolvedValue({ ...MARK, authorKind: 'piloti', kind: 'question', status: 'proposed' })
 
     const result = await replyToAnnotation(DOC_ID, MARK_ID, { body: '1,20 m.' }, { run })
@@ -271,7 +271,7 @@ describe('a reply that wakes Piloti', () => {
     expect(insertWake).not.toHaveBeenCalled()
   })
 
-  it('refuses a reader: a person who may not write the document cannot wake Piloti on it', async () => {
+  it('refuses a reader: a person who may not write the document cannot wake the agent on it', async () => {
     writable = false
 
     await expect(
@@ -310,7 +310,7 @@ describe('a reply that wakes Piloti', () => {
   })
 })
 
-describe('a delegation to Piloti', () => {
+describe('a delegation to the agent', () => {
   it('keeps the assignee, records who delegated, and enqueues one wake in the change’s transaction', async () => {
     const result = await updateAnnotationWithWake(DOC_ID, MARK_ID, { delegateToPiloti: true }, { run })
 
@@ -336,7 +336,7 @@ describe('a delegation to Piloti', () => {
     expect(enqueueJob).not.toHaveBeenCalled()
   })
 
-  it('takes the work back without waking Piloti', async () => {
+  it('takes the work back without waking the agent', async () => {
     vi.mocked(findDocumentAnnotation).mockResolvedValue({ ...MARK, delegatedBy: 'user_1', delegatedAt: new Date() })
 
     await updateAnnotationWithWake(DOC_ID, MARK_ID, { delegateToPiloti: false }, { run })
@@ -359,7 +359,7 @@ describe('a delegation to Piloti', () => {
     expect(enqueueJob).not.toHaveBeenCalled()
   })
 
-  it('never wakes Piloti when a person takes over or dismisses its proposal', async () => {
+  it('never wakes the agent when a person takes over or dismisses its proposal', async () => {
     vi.mocked(findDocumentAnnotation).mockResolvedValue({ ...MARK, authorKind: 'piloti', kind: 'question', status: 'proposed' })
 
     await updateAnnotationWithWake(DOC_ID, MARK_ID, { status: 'open' }, { run })
@@ -400,7 +400,7 @@ const DELEGATED: AnnotationRecord = { ...MARK, delegatedBy: 'user_1', delegatedA
 const stopJobs = () =>
   vi.mocked(enqueueJob).mock.calls.filter(([job]) => job.kind === 'piloti_wake_stop')
 
-describe('a reply of Piloti’s on a delegated mark', () => {
+describe('a reply of the agent’s on a delegated mark', () => {
   it('leaves the delegation alone: only the delegation’s own turn ending hands the mark back', async () => {
     vi.mocked(findDocumentAnnotation).mockResolvedValue(DELEGATED)
 
@@ -413,7 +413,7 @@ describe('a reply of Piloti’s on a delegated mark', () => {
   })
 })
 
-describe('taking a mark back from Piloti', () => {
+describe('taking a mark back from the agent', () => {
   const takeBackBy = {
     'clearing the delegation': () => updateAnnotation(DOC_ID, MARK_ID, { delegateToPiloti: false }, { run }),
     'resolving the mark': () => updateAnnotation(DOC_ID, MARK_ID, { status: 'resolved' }, { run }),
@@ -505,7 +505,7 @@ describe('taking a mark back from Piloti', () => {
     expect(vi.mocked(deleteDocumentAnnotation).mock.calls[0][3]).toBeUndefined()
   })
 
-  it('never stops the turn when Piloti closes the mark in the asker’s name, which is usually that turn finishing', async () => {
+  it('never stops the turn when the agent closes the mark in the asker’s name, which is usually that turn finishing', async () => {
     vi.mocked(findLiveDelegationWake).mockResolvedValue(liveWake('started'))
 
     await updateAs(session as unknown as AuthorizedSession, DOC_ID, MARK_ID, { status: 'resolved' }, AGENT)
@@ -514,7 +514,7 @@ describe('taking a mark back from Piloti', () => {
     expect(stopJobs()).toHaveLength(0)
   })
 
-  it('still keeps a queued wake from starting when Piloti closes the mark', async () => {
+  it('still keeps a queued wake from starting when the agent closes the mark', async () => {
     vi.mocked(findLiveDelegationWake).mockResolvedValue(liveWake('queued'))
 
     await updateAs(session as unknown as AuthorizedSession, DOC_ID, MARK_ID, { status: 'resolved' }, AGENT)
@@ -557,7 +557,7 @@ describe('what a person’s decision leaves behind', () => {
     expect(onMarkDeleted).toHaveBeenCalledWith({ organizationId: 'org_1', annotationId: MARK_ID })
   })
 
-  it('does not call it for a reply of Piloti’s, or for a move that settles nothing (a rewording)', async () => {
+  it('does not call it for a reply of the agent’s, or for a move that settles nothing (a rewording)', async () => {
     await replyAs(session as unknown as AuthorizedSession, DOC_ID, MARK_ID, { body: 'Erledigt.' }, AGENT)
     await updateAnnotation(DOC_ID, MARK_ID, { body: 'Neu gefasst' }, { run })
 
@@ -589,7 +589,7 @@ describe('what a person’s decision leaves behind', () => {
     expect(recordDecisionScore).toHaveBeenCalledWith(expect.objectContaining({ decision: 'dismissed', subjectId: MARK_ID }))
   })
 
-  it('scores no decision on a person’s own mark, a rewording of a proposal, or a move Piloti makes for the asker', async () => {
+  it('scores no decision on a person’s own mark, a rewording of a proposal, or a move the agent makes for the asker', async () => {
     await updateAnnotation(DOC_ID, MARK_ID, { status: 'resolved' }, { run })
     vi.mocked(findDocumentAnnotation).mockResolvedValue(PROPOSAL)
     await updateAnnotation(DOC_ID, MARK_ID, { body: 'Neu gefasst' }, { run })
@@ -704,13 +704,13 @@ describe('what a change or a reply tells people', () => {
     expect(onMarkMoved).not.toHaveBeenCalled()
   })
 
-  it('says Piloti did it when Piloti assigns for the asker', async () => {
+  it('says the agent did it when the agent assigns for the asker', async () => {
     await updateAs(session as unknown as AuthorizedSession, DOC_ID, MARK_ID, { assigneeUserId: 'user_3' }, AGENT)
 
     expect(onAssigneeChanged).toHaveBeenCalledWith(expect.objectContaining({ actorUserId: 'user_1', byAgent: true }))
   })
 
-  it('tells the author when someone resolves, dismisses or reopens their mark, and settles a closed one even when Piloti closed it', async () => {
+  it('tells the author when someone resolves, dismisses or reopens their mark, and settles a closed one even when the agent closed it', async () => {
     await updateAnnotation(DOC_ID, MARK_ID, { status: 'resolved' }, { run })
     vi.mocked(findDocumentAnnotation).mockResolvedValue({ ...MARK, status: 'resolved' })
     await updateAnnotation(DOC_ID, MARK_ID, { status: 'open' }, { run })
@@ -746,7 +746,7 @@ describe('what a change or a reply tells people', () => {
     await expect(input.mayOpen(['user_2', 'user_outside'])).resolves.toEqual(new Set(['user_2']))
   })
 
-  it('tells the thread when Piloti replies, as the person its turn acted for', async () => {
+  it('tells the thread when the agent replies, as the person its turn acted for', async () => {
     await replyAs(session as unknown as AuthorizedSession, DOC_ID, MARK_ID, { body: 'Steht im Schnitt B-B.' }, AGENT)
 
     expect(onMarkReplied).toHaveBeenCalledWith(expect.objectContaining({ actorUserId: 'user_1', byAgent: true }))
@@ -839,7 +839,7 @@ describe('the audit trail of a wake taken back', () => {
     expect(stopped().map((input) => input.metadata?.wakeStatus)).toEqual(['started', 'queued'])
   })
 
-  it('says Piloti took it back when Piloti closed the mark, and records no stop of the turn it does not stop', async () => {
+  it('says the agent took it back when the agent closed the mark, and records no stop of the turn it does not stop', async () => {
     vi.mocked(findLiveDelegationWake).mockResolvedValue(liveWake('queued'))
     await updateAs(session as unknown as AuthorizedSession, DOC_ID, MARK_ID, { status: 'resolved' }, AGENT)
     expect(stopped().map((input) => input.metadata?.by)).toEqual(['piloti'])
@@ -869,7 +869,7 @@ describe('the audit trail of a wake taken back', () => {
   })
 })
 
-describe('what a write reads back of Piloti’s work', () => {
+describe('what a write reads back of the agent’s work', () => {
   it('reads the wakes of the mark it wrote, not of the whole document, while the list reads the document’s', async () => {
     await updateAnnotation(DOC_ID, MARK_ID, { body: 'Neu gefasst' }, { run })
     expect(listLatestWakes).toHaveBeenCalled()

@@ -1,6 +1,6 @@
 # How a document is read: the ingestion pipeline, drawn
 
-What happens between "an architect drops a file" and "Piloti can cite it", as the
+What happens between "an architect drops a file" and "the agent can cite it", as the
 code does it on 2026-10-27. Every box below names the function that owns it, so a
 diagram that goes stale is a diff away from being caught. Where this pipeline goes
 next is [`docs/roadmap/ingestion-north-star.md`](../roadmap/ingestion-north-star.md).
@@ -405,7 +405,7 @@ Since 2026-10-27 the row also carries what the ingest read of the whole document
 
 The BFF derives the project's findings from them (a referenced document the project
 lacks, a plan number no document carries, two documents stating one fact
-differently, a document not fully read), `list_files` shows them to Piloti, and the
+differently, a document not fully read), `list_files` shows them to the agent, and the
 per-turn inventory carries the type and the unread pages.
 
 Still **not** extracted at ingest: storey (Geschoss) per page, a computed scale, a

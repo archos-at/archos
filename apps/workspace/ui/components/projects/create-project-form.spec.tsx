@@ -238,7 +238,7 @@ describe('CreateProjectForm', () => {
     })
   })
 
-  describe('Piloti sets it up', () => {
+  describe('the agent sets it up', () => {
     test('a chosen address is sent as the location, with „Worum geht es?"', async () => {
       search.mockResolvedValue({ enabled: true, results: [hauptstrasse, moedling] } satisfies GeocodeResponse)
       const user = userEvent.setup()
@@ -428,7 +428,7 @@ describe('CreateProjectForm', () => {
       expect(screen.queryByTestId('create-project-same-address')).toBeNull()
     })
 
-    test('a closed project Piloti sets up says it closes when the review is finished', async () => {
+    test('a closed project the agent sets up says it closes when the review is finished', async () => {
       const user = userEvent.setup()
       render(<CreateProjectForm />)
 

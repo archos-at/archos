@@ -47,11 +47,11 @@ describe('ChatDropZone', () => {
 
   test('says why while attaching is closed, and attaches nothing', async () => {
     const attach = vi.fn()
-    render(<Panel target={{ attach, refusal: 'Piloti is answering.' }} />)
+    render(<Panel target={{ attach, refusal: 'The agent is answering.' }} />)
 
     fireEvent.dragEnter(screen.getByText('Transcript'), { dataTransfer: transfer([plan]) })
     const overlay = screen.getByTestId('chat-drop-overlay')
-    expect(overlay).toHaveTextContent('Piloti is answering.')
+    expect(overlay).toHaveTextContent('The agent is answering.')
     expect(overlay).toHaveAttribute('data-refused')
     fireEvent.drop(screen.getByText('Transcript'), { dataTransfer: transfer([plan]) })
 

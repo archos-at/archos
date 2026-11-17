@@ -1,6 +1,6 @@
-"""Mid-turn steering: a note a person types while Piloti works, read at the next round.
+"""Mid-turn steering: a note a person types while the agent works, read at the next round.
 
-A person watching Piloti act („nicht die Tür, die Treppe“) used to have one
+A person watching the agent act („nicht die Tür, die Treppe“) used to have one
 control, Stop, which threw away the rounds already done. A ``steer`` message
 (``wire_v2.Steer``) is the other one: it reaches the running turn without
 cancelling it, and the model decides its next round with it in view. The
@@ -15,7 +15,7 @@ Three halves, one object
   pattern of ``tools/canvas/presence.py``: the graph's tasks copy the context,
   so they all see the one object. It :meth:`SteerInbox.offer`\\ s each note
   (masked, authorised, capped, idempotent on ``steer_id``).
-* **The agent node** (``agents/piloti/agent.py``) :meth:`SteerInbox.take`\\ s
+* **The agent node** (``core/agent.py``) :meth:`SteerInbox.take`\\ s
   what arrived at the top of every model decision and records each note with
   the index of ``state.messages`` it arrived at. The note is spliced into the
   model REQUEST at that index (:func:`with_steering`) and never written to

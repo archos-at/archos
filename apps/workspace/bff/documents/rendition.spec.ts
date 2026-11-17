@@ -127,7 +127,7 @@ describe('ensureRendition', () => {
     expect(puts()).toHaveLength(1)
   })
 
-  it('names the last path segment only, so a Piloti name with slashes stays one part', async () => {
+  it('names the last path segment only, so an agent name with slashes stays one part', async () => {
     await ensureRendition({ ...INPUT, filename: 'piloti/doc-1/bericht.docx' })
     const file = ((fetchSpy.mock.calls[0] as [string, RequestInit])[1].body as FormData).get('files') as File
     expect(file.name).toBe('bericht.docx')

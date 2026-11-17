@@ -197,7 +197,7 @@ failed file on the job (Step 4).
 
 ### Provenance (ADR-0054)
 
-A **published** document Piloti wrote and a person released carries four extra
+A **published** document the agent wrote and a person released carries four extra
 fields: `authored_by: "agent"`, `approved_by` (the approver's display name),
 `approved_at` and `producer`. The route drops all four unless `authored_by` is
 the token `agent` — a human document must reach the pipeline byte-for-byte as it

@@ -91,7 +91,7 @@ function envelopeHeaders(
 
 function call(body: unknown, headers: Record<string, string> = envelopeHeaders()) {
   return POST(
-    new Request('https://grid.test/api/internal/tasks', {
+    new Request('https://example.test/api/internal/tasks', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-grid-internal-token': SECRET, ...headers },
       body: JSON.stringify(body),

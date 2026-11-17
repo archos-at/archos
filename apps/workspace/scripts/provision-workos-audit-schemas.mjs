@@ -1,5 +1,5 @@
 /**
- * Reconcile GRID's Audit Log actions/schemas with a WorkOS environment — or
+ * Reconcile the Audit Log actions/schemas with a WorkOS environment — or
  * report the drift.
  *
  * WorkOS validates every emitted event against the schema registered for its

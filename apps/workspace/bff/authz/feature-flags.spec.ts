@@ -7,7 +7,11 @@ import {
   FLAG_KINDS,
   REGISTRY_FLAG_SLUGS,
   flagsFromWorkOS,
+  isAgentActsEnabled,
+  isAgentAskEnabled,
   isAgentAuthoredDocumentsEnabled,
+  isAgentNoticesEnabled,
+  isAgentWakesEnabled,
   isCollaborationEnabled,
   isFeatureEnabled,
   isIfcModelsEnabled,
@@ -18,6 +22,7 @@ import {
   requireSkillsEnabled,
   type KnownFeatureFlag,
 } from './feature-flags'
+import { LEGACY_FLAG_KEYS } from './legacy-feature-flags'
 
 const FLAG = FEATURE_FLAGS.modelConfiguration
 
@@ -41,10 +46,13 @@ describe('the registry', () => {
     const entitlements = REGISTRY_FLAG_SLUGS.filter((slug) => FLAG_KINDS[slug] === 'entitlement').sort()
     expect(entitlements).toEqual(
       [
+        'agent-direct-edits',
         'agent-mcp',
         'agent-mcp-access',
         'agent-mcp-controls',
         'agent-mcp-secrets',
+        'agent-requests',
+        'agent-thread-replies',
         'byok-llm',
         'collaboration',
         'deep-research',
@@ -54,11 +62,8 @@ describe('the registry', () => {
         'mail-import',
         'office-conventions',
         'office-standards',
-        'piloti-acts',
-        'piloti-ask',
-        'piloti-notices',
-        'piloti-wakes',
         'platform-agent-mcp',
+        'revision-suggestions',
         'runtime-model-config',
         'skills',
         'source-monitors',
@@ -180,5 +185,45 @@ describe('where nobody signs in (REQUIRE_AUTH unset): rollouts on, entitlements 
     vi.stubEnv('SKILLS_ENABLED', 'true')
     vi.stubEnv('ENFORCE_FEATURE_FLAGS', 'true')
     expect(isSkillsEnabled({ featureFlags: [FEATURE_FLAGS.skills] })).toBe(false)
+  })
+})
+
+describe('the agent switches renamed in WorkOS (ADR-0149): either key turns the feature on', () => {
+  beforeEach(() => {
+    vi.stubEnv('REQUIRE_AUTH', 'true')
+  })
+
+  it('names the four new keys and keeps the four old ones only in the legacy module', () => {
+    expect(FEATURE_FLAGS.threadReplies).toBe('agent-thread-replies')
+    expect(FEATURE_FLAGS.agentActs).toBe('agent-direct-edits')
+    expect(FEATURE_FLAGS.agentNotices).toBe('revision-suggestions')
+    expect(FEATURE_FLAGS.agentAsk).toBe('agent-requests')
+    expect(Object.keys(LEGACY_FLAG_KEYS).sort()).toEqual(
+      ['agent-direct-edits', 'agent-requests', 'agent-thread-replies', 'revision-suggestions'].sort()
+    )
+  })
+
+  it.each([
+    ['isAgentWakesEnabled', isAgentWakesEnabled, 'agent-thread-replies'],
+    ['isAgentActsEnabled', isAgentActsEnabled, 'agent-direct-edits'],
+    ['isAgentNoticesEnabled', isAgentNoticesEnabled, 'revision-suggestions'],
+    ['isAgentAskEnabled', isAgentAskEnabled, 'agent-requests'],
+  ])('%s is on for the new key and for the key it had, and off for neither', (_name, enabled, slug) => {
+    expect(LEGACY_FLAG_KEYS[slug]).toBeDefined()
+    expect(enabled({ featureFlags: [slug] })).toBe(true)
+    expect(enabled({ featureFlags: [String(LEGACY_FLAG_KEYS[slug])] })).toBe(true)
+    expect(enabled({ featureFlags: [] })).toBe(false)
+    expect(enabled({ featureFlags: null })).toBe(false)
+  })
+
+  it('lets requireFeature pass for the key it had, so the office keeps the feature until the contract step', () => {
+    expect(requireFeature({ featureFlags: [String(LEGACY_FLAG_KEYS['agent-direct-edits'])] }, FEATURE_FLAGS.agentActs)).toBeNull()
+    expect(requireFeature({ featureFlags: ['agent-direct-edits'] }, FEATURE_FLAGS.agentActs)).toBeNull()
+  })
+
+  it('keeps the old keys out of the registry, so provisioning reports only the new names', () => {
+    for (const legacy of Object.values(LEGACY_FLAG_KEYS)) {
+      expect(REGISTRY_FLAG_SLUGS as readonly string[]).not.toContain(legacy)
+    }
   })
 })

@@ -1,4 +1,4 @@
-"""Read the service headers under their names without the product's, beside the old ones.
+"""The old names of the service headers, read beside the new: drop after release 2026-W48.
 
 The headers the BFF sends lose the product's name (`x-grid-budget` becomes
 `x-budget`; docs/contributing/code-conventions.md#no-brand-names). The BFF and
@@ -63,6 +63,22 @@ def with_legacy_names(headers: list[tuple[bytes, bytes]]) -> list[tuple[bytes, b
         if name in SERVICE_HEADERS and legacy_name(name) not in present
     ]
     return headers + added if added else headers
+
+
+def with_legacy_header_names(headers: dict[str, str]) -> dict[str, str]:
+    copies = {
+        legacy_name(name.encode("ascii")).decode("ascii"): value
+        for name, value in headers.items()
+        if name.encode("ascii") in SERVICE_HEADERS
+    }
+    return {**copies, **headers}
+
+
+RENAMED_HEADERS: dict[str, str] = {"x-chat-mode": "x-aiq-mode"}
+
+
+def legacy_header(name: str) -> str:
+    return RENAMED_HEADERS[name]
 
 
 class LegacyHeaderNamesMiddleware:

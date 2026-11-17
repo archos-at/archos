@@ -113,7 +113,7 @@ def _sent_payload(llm, messages, **bind_kwargs):
 class _Captured(Exception): ...
 
 
-def _messages(system="You are Piloti."):
+def _messages(system="You are the agent."):
     from langchain_core.messages import HumanMessage
     from langchain_core.messages import SystemMessage
 
@@ -190,7 +190,7 @@ def test_a_turns_iterations_share_one_key():
 def test_a_different_system_prompt_gets_a_different_key():
     llm = _openrouter_chat_model()
     first = _sent_payload(llm, _messages(), tools=DEFERRED_TOOLS)
-    other = _sent_payload(llm, _messages(system="Du bist Piloti."), tools=DEFERRED_TOOLS)
+    other = _sent_payload(llm, _messages(system="Du bist der Agent."), tools=DEFERRED_TOOLS)
     assert first["extra_body"]["session_id"] != other["extra_body"]["session_id"]
 
 

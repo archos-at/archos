@@ -9,6 +9,8 @@ from typing import Any
 
 from starlette.types import Scope
 
+from agent_host.legacy_headers import legacy_header
+
 logger = logging.getLogger(__name__)
 
 TRACE_USER_IDENTITY_MODES = frozenset({"none", "id", "full"})
@@ -90,7 +92,10 @@ def _load_trace_client_ip_headers() -> list[str]:
     return [header.strip().lower() for header in raw.split(",") if header.strip()]
 
 
-HEADERS = {"mode": ("x-chat-mode", "x-aiq-mode"), "access-channel": ("x-access-channel", "x-aiq-access-channel")}
+HEADERS = {
+    "mode": ("x-chat-mode", legacy_header("x-chat-mode")),
+    "access-channel": ("x-access-channel", "x-aiq-access-channel"),
+}
 
 TRACE_TAG_KEYS = frozenset(
     {

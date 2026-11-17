@@ -1,6 +1,6 @@
 # Diagrams — drawn in the browser, filed by the BFF
 
-> How Piloti produces a diagram an architect can use in a conversation, and then
+> How the agent produces a diagram an architect can use in a conversation, and then
 > keep as a real file in the project. See also
 > [agent-authored documents](agent-authored-documents.md)
 > (the pipeline this is the second and third producer of),
@@ -177,13 +177,13 @@ from. A `<metadata>` the client sent as a direct child of the root is discarded
 and replaced, so the recorded source is the one the server validated; **one
 anywhere deeper is refused** (`unsupported-element`), because that is the
 position the module never writes and the one where a second source claim could
-hide. It could: a `<g><metadata data-grid-diagram-source="mermaid">` carrying
+hide. It could: a `<g><metadata data-diagram-source="mermaid">` carrying
 200 KiB was accepted against a 32 KiB source cap and serialised into the stored
 file, since the discard only ever filtered the root's own children.
 
 **Where the marking lives, and why it is not where you would first put it.** A
 machine-drawn file that leaves the product has to say so in its own bytes: the
-„Von Piloti erstellt" byline is chrome and stops at the download button. The SVG
+„Von {productName} erstellt" byline is chrome and stops at the download button. The SVG
 therefore carries the human sentence in the root's **`<title>`** — which is the
 SVG's *accessible name*, so a browser tooltip and a screen reader announce it —
 and the machine vocabulary (`AIGenerated=true; AIGenerator=Piloti;
@@ -233,7 +233,7 @@ whatever it was.
 
 `authored_by='agent'`, `status='stored'`, **never ingested** (`dispatchDocument`
 refuses these rows by reading the row, not by trusting an argument), zero
-assignees so the file arrives `Unvergeben`, the „Von Piloti erstellt" provenance
+assignees so the file arrives `Unvergeben`, the „Von {productName} erstellt" provenance
 line in the Files pane, one `document.generated` audit event per row, and — since
 the marking moved to the filing seam — bytes that state their own authorship in
 both files.
@@ -530,7 +530,7 @@ and the server already accepts it, so adding a renderer later is one entry in
 
 **Since ADR-0141 Excalidraw ships as an editor.** The argument above is about
 drawing a mermaid source through Excalidraw, and it still holds for mermaid. The new use is a person reworking a drawing
-Piloti made. A drawn flow or Gliederung inside a project offers „Als Skizze
+the agent made. A drawn flow or Gliederung inside a project offers „Als Skizze
 bearbeiten" (`features/diagrams/sketch/`):
 
 - `sketchFromModel` turns the parsed `FlowModel`/`MapModel` into Excalidraw
@@ -549,7 +549,7 @@ bearbeiten" (`features/diagrams/sketch/`):
   `fileableSketchSvg` removes `<style>` and `<mask>` and runs the server's own
   parser and serialiser in the browser, then the same `POST` as a fence with
   `sourceKind: 'excalidraw'` and `edited: true`. The route then marks both files
-  „Von Piloti entworfen, von einer Person bearbeitet … nicht maßstäblich"
+  „Von {productName} entworfen, von einer Person bearbeitet … nicht maßstäblich"
   (`diagrams.markingEdited`). The `<mask>` is Excalidraw's gap in an arrow under
   its label, so in the file a label sits on its line.
 - Every filing, sketch or not, scores `diagram-filed` (`as_drawn | edited`) on
@@ -561,7 +561,7 @@ of documents, is the next slice.
 
 **Since ADR-0146 the model writes Excalidraw too, as a sketch.** Mermaid has no
 grammar for what an architect mostly sketches (rooms by adjacency, a site, a
-wireframe, a board), so Piloti writes an ```` ```excalidraw ```` fence of
+wireframe, a board), so the agent writes an ```` ```excalidraw ```` fence of
 Excalidraw's element skeleton when asked for a Skizze or when the picture is
 spatial or free-form; flows and hierarchies stay mermaid. The doctrine holds by
 subject: a sketch claims no dimension, and says so.

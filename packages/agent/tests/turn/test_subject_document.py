@@ -313,7 +313,7 @@ class TestTheNameItBuilds:
         ("display_name", "expected"),
         [
             ("Befund", "/drafts/Befund.md"),
-            ("piloti/doc-9/Befund", "/drafts/piloti-doc-9-Befund.md"),
+            ("example/doc-9/Befund", "/drafts/example-doc-9-Befund.md"),
             ("../../etc/passwd", "/drafts/-.-etc-passwd.md"),
             ("Befund.md", "/drafts/Befund.md"),
             ("  ", "/drafts/dokument.md"),

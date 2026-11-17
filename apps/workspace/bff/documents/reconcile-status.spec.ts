@@ -1023,7 +1023,7 @@ describe('reconcileDocumentStatuses enrichment on a status transition', () => {
     expect(collectionCalls().length - fetchesBefore).toBe(1)
   })
 
-  it('never counts Piloti\'s suggestion as a replaced Fassung', async () => {
+  it('never counts the agent\'s suggestion as a replaced Fassung', async () => {
     makeDbMock()
     routeBackend(
       { 'job-1': { status: 'completed', file_details: [{ status: 'success' }] } },

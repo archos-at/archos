@@ -27,7 +27,7 @@ function scriptedRoom() {
 }
 
 const ANNA = { peerId: 'peer_anna_0001', userId: 'user_anna', name: 'Anna Berger', kind: 'person' as const }
-const AGENT = { peerId: 'agent-run_42', userId: 'user_me', name: 'Piloti', kind: 'piloti' as const }
+const AGENT = { peerId: 'agent-run_42', userId: 'user_me', name: 'Agent', kind: 'piloti' as const }
 
 const pointerPosts = (posts: RoomPost[]) => posts.filter((post) => post.cursor !== undefined || post.viewport)
 
@@ -116,7 +116,7 @@ describe('useDocumentRoom', () => {
     )
   })
 
-  it('shows Piloti as a peer: pointing with a label, saying what it does, highlighting, and leaving', async () => {
+  it('shows the agent as a peer: pointing with a label, saying what it does, highlighting, and leaving', async () => {
     const room = scriptedRoom()
     const { result } = renderHook(() => useDocumentRoom('doc_1', { enabled: true, transport: room.transport }))
     const box = { page: 1, x: 0.1, y: 0.2, w: 0.3, h: 0.1 }
@@ -221,7 +221,7 @@ describe('createHighlightTracker', () => {
     vi.useRealTimers()
   })
 
-  const piloti = (box: { page: number; x: number; y: number; w: number; h: number }): RoomPeerState => ({
+  const agentHighlight = (box: { page: number; x: number; y: number; w: number; h: number }): RoomPeerState => ({
     peer: AGENT,
     expiresAt: Date.now() + 25_000,
     cursor: null,
@@ -236,11 +236,11 @@ describe('createHighlightTracker', () => {
     highlight: { box, label: 'Breite', expiresAt: Date.now() + 60_000 },
   })
 
-  it('shows a box Piloti points out once for the room, for its time, however often the room is read', () => {
+  it('shows a box the agent points out once for the room, for its time, however often the room is read', () => {
     vi.useFakeTimers()
     const tracker = createHighlightTracker()
     const box = { page: 1, x: 0.1, y: 0.1, w: 0.2, h: 0.2 }
-    const read = [piloti(box)]
+    const read = [agentHighlight(box)]
     tracker.update(read)
     const shown = tracker.store.get()
     expect(shown).toHaveLength(1)

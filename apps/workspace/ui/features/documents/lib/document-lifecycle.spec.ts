@@ -44,7 +44,7 @@ describe('showsVersionStateBadge', () => {
     ).toBe(true)
   })
 
-  it('speaks for anything Piloti wrote, at its first version', () => {
+  it('speaks for anything the agent wrote, at its first version', () => {
     expect(
       showsVersionStateBadge({ versionState: 'draft', versionCount: 1, authoredBy: 'agent' }),
     ).toBe(true)
@@ -133,7 +133,7 @@ describe('reviewOpRequiresComment', () => {
   })
 })
 
-describe('„Piloti überarbeiten lassen" is a field, not a fourth op', () => {
+describe('delegating a revision to the agent is a field, not a fourth op', () => {
   it('stands beside Änderungen anfordern, and only there', () => {
     const gestures = availableLifecycleGestures(version('in_review'), 'active', editor)
     expect(gestures.indexOf(DELEGATE_REVISION)).toBe(gestures.indexOf('request_changes') + 1)

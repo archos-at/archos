@@ -19,14 +19,15 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from typing import Any
 
-from agent.project_context import PROJECT_MEMORY_HEADER
+from agent.project_context import REQUEST_CONTEXT_ENVELOPE_HEADER
+from agent.project_context import REQUEST_CONTEXT_ENVELOPE_SIG_HEADER
 from agent.project_context import compose_project_context
 
+from ..legacy_headers import with_legacy_header_names
 from .run_envelope import envelope_headers_for_run
 from .run_result import TEMPORARY_CONVERSATION_KEY
 from .run_result import extract_result
 from .run_result import is_temporary_conversation
-from .runner import WORKER_IDENTITY_HEADERS
 from .runner import _b64url_encode_text
 from .runner import _create_llm_provider
 from .runner import _identity_values
@@ -39,6 +40,12 @@ if TYPE_CHECKING:
     from .agent_job import JobRequest
 
 logger = logging.getLogger(__name__)
+
+_IDENTITY_HEADERS = ("x-project-id", "x-organization-id", "x-user-id")
+_ENVELOPE_HEADERS = {
+    REQUEST_CONTEXT_ENVELOPE_HEADER: "x-request-context",
+    REQUEST_CONTEXT_ENVELOPE_SIG_HEADER: "x-request-context-sig",
+}
 
 
 @dataclass(frozen=True)
@@ -234,22 +241,25 @@ def _inject_scope_headers(state: Any, request: JobRequest, fn_config: Any) -> No
     quote or em-dash makes Starlette's latin-1 header encoding throw before the
     agent ever starts, an instant job failure with zero events.
     """
-    from agent.common import MODEL_OVERRIDES_HEADER
     from agent.project_context import normalize_project_context
 
     headers: dict[str, str] = {}
     if request.collection_scope is not None:
-        headers["x-grid-collection-scope"] = _b64url_encode_text(json.dumps(request.collection_scope))
+        headers["x-collection-scope"] = _b64url_encode_text(json.dumps(request.collection_scope))
     elif getattr(fn_config, "type", None) == "deep_research_agent":
         _warn_unscoped(request)
     if request.project_context is not None:
         normalized = normalize_project_context(request.project_context)
         if normalized:
-            headers["x-grid-project-context"] = _b64url_encode_text(normalized)
+            headers["x-project-context"] = _b64url_encode_text(normalized)
     if request.model_overrides:
-        headers[MODEL_OVERRIDES_HEADER] = _b64url_encode_text(json.dumps(request.model_overrides))
+        headers["x-model-overrides"] = _b64url_encode_text(json.dumps(request.model_overrides))
     if headers:
-        _inject_worker_headers(state, headers)
+        _inject_service_headers(state, headers)
+
+
+def _inject_service_headers(state: Any, headers: dict[str, str]) -> None:
+    _inject_worker_headers(state, with_legacy_header_names(headers))
 
 
 def _warn_unscoped(request: JobRequest) -> None:
@@ -281,23 +291,25 @@ async def _inject_identity_headers(state: Any, request: JobRequest) -> dict | No
     identity = request.identity
     identity_headers = {
         name: value
-        for name, value in zip(WORKER_IDENTITY_HEADERS, _identity_values(identity), strict=True)
+        for name, value in zip(_IDENTITY_HEADERS, _identity_values(identity), strict=True)
         if isinstance(value, str) and value.strip()
     }
     if identity_headers:
-        _inject_worker_headers(state, identity_headers)
+        _inject_service_headers(state, identity_headers)
     envelope_headers = await envelope_headers_for_run(
         request.request_envelope, run_id=request.run_id, job_id=request.job_id, identity=identity
     )
     if envelope_headers:
-        _inject_worker_headers(state, envelope_headers)
+        _inject_service_headers(
+            state, {_ENVELOPE_HEADERS.get(name, name): value for name, value in envelope_headers.items()}
+        )
     return _run_user_info(request.user_info, envelope_headers)
 
 
 async def _inject_memory_header(state: Any, request: JobRequest) -> str | None:
     """WHAT the project already knows: a live digest, else the one the BFF built at submit.
 
-    The chat path's discipline (``piloti/conversation_register.py``): a
+    The chat path's discipline (``core/conversation_register.py``): a
     successful fetch is authoritative even when empty, since memory may have
     been cleared since the job fired.
     """
@@ -320,7 +332,7 @@ async def _inject_memory_header(state: Any, request: JobRequest) -> str | None:
                 exc_info=True,
             )
     if digest:
-        _inject_worker_headers(state, {PROJECT_MEMORY_HEADER: _b64url_encode_text(digest)})
+        _inject_service_headers(state, {"x-project-memory": _b64url_encode_text(digest)})
     return digest
 
 

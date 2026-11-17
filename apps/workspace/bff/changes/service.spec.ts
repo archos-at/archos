@@ -62,7 +62,7 @@ const ROUTES: Array<{ pattern: RegExp; method: string; keys: string[]; handler: 
 ]
 
 async function serve(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  const url = new URL(String(input), 'https://grid.test')
+  const url = new URL(String(input), 'https://example.test')
   const method = init?.method ?? 'GET'
   const route = ROUTES.find((entry) => entry.pattern.test(url.pathname) && entry.method === method)
   if (!route) throw new Error(`no route for ${method} ${url.pathname}`)
@@ -316,7 +316,7 @@ describe('GET /api/conversations/[id]/messages/[messageId]/changes', () => {
 })
 
 describe('POST /api/piloti-changes/[id]/undo', () => {
-  it('reverts a change through the annotations service, as the person clicking, naming the status Piloti left', async () => {
+  it('reverts a change through the annotations service, as the person clicking, naming the status the agent left', async () => {
     put(row())
 
     const { change: undone } = await undoChange(change(1))
@@ -345,7 +345,7 @@ describe('POST /api/piloti-changes/[id]/undo', () => {
     expect(current()).toMatchObject({ assigneeUserId: null, body: 'Alt' })
   })
 
-  it('dismisses a mark Piloti proposed, which is how a proposal is taken back', async () => {
+  it('dismisses a mark the agent proposed, which is how a proposal is taken back', async () => {
     const proposed = mark({ authorKind: 'piloti', status: 'proposed' })
     documents.get(DOC)?.set(MARK, proposed)
     put(row({ op: 'create', before: null, after: markState(proposed) }))
@@ -400,7 +400,7 @@ describe('POST /api/piloti-changes/[id]/undo', () => {
     expect(recordDecisionScore).not.toHaveBeenCalled()
   })
 
-  it('refuses `moved-on` for a status Piloti moved that has no way back, and for a reply that is gone', async () => {
+  it('refuses `moved-on` for a status the agent moved that has no way back, and for a reply that is gone', async () => {
     documents.get(DOC)?.set(MARK, mark({ status: 'open', authorKind: 'piloti', acceptedBy: 'user_2' }))
     put(row({ id: change(1), before: { status: 'proposed' }, after: { status: 'open' } }))
     put(row({ id: change(2), objectKind: 'annotation_reply', objectId: REPLY, op: 'create', before: null, after: { body: 'Ja.' } }))
@@ -425,7 +425,7 @@ describe('POST /api/piloti-changes/[id]/undo', () => {
     expect(recordDecisionScore).toHaveBeenCalledTimes(1)
   })
 
-  describe('a mark Piloti set open for the asker', () => {
+  describe('a mark the agent set open for the asker', () => {
     const setUp = (patch: Partial<AnnotationView> = {}) => {
       const open = setOpenForAsker(patch)
       documents.get(DOC)?.set(MARK, open)
@@ -464,7 +464,7 @@ describe('POST /api/piloti-changes/[id]/undo', () => {
       expect(changes.get(change(1))?.undoneAt).toBeNull()
     })
 
-    it('refuses `moved-on` when somebody besides Piloti answered in the thread, so their answer is not deleted with it', async () => {
+    it('refuses `moved-on` when somebody besides the agent answered in the thread, so their answer is not deleted with it', async () => {
       setUp({ replies: [reply({ id: 'r1' }), reply({ id: 'r2', authorKind: 'person', createdBy: 'user_2' })] })
 
       const refusal = await undoChange(change(1)).catch((error: unknown) => error)
@@ -474,20 +474,20 @@ describe('POST /api/piloti-changes/[id]/undo', () => {
       expect(deleteAnnotation).not.toHaveBeenCalled()
     })
 
-    it("still deletes when only Piloti's own notes are in the thread", async () => {
+    it("still deletes when only the agent's own notes are in the thread", async () => {
       setUp({ replies: [reply({ id: 'r1' })] })
       await undoChange(change(1))
       expect(deleteAnnotation).toHaveBeenCalledTimes(1)
     })
   })
 
-  describe('a reply Piloti posted', () => {
+  describe('a reply the agent posted', () => {
     const setUp = (replies: AnnotationReplyView[] = [reply()]) => {
       documents.get(DOC)?.set(MARK, mark({ replies }))
       put(row({ objectKind: 'annotation_reply', objectId: REPLY, op: 'create', before: null, after: { body: reply().body } }))
     }
 
-    it('is deleted while it still says what Piloti wrote, as the person it was posted for, and scored', async () => {
+    it('is deleted while it still says what the agent wrote, as the person it was posted for, and scored', async () => {
       setUp([reply({ id: 'r0', body: 'Davor' }), reply()])
 
       const { change: undone } = await undoChange(change(1))
@@ -571,7 +571,7 @@ describe('an undo in the audit trail', () => {
     for (const [input] of vi.mocked(recordAuditEvent).mock.calls) expectRegistered(input)
   })
 
-  it('records one piloti.change.undone, as the person who undid it, naming whom Piloti had made it for', async () => {
+  it('records one piloti.change.undone, as the person who undid it, naming whom the agent had made it for', async () => {
     put(row())
 
     await undoChange(change(1))

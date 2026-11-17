@@ -8,6 +8,7 @@ import { platformCopy } from '@/i18n/namespaces/platform'
 import { requireFeedbackQuery } from '@/lib/feedback/query'
 import { RATINGS_FILTER_PARAMS } from '@/lib/feedback/filters'
 import { EXPORT_IGNORED_FILTERS_HEADER, EXPORT_TRUNCATED_HEADER } from '@/lib/feedback/types'
+import { withLegacyHeaderNames } from '@/lib/http/legacy-header-names'
 import {
   feedbackExportFileName,
   feedbackWeeklyFileName,
@@ -32,7 +33,7 @@ function download(
       'Content-Type': contentType,
       'Content-Disposition': `attachment; filename="${filename}"`,
       'Cache-Control': 'no-store',
-      ...extraHeaders,
+      ...withLegacyHeaderNames(extraHeaders),
     },
   })
 }

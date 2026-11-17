@@ -38,6 +38,7 @@ vi.mock('./skill-category-repository', () => ({
 import * as repository from './platform-repository'
 import * as categoryRepository from './skill-category-repository'
 import { findPlatformSkill } from './platform-skills'
+import { LEGACY_PLATFORM_SKILL_NAMES } from './legacy-brand-names'
 import { ConflictError, NotFoundError } from '@/lib/api/errors'
 import type { PlatformSkillRow } from '@/lib/db/schema/platform-skills'
 import {
@@ -152,6 +153,17 @@ describe('createPlatformSkill', () => {
     vi.mocked(repository.findPlatformSkillRowByName).mockResolvedValue(makeRow())
     await expect(
       createPlatformSkill({ name: 'oib-fire-check', description: 'd', body: 'b' }, author)
+    ).rejects.toBeInstanceOf(ConflictError)
+    expect(repository.insertPlatformSkillRow).not.toHaveBeenCalled()
+  })
+
+  it('conflicts on a new name whose stored row still carries the old one', async () => {
+    const [legacy, current] = Object.entries(LEGACY_PLATFORM_SKILL_NAMES)[0]!
+    vi.mocked(repository.findPlatformSkillRowByName).mockImplementation(async (name) =>
+      name === legacy ? makeRow({ name: legacy }) : null
+    )
+    await expect(
+      createPlatformSkill({ name: current, description: 'd', body: 'b' }, author)
     ).rejects.toBeInstanceOf(ConflictError)
     expect(repository.insertPlatformSkillRow).not.toHaveBeenCalled()
   })

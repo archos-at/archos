@@ -49,7 +49,7 @@ import { recordOperationCalled, recordOperationMissing } from './telemetry'
 
 const session = {
   userId: 'user_1',
-  email: 'a@piloti.test',
+  email: 'a@example.test',
   name: null,
   accessToken: '',
   organizationId: 'org_1',
@@ -59,7 +59,7 @@ const session = {
   featureFlags: null,
 }
 const person: AgentPrincipal = { actor: 'external_agent', session, clientId: 'c', scopes: [] }
-const piloti: AgentPrincipal = { actor: 'piloti', session, clientId: null, scopes: [] }
+const inProduct: AgentPrincipal = { actor: 'piloti', session, clientId: null, scopes: [] }
 const ctx = (principal: AgentPrincipal) => ({ principal, mode: 'search' as const })
 
 interface Structured extends Record<string, unknown> {
@@ -117,11 +117,11 @@ describe('search-operations', () => {
   })
 
   it('says a hidden operation would have answered, without naming it, when it outranks every hit', () => {
-    const result = searchOperations(ctx(piloti), { query: 'widen folder access' })
+    const result = searchOperations(ctx(inProduct), { query: 'widen folder access' })
     expect(names(result)).not.toContain('project-folder-access-set')
     expect(structured(result).next).toMatch(/^An operation that changes who may do what/)
     expect(JSON.stringify(result)).not.toContain('project-folder-access-set')
-    expect(structured(searchOperations(ctx(piloti), { query: 'list projects' })).next).not.toMatch(/who may do what/)
+    expect(structured(searchOperations(ctx(inProduct), { query: 'list projects' })).next).not.toMatch(/who may do what/)
   })
 
   it('says what to do when nothing matches', () => {
@@ -145,7 +145,7 @@ describe('search-operations', () => {
   })
 
   it('never offers the platform domain on the office door, to anyone, and refuses it when named', () => {
-    for (const caller of [piloti, person]) {
+    for (const caller of [inProduct, person]) {
       const domains = (metaToolsFor(caller)['search-operations'].inputSchema as { properties: { domain: { enum: string[] } } })
         .properties.domain.enum
       expect(domains).not.toContain('platform')
@@ -255,14 +255,14 @@ describe('call-operation', () => {
     expect(text(result)).toContain('The input schema of project-member-add: {')
   })
 
-  it('proposes instead of running a write for in-product Piloti', async () => {
-    const result = await callOperationTool(ctx(piloti), {
+  it('proposes instead of running a write for the in-product agent', async () => {
+    const result = await callOperationTool(ctx(inProduct), {
       name: 'project-member-add',
       input: { params: { id: 'p1' }, body: { userId: 'u2', role: 'viewer' } },
     })
     expect(callOperation).not.toHaveBeenCalled()
     expect(proposeOperation).toHaveBeenCalledWith({
-      principal: piloti,
+      principal: inProduct,
       op: expect.objectContaining({ name: 'project-member-add' }),
       input: expect.objectContaining({ params: { id: 'p1' } }),
     })
@@ -279,8 +279,8 @@ describe('call-operation', () => {
     )
   })
 
-  it('lets Piloti read directly', async () => {
-    await callOperationTool(ctx(piloti), { name: 'project-list' })
+  it('lets the in-product agent read directly', async () => {
+    await callOperationTool(ctx(inProduct), { name: 'project-list' })
     expect(callOperation).toHaveBeenCalled()
     expect(proposeOperation).not.toHaveBeenCalled()
   })
@@ -289,7 +289,7 @@ describe('call-operation', () => {
     it('answers a refusal, not an exception, when the input is wrong, and records the read', async () => {
       vi.mocked(callOperation).mockRejectedValue(new OperationInputError('query.nameContains is too long'))
 
-      const read = await readOperationBody(ctx(piloti), 'project-list', { query: { nameContains: 'x'.repeat(300) } })
+      const read = await readOperationBody(ctx(inProduct), 'project-list', { query: { nameContains: 'x'.repeat(300) } })
 
       expect(read).toEqual({ refusal: expect.stringContaining('query.nameContains is too long') })
       expect(recordOperationCalled).toHaveBeenCalledWith(
@@ -302,13 +302,13 @@ describe('call-operation', () => {
       vi.mocked(callOperation).mockRejectedValue(new Error('boom'))
       vi.spyOn(console, 'error').mockImplementation(() => {})
 
-      await expect(readOperationBody(ctx(piloti), 'project-list', {})).resolves.toEqual({
+      await expect(readOperationBody(ctx(inProduct), 'project-list', {})).resolves.toEqual({
         refusal: expect.stringContaining('failed'),
       })
     })
 
     it('records a read that ran with its status', async () => {
-      const read = await readOperationBody(ctx(piloti), 'project-list', {})
+      const read = await readOperationBody(ctx(inProduct), 'project-list', {})
 
       expect(read).toEqual({ body: { projects: [] } })
       expect(recordOperationCalled).toHaveBeenCalledWith(
@@ -448,7 +448,7 @@ describe('call-operation with a file in the answer', () => {
       { type: 'text', text: expect.stringContaining('"Grundriss EG.pdf", application/pdf, 19 bytes') },
       {
         type: 'resource',
-        resource: { uri: 'piloti://operation/project-list/Grundriss_EG.pdf', mimeType: 'application/pdf', blob: base64 },
+        resource: { uri: 'workspace://operation/project-list/Grundriss_EG.pdf', mimeType: 'application/pdf', blob: base64 },
       },
     ])
     expect(text(result)).not.toContain(base64)
@@ -463,7 +463,7 @@ describe('call-operation with a file in the answer', () => {
     })
     const result = await callOperationTool(ctx(person), { name: 'project-list' })
     expect(result.content[1]).toMatchObject({
-      resource: { uri: 'piloti://operation/project-list/result', mimeType: 'application/octet-stream' },
+      resource: { uri: 'workspace://operation/project-list/result', mimeType: 'application/octet-stream' },
     })
   })
 
@@ -584,12 +584,12 @@ describe('the Python agent’s read tools', () => {
     expect(text(result)).toBe('You cannot use this project (HTTP 403, forbidden)')
   })
 
-  it('are absent for in-product Piloti, which has them natively', async () => {
-    expect(structured(searchOperations(ctx(piloti), { query: 'knowledge search' })).operations.map((op) => op.name)).not.toContain(
+  it('are absent for the in-product agent, which has them natively', async () => {
+    expect(structured(searchOperations(ctx(inProduct), { query: 'knowledge search' })).operations.map((op) => op.name)).not.toContain(
       'knowledge-search',
     )
-    expect(describeOperation(ctx(piloti), { name: 'knowledge-search' }).isError).toBe(true)
-    const result = await callOperationTool(ctx(piloti), { name: 'knowledge-search', input: { query: 'Stellplatz', projectId: PROJECT } })
+    expect(describeOperation(ctx(inProduct), { name: 'knowledge-search' }).isError).toBe(true)
+    const result = await callOperationTool(ctx(inProduct), { name: 'knowledge-search', input: { query: 'Stellplatz', projectId: PROJECT } })
     expect(result.isError).toBe(true)
     expect((result.content[0] as { text: string }).text).toBe(nativeToolRefusal('knowledge-search', 'knowledge_search'))
     expect(callBackendOperation).not.toHaveBeenCalled()

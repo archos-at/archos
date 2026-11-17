@@ -39,7 +39,7 @@ const CONTRACTS = 'proj_abc_r0123456789ab'
 
 const ask = (body: unknown, token: string = TOKEN, id: string = CONVERSATION_ID) =>
   POST(
-    new Request(`https://grid.test/api/internal/conversations/${id}/restricted-use`, {
+    new Request(`https://example.test/api/internal/conversations/${id}/restricted-use`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-grid-internal-token': token },
       body: JSON.stringify(body),

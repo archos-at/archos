@@ -3,7 +3,7 @@
 Each reaches the reader verbatim as an assistant message, so each is written in
 the product's voice: German, formal address, one sentence on what happened and
 one on what to do next — the same register as the plan-cancellation receipt in
-``agents/piloti/conversation.py``. They live in one leaf module because two
+``core/conversation.py``. They live in one leaf module because two
 places must agree on them: the nodes that send them, and the post-answer gate
 (``stages/memory_reflection.py``) that must not reflect on, or offer follow-ups
 under, a turn that produced one. Building that gate's prefix list from these

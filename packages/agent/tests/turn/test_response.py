@@ -3,12 +3,12 @@ import uuid
 from langchain_core.messages import AIMessage
 from langchain_core.messages import HumanMessage
 
-from agent.agents.piloti.models import ConversationState
 from agent.common.canned_replies import NO_RESPONSE_TEXT
 from agent.common.wire_v2 import RunHandoff
 from agent.common.wire_v2 import card_key
 from agent.common.wire_v2 import stamp
 from agent.common.wire_v2 import to_frame
+from agent.core.models import ConversationState
 from agent.stages import TurnFacts
 from agent.turn.response import answer_message_id
 from agent.turn.response import answer_text
