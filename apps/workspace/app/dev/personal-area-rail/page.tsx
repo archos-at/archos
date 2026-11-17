@@ -3,7 +3,8 @@
 /**
  * PROTOTYPE, not for merge: three ways the rail could hold a personal area next to the projects
  * (concept for ticket 81). Built from the rail's real parts so the shots show the product's own
- * geometry. `?v=a|b|c|d|e` picks the variant, `?place=me|project` where the reader is.
+ * geometry. `?v=a|b|c|d|e|f` picks the variant, `?place=me|project|new` where the reader is
+ * (`new`, in f: a chat just started). F is E with a top that stays on the project the reader works in.
  */
 
 import type { JSX, ReactNode } from 'react'
@@ -18,6 +19,7 @@ import {
   LockKeyhole,
   MessageSquare,
   Plus,
+  X,
   Search,
   UserRound,
   UsersRound,
@@ -316,17 +318,19 @@ function VariantD({ me }: { me: boolean }): JSX.Element {
  * E: no place switcher for „Mein Bereich“. The top names the project of the open chat (or none) and is the way to
  * another; every chat says where it belongs; the person's own things stand at the foot, with the person.
  */
-function VariantE({ me }: { me: boolean }): JSX.Element {
+function VariantE({ me, sticky = false, current }: { me: boolean; sticky?: boolean; current?: number | null }): JSX.Element {
+  const showProject = sticky || !me
+  const open = current === undefined ? (me ? 0 : 1) : current
   return (
     <>
       <SidebarHeader className="shrink-0 gap-0 p-0 px-3">
         <SidebarBrand iconRail={false} />
         <div className="mt-1 flex items-center">
-          <ProjectSwitcher projects={PROJECTS} activeProjectId={me ? undefined : 'p-1'} />
+          <ProjectSwitcher projects={PROJECTS} activeProjectId={showProject ? 'p-1' : undefined} />
         </div>
       </SidebarHeader>
       <SidebarContent className="mt-3 flex-1 gap-0 overflow-y-auto px-3 py-px">
-        {!me && (
+        {showProject && (
           <SidebarMenu className="mb-6 gap-0.5">
             <NavRow icon={Folder} label="Dateien" />
             <NavRow icon={LayoutGrid} label="Übersicht" />
@@ -340,7 +344,7 @@ function VariantE({ me }: { me: boolean }): JSX.Element {
         <GroupLabel>Chats</GroupLabel>
         <ul className="flex flex-col gap-0.5">
           {ALL_CHATS.map((chat, index) => (
-            <ChatRow key={chat.title} chat={chat} current={index === (me ? 0 : 1)} showProject markOwn indent={false} />
+            <ChatRow key={chat.title} chat={chat} current={index === open} showProject markOwn={!sticky} indent={false} />
           ))}
           <MoreRow label="Alle Chats" indent={false} />
         </ul>
@@ -371,14 +375,14 @@ function Foot({ personalDoor = false }: { personalDoor?: boolean }): JSX.Element
 }
 
 /** The page beside the rail: enough of a chat to say where the reader is and who reads along. */
-function Page({ me }: { me: boolean }): JSX.Element {
+function Page({ me, fresh = false }: { me: boolean; fresh?: boolean }): JSX.Element {
   const project = PROJECTS[0]!.name
   return (
     <main className="flex min-h-0 min-w-0 flex-1 flex-col">
       <header className="flex flex-col gap-1 px-8 pb-4 pt-6">
         <span className="text-muted-foreground text-meta">{me ? 'Ohne Projekt' : project}</span>
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-pane-title">{me ? 'Rampenneigung Tiefgarage' : 'Fluchtweglänge im Erdgeschoss'}</h1>
+          <h1 className="text-pane-title">{fresh ? 'Neuer Chat' : me ? 'Rampenneigung Tiefgarage' : 'Fluchtweglänge im Erdgeschoss'}</h1>
           <span className="bg-sheet shadow-press text-name inline-flex h-7 items-center gap-1.5 rounded-full px-2.5">
             <LockKeyhole className="size-3.5" aria-hidden />
             Nur Sie
@@ -392,8 +396,9 @@ function Page({ me }: { me: boolean }): JSX.Element {
           <div className="text-name flex flex-wrap items-center gap-1.5">
             <span className="text-muted-foreground text-meta mr-1">Grundlage</span>
             {['Wissen', 'Büroablage', ...(me ? [] : [PROJECTS[0]!.short])].map((label) => (
-              <span key={label} className="bg-desk inline-flex h-7 items-center rounded-full px-2.5">
+              <span key={label} className="bg-desk inline-flex h-7 items-center gap-1 rounded-full px-2.5">
                 {label}
+                {fresh && label === PROJECTS[0]!.short && <X className="text-muted-foreground size-3.5" aria-label="Projekt entfernen" />}
               </span>
             ))}
             {me && <span className="shadow-press inline-flex h-7 items-center rounded-full px-2.5">+ Projekt</span>}
@@ -407,17 +412,19 @@ function Page({ me }: { me: boolean }): JSX.Element {
 export default function PersonalAreaRailPreview(): JSX.Element {
   const params = useSearchParams()
   const variant = params?.get('v') ?? 'a'
-  const me = (params?.get('place') ?? 'me') === 'me'
+  const place = params?.get('place') ?? 'me'
+  const me = place === 'me'
+  const fresh = place === 'new'
   return (
     <div className="bg-background text-foreground flex h-dvh overflow-hidden">
       <SidebarProvider className="h-full min-h-0 w-auto shrink-0">
         <Sidebar collapsible="icon" data-scope="project" aria-label="Navigation">
-          {variant === 'e' ? <VariantE me={me} /> : variant === 'd' ? <VariantD me={me} /> : variant === 'c' ? <VariantC me={me} /> : variant === 'b' ? <VariantB me={me} /> : <VariantA me={me} />}
-          <Foot personalDoor={variant === 'e'} />
+          {variant === 'f' ? <VariantE me={me} sticky current={fresh ? null : undefined} /> : variant === 'e' ? <VariantE me={me} /> : variant === 'd' ? <VariantD me={me} /> : variant === 'c' ? <VariantC me={me} /> : variant === 'b' ? <VariantB me={me} /> : <VariantA me={me} />}
+          <Foot personalDoor={variant === 'e' || variant === 'f'} />
           <SidebarRail aria-label="Breite ändern" />
         </Sidebar>
       </SidebarProvider>
-      <Page me={me} />
+      <Page me={me} fresh={fresh} />
     </div>
   )
 }
