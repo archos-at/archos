@@ -138,9 +138,11 @@ It used to be five alerts, one per area. The plan allows five insight alerts
 in total, and support and costs need two of them
 ([`deploy/posthog/README.md`](../../deploy/posthog/README.md#alerts)), so the
 five areas are now rows of one query. The per-area insights below stay on the
-dashboard for reading. They still hold the SQL of before 2026-11-17: label joins
-over all of `metric_series`, and the Pending-pod rule that counts Job pods. The
-file is the reviewed copy; bring a per-area insight in line before you trust it.
+dashboard for reading, one row per rule. Each holds its area's block of the file,
+the part inside `SELECT concat('[<area>] ', rule) AS rule, breach FROM (…)`,
+under a three-line comment naming it, so a threshold changes in the file first
+and is pasted into both. Joined bare, these blocks read 23 to 50 GiB each on
+2026-11-17; narrowed, 0.02 to 0.13 GiB.
 
 A check reads about 0.3 GiB (2026-11-17). Every label lookup joins a
 `metric_series` subquery cut to the hours the rule reads, `prod` and the

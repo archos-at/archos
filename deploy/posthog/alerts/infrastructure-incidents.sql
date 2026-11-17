@@ -1,6 +1,10 @@
 -- Reads `posthog.metrics` only, never `events`: PostHog refuses a query over
 -- both clusters and switches the alert off (2026-11-14). Event rules live in
 -- product-incidents.sql.
+--
+-- Each label join reads a `metric_series` subquery cut to the rule's hours
+-- plus one and its metric names: joined bare, the table (one row per series
+-- and hour, 30 days) is read whole, 16 GiB a check on 2026-11-17.
 SELECT
     if(countIf(b > 0) = 0, 'Keine Regel verletzt', arrayStringConcat(groupArrayIf(r, b > 0), ' | ')) AS rule,
     toFloat(countIf(b > 0)) AS breach
@@ -17,13 +21,23 @@ FROM (
     -- dev's 10 GiB disk filled on 2026-11-12 and project mail and uploads failed
     -- for two days before anyone looked (docs/contributing/gotchas.md).
     SELECT
-        coalesce(sr.resource_attributes['deployment.environment.name'], '?') AS env,
-        maxIf(m.value, m.metric_name = 'SeaweedFS_volumeServer_resource' AND sr.attributes['type'] = 'used') AS used,
-        maxIf(m.value, m.metric_name = 'SeaweedFS_volumeServer_resource' AND sr.attributes['type'] = 'all') AS total,
-        arrayDistinct(groupArrayIf(sr.attributes['collection'], m.metric_name = 'SeaweedFS_volumeServer_read_only_volumes'
-            AND sr.attributes['type'] = 'isDiskSpaceLow' AND m.value > 0 AND sr.attributes['collection'] != '')) AS readonly
+        coalesce(sr.env, '?') AS env,
+        maxIf(m.value, m.metric_name = 'SeaweedFS_volumeServer_resource' AND sr.kind = 'used') AS used,
+        maxIf(m.value, m.metric_name = 'SeaweedFS_volumeServer_resource' AND sr.kind = 'all') AS total,
+        arrayDistinct(groupArrayIf(sr.collection, m.metric_name = 'SeaweedFS_volumeServer_read_only_volumes'
+            AND sr.kind = 'isDiskSpaceLow' AND m.value > 0 AND sr.collection != '')) AS readonly
     FROM posthog.metrics AS m
-    INNER JOIN posthog.metric_series AS sr ON sr.series_fingerprint = m.series_fingerprint
+    INNER JOIN (
+        SELECT
+            series_fingerprint,
+            any(resource_attributes['deployment.environment.name']) AS env,
+            any(attributes['type']) AS kind,
+            any(attributes['collection']) AS collection
+        FROM posthog.metric_series
+        WHERE time_bucket >= toStartOfHour(now() - INTERVAL 1 HOUR)
+            AND metric_name IN ('SeaweedFS_volumeServer_resource', 'SeaweedFS_volumeServer_read_only_volumes')
+        GROUP BY series_fingerprint
+    ) AS sr ON sr.series_fingerprint = m.series_fingerprint
     WHERE m.timestamp > now() - INTERVAL 15 MINUTE
         AND m.metric_name IN ('SeaweedFS_volumeServer_resource', 'SeaweedFS_volumeServer_read_only_volumes')
     GROUP BY env
@@ -38,13 +52,22 @@ FROM (
     -- prod, its retries took the snapshots again, and prod's SeaweedFS filled
     -- to 91 % before anything said so (2026-11-14).
     SELECT
-        coalesce(sr.resource_attributes['deployment.environment.name'], '?') AS env,
-        replaceRegexpOne(sr.resource_attributes['k8s.job.name'], '-[0-9]{6,}$', '') AS name,
-        sr.resource_attributes['k8s.job.name'] AS job,
+        coalesce(sr.env, '?') AS env,
+        replaceRegexpOne(sr.job, '-[0-9]{6,}$', '') AS name,
+        sr.job AS job,
         argMaxIf(m.value, m.timestamp, m.metric_name = 'k8s.job.failed_pods') AS failed,
         argMaxIf(m.value, m.timestamp, m.metric_name = 'k8s.job.successful_pods') AS ok
     FROM posthog.metrics AS m
-    INNER JOIN posthog.metric_series AS sr ON sr.series_fingerprint = m.series_fingerprint
+    INNER JOIN (
+        SELECT
+            series_fingerprint,
+            any(resource_attributes['deployment.environment.name']) AS env,
+            any(resource_attributes['k8s.job.name']) AS job
+        FROM posthog.metric_series
+        WHERE time_bucket >= toStartOfHour(now() - INTERVAL 27 HOUR)
+            AND metric_name IN ('k8s.job.failed_pods', 'k8s.job.successful_pods')
+        GROUP BY series_fingerprint
+    ) AS sr ON sr.series_fingerprint = m.series_fingerprint
     WHERE m.timestamp > now() - INTERVAL 26 HOUR
         AND m.metric_name IN ('k8s.job.failed_pods', 'k8s.job.successful_pods')
     GROUP BY env, name, job
