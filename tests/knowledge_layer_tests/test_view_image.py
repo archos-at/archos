@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import base64
 
-import knowledge_layer.ingest.adapter as llm_adapter
 import pytest
 from knowledge_layer import view_image as view_image_module
+from knowledge_layer.ingest import vision_credentials
 from knowledge_layer.view_image import ViewLimits
 from knowledge_layer.view_image import _find_pdf
 from knowledge_layer.view_image import _is_enabled
@@ -19,7 +19,7 @@ _JPEG_BYTES = b"\xff\xd8\xff\xe0test-jpeg-payload"
 
 def _patch_env(monkeypatch, *, enabled: bool = True, vlm_key: str = "sk-test") -> None:
     monkeypatch.setenv("VIEW_IMAGES_ENABLED", "true" if enabled else "false")
-    monkeypatch.setattr(llm_adapter, "_get_vlm_api_key", lambda: vlm_key)
+    monkeypatch.setattr(vision_credentials, "_get_vlm_api_key", lambda: vlm_key)
 
 
 async def _invoke(

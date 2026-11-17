@@ -6,7 +6,7 @@ import threading
 import time
 
 import pytest
-from knowledge_layer.ingest import adapter
+from knowledge_layer.ingest import pdf_rasters
 from knowledge_layer.ingest import pdfium_guard as pdfium_lock_module
 from knowledge_layer.ingest import processing
 from PIL import Image
@@ -94,8 +94,8 @@ def _every_call_site():
     return [
         lambda: processing.render_pdf_pages("a.pdf", [1, 2, 3], max_dim=256),
         lambda: processing.render_visual_pages_no_vlm("b.pdf", max_dim=256, only_pages={1, 2, 3}),
-        lambda: adapter._extract_images_from_pdf("c.pdf", min_width=10, min_height=10),
-        lambda: adapter._render_first_pdf_page("d.pdf", scale=2),
+        lambda: pdf_rasters._extract_images_from_pdf("c.pdf", min_width=10, min_height=10),
+        lambda: pdf_rasters._render_first_pdf_page("d.pdf", scale=2),
     ]
 
 
@@ -132,7 +132,7 @@ def test_concurrent_call_sites_never_overlap_inside_pdfium(monkeypatch):
 def test_the_fake_does_see_overlap_without_the_lock(monkeypatch):
     occupancy = _Occupancy()
     _install_fake_pdfium(monkeypatch, occupancy)
-    for module in (processing, adapter):
+    for module in (processing, pdf_rasters):
         monkeypatch.setattr(module, "pdfium_lock", contextlib.nullcontext)
 
     _run_concurrently(_every_call_site())

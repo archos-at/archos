@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 import pytest
 from knowledge_layer.ingest import LlamaIndexIngestor
 from knowledge_layer.ingest import _PreviousVersion
-from knowledge_layer.ingest import adapter as adapter_module
+from knowledge_layer.ingest import collection_catalog
 from knowledge_layer.vector_store import store as store_module
 from knowledge_layer_testing.vector_store import FakeEmbedder
 from knowledge_layer_testing.vector_store import record
@@ -38,7 +38,7 @@ def env(tmp_path, monkeypatch, qdrant_store):
     factory._document_metadata_store = None
     configure_summary_db(summary_db)
     bumped: list[str] = []
-    monkeypatch.setattr(adapter_module, "bump_collection_version", bumped.append)
+    monkeypatch.setattr(collection_catalog, "bump_collection_version", bumped.append)
     monkeypatch.setattr(store_module, "_sleep", lambda seconds: None)
 
     ingestor = LlamaIndexIngestor({"generate_summary": False, "summary_llm": MagicMock()})

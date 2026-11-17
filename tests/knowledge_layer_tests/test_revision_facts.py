@@ -12,8 +12,8 @@ from knowledge_layer.browse import file_row
 from knowledge_layer.browse import file_rows
 from knowledge_layer.browse import render_listing
 from knowledge_layer.browse import select_files
-from knowledge_layer.ingest import adapter
 from knowledge_layer.ingest import revisions
+from knowledge_layer.ingest import vision_reads
 from knowledge_layer.ingest import visual_analysis as va
 from knowledge_layer.ingest import visual_domains as vd
 
@@ -157,7 +157,7 @@ class TestThroughTheVisionCall:
 
         completions = _FakeCompletions(_reply(FULL_BLOCK))
         with patch.object(openai, "OpenAI", _fake_openai(completions)):
-            content_type, _, fields = adapter.analyze_visual(b"title-block-page", vlm_api_key="k")
+            content_type, _, fields = vision_reads.analyze_visual(b"title-block-page", vlm_api_key="k")
 
         assert content_type == "drawing"
         assert fields["analysis"]["document"]["title_block"] == FULL_BLOCK
@@ -170,7 +170,7 @@ class TestThroughTheVisionCall:
 
         completions = _FakeCompletions(_reply())
         with patch.object(openai, "OpenAI", _fake_openai(completions)):
-            _, _, fields = adapter.analyze_visual(b"detail-page", vlm_api_key="k")
+            _, _, fields = vision_reads.analyze_visual(b"detail-page", vlm_api_key="k")
 
         assert fields["analysis"]["document"]["title_block"] is None
         assert len(completions.calls) == 1

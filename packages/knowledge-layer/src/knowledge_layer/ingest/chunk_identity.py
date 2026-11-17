@@ -124,7 +124,7 @@ def embedded_records(
 
     from knowledge_layer.vector_store import ChunkRecord
 
-    from .adapter import split_documents
+    from .text_chunks import split_documents
 
     nodes = split_documents(documents, chunk_size=chunk_size, chunk_overlap=chunk_overlap)
     if not nodes:

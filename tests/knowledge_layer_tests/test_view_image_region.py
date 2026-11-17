@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import io
 
-import knowledge_layer.ingest.adapter as llm_adapter
 import pypdfium2 as pdfium
 import pypdfium2.raw as pdfium_c
 import pytest
 from knowledge_layer import view_image as view
+from knowledge_layer.ingest import vision_credentials
 from knowledge_layer.view_image import ViewLimits
 from knowledge_layer.view_image import _crop_image_region
 from knowledge_layer.view_image import _render_pdf_region
@@ -191,7 +191,7 @@ def test_an_uploaded_image_is_cropped_to_the_box():
 @pytest.fixture
 def _viewable(monkeypatch, tmp_path):
     monkeypatch.setenv("VIEW_IMAGES_ENABLED", "true")
-    monkeypatch.setattr(llm_adapter, "_get_vlm_api_key", lambda: "sk-test")
+    monkeypatch.setattr(vision_credentials, "_get_vlm_api_key", lambda: "sk-test")
     path = tmp_path / "Grundriss_EG.pdf"
     path.write_bytes(_pdf(*A4))
     monkeypatch.setattr(view, "_find_pdf", lambda _name: str(path))

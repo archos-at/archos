@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 from knowledge_layer.ingest import LlamaIndexIngestor
-from knowledge_layer.ingest import adapter as adapter_module
+from knowledge_layer.ingest import limits
 
 
 def _page(label: str | None, text: str) -> SimpleNamespace:
@@ -79,7 +79,7 @@ def test_no_tag_decision_is_no_reason_to_drop_a_record(calls, forgotten, tags):
 
 
 def test_a_bff_that_never_answers_the_drop_does_not_stall_the_ingest(monkeypatch):
-    monkeypatch.setattr(adapter_module, "PERMIT_RECORD_DROP_TIMEOUT_SECONDS", 0.2)
+    monkeypatch.setattr(limits, "PERMIT_RECORD_DROP_TIMEOUT_SECONDS", 0.2)
     monkeypatch.setattr("agent.knowledge.permit_records_client.store_permit_record", lambda *a, **k: time.sleep(5))
 
     started = time.monotonic()
@@ -109,7 +109,7 @@ def test_without_the_job_identity_no_record_is_dropped_either(calls, forgotten):
 
 
 def test_a_model_that_never_answers_does_not_stall_the_ingest(monkeypatch):
-    monkeypatch.setattr(adapter_module, "PERMIT_RECORD_TIMEOUT_SECONDS", 0.2)
+    monkeypatch.setattr(limits, "PERMIT_RECORD_TIMEOUT_SECONDS", 0.2)
     monkeypatch.setattr(
         "agent.knowledge.permit_extraction.extract_and_store_permit_record", lambda *a, **k: time.sleep(5)
     )
