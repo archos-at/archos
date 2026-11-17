@@ -3,9 +3,8 @@
  * @vitest-environment node
  */
 
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { callsTo, lineOf, nodesOf, parseSource, ts } from '@/test-utils/source-ast'
 import {
   RULE_INPUT_FIELDS,
   RULE_INPUT_KEYS,
@@ -95,6 +94,33 @@ const MODEL: BimElement[] = [
 
 const FACTS = { buildingClass: 4 as const, mainUse: 'residential', storeys: STOREYS }
 
+const KEY_READERS = ['dimensionProperty', 'numericProperty', 'property', 'quantity']
+const CATALOGUE = 'bff/bim/rules.ts'
+const SOURCES = [parseSource('bff/bim/rule-values.ts'), parseSource(CATALOGUE)]
+
+interface KeyRead {
+  file: string
+  line: number
+  keys: string[] | null
+}
+
+function isElement(node: ts.Expression | undefined): boolean {
+  return node !== undefined && ts.isIdentifier(node) && node.text === 'element'
+}
+
+function literalKeys(call: ts.CallExpression): string[] | null {
+  const list = call.arguments[1]
+  if (!list || !ts.isArrayLiteralExpression(list)) return null
+  const strings = list.elements.filter(ts.isStringLiteral)
+  return strings.length === list.elements.length ? strings.map((key) => key.text) : null
+}
+
+const KEY_READS: KeyRead[] = SOURCES.flatMap((source) =>
+  KEY_READERS.flatMap((name) => callsTo(source, name))
+    .filter((call) => isElement(call.arguments[0]))
+    .map((call) => ({ file: source.fileName, line: lineOf(call), keys: literalKeys(call) }))
+)
+
 describe('projected rule inputs', () => {
   it('produces exactly the verdicts the full elements produce', () => {
     const stored = readStoredRuleInputs(buildStoredRuleInputs(MODEL, false))
@@ -102,32 +128,44 @@ describe('projected rule inputs', () => {
     expect(runBimRules(stored!.elements, FACTS)).toEqual(runBimRules(MODEL, FACTS))
   })
 
-  it('covers every key the catalogue reads', () => {
-    const source = ['rule-values.ts', 'rules.ts']
-      .map((file) => readFileSync(join(process.cwd(), 'bff', 'bim', file), 'utf8'))
-      .join('\n')
-    const read = new Set(
-      [...source.matchAll(/(?:dimensionProperty|numericProperty|property|quantity)\(element, \[([^\]]*)\]/g)]
-        .flatMap((match) => [...match[1].matchAll(/'([A-Za-z]+)'/g)].map((k) => k[1]))
+  it('keeps every key a rule reads, and keeps no key no rule reads', () => {
+    const read = new Set(KEY_READS.flatMap((call) => call.keys ?? []))
+    const unkept = KEY_READS.flatMap((call) =>
+      (call.keys ?? [])
+        .filter((key) => !RULE_INPUT_KEYS.includes(key))
+        .map((key) => `${call.file}:${call.line} reads ${key}`)
     )
-    const missing = [...read].filter((key) => !RULE_INPUT_KEYS.includes(key))
+    const unread = RULE_INPUT_KEYS.filter((key) => !read.has(key))
 
-    expect(missing).toEqual([])
+    expect(
+      unkept,
+      'Add each key to RULE_INPUT_KEYS in bff/bim/rule-inputs.ts, or the projection drops it before the rule reads it.'
+    ).toEqual([])
+    expect(unread, 'Remove each key from RULE_INPUT_KEYS in bff/bim/rule-inputs.ts: no rule reads it.').toEqual([])
+  })
 
-    expect(read.size).toBeGreaterThanOrEqual(RULE_INPUT_KEYS.length)
-    const catalogue = source.slice(source.indexOf('const BIM_RULES'))
-    expect(catalogue).not.toMatch(
-      /(?:dimensionProperty|numericProperty|property|quantity)\(element,\s*[^[\s]/
-    )
-
-    const fields = new Set(
-      [...source.matchAll(/element\.([a-zA-Z]+)/g)].map((match) => match[1])
-    )
-    const missingFields = [...fields].filter(
-      (field) => !RULE_INPUT_FIELDS.includes(field) && field !== 'ifcType'
+  it('passes every key list in rules.ts as a literal array, so the guard can read it', () => {
+    const computed = KEY_READS.filter((call) => call.file === CATALOGUE && call.keys === null).map(
+      (call) => `${call.file}:${call.line}`
     )
 
-    expect(missingFields).toEqual([])
+    expect(
+      computed,
+      "Write the keys inline as a literal array of strings, e.g. property(element, ['FireRating'])."
+    ).toEqual([])
+  })
+
+  it('reads from an element only the fields the projection carries', () => {
+    const fields = SOURCES.flatMap((source) =>
+      nodesOf(source, ts.isPropertyAccessExpression)
+        .filter((access) => isElement(access.expression) && !RULE_INPUT_FIELDS.includes(access.name.text))
+        .map((access) => `${source.fileName}:${lineOf(access)} reads element.${access.name.text}`)
+    )
+
+    expect(
+      fields,
+      'Add the field to RULE_INPUT_FIELDS in bff/bim/rule-inputs.ts and carry it through projectRuleInputs, or the rule reads undefined once the projection runs.'
+    ).toEqual([])
   })
 
   it('drops the payload the rules never read', () => {
