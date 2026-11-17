@@ -20,21 +20,21 @@ from agent.core.models import ResearchAgentState
 SEEN: list[tuple[str, int | None]] = []
 
 
-@tool
+@tool(description="Search the OIB knowledge corpus.")
 def knowledge_search(query: str) -> str:
     SEEN.append(("knowledge_search", current_retrieval_round()))
     turn_status.record_lane_hit(f"{query}.pdf", title=f"Treffer zu {query}")
     return f"Treffer zu: {query}"
 
 
-@tool
+@tool(description="Open a named passage of a named document.")
 def read_passage(document: str, clause: str = "") -> str:
     SEEN.append(("read_passage", current_retrieval_round()))
     turn_status.record_lane_hit(f"{document}.pdf", detail=f"p.{clause}" if clause else None)
     return f"{document}, Pkt. {clause}"
 
 
-@tool
+@tool(description="Store a durable fact about this project.")
 def remember(text: str) -> str:
     SEEN.append(("remember", current_retrieval_round()))
     return "gemerkt"

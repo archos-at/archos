@@ -35,7 +35,7 @@ _BUILTIN_TOOL_NAMES = {
 }
 
 
-@tool
+@tool(description="Search the web for information.")
 def web_search_tool(query: str) -> str:
     return f"Results for: {query}"
 

@@ -29,7 +29,7 @@ CORPUS = (
 RETURNS: dict[str, str] = {}
 
 
-@tool
+@tool(description="Search the OIB knowledge corpus.")
 def knowledge_search(query: str) -> str:
     name = RETURNS.get(query, "")
     if not name:

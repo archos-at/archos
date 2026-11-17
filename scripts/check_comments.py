@@ -134,6 +134,13 @@ DOC_READ = (
 )
 
 
+def _bare_tool(decorator: ast.expr) -> bool:
+    if isinstance(decorator, ast.Name):
+        return decorator.id == "tool"
+    named = isinstance(decorator, ast.Call) and getattr(decorator.func, "id", "") == "tool"
+    return named and not any(keyword.arg == "description" for keyword in decorator.keywords)
+
+
 def docstring_reads(path: str, source: str) -> list[str]:
     try:
         tree = ast.parse(source)
@@ -149,6 +156,11 @@ def docstring_reads(path: str, source: str) -> list[str]:
             lines.add(node.lineno)
         elif isinstance(node, ast.Name) and node.id == "getdoc":
             lines.add(node.lineno)
+        elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+            lines.update(d.lineno for d in node.decorator_list if _bare_tool(d))
+        elif isinstance(node, ast.Call) and getattr(node.func, "attr", "") == "from_function":
+            if not any(keyword.arg == "description" for keyword in node.keywords):
+                lines.add(node.lineno)
         elif isinstance(node, ast.Call) and getattr(node.func, "id", "") == "getattr" and len(node.args) > 1:
             if isinstance(node.args[1], ast.Constant) and node.args[1].value == "__doc__":
                 lines.add(node.lineno)

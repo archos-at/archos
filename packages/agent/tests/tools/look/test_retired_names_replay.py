@@ -27,7 +27,7 @@ RETIRED_CALLS = {
 }
 
 
-@tool("look")
+@tool("look", description="Look at a page of a document.")
 def look(document: str = "", page: int = 1) -> str:
     RAN.append(f"look:{document}:{page}")
     return f"Seite {page}: Tür 1,00 m"

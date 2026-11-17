@@ -21,12 +21,12 @@ from nat.plugin_api import InteractionResponse
 from nat.plugin_api import MultipleChoiceOption
 
 
-@tool
+@tool(description="Alpha.")
 def alpha_tool(query: str) -> str:
     return query
 
 
-@tool
+@tool(description="Beta.")
 def beta_tool(query: str) -> str:
     return query
 

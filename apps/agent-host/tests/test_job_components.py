@@ -1281,7 +1281,7 @@ class TestAsyncJobRunnerAgentFactory:
         from agent.common import LLMRole
         from agent_host.jobs.runner import _create_agent_instance
 
-        @tool
+        @tool(description="Search test tool.")
         def async_test_search(query: str) -> str:
             return f"results for {query}"
 

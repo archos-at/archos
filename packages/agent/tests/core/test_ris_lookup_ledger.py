@@ -37,7 +37,7 @@ def _passage(clause: str, *, title: str = "Bauordnung für Wien", url: str = _LA
 RETURNED: list[list[Passage]] = []
 
 
-@tool
+@tool(description="Answer a question about Austrian law from RIS with citable passages.")
 def ris_lookup_tool(question: str, conclusion: str = "") -> str:
     passages = RETURNED.pop(0) if RETURNED else []
     capture_passages(passages)

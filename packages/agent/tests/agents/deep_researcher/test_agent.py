@@ -32,7 +32,7 @@ from tests.provider_doubles import NAT_LLM_CONFIG
 from tests.provider_doubles import nat_langchain_client
 
 
-@tool
+@tool(description="Search the web for information.")
 def web_search_tool(query: str) -> str:
     return f"Results for: {query}"
 

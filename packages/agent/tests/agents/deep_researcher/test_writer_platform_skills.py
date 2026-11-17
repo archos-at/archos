@@ -21,7 +21,7 @@ from agent.skills.resolver import SkillResolver
 VOICE_BODY = "# Wie eine Antwort gebaut ist\n\nDie Zahl steht im ersten Satz."
 
 
-@tool
+@tool(description="Search the web for information.")
 def web_search_tool(query: str) -> str:
     return f"Results for: {query}"
 

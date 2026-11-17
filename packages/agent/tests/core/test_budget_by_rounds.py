@@ -29,25 +29,25 @@ _PROMPT = "Du bist der Agent."
 RAN: list[str] = []
 
 
-@tool
+@tool(description="Search the OIB knowledge corpus.")
 def knowledge_search(query: str) -> str:
     RAN.append(f"knowledge_search:{query}")
     return f"Treffer zu: {query}"
 
 
-@tool
+@tool(description="Open a named passage of a known document.")
 def read_passage(document: str, clause: str | None = None) -> str:
     RAN.append(f"read_passage:{document}|{clause or ''}")
     return f"Passage aus {document}"
 
 
-@tool
+@tool(description="Emit a UI card.")
 def emit_card(kind: str) -> str:
     RAN.append(f"emit_card:{kind}")
     return "Karte erstellt"
 
 
-@tool
+@tool(description="Remember a durable fact.")
 def remember(fact: str) -> str:
     RAN.append(f"remember:{fact}")
     return "Gemerkt"

@@ -98,17 +98,31 @@ Snippet: Die OIB-Richtlinie 4 regelt Nutzungssicherheit und Barrierefreiheit, da
 """
 
 
-@tool
+@tool(
+    description=(
+        "Search the knowledge base: OIB-Richtlinien, Bürowissen and the project's uploaded documents.\n"
+        "\n"
+        "Returns the best matching passages with a Citation line each. Use for any question that needs\n"
+        "the text of an OIB-Richtlinie, an internal document or a project file."
+    )
+)
 def knowledge_search(query: str, file_name: str | None = None) -> str:
     return _KNOWLEDGE_HIT
 
 
-@tool
+@tool(
+    description=(
+        "Search Austrian federal and state law (Bauordnungen, statutes, case law) in the official RIS.\n"
+        "\n"
+        "Use German search terms. Returns hits with document numbers and URLs; fetch the full text with\n"
+        "ris_fetch_tool."
+    )
+)
 def ris_search_tool(query: str) -> str:
     return _RIS_HIT
 
 
-@tool
+@tool(description="Fetch the full text of one RIS document by its document number, for exact wording and citation.")
 def ris_fetch_tool(document_number: str) -> str:
     return (
         "§ 101. (1) Bei Absturzhöhen ab 60 cm sind Absturzsicherungen von mindestens 1,00 m Höhe anzubringen.\n"
@@ -116,7 +130,7 @@ def ris_fetch_tool(document_number: str) -> str:
     )
 
 
-@tool
+@tool(description="Search the web for general facts, news, or when the sources above are silent.")
 def web_search_tool(query: str) -> str:
     return _WEB_HIT
 

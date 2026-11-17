@@ -18,12 +18,12 @@ from agent.core.models import ResearchAgentState
 SUBJECT = "220724_Aufsicht_1_100.pdf"
 
 
-@tool
+@tool(description="Search the knowledge base.")
 def searching_tool(query: str) -> str:
     return ""
 
 
-@tool
+@tool(description="Remember a fact for later conversations.")
 def remember_tool(fact: str) -> str:
     return "saved"
 

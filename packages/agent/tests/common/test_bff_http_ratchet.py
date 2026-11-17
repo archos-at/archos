@@ -21,7 +21,7 @@ ALLOWED: dict[str, dict[str, int]] = {
     "base_url": {
         "packages/agent/src/agent/skills/resolver.py": 1,
         "packages/agent/src/agent/common/model_overrides.py": 1,
-        "packages/agent/src/agent/common/llm_credentials.py": 2,
+        "packages/agent/src/agent/common/llm_credentials.py": 1,
         "packages/agent/src/agent/common/platform_lessons.py": 1,
         "packages/agent/src/agent/common/retrieval_settings.py": 1,
         "packages/agent/src/agent/common/reasoning_settings.py": 1,
@@ -36,7 +36,7 @@ ALLOWED: dict[str, dict[str, int]] = {
     "token_header": {
         "packages/agent/src/agent/skills/resolver.py": 1,
         "packages/agent/src/agent/common/model_overrides.py": 1,
-        "packages/agent/src/agent/common/llm_credentials.py": 2,
+        "packages/agent/src/agent/common/llm_credentials.py": 1,
         "packages/agent/src/agent/common/platform_lessons.py": 1,
         "packages/agent/src/agent/common/retrieval_settings.py": 1,
         "packages/agent/src/agent/common/reasoning_settings.py": 1,

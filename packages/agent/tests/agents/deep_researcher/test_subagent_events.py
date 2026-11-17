@@ -58,7 +58,7 @@ async def _bodies_of(node: Any) -> list[Any]:
 
 
 def _orchestrator(responses: Iterator[AIMessage], task_body: Any) -> Any:
-    @tool("task")
+    @tool("task", description="Run a subagent.")
     async def task(description: str, subagent_type: str) -> str:
         return await task_body(subagent_type)
 

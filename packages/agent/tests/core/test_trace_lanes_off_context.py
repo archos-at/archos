@@ -35,7 +35,7 @@ _RESULT = (
 )
 
 
-@tool
+@tool(description="Search the OIB knowledge corpus.")
 def knowledge_search(query: str) -> str:
     turn_status.record_lane_hit("oib-rl_2_ausgabe_mai_2023.pdf", title="OIB-Richtlinie 2, Ausgabe Mai 2023")
     return _RESULT

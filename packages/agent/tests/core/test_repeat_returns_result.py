@@ -32,7 +32,7 @@ RAN: list[str] = []
 FAILING: set[str] = set()
 
 
-@tool
+@tool(description="Open a named passage of a known document.")
 def read_passage(document: str, clause: str | None = None) -> str:
     RAN.append(f"read_passage:{document}|{clause or ''}")
     if document in FAILING:
@@ -41,7 +41,7 @@ def read_passage(document: str, clause: str | None = None) -> str:
     return _PASSAGE
 
 
-@tool
+@tool(description="Search the OIB knowledge corpus.")
 def knowledge_search(query: str) -> str:
     RAN.append(f"knowledge_search:{query}")
     return f"Treffer zu: {query}"

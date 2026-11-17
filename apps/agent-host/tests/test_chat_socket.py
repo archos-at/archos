@@ -2437,12 +2437,12 @@ async def test_a_note_is_read_by_the_real_graph_in_its_next_round_and_holds_back
     requests: list[list] = []
     deciding, steered = asyncio.Event(), asyncio.Event()
 
-    @tool("look")
+    @tool("look", description="Look at a page.")
     def look(page: int) -> str:
         ran.append("look")
         return "Tür links, Treppe rechts"
 
-    @tool("canvas__mark")
+    @tool("canvas__mark", description="Propose an Anmerkung.")
     def mark(target: str) -> str:
         ran.append(f"mark:{target}")
         return "ok"

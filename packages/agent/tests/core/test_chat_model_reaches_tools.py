@@ -19,7 +19,7 @@ from agent.core.models import ResearchAgentState
 SEEN: list[str | None] = []
 
 
-@tool
+@tool(description="Look at a page.")
 def look(page: int) -> str:
     SEEN.append(current_chat_model())
     return f"Seite {page}"

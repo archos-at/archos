@@ -34,13 +34,13 @@ _NOTE = "nicht die Tür, die Treppe"
 RAN: list[str] = []
 
 
-@tool("look")
+@tool("look", description="Look at a page of the document.")
 def look(page: int) -> str:
     RAN.append(f"look:{page}")
     return f"Seite {page}: Tür links, Treppe rechts"
 
 
-@tool("canvas__mark")
+@tool("canvas__mark", description="Propose an Anmerkung on the document.")
 def mark(target: str) -> str:
     RAN.append(f"mark:{target}")
     return f"Vorgeschlagen: {target}"
@@ -160,7 +160,7 @@ class TestTheNextRoundReadsTheNote:
 
     async def test_a_note_that_arrives_while_tools_run_is_read_next_and_holds_nothing(self, inbox):
 
-        @tool("look")
+        @tool("look", description="Look at a page of the document.")
         def slow_look(page: int) -> str:
             RAN.append(f"look:{page}")
             inbox.offer(_note())

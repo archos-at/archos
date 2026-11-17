@@ -180,7 +180,7 @@ class TestMeasurementDetectionIsScopedToTheMeasuringTool:
         assert tool_result_is_measurement("bim__ifc_query", result) is False
 
 
-@tool
+@tool(description="Measure the project's IFC/BIM model and report the provenance.")
 def ifc_measure(operation: str) -> str:
     return _MEASURE_RESULT.pop(0) if _MEASURE_RESULT else _measured_line()
 

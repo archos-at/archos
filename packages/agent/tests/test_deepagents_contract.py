@@ -261,7 +261,7 @@ def _deep_research_tool_names() -> dict[str, set[str]]:
     from agent.agents.deep_researcher.models import DeepResearchAgentState
     from agent.common import LLMProvider
 
-    @tool
+    @tool(description="Search the web.")
     def web_search_tool(query: str) -> str:
         return query
 

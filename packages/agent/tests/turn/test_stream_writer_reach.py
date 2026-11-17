@@ -27,7 +27,7 @@ class _TokenCallback(AsyncCallbackHandler):
         get_stream_writer()({"from": "callback", "token": token})
 
 
-@tool
+@tool(description="Write from inside a tool.")
 async def _probe_tool(q: str) -> str:
     get_stream_writer()({"from": "tool"})
     return "ok"

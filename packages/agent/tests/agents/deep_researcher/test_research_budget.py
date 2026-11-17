@@ -24,7 +24,7 @@ from agent.agents.deep_researcher.tools.research import build_research_batch_too
 from agent.common import RunBudgetExceededError
 
 
-@tool
+@tool(description="Search the web for information.")
 def web_search_tool(query: str) -> str:
     return f"Results for: {query}"
 

@@ -49,7 +49,7 @@ RAN: list[str] = []
 FAILING_QUERIES: set[str] = set()
 
 
-@tool
+@tool(description="Search the office's documents.")
 def knowledge_search(query: str) -> str:
     if query in FAILING_QUERIES:
         FAILING_QUERIES.discard(query)
@@ -59,19 +59,19 @@ def knowledge_search(query: str) -> str:
     return f"Treffer zu: {query}"
 
 
-@tool
+@tool(description="Open a named passage of a known document.")
 def read_passage(document: str, clause: str | None = None) -> str:
     RAN.append(f"read_passage:{document}|{clause or ''}")
     return f"Passage aus {document} {clause or ''}".strip()
 
 
-@tool
+@tool(description="Search the web.")
 def web_search_tool(query: str) -> str:
     RAN.append(f"web_search_tool:{query}")
     return f"Web-Treffer zu: {query}"
 
 
-@tool("canvas__mark")
+@tool("canvas__mark", description="Propose an Anmerkung on the document.")
 def mark(target: str) -> str:
     RAN.append(f"mark:{target}")
     return f"Vorgeschlagen: {target}"
@@ -230,7 +230,7 @@ class TestTwoRestrictedResultsOneAdmission:
     async def test_one_admit_call_names_both_collections(self, monkeypatch):
         first, second = "proj_p1_r0123456789ab", "proj_p1_rba9876543210"
 
-        @tool("knowledge_search")
+        @tool("knowledge_search", description="Search the project's documents.")
         def restricted_search(query: str) -> str:
             collection = first if query == "Honorar" else second
             return (
@@ -275,7 +275,7 @@ class TestTwoRestrictedResultsOneAdmission:
 
 class TestWhatAFailedCallSays:
     async def test_a_schema_invalid_call_and_a_raising_tool(self):
-        @tool
+        @tool(description="Always fails.")
         def explode(query: str) -> str:
             raise RuntimeError("store rejected the filter")
 

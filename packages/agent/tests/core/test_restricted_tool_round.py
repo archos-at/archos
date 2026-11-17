@@ -43,7 +43,7 @@ _RESULT = (
 )
 
 
-@tool
+@tool(description="Search the project's documents.")
 def knowledge_search(query: str) -> str:
     return _RESULT
 

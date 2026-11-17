@@ -139,12 +139,12 @@ async def test_an_evidence_tool_is_one_sources_step_from_its_records_even_off_th
     assert body == _finished(SourcesStep(id=body.step.id, round=1, tool="knowledge_search", lanes=list(LANES)))
 
 
-@tool
+@tool(description="Return a plan.")
 async def fetch_plan(q: str) -> str:
     return "the whole passage, which never reaches the wire"
 
 
-@tool
+@tool(description="Fail.")
 async def broken_probe(q: str) -> str:
     raise ValueError("secret stack detail")
 

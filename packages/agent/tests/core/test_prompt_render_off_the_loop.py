@@ -19,7 +19,7 @@ from agent.core.models import ResearchAgentState
 _PROMPT = "Du bist der Agent."
 
 
-@tool
+@tool(description="Search the OIB knowledge corpus.")
 def knowledge_search(query: str) -> str:
     return f"Treffer zu: {query}"
 

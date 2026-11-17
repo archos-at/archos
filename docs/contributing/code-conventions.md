@@ -85,7 +85,7 @@ whose message names the rule.
   `*_DESCRIPTION` constant, `Field(description=...)`, or
   `model_config = ConfigDict(json_schema_extra={"description": ...})` on a schema
   (a card's `card_description()` reads that). `check_comments.py` fails on a
-  `__doc__` or `getdoc` read, and `test_model_facing_text.py` re-runs the snapshot
+  `__doc__` or `getdoc` read and on a bare `@tool` or `from_function` without one, and `test_model_facing_text.py` re-runs the snapshot
   under `python -OO`, which strips every docstring.
 - A design rationale longer than a line belongs in an ADR or the area's doc,
   linked from the code only if the code would mislead without it.

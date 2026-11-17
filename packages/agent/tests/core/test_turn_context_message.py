@@ -226,7 +226,7 @@ class TestTheAnswerLanguageLine:
         assert LINE_START not in english.system
 
 
-@tool
+@tool(description="Search the knowledge base.")
 def knowledge_search(query: str) -> str:
     return "Treffer"
 

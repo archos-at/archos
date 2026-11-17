@@ -20,7 +20,7 @@ from agent.agents.deep_researcher.tools.source_tool_batching import adapt_source
 async def test_batch_wrapper_single_string_calls_original_once():
     calls: list[str] = []
 
-    @tool
+    @tool(description="Search a source.")
     async def search_tool(query: str) -> str:
         calls.append(query)
         return f"result for {query}"
@@ -45,7 +45,7 @@ async def test_batch_wrapper_single_string_calls_original_once():
 async def test_batch_wrapper_list_calls_original_once_per_item():
     calls: list[str] = []
 
-    @tool
+    @tool(description="Search a source.")
     async def search_tool(query: str) -> str:
         calls.append(query)
         return f"https://example.test/{query}"
@@ -70,7 +70,7 @@ async def test_batch_wrapper_list_calls_original_once_per_item():
 async def test_batch_wrapper_represents_partial_failures_per_item():
     calls: list[str] = []
 
-    @tool
+    @tool(description="Search a source.")
     async def search_tool(query: str) -> str:
         calls.append(query)
         if query == "bad":
@@ -97,7 +97,7 @@ async def test_batch_wrapper_represents_partial_failures_per_item():
 async def test_batch_wrapper_rejects_oversized_tool_batches_without_calling_original():
     calls: list[str] = []
 
-    @tool
+    @tool(description="Search a source.")
     async def search_tool(query: str) -> str:
         calls.append(query)
         return query
@@ -117,7 +117,7 @@ async def test_batch_wrapper_rejects_oversized_tool_batches_without_calling_orig
 
 @pytest.mark.asyncio
 async def test_source_registry_captures_urls_from_wrapped_tool_output():
-    @tool
+    @tool(description="Search a source.")
     async def search_tool(query: str) -> str:
         return f"{query}: https://example.test/source"
 
@@ -143,7 +143,7 @@ async def test_source_registry_captures_urls_from_wrapped_tool_output():
 
 @pytest.mark.asyncio
 async def test_incompatible_multi_arg_source_tool_keeps_schema_and_is_throttled():
-    @tool
+    @tool(description="Search a source.")
     async def search_tool(query: str, limit: int) -> str:
         return f"{query}:{limit}"
 
@@ -173,11 +173,11 @@ async def test_shared_limiter_caps_underlying_calls_across_wrapped_tools():
         active -= 1
         return query
 
-    @tool
+    @tool(description="Search source A.")
     async def search_a(query: str) -> str:
         return await _recorded_result(query)
 
-    @tool
+    @tool(description="Search source B.")
     async def search_b(query: str) -> str:
         return await _recorded_result(query)
 
@@ -202,7 +202,7 @@ async def test_shared_limiter_caps_non_batchable_source_tools():
     active = 0
     max_seen = 0
 
-    @tool
+    @tool(description="Search a source.")
     async def search_tool(query: str, limit: int) -> str:
         nonlocal active, max_seen
         active += 1

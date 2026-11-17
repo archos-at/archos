@@ -49,17 +49,17 @@ async def _run_with_bound_registry(agent, state, registry):
     return result
 
 
-@tool
+@tool(description="Search the web for information.")
 def web_search_tool(query: str) -> str:
     return f"Results for: {query}"
 
 
-@tool
+@tool(description="Render a rich UI card alongside your answer.")
 def emit_card(card_json: str) -> str:
     return f"Card will be shown with your answer: {card_json}"
 
 
-@tool
+@tool(description="Return the exact JSON shape for one or more card types.")
 def describe_card(card_types: str) -> str:
     return f"Shapes for: {card_types}"
 
@@ -863,7 +863,7 @@ class TestChatAgent:
         assert synthesis_instruction_found
 
 
-@tool
+@tool(description="Search the web and return results with URLs.")
 def web_search_with_urls(query: str) -> str:
     return (
         '<Document href="https://docs.nvidia.com/cuda/">\n'
@@ -873,27 +873,27 @@ def web_search_with_urls(query: str) -> str:
     )
 
 
-@tool
+@tool(description="Get the current time for a timezone.")
 def mcp_time__get_current_time(timezone: str = "UTC") -> str:
     return "2026-05-11T14:30:00+09:00"
 
 
-@tool
+@tool(description="Get current observed weather conditions.")
 def weather_observation_tool(location: str) -> str:
     return f"Current conditions for {location}: clear, 68F"
 
 
-@tool
+@tool(description="Search the web (returns no results).")
 def empty_web_search_tool(query: str) -> str:
     return ""
 
 
-@tool
+@tool(description="Look into the office's other projects (a search that matched nothing).")
 def project_lookup(action: str, query: str = "") -> str:
     return "Treffer aus anderen Projekten: 0 Passage(n) aus 0 Projekt(en); 7 von 7 Projekten durchsucht."
 
 
-@tool
+@tool(description="Durably save a user preference, decision, or project fact.")
 def remember_tool(fact: str) -> str:
     return f"Saved: {fact}"
 
@@ -901,7 +901,7 @@ def remember_tool(fact: str) -> str:
 _SPY_SEARCH_EXECUTIONS: list[str] = []
 
 
-@tool
+@tool(description="Search the web (spy: records every actual execution).")
 def spy_search_tool(query: str) -> str:
     _SPY_SEARCH_EXECUTIONS.append(query)
     return f"Results for: {query}"
@@ -1865,7 +1865,7 @@ class TestChatAnswerGrounding:
         assert result.citations_removed is None
 
 
-@tool
+@tool(description="Search the internal knowledge base (returns KB-format results).")
 def knowledge_search(query: str) -> str:
     return (
         "Found 1 relevant document(s):\n\n"
@@ -2426,7 +2426,7 @@ _MEASURED_BASEMENT = {
 _MEASURED_MODEL = {"model": {"filename": "Institut.ifc", "schemaVersion": "IFC4", "elements": 12043}}
 
 
-@tool
+@tool(description="Measure the project's IFC/BIM model and report the provenance.")
 def ifc_measure(operation: str = "measure") -> str:
     from agent.tools.bim.measure_register import _render
 

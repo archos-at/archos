@@ -29,7 +29,7 @@ RAN: list[str] = []
 STAMPS: list[tuple[str, int | None]] = []
 
 
-@tool
+@tool(description="Search the OIB knowledge corpus.")
 def knowledge_search(
     query: str,
     doc_class: str | None = None,
@@ -50,7 +50,7 @@ def knowledge_search(
     return f"Treffer zu: {query}"
 
 
-@tool
+@tool(description="Open a named passage of a known document.")
 def read_passage(document: str, clause: str | None = None, page: int | None = None) -> str:
     RAN.append(f"read_passage:{document}|{clause or ''}|{page or ''}")
     STAMPS.append(("read_passage", current_retrieval_round()))
@@ -60,19 +60,19 @@ def read_passage(document: str, clause: str | None = None, page: int | None = No
 FAILING_QUERIES: set[str] = set()
 
 
-@tool
+@tool(description="Search Austrian law in RIS.")
 def ris_search_tool(query: str) -> str:
     RAN.append(f"ris_search_tool:{query}")
     return f"RIS-Treffer zu: {query}"
 
 
-@tool
+@tool(description="Search the web.")
 def web_search_tool(query: str) -> str:
     RAN.append(f"web_search_tool:{query}")
     return f"Web-Treffer zu: {query}"
 
 
-@tool
+@tool(description="Emit a UI card.")
 def emit_card(kind: str) -> str:
     RAN.append(f"emit_card:{kind}")
     STAMPS.append(("emit_card", current_retrieval_round()))

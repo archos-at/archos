@@ -35,7 +35,7 @@ from agent.common import LLMRole
 from agent.skills import SkillRuntime
 
 
-@tool
+@tool(description="Search the web for information.")
 def web_search_tool(query: str) -> str:
     return f"Results for: {query}"
 

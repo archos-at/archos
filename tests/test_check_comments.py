@@ -95,6 +95,9 @@ def test_a_jsdoc_type_block_counts_as_a_whole(checker, repo):
         "import inspect\nTEXT = inspect.getdoc(len)\n",
         "from inspect import getdoc\nTEXT = getdoc(len)\n",
         'TEXT = getattr(len, "__doc__")\n',
+        "from langchain_core.tools import tool\n\n\n@tool\ndef look(page: int) -> str:\n    return ''\n",
+        "from langchain_core.tools import tool\n\n\n@tool('look')\ndef look(page: int) -> str:\n    return ''\n",
+        "from langchain_core.tools import StructuredTool\n\nT = StructuredTool.from_function(func=len, name='n')\n",
     ],
 )
 def test_reading_a_docstring_fails_and_names_the_explicit_field(checker, repo, capsys, code):
@@ -106,5 +109,6 @@ def test_reading_a_docstring_fails_and_names_the_explicit_field(checker, repo, c
 
 def test_setting_an_explicit_description_passes(checker, repo):
     _add(repo, "tool.py", 'import argparse\nargparse.ArgumentParser(description="Checks the tree.")\n')
+    _add(repo, "look.py", '@tool(description="Looks.")\ndef look(page: int) -> str:\n    return ""\n')
 
     assert checker.main([]) == 0

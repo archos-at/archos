@@ -32,7 +32,7 @@ from agent.core.models import PlanResponse
 from tests.conftest import stream_custom
 
 
-@tool
+@tool(description="Search the web for information.")
 def web_search_tool(query: str) -> str:
     return f"Results for: {query}"
 
@@ -679,7 +679,7 @@ class TestTools:
     @pytest.mark.asyncio
     async def test_a_failing_tool_is_reported_to_the_model_not_raised(self, caplog):
 
-        @tool
+        @tool(description="Always fails.")
         def broken_tool(query: str) -> str:
             raise RuntimeError("upstream is down")
 
@@ -720,7 +720,7 @@ class TestTools:
         running = 0
         overlapped = False
 
-        @tool
+        @tool(description="Sleeps.")
         async def slow_tool(query: str) -> str:
             nonlocal running, overlapped
             running += 1
