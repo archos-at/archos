@@ -71,13 +71,14 @@ DELETE FROM analytics_export_cursors WHERE stream = 'posthog_usage_hourly';
 Both stacks send to the one PostHog project, and both run `APP_ENV=production`.
 Every server event carries `app_host`, the stack's app host, from the pinned
 redirect URI (`serverSuperProperties`). It is `app.<baseDomain>` of the stack's
-Pulumi file: `app.piloti.at` for production (`Pulumi.prod.yaml`) and
+Pulumi file: `app.archos.tech` for production (`Pulumi.prod.yaml`) and
 `app.dev.archos.tech` for staging (`Pulumi.dev.yaml`). Staging moved on
-2026-11-05, so its earlier events carry `app.dev.piloti.at`; production's value
-changes the same way when it moves
-([`domain-cutover.md`](../deployment/domain-cutover.md)), and the SQL defaults
-below change with it. Filter on it; every chart below does. Before this change
-server events carried no deployment at all.
+2026-11-05 and production on 2026-11-15
+([`domain-cutover.md`](../deployment/domain-cutover.md)), so earlier events carry
+`app.dev.piloti.at` and `app.piloti.at`: a production filter that spans the move
+names both hosts, `app_host IN ('app.piloti.at', 'app.archos.tech')`. Filter on
+it; every chart below does. Before 2026-10-20 server events carried no
+deployment at all.
 
 ## What is in PostHog
 
@@ -103,7 +104,7 @@ Project 269895. Everything carries the tag `spend`.
   table, the members, and what the spend was for.
 
 Both take the SQL variables `piloti_deployment` (default: production's app host,
-`app.piloti.at` today) and,
+`app.archos.tech`; pick `app.piloti.at` for months before the move) and,
 on the second, `piloti_organization`, a list filled from the organizations that
 spent in the last 90 days.
 
@@ -165,7 +166,7 @@ SQL for the questions the catalog does not hold (`call execute-sql {"query": "â€
 -- One office, this month, by model, in its own unit (as its Budgets page shows it)
 SELECT model, sum(amount) AS amount, sum(calls) AS calls, sum(cost_usd) AS cost_usd
 FROM piloti_llm_usage_hourly
-WHERE app_host = 'app.piloti.at'
+WHERE app_host IN ('app.piloti.at', 'app.archos.tech')
   AND organization_name ILIKE '%feld72%'
   AND day_utc >= toStartOfMonth(toDate(toTimeZone(now(), 'UTC')))
 GROUP BY model ORDER BY amount DESC
@@ -174,20 +175,20 @@ GROUP BY model ORDER BY amount DESC
 SELECT toStartOfMonth(day) AS month, sum(cost_usd) AS cost_usd, sum(price_usd) AS price_usd,
        sum(price_usd) - sum(cost_usd) + sum(own_key_cost_usd) AS margin_usd
 FROM piloti_org_spend_daily
-WHERE app_host = 'app.piloti.at'
+WHERE app_host IN ('app.piloti.at', 'app.archos.tech')
 GROUP BY month ORDER BY month
 
 -- What the spend was for (chat answers, ingestion, dictation, helper roles), last 7 days
 SELECT activity, purpose, sum(cost_usd) AS cost_usd, sum(calls) AS calls
 FROM piloti_llm_usage_hourly
-WHERE app_host = 'app.piloti.at' AND day_utc >= today() - 7
+WHERE app_host IN ('app.piloti.at', 'app.archos.tech') AND day_utc >= today() - 7
 GROUP BY activity, purpose ORDER BY cost_usd DESC
 
 -- Biggest spenders by person this month, named from the WorkOS warehouse copy (production only)
 SELECT coalesce(u.email, h.user_id) AS person, h.organization_name, sum(h.cost_usd) AS cost_usd
 FROM piloti_llm_usage_hourly AS h
 LEFT JOIN workos_users AS u ON u.id = h.user_id
-WHERE h.app_host = 'app.piloti.at'
+WHERE h.app_host IN ('app.piloti.at', 'app.archos.tech')
   AND h.day_utc >= toStartOfMonth(toDate(toTimeZone(now(), 'UTC')))
 GROUP BY person, h.organization_name ORDER BY cost_usd DESC LIMIT 20
 ```

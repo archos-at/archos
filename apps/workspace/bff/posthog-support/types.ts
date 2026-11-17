@@ -38,7 +38,7 @@ export type SupportTicketAssignee =
   | { type: 'role'; id: string; name: string | null }
 
 /**
- * `origin:app.piloti.at` — the deployment that opened the ticket, by its app
+ * `origin:app.archos.tech` — the deployment that opened the ticket, by its app
  * origin's host. Dev and prod share one PostHog project, so the workflow that
  * tells Piloti about a team reply reads this tag to know which deployment to
  * poke (`POST https://<host>/api/webhooks/posthog-support`). `null` when the
@@ -113,7 +113,7 @@ export interface PosthogSupportConfig {
   /** Personal API key with `ticket:read` and `ticket:write`. */
   personalApiKey: string
   /**
-   * This app's own origin (`https://app.piloti.at`), sent as `Origin` when the
+   * This app's own origin (`https://app.archos.tech`), sent as `Origin` when the
    * server opens a ticket. PostHog checks every conversations call against the
    * project's Allowed domains, and a server request carries no Origin of its
    * own; `null` when the deployment does not pin one.

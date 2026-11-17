@@ -24,7 +24,7 @@ events. `tests/test_posthog_boundaries.py` enforces that.
   office from the request's tenant scope (Node) or signed envelope (Python).
 - **Every server event carries `release`, `service` and `app_host`**, the
   deployed commit (`GIT_SHA`), the process (`OTEL_SERVICE_NAME`) and the
-  deployment's host (`app.piloti.at`, `app.dev.piloti.at`, from the pinned
+  deployment's host (`app.archos.tech`, `app.dev.archos.tech`, from the pinned
   redirect URI), registered once as super properties of the server client.
   The Python client sends `release`, `environment` and `service`; the browser
   registers `release` at init (and again after `reset()`) from the same

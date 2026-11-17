@@ -11,7 +11,7 @@ SELECT
     toFloat(count()) AS breach
 FROM events
 WHERE event = '$exception' AND timestamp > now() - INTERVAL 1 HOUR AND timestamp <= now()
-    AND coalesce(toString(properties.app_host), '') != 'app.dev.piloti.at'
+    AND coalesce(toString(properties.app_host), '') NOT IN ('app.dev.piloti.at', 'app.dev.archos.tech')
     AND (toString(properties.$exception_values) ILIKE '%402%' OR toString(properties.$exception_values) ILIKE '%insufficient credits%' OR toString(properties.$exception_values) ILIKE '%available credits%')
 UNION ALL
 SELECT
@@ -26,14 +26,14 @@ SELECT
     toFloat(if(countIf(toString(properties.status) = 'failed') > 20 OR (count() >= 20 AND countIf(toString(properties.status) = 'failed') > 0.1 * count()), countIf(toString(properties.status) = 'failed'), 0)) AS breach
 FROM events
 WHERE event = 'document_ingest_finished' AND timestamp > now() - INTERVAL 1 HOUR AND timestamp <= now()
-    AND coalesce(toString(properties.app_host), '') != 'app.dev.piloti.at'
+    AND coalesce(toString(properties.app_host), '') NOT IN ('app.dev.piloti.at', 'app.dev.archos.tech')
 UNION ALL
 SELECT
     concat('[Ingest] Läufe, die länger als 60 min dauerten (in 1 h beendet): ', toString(count())) AS rule,
     toFloat(count()) AS breach
 FROM events
 WHERE event = 'document_ingest_finished' AND timestamp > now() - INTERVAL 1 HOUR AND timestamp <= now()
-    AND coalesce(toString(properties.app_host), '') != 'app.dev.piloti.at'
+    AND coalesce(toString(properties.app_host), '') NOT IN ('app.dev.piloti.at', 'app.dev.archos.tech')
     AND toFloat(properties.duration_ms) > 3600000
 UNION ALL
 SELECT
@@ -41,7 +41,7 @@ SELECT
     toFloat(count()) AS breach
 FROM events
 WHERE event = 'budget_blocked' AND timestamp > now() - INTERVAL 1 HOUR AND timestamp <= now()
-    AND coalesce(toString(properties.app_host), '') != 'app.dev.piloti.at'
+    AND coalesce(toString(properties.app_host), '') NOT IN ('app.dev.piloti.at', 'app.dev.archos.tech')
 UNION ALL
 SELECT
     concat('[Budget] Büro über 80 Prozent des Tagesbudgets: ', arrayStringConcat(groupArrayIf(concat(name, ' (', toString(round(pct)), ' Prozent)'), pct >= 80), ', ')) AS rule,
@@ -51,7 +51,7 @@ FROM (
         argMax(toString(properties.organization_name), timestamp) AS name,
         argMax(if(toFloat(properties.daily_limit) > 0, toFloat(properties.day_amount) / toFloat(properties.daily_limit) * 100, 0), timestamp) AS pct
     FROM events
-    WHERE event = 'organization_budget_snapshot' AND properties.app_host = 'app.piloti.at'
+    WHERE event = 'organization_budget_snapshot' AND properties.app_host IN ('app.piloti.at', 'app.archos.tech')
         AND timestamp > now() - INTERVAL 3 HOUR AND timestamp <= now()
     GROUP BY org
 )
@@ -66,7 +66,7 @@ FROM (
     FROM events
     WHERE event IN ('chat_message_sent', 'answer_completed')
         AND timestamp > now() - INTERVAL 90 MINUTE AND timestamp <= now()
-        AND properties.$host = 'app.piloti.at'
+        AND properties.$host IN ('app.piloti.at', 'app.archos.tech')
 )
 UNION ALL
 SELECT

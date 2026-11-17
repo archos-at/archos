@@ -7,7 +7,8 @@ paste the source into the destination (PostHog → Data pipelines → Destinatio
 or the PostHog MCP `cdp-functions-partial-update`), test it with a real event,
 then enable it.
 
-Staging (`app.dev.piloti.at`) and production (`app.piloti.at`) share one
+Staging (`app.dev.archos.tech`) and production (`app.archos.tech`; `app.dev.piloti.at` and
+`app.piloti.at` until the moves of 2026-11-05 and 2026-11-15) share one
 PostHog project (269895). Every destination below therefore works out which
 deployment a ticket belongs to before it links to or calls one.
 
@@ -41,9 +42,10 @@ project token) and reading the destination's logs, not only by test-invoking it.
 
 Inputs each destination needs: the Slack integration (`slack_workspace`,
 integration 91399) and `channel` (`C0CBG0ZC0TB`) for the two Slack ones;
-`default_host` (`app.piloti.at`) for the alert; `assignee_names` (PostHog user
+`default_host` (`app.archos.tech`) for the alert; `assignee_names` (PostHog user
 id → display name, optional) for the claim update; `allowed_hosts`
-(`["app.piloti.at", "app.dev.piloti.at"]`) for the poke.
+(`["app.archos.tech", "app.dev.archos.tech", "app.piloti.at", "app.dev.piloti.at"]`)
+for the poke: a ticket keeps the origin it was opened under, so the former hosts stay.
 
 The two Slack destinations also take `copy` (JSON): every word they post. The
 code is English like the rest of the repo and reads `inputs.copy.<key>`; the
@@ -114,7 +116,7 @@ no `error`.
 
 | File | Destination in PostHog | Trigger | What it does |
 |---|---|---|---|
-| none: PostHog's Slack template with its inputs set | „Piloti answers: thumbs-down with a reason → Slack (prod)" `01a17e99-0271-0000-4f5a-8c22030a5fd0` | `answer_feedback_submitted` with `verdict = down`, `reason` set and `$host = app.piloti.at` | Posts to `#answer-quality`: the reason, the office, the page, the conversation and message ids, links to Platform → Answer quality and the person's replays. The vote's comment never reaches PostHog. A thumbs-down without a reason does not post: on its own it says too little to act on |
+| none: PostHog's Slack template with its inputs set | „Piloti answers: thumbs-down with a reason → Slack (prod)" `01a17e99-0271-0000-4f5a-8c22030a5fd0` | `answer_feedback_submitted` with `verdict = down`, `reason` set and `$host` one of `app.archos.tech`, `app.piloti.at` | Posts to `#answer-quality`: the reason, the office, the page, the conversation and message ids, links to Platform → Answer quality and the person's replays. The vote's comment never reaches PostHog. A thumbs-down without a reason does not post: on its own it says too little to act on |
 | [`surveys/chat-message-count.hog`](surveys/chat-message-count.hog) | „Piloti: count chat messages per person (NPS audience)" `01a17ea6-7a0c-0000-b8fe-252e2147be8c` | `chat_message_sent` | Sets the person property `chat_messages_total`, which the NPS survey targets (≥ 15) |
 
 ## Surveys and reports

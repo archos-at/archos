@@ -37,7 +37,6 @@ hosts:
   accounts.google.com: an example issuer in a docstring
   agentskills.io: a link to the Agent Skills format, shown to people
   app.example.at: an example address in a comment
-  app.piloti.at: our own app's domain
   piloti.at: our own domain
   arxiv.org: an example in a docstring
   weathercams.faa.gov: an example in a comment
