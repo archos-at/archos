@@ -40,3 +40,13 @@ export interface LayoutActions {
 }
 
 export type LayoutStore = LayoutState & LayoutActions
+
+export interface Session {
+  id: string
+  title: string
+  date: Date
+  hasActiveDeepResearch?: boolean
+  hasCompletedReport?: boolean
+  contentLocked?: boolean
+  temporary?: boolean
+}
