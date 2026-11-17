@@ -69,8 +69,9 @@ DELETE FROM analytics_export_cursors WHERE stream = 'posthog_usage_hourly';
 ### Staging and production
 
 Both stacks send to the one PostHog project, and both run `APP_ENV=production`.
-Every server event carries `app_host`, the stack's app host, from the pinned
-redirect URI (`serverSuperProperties`). It is `app.<baseDomain>` of the stack's
+Every BFF server event carries `app_host`, the stack's app host, from the
+pinned redirect URI (`serverSuperProperties`); the Python tier's events carry it
+from 2026-11-17 (`POSTHOG_APP_HOST`), and older ones carry none. It is `app.<baseDomain>` of the stack's
 Pulumi file: `app.archos.tech` for production (`Pulumi.prod.yaml`) and
 `app.dev.archos.tech` for staging (`Pulumi.dev.yaml`). Staging moved on
 2026-11-05 and production on 2026-11-15

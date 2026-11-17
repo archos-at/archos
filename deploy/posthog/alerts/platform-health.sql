@@ -63,7 +63,17 @@ FROM apps
 UNION ALL
 SELECT
     'Cluster state (k8s_cluster on the gateway collector) stopped 20+ min ago',
-    toFloat(if(count() > 0 AND max(m.timestamp) < now() - INTERVAL 20 MINUTE, 1, 0))
+    -- Silent for a whole day leaves no samples here: the series still listed in
+    -- metric_series over the last week keeps it breached until a week has passed.
+    toFloat(if(
+        (count() > 0 AND max(m.timestamp) < now() - INTERVAL 20 MINUTE)
+        OR (count() = 0 AND (
+            SELECT count() FROM posthog.metric_series
+            WHERE time_bucket >= toStartOfHour(now() - INTERVAL 7 DAY)
+                AND metric_name = 'k8s.deployment.desired'
+                AND resource_attributes['deployment.environment.name'] = 'prod'
+        ) > 0),
+        1, 0))
 FROM posthog.metrics AS m
 INNER JOIN (
     SELECT series_fingerprint
@@ -94,6 +104,10 @@ WITH s AS (
         min(m.timestamp) AS first_ts,
         min(m.value) AS lo,
         max(m.value) AS hi,
+        -- Samples in the last 15 min, the first at least 12 min old: a "for 15 min"
+        -- rule needs a series that covers the window, not one sample of a new pod.
+        countIf(m.timestamp > now() - INTERVAL 15 MINUTE) > 0
+            AND minIf(m.timestamp, m.timestamp > now() - INTERVAL 15 MINUTE) < now() - INTERVAL 12 MINUTE AS spans15,
         minIf(m.value, m.timestamp > now() - INTERVAL 15 MINUTE) AS lo15,
         maxIf(m.value, m.timestamp > now() - INTERVAL 15 MINUTE) AS hi15
     FROM posthog.metrics AS m
@@ -137,7 +151,7 @@ pods AS (
             SELECT concat(res['k8s.namespace.name'], '/', substring(concat(res['k8s.job.name'], '-'), 1, 58))
             FROM s WHERE metric = 'k8s.job.desired_successful_pods'
         ) AS job_pod,
-        (NOT job_pod AND lo15 = hi15 AND hi15 IN (1, 4))
+        (NOT job_pod AND spans15 AND lo15 = hi15 AND hi15 IN (1, 4))
             OR (job_pod AND lo = 1 AND hi = 1 AND first_ts < now() - INTERVAL 55 MINUTE) AS stuck
     FROM s WHERE metric = 'k8s.pod.phase'
 ),
@@ -162,7 +176,7 @@ volumes AS (
 memory AS (
     SELECT
         concat(res['k8s.pod.name'], '/', res['k8s.container.name']) AS name,
-        maxIf(lo15, metric = 'container.memory.working_set') AS used15,
+        maxIf(lo15, metric = 'container.memory.working_set' AND spans15) AS used15,
         maxIf(latest, metric = 'k8s.container.memory_limit') AS cap
     FROM s
     WHERE metric IN ('container.memory.working_set', 'k8s.container.memory_limit')
@@ -209,6 +223,10 @@ WITH s AS (
         argMax(m.value, m.timestamp) AS latest,
         min(m.value) AS lo,
         max(m.value) AS hi,
+        -- Samples in the last 15 min, the first at least 12 min old: a "for 15 min"
+        -- rule needs a series that covers the window, not one sample of a new pod.
+        countIf(m.timestamp > now() - INTERVAL 15 MINUTE) > 0
+            AND minIf(m.timestamp, m.timestamp > now() - INTERVAL 15 MINUTE) < now() - INTERVAL 12 MINUTE AS spans15,
         minIf(m.value, m.timestamp > now() - INTERVAL 15 MINUTE) AS lo15,
         maxIf(m.value, m.timestamp > now() - INTERVAL 15 MINUTE) AS hi15
     FROM posthog.metrics AS m
@@ -238,18 +256,18 @@ SELECT
 FROM s WHERE metric = 'cnpg_collector_up'
 UNION ALL
 SELECT
-    concat('Postgres replica 60+ s behind for 15 min: ', arrayStringConcat(groupArrayIf(attrs['k8s_pod_name'], lo15 > 60), ', ')),
-    toFloat(countIf(lo15 > 60))
+    concat('Postgres replica 60+ s behind for 15 min: ', arrayStringConcat(groupArrayIf(attrs['k8s_pod_name'], spans15 AND lo15 > 60), ', ')),
+    toFloat(countIf(spans15 AND lo15 > 60))
 FROM s WHERE metric = 'cnpg_pg_replication_lag'
 UNION ALL
 SELECT
-    concat('PgBouncer clients waiting for a connection for 15 min: ', arrayStringConcat(arrayDistinct(groupArrayIf(attrs['k8s_pod_name'], lo15 > 0)), ', ')),
-    toFloat(countIf(lo15 > 0))
+    concat('PgBouncer clients waiting for a connection for 15 min: ', arrayStringConcat(arrayDistinct(groupArrayIf(attrs['k8s_pod_name'], spans15 AND lo15 > 0)), ', ')),
+    toFloat(countIf(spans15 AND lo15 > 0))
 FROM s WHERE metric = 'cnpg_pgbouncer_pools_cl_waiting'
 UNION ALL
 SELECT
-    concat('Qdrant peer down for 15 min: ', arrayStringConcat(groupArrayIf(attrs['peer'], hi15 = 0), ', ')),
-    toFloat(countIf(hi15 = 0))
+    concat('Qdrant peer down for 15 min: ', arrayStringConcat(groupArrayIf(attrs['peer'], spans15 AND hi15 = 0), ', ')),
+    toFloat(countIf(spans15 AND hi15 = 0))
 FROM s WHERE metric = 'up' AND service = 'qdrant'
 UNION ALL
 SELECT
@@ -273,6 +291,10 @@ WITH s AS (
         argMax(m.value, m.timestamp) AS latest,
         min(m.value) AS lo,
         max(m.value) AS hi,
+        -- Samples in the last 15 min, the first at least 12 min old: a "for 15 min"
+        -- rule needs a series that covers the window, not one sample of a new pod.
+        countIf(m.timestamp > now() - INTERVAL 15 MINUTE) > 0
+            AND minIf(m.timestamp, m.timestamp > now() - INTERVAL 15 MINUTE) < now() - INTERVAL 12 MINUTE AS spans15,
         minIf(m.value, m.timestamp > now() - INTERVAL 15 MINUTE) AS lo15,
         minIf(m.value, m.timestamp > now() - INTERVAL 30 MINUTE) AS lo30
     FROM posthog.metrics AS m
@@ -297,8 +319,8 @@ hpas AS (
     GROUP BY name
 )
 SELECT
-    concat('Queue backed up (oldest job waiting 30+ min for 15 min): ', arrayStringConcat(arrayDistinct(groupArrayIf(attrs['queue'], lo15 > 1800)), ', ')) AS rule,
-    toFloat(countIf(lo15 > 1800)) AS breach
+    concat('Queue backed up (oldest job waiting 30+ min for 15 min): ', arrayStringConcat(arrayDistinct(groupArrayIf(attrs['queue'], spans15 AND lo15 > 1800)), ', ')) AS rule,
+    toFloat(countIf(spans15 AND lo15 > 1800)) AS breach
 FROM s WHERE metric = 'grid.queue.oldest_age_seconds'
 UNION ALL
 SELECT
@@ -327,6 +349,10 @@ WITH s AS (
         any(sr.resource) AS res,
         min(m.value) AS lo,
         max(m.value) AS hi,
+        -- Samples in the last 15 min, the first at least 12 min old: a "for 15 min"
+        -- rule needs a series that covers the window, not one sample of a new pod.
+        countIf(m.timestamp > now() - INTERVAL 15 MINUTE) > 0
+            AND minIf(m.timestamp, m.timestamp > now() - INTERVAL 15 MINUTE) < now() - INTERVAL 12 MINUTE AS spans15,
         minIf(m.value, m.timestamp > now() - INTERVAL 15 MINUTE) AS lo15,
         max(m.count) - min(m.count) AS calls
     FROM posthog.metrics AS m
@@ -355,8 +381,8 @@ SELECT
 FROM http
 UNION ALL
 SELECT
-    concat('Node event loop stalled (p99 delay above 0.5 s for 15 min): ', arrayStringConcat(groupArrayIf(concat(service, ' ', res['service.instance.id']), lo15 > 0.5), ', ')),
-    toFloat(countIf(lo15 > 0.5))
+    concat('Node event loop stalled (p99 delay above 0.5 s for 15 min): ', arrayStringConcat(groupArrayIf(concat(service, ' ', res['service.instance.id']), spans15 AND lo15 > 0.5), ', ')),
+    toFloat(countIf(spans15 AND lo15 > 0.5))
 FROM s WHERE metric = 'nodejs.eventloop.delay.p99'
 UNION ALL
 SELECT

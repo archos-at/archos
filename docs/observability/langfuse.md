@@ -414,9 +414,10 @@ events).
 
 Staging and production export to one PostHog project and both file their
 traces under `langfuse_environment = 'production'`, so the environment
-cannot split them. `langfuse_tags` can: it is the observation's own tag list
-as a JSON string, and every observation carries `app_host:<host>`
-([above](#what-every-trace-carries)). Production is
+cannot split them. `langfuse_tags` can: the export copies the trace's tag
+list, as a JSON string, onto every observation and score of the trace, and
+every trace carries `app_host:<host>` ([above](#what-every-trace-carries)).
+Production is
 
 ```sql
 has(JSONExtract(coalesce(properties.langfuse_tags, '[]'), 'Array(String)'), 'app_host:app.archos.tech')
@@ -424,9 +425,9 @@ has(JSONExtract(coalesce(properties.langfuse_tags, '[]'), 'Array(String)'), 'app
 
 and staging the same with `app_host:app.dev.archos.tech`. It holds only from
 the deploy that adds the tag; earlier observations carry no deployment and
-cannot be split. The tag is per observation, not per trace, so filter the
-observations themselves. A `langfuse score` event has no tags: select its
-deployment through `langfuse_trace_id IN (...)` over the tagged observations.
+cannot be split. A score filters the same way: on 2026-11-17, 1014 of 1015
+exported scores carried their trace's tags, and observations carried tags set
+only on the trace (`outcome:answered`).
 What carries no tag: the MCP gateway's spans (`initialize`, `tools/list`, the
 Langfuse and CMS tool calls), which agentgateway writes itself and which
 land in `default`.
