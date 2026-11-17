@@ -149,7 +149,7 @@ describe('personInitials', () => {
   })
 
   test('handles a single name', () => {
-    expect(personInitials('Piloti')).toBe('P')
+    expect(personInitials('Paula')).toBe('P')
   })
 
   test('collapses extra whitespace', () => {

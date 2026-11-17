@@ -1,6 +1,6 @@
 # Platform agent door runbook
 
-For GRID platform operators who want their own agent (Claude, Cursor) to work
+For platform operators who want their own agent (Claude, Cursor) to work
 the operator console. The decision is ADR-0126; the mechanics are in
 [`../architecture/agent-surface.md`](../architecture/agent-surface.md#the-platform-door-a-second-server).
 

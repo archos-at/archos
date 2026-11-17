@@ -242,7 +242,7 @@ are the models. What follows is the decision, per event.
 | `CUSTOM` `interaction_request` | `{interaction_id, input: text \| choice, text, options[{id,label}], placeholder?, expires_at}` | HITL, over the runtime's `prompt_user_input` (below). Only the two shapes a producer builds exist. The legacy `approval` and `multiple_choice`, and the never-produced checkbox, dropdown, notification and oauth inputs, are gone |
 | `CUSTOM` `interaction_resolved` | `{interaction_id, outcome: answered \| expired \| cancelled}` | Closes the prompt in every tab and for spectators, who used to learn it only from the next frame |
 | `CUSTOM` `steer_received` / `steer_applied` | `{steer_id, text}` / `{steer_id, round}` | A note the asker typed into the running turn reached its inbox, then was read before decision `round`. A note with no `steer_applied` by the terminal is the client's to ask next ([`websocket-protocol.md`](../api/websocket-protocol.md#steering-a-running-turn-steer)) |
-| `CUSTOM` `viewer_action` | `{tool_call_id, tool_call_name, args}` | An AG-UI frontend tool call, whole in one frame (ADR-0144): Piloti proposes to move the asker's own viewer. Sent only in a turn whose `user_message.client_tools` declared `show_in_viewer`, at most once per turn. `tool_call_name` is the allow-list (`open_document`, `highlight_passage`, `highlight_region`, `compare_revisions`, `focus_ifc_element`); the schema reads it as a string, so a page passes over a name it does not know. `args` are the document and the place, checked by the tool against the BFF before it is sent. Not `TOOL_CALL_*`, for the reason in that row. Folded by every reader; held by the page that asked the turn until `RUN_FINISHED` `answered`, dropped on any other end, and read again with `GET /api/documents/{id}` before anything moves. Ignored after a Stop on this page, and never stored with the answer |
+| `CUSTOM` `viewer_action` | `{tool_call_id, tool_call_name, args}` | An AG-UI frontend tool call, whole in one frame (ADR-0144): the agent proposes to move the asker's own viewer. Sent only in a turn whose `user_message.client_tools` declared `show_in_viewer`, at most once per turn. `tool_call_name` is the allow-list (`open_document`, `highlight_passage`, `highlight_region`, `compare_revisions`, `focus_ifc_element`); the schema reads it as a string, so a page passes over a name it does not know. `args` are the document and the place, checked by the tool against the BFF before it is sent. Not `TOOL_CALL_*`, for the reason in that row. Folded by every reader; held by the page that asked the turn until `RUN_FINISHED` `answered`, dropped on any other end, and read again with `GET /api/documents/{id}` before anything moves. Ignored after a Stop on this page, and never stored with the answer |
 | `CUSTOM` `rejected` | `{of, code, message?}`, with `seq: 0` | A client message was refused (`auth_expired`, `conversation_mismatch`, `duplicate_turn`, `not_asker`, `no_pending_interaction`, `turn_not_found`, `invalid_message`, `busy` for an `if_idle` question, `steer_limit`). It is out of band and never ends a turn. That is why an unauthorised Stop is not a `RUN_ERROR`. `of: unknown` answers a frame with no type this wire has, which used to be dropped: a client never waits on silence |
 
 **One frame is not a turn's: `hello`.** `{v: 2, type: CUSTOM, name: hello, ts,
@@ -300,7 +300,7 @@ The client sends five messages, all with `v: 2` and `conversation_id`.
 
 The socket asks for the version on the upgrade (`?v=2`). Any other version is
 closed with `4426` (`CLOSE_CLIENT_OUTDATED`), and the client turns that into
-"Piloti was updated, reload". Today's old bundle gets nothing better than its
+"the app was updated, reload". Today's old bundle gets nothing better than its
 existing connection-failed banner: telling it anything in its own dialect would
 be the shim the product owner ruled out. A deploy restarts every socket anyway.
 
@@ -382,7 +382,7 @@ which bundle it talks to.
 producer inside a graph run calls `get_stream_writer()` and writes a wire
 **body**. This was measured on the installed LangGraph, not assumed
 (`packages/agent/tests/turn/test_stream_writer_reach.py`, committed with this design): the writer reaches a node in a graph that another node
-`ainvoke`s through a plain async function, which is the shape of Piloti's agent runtime
+`ainvoke`s through a plain async function, which is the shape of the agent's runtime
 function boundary, and LangChain callbacks such as the token callback, tools
 inside `ToolNode`, child tasks and `asyncio.to_thread` workers. Under `ainvoke`
 the writer is a silent no-op, which is what a deep-research job worker gets.
@@ -451,7 +451,7 @@ where it emits in v2:
 |---|---|---|
 | `turn_status.push_custom_step`: a balanced agent runtime FUNCTION START/END pair disguised as a function, with JSON inside an HTML-escaped code block | `common/turn_status.py` | **Deleted.** `emit_step(Step)`. The disguise, the span-stack balancing and its docstring go with it |
 | `emit_status` and its callers: `emit_documents_loading`, `_waiting`, `emit_retrieval_requery`, `emit_citation_check`, `emit_answer_repair`, `emit_escalation`, `emit_synthesis`, `emit_family_coverage`, `emit_repeat_fetch`, `emit_refused_source`, `emit_width_cap`, `emit_research_truncated`, `emit_input_budget_exhausted`, `emit_deep_research_cutoff`, `emit_answer_degraded`, `emit_card_invalid`, `emit_anatomy_dropped`, `emit_verdict_dropped`, `emit_checkpoint` | `common/turn_status.py`, called from `agents/piloti/*`, `agents/deep_researcher/{agent,cutoff,finalize,tools/research}.py`, `common/{retrieval_rounds,answer_envelope,grounding_block}.py`, `cards/surface_documents.py`, `tools/bim/measurement_sources.py`, `packages/{ris-adapter,tavily-web-search,knowledge-layer}` | Each builds a `StatusStep` and calls `emit_step`. The `slot` stays the step id's suffix (`status:<slot>`), and the keys are unchanged (`ALL_STATUS_KEYS`) |
-| `emit_retrieval` | `common/retrieval_status.py`, from Piloti's agent node and deep research | `RetrievalStep` with `round`, `tools` and `reason`, and `prefetch` on the round the decision ran before the model (`_prefetch_node`). It still sets `_retrieval_round` |
+| `emit_retrieval` | `common/retrieval_status.py`, from the agent's node and deep research | `RetrievalStep` with `round`, `tools` and `reason`, and `prefetch` on the round the decision ran before the model (`_prefetch_node`). It still sets `_retrieval_round` |
 | `emit_subject_document` | `turn/subject_document.py`, **setup phase** | `load_subject_document` **returns** the outcome as a `StatusStep`, and `_run` yields it. Nothing is emitted from outside a graph |
 | `emit_documents_loading` | `conversation_register._run`, **setup phase** | `_run` yields the `StatusStep` |
 | `emit_documents_waiting` | `turn/inventory.py`, **setup phase**, before waiting on indexing | `load_inventory` is split: `pending_uploads()` returns what is pending, `_run` yields the waiting step, then awaits `wait_for_uploads()` |
@@ -816,7 +816,7 @@ and a reader-order change, nothing more.
 | Contract | Every recorded event is valid **and** is byte for byte the frame the server writes. Turns are ordered: seq 1..n, one terminal, only stages after it. Every client message parses. Old agent runtime frames, `v: 1`, empty deltas, raw payloads on steps, unknown kinds and names, a half run hand-off, and a both-answers interaction response are refused, and so is the newer server's drift in `newer-events.jsonl`, which this server never writes. The committed schema is fresh | `packages/agent/tests/common/test_wire_v2.py` (committed) |
 | Contract, UI side | The same files through the generated zod: every event parses to its type, defaults restored, and every invalid frame refused. `newer-events.jsonl` parses, its unknown keys stripped and its unknown types, step kinds and `CUSTOM` names folded as no-ops (§a, Compatibility). The generated module is the generator's output | `src/adapters/api/wire-v2.spec.ts`, `scripts/generate-wire-schemas.spec.mjs` (committed) |
 | Generation | Pydantic → `contracts/wire/v2.schema.json` → `wire-v2.generated.ts`. A `wire-schemas` pre-commit hook fails the commit when either artifact would change, the same arrangement as `card-schemas` | `.pre-commit-config.yaml` (committed) |
-| Producers | One test per producer that goes **through the compiled graph** under `astream` and asserts the body it wrote. The most important: the writer reaches the Piloti inner graph through the real agent runtime function boundary, which `test_stream_writer_reach.py` stands in for with a plain async function. Also: setup steps are yielded, `ToolStepCallback` emits basename only, a `sources` step equals the records' lanes, and prose deltas are coalesced | `packages/agent/tests/turn/`, `…/agents/piloti/`, `…/common/test_turn_status.py`, `…/skills/` |
+| Producers | One test per producer that goes **through the compiled graph** under `astream` and asserts the body it wrote. The most important: the writer reaches the agent's inner graph through the real agent runtime function boundary, which `test_stream_writer_reach.py` stands in for with a plain async function. Also: setup steps are yielded, `ToolStepCallback` emits basename only, a `sources` step equals the records' lanes, and prose deltas are coalesced | `packages/agent/tests/turn/`, `…/agents/piloti/`, `…/common/test_turn_status.py`, `…/skills/` |
 | Handler | Auth, binding, rejection codes, cancel authorisation (asker yes, colleague `not_asker`, bus path), HITL round trip and expiry, attach replay and splice with no duplicate or missing seq, stage stamping after the terminal, persistence built from `TurnResult`. A test that builds the app and asserts the runtime's `websocket_endpoint` and `WebSocketMessageHandler` are the runtime's own objects. A ruff `banned-api` for `nat.data_models.api_server` everywhere, and for the internal modules `nat.plugin_api` covers | `apps/agent-host/tests/test_chat_socket.py` |
 | Golden replay | One real turn recorded through the whole backend (a fake LLM with a recorded token stream and the real graph) and compared frame for frame, `ts` excepted, with a committed golden JSONL. Every frame is under 4 KB except `STATE_SNAPSHOT` and `RUN_FINISHED` (under 64 KB), the two that carry the sources | `packages/agent/tests/turn/test_golden_turn.py` |
 | Fold | Every fixture turn folds to the expected `TurnView`. Duplicate seq keeps identity, and a gap is flagged. Snapshot, retraction and terminal replacement. Card before marker. Spectator mid-turn start. The persisted projection round-trips through `sanitizeProvenance` | `bff/turns/turn-fold.spec.ts` |
@@ -884,7 +884,7 @@ separately. The exit criterion in the definition of done is the measured diff.
   `live_chunk`, `response_to_chunks`, `fold_chunks_to_response` and `_fold_live`
   (~−180), `nat_converters.py` (−80), and the extras on `ChatResponse` (~−50).
   Net **~−380**.
-- **Tests:** the writer reaches the Piloti inner graph through the agent runtime function
+- **Tests:** the writer reaches the agent's inner graph through the agent runtime function
   boundary; the golden replay; the `nat run` fold; the `settled_replaced` log
   line is still emitted.
 
@@ -1020,7 +1020,7 @@ outside the slices.
 
 - **The writer across the agent runtime function boundary: retired.** The runtime's
   `Function.ainvoke` pushes its active function and awaits the call in the same
-  task, and Piloti's inner graph runs with its own `configurable` and
+  task, and the agent's inner graph runs with its own `configurable` and
   `callbacks` (`agent._graph_config`). The reach test now goes through exactly
   that (`Context.push_active_function` plus the inner graph's own config), and
   the writer reaches the inner node, the token callback and a thread worker.

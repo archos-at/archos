@@ -43,7 +43,7 @@ const principal: AgentPrincipal = {
   sensitiveOptIns: ['secret'],
   session: {
     userId: 'user_1',
-    email: 'a@piloti.test',
+    email: 'a@example.test',
     name: null,
     accessToken: '',
     organizationId: 'org_1',

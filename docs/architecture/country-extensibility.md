@@ -3,7 +3,7 @@
 Status: Active, rewritten 2026-11-10 for ADR-0175. Companion to ADR-0165,
 ADR-0168, ADR-0173 and `backend-deep-dive.md` §6b.
 
-Piloti ships Austria-first, but the product goal is multi-jurisdiction. Until
+The product ships Austria-first, but the product goal is multi-jurisdiction. Until
 ADR-0175 a `CountryProfile` in code (`common/country_profile.py`) decided which
 country's law a project read, from the project's own text, with Austria's
 doctrine, corpus note and OIB verdicts (`common/applicability.py`) as code. All

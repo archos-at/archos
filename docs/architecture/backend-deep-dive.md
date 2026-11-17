@@ -1,6 +1,6 @@
-# GRID Backend Deep Dive — Chat, Cards, Project Knowledge, Files & Research
+# Backend Deep Dive — Chat, Cards, Project Knowledge, Files & Research
 
-> Authoritative end-to-end map of how GRID's core flows work, why several were
+> Authoritative end-to-end map of how the platform's core flows work, why several were
 > broken, and how they were fixed. Written 2026-07-04 from a full source trace
 > (7 parallel explorations + agent-runtime internals verification). File references are
 > `path:line` at time of writing.
@@ -44,7 +44,7 @@ Browser WebSocket
       • ALSO sets the signed X-Grid-Request-Context envelope (below)
       • proxies the upgrade to the aiq-agent backend
   → workflow  chat_deepresearcher_agent
-      LangGraph:  shallow_research  (Piloti; entry on EVERY turn, full tool set bound)
+      LangGraph:  shallow_research  (the agent; entry on EVERY turn, full tool set bound)
                     ├─ envelope.escalate_to_deep → clarifier → deep_research → END
                     └─ otherwise                 → END
 
@@ -56,7 +56,7 @@ Browser WebSocket
     the model's own clause). A commissioned report escalates immediately,
     without a retrieval first.
 
-    Note: The answering agent is one surface of Piloti. The UI presents it
+    Note: The answering agent is one surface of the agent. The UI presents it
     neutrally as "Assistant" (getDisplayName in intermediate-step-parser.ts),
     not "Research Agent" — a greeting is not a research run.
   → the turn's wire bodies, stamped and sent by the chat socket (wire v2, ADR-0068)
@@ -67,7 +67,7 @@ Browser WebSocket
 
 Key files:
 - Graph build: `packages/agent/src/agent/agents/piloti/conversation.py` (`_build_graph`,
-  nodes). The escalation edge and the conversation-scoped state belong to Piloti; the workflow only wires them up.
+  nodes). The escalation edge and the conversation-scoped state belong to the agent; the workflow only wires them up.
 - Workflow registration + response creation: `packages/agent/src/agent/agents/piloti/conversation_register.py`.
 - Wire types: `packages/agent/src/agent/common/wire_v2.py`, the contract both tiers are
   generated from and tested against (`contracts/wire/v2/`).
@@ -97,7 +97,7 @@ field at its default, and each is reset at the turn boundary in
   `routing_reason`.
 - `escalation_reason` — set by the clarifier node only on a shallow→deep
   escalation, and only from the structured `escalation_ask_reason` the
-  answering node wrote from Piloti's envelope (`escalate_to_deep` plus the model's
+  answering node wrote from the agent's envelope (`escalate_to_deep` plus the model's
   own one-clause `escalation_reason`). There is no keyword/prose fallback: a substring match on the answer tail ("nicht
   finden", "weitere Recherche erforderlich") false-positived on successful
   German legal answers and surprise-escalated them to deep research. Likewise
@@ -105,7 +105,7 @@ field at its default, and each is reset at the turn boundary in
   with the standard retry-able error (`escalate_to_deep=False`) instead of
   deep-escalating on a bug.
 - `answer_confidence_reason` (≤300 chars) — the model's own one-clause
-  justification. Piloti may append `| <reason>` to its terminal
+  justification. The agent may append `| <reason>` to its terminal
   `[CONFIDENCE:<level>]` marker (`piloti.j2`); `markers.py` parses it
   (fail-open: an invalid level discards level AND reason, the reason is trimmed
   and capped), and `conversation.py::_finalize_answer` carries it as
@@ -152,13 +152,13 @@ field at its default, and each is reset at the turn boundary in
     they named rule 1's measurement branches for chat, which the answer check
     replaced (ADR-0139). Stored turns still carry the tokens.
   - `"citation_fallback"` — no longer produced. It named the single registry
-    source Piloti appended when nothing the model wrote survived verification;
+    source the agent appended when nothing the model wrote survived verification;
     that fallback invented an attribution and was removed (ADR-0125). Stored
     turns still carry the token.
 
   **Two kinds of grounding.** An IFC measurement has no passage to quote — it
   carries a `provenance`, a `tolerance`, a readable `method` and the GlobalIds it
-  was derived from (`ifc_spatial.envelope.Answer`). Piloti's tools node records
+  was derived from (`ifc_spatial.envelope.Answer`). The agent's tools node records
   `answer_measurement_grounded` when this turn produced at least one
   `declared`/`computed` `ifc_measure` answer (a sticky OR across the tool loop;
   `piloti/grounding.py` decides what counts — a refusal, an outage, an
@@ -268,8 +268,8 @@ Not every `user_message` opens a turn. The chat graph's conversation history **i
 its LangGraph checkpoint (`thread_id == conversation_id`, `chat_deepresearcher_agent
 .checkpoint_db`), so only what passes through the agent is ever in its memory. That
 made collaboration's hand-off (ADR-0034) lose the thread: a message addressed to a
-*person* was suppressed by not invoking the agent, so Piloti never saw the question
-asked of Anna, nor Anna's answer, and a follow-up `@Piloti given that, recheck` had
+*person* was suppressed by not invoking the agent, so the agent never saw the question
+asked of Anna, nor Anna's answer, and a follow-up `@<agent> given that, recheck` had
 nothing to refer to.
 
 The rule is **"always send, never always judge"**: every human message is delivered
@@ -507,7 +507,7 @@ same labels.
 
 The agent keeps the brief current by emitting a `project_profile_patch` card
 (via `emit_card`) whenever the conversation establishes a durable hard fact —
-Piloti's prompt has an explicit "Keeping the Project Brief
+the agent's prompt has an explicit "Keeping the Project Brief
 current" policy, and the card model carries the canonical fact-key vocabulary
 (`PROFILE_FACT_VOCABULARY` in `cards/proposal_cards.py`, mirroring the intake
 definition). The card only proposes. At the end of the turn the patch is
@@ -744,7 +744,7 @@ sort-then-slice let ~40 OIB filenames eat the window and made "welche Dateien
 hast du in der Büroablage" answer from Basiswissen. The prompt block is grouped
 by shelf (`agent.knowledge.inventory.render_inventory_block`) and empty
 in-scope shelves render as empty rather than being omitted. The same list is
-then shared by Piloti, clarifier, and deep-research paths for that turn
+then shared by the agent, clarifier, and deep-research paths for that turn
 — it is not re-fetched per node.
 
 The Basiswissen shelf is FOLDED to a count rather than ~39 filenames (it is a
@@ -767,7 +767,7 @@ prompts (`agents/deep_researcher/prompts/planner.j2`,
 `agents/deep_researcher/prompts/orchestrator.j2`,
 `agents/deep_researcher/prompts/researcher.j2`, and
 `agents/deep_researcher/prompts/source_router.j2`) used to gate document
-*awareness* purely on `available_documents` being non-empty, unlike Piloti's unconditional "use `knowledge_search` first" instruction
+*awareness* purely on `available_documents` being non-empty, unlike the agent's unconditional "use `knowledge_search` first" instruction
 (`agents/piloti/prompts/piloti.j2:31`). The document
 *listing* block is still wrapped in `{% if available_documents %}` (nothing
 to list when the document_metadata table has no row), but `planner.j2` and
@@ -1122,7 +1122,7 @@ in a per-turn `ContextVar` that `ChatAgent.run` opens beside
 looks the block up by that hash and builds `SourceEntry`s by field copy, so a
 passage body cannot supply a header field the producer omitted. `ChatAgent.run`
 is the only caller that opens the capture, so the structured read is what a
-Piloti turn gets for `knowledge_search`, `read_passage` and `law_lookup`, and
+the agent turn gets for `knowledge_search`, `read_passage` and `law_lookup`, and
 the deep researcher, the conversation path and the job runner parse the text.
 The text parsers in `citations/text_parsers.py`
 (`_parse_knowledge_layer` and the eleven `_KL_*` regexes) stay for the callers
@@ -1429,7 +1429,7 @@ system — each plane has its own storage, admin surface, and priority):
 |---|---|---|---|---|
 | **Catalog** | verified RIS pointers, prose legal facts (`binding_note`), open TODOs (`review_note`), non-RIS stubs (MA 37, ÖNORM) | norm store (DB) seeded from `configs/norms/<cc>/registry.yml` | `/app/platform` norms editor + verify-and-pick | tells the agent *where law lives* and *what binds what* |
 | **Corpus** | full norm texts inside the RAG (OIB PDFs today) | per-country base collection — `NormsFile.corpus_collection` (AT: `oib_knowledge`) | `/app/platform` Base-Knowledge upload/sync | requirements are cited from here (normative documents only) |
-| **Project/parcel** | uploads incl. Flächenwidmungs-/Bebauungsplan (tag-classified at ingestion) | project collections in the RAG | project Files UI | **per-parcel source of truth**: `parcel_note` renders tagged plans into Piloti's prompt as the governing source for Widmung/Bauklasse/Höhe — above OIB and Bauordnung |
+| **Project/parcel** | uploads incl. Flächenwidmungs-/Bebauungsplan (tag-classified at ingestion) | project collections in the RAG | project Files UI | **per-parcel source of truth**: `parcel_note` renders tagged plans into the agent's prompt as the governing source for Widmung/Bauklasse/Höhe — above OIB and Bauordnung |
 
 Country expansion touches data, not architecture: a new
 `configs/norms/<cc>/registry.yml` (catalog) + its `corpus_collection` (corpus)
@@ -1490,7 +1490,7 @@ Austria's). The org-Archiv stratum (ADR-0024) sits beside these unchanged.
   Bundesland lane (other states' law is dropped — `focus_entries` semantics).
   Addresses only, and only where the run's knowledge context lets the RIS
   tools run (`law_gate.law_sources_withheld`); no `binding_note`, no corpus
-  edition, no verdicts (ADR-0175). **Piloti renders none of it**: `law_lookup`
+  edition, no verdicts (ADR-0175). **The agent renders none of it**: `law_lookup`
   resolves a catalog pointer out of the question itself (ADR-0060 amendment).
 - **Which law applies** — the turn's knowledge context alone (ADR-0173,
    ADR-0175, `common/knowledge_context.py`). The BFF resolves it on every turn
@@ -1832,7 +1832,7 @@ failed after two hours. The transactional outbox the backlog item describes is
 still deferred; this is pull-based reconciliation instead.
 
 **Open items**: synchronous inline deep-research answers (`use_async_deep_research` off) do not
-carry Grid cards (§3; the async job path generates them post-hoc in the
+carry cards (§3; the async job path generates them post-hoc in the
 runner). And the research tab can 403 — see §9.
 
 **Collection-scope re-injection gap — now diagnosable (fixed 2026-07-16,
@@ -2105,7 +2105,7 @@ full specs in `org-model-configuration.md` (ADR-0014) and
   `{agentGroup: openrouterModelId}`) is parsed by
   `packages/agent/src/agent/common/model_overrides.py` and applied request-scoped:
   `LLMProvider.with_model_overrides()` (group-tagged roles; identity when
-  nothing applies) in Piloti/deep `_run` closures and in
+  nothing applies) in the agent/deep `_run` closures and in
   `clarify.Clarifier.deps_for`, plus `apply_model_override()` at the clarifier
   planner and the reflection scheduling site. Async jobs carry
   the map through `submit_agent_job` → `jobs/agent_job_setup.py` (provider + header
@@ -2193,7 +2193,7 @@ fail-open and cached in the shared cache
 (`SKILLS_CACHE_TTL_SECONDS`, default 60). `shallow_research_agent`
 config gate: `skills_enabled` (default true) + `skill_allowlist` (empty =
 all). The catalog and the skill `read_file` are there on every turn; whether a
-greeting reads a skill is the model's call (ADR-0052). Piloti renders the
+greeting reads a skill is the model's call (ADR-0052). The agent renders the
 catalog into its turn context, because its graph cannot host the middleware.
 Deep research lists the same backend through the middleware in each subagent:
 `DeepResearchSkillsConfig` assigns `oib`/`bim` to the researcher and `synthesis`

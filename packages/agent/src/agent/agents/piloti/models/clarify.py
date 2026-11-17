@@ -151,7 +151,7 @@ class ClarifyRequest:
     """What the conversation graph hands the clarification step.
 
     A trimmed window of the conversation plus the same three context values the
-    Piloti itself answered on, so the questions and the plan are asked
+    agent itself answered on, so the questions and the plan are asked
     against the reader's project rather than against the query alone.
     """
 

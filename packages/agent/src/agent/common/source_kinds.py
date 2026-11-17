@@ -35,8 +35,8 @@ retrieved sources only on the wire, where this taxonomy is all that is left of
 either. See ``packages/agent/tests/agents/piloti/test_agent.py::
 TestMeasurementSourcesDoNotGroundCitations``.
 
-``auto`` exists in the click-dummy as a *selection mode* ("Piloti wählt die
-passende Quelle selbst") — it is never a rendered citation and so is not part of
+``auto`` exists in the click-dummy as a *selection mode* (the agent picks the
+fitting source itself) — it is never a rendered citation and so is not part of
 this taxonomy.
 
 The finer lane classification (``norm_registry.lane_for_hit`` — OIB-Richtlinie
@@ -143,8 +143,6 @@ def kind_for_lane(lane_key: str | None) -> str:
 def source_kind(key: str | None) -> SourceKind:
     """Look up a :class:`SourceKind` by key, fail-open to the default kind."""
     return SOURCE_KINDS.get((key or "").strip().lower(), SOURCE_KINDS[DEFAULT_SOURCE_KIND])
-
-
 
 
 class Shelf(StrEnum):

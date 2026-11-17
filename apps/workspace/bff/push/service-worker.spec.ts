@@ -23,7 +23,7 @@ const sw = createRequire(import.meta.url)(SW_PATH) as {
   urlBase64ToBytes: (value: string) => Uint8Array
 }
 const parse = sw.parseMessage
-const ORIGIN = 'https://app.piloti.test'
+const ORIGIN = 'https://app.example.test'
 
 describe('the payload the server sends', () => {
   it('becomes a notification with its words, address and tag', () => {

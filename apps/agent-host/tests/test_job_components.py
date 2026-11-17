@@ -2268,7 +2268,7 @@ class TestVerifiedCitedSourceStream:
         assert cited_urls == ["https://example.com/a"]
 
     def test_the_runners_second_emit_does_not_duplicate_citations(self):
-        """The runner re-emits the same report with Grid cards attached."""
+        """The runner re-emits the same report with response cards attached."""
         callback = DeepResearchEventCallback(source_registry=_kb_registry())
         emitted, patcher = _capture_artifacts(callback)
         with patcher:

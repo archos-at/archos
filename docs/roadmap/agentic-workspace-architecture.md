@@ -1,6 +1,6 @@
 # From compliance assistant to agentic workspace
 
-> **Read with [VISION.md](../../VISION.md).** This review predates it; where it calls Piloti a compliance product, the vision's frame holds: the workspace for architects, building law as one capability.
+> **Read with [VISION.md](../../VISION.md).** This review predates it; where it calls the product a compliance product, the vision's frame holds: the workspace for architects, building law as one capability.
 
 > **Status:** Product and architecture review, 2026-09-01. Not an implementation
 > plan and not a feature list. It says what the product is becoming, which of
@@ -73,7 +73,7 @@ retrieval loop and the event seam (Loop D).
 
 ## 1. The verdict in one paragraph
 
-Piloti is an unusually well-engineered **question-answering system wearing a
+The app is an unusually well-engineered **question-answering system wearing a
 workspace**. The workspace half is real: projects with an intake profile,
 folders, roles, an office Archiv, BIM models, project memory, sharing, an inbox,
 skills, scheduled jobs and reports filed as first-class documents. The agent
@@ -105,8 +105,8 @@ that place**, not about the assistant.
 
 So the frame this document uses is:
 
-> Piloti is the workspace in which a planning office runs a building project,
-> and Piloti the agent is a member of that office. Chat is how you talk to it.
+> The app is the workspace in which a planning office runs a building project,
+> and the agent is a member of that office. Chat is how you talk to it.
 > Tasks are how you hand it work. Everything it does leaves a trace a human can
 > open.
 
@@ -306,7 +306,7 @@ What a delegated task needs, and what already exists for each:
 | Plan + approval | The clarifier's plan preview with approve / short answer / cancel | `piloti/clarify.py` (`preview_plan`) | It is an `asyncio` future on a live socket. A job has no socket, so it cannot be approved |
 | Artifact | `fileGeneratedDocument`, `authored_by` / `authored_by_producer`, the "KI-generiert — nicht geprüft" block, deliberately not indexed | `lib/documents/generated.ts`, migration 0063 | Filing happens only on an interactive report GET. A scheduled run's report expires with `job_info` in 24 h and is filed by nobody (`api/jobs/async/[...path]/route.ts:237-245`) |
 | Notification | Inbox with six typed items, per-filter empty states, deep links that hold the anchor | `schema/inbox.ts:45-63`, `lib/inbox/registry.ts` | No `task.*` or `job.*` type. ADR-0035 priced one at "a registry entry plus two translations" and named a failed workflow run as the motivating case |
-| Review | Assignment *is* approval for a filed report ("being answerable for the content is the approval") | `agent-authored-reports.md:107-111` | No queue of agent output awaiting a human. The `Unvergeben + Von Piloti` filter is one page in one project |
+| Review | Assignment *is* approval for a filed report ("being answerable for the content is the approval") | `agent-authored-reports.md:107-111` | No queue of agent output awaiting a human. The `Unvergeben + Vom Agenten` filter is one page in one project |
 | Audit | 16 schema-validated actions incl. `document.generated` | `lib/audit/schemas.mjs` | Nothing for a job or task lifecycle |
 | Budget | Org / member / project policies and a per-generation ledger; a deployment-wide per-run token ceiling | `schema/budgets.ts:39`, `common/budget_guard.py` | Neither is settable per task |
 | Handoff | `mention_requests`: durable, addressed, resolved by a domain event, with `status` / `resolution` / `resolved_by` | `schema/mention-requests.ts:49-79` | It handles human → human. The same shape for human → agent is the task row |
@@ -332,7 +332,7 @@ tasks
   decisions[]     what the reviewer accepted, fed back to the agent
 ```
 
-`jobs` becomes *one trigger that creates tasks*. A chat handoff ("@Piloti prüf
+`jobs` becomes *one trigger that creates tasks*. A chat handoff ("@Agent prüf
 das bis Freitag") becomes another. An event (§7, loop 5) becomes a third. The
 job builder, the run history with its live-status join, the report filing, the
 inbox registry, the audit log and the budget guard each need one line to hang
@@ -342,7 +342,7 @@ off the task instead of the job.
 flowchart LR
     subgraph Triggers
         J["job (cron)"]
-        H["chat handoff<br/>@Piloti …"]
+        H["chat handoff<br/>@Agent …"]
         E["event<br/>ingest done · corpus stale · watched folder"]
     end
     T["task<br/>goal · plan · status · budget · requester"]
@@ -524,11 +524,11 @@ The one new table, and the seams that already exist hung off it.
 | Persist the clarifier's plan on the task; approval is a row transition resolved by an event, not a socket future | `piloti/clarify.py` (`preview_plan`), `lib/tasks/` | generalisation |
 | File the run's artifact at completion as the pinned requester, off the interactive GET | `lib/documents/research-report.ts`, `api/jobs/async/[...path]/route.ts:247` | generalisation; the route comment names this as "v1.1, decision 10" |
 | Audit actions `task.created … task.accepted`; per-task budget and deadline enforced by `CostTracker` and `BudgetGuardCallback` | `lib/audit/schemas.mjs`, `common/budget_guard.py`, `lib/request-context.ts` | generalisation |
-| A review surface: the `Unvergeben + Von Piloti` preset becomes the inbox row's landing view; accept / reject / edit writes a decision the next run reads | `documents/lib/file-filters.ts:20,80`, `file-filter-menu.tsx` | generalisation |
+| A review surface: the `Unvergeben + Vom Agenten` preset becomes the inbox row's landing view; accept / reject / edit writes a decision the next run reads | `documents/lib/file-filters.ts:20,80`, `file-filter-menu.tsx` | generalisation |
 | One shared claim library; `research_job_queue` gets a migration, RLS and a `kind`; overlap policy checked in `fireJob` | `agent_host/jobs/queue.py`, `scheduler/db.js`, `purger/db.js`, `lib/jobs/service.ts:354` | consolidation of four copies |
 | First two task kinds: `compliance_check` and `einreichcheck`, each producing a filed report and a work list | `agents/compliance_checker/`, `skills/builtin/oib/einreichcheck/` | wiring, no new agent |
 
-**Verification pass C.** A member writes "@Piloti prüf die Einreichung gegen
+**Verification pass C.** A member writes "@Agent prüf die Einreichung gegen
 OIB 2 und 4 bis Freitag" in a project thread; a task appears with a plan; they
 approve it; a report lands in Berichte authored by the task; the inbox says so;
 they open the review view, reject one gap with a reason; the next run's prompt
@@ -563,7 +563,7 @@ Written to test the plan against a person, not a diagram. Each ends where the
 person expects to be.
 
 **The project lead with a Friday deadline.** Monday, she writes in the project
-thread: "@Piloti prüf die Einreichung gegen OIB 2 und 4 bis Freitag." Today
+thread: "@Agent prüf die Einreichung gegen OIB 2 und 4 bis Freitag." Today
 that message is answered in one turn with a seven-call budget and a message
 she has to read now. After Loop C it becomes a task; the plan says which
 Richtlinien, which project documents and which Bundesland it will use; she
@@ -586,7 +586,7 @@ query, the Punkt and the strength of each source are still there, because they
 were persisted in Loop A, and the quote he relies on cannot have lost a
 `nicht`.
 
-**The office admin curating what the firm knows.** She wants Piloti to stop
+**The office admin curating what the firm knows.** She wants the agent to stop
 re-proposing a detail the office rejected and to remember a standard the
 office adopted. Today the rejected proposal returns next turn, org memory has
 no page, and a superseded note vanishes. After Loop B the rejection reaches
@@ -604,7 +604,7 @@ did not name.
 **"A task table is a new feature."** It is the one genuinely new row in this
 document and it is named as such. Everything hung off it exists. The
 alternative is to keep nine components that each solve one sixth of
-delegation and to keep answering "can Piloti do this for me" with "ask it in
+delegation and to keep answering "can the agent do this for me" with "ask it in
 chat". The compliance-board vision already assumed this row under the name
 "lane" without saying so.
 

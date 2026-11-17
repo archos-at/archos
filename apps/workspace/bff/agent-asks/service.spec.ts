@@ -34,7 +34,7 @@ vi.mock('@/lib/citations/style', () => ({ citationStylesFor: vi.fn(async () => n
 vi.mock('@/lib/turns/headless-turn', () => ({
   runHeadlessTurn: vi.fn(),
   cancelHeadlessTurn: vi.fn(),
-  chatSocketUrl: vi.fn(() => 'ws://aiq-agent:8000/websocket'),
+  chatSocketUrl: vi.fn(() => 'ws://agent.example.test:8000/websocket'),
 }))
 vi.mock('@/lib/turns/turn-context', async () => {
   const actual = await vi.importActual<typeof import('@/lib/turns/turn-context')>('@/lib/turns/turn-context')
@@ -156,7 +156,7 @@ beforeEach(() => {
     memoryReflectionEnabled: false,
   }))
   vi.mocked(runHeadlessTurn).mockResolvedValue({ kind: 'started' })
-  vi.mocked(chatSocketUrl).mockReturnValue('ws://aiq-agent:8000/websocket')
+  vi.mocked(chatSocketUrl).mockReturnValue('ws://agent.example.test:8000/websocket')
 })
 
 afterEach(() => {
@@ -215,7 +215,7 @@ describe('askAgent', () => {
     expect(context).toMatchObject({ userId: USER, organizationId: ORG, conversationId: row.conversationId })
   })
 
-  it('waits for the turn’s outcome and answers with Piloti’s message', async () => {
+  it('waits for the turn’s outcome and answers with the agent’s message', async () => {
     vi.mocked(findAsk).mockImplementation(async () => {
       if (row.state === 'working') row = { ...row, state: 'completed', endedAt: new Date() }
       return row

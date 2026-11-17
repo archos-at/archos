@@ -5,7 +5,7 @@
  *
  * Two callers, one copy. `server.js` proxies a browser's upgrade and sets these
  * on the forwarded request; the wake job (`lib/annotations/wake-job.ts`) opens
- * the socket itself, as the person whose act woke Piloti (ADR-0106). Both
+ * the socket itself, as the person whose act woke the agent (ADR-0106). Both
  * build the headers here, from the same data, so a field one of them forgets
  * cannot exist: before this, the mapping lived inline in `server.js` and the
  * wake would have been its second copy.

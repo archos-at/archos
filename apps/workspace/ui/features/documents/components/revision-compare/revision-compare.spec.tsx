@@ -344,7 +344,7 @@ describe('RevisionCompare states', () => {
   })
 })
 
-describe('RevisionCompare: Piloti marks the changes', () => {
+describe('RevisionCompare: the agent marks the changes', () => {
   const mark = (): HTMLElement => screen.getByTestId('compare-mark')
 
   it('asks for the changes of the newer document against the older one', async () => {
@@ -366,7 +366,7 @@ describe('RevisionCompare: Piloti marks the changes', () => {
     expect(mark()).toHaveTextContent(`Compare page 2 with ${PRODUCT_NAME}`)
   })
 
-  it('shows a busy button naming the page while Piloti is comparing, and skeleton rows', async () => {
+  it('shows a busy button naming the page while the agent is comparing, and skeleton rows', async () => {
     await open(setup(1, 1))
     visual.current = idleVisual({ state: 'loading' })
     fireEvent.click(mark())
@@ -376,7 +376,7 @@ describe('RevisionCompare: Piloti marks the changes', () => {
     expect(screen.getByTestId('compare-mark-loading')).toBeInTheDocument()
   })
 
-  it('draws Piloti\'s boxes in place of the overlays, with each sentence under its box\'s row, once', async () => {
+  it('draws the agent\'s boxes in place of the overlays, with each sentence under its box\'s row, once', async () => {
     visual.current = idleVisual({
       state: 'done',
       regions: [region({ label: 'Wand versetzt' })],

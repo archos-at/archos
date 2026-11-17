@@ -25,7 +25,7 @@
  *   not one of the legacy endpoints v4 switches off.
  * - **List:** `GET /api/public/traces` IS switched off. Langfuse v4 answers it
  *   with 404 under the default write mode (`events_only`; the route is
- *   `rejectInEventsOnlyMode`), and Piloti is heading there from `dual`. So the
+ *   `rejectInEventsOnlyMode`), and the platform is heading there from `dual`. So the
  *   traces are found through `GET /api/public/v2/observations`: `sessionId`,
  *   `isRootObservation`, `toStartTime` (exclusive), `fields`, `limit` (max
  *   1000) and an opaque `cursor`, answering `{ data: [{ traceId, ... }],

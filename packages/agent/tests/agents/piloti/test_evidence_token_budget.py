@@ -1,4 +1,4 @@
-"""The evidence part of Piloti's tool surface and prompt stays within the slice-6 budget (ADR-0133).
+"""The evidence part of the agent's tool surface and prompt stays within the slice-6 budget (ADR-0133).
 
 Slice 6 cut the evidence tools' descriptions and schemas from about 3,600 to about 2,350 tokens per
 call (o200k), by stating each tool's contract once, moving what a result can say into the result,

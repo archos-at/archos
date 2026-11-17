@@ -443,7 +443,7 @@ describe('SessionsPanel', () => {
     ).toBeInTheDocument()
   })
 
-  test('a chat Piloti is working on says so in its name', () => {
+  test('a chat the agent is working on says so in its name', () => {
     setupChatStoreMock({
       isSessionBusy: (sessionId: string) => sessionId === 'session-1',
       hasAnyBusySession: () => true,

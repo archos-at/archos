@@ -1,4 +1,4 @@
-# Piloti writes: a product perspective on what this branch delivers
+# Agent writes: a product perspective on what this branch delivers
 
 > **Read with [VISION.md](../../VISION.md).** This review predates it; where it calls traceability the product, the vision's frame holds: the product is the workspace for architects, and traceability is one of its principles.
 
@@ -38,8 +38,8 @@ there** = before `ee7ce67`. **Breaks** = what actually stops.
 
 Unchanged, and that is the point: retrieval, citations, the Fundstellen rail and
 the binding-status pill were already the best part of the product. What is new
-sits underneath: if the office has ever published a Piloti-written document,
-that document can now come back as a source, labelled **Piloti-Dokument ·
+sits underneath: if the office has ever published an agent-written document,
+that document can now come back as a source, labelled **Agenten-Dokument ·
 freigegeben von {Name}, {Datum}** in the office colour rather than in law blue
 (`piloti-dokument-als-quelle`, `docs/architecture/agent-document-provenance.md`),
 and a *verdict* — the masthead value a reader copies into a Nachweis — is
@@ -59,8 +59,7 @@ beside the answer naming what was written
 „Kürze Punkt 3" edits that file in place instead of printing a second copy
 (`piloti-working-directory`).
 
-What the person sees: the card with the draft's name, path and size, the „Von
-Piloti erstellt" byline, and — while it is unfiled — a control that **prefills
+What the person sees: the card with the draft's name, path and size, the „Vom Agenten erstellt" byline, and — while it is unfiled — a control that **prefills
 the composer** with the sentence that files it, deliberately not a filing button
 (the reasoning is in the card's own header, `DocumentDraftCard.tsx:24-49`). Say
 „leg das ins Projekt" and `file_draft` writes a `documents` row with a `draft`
@@ -73,11 +72,11 @@ panel — sends no reviewer (`DocumentDraftCard.tsx:168`,
 (`packages/agent/src/agent/tools/documents/register.py:332`, whose comment says the route
 "falls back to the project's reviewers"). It does not: `resolveReviewers`
 (`apps/workspace/bff/documents/lifecycle.ts:160-169`) falls back to the
-document's **assignments**, and a freshly filed Piloti draft is „Unvergeben" by
+document's **assignments**, and a freshly filed agent draft is „Unvergeben" by
 construction. With no assignee the submit is refused with *"Nobody to review this
 version: name a reviewer or assign the document first"* (`lifecycle.ts:594`).
-There is no reviewer picker anywhere in the UI. So the common path — Piloti
-writes, Piloti files, submit for approval — stops at the third step until
+There is no reviewer picker anywhere in the UI. So the common path — the agent
+writes, the agent files, submit for approval — stops at the third step until
 somebody presses **Zuweisen** first. Unverified whether a running deployment
 shows that 422 as usable copy.
 
@@ -88,8 +87,8 @@ of the file page (`file-preview-pane.tsx:936`): submit, Freigeben, Änderungen
 anfordern, Ablehnen, Veröffentlichen, Archivieren, offered only where state and
 role allow, with the two refusals demanding a written reason
 (`document-lifecycle-ui`). The reviewer gets a Postfach entry that names the file
-and resolves itself once decided. **Piloti überarbeiten lassen** stands beside
-Änderungen anfordern: the same required reason, and Piloti drafts the next
+and resolves itself once decided. **Den Agenten überarbeiten lassen** stands beside
+Änderungen anfordern: the same required reason, and the agent drafts the next
 version instead of handing the work back to a colleague
 (`piloti-ueberarbeiten-lassen`). In the same conversation the reviewer's words
 arrive verbatim as a `REVIEW_DECISIONS v1` block
@@ -110,7 +109,7 @@ replaces the file; the previous bytes now stay as version N and can be opened
 (`document-lifecycle`, migration `0082_document_versions.sql`). „Was stand im
 März drin" is a query. A human upload is born `published` and wears no badge —
 the badge appears only where there is something to know: more than one version,
-or Piloti wrote it.
+or the agent wrote it.
 
 ### Thursday — the scheduled report
 
@@ -166,8 +165,8 @@ proposal tools (`:557-600`, listed at `:660-666`).
 |---|---|---|
 | Versioning / „Weiterarbeiten am Original" | **Answered** | `document-lifecycle`, migration `0082` |
 | Delta and re-upload without losing the old file | **Answered** | superseded versions keep their bytes (ADR-0054 §Superseded) |
-| „Gute Details werden befördert" (move between shelves) | **Indirect** | a Piloti document reaches the index by publish; a human file still cannot move shelves |
-| „Das Archiv ist eine Sicht" / Bürowissen | **Indirect** | a published Piloti document is `buero_piloti` inside the office kind (`agent-document-provenance.md`); the Archiv itself gains no Freigabe section (`file-preview-pane.tsx:936` requires `projectId`) |
+| „Gute Details werden befördert" (move between shelves) | **Indirect** | an agent document reaches the index by publish; a human file still cannot move shelves |
+| „Das Archiv ist eine Sicht" / Bürowissen | **Indirect** | a published agent document is `buero_piloti` inside the office kind (`agent-document-provenance.md`); the Archiv itself gains no Freigabe section (`file-preview-pane.tsx:936` requires `projectId`) |
 | Agent könnte öfter Rückfragen stellen | **Not answered** | untouched on this branch |
 | „@Kollegin erwähnen" reaches somebody who is not in the app | **Not answered** | no mail transport in the repo; inbox only |
 | Folder upload | **Answered, but not here** | `webkitdirectory` landed 2026-09-08 (`project-uppy-upload.tsx`), before this branch |
@@ -225,7 +224,7 @@ proposal tools (`:557-600`, listed at `:660-666`).
 11. **`project:edit` is the Freigabe permission.** A Ziviltechniker's sign-off
     and "may edit the project" are the same right. *Cheapest fix:* leave it, and
     put the question to the first customer who has both roles in one office.
-12. **Nobody learns Piloti can write.** No onboarding surface for the new verbs
+12. **Nobody learns the agent can write.** No onboarding surface for the new verbs
     was found; discovery is a person happening to phrase a request as a
     commission. *Cheapest fix:* one follow-up chip after a long answer — „als
     Aktenvermerk schreiben".
@@ -262,7 +261,7 @@ proposal tools (`:557-600`, listed at `:660-666`).
   non-research calls per turn. The derivation is written down and the ceiling is
   a ceiling, not a quota — but the same loop now has more room to spend on
   output before it spends on retrieval. No before/after measurement exists.
-- **The provenance line.** „Herkunft: Piloti-Dokument · freigegeben von …" is
+- **The provenance line.** „Herkunft: Agenten-Dokument · freigegeben von …" is
   text a model copies. A reader who sees the office's own approved document
   quoted beside an OIB passage may still read both as authority; the verdict
   gate protects the copyable value and not the prose.
@@ -287,7 +286,7 @@ proposal tools (`:557-600`, listed at `:660-666`).
 ## 6. Verdict
 
 This is a large step toward the workspace the 2026-09-01 review described, and
-it is the step that review put second of three. "Piloti is a member of the
+it is the step that review put second of three. "the agent is a member of the
 office" is now true in the parts that concern *artifacts*: it writes documents
 instead of describing them, it files them under the asking person's name and
 permissions, what it files is a draft the database refuses to index until a

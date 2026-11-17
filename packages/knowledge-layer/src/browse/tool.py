@@ -222,19 +222,7 @@ from .turn import shelf_restricted_message  # noqa: F401
 logger = logging.getLogger(__name__)
 
 
-
-
-
-
-
-
-
-
-
-
 _EQUIVALENT.update({"ae": _EQUIVALENT["ä"], "oe": _EQUIVALENT["ö"], "ue": _EQUIVALENT["ü"], "ss": _EQUIVALENT["ß"]})
-
-
 
 
 async def _turn_rows(search_config: Any) -> list[FileRow]:
@@ -259,8 +247,6 @@ def _in_flight(collections: Sequence[str]) -> list[str]:
     except Exception:  # noqa: BLE001 — a status read never costs the listing
         return []
     return list(dict.fromkeys(name for names in pending.values() for name in names))
-
-
 
 
 class ListFilesConfig(FunctionBaseConfig, name="list_files"):
@@ -304,7 +290,7 @@ async def list_files(config: ListFilesConfig, _builder: Builder):
             sort (str | None): folder (default) | name | newest.
             offset (int | None): Start of the page; the result names the next one.
             limit (int | None): Page size, default 40, at most 100.
-            topic (str | None): A Thema Piloti recognised (e.g. "Attika", "Holzrahmenbau"); matches part of a topic.
+            topic (str | None): A Thema the agent recognised (e.g. "Attika", "Holzrahmenbau"); matches part of a topic.
             revisions_of (str | None): A file name; returns that document's chain of Fassungen instead of a listing.
             compare_to (str | None): With `revisions_of`: compare that Fassung with this one (a file name of the
                 same chain, or "previous" for the one before) and return what changed, page by page.

@@ -51,7 +51,7 @@ const CONTEXT = {
 
 const post = (body: unknown, token = SECRET) =>
   POST(
-    new Request('https://grid.test/api/internal/project-intake', {
+    new Request('https://example.test/api/internal/project-intake', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-grid-internal-token': token },
       body: JSON.stringify(body),

@@ -186,7 +186,7 @@ describe('noticeRevision', () => {
       'a restricted folder',
       () =>
         vi.mocked(changedRevisionPages).mockRejectedValue(
-          new UnprocessableError('Documents in a restricted folder cannot be compared by Piloti'),
+          new UnprocessableError('Documents in a restricted folder cannot be compared by the agent'),
         ),
       'restricted folder',
     ],

@@ -108,10 +108,10 @@ describe('interpolate plural blocks', () => {
 
   test('resolves a block sitting inside a longer sentence', () => {
     expect(
-      interpolate('Piloti hat sich {count, plural, one {# Notiz} other {# Notizen}} gemerkt', {
+      interpolate('Der Agent hat sich {count, plural, one {# Notiz} other {# Notizen}} gemerkt', {
         count: 1,
       })
-    ).toBe('Piloti hat sich 1 Notiz gemerkt')
+    ).toBe('Der Agent hat sich 1 Notiz gemerkt')
   })
 
   test('interpolates ordinary placeholders inside a branch', () => {

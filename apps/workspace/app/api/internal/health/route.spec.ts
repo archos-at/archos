@@ -13,7 +13,7 @@ const DEV_DEFAULT_TOKEN = 'grid-internal-dev-token'
 const REAL_TOKEN = 'a-real-secret-token'
 
 const makeRequest = (token?: string) =>
-  new Request('https://grid.test/api/internal/health', {
+  new Request('https://example.test/api/internal/health', {
     method: 'GET',
     headers: {
       ...(token ? { 'x-grid-internal-token': token } : {}),

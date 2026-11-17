@@ -29,7 +29,7 @@ from agent.citations.registry import SourceRegistry
 from agent.common import LLMProvider
 from agent.common import turn_status
 
-_PROMPT = "Du bist Piloti."
+_PROMPT = "Du bist der Agent."
 RAN: list[str] = []
 
 

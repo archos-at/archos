@@ -340,7 +340,7 @@ describe('the audit trail of a wake that started', () => {
     for (const [input] of vi.mocked(recordAuditEvent).mock.calls) expectRegistered(input)
   })
 
-  it('records the start once, as the person whose act woke Piloti, on the mark, its document, project and thread', async () => {
+  it('records the start once, as the person whose act woke the agent, on the mark, its document, project and thread', async () => {
     await runAgentWake('org_1', { ...PAYLOAD, waits: 2 }, NOT_LAST)
 
     expect(recordAuditEvent).toHaveBeenCalledTimes(1)
@@ -389,7 +389,7 @@ describe('a wake that ends without an answer', () => {
   const DELEGATED_AT = new Date('2026-10-13T09:59:00Z')
   const DELEGATION = { ...PAYLOAD, trigger: 'assigned' as const, eventId: delegationEventId(MARK_ID, DELEGATED_AT) }
 
-  it('tells the person who woke Piloti why, with the mark it was about', async () => {
+  it('tells the person who woke the agent why, with the mark it was about', async () => {
     vi.mocked(resolveTurnContext).mockRejectedValue(new TurnBudgetExhaustedError('user'))
 
     await runAgentWake('org_1', PAYLOAD, NOT_LAST)
@@ -420,7 +420,7 @@ describe('a wake that ends without an answer', () => {
     expect(onWakeEnded).toHaveBeenCalledWith(expect.objectContaining({ outcome: 'failed', reason: expect.any(String) }))
   })
 
-  it('hands a delegated mark back, so it stops reading „Piloti arbeitet daran“', async () => {
+  it('hands a delegated mark back, so it stops reading as the agent’s work', async () => {
     vi.mocked(findDocumentAnnotation).mockResolvedValue({ ...MARK, delegatedBy: 'user_anna', delegatedAt: DELEGATED_AT })
     vi.mocked(resolveTurnContext).mockRejectedValue(new TurnBudgetExhaustedError('user'))
 
@@ -535,7 +535,7 @@ describe('the audit trail of a wake the job ended', () => {
     expect(recordAuditEvent).not.toHaveBeenCalled()
   })
 
-  it('keeps piloti.wake.suppressed for a wake held before Piloti was asked', async () => {
+  it('keeps piloti.wake.suppressed for a wake held before the agent was asked', async () => {
     vi.mocked(getAccessibleDocument).mockRejectedValue(new ForbiddenError())
 
     await runAgentWake('org_1', PAYLOAD, NOT_LAST)

@@ -30,7 +30,7 @@ is. A cache hit still fetches and renders the two pages: that is the price of
 keying on what was compared, not on what the files are called.
 
 **Asked by a person, or by a notice.** ``purpose`` says who waits: ``person`` (the
-compare view, the default) queues as interactive; ``notice`` (Piloti checking a
+compare view, the default) queues as interactive; ``notice`` (the agent checking a
 new Fassung on its own, ADR-0130) queues as bulk, because nobody waits on it, and
 is filterable in Langfuse by its ``purpose`` metadata. The answer carries the
 generation's ``trace_id`` (``null`` on a cache hit, or with tracing off), so the

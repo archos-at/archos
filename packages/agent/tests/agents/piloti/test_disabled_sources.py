@@ -45,7 +45,7 @@ from agent.common.data_sources import disabled_source_notice
 from agent.common.data_sources import unavailable_source_ids
 from agent.common.prompt_caching import prompt_cache_key
 
-_PROMPT = "Du bist Piloti."
+_PROMPT = "Du bist der Agent."
 
 RAN: list[str] = []
 

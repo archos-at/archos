@@ -1,5 +1,5 @@
 /* =============================================================================
-   GRID design tokens — the single source of truth for color, radius, shadow.
+   Design tokens — the single source of truth for color, radius, shadow.
 
    Design language: warm paper monochrome (click-dummy overhaul, see
    docs/design/click-dummy-overhaul-spec.md §4 and
@@ -624,7 +624,7 @@
 
 /* =============================================================================
    Ink on paper: what a canvas draws ON a document's page (a mark's outline,
-   Piloti's pointer and the boxes it points out, a draft being set). The page
+   the agent's pointer and the boxes it points out, a draft being set). The page
    is the document's own paper and stays white in both themes, so this ink
    must not flip with the theme: `--foreground` turns paper-white in dark mode
    and vanished against the sheet. DOCUMENTED EXCEPTION: deliberately no

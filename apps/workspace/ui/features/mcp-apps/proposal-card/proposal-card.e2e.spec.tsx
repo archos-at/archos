@@ -21,7 +21,7 @@ import { PRODUCT_NAME } from '@/lib/brand'
 
 const session = {
   userId: 'user_anna',
-  email: 'anna@piloti.test',
+  email: 'anna@example.test',
   name: 'Anna Berger',
   accessToken: '',
   organizationId: 'org_1',

@@ -46,7 +46,7 @@ This applies to the skills we write. The pinned third-party skills below are
 dependencies and are chosen on their own merits.
 
 The October 2026 audit applied the rule to the ten skills `skills/` held then.
-Seven came from the upstream NVIDIA AI-Q blueprint and still described it in
+Seven came from the upstream NVIDIA blueprint and still described it in
 places: DCO sign-off, copy-pr-bot, a Sphinx docs tree, Helm charts. That content
 was deleted rather than moved.
 

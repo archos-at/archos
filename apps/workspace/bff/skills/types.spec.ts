@@ -55,7 +55,7 @@ describe('createSkillSchema / patchSkillSchema', () => {
   })
 
   it('rejects non-string metadata values and over-large metadata maps', () => {
-    expect(() => createSkillSchema.parse({ ...valid, metadata: { grid: 1 } })).toThrow()
+    expect(() => createSkillSchema.parse({ ...valid, metadata: { note: 1 } })).toThrow()
     const big = Object.fromEntries(Array.from({ length: 65 }, (_, i) => [`k${i}`, 'v']))
     expect(() => createSkillSchema.parse({ ...valid, metadata: big })).toThrow()
   })

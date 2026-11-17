@@ -19,7 +19,7 @@ that applied it:
 Today there are none. The last one, `aiq-research`, was an upstream NVIDIA
 catalog skill for driving a blueprint backend, and was removed.
 
-Piloti's own skills, the ones the product reads at run time, are a different
+The agent's own skills, the ones the product reads at run time, are a different
 thing and live in `packages/agent/src/agent/skills/` (ADR-0046).
 
 ## Adding one

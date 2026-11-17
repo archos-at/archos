@@ -233,7 +233,7 @@ capability requirements) mirrored by `AgentGroup` in
 | `ingest_vlm` | the ingestion VLM (image captioning + rendered-drawing description) | **image input** (`requiresImageInput`) — vision models only |
 
 The id `shallow_research` is a PERSISTED KEY and is deliberately not
-renamed. The chat agent it covers is now called Piloti — the
+renamed. The agent it covers is now called the agent — the
 registry's `label` says so, which is what a label is for — but the id is the
 value stored in `platform_model_defaults.agent_group`, in
 `platform_models.agent_group` and in the `X-Grid-Model-Overrides` header.

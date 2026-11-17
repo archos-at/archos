@@ -214,7 +214,6 @@ def _normalize(text: str) -> str:
     return text.strip().lower().replace("ä", "ae").replace("ö", "oe").replace("ü", "ue").replace("ß", "ss")
 
 
-
 _db_loader: Callable[[], NormsFile | None] | None = None
 _db_cache_reset: Callable[[], None] | None = None
 
@@ -360,8 +359,6 @@ def reset_registry_cache() -> None:
             logger.warning("norm_registry: db loader cache reset failed", exc_info=True)
 
 
-
-
 def _entry_needles(entry: NormEntry) -> list[str]:
     return [needle for needle in (entry.title, entry.short, *entry.aliases, *entry.topics) if needle]
 
@@ -436,7 +433,6 @@ def focus_entries(entries: list[NormEntry], federal_state: str | None) -> list[N
         return entries
     kept = [entry for entry in entries if not entry.federal_state or entry.federal_state == federal_state]
     return sorted(kept, key=lambda entry: 0 if entry.federal_state == federal_state else 1)
-
 
 
 _BLOCK_HEADER = (
@@ -517,7 +513,6 @@ def render_block_for_prompt(norms_dir: str | None = None) -> str | None:
     return render_prompt_block(registry, federal_state=resolve_federal_state())
 
 
-
 _PARCEL_TAGS = ("Bebauungsplan", "Flächenwidmungsplan")
 
 
@@ -554,7 +549,6 @@ def parcel_note(available_documents: list[dict] | None) -> str | None:
             files = ", ".join(sorted(by_tag[tag]))
             lines.append(f"- {tag}: {files}")
     return "\n".join(lines)
-
 
 
 _OIB_CLASS_PREFIXES: tuple[tuple[str, str], ...] = (
@@ -721,7 +715,6 @@ def guess_display_title(file_name: str) -> str | None:
     return f"{title}, {tail}" if tail else title
 
 
-
 _OIB_FAMILY_NUMBER_RE = re.compile(r"^(\d+(?:\.\d+)?)(?:[_-]|$)")
 
 
@@ -834,7 +827,7 @@ def lane_for_hit(
 
     ``authored_by`` is the stated PROVENANCE of the document
     (``common/provenance.py``), and it outranks everything else here — the
-    doc_class included. A published Piloti document is filed on the project or
+    doc_class included. A published agent-authored document is filed on the project or
     the Archiv shelf like any other document, so every rule below would place
     it as Projektwissen or Büroablage and lose the one fact a reader must not
     miss; and a doc_class stamped on it by ingest would place it in the norm

@@ -75,7 +75,7 @@ function envelopeHeaders(
 
 function call(body: unknown, headers: Record<string, string> = envelopeHeaders()) {
   return POST(
-    new Request('https://grid.test/api/internal/document-versions', {
+    new Request('https://example.test/api/internal/document-versions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -286,7 +286,7 @@ describe('the ops it does serve', () => {
 
   it('refuses the internal token being absent', async () => {
     const response = await POST(
-      new Request('https://grid.test/api/internal/document-versions', {
+      new Request('https://example.test/api/internal/document-versions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...envelopeHeaders() },
         body: JSON.stringify({ op: 'submit', documentId: DOC, versionId: VERSION }),

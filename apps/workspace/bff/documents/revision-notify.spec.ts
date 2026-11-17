@@ -688,7 +688,7 @@ describe('announceSettledVersions', () => {
     expect(emitInboxItems).not.toHaveBeenCalled()
   })
 
-  it('says nothing for a document that is still held, a Piloti document or a missing one', async () => {
+  it('says nothing for a document that is still held, an agent document or a missing one', async () => {
     vi.mocked(findPublishedVersion).mockResolvedValue(version({}))
     vi.mocked(findDocumentInOrg).mockImplementation(async (id) =>
       id === 'held' ? null : id === 'agent' ? doc({ id: 'agent', authoredBy: 'agent' }) : null,
@@ -758,7 +758,7 @@ describe('announceSettledVersions — a link written at ingestion', () => {
     expect(emitInboxItems).not.toHaveBeenCalled()
   })
 
-  it('never reads the names of a held document, a Piloti document or a chat attachment', async () => {
+  it('never reads the names of a held document, an agent document or a chat attachment', async () => {
     vi.mocked(findDocumentInOrg).mockImplementation(async (id) =>
       id === 'agent' ? doc({ id: 'agent', authoredBy: 'agent' }) : id === 'chat' ? doc({ id: 'chat', scope: 'session' }) : null,
     )
@@ -853,7 +853,7 @@ describe('notifyNewRevision — announced once', () => {
   })
 })
 
-describe('notifyNewRevision — Piloti notices the Fassung (ADR-0130)', () => {
+describe('notifyNewRevision — the agent notices the Fassung (ADR-0130)', () => {
   it('stores one notice job of a Fassung under another name, as the person who made it, in the claim\'s transaction', async () => {
     await notifyNewRevision(link)
 

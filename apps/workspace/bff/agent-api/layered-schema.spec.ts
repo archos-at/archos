@@ -57,7 +57,7 @@ describe('layerSchema', () => {
 describe('describe-operation over the real catalog', () => {
   const session = {
     userId: 'u',
-    email: 'a@piloti.test',
+    email: 'a@example.test',
     name: null,
     accessToken: '',
     organizationId: 'o',

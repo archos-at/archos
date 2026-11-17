@@ -1,10 +1,10 @@
-# Piloti in the File System — Design Spec
+# The agent in the File System — Design Spec
 
 > **The read side lives in [`agent-filesystem.md`](agent-filesystem.md)**
 > (ADR-0133, ADR-0134): the mounts, `ls`/`glob`/`grep`/`read_file` and how each
 > document appears. This spec stays the exploration of the write side.
 
-> Piloti can read the office's files. It cannot write one. This spec designs the
+> The agent can read the office's files. It cannot write one. This spec designs the
 > write side as a substrate rather than a tool: one namespace, one write path,
 > one authorization decision, one lifecycle — mounted under every agent, not
 > only the deep researcher.
@@ -18,7 +18,7 @@
 > spec's "What this is not".
 >
 > **What actually got built is one thin slice of §0's sentence, and the rest of
-> this document is still unbuilt exploration.** Piloti still cannot write a file
+> this document is still unbuilt exploration.** The agent still cannot write a file
 > — the *BFF* writes one, in the commissioning user's session, at the completion
 > of a deep-research run, into a fixed `Berichte` folder. There is no namespace,
 > no `fs_*` tool surface, no mount table, no versioning and no `run:/`. Read §5
@@ -47,7 +47,7 @@
 
 ## 0. The one-sentence goal
 
-Everything Piloti produces should be an **object in the same file system the
+Everything the agent produces should be an **object in the same file system the
 architect already browses** — addressable, previewable, versioned, filterable,
 and visibly *not yet* the office's word until a human says it is.
 
@@ -190,7 +190,7 @@ chips and deep-links fall out of one decision (`backend-deep-dive.md` §6c).
 ```
 /projects/<slug>/files/…              project shelf          (documents, scope='project')
 /projects/<slug>/models/<name>/…      IFC models             (structured, read-only)
-/projects/<slug>/work/…               NEW: Piloti's desk     (agent-authored)
+/projects/<slug>/work/…               NEW: The agent's desk  (agent-authored)
 /projects/<slug>/views/<name>.view    NEW: saved filters     (§7)
 /projects/<slug>/memory/…             memory, projected      (read-only view of rows)
 /archiv/…                             Büroablage shelf       (documents, scope='office_shelf')
@@ -255,7 +255,7 @@ Four things the current schema conflates into `documents.filename`, separated:
 
 What this buys, none of it as a feature to build later:
 
-- **Undo is a ref move.** "Piloti overwrote my Brandschutzkonzept" is not
+- **Undo is a ref move.** "the agent overwrote my Brandschutzkonzept" is not
   representable: the previous version is still the same immutable blob.
 - **Diff is free**, which is what makes a version history worth showing, which
   is what makes an agent write reviewable at all.
@@ -286,7 +286,7 @@ evidence**.
 | **work** | `/projects/*/work`, `/threads/<c>` | the agent, inside quota | until GC or promotion | yes, provenance-tagged | **no** |
 | **estate** | `/projects/*/files`, `/office-shelf`, `/skills`, profile, memory | **a human click** | permanent | yes | yes |
 
-The line between *work* and *estate* is the line between "a thing Piloti made"
+The line between *work* and *estate* is the line between "a thing the agent made"
 and "a thing the office asserts". In a product whose output ends up in an
 Einreichung, that line is the entire safety story, and it is worth stating as
 three invariants rather than as a policy that lives in a prompt:
@@ -308,7 +308,7 @@ three invariants rather than as a policy that lives in a prompt:
 > **I3 — Promotion changes provenance, not content.** The promoted node keeps
 > its version history and its `authored_by = 'agent'`, and gains
 > `promoted_by`/`promoted_at`. The office asserting a document is a *separate
-> fact* from Piloti having written it, and both stay true forever.
+> fact* from the agent having written it, and both stay true forever.
 
 The product already has the vocabulary to render this without inventing
 anything: the design language's provenance signals are the only chroma in the
@@ -488,7 +488,7 @@ than an exception to work around.
 
 On sprawl, the literature is unambiguous and worth designing for rather than
 discovering: weaker models produce 114 files where stronger ones produce 16, and
-store shape tracks the *model* more than the material. So the shape of Piloti's
+store shape tracks the *model* more than the material. So the shape of the agent's
 desk must not be load-bearing. Two rules follow: retrieval into `/work` is by
 selector and search, never by the agent remembering where it put something; and
 the default context is a bounded digest (§10), so a sprawling desk costs disk,
@@ -591,7 +591,7 @@ tests and its callers; the substrate reads through it rather than around it.
 | `/api/documents/search`, the substring filter, the Files pane | untouched. The selector (§7) **compiles down to them** — an adapter, not a replacement |
 | `focus_file_name` / `focus_shelf` / `source_preset`, `shelves_for_turn` | the ceiling ∩ intent split is already correct; the selector expresses the same thing for the new store |
 | the `documents` / `project_folders` schema, uploads, ingest, deletion | no migration, no backfill, no new column on `documents` beyond the provenance pair |
-| memory, the project profile, skills | not absorbed. Mounted read-only at most, so one namespace can *answer* "what does Piloti know" without owning any of it |
+| memory, the project profile, skills | not absorbed. Mounted read-only at most, so one namespace can *answer* "what does the agent know" without owning any of it |
 
 **What could later collapse into it — and the test each must pass first.** A
 unification is worth doing when the duplication has cost something concrete,
@@ -612,7 +612,7 @@ the right column is speculation with a migration attached.
 **Phase 0 — the projection (no writes, no new tables).** The mount table, the
 selector, and `fs_list` / `fs_read` / `fs_search` implemented as **adapters over
 the existing documents service and retriever**, plus the view URL. Ships one
-user-visible thing: asking Piloti to filter the file system filters *the file
+user-visible thing: asking the agent to filter the file system filters *the file
 system*, with the chips lit, instead of returning three tiles.
 *Acceptance:* a parity test — for the same question, the projection returns what
 the existing path returns. Nothing existing is edited beyond the call site that
@@ -661,7 +661,7 @@ second is worth writing.
 | **PyFilesystem2** — `MountFS`, `MultiFS`, `SubFS` | Python | The cleanest naming of the mount idea | **Borrow the vocabulary**; fsspec has the ecosystem |
 | **LangGraph `BaseStore` / `PostgresStore`** — namespaced persistence with semantic search | Python | Cross-session key–value persistence | **Avoid as the store of record**: no versions, no provenance, no tenancy beyond the namespace tuple. We have Postgres and RLS |
 | **`jsonpatch`** (already used by `project_profile_patch`), `diff-match-patch` / `unidiff` | both | Patch application and history rendering for `fs_edit` | **Adopt.** Hand-rolled patch application is how exact-match edits become silent corruption |
-| **MCP filesystem server + roots** | any | A reference tool surface and the root-scoping contract | **Borrow now, expose later.** Once the primitives exist, a document-filesystem MCP server is how anything outside Piloti mounts the estate |
+| **MCP filesystem server + roots** | any | A reference tool surface and the root-scoping contract | **Borrow now, expose later.** Once the primitives exist, a document-filesystem MCP server is how anything outside the agent mounts the estate |
 | **S3 / SeaweedFS object versioning** | infra | A server-side version chain per key | **Verify before relying on it.** ADR-0042 established that the pinned SeaweedFS *accepts* SSE headers it does not implement; the same discipline applies here. The version chain lives in Postgres regardless, so this is an optimization |
 
 What none of them gives us, and what therefore defines the code we write:
@@ -696,7 +696,7 @@ The correct conclusion is therefore the opposite of the one drawn here: do not
 give the agent a write path at all. The BFF already proxies the finished report
 (`GET /api/jobs/async/job/{id}/report`), so it can do the write in the
 commissioning user's own session, gated on `project:documents:write` — and, as
-built, on `project:documents:generate` beside it, so that "Piloti may write
+built, on `project:documents:generate` beside it, so that "the agent may write
 here" is a capability an organization can withhold without also stopping its own
 architects uploading documents. That removes the confused deputy instead of
 reasoning about it — see the build spec's decision 4 and
@@ -736,7 +736,7 @@ supersession are what make dedup and provenance possible.
 1. **Does memory become files?** Recommendation: no. Memory's value is dedup,
    supersession and salience — row machinery — and §13's blob argument applies.
    Project it read-only under `/memory` so one namespace still answers "what does
-   Piloti know", and leave the writes where they are.
+   the agent know", and leave the writes where they are.
 2. **German paths?** The UI is German; paths are ASCII and stable. A node's
    `display_name` is already the localized label. Probably right, unconfirmed.
 3. **Two chats writing one node.** `base_version` makes it an error rather than

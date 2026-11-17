@@ -1,4 +1,4 @@
-# The Piloti hobble register (2026-09)
+# The agent hobble register (2026-09)
 
 > Every constraint in the answering path, ranked, and classified by what it
 > actually does: remove a capability the model has, prevent waste that a tool
@@ -743,7 +743,7 @@ the problem, three overlapping RIS tools is. Note also what the same guide says
 about instructions — "Define clear actions: Make sure every step in your
 routine corresponds to a specific action or output" (p. 11) — which is the
 honest counterweight: a *routine* is legitimate where the work really is a
-fixed procedure. Piloti's retrieval is not; its output envelope is, and that is
+fixed procedure. The agent's retrieval is not; its output envelope is, and that is
 why `<answer_envelope>` stays and `<research_rules>` shrank.
 
 **Cognition, "Don't build multi-agents"** —
@@ -757,7 +757,7 @@ why `<answer_envelope>` stays and `<research_rules>` shrank.
 > "Subagent 1 and subagent 2 cannot see what the other was doing and so their
 > work ends up being inconsistent with each other."
 
-Relevant twice. First as an endorsement of what Piloti already is — ADR-0052's
+Relevant twice. First as an endorsement of what the agent already is — ADR-0052's
 single answering agent with the full tool set. Second as the constraint on the
 `ris_planner_llm` extractor pass inside `ris_lookup`: it must receive the
 *question and the § headings*, and it must not make a decision the answering

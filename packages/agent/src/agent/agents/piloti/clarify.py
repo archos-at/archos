@@ -207,8 +207,6 @@ class ClarifyDeps:
         return {"callbacks": list(self.callbacks)}
 
 
-
-
 def parse_json_response[ModelT: BaseModel](content: Any, schema: type[ModelT]) -> ModelT | None:
     """Parse one structured response out of an LLM reply.
 
@@ -450,8 +448,6 @@ def _fallback_plan() -> PlanResponse:
     return PlanResponse(title=FALLBACK_PLAN_TITLE, sections=list(FALLBACK_PLAN_SECTIONS))
 
 
-
-
 def _clarification_messages(
     request: ClarifyRequest, deps: ClarifyDeps, messages: Sequence[BaseMessage], log: str
 ) -> list[BaseMessage]:
@@ -646,8 +642,6 @@ async def clarify(request: ClarifyRequest, deps: ClarifyDeps) -> ClarifyResult:
     return await preview_plan(request, deps, log)
 
 
-
-
 async def ask_through_nat(question: str, options: Sequence[str] = ()) -> str:
     """
     Ask the user a question through the agent runtime's user interaction manager.
@@ -679,7 +673,7 @@ def _clarifier_llm(llm: BaseChatModel, tools: Sequence[BaseTool]) -> Any:
 
     Never both. OpenRouter's failure mode for an unsupported ``response_format``
     is to accept it and silently degrade — dropping tool calls — which is why
-    Piloti keeps json mode off its tool-bound calls by default
+    the agent keeps json mode off its tool-bound calls by default
     (``envelope_call.py``). A clarifier with tools therefore asks for JSON in
     the prompt and parses it once; a clarifier without tools gets the schema
     enforced natively.

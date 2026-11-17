@@ -1,6 +1,6 @@
 # Deploy
 
-This directory contains deployment assets for Piloti.
+This directory contains the deployment assets for the workspace.
 
 ## Docker Compose
 

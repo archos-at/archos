@@ -301,7 +301,7 @@ export function ClosingDebrief({ projectId, profile, canWriteMemory }: ClosingDe
                   <ItemContent className="space-y-1">
                     <Badge variant="outline">{t(`lifecycle.debrief.decisions.kind.${item.kind === 'constraint' ? 'constraint' : 'decision'}`)}</Badge>
                     {grounded && <Badge variant="info">{t('lifecycle.debrief.decisions.grounded')}</Badge>}
-                    {/* Every origin named, as other projects will cite it: Piloti's own note too. */}
+                    {/* Every origin named, as other projects will cite it: the agent's own note too. */}
                     {memoryOriginOf(item) === 'agent' && (
                       <Badge variant="secondary">{t('lifecycle.debrief.decisions.noted')}</Badge>
                     )}

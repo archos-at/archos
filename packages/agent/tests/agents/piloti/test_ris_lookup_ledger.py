@@ -8,7 +8,7 @@ transparency feature, it is a lie with a UI.
 `ris_lookup` captures once per RETURNED passage. Proving that needs the
 COMPILED GRAPH and not a unit test of the capture, for the reason
 ``test_retrieval_rounds_spine`` is written down for: the round stamp is set in
-Piloti's tools node and LangGraph builds every node's task with
+the agent's tools node and LangGraph builds every node's task with
 ``copy_context()``, so a capture that reads the stamp in a unit test reads a
 value the real tool would never see.
 

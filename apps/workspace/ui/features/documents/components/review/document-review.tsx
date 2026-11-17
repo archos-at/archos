@@ -200,7 +200,7 @@ export interface RoomCompany {
 }
 
 export function roomCompanyOf(peers: readonly RoomPeerState[]): RoomCompany {
-  const piloti = peers.find(isAgentPeer) ?? null
+  const agent = peers.find(isAgentPeer) ?? null
   return {
     people: people(peers).map((state) => ({
       peerId: state.peer.peerId,
@@ -208,8 +208,8 @@ export function roomCompanyOf(peers: readonly RoomPeerState[]): RoomCompany {
       name: state.peer.name,
       page: pageOf(state),
     })),
-    piloti: piloti
-      ? { forName: piloti.peer.forName ?? null, working: Boolean(piloti.activity), label: piloti.activity?.label ?? null }
+    piloti: agent
+      ? { forName: agent.peer.forName ?? null, working: Boolean(agent.activity), label: agent.activity?.label ?? null }
       : null,
   }
 }
@@ -228,16 +228,16 @@ export function Presence({
 }): JSX.Element | null {
   const t = useTranslations(filesCopy)
   const tPresence = useTranslations(presenceCopy)
-  const { people: others, piloti } = useRoomCompany(review.room)
-  const forName = piloti?.forName
+  const { people: others, piloti: agent } = useRoomCompany(review.room)
+  const forName = agent?.forName
   const onBehalf = forName ? tPresence('piloti.onBehalfOf', { name: forName }) : null
-  if (others.length === 0 && !piloti) return null
+  if (others.length === 0 && !agent) return null
   if (!onFollow) {
     return (
       <span aria-hidden className="flex items-center -space-x-1" data-testid="review-presence">
-        {piloti && (
+        {agent && (
           <span className="ring-background rounded-full ring-2">
-            <AgentGlyph size="md" working={piloti.working} label={onBehalf ?? PRODUCT_NAME} />
+            <AgentGlyph size="md" working={agent.working} label={onBehalf ?? PRODUCT_NAME} />
           </span>
         )}
         {others.map((person) => (
@@ -253,21 +253,21 @@ export function Presence({
   }
   return (
     <div className="flex items-center -space-x-1" data-testid="review-presence">
-      {piloti && (
+      {agent && (
         <Tooltip>
           <TooltipTrigger asChild>
             <span data-testid="review-presence-agent" className="ring-background rounded-full ring-2">
-              <AgentGlyph size="md" working={piloti.working} label={onBehalf ?? PRODUCT_NAME} />
+              <AgentGlyph size="md" working={agent.working} label={onBehalf ?? PRODUCT_NAME} />
             </span>
           </TooltipTrigger>
           <TooltipContent>
             {onBehalf ? (
               <>
                 <span className="block">{onBehalf}</span>
-                {piloti.label && <span className="block">{piloti.label}</span>}
+                {agent.label && <span className="block">{agent.label}</span>}
               </>
             ) : (
-              piloti.label || t('review.agentWorking')
+              agent.label || t('review.agentWorking')
             )}
           </TooltipContent>
         </Tooltip>
@@ -416,8 +416,8 @@ const documentReviewOf = (asks: readonly CanvasAsk[]): CanvasAsk | null =>
 function AgentReview({ review, onWalk }: { review: ReviewState; onWalk: () => void }): JSX.Element {
   const t = useTranslations(filesCopy)
   const tChat = useTranslations(chatCopy)
-  const { piloti } = review
-  const run = documentReviewOf(piloti.asks)
+  const { piloti: agent } = review
+  const run = documentReviewOf(agent.asks)
   if (!run) {
     const button = (
       <Button
@@ -426,15 +426,15 @@ function AgentReview({ review, onWalk }: { review: ReviewState; onWalk: () => vo
         size="sm"
         className="h-8 gap-1.5"
         data-testid="review-with-agent"
-        disabled={piloti.busy}
-        onClick={() => piloti.ask({ text: t('review.reviewSeed'), region: null, effort: 'medium' })}
+        disabled={agent.busy}
+        onClick={() => agent.ask({ text: t('review.reviewSeed'), region: null, effort: 'medium' })}
       >
         <Sparkles className="size-3.5" aria-hidden />
         {/* On a phone the glyph carries it; the words stay for a screen reader. */}
         <span className="max-sm:sr-only">{t('review.reviewWithAgent')}</span>
       </Button>
     )
-    if (!piloti.busy) return button
+    if (!agent.busy) return button
     return (
       <Tooltip>
         <TooltipTrigger asChild>
@@ -480,9 +480,9 @@ function AgentReview({ review, onWalk }: { review: ReviewState; onWalk: () => vo
           {t('review.walkProposals')}
         </Button>
       )}
-      {piloti.conversationHref && (
+      {agent.conversationHref && (
         <Button asChild variant="ghost" size="sm" className="h-6 px-2 text-xs">
-          <Link href={piloti.conversationHref} data-testid="review-agent-conversation">
+          <Link href={agent.conversationHref} data-testid="review-agent-conversation">
             {t('review.piloti.openConversation')}
           </Link>
         </Button>
@@ -494,7 +494,7 @@ function AgentReview({ review, onWalk }: { review: ReviewState; onWalk: () => vo
           size="icon"
           className="size-6 rounded-full [&_svg]:size-3"
           aria-label={t('review.piloti.retry')}
-          onClick={() => piloti.retry(run.id)}
+          onClick={() => agent.retry(run.id)}
         >
           <RotateCcw aria-hidden />
         </Button>
@@ -507,7 +507,7 @@ function AgentReview({ review, onWalk }: { review: ReviewState; onWalk: () => vo
         aria-label={working ? t('review.piloti.stop') : t('review.piloti.close')}
         title={working ? t('review.piloti.stop') : t('review.piloti.close')}
         data-testid="review-agent-dismiss"
-        onClick={() => piloti.dismiss(run.id)}
+        onClick={() => agent.dismiss(run.id)}
       >
         <X aria-hidden />
       </Button>
@@ -544,7 +544,7 @@ export function DocumentReviewMode({
   const { locale } = useLocale()
   const [focus, setFocus] = useState<{ page: number; y: number; key: string; instant?: boolean } | null>(null)
   const [following, setFollowing] = useState<string | null>(null)
-  const { annotations, select, setTool, tool, selectedId, draft, setDraft, room, piloti } = review
+  const { annotations, select, setTool, tool, selectedId, draft, setDraft, room, piloti: agent } = review
   const [viewPage, setViewPage] = useState<number | null>(null)
   const viewAt = useRef<{ page: number; y: number } | null>(null)
   const { sendViewport } = room
@@ -574,7 +574,7 @@ export function DocumentReviewMode({
     const y = state.viewport?.page === page ? state.viewport.y : (state.cursor?.y ?? 0)
     setFocus({ page, y, key: `jump:${state.peer.peerId}:${Date.now()}` })
   }, [])
-  const openAsk = piloti.asks.find((ask) => ask.id === piloti.openId) ?? null
+  const openAsk = agent.asks.find((ask) => ask.id === agent.openId) ?? null
   const list = useReviewList(review)
   const { beside: listBeside, sheetOpen: listOpen, setSheetOpen: setListOpen } = list
   const docked = useMediaQuery(DOCKED_CARDS)
@@ -743,16 +743,16 @@ export function DocumentReviewMode({
   const dockOpen = docked && Boolean(dockedAsk || draft || selected)
   const closeCard = useCallback(() => {
     if (dockedAsk) {
-      if (dockedAsk.status === 'thinking') piloti.open(null)
-      else piloti.dismiss(dockedAsk.id)
+      if (dockedAsk.status === 'thinking') agent.open(null)
+      else agent.dismiss(dockedAsk.id)
     } else if (draft) setDraft(null)
     else select(null)
-  }, [dockedAsk, piloti, draft, setDraft, select])
+  }, [dockedAsk, agent, draft, setDraft, select])
 
   const stepBack = (event: KeyboardEvent) => {
     event.preventDefault()
     if (typing(event.target) && !draft && !openAsk) return
-    if (openAsk) piloti.open(null)
+    if (openAsk) agent.open(null)
     else if (draft) setDraft(null)
     else if (following) setFollowing(null)
     else if (tool !== 'select') setTool('select')
@@ -784,7 +784,7 @@ export function DocumentReviewMode({
     else if ((key === 'c' || key === 'r') && review.canAnnotate) {
       setTool(key === 'c' ? 'point' : 'region')
       startAim()
-    } else if (key === 'p' && piloti.available) {
+    } else if (key === 'p' && agent.available) {
       setTool('ask')
       startAim()
     } else if (key === 'j' && walk) {
@@ -988,11 +988,11 @@ export function DocumentReviewMode({
               onClick={list.toggle}
             >
               <MessagesSquare className="size-3.5" aria-hidden />
-              {/* The open marks, as „offen“ counts them everywhere: Piloti's proposals are not the office's yet. */}
+              {/* The open marks, as „offen“ counts them everywhere: the agent's proposals are not the office's yet. */}
               <span className="font-mono tabular-nums">{review.counts.open}</span>
             </Button>
             {listBeside && exportMenu}
-            {piloti.available && review.canAnnotate && <AgentReview review={review} onWalk={walkProposals} />}
+            {agent.available && review.canAnnotate && <AgentReview review={review} onWalk={walkProposals} />}
           </div>
         </header>
 

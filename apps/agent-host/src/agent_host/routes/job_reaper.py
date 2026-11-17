@@ -156,7 +156,7 @@ def _int_env(name: str, default: int) -> int:
 """Module-level reference for the chat checkpoint reaper (shutdown cancellation)."""
 
 
-PG_ADVISORY_LOCK_ID = 0x41495143_4C45414E  # "AIQCLEAN" in hex
+PG_ADVISORY_LOCK_ID = 0x41495143_4C45414E
 
 
 _PG_REAPER_LOCK_ID = PG_ADVISORY_LOCK_ID + 1

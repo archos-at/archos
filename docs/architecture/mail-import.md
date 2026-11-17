@@ -47,7 +47,7 @@ browser                     BFF (frontend)                     object store     
   waiting while the browser is offline, so a Wi-Fi roam or a closed lid does
   not end a send of hours. The send is held by the tab, not the dialog
   (`features/documents/lib/mail-import-send.ts`): the person can go on working
-  in Piloti, and only closing the tab stops it, after the browser asks. A send
+  in the workspace, and only closing the tab stops it, after the browser asks. A send
   that broke off is resumed by choosing the same file again (`GET …/[importId]`
   lists the held parts); a file whose modification time changed since is
   refused, because its parts would not fit the ones already sent.

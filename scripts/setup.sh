@@ -1,5 +1,5 @@
 #!/bin/bash
-# Setup script for AI-Q blueprint development environment
+# Setup script for the development environment
 
 set -euo pipefail
 

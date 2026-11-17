@@ -22,7 +22,7 @@ const PATTERN = /^\/api\/internal\/runs\/([^/]+)\/ledger$/
 
 function transport(headers: Record<string, string>) {
   return async (path: string, init?: RequestInit) => {
-    const url = new URL(path, 'https://grid.test')
+    const url = new URL(path, 'https://example.test')
     const matched = PATTERN.exec(url.pathname)
     if (!matched) throw new Error(`no route for ${url.pathname}`)
     const request = new Request(url, {
@@ -38,7 +38,7 @@ const anonymous = createRunLedgerClient(transport({}))
 
 function call(body: unknown, headers: Record<string, string> = { 'x-grid-internal-token': SECRET }) {
   return POST(
-    new Request(`https://grid.test/api/internal/runs/${RUN}/ledger`, {
+    new Request(`https://example.test/api/internal/runs/${RUN}/ledger`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...headers },
       body: JSON.stringify(body),

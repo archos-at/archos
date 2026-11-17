@@ -18,7 +18,7 @@ import type { AgentPrincipal } from '../principal'
 
 const session = {
   userId: 'user_1',
-  email: 'a@piloti.test',
+  email: 'a@example.test',
   name: null,
   accessToken: '',
   organizationId: 'org_1',
@@ -28,7 +28,7 @@ const session = {
   featureFlags: null,
 }
 const outside: AgentPrincipal = { actor: 'external_agent', clientId: 'c', scopes: [], session }
-const piloti: AgentPrincipal = { actor: 'piloti', clientId: null, scopes: [], session }
+const inProduct: AgentPrincipal = { actor: 'piloti', clientId: null, scopes: [], session }
 const otherOffice: AgentPrincipal = { ...outside, session: { ...session, organizationId: 'org_2', userId: 'user_2' } }
 
 const READABLE = new Set(['p-1'])
@@ -52,7 +52,7 @@ afterEach(() => {
 const authInfoFor = (principal: AgentPrincipal): AuthInfo => ({ token: '', clientId: 'c', scopes: [], extra: { principal, mode: 'search' } })
 
 function modernRequest(method: string, params: Record<string, unknown>, signal?: AbortSignal): Request {
-  return new Request('https://app.piloti.test/api/mcp', {
+  return new Request('https://app.example.test/api/mcp', {
     method: 'POST',
     signal,
     headers: {
@@ -154,9 +154,9 @@ describe('listening to a project', () => {
     expect(updates(await pending)).toEqual([])
   })
 
-  it('honors nothing for Piloti’s own principal', async () => {
+  it('honors nothing for the in-product agent’s own principal', async () => {
     const handler = createAgentDoorHandler()
-    const response = await listen(handler, piloti, { resourceSubscriptions: ['piloti://project/p-1'], resourcesListChanged: true })
+    const response = await listen(handler, inProduct, { resourceSubscriptions: ['piloti://project/p-1'], resourcesListChanged: true })
     expect(acknowledged(await frames(response, (all) => all.length > 0))).toEqual({})
   })
 })
@@ -178,8 +178,8 @@ describe('capabilities', () => {
     expect(caps.prompts).toEqual({ listChanged: false })
   })
 
-  it('advertises no resources or prompts to Piloti', async () => {
-    const caps = await capabilitiesOf(piloti, 'modern')
+  it('advertises no resources or prompts to the in-product agent', async () => {
+    const caps = await capabilitiesOf(inProduct, 'modern')
     expect(caps.resources).toBeUndefined()
     expect(caps.prompts).toBeUndefined()
   })

@@ -684,7 +684,7 @@ describe('ProjectFileWorkspace — a picked file the project already holds', () 
     expect(mockUploadFiles).not.toHaveBeenCalled()
   })
 
-  it('compares against the whole shelf while „Von Piloti" narrows the listing', async () => {
+  it('compares against the whole shelf while the authorship filter narrows the listing', async () => {
     const searches: string[] = []
     server.use(
       http.get('/api/documents', ({ request }) => {
@@ -842,7 +842,7 @@ describe('ProjectFileWorkspace — server-seeded first paint', () => {
     expect(documentsRequests).toBe(1)
   })
 
-  it('re-reads the listing when the „Von Piloti" chip narrows it server-side', async () => {
+  it('re-reads the listing when the authorship chip narrows it server-side', async () => {
     const requested: string[] = []
     server.use(
       http.get('/api/documents', ({ request }) => {
@@ -1600,7 +1600,7 @@ describe('ProjectFileWorkspace — an .ifc opens as a building', () => {
   })
 })
 
-describe('ProjectFileWorkspace — the Von Piloti filter', () => {
+describe('ProjectFileWorkspace — the authorship filter', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     searchParams = new URLSearchParams()

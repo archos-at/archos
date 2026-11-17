@@ -36,7 +36,7 @@ from agent.citations.entries import SourceEntry
 from agent.citations.registry import SourceRegistry
 from agent.common import LLMProvider
 
-_PROMPT = "Du bist Piloti."
+_PROMPT = "Du bist der Agent."
 
 
 @tool

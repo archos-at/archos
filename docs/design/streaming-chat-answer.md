@@ -421,7 +421,7 @@ delivered. A watchdog, hello or acknowledgement deadline that fired late,
 having slept through a freeze, counts nothing against the turn or the server.
 A socket that gives up on the network (`failed`, explained as
 `connection.failed`) ends no turn either: the turn keeps its words and its
-cursor, the status dock says „Verbindung unterbrochen · Piloti macht weiter,
+cursor, the status dock says „Verbindung unterbrochen · Der Agent macht weiter,
 sobald sie wieder steht", and the socket that reopens attaches it. Only a
 give-up waiting cannot cure (a budget, an expired session, another wire) ends
 the turns, by asking the server for each answer. The tab's realtime stream
@@ -932,7 +932,7 @@ every flush: 25 programmatic scrolls in one switch and back (motion audit,
 ### The status dock and the composer
 
 **The status dock** is one quiet line just above the composer, positioned out
-of the thread's flow: a dropped connection („Verbindung unterbrochen · Piloti
+of the thread's flow: a dropped connection („Verbindung unterbrochen · Der Agent
 verbindet sich neu …", then „Wieder verbunden" for 2.4 s), or in a shared thread a colleague typing. Both used to
 live in the thread: the connection error as a card that collapsed out on
 reconnect, the typing line at the list's end, which bobbed the thread every

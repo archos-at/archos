@@ -1,6 +1,6 @@
 """Single, framing-agnostic description of the card catalog for the LLM.
 
-Grid describes the SAME discriminated-union card schema to the model on two
+The app describes the SAME discriminated-union card schema to the model on two
 surfaces — the mid-turn ``emit_card`` tool (:mod:`agent.cards.register`) and
 the post-hoc batch generator (:mod:`agent.cards.prompt` /
 :mod:`agent.cards.generate`). This module owns the one representation they
@@ -555,7 +555,7 @@ def describe_card_catalog() -> dict[str, Any]:
     :func:`render_card_catalog` renders the same models as prose for the model
     and omits the system cards, because a model that reads about them can
     fabricate them. A human catalog has the opposite need: it must list every
-    card the product can render — a platform owner asking "can Grid show me X?"
+    card the product can render — a platform owner asking "can it show me X?"
     is not served by a list with holes in it — so system cards are included and
     flagged (``emittedBy``) rather than hidden.
 

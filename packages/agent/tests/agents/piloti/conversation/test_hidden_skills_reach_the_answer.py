@@ -54,7 +54,7 @@ async def test_the_hidden_subset_rides_the_answer_it_belongs_to():
 
     assert finished.skills_activated == [VOICE, CARDS, VISIBLE]
     assert finished.skills_hidden == [VOICE, CARDS], (
-        "Piloti marked piloti-voice/piloti-cards grid-hidden and the answer "
+        "The agent marked piloti-voice/piloti-cards grid-hidden and the answer "
         "reached the client without saying so — the disclosure will render the house voice at "
         "full weight, which is exactly the internal vocabulary the field exists to mute"
     )

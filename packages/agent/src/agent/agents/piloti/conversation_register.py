@@ -4,7 +4,7 @@ Beside the graph it registers (:mod:`agent.agents.piloti.conversation`)
 and nothing else: the config, the wiring of the sibling agent-runtime functions into that
 graph, and a ``_run`` that composes the per-turn harness from
 :mod:`agent.turn`. The answering agent, the escalation edge and the
-conversation state are Piloti's, which is why this lives here rather
+conversation state are the agent's, which is why this lives here rather
 than in a package of its own.
 """
 
@@ -223,7 +223,7 @@ async def _build_clarifier(config: ChatDeepResearcherConfig, builder: Builder):
 
 
 async def _build_agent(config: ChatDeepResearcherConfig, builder: Builder) -> ConversationGraph:
-    """Resolve the sibling agent-runtime functions into Piloti's conversation graph.
+    """Resolve the sibling agent-runtime functions into the agent's conversation graph.
 
     ``enable_clarifier`` decides HERE whether a clarifier is resolved at all: a
     deployment that runs without one hands the graph ``None`` and the escalation

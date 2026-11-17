@@ -1,4 +1,4 @@
-"""The Erfassungs-Agent: Piloti sets a project up from its documents (ADR-0111).
+"""The Erfassungs-Agent: the agent sets a project up from its documents (ADR-0111).
 
 A run of agent type ``project_intake`` on the research worker
 (``agent_host/registry.py``), started by the BFF when a finished upload batch lands
@@ -90,7 +90,7 @@ def _context_job_id() -> str | None:
 
 
 def system_prompt(max_steps: int = DEFAULT_MAX_TOOL_STEPS, max_run_seconds: float = DEFAULT_MAX_RUN_SECONDS) -> str:
-    """The prompt: who Piloti is, the goal, the rules, the tools and the budget. No procedure."""
+    """The prompt: who the agent is, the goal, the rules, the tools and the budget. No procedure."""
     return render_prompt_template(
         load_prompt(PROMPTS_DIR, "system.j2"),
         max_steps=max_steps,

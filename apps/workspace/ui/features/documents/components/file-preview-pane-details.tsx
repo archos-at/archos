@@ -97,7 +97,7 @@ export function FilePreviewDetailsPanel({ controller, detailsLead }: { controlle
               >
               {/* WHO OWNS THIS DOCUMENT, AND WHAT YOU CAN ASK OF IT.
 
-                The byline, who is responsible and „Piloti dazu fragen" all used
+                The byline, who is responsible and the ask button all used
                 to sit in the chrome above the document, where they made the row
                 wrap and where each was conditional. None of them acts on the
                 FILE: they say where the document came from, who is on the hook
@@ -113,7 +113,7 @@ export function FilePreviewDetailsPanel({ controller, detailsLead }: { controlle
               {hasOwnershipBlock && (
               <div className="mb-5 flex flex-col gap-3" /* 12px between the presses, as every pair */>
                 {/* Provenance, not status: the badge is up in the header with
-                  the name. „Von Piloti erstellt" leads the rail instead, because
+                  the name. The authorship line leads the rail instead, because
                   for the one document where it appears it is the reason the Ask
                   button below is grey. */}
                 <AuthorshipLine authoredBy={file.authoredBy} />
@@ -148,10 +148,10 @@ export function FilePreviewDetailsPanel({ controller, detailsLead }: { controlle
                 {/* „Besprechen" — never conditional on the document being
                   citable any more, and that is the whole change.
 
-                  This control used to be a PAIR: an enabled „Piloti dazu fragen"
+                  This control used to be a PAIR: an enabled ask button
                   for a citable file and a greyed-out twin for everything else,
                   with a hint explaining the grey. The grey covered exactly the
-                  documents a reader most wants to talk about — every report Piloti
+                  documents a reader most wants to talk about — every report the agent
                   wrote, and every version nobody has published — because a turn
                   could only reach a document through the retrieval index, and only
                   a published version is dispatched to it (ADR-0054). The turn now
@@ -190,7 +190,7 @@ export function FilePreviewDetailsPanel({ controller, detailsLead }: { controlle
                   className="mb-5"
                 />
               )}
-              {/* What Piloti made of the document, in its own words.
+              {/* What the agent made of the document, in its own words.
                 Promoted out of the fact list and onto a raised card: it is the
                 single most valuable thing on this rail — the answer to "does the
                 agent actually understand this file" — and it used to sit as one
@@ -199,7 +199,7 @@ export function FilePreviewDetailsPanel({ controller, detailsLead }: { controlle
               {showIndexedHeading && (
                 <InspectorSection label={t('preview.indexed.title')} icon={Sparkles}>
                   {/* ONE region for one statement. The summary, how much was read
-                    and what Piloti took the file to be are a single answer to
+                    and what the agent took the file to be are a single answer to
                     "does the agent understand this document", and they used to
                     be a card and two loose blocks under it. */}
                   <InspectorGroup>
@@ -208,7 +208,7 @@ export function FilePreviewDetailsPanel({ controller, detailsLead }: { controlle
                         {/* Keyed by file so a newly-selected document always
                           starts collapsed and re-measures against its own text. */}
                         {file.summary && <IndexedSummary key={file.id} summary={file.summary} />}
-                        {/* What Piloti took the document to be, and the way to
+                        {/* What the agent took the document to be, and the way to
                             correct it — see `agent-reading.tsx` for why this is
                             no longer an always-open tag form. */}
                         {/* Under the summary by space alone: a hairline across the panel split one answer in two. */}
@@ -225,7 +225,7 @@ export function FilePreviewDetailsPanel({ controller, detailsLead }: { controlle
                 </InspectorSection>
               )}
 
-              {/* FASSUNGEN UND FREIGABE — one section, right under what Piloti
+              {/* FASSUNGEN UND FREIGABE — one section, right under what the agent
                 made of the document.
 
                 It used to be two: „Fassungen" here (the older documents linked
@@ -235,10 +235,10 @@ export function FilePreviewDetailsPanel({ controller, detailsLead }: { controlle
                 Now the header says where the document stands, in words, and the
                 body is one timeline.
 
-                OUTSIDE the indexed section on purpose: a report Piloti wrote is
+                OUTSIDE the indexed section on purpose: a report the agent wrote is
                 never indexed, and it is exactly the document whose approval is
                 the point. The section is shut at rest and opens itself when
-                something is asked of this reader (a decision, or Piloti's
+                something is asked of this reader (a decision, or the agent's
                 suggestion). Review controls need the reader's lifecycle
                 permissions, which only the Files workspace resolves; the Archiv
                 sheet and the chat peek show the timeline and the suggestion

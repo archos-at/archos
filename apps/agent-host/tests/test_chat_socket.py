@@ -89,8 +89,6 @@ _NOT_JSON = object()
 USERS = {"tok-asker": {"sub": "user_asker", "name": "Anna Asker"}, "tok-colleague": {"sub": "user_colleague"}}
 
 
-
-
 class _Validator:
     def can_handle(self, token: str) -> bool:
         return True
@@ -280,8 +278,6 @@ def _types(events: list[dict]) -> list[str]:
     return [event.get("name", event["type"]) for event in events]
 
 
-
-
 async def test_nat_s_socket_objects_are_nat_s_own_and_the_route_is_ours(monkeypatch):
     from fastapi import FastAPI
 
@@ -328,8 +324,6 @@ def test_a_config_that_asks_nat_for_a_socket_is_refused():
     workflow = {**AgentHostConfig().workflow.model_dump(), "websocket_path": "/websocket"}
     with pytest.raises(ValueError, match="websocket_path"):
         AgentHostConfig(workflow=workflow)
-
-
 
 
 @pytest.mark.parametrize("query", ["", "v=1", "v=3"])
@@ -481,8 +475,6 @@ async def test_a_message_this_wire_does_not_have_is_answered_never_dropped(harne
     await until(lambda: sock.events())  # the socket serves on
 
 
-
-
 async def test_a_turn_is_run_started_then_what_the_workflow_yields_in_seq_order(harness, persisted):
     h = harness()
     sock = h.connect()
@@ -625,8 +617,6 @@ async def test_the_heartbeat_is_stamped_on_the_turn_and_stops_at_the_terminal(ha
     assert [event["seq"] for event in events] == list(range(1, len(events) + 1))
     assert _types(events)[-1] == "RUN_FINISHED"
     assert next(e for e in events if e.get("name") == "heartbeat")["value"] == {"every_ms": 20}
-
-
 
 
 async def test_the_asker_s_stop_cancels_the_run_and_keeps_what_was_read(harness, persisted):
@@ -803,8 +793,6 @@ async def test_a_stop_received_by_another_replica_is_authorised_by_the_owner(har
     assert asker.events()[-1]["outcome"] == "cancelled"
 
 
-
-
 def _asking(answers: list[str]):
     async def turn(request, ask):
         response = await ask(
@@ -867,8 +855,6 @@ async def test_a_stop_while_asking_resolves_the_question_as_cancelled(harness):
 
     assert _types(sock.events())[-2:] == ["interaction_resolved", "RUN_FINISHED"]
     assert sock.events()[-2]["value"]["outcome"] == "cancelled"
-
-
 
 
 async def test_attach_replays_after_the_cursor_and_then_goes_live(harness):
@@ -1091,8 +1077,6 @@ async def test_a_failing_stage_never_changes_the_answer_frames(harness, one_fram
         [] if handler is None else [{"stage": "follow_ups", "status": "failed"}]
     )
     assert all(stage["seq"] > answer[-1]["seq"] for stage in stages)
-
-
 
 
 async def _hung(request, ask):
@@ -1332,8 +1316,6 @@ async def test_a_newer_question_on_another_replica_stops_the_stale_turn(harness)
 
     assert first.events()[-1]["outcome"] == "cancelled"
     assert gate.torn_down
-
-
 
 
 async def _holder(bus: ConversationBus):
@@ -1580,8 +1562,6 @@ async def test_the_chat_session_manager_has_no_nat_semaphore(monkeypatch):
     assert manager in worker._session_managers  # shut down with the runtime's own
 
 
-
-
 def _result(**fields: Any) -> TurnResult:
     return TurnResult(message_id="m-1", **{"text": "Antwort", **fields})
 
@@ -1618,7 +1598,7 @@ async def test_the_hello_names_nothing_it_accepts_while_the_additive_fields_are_
 
 async def test_the_hello_names_the_canvas_fields_by_default(harness, monkeypatch):
     """Unset, the hello says it reads the canvas's box, thread target and notes: without them a
-    canvas question reaches Piloti without its box and never answers in its thread."""
+    canvas question reaches the agent without its box and never answers in its thread."""
     monkeypatch.delenv("WIRE_V2_ADDITIVE_FIELDS", raising=False)
     sock = harness().connect()
     await until(lambda: sock.frames)
@@ -1778,7 +1758,6 @@ def test_the_answer_id_is_stable_per_turn():
     assert answer_message_id(CONV, "t1") != answer_message_id(CONV, "t2")
 
 
-
 _RESTRICTED = "proj_8f2c3b1e_r22222222aaaa"
 
 
@@ -1804,7 +1783,6 @@ async def test_a_restricted_scope_runs_the_turn_on_the_same_socket(harness):
 
     assert sock.closed_with is None
     assert not hasattr(chat_socket, "conversation_confined_to")
-
 
 
 _IBAN = "AT61 1904 3002 3457 3201"
@@ -1973,7 +1951,6 @@ async def test_an_office_that_switched_screening_off_is_not_masked(harness, monk
     await until(lambda: _last(sock) == "RUN_FINISHED")
 
     assert seen == [f"IBAN {_IBAN}"]
-
 
 
 FENCE_TTL = 1.0
@@ -2297,7 +2274,6 @@ async def test_a_finished_turn_takes_its_fence_off_so_the_stage_frames_behind_it
     assert not guard.fenced()
 
 
-
 _POSTHOG_SESSION = "0199d7f2-5b3a-7c4e-9a1d-3e8f2b6c5d70"
 
 
@@ -2370,8 +2346,6 @@ async def test_a_malformed_session_id_costs_the_replay_link_and_not_the_turn(har
 
     assert sock.events()[-1]["outcome"] == "answered"
     assert "$posthog_session_id" not in seen[0]["metadata"]
-
-
 
 
 class Steered:
@@ -2532,7 +2506,7 @@ async def test_the_hello_offers_steering_and_the_wake_fields():
 
 
 async def test_a_note_is_read_by_the_real_graph_in_its_next_round_and_holds_back_a_write(harness, monkeypatch):
-    """End to end: socket → inbox → Piloti's compiled graph → ``steer_applied`` on the asker's socket.
+    """End to end: socket → inbox → the agent's compiled graph → ``steer_applied`` on the asker's socket.
 
     The model chose to look AND mark the door; the asker typed while it was
     deciding. The mark is held, the look runs, the next request carries the
@@ -2593,7 +2567,7 @@ async def test_a_note_is_read_by_the_real_graph_in_its_next_round_and_holds_back
     llm.ainvoke = AsyncMock(side_effect=respond)
     provider = MagicMock(spec=LLMProvider)
     provider.get = MagicMock(return_value=llm)
-    agent = ChatAgent(llm_provider=provider, tools=[look, mark], system_prompt="Du bist Piloti.")
+    agent = ChatAgent(llm_provider=provider, tools=[look, mark], system_prompt="Du bist der Agent.")
 
     async def graph_turn(request, ask):
         bodies: asyncio.Queue = asyncio.Queue()
@@ -2637,8 +2611,6 @@ async def test_a_note_is_read_by_the_real_graph_in_its_next_round_and_holds_back
     assert sock.events()[-1]["result"]["text"] == "Die Treppe ist markiert."
 
 
-
-
 async def test_an_if_idle_question_never_supersedes_and_may_be_sent_again_later(harness):
     gate = Gate()
     h = harness(gate.turn)
@@ -2647,7 +2619,7 @@ async def test_an_if_idle_question_never_supersedes_and_may_be_sent_again_later(
     await until(lambda: gate.calls)
     wake = h.connect()
 
-    wake.client(type="user_message", message_id="w1", text="@Piloti?", if_idle=True)
+    wake.client(type="user_message", message_id="w1", text="@agent?", if_idle=True)
     await until(lambda: wake.rejected())
     assert wake.rejected() == [{"of": "user_message", "code": "busy", "message": chat_socket.BUSY_REFUSAL}]
     assert not gate.torn_down  # the typed turn runs on
@@ -2655,7 +2627,7 @@ async def test_an_if_idle_question_never_supersedes_and_may_be_sent_again_later(
 
     gate.release.set()
     await until(lambda: _last(asker) == "RUN_FINISHED")
-    wake.client(type="user_message", message_id="w1", text="@Piloti?", if_idle=True)
+    wake.client(type="user_message", message_id="w1", text="@agent?", if_idle=True)
     await until(lambda: _last(wake, "w1") == "RUN_FINISHED")
     assert wake.events("w1")[-1]["outcome"] == "answered"  # the same id ran: the refusal claimed nothing
 
@@ -2668,7 +2640,7 @@ async def test_an_if_idle_question_is_busy_while_another_replica_runs_the_conver
     await until(lambda: gate.calls)
     wake = harness(gate.turn, relay).connect()
 
-    wake.client(type="user_message", message_id="w1", text="@Piloti?", if_idle=True)
+    wake.client(type="user_message", message_id="w1", text="@agent?", if_idle=True)
     await until(lambda: wake.rejected())
 
     assert [value["code"] for value in wake.rejected()] == ["busy"]
@@ -2679,7 +2651,7 @@ async def test_an_if_idle_question_is_busy_while_another_replica_runs_the_conver
 
 async def test_an_idle_conversation_runs_an_if_idle_question(harness):
     sock = harness().connect()
-    sock.client(type="user_message", message_id="w1", text="@Piloti?", if_idle=True)
+    sock.client(type="user_message", message_id="w1", text="@agent?", if_idle=True)
     await until(lambda: _last(sock, "w1") == "RUN_FINISHED")
 
     assert sock.events("w1")[-1]["outcome"] == "answered"
@@ -2689,7 +2661,7 @@ async def test_the_event_that_woke_a_turn_is_on_its_trace(harness):
     seen: list = []
     sock = harness(_contributions_seen_by(seen)).connect()
     trigger = {"kind": "thread_mention", "event_id": "reply-7", "annotation_id": "a-1"}
-    sock.client(type="user_message", message_id="t1", text="@Piloti?", trigger=trigger)
+    sock.client(type="user_message", message_id="t1", text="@agent?", trigger=trigger)
     await until(lambda: _last(sock) == "RUN_FINISHED")
 
     assert seen[0]["metadata"]["turn_trigger"] == "thread_mention"
@@ -2715,7 +2687,6 @@ async def test_a_headless_socket_s_caller_skips_the_clarifier_and_says_it_is_hea
     assert code is None
     assert caller["skip_clarifier"] is True
     assert caller["headless"] is True
-
 
 
 OUTCOME_SCHEMA = (
@@ -3031,7 +3002,6 @@ async def test_a_headless_turn_whose_id_no_wake_mints_reports_nothing(harness, b
     assert bff.attempts == 0
 
 
-
 MARK = "33333333-0000-4000-8000-000000000003"
 MARKED_DOCUMENT = "11111111-0000-4000-8000-000000000001"
 THREAD = {
@@ -3073,7 +3043,7 @@ async def test_a_thread_question_the_model_left_unanswered_is_answered_in_the_th
     harness, thread_posts, bff, persisted
 ):
     sock = harness(_thread_turn()).connect(headers=[*SIGNED, *HEADLESS])
-    sock.client(type="user_message", message_id=WAKE, text="@Piloti reicht die Tür?", **THREAD)
+    sock.client(type="user_message", message_id=WAKE, text="@agent reicht die Tür?", **THREAD)
     await until(lambda: bff.outcomes)
     await _settle_background()
 
@@ -3157,8 +3127,6 @@ async def test_one_turn_s_reply_is_not_the_next_turn_s(harness, thread_posts, pe
     assert [(payload["body"], payload["answerMessageId"]) for payload, _ in thread_posts] == [
         ("Zweite Antwort.", answer_message_id(CONV, WAKE_2))
     ]
-
-
 
 
 async def test_a_turn_that_listed_and_searched_scores_both(harness, monkeypatch):

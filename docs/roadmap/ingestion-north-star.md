@@ -1,9 +1,9 @@
-# Ingestion north star: from "file uploaded" to "Piloti knows what this brings the project"
+# Ingestion north star: from "file uploaded" to "the agent knows what this brings the project"
 
 Status: proposed, 2026-10-27. Current state, drawn: [`docs/architecture/ingestion-pipeline.md`](../architecture/ingestion-pipeline.md).
 Every claim about today below is measured or cited there.
 
-Piloti is the workspace a planning office runs its projects in. Ingestion is the
+The app is the workspace a planning office runs its projects in. Ingestion is the
 moment a document joins a project, and today it ends at "indexed": the file can be
 searched. The office expects more from a colleague who just received 240 files
 from a predecessor's project. They expect to hear what arrived, what it means for
@@ -18,7 +18,7 @@ offices are uploading at the same moment.
 - **16:05:10.** Every file is in the list with what it is, not what it is called:
   "Grundriss EG · EP-03 · Index C · 1:100 · 12.03.2025", "Baubescheid MA 37 ·
   7 Auflagen", "Foto · Baustelle · 14.09.2026". She can search all of it.
-- **16:06.** Piloti posts the **Eingangsbericht** to the project:
+- **16:06.** The agent posts the **Eingangsbericht** to the project:
   > 240 Dokumente gelesen. Das ist die Einreichung vom März 2025 mit Statik und
   > Baubescheid. **Fehlt:** das Brandschutzkonzept. Drei Pläne und Auflage 4 des
   > Bescheids verweisen darauf. **Fassungen:** EP-01 bis EP-09 liegen in Index B und
@@ -314,7 +314,7 @@ says it worked.
 | The dossier: one strict call over a digest of every page; its summary replaces the first-and-last-chunk one; printed drawing quantities lifted into facts | 5 | `agent/knowledge/dossier.py` |
 | Findings derived per project (missing document, missing plan, contradiction, incomplete read), served to people and agents | 6 (first half) | `apps/workspace/bff/documents/findings.ts` |
 | Transient failures read again on their own, capped | reliability | the `ingest-document` task's retries on Hatchet (ADR-0150) |
-| Piloti sees the type, facts, references and unread pages of each document | 5 | `browse/tool.py`, `inventory.py` |
+| The agent sees the type, facts, references and unread pages of each document | 5 | `browse/tool.py`, `inventory.py` |
 | The Eingangsbericht on the uploader's `upload.completed` inbox row: documents read by type, new and settled findings, unresolved references, unread pages, a link to the findings; computed at the settle as the uploader, bounded, fail-open | 6 (second half, inbox) | `lib/upload-batches/upload-report.ts` |
 | Findings compare documents with the confirmed project profile (`profile_contradiction`): GK, storeys, plot area, Bauweise, Nutzung, Bundesland | 6 | `lib/documents/profile-contradictions.ts` |
 

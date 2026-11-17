@@ -1,4 +1,4 @@
-"""Skill model and STRICT SKILL.md parsing for the GRID skills substrate.
+"""Skill model and STRICT SKILL.md parsing for the skills substrate.
 
 The agentskills.io format contract:
 - ``name``: 1-64 chars, lowercase a-z/0-9/hyphens, no leading/trailing/
@@ -6,13 +6,13 @@ The agentskills.io format contract:
 - ``description``: 1-1024 chars, non-empty.
 - ``license``: optional free-form string.
 - ``compatibility``: optional, at most 500 chars.
-- ``metadata``: map of strings; reserved GRID keys are validated
-  (``grid-cards`` must name known, non-system Grid card types; ``grid-title``
+- ``metadata``: map of strings; reserved keys are validated
+  (``grid-cards`` must name known, non-system card types; ``grid-title``
   is a short human display name).
 - ``allowed-tools``: optional free-form string (tool-level allowlist).
 - Body: markdown; <500 lines recommended, not enforced.
 
-Unlike deepagents' warn-and-continue scan, GRID's own substrate validates
+Unlike deepagents' warn-and-continue scan, this substrate validates
 strictly: an invalid SKILL.md is an error, never a silent skip.
 """
 
@@ -60,7 +60,7 @@ class SkillValidationError(ValueError):
 
 
 class Skill(BaseModel):
-    """A validated skill in the GRID substrate.
+    """A validated skill in the skills substrate.
 
     Attributes:
         name: Lowercase hyphenated skill id (1-64 chars).
@@ -68,7 +68,7 @@ class Skill(BaseModel):
             disclosure level 1).
         body: The full markdown instructions (level 2, loaded via
             ``read_file`` on its ``SKILL.md``).
-        metadata: Reserved GRID keys + free-form extra keys.
+        metadata: Reserved keys + free-form extra keys.
         origin: ``platform`` for builtin files, ``org`` for BFF-served rows.
         collection: Mid-level collection dir name for builtin files
             (bim|oib|research|synthesis); ``None`` for org rows.
@@ -275,7 +275,7 @@ def _validate_auto_invoke(value: str, *, strict: bool) -> str | None:
 
 
 def _stringify_metadata_value(key: str, value: Any) -> str:
-    """GRID metadata is strings. YAML and JSON both have native booleans.
+    """Metadata is strings. YAML and JSON both have native booleans.
 
     An unquoted ``grid-hidden: true`` is a YAML bool. Rejecting it used to take
     down every builtin when one file used that spelling. Coerce, then validate.

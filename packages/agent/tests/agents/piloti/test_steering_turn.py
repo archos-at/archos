@@ -1,4 +1,4 @@
-"""A note typed while Piloti works reaches the next round, and holds back a write chosen before it.
+"""A note typed while the agent works reaches the next round, and holds back a write chosen before it.
 
 Through the COMPILED GRAPH, because the two halves live in two nodes: the agent
 node reads the inbox at the top of a decision, the tools node holds back the
@@ -47,7 +47,7 @@ from agent.common.steering import unbind_steer_inbox
 from agent.common.wire_v2 import FocusRegion
 from agent.common.wire_v2 import SteerAppliedBody
 
-_PROMPT = "Du bist Piloti."
+_PROMPT = "Du bist der Agent."
 _QUESTION = "Markier die Tür im Erdgeschoss."
 _NOTE = "nicht die Tür, die Treppe"
 

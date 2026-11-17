@@ -24,7 +24,7 @@ MENTION = TurnTrigger(kind="thread_mention", event_id="reply-7", annotation_id="
 
 def _state(**fields) -> ResearchAgentState:
     return ResearchAgentState(
-        messages=[HumanMessage(content="@Piloti stimmt die Türbreite?")],
+        messages=[HumanMessage(content="@Agent stimmt die Türbreite?")],
         user_info={"name": "Anna Weber", "email": "anna@example.at"},
         **fields,
     )

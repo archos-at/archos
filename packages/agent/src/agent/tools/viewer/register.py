@@ -1,7 +1,7 @@
-"""``show_in_viewer``: Piloti proposes to move the asker's own document viewer (ADR-0144).
+"""``show_in_viewer``: the agent proposes to move the asker's own document viewer (ADR-0144).
 
 When an answer rests on a place in a document („Baubeschreibung S. 4“), the
-person's next move is to go there. This tool lets Piloti take them: open a
+person's next move is to go there. This tool lets the agent take them: open a
 document at a page, mark a passage or a box on it, open a comparison of two
 Fassungen, or select an element of a building model. Each is one action of an
 allow-list (``wire_v2.ViewerActionName``) and travels as one AG-UI frontend tool
@@ -228,7 +228,7 @@ class ShowInViewerConfig(FunctionBaseConfig, name="show_in_viewer"):
 
 @register_function(config_type=ShowInViewerConfig)
 async def show_in_viewer(config: ShowInViewerConfig, _builder: Builder):
-    """Agent-runtime function: ``show_in_viewer``, bound to Piloti in chat only."""
+    """Agent-runtime function: ``show_in_viewer``, bound to the agent in chat only."""
 
     async def _show_in_viewer(
         action: str,

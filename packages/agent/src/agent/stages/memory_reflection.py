@@ -97,7 +97,7 @@ class MemoryReflectionItem(BaseModel):
     """One ``project_memory`` row this turn wrote, as the reader sees it.
 
     ``content`` rides along and not just the id, because the surface this
-    payload feeds — the „Piloti hat sich gemerkt" chip — renders the item's own
+    payload feeds — the remembered-item chip — renders the item's own
     words. Sending ids alone would make the browser ask the database for text
     the writer already had in hand, which is the round trip §5.1 is removing.
 

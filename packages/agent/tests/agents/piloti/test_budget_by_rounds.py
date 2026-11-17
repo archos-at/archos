@@ -50,7 +50,7 @@ from agent.common.cost_tracking import CostTracker
 from agent.common.cost_tracking import UsageEvent
 from agent.common.cost_tracking import cost_tracker_var
 
-_PROMPT = "Du bist Piloti."
+_PROMPT = "Du bist der Agent."
 
 RAN: list[str] = []
 

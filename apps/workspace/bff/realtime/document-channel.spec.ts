@@ -56,7 +56,7 @@ const listen = () => {
 }
 
 describe('publishAsAgent', () => {
-  it('speaks as Piloti, one peer per conversation, in each of its ops', async () => {
+  it('speaks as the agent, one peer per conversation, in each of its ops', async () => {
     const room = listen()
     const box = { page: 2, x: 0.1, y: 0.2, w: 0.3, h: 0.1 }
 
@@ -105,8 +105,8 @@ describe('publishAsAgent', () => {
   })
 })
 
-describe('a browser cannot be Piloti', () => {
-  it('is stamped a person whatever it sends, names nobody it acts for, and cannot send Piloti’s vocabulary', async () => {
+describe('a browser cannot be the agent', () => {
+  it('is stamped a person whatever it sends, names nobody it acts for, and cannot send the agent’s vocabulary', async () => {
     const room = listen()
     await sendToChannel(SESSION, { ch: 'doc:doc_1', msg: { peerId: 'piloti-conv_42', presence: 'here' } })
     room.release()

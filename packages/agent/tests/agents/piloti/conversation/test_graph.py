@@ -146,7 +146,7 @@ class TestConversationGraph:
         deep_called = False
 
         async def direct_research(state_input):
-            return _research_result(state_input.messages, "Notiert: die Firma heißt Grid and Partners.", direct=True)
+            return _research_result(state_input.messages, "Notiert: die Firma heißt Example and Partners.", direct=True)
 
         async def tracking_deep(state):
             nonlocal deep_called
@@ -165,7 +165,7 @@ class TestConversationGraph:
         )
 
         state = ConversationState(
-            messages=[HumanMessage(content="Remember for the whole org: the firm is Grid and Partners")],
+            messages=[HumanMessage(content="Remember for the whole org: the firm is Example and Partners")],
         )
         result = await turn(agent, state, thread_id="test-thread")
 
@@ -173,7 +173,7 @@ class TestConversationGraph:
         assert deep_called is False, "a direct reply must not reach deep research"
         assert result.routing_decision == "meta"
         contents = [m.content for m in result.messages if isinstance(m, AIMessage)]
-        assert any("Notiert" in c for c in contents), "Piloti should have answered"
+        assert any("Notiert" in c for c in contents), "The agent should have answered"
         assert not any("comprehensive report" in c for c in contents)
 
     @pytest.mark.asyncio
@@ -361,7 +361,7 @@ class TestRoutingBoundary:
         state = ConversationState(messages=[HumanMessage(content="How do I bake a cake?")])
         result = await turn(agent, state, thread_id="t")
 
-        assert calls["research"] is True, "Piloti answers every turn, off-topic ones included"
+        assert calls["research"] is True, "The agent answers every turn, off-topic ones included"
         assert calls["deep"] is False
         assert calls["clarifier"] is False
         assert result.routing_decision == "meta"
@@ -468,7 +468,7 @@ class TestAppendContextMessage:
         agent.research_fn = capture_research
         await turn(
             agent,
-            ConversationState(messages=[HumanMessage(content="@Piloti given that, recheck")]),
+            ConversationState(messages=[HumanMessage(content="@Agent given that, recheck")]),
             thread_id="conv-1",
         )
 

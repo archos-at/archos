@@ -88,7 +88,7 @@ of them is the reflection stage:
    `knowledge/project_memory.insert_memory_item` →
    `POST /api/internal/memory`), tagged `provenance_type="distillation"`
    (`reflection.py:354`). **Nothing about this touches the stream.**
-3. **The "Piloti noted N" chip** (`features/chat/components/MemoryNotedChip.tsx`)
+3. **The "{productName} noted N" chip** (`features/chat/components/MemoryNotedChip.tsx`)
    renders the union of (1) and (2), fed by the poll. It labels the two apart —
    `distillation` → „nach der Antwort ergänzt" (`MemoryNotedChip.tsx:46-50`,
    `i18n/dictionaries/de/chat.ts:983`).
@@ -298,7 +298,7 @@ would remove the limitation later.
   `useConversationMemory(projectId, conversationId)` is called inside
   `AgentResponseComponent` (`AgentResponse.tsx:416`) and every item with a
   matching `sourceConversationId` is rendered (`:70`, `MemoryNotedChip.tsx:52`).
-  So after turn 5, turn 1's answer also reads „Piloti noted 5". Nothing scopes an
+  So after turn 5, turn 1's answer also reads „{productName} noted 5". Nothing scopes an
   item to the turn that produced it.
 - **The poll is per-rendered-answer, not per-thread.** The prop comment says
   "Fetched ONCE by the answer that owns the footer"
@@ -1275,7 +1275,7 @@ Keep the old header for one release so a mixed deployment does not go dark.
 > `defaultOn` in `POST_ANSWER_STAGE_FLAGS` moved to `true` with it, and for a
 > reason the flag state alone does not carry: `defaultOn` is what a deployment
 > *without* the flag product reads, and with the card retired a `false` there
-> would mean a Piloti with no follow-up questions at all and nothing to switch on.
+> would mean an agent with no follow-up questions at all and nothing to switch on.
 > The stage is a shipped core capability now, on the same footing as
 > `memory_reflection` — capability bit included, so a workflow config with no
 > `follow_ups_llm` is still a no-op rather than a failure.

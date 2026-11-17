@@ -282,7 +282,7 @@ Everything on this page is in the organization's unit — credits
 (`formatCredits`, "credits" / "Punkte") or tokens (`formatTokens`,
 compact above a thousand) — with the unit word from the dictionary. No cost,
 no currency, never the other unit. An own-key organization gets one note
-saying its usage is on its own bill and Piloti charges no credits.
+saying its usage is on its own bill and the agent charges no credits.
 
 - **Two budget meters** (today / this month): stacked segments per model as
   share of the limit, 2px surface gaps, muted remaining track; exhausted →

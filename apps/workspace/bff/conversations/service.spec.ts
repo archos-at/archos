@@ -860,7 +860,7 @@ describe('the addressee ruling (spec MN-1, MN-2, MN-7)', () => {
     expect(persisted.addressees).toEqual({ agent: true, users: [] })
   })
 
-  it('sends a plain message to the chat, not to Piloti, in a mention-mode thread', async () => {
+  it('sends a plain message to the chat, not to the agent, in a mention-mode thread', async () => {
     vi.mocked(resolveEngagementFor).mockResolvedValue({
       mode: 'mention',
       stored: 'mention',
@@ -939,7 +939,7 @@ describe('the addressee ruling (spec MN-1, MN-2, MN-7)', () => {
     vi.mocked(threadIsAwaitingHuman).mockResolvedValue(true)
 
     const [persisted] = await createConversationMessages(session, CONVERSATION_ID, [
-      { id: 'msg_1', role: 'user', content: 'Frage an Piloti' },
+      { id: 'msg_1', role: 'user', content: 'Frage an den Agenten' },
     ])
 
     expect(threadIsAwaitingHuman).not.toHaveBeenCalled()
@@ -1637,7 +1637,7 @@ describe('project:chat gates the AGENT, not the conversation (the message-write 
     expect(insertMessages).toHaveBeenCalled()
   })
 
-  it('refuses an explicit @Piloti BEFORE applying its mentions', async () => {
+  it('refuses an explicit mention of the agent BEFORE applying its mentions', async () => {
     asViewer()
 
     await expect(
@@ -1645,7 +1645,7 @@ describe('project:chat gates the AGENT, not the conversation (the message-write 
         {
           id: 'msg_1',
           role: 'user',
-          content: '@Piloti und wie sieht es im EG aus?',
+          content: '@Agent und wie sieht es im EG aus?',
           mentions: [{ targetId: AGENT_MENTION_ID }],
         },
       ])
@@ -1662,7 +1662,7 @@ describe('project:chat gates the AGENT, not the conversation (the message-write 
       {
         id: 'msg_1',
         role: 'user',
-        content: '@Piloti und wie sieht es im EG aus?',
+        content: '@Agent und wie sieht es im EG aus?',
         mentions: [{ targetId: AGENT_MENTION_ID }],
       },
     ])
@@ -1746,7 +1746,7 @@ describe('what a person wrote is stored masked (ADR-0086, chat screening)', () =
     ])
   })
 
-  it("stores Piloti's answer that names a listed term as it read live, numbers masked", async () => {
+  it("stores the agent's answer that names a listed term as it read live, numbers masked", async () => {
     stubConversation({ createdBy: 'user_me' })
 
     await createConversationMessages(session, CONVERSATION_ID, [
@@ -1777,7 +1777,7 @@ describe('what a person wrote is stored masked (ADR-0086, chat screening)', () =
     expect(stored.promptState).not.toHaveProperty('smuggled')
   })
 
-  it("stores a typed answer to Piloti's question masked", async () => {
+  it("stores a typed answer to the agent's question masked", async () => {
     stubConversation({ createdBy: 'user_me' })
     vi.mocked(mergeMessageMetadata).mockResolvedValue({ id: 'msg_q' } as never)
 

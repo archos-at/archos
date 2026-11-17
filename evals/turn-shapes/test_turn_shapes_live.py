@@ -1,7 +1,7 @@
 """Live turn-shape eval for the two behaviours ADR-0052 moved from code into the prompt.
 
 ADR-0052 deleted the intent classifier: every turn enters
-Piloti with every tool bound, and what the turn IS is decided by the model
+the agent with every tool bound, and what the turn IS is decided by the model
 with the tools in hand. Two things that used to be routing are now the model's
 judgment, pinned only by the ``<output_contract>`` block of
 ``packages/agent/src/agent/agents/piloti/prompts/piloti.j2``:
@@ -21,7 +21,7 @@ harnesses asking different questions would stop being the same eval the first
 time either was edited.
 
 This file is the eval the ADR said those behaviours lacked. It builds the real
-``ChatAgent`` on the real system prompt against Piloti's own
+``ChatAgent`` on the real system prompt against the agent's own
 model through OpenRouter, with STUB tools in place of the retrieval stack: the
 stubs return a plausible hit, so nothing here needs a corpus, a database or a
 RIS connection. The trace the assertions read is the turn's own transcript,
@@ -184,7 +184,7 @@ _TRANSPORT_ERRORS = (openai.APIConnectionError, openai.RateLimitError, openai.In
 
 
 def _research_model_name() -> str:
-    """Piloti's model as the OIB config would boot it.
+    """The agent's model as the OIB config would boot it.
 
     Read from ``research_llm.model_name`` rather than hard-coded here, so the
     eval follows the boot floor when it moves (``${DEFAULT_MODEL:-…}``
@@ -323,8 +323,6 @@ async def test_a_plain_domain_question_still_searches(agent):
     assert _data_source_calls(result), f"a domain question retrieved nothing; answer was: {_answer_text(result)[:400]}"
     assert result.source_lookup_attempted is True
     assert result.escalation_requested is False, result.answer_escalation_reason
-
-
 
 
 def _filing_stubs(backend):

@@ -1,4 +1,4 @@
-"""The state of one conversation with Piloti.
+"""The state of one conversation with the agent.
 
 This is the CONVERSATION-scoped state — the one the checkpointer persists
 between turns — as distinct from :class:`ResearchAgentState`, which is

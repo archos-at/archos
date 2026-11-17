@@ -28,7 +28,7 @@ describe('where a browser stands on notifications', () => {
     ['a browser without push', caps({ hasPushManager: false }), 'unsupported'],
     ['a browser without Notification', caps({ hasNotification: false, permission: null }), 'unsupported'],
     ['an iPhone in Safari (no push there at all)', caps({ isIos: true, hasPushManager: false, hasNotification: false }), 'needs-install'],
-    ['an iPhone with Piloti on the Home Screen', caps({ isIos: true, isStandalone: true }), 'default'],
+    ['an iPhone with the app on the Home Screen', caps({ isIos: true, isStandalone: true }), 'default'],
     ['an installed iPhone app that was refused', caps({ isIos: true, isStandalone: true, permission: 'denied' }), 'denied'],
   ])('%s', (_label, capabilities, expected) => {
     expect(classifyPushSupport(capabilities)).toBe(expected)

@@ -108,7 +108,7 @@ def _agent(model: Scripted) -> tuple[ChatAgent, MagicMock]:
     llm.ainvoke = AsyncMock(side_effect=model.respond)
     provider = MagicMock(spec=LLMProvider)
     provider.get = MagicMock(return_value=llm)
-    return ChatAgent(llm_provider=provider, tools=[look], system_prompt="Du bist Piloti."), llm
+    return ChatAgent(llm_provider=provider, tools=[look], system_prompt="Du bist der Agent."), llm
 
 
 @pytest.mark.parametrize("retired", sorted(RETIRED_CALLS))

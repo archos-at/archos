@@ -146,7 +146,7 @@ describe('SkillEditorDialog — create', () => {
 
     fireEvent.change(screen.getByLabelText(/^Name/), { target: { value: 'house-voice' } })
     fireEvent.change(screen.getByLabelText(/^Description/), {
-      target: { value: 'How a Piloti answer is built.' },
+      target: { value: 'How an agent answer is built.' },
     })
     goToStep(2)
     fireEvent.change(screen.getByLabelText(/^Instruction/), {

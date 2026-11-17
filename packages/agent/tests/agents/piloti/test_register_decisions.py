@@ -209,14 +209,14 @@ class TestTheTurn:
                 ResearchAgentConfig(llm="research_llm", tools=["knowledge_search"], skills_enabled=False), builder
             )
             info = await gen.__anext__()
-            await info.single_fn(ResearchAgentState(messages=[HumanMessage(content="Hallo Piloti")]))
+            await info.single_fn(ResearchAgentState(messages=[HumanMessage(content="Hallo Agent")]))
             await gen.aclose()
         decide.assert_not_awaited()
 
     async def test_a_decision_skipped_as_too_short_is_logged_and_recorded(self, caplog, emitted):
         from agent.agents.piloti.decisions import TurnFacts
 
-        facts = TurnFacts(question="Hallo Piloti", previous_message=None)
+        facts = TurnFacts(question="Hallo Agent", previous_message=None)
         with caplog.at_level("INFO", logger="agent.common.decisions"):
             assert await register_module._decide_turn(facts) == TurnDecisions.none()
         assert "Decision turn did not run: too_short" in caplog.text
@@ -279,7 +279,7 @@ class TestTheTurn:
             turn, _state, _decide = await _run_turn(
                 ResearchAgentConfig(llm="research_llm", tools=["knowledge_search"], skills_enabled=False),
                 TurnDecisions.none(),
-                [HumanMessage(content="Hallo Piloti")],
+                [HumanMessage(content="Hallo Agent")],
             )
         warm.assert_not_awaited()
         assert turn.prefetch == ()

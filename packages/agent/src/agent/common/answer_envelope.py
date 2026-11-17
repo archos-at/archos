@@ -32,7 +32,7 @@ model's output are ignored (never fatal), and the frontend sanitizer keeps a
 newer payload's version stamp and every field it knows, so a rollback renders
 what it can instead of blanking the row.
 
-**Home.** ``common/`` rather than Piloti, deliberately: the deep
+**Home.** ``common/`` rather than under the agent, deliberately: the deep
 writer's report is the obvious next adopter of the same contract (the job
 runner already parses a trailing ``[CONFIDENCE:…]`` line out of
 ``/shared/output.md``; the envelope generalises that), and a contract two
@@ -340,8 +340,6 @@ class AnswerMeta(_EnvelopeModel):
             and self.escalation_reason is None
             and not self.cards
         )
-
-
 
 
 @dataclass(frozen=True)
@@ -694,8 +692,6 @@ ANATOMY_FIELDS: tuple[AnatomyField, ...] = (
 )
 
 
-
-
 def _object_end(raw: str, start: int) -> int | None:
     """The index just past the JSON object opening at ``raw[start]``, or None.
 
@@ -1026,8 +1022,6 @@ def resolve_callout_marker(prose: str, *, has_callout: bool) -> str:
             continue
         lines.append(_CALLOUT_INLINE_RE.sub("", line))
     return "\n".join(lines)
-
-
 
 
 def _shape(model_cls: type[BaseModel]) -> str:

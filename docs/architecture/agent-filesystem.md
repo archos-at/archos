@@ -1,6 +1,6 @@
-# Piloti's filesystem: how Piloti reads the office's documents
+# The agent's filesystem: how the agent reads the office's documents
 
-> The living design for the read side of Piloti's filesystem: the paths, the four
+> The living design for the read side of the agent's filesystem: the paths, the four
 > tools beside ranked search, what each kind of document looks like through them,
 > and how citations, privacy and the Herleitung carry through. The decisions are
 > [ADR-0133](../adr/0133-piloti-reads-the-estate-through-standard-filesystem-tools.md)
@@ -17,7 +17,7 @@
 ## The north star
 
 A planner asks „Steht im Brandschutzkonzept irgendwo etwas zu Sprinklern, und wo
-genau steht der Fluchtweg?“ Piloti answers the way a colleague who knows the
+genau steht der Fluchtweg?“ The agent answers the way a colleague who knows the
 drive would: one round in which it lists the project, searches the wording
 „Sprinkler“ and „Fluchtweg“ across every shelf the planner may see, and reads the
 three pages the second search hit, all at once. The answer says that „Sprinkler“
@@ -46,16 +46,16 @@ with the reason. The design text stays as written; this section is the delta.
 
 Departures, each with its reason:
 
-1. **Scope comes from the turn's context, not `get_runtime().context`.** Piloti's loop is
+1. **Scope comes from the turn's context, not `get_runtime().context`.** The agent's loop is
    its own LangGraph graph with no `context_schema`; the turn's scope already travels in
    the per-turn context every knowledge-layer tool reads (`_resolve_scoped_collections`,
    the inventory, `may_name`). The backend reads exactly that, so one instance built at
    boot serves every turn and tenant (pinned by `test_estate_read.py::TestTenancy`).
-2. **No outermost `awrap_tool_call`.** Piloti binds the tools into its own tool node, as
+2. **No outermost `awrap_tool_call`.** The agent binds the tools into its own tool node, as
    the draft verbs were, so no middleware chain runs around them. The per-call collector
    opens inside the tool wrapper (`filesystem.estate_message`), which is the same seam one
    level down: each call is its own task, so parallel calls keep separate collectors.
-   Eviction does not run in Piloti's tool node either; `artifacts_root` is still
+   Eviction does not run in the agent's tool node either; `artifacts_root` is still
    `/drafts/` for any caller that mounts the middleware.
 3. **The `/drafts/` route re-prefixes its keys** (`filesystem._DraftRoute`). The composite
    strips the route prefix before it asks a routed backend, and every stored draft, its
@@ -202,7 +202,7 @@ The UI's words are `chat.thinking.work.place*`; the `/dev/derivation` variants `
 Not mounted: other projects (`project_lookup`, ADR-0094, because the BFF records a
 cross-project hand-out first), RIS (a live API with no tree; `law_lookup`), the web.
 If the MCP door later serves this projection to outside agents, which span
-projects, it uses `/projects/<project id>/…`, and `/project/` is Piloti's alias for
+projects, it uses `/projects/<project id>/…`, and `/project/` is the agent's alias for
 the turn's one.
 
 **Path rules.**
@@ -531,7 +531,7 @@ Pinned to an exact version: 0.7.30 installs on today's LangChain stack, 0.7.32 n
 
 | Piece | Ours | Deep Agents, reused |
 |---|---|---|
-| Tool names, base schemas, path validation, pagination header, truncation | | `FilesystemMiddleware`'s tools, built and bound into Piloti's tool node as the draft verbs are |
+| Tool names, base schemas, path validation, pagination header, truncation | | `FilesystemMiddleware`'s tools, built and bound into the agent's tool node as the draft verbs are |
 | `mode`, `stemmed`, `context` on `grep`; `pages`, `clause` on `read_file` | schema subclasses and a short wrapper around the stock coroutine; extra arguments travel in a `ContextVar`, because `CompositeBackend.agrep` forwards only `pattern, path, glob, max_count` | `GrepSchema`, `ReadFileSchema` |
 | Result text of `read_file` and `grep` content | grounding blocks, rendered by us | |
 | Search, scope, tenancy, page text, the scoped lookup | an async read-only `BackendProtocol` implementation over the knowledge layer and ADR-0134's store; tenant and scope from `get_runtime().context` | `BackendProtocol`, `slice_read_response`, `ReadResult` invariants |
@@ -577,7 +577,7 @@ our own caching stays), the general-purpose subagent, `write_todos`.
 | `knowledge_search` (meaning) | stays, with `path` |
 | `look`, `law_lookup`, `web_search_tool`, `ifc_query`, `ifc_measure`, `project_lookup`, `workspace__*`, `canvas__*` and the write tools | stay |
 
-Since slice 6 `read_passage` and the literal `knowledge_search` are off Piloti's chat binding
+Since slice 6 `read_passage` and the literal `knowledge_search` are off the agent's chat binding
 where the estate is read. A `read_passage` call is answered by the tool node's own error, which
 names the tools there are; a retired argument (`match`, `stemmed`, `context`, `view`, `depth`) is
 rejected by the schema with its replacement named (`common/retired_calls.py`). `list_files` keeps

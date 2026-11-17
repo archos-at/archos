@@ -1,6 +1,6 @@
-"""Mid-turn steering: a note a person types while Piloti works, read at the next round.
+"""Mid-turn steering: a note a person types while the agent works, read at the next round.
 
-A person watching Piloti act („nicht die Tür, die Treppe“) used to have one
+A person watching the agent act („nicht die Tür, die Treppe“) used to have one
 control, Stop, which threw away the rounds already done. A ``steer`` message
 (``wire_v2.Steer``) is the other one: it reaches the running turn without
 cancelling it, and the model decides its next round with it in view. The

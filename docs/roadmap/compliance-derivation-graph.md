@@ -218,7 +218,7 @@ tools. They are not the change.
 
 ### 4.2 The agent loop: from a search budget to a derivation program
 
-Piloti's loop is *think → call tools → think → answer*, with
+The agent's loop is *think → call tools → think → answer*, with
 the budget charged per emitted call. In the new shape the loop is typed:
 
 ```

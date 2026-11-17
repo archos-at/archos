@@ -37,7 +37,7 @@ from agent.common import LLMProvider
 from agent.common import turn_status
 from agent.common.tool_calls import FETCH_FAILED_MARKER
 
-_PROMPT = "Du bist Piloti."
+_PROMPT = "Du bist der Agent."
 
 _PASSAGE = (
     "OIB-Richtlinie 2, Punkt 3.5.2: Die Länge des Fluchtweges darf in Gebäuden der "

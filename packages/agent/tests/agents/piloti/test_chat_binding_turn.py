@@ -1,4 +1,4 @@
-"""Piloti's chat binding of the shared knowledge tools, through ``ChatAgent.run`` (ADR-0133 slice 6).
+"""The agent's chat binding of the shared knowledge tools, through ``ChatAgent.run`` (ADR-0133 slice 6).
 
 Through the compiled graph, because the claim is about what the model is offered and what RUNS: the
 rebound schema is what ``bind_tools`` sends, a retired argument is an error that names its replacement
@@ -70,7 +70,7 @@ def _agent(*rounds: AIMessage) -> tuple[ChatAgent, MagicMock]:
     provider = MagicMock(spec=LLMProvider)
     provider.get = MagicMock(return_value=llm)
     tools = chat_tools([shared], top_k=16, max_per_document=5)
-    return ChatAgent(llm_provider=provider, tools=tools, system_prompt="Du bist Piloti.", max_tool_iterations=7), llm
+    return ChatAgent(llm_provider=provider, tools=tools, system_prompt="Du bist der Agent.", max_tool_iterations=7), llm
 
 
 def _answer(result, call_id: str) -> ToolMessage:

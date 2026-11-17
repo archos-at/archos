@@ -1,4 +1,4 @@
-"""Piloti register: skill wiring (resolver → allowlist → runtime → tools).
+"""The agent's register: skill wiring (resolver → allowlist → runtime → tools).
 
 Covers the seam between the skills engine and the agent registration: the
 per-run resolution + allowlist narrowing + the skill ``read_file`` (ADR-0135) +

@@ -15,7 +15,7 @@ vi.mock('@/lib/auth/require-auth', () => ({
   requireAuthorizedSession: vi.fn().mockResolvedValue({
     userId: 'user_1',
     organizationId: 'org_1',
-    email: 'owner@grid.com',
+    email: 'owner@example.test',
     role: 'admin',
   }),
 }))

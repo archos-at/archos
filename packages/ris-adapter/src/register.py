@@ -62,7 +62,7 @@ try:
 
     _CATALOG_AVAILABLE = True
     _LANE_CAPTURE_AVAILABLE = True
-except ImportError:  # adapter used standalone, without the Grid agent package
+except ImportError:  # adapter used standalone, without the agent package
     NormEntry = None  # type: ignore[assignment]
     extract_federal_state = None  # type: ignore[assignment]
     focus_entries = None  # type: ignore[assignment]
@@ -119,8 +119,6 @@ def _build_search_params(
         "date_to": date_to.strip(),
     }
     return search_terms(args)
-
-
 
 
 class RisSearchInput(BaseModel):
@@ -216,7 +214,7 @@ def _apply_org_llm_policy(llm):
     first so the ZDR pin inside ``apply_model_override`` lands only on a model
     that still points at OpenRouter. A failure falls back to the YAML-configured
     model PINNED to zero-data-retention endpoints, never the bare one; this
-    import degrades gracefully when the adapter is used outside the Grid agent.
+    import degrades gracefully when the adapter is used outside the agent.
     """
     try:
         from agent.common import apply_model_override

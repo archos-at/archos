@@ -35,7 +35,7 @@ HIDDEN = Skill(
     name="piloti-voice",
     description="Hausstimme, auf jeder Antwort.",
     body="voice body",
-    metadata={"grid-title": "Piloti-Stimme", "grid-hidden": "true"},
+    metadata={"grid-title": "Stimme des Agenten", "grid-hidden": "true"},
     origin="platform",
 )
 
@@ -239,7 +239,7 @@ class TestActivationEvents:
                 id="skill:piloti-voice",
                 phase="activated",
                 skill="piloti-voice",
-                title="Piloti-Stimme",
+                title="Stimme des Agenten",
                 hidden=True,
                 channel="technical",
             )

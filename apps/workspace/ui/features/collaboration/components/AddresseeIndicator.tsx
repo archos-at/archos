@@ -66,7 +66,7 @@ export function AddresseeIndicator({
       {mode === 'thread' && <Users className="size-3.5 shrink-0 opacity-70" aria-hidden />}
       {/* No agent glyph. The spark used to lead the agent — alone, and then at
           the end of a list of people — and the composer no longer carries it
-          anywhere: the names say who is addressed, and "Piloti" is one of them. */}
+          anywhere: the names say who is addressed, and the agent is one of them. */}
       {label && <span className="min-w-0 truncate">{label}</span>}
 
       {/* The teaching affordance. A quiet trailing action rather than a button in

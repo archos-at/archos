@@ -126,7 +126,7 @@ def _chat_prompt_text() -> str:
 def _prompt_section(name: str) -> str:
     prompt = _chat_prompt_text()
     match = re.search(rf"<{name}>.*?</{name}>", prompt, re.DOTALL)
-    assert match is not None, f"Piloti's prompt no longer has a <{name}> section"
+    assert match is not None, f"The agent's prompt no longer has a <{name}> section"
     return match.group(0)
 
 
@@ -219,7 +219,7 @@ def test_the_voice_seed_teaches_the_three_cases_a_shape_rule_does_not_settle():
 def test_the_notation_rule_and_the_prompt_formatting_rule_stay_on_their_own_questions():
     prompt = _chat_prompt_text()
     match = re.search(r"<formatting>.*?</formatting>", prompt, re.DOTALL)
-    assert match is not None, "Piloti's prompt no longer has a <formatting> section"
+    assert match is not None, "The agent's prompt no longer has a <formatting> section"
     formatting = match.group(0)
     body = _unwrapped(_effective_row("piloti-voice")["body"])
 

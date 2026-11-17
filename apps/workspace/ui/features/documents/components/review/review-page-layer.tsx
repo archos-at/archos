@@ -282,11 +282,11 @@ const PeerPointer = memo(function PeerPointer({
   agentThinking: boolean
 }): JSX.Element {
   const t = useTranslations(filesCopy)
-  const piloti = isAgentPeer(state)
-  const rested = useRestedFor(state.movedAt, piloti ? AGENT_REST_MS : CURSOR_IDLE_MS)
+  const agent = isAgentPeer(state)
+  const rested = useRestedFor(state.movedAt, agent ? AGENT_REST_MS : CURSOR_IDLE_MS)
   return (
     <GlidingCursor x={state.cursor.x} y={state.cursor.y} size={size}>
-      {piloti ? (
+      {agent ? (
         <AgentCursor state={state} idle={rested && !agentThinking && !state.activity} />
       ) : (
         <LiveCursor
@@ -665,7 +665,7 @@ export function ReviewPageLayer({
     start: null,
     cancelled: false,
   })
-  const { annotations, tool, draft, selectedId, hoveredId, room, filter, piloti, select, setDraft, hover, unread } = review
+  const { annotations, tool, draft, selectedId, hoveredId, room, filter, piloti: agent, select, setDraft, hover, unread } = review
   const { sendCursor, sendDraft } = room
   const selfUserId = room.self?.userId ?? null
   const highlights = useStoreSelector(
@@ -722,7 +722,7 @@ export function ReviewPageLayer({
         : [],
     [annotations, page, focused, filter, review.documentId]
   )
-  const agentThinking = piloti.asks.some((ask) => ask.status === 'thinking')
+  const agentThinking = agent.asks.some((ask) => ask.status === 'thinking')
   const onPin = useCallback(
     (annotationId: string, byKeyboard: boolean) => {
       if (!focused) {
@@ -776,7 +776,7 @@ export function ReviewPageLayer({
     })
   }
   const place = (next: ReviewDraft) => {
-    if (tool === 'ask') piloti.compose(askRegionOf(next))
+    if (tool === 'ask') agent.compose(askRegionOf(next))
     else review.setDraft(next)
   }
   const onPointerEnd = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -813,11 +813,11 @@ export function ReviewPageLayer({
 
   const selected = marks.find((annotation) => annotation.id === selectedId) ?? null
   const draftHere = draft?.page === page ? draft : null
-  const asksHere = piloti.asks.filter(
+  const asksHere = agent.asks.filter(
     (ask): ask is CanvasAsk & { region: NonNullable<CanvasAsk['region']> } =>
       !ask.replyInThread && ask.region?.page === page
   )
-  const openAsk = focused ? (asksHere.find((ask) => ask.id === piloti.openId) ?? null) : null
+  const openAsk = focused ? (asksHere.find((ask) => ask.id === agent.openId) ?? null) : null
   const anchorOf = (place: { x: number; y: number; w: number | null; h?: number | null }) => placeCard(place, size)
   const threadPlace = draftHere ?? selected
   const threadAnchor = threadPlace ? anchorOf(threadPlace) : null
@@ -898,7 +898,7 @@ export function ReviewPageLayer({
         const thinking = ask.status === 'thinking' || ask.status === 'composing'
         return (
           <div key={ask.id} className="contents">
-            {/* Piloti's ink, dashed: a question, not a mark. While Piloti
+            {/* The agent's ink, dashed: a question, not a mark. While the agent
                 works a band of light travels across it. */}
             <span
               aria-hidden
@@ -916,7 +916,7 @@ export function ReviewPageLayer({
                 data-testid="agent-ask-reopen"
                 aria-label={t('review.piloti.reopen')}
                 title={t('review.piloti.reopen')}
-                onClick={() => piloti.open(ask.id)}
+                onClick={() => agent.open(ask.id)}
                 className="pointer-events-auto absolute z-30 -translate-x-1/2 -translate-y-1/2 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                 style={at(ask.region.x + ask.region.w, ask.region.y)}
               >

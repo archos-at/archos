@@ -1,9 +1,9 @@
-"""Characterization: what Piloti's tool loop does today, pinned before the loop moves onto LangChain.
+"""Characterization: what the agent's tool loop does today, pinned before the loop moves onto LangChain.
 
 Not a specification. Each test records the CURRENT behaviour of one seam the
 move has to preserve or change on purpose, through the compiled graph:
 
-* whether Piloti's inner graph writes checkpoints into the conversation
+* whether the agent's inner graph writes checkpoints into the conversation
   graph's checkpointer (namespace ``shallow_research:*``);
 * the exact transcript of ONE round that mixes every way a call is answered:
   ran, cross-round repeat, same-batch repeat of a failed fetch, refused
@@ -62,7 +62,7 @@ from agent.knowledge.restricted_use import RestrictedUse
 from agent.knowledge.restricted_use import bind_restricted_use
 from agent.knowledge.restricted_use import reset_restricted_use
 
-_PROMPT = "Du bist Piloti."
+_PROMPT = "Du bist der Agent."
 _ANSWER = AIMessage(content='```answer_json\n{"answer": "Fertig.", "kind": "walkthrough"}\n```')
 
 RAN: list[str] = []
@@ -159,7 +159,7 @@ def _transcript(result: ResearchAgentState) -> list[tuple[str, str]]:
 
 class TestInnerGraphCheckpoints:
     async def test_the_inner_graph_checkpoints_into_the_outer_saver(self):
-        """Today: Piloti's graph is compiled WITHOUT a checkpointer, and still writes checkpoints.
+        """Today: the agent's graph is compiled WITHOUT a checkpointer, and still writes checkpoints.
 
         Recorded as found. ``agent.run`` invokes it inside the conversation
         graph's ``shallow_research`` node, LangGraph hands the subgraph the
@@ -168,13 +168,13 @@ class TestInnerGraphCheckpoints:
         turn of one tool round, one thread namespace. A move that stops this changes what a stored
         conversation holds; one that keeps it keeps a cost per turn.
         """
-        piloti = _agent(
+        inner_agent = _agent(
             [AIMessage(content="", tool_calls=[_call("knowledge_search", "k1", query="Q")]), _ANSWER],
             [knowledge_search],
         )
 
         async def research(state: ResearchAgentState) -> ResearchAgentState:
-            return await piloti.run(state)
+            return await inner_agent.run(state)
 
         async def deep(state: DeepResearchAgentState) -> DeepResearchAgentState:  # pragma: no cover
             raise AssertionError("deep research must not run")

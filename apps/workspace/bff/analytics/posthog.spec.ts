@@ -382,13 +382,13 @@ describe('scrubEvent (before_send)', () => {
       capture({
         $current_url: 'https://app.example/api/auth/callback?code=x&state=y',
         $pathname: '/api/auth/callback',
-        $referrer: 'https://idp.example/authorize?state=y&client=grid',
+        $referrer: 'https://idp.example/authorize?state=y&client=example',
       })
     )
     expect(scrubbed?.properties).toEqual({
       $current_url: 'https://app.example/api/auth/callback',
       $pathname: '/api/auth/callback',
-      $referrer: 'https://idp.example/authorize?client=grid',
+      $referrer: 'https://idp.example/authorize?client=example',
     })
   })
 

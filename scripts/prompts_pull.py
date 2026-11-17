@@ -5,7 +5,7 @@
 Why this exists
 ---------------
 
-The platform prompt — the static half of Piloti's system prompt — has git as
+The platform prompt — the static half of the agent's system prompt — has git as
 its source of truth (ADR-0060 (a)):
 ``packages/agent/src/agent/agents/piloti/prompts/chat_static.md`` is what review reads,
 what a process renders when prompt management is off or Langfuse unreachable,

@@ -45,7 +45,7 @@ afterEach(() => {
 })
 
 describe('runAgentWakeStop', () => {
-  it('stops the wake’s turn: cancel_turn for the wake id, in the thread of the person whose act woke Piloti', async () => {
+  it('stops the wake’s turn: cancel_turn for the wake id, in the thread of the person whose act woke the agent', async () => {
     await runAgentWakeStop('org_1', PAYLOAD, NOT_LAST)
 
     expect(cancelHeadlessTurn).toHaveBeenCalledTimes(1)

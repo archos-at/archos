@@ -6,7 +6,7 @@ trace or a score there ([ADR-0089](../adr/0089-langfuse-is-the-observability-pla
 PostHog is where that joins everything else: product events, errors, logs,
 replays, surveys, support and alerts, with Langfuse's traces and scores
 exported into it ([ADR-0100](../adr/0100-posthog-is-the-product-platform-and-langfuse-feeds-it.md)).
-This is a priority, not a nice-to-have: we improve Piloti from what these two
+This is a priority, not a nice-to-have: we improve the agent from what these two
 show, so a model call, an agent step, a quality check or a user-facing action
 that neither shows counts as a defect.
 

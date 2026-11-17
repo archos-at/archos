@@ -49,7 +49,7 @@ validated strictly by `packages/agent/src/agent/skills/models.py`:
 | `name` | 1–64 chars, lowercase `a-z0-9` + hyphens; for filesystem skills it must equal the parent dir name |
 | `description` | 1–1024 chars, non-empty; the one-line L1 summary the model sees |
 | `body` | The full markdown instructions (L2), read only when the model opens `/skills/<source>/<name>/SKILL.md` with `read_file` |
-| `metadata` | String-map; reserved GRID keys are validated — `grid-agents` (who may use it), `grid-cards` (preferred output card types), `grid-title`, `grid-hidden` (mute the live line), `grid-catalog` (`curated` = offer, absent = machinery). Every other key is opaque |
+| `metadata` | String-map; reserved keys are validated — `grid-agents` (who may use it), `grid-cards` (preferred output card types), `grid-title`, `grid-hidden` (mute the live line), `grid-catalog` (`curated` = offer, absent = machinery). Every other key is opaque |
 | `license` / `compatibility` / `allowed_tools` | Optional free-form strings |
 
 `Skill` carries one more field that is **not** frontmatter and cannot be written
@@ -61,7 +61,7 @@ fleet standard equipment, which the runtime then forced onto every run. The tier
 is retired (ADR-0060); the backend has no such field, and a `standard` marker
 left on a BFF payload is ignored rather than obeyed.
 
-Unlike deepagents' warn-and-continue scan, GRID's substrate validates
+Unlike deepagents' warn-and-continue scan, the platform's substrate validates
 **strictly**: an invalid builtin SKILL.md is a deployment error
 (`builtin.py` raises), an invalid org row is dropped individually with a
 warning (`resolver._build_org_skills`), never silently half-loaded.
@@ -163,7 +163,7 @@ standing rule that could have been three sentences of prompt.
 The first standard skills were `piloti-voice` (seeded by
 `0053_piloti_voice_standard_skill.sql`) and `piloti-cards`, and both were
 **retired** into prompt text (`0071_retire_piloti_house_skills.sql`) long before
-the mechanism was: their craft moved into Piloti's system prompt and the deep
+the mechanism was: their craft moved into the agent's system prompt and the deep
 writer's prompt, because the house voice was absent from exactly the answers
 that skipped the call, while every turn that did call paid two reserved tool
 iterations and ~7,800 tokens of body. ADR-0060 applied that reasoning to the
@@ -363,7 +363,7 @@ Every builtin declares `grid-agents`, and the value splits the corpus in two.
 The six in `research/` and `synthesis/` declare `deep_researcher` **and nothing
 else**. They are DeepAgents subagent skills: their instructions call `execute`,
 read and write `/shared/` and return `ResearchNotes`, none of which exists in a
-chat turn. That one key is what keeps Piloti from being
+chat turn. That one key is what keeps the agent from being
 offered a procedure it cannot carry out.
 
 The nine in `bim/` and `oib/` are chat skills: `ifc-spatial-reasoning` and the
@@ -426,7 +426,7 @@ The sources are the gate on who sees what:
 
 | Agent | Sources it lists | What is in them |
 |---|---|---|
-| Piloti (chat) | `/skills/office/` | everything `SkillResolver(agent="researcher")` resolved: machinery, the offers the office took up, its own rows, after `skill_allowlist` |
+| The agent | `/skills/office/` | everything `SkillResolver(agent="researcher")` resolved: machinery, the offers the office took up, its own rows, after `skill_allowlist` |
 | Deep research, researcher | `/skills/oib/`, `/skills/bim/` (`deep_research_skills.agents`) | the non-curated builtins of each assigned collection |
 | Deep research, writer | `/skills/synthesis/`, then `/skills/office/` | the assigned collection, then what `resolve_served_skills("deep_researcher", org)` served: offers taken up and the office's rows |
 
@@ -437,7 +437,7 @@ A later source wins a name clash, which is the middleware's own layering.
   under `## Skills`) instead of the stock text, which tells the model about
   "Deepagents" sources and helper scripts it has none of. The deep researcher's
   subagents host the middleware (a `SkillsMiddleware` in a subagent spec's
-  `middleware` takes the skills slot by name). Piloti's loop is its own
+  `middleware` takes the skills slot by name). The agent's loop is its own
   LangGraph graph, not `create_agent`, so it cannot host `AgentMiddleware`, and
   its system prompt must stay byte-identical across turns
   (`test_turn_context_message.py`); `SkillRuntime.catalog_block` therefore runs
@@ -449,7 +449,7 @@ A later source wins a name clash, which is the middleware's own layering.
 - **L2 — the body.** The model reads `SKILL.md` with `read_file`. In deep
   research that is the subagent's stock filesystem tool, gated by
   `factory.skill_filesystem_permissions` (read only the agent's own sources,
-  never write). Piloti gets the same verb from `tools/documents/tools.py`: the
+  never write). The agent gets the same verb from `tools/documents/tools.py`: the
   skills backend is a `/skills/` route beside the working directory, so one
   `read_file` reads drafts and skills, and a turn without a conversation gets
   `read_file` for its skills alone. A path that is not a skill gets a
@@ -462,7 +462,7 @@ A later source wins a name clash, which is the middleware's own layering.
   turn's prompt in full under `### Given in full for this question`, in the
   middleware's own pinned shape `<skill name="…" path="…">`, with its preferred
   card shapes beyond the eight the envelope teaches. Deep Agents' own
-  `pinned_skills` (0.7.23) appends the body as a `HumanMessage`; Piloti cannot
+  `pinned_skills` (0.7.23) appends the body as a `HumanMessage`; the agent cannot
   use it, because a `HumanMessage` is where its turn begins
   (`answer_pipeline.this_turn`). The model names a pinned skill it followed in
   the envelope's `skills_applied`; the runtime accepts a name only when that
@@ -1025,7 +1025,7 @@ Review is a second axis on the row: `POST /api/projects/[id]/runs/[runId]/review
 with `{ decision: accepted | rejected, reason? }` (`project:edit`). A rejection's
 reason is quoted into the next run of the same job as a `PREVIOUS_DECISIONS`
 block on the fire prompt (`previousDecisionsBlock`), so what a person told
-Piloti "no" about reaches the run rather than a log line.
+the agent "no" about reaches the run rather than a log line.
 `GET /api/projects/[id]/tasks` lists a project's tasks, newest first.
 
 ## Scheduler worker (Hatchet, `apps/workspace/bff/scheduling/`)

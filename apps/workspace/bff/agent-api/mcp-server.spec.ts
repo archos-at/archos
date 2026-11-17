@@ -18,7 +18,7 @@ const principal: AgentPrincipal = {
   scopes: ['piloti:sensitive'],
   session: {
     userId: 'user_1',
-    email: 'a@piloti.test',
+    email: 'a@example.test',
     name: null,
     accessToken: '',
     organizationId: 'org_1',
@@ -36,7 +36,7 @@ beforeAll(() => {
 type ListedTool = { name: string; inputSchema: unknown; annotations?: Record<string, unknown>; _meta?: Record<string, unknown> }
 
 function legacyRequest(body: unknown, accept: string, mode: 'search' | 'tools' = 'search'): Request {
-  return new Request('https://app.piloti.test/api/mcp', {
+  return new Request('https://app.example.test/api/mcp', {
     method: 'POST',
     headers: { 'content-type': 'application/json', accept, 'mcp-protocol-version': '2025-11-25', 'x-piloti-mcp-mode': mode },
     body: JSON.stringify(body),
@@ -52,7 +52,7 @@ afterEach(() => {
 async function listTools(mode: 'search' | 'tools'): Promise<ListedTool[]> {
   const handler = createMcpHandler(() => buildMcpServer(principal, mode), { responseMode: 'json' })
   const response = await handler.fetch(
-    new Request('https://app.piloti.test/api/mcp', {
+    new Request('https://app.example.test/api/mcp', {
       method: 'POST',
       headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' },
       body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} }),
@@ -117,7 +117,7 @@ describe('mode and instructions', () => {
     expect(resolveMode(at('https://x.test/api/mcp', { 'x-piloti-mcp-mode': 'discovery' }))).toBe('search')
   })
 
-  it('introduces Piloti as the architects\' workspace and says where to start', () => {
+  it('introduces the app as the architects\' workspace and says where to start', () => {
     expect(MCP_INSTRUCTIONS).toMatch(/workspace for architects/)
     expect(MCP_INSTRUCTIONS).toMatch(/project-list/)
     expect(MCP_INSTRUCTIONS).toMatch(/search-operations/)

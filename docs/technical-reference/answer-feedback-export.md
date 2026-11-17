@@ -179,7 +179,7 @@ its readers.
 | `lesson_id` | Platform lesson distilled from the vote | id | `platform_lesson_reports.lesson_id` |
 | `lesson_status` | `candidate`, `active`, `retired`, or `skipped` | text | `platform_lessons.status`, `platform_lesson_reports.outcome` |
 | `lessons_holdout` | Lessons experiment arm; empty when none ran | 1/0 | `answer_feedback.lessons_holdout` |
-| `app_url` | The answer in its conversation in Piloti | link | app origin + conversation deep link |
+| `app_url` | The answer in its conversation in the app | link | app origin + conversation deep link |
 | `langfuse_trace_url` | The answer's trace in Langfuse | link | `LANGFUSE_PUBLIC_URL`, `LANGFUSE_PROJECT_ID` |
 | `trace_id` | Langfuse/OTel trace id | id | `messages.metadata.trace_id` |
 

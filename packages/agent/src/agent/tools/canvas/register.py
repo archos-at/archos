@@ -120,8 +120,7 @@ DESCRIPTIONS = {
 }
 
 
-class DocumentCanvasConfig(FunctionGroupBaseConfig, name="document_canvas"):
-    ...
+class DocumentCanvasConfig(FunctionGroupBaseConfig, name="document_canvas"): ...
 
 
 async def _target(document: str) -> tuple[Target, Any]:
@@ -262,7 +261,7 @@ async def run_update(
         result = await call({"op": "update", "annotationId": annotation_id, **change, **guard}, target, signed)
         if result.get("noted"):
             record_canvas_activity(document_of(result, target), [changed_item(result, change["note"])])
-            note_thread_post(annotation_id)  # the note is Piloti's reply in that thread
+            note_thread_post(annotation_id)  # the note is the agent's reply in that thread
         observe("update", {"fields": sorted(set(change) - {"note"})}, marks_observation("update", result))
         return render_updated(result)
 

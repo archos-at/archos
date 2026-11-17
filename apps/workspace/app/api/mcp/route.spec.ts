@@ -32,11 +32,11 @@ import { buildRequestContextEnvelope, REQUEST_CONTEXT_HEADER_NAMES } from '@/lib
 import { DELETE, GET, POST } from './route'
 
 const SECRET = 'internal-token-for-tests' // pragma: allowlist secret
-const URL_ = 'https://app.piloti.test/api/mcp'
+const URL_ = 'https://app.example.test/api/mcp'
 
 const session = {
   userId: 'user_1',
-  email: 'a@piloti.test',
+  email: 'a@example.test',
   name: null,
   accessToken: '',
   organizationId: 'org_1',
@@ -72,10 +72,10 @@ beforeAll(() => {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  process.env.WORKOS_AUTHKIT_DOMAIN = 'auth.piloti.test'
+  process.env.WORKOS_AUTHKIT_DOMAIN = 'auth.example.test'
   process.env.MCP_RESOURCE_URL = URL_
   process.env.INTERNAL_API_TOKEN = SECRET
-  process.env.WORKOS_REDIRECT_URI = 'https://app.piloti.test/api/auth/callback'
+  process.env.WORKOS_REDIRECT_URI = 'https://app.example.test/api/auth/callback'
   vi.mocked(resolvePinnedRequesterSession).mockResolvedValue(session)
   vi.mocked(enforceLimit).mockResolvedValue({
     allowed: true,
@@ -93,7 +93,7 @@ describe('authentication', () => {
     expect(response.status).toBe(401)
     expect(response.headers.get('www-authenticate')).toBe(
       'Bearer error="invalid_token", error_description="Missing Authorization header", ' +
-        'resource_metadata="https://app.piloti.test/.well-known/oauth-protected-resource/api/mcp"',
+        'resource_metadata="https://app.example.test/.well-known/oauth-protected-resource/api/mcp"',
     )
   })
 
@@ -109,7 +109,7 @@ describe('authentication', () => {
     expect(response.status).toBe(503)
   })
 
-  it('keeps Piloti\'s door working without an AuthKit domain', async () => {
+  it('keeps the agent\'s door working without an AuthKit domain', async () => {
     delete process.env.WORKOS_AUTHKIT_DOMAIN
     const response = await POST(rpc('tools/list', {}, signedMcpHeaders()))
     expect(response.status).toBe(200)
@@ -123,7 +123,7 @@ describe('origin', () => {
   })
 
   it('lets the app\'s own origin and clients with no origin through to authentication', async () => {
-    const own = await POST(rpc('tools/list', {}, { origin: 'https://app.piloti.test' }))
+    const own = await POST(rpc('tools/list', {}, { origin: 'https://app.example.test' }))
     expect(own.status).toBe(401)
     const none = await POST(rpc('tools/list', {}))
     expect(none.status).toBe(401)
@@ -222,7 +222,7 @@ async function messageOf<T>(response: Response): Promise<T> {
   return JSON.parse(data ? data.slice('data:'.length) : raw) as T
 }
 
-describe('MCP round trip as Piloti', () => {
+describe('MCP round trip as the agent', () => {
   async function toolNames(url: string, headers: Record<string, string> = {}): Promise<string[]> {
     const response = await POST(rpc('tools/list', {}, { ...signedMcpHeaders(), ...headers }, url))
     expect(response.status).toBe(200)
@@ -245,7 +245,7 @@ describe('MCP round trip as Piloti', () => {
     expect(await toolNames(URL_, { 'x-piloti-mcp-mode': 'tools' })).toEqual(expected)
   })
 
-  it('serves the instructions that say what Piloti is', async () => {
+  it('serves the instructions that say what the agent is', async () => {
     const response = await POST(
       rpc('initialize', {
         protocolVersion: '2025-06-18',

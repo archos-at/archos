@@ -64,7 +64,7 @@ describe('CustomRolesSection', () => {
   beforeEach(() => vi.clearAllMocks())
   afterEach(() => vi.unstubAllGlobals())
 
-  it('lists the office’s roles with labelled permissions, and Piloti’s read-only', async () => {
+  it('lists the office’s roles with labelled permissions, and the agent’s read-only', async () => {
     stubApi({ roles: [ADMIN, GF], assignable: ASSIGNABLE })
     render(<CustomRolesSection />)
 

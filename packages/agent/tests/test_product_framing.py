@@ -19,7 +19,7 @@ def _lines(relative: str) -> list[tuple[int, str]]:
 @pytest.mark.parametrize("relative", FIRST_IMPRESSION + PROMPTS)
 def test_no_surface_frames_the_chat_agent_as_a_compliance_question_answerer(relative: str) -> None:
     hits = [f"{relative}:{number}: {line.strip()}" for number, line in _lines(relative) if OLD_FRAME.search(line)]
-    assert hits == [], "Piloti is the workspace for architects (VISION.md):\n" + "\n".join(hits)
+    assert hits == [], "The product is the workspace for architects (VISION.md):\n" + "\n".join(hits)
 
 
 @pytest.mark.parametrize("relative", PROMPTS)
@@ -34,7 +34,7 @@ def test_every_deep_research_prompt_introduces_the_agent_by_the_product_name(nam
     assert "{{ product_name }}" in first_line.splitlines()[0]
 
 
-def test_pilotis_role_is_the_office_colleague_who_works_in_the_workspace_before_it_knows_the_law() -> None:
+def test_the_agent_role_is_the_office_colleague_who_works_in_the_workspace_before_it_knows_the_law() -> None:
     static = (ROOT / "packages/agent/src/agent/agents/piloti/prompts/chat_static.md").read_text(encoding="utf-8")
     role = static.split("<role>", 1)[1].split("</role>", 1)[0]
     assert "colleague in this planning office" in role

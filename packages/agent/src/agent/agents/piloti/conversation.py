@@ -61,7 +61,7 @@ It must say two things: that nothing is being researched — the turn really is
 over, by the user's own choice, not by a failure — and how to get an answer
 after all. The second half is literally true: the cancellation sets
 ``deep_research_declined`` on the conversation, so re-asking the question
-routes straight to Piloti instead of producing plan number two.
+routes straight to the agent instead of producing plan number two.
 """
 
 LEGACY_ESCALATION_REASON = "Shallow agent emitted insufficiency marker"
@@ -71,7 +71,7 @@ DEEP_RESEARCH_UNAVAILABLE_NOTE = (
     "Ich habe die Frage direkt beantwortet, so weit die vorliegenden Quellen tragen. "
     "Grenzen Sie die Frage gern enger ein, dann komme ich näher heran."
 )
-"""Appended when Piloti asks to escalate and the tenant has no deep research.
+"""Appended when the agent asks to escalate and the tenant has no deep research.
 
 German for the same reason as :data:`PLAN_CANCELLED_MESSAGE`: it reaches the
 reader verbatim. It exists because the ask and the ANSWER are one message. A
@@ -255,7 +255,6 @@ def _plan_rejected(original_query: str | None) -> Command:
 
 
 class ConversationGraph:
-
     def __init__(
         self,
         research_fn: Callable[[ResearchAgentState], Awaitable[ResearchAgentState]],

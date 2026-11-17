@@ -79,7 +79,7 @@ describe('InboxPushOffer', () => {
     )
   })
 
-  test('when Piloti asked, says Piloti has a question, never that someone needs them', async () => {
+  test('when the agent asked, says the agent has a question, never that someone needs them', async () => {
     badge.pending = 1
     render(<InboxPushOffer enabled client={client({ actorName: null, type: 'piloti.asks_you' })} />)
     await waitFor(() =>
@@ -87,7 +87,7 @@ describe('InboxPushOffer', () => {
     )
   })
 
-  test('says Piloti asked in German too', async () => {
+  test('says the agent asked in German too', async () => {
     badge.pending = 1
     render(
       <I18nProvider initialLocale="de" fixedLocale>

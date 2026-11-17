@@ -155,7 +155,7 @@ describe('inboxIsReachable', () => {
   })
 })
 
-describe('the Piloti types', () => {
+describe('the agent types', () => {
   const asks = ['piloti.asks_you', 'piloti.proposal_waiting'] as const
   const reports = ['piloti.work_done', 'piloti.work_failed'] as const
 

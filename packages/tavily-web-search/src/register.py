@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class _NoRow:
-    """The Herleitung row where there is no Grid agent to draw it: takes the calls, emits nothing."""
+    """The Herleitung row where there is no agent to draw it: takes the calls, emits nothing."""
 
     def __init__(self, *_args: Any, **_fields: Any) -> None:
         pass
@@ -37,7 +37,7 @@ class _NoOutcome:
         pass
 
 
-try:  # the Grid agent draws one row per call (ADR-0132); the standalone dist has no agent package
+try:  # the agent draws one row per call (ADR-0132); the standalone dist has no agent package
     from agent.common.action_outcome import ActionOutcome
     from agent.common.action_rows import ActionRow
     from agent.common.licensed_text import refused_outbound_query
@@ -277,7 +277,7 @@ async def tavily_web_search(tool_config: TavilyWebSearchToolConfig, builder: Bui
                 outcome.hits = len(results)
                 try:
                     from agent.common.turn_status import record_lane_hit as capture_lane_hit
-                except ImportError:  # standalone dist without the Grid agent package
+                except ImportError:  # standalone dist without the agent package
                     capture_lane_hit = None
                 if capture_lane_hit is not None:
                     for doc in results:

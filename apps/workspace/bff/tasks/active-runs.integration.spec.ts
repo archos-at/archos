@@ -2,7 +2,7 @@
  * @vitest-environment node
  *
  * The count of a project's runs in flight (`countActiveRunsInProject`), which
- * the turn's WORKSPACE block tells Piloti, against a REAL Postgres through the
+ * the turn's WORKSPACE block tells the agent, against a REAL Postgres through the
  * restricted runtime role:
  *
  *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \

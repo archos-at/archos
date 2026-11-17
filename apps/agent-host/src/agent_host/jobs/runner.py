@@ -1070,7 +1070,7 @@ async def _run_report_passes(
     organization_id: str | None,
     **reflection_kwargs: Any,
 ) -> tuple[CardGenerationResult, ReportAnatomy, dict[str, Any] | None]:
-    """The model calls over a finished report: grid cards, anatomy, follow-ups, then reflection.
+    """The model calls over a finished report: response cards, anatomy, follow-ups, then reflection.
 
     The first three are independent and best-effort, so they run together. The
     reflection reads the report WITH its findings, after the extraction: a
@@ -1158,7 +1158,7 @@ async def _propose_report_follow_ups(
 
 
 async def _generate_answer_cards(llm: Any, query: str, report: str) -> CardGenerationResult:
-    """Generate Grid response cards from the final report.
+    """Generate response cards from the final report.
 
     Best-effort: never raises, so card generation can never crash or fail the
     job. It does say when it LOST — ``failed`` on the result — because a run
