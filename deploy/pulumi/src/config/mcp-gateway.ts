@@ -9,6 +9,7 @@ export interface McpGatewayConfig {
   platformOrgId: string;
   sessionKey: pulumi.Output<string>;
   admissionToken: pulumi.Output<string>;
+  langfuseTraceOrgs: "all" | readonly string[];
 }
 
 const ORG_ID = /^org_[0-9A-Za-z]+$/;
@@ -32,8 +33,9 @@ export function loadMcpGateway(
   const admissionToken =
     appPassword?.apply((password) => createHmac("sha256", password).update("platform-mcp-admission").digest("hex")) ??
     pulumi.output("");
-  const off = { enabled: false, domain, issuer: "", platformOrgId, sessionKey: pulumi.output(""), admissionToken };
+  const off = { enabled: false, domain, issuer: "", platformOrgId, sessionKey: pulumi.output(""), admissionToken, langfuseTraceOrgs: [] };
   if (!enabled) return off;
+  const langfuseTraceOrgs = traceOrgs(cfg.get("mcpGatewayLangfuseTraceOrgs") ?? "", project);
 
   const missing = [
     authkitDomain === "" ? "workosAuthkitDomain" : undefined,
@@ -62,7 +64,18 @@ export function loadMcpGateway(
     platformOrgId,
     sessionKey: sessionKey!.apply(checkSessionKey),
     admissionToken,
+    langfuseTraceOrgs,
   };
+}
+
+function traceOrgs(raw: string, project: string): "all" | string[] {
+  if (raw.trim() === "*") return "all";
+  const ids = raw.split(",").map((id) => id.trim()).filter(Boolean);
+  const bad = ids.filter((id) => !ORG_ID.test(id));
+  if (bad.length > 0) {
+    throw new Error(`${project}:mcpGatewayLangfuseTraceOrgs takes "*" or WorkOS organization ids (org_…), got ${bad.map((id) => `"${id}"`).join(", ")}.`);
+  }
+  return ids;
 }
 
 export function checkSessionKey(raw: string): string {

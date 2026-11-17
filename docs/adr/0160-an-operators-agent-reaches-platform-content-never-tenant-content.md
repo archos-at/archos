@@ -155,6 +155,44 @@ enforces it server-side. Nothing new has to be built on the request path.
 * Nothing checks Langfuse's tool names against a running Langfuse. The
   runbook's first-deploy check lists the tools through a signed-in client.
 
+## Amendment (2026-11-17): agent traces of named organizations
+
+Platform owners debug the agent from their own MCP client, and that means
+reading its traces. The product owner decided (2026-11-17): on staging every
+trace, and in production only the traces of the organizations that belong to
+platform owners. The rule above stands for every other office: its turns reach
+no operator's agent vendor.
+
+* **Per stack.** `mcpGatewayLangfuseTraceOrgs` names whose traces
+  `/langfuse/mcp` reads. Unset, none, as before. `*` on staging, whose offices
+  are the team's test offices. In production, the three WorkOS organizations
+  whose members are all on the team, read from WorkOS Production on 2026-11-17:
+  the platform organization and two test offices. A customer's office is never
+  listed.
+* **The pin.** Langfuse 4.80.0 reads a trace as its observations. With a list,
+  the route offers `listObservations` and the two static schema tools, and
+  agentgateway's `mcpGuardrails` refuses a `listObservations` call unless its
+  `filter` holds `tags` `any of` / `all of` values that are all among the named
+  organizations' `org:<id>` tags, which every agent turn carries
+  (`langfuse_trace_attributes.py`). Langfuse ANDs its filters, so no other
+  argument widens the result. `getObservation` (by id, unscoped) and
+  `getObservationFilterValues` (values across every trace) are not offered:
+  `listObservations` with `traceId` and `fields: ["*"]` reads a whole trace.
+* **Evidence.** The rendered rule ran against agentgateway v1.7.0 itself with a
+  mock upstream: no filter, a `traceId` alone, a customer's tag alone or beside
+  a team tag, `none of`, an empty or string value, a pin on another column and
+  the `langfuse_`-prefixed name were refused, and only pinned calls reached the
+  upstream. `index-mcp-gateway.spec.ts` holds the rule's text and the tool lists.
+* **Bad**, because the pin rests on Langfuse putting a trace's tags on its
+  observations' `tags` column. If it does not, a pinned call returns nothing
+  (fail closed); staging, with `*`, shows which it is before production relies
+  on it. A trace the BFF writes (`agent-tool-call`) carries its `org:` tag only
+  under `TRACE_IDENTITY_ATTRIBUTES`.
+* **Bad**, because the list is a snapshot of who belongs to which organization.
+  Adding someone outside the team to one of them, or a platform owner joining a
+  customer's office, changes nothing here; the list changes only by a reviewed
+  commit to `Pulumi.prod.yaml`.
+
 ## Pros and Cons of the Options
 
 ### A second, knowledge-only door
