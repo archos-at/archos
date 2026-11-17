@@ -1,3 +1,4 @@
+// Responses captured from photon.komoot.io on 2026-10-14.
 const collection = (...features: unknown[]) => ({ type: 'FeatureCollection', features })
 
 export const PHOTON_MARIAHILFER = collection(

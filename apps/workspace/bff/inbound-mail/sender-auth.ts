@@ -7,12 +7,14 @@ import type { InboundSenderTrust, SenderFlag, SenderReason } from './contract'
 import { INBOUND_MAIL_STALE_DATE_DAYS } from './inbound-mail-vocabulary'
 import { headerValue, parseDateHeader, rawHeaderFields, type HeaderField } from './mime'
 
+// RFC 5322 §3.6: fields a message carries at most once.
 const SINGLETON_FIELDS = ['from', 'sender', 'to', 'cc', 'subject', 'date', 'message-id', 'in-reply-to', 'references', 'reply-to', 'content-type', 'mime-version'] as const
 
 const REQUIRED_SIGNED_FIELDS = ['from', 'subject', 'message-id', 'date'] as const
 
 export const MAX_DKIM_SIGNATURES = 8
 
+// RSA keys shorter than this do not verify (RFC 8301 §3.2).
 export const MIN_KEY_BITS = 1024
 
 const DNS_TIMEOUT_MS = 3_000

@@ -21,6 +21,7 @@ export interface AutomaticMailInput {
 
 const AUTO_REPLY_HEADERS = ['x-autoreply', 'x-autorespond', 'x-autoresponder', 'x-auto-reply', 'x-vacation']
 
+// Local parts of the reporting agents (RFC 5321 §4.5.5, RFC 3464).
 const REPORTING_LOCAL_PARTS = new Set(['mailer-daemon'])
 
 const DELIVERY_REPORT_TYPES = new Set(['delivery-status', 'disposition-notification'])
