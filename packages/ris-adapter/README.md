@@ -25,7 +25,7 @@ the generic URL extractor, so the answer cited a link where it should have cited
 
 `ris_lookup(question, conclusion, jurisdiction, instrument, application)` runs
 the same path internally, with its own bounds, one module per stage under
-[`src/lookup/`](src/lookup/):
+[`src/ris_adapter/lookup/`](src/ris_adapter/lookup/):
 
 | Stage | Module | Bound |
 |---|---|---|

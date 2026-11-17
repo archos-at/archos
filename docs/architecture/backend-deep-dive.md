@@ -806,7 +806,7 @@ their own listing block: those agents route and plan, they never emit
 citations.
 
 **Silent summary-row loss on double LLM failure — fixed 2026-07-16**:
-ingestion (`packages/knowledge-layer/src/ingest/adapter.py`, ~lines
+ingestion (`packages/knowledge-layer/src/knowledge_layer/ingest/adapter.py`, ~lines
 1795–1965) runs summary generation and tag classification as two concurrent
 calls to the same `summary_llm`; both independently swallow
 exceptions/timeouts and return `None` on failure. Previously the
@@ -1159,7 +1159,7 @@ worker that has read a Gliederung and knows the Punkt it needs was still asking
 the corpus to find that passage by similarity, and every batch spent that way is
 a round the run does not get back.
 
-`read_passage` (`packages/knowledge-layer/src/read_passage/tool.py`) is that lookup:
+`read_passage` (`packages/knowledge-layer/src/knowledge_layer/read_passage/tool.py`) is that lookup:
 `document` (exact indexed name, stored display title, or the derived OIB title)
 plus `clause` (the `clause_id` the Punkt chunker verified against the corpus's own
 contents pages) or `page` (`punkt` is accepted as the former name of `clause` for one release). `document` with neither is the **outline**: the

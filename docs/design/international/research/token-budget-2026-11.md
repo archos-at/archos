@@ -121,7 +121,7 @@ Notes on the tool count:
 
   | Tool | Bound | Where |
   |---|---|---|
-  | `knowledge_search` | ≤ 16 hits × ≤ 2,500 chars, plus a 80–140-token header per hit, ≈ ≤ 11k tokens | `config:558`, `knowledge-layer/src/search/grounding_hits.py:21` |
+  | `knowledge_search` | ≤ 16 hits × ≤ 2,500 chars, plus a 80–140-token header per hit, ≈ ≤ 11k tokens | `config:558`, `knowledge-layer/src/knowledge_layer/search/grounding_hits.py:21` |
   | `read_file` | ≈ ≤ 6k tokens | |
   | `read_passage` | ≤ 24,000 chars | `read_passage/ranges.py:36` |
   | web search | 8 × 1,000 chars | |
@@ -457,7 +457,7 @@ task be:eval:answer-suite -- --out /tmp/suite/stages --baseline /tmp/suite/terra
 # deep research arm (no suite set covers it; keys for nat run)
 #   llms.deep_orchestrator_llm.model_name, llms.deep_planner_llm.model_name, llms.deep_researcher_llm.model_name
 
-# vision is env, not a config key (knowledge-layer/src/ingest/adapter.py:106)
+# vision is env, not a config key (knowledge-layer/src/knowledge_layer/ingest/adapter.py:106)
 VLM_MODEL=anthropic/claude-sonnet-5.5 task be:eval:answer-suite -- --set visual --out /tmp/suite/vlm-sonnet
 ```
 

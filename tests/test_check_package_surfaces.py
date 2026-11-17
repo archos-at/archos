@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-SEARCH = "packages/knowledge-layer/src/search"
+SEARCH = "packages/knowledge-layer/src/knowledge_layer/search"
 INIT = '_LAZY: dict[str, str] = {"RankedSearch": ".ranked_search"}\n'
 
 

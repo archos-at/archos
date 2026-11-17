@@ -11,7 +11,7 @@ Architecture:
     ├── base.py                  # Abstract interfaces (BaseRetriever, BaseIngestor)
     └── factory.py               # Registry + factory pattern
 
-    packages/knowledge-layer/src/ # Backend implementations
+    packages/knowledge-layer/src/knowledge_layer/ # Backend implementations
     ├── ingest/                  # Reading a file: LlamaIndex readers and chunking, OpenRouter embeddings
     ├── search/                  # Finding passages: the retriever, fusion, rerank, the requery judge
     └── vector_store/            # The vector store (ADR-0115): every chunk, every read

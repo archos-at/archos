@@ -93,7 +93,7 @@ fixtures of slice 1.
      makes for its own;
    * `look` reads characters only, never paths.
 2. **The reader lives in `knowledge_layer`, the measuring in `agent`.**
-   `packages/knowledge-layer/src/sheet/` holds everything that touches PDFium or
+   `packages/knowledge-layer/src/knowledge_layer/sheet/` holds everything that touches PDFium or
    pdfminer. Three things make that true rather than said:
    * the package lists its modules by hand (`packages/knowledge-layer/pyproject.toml`,
      `[tool.setuptools] packages`): add `knowledge_layer.sheet`, or it does not

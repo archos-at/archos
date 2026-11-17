@@ -52,7 +52,7 @@ BASELINE = Path("ci/package_surface_baseline.json")
 EXCLUDED = {"tests/test_check_package_surfaces.py"}
 
 PACKAGES = {
-    f"knowledge_layer.{name}": f"packages/knowledge-layer/src/{name}"
+    f"knowledge_layer.{name}": f"packages/knowledge-layer/src/knowledge_layer/{name}"
     for name in ("browse", "estate", "ingest", "read_passage", "search", "vector_store")
 }
 

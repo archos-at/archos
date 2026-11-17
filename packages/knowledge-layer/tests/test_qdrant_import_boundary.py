@@ -6,7 +6,7 @@ import pathlib
 import re
 
 REPO = pathlib.Path(__file__).resolve().parents[3]
-ALLOWED = REPO / "packages" / "knowledge-layer" / "src" / "vector_store"
+ALLOWED = REPO / "packages" / "knowledge-layer" / "src" / "knowledge_layer" / "vector_store"
 SEARCHED = ("src", "packages", "apps/agent-host/src", "scripts")
 IMPORT = re.compile(r"^\s*(from\s+qdrant_client\b|import\s+qdrant_client\b)", re.MULTILINE)
 
@@ -40,7 +40,7 @@ def _offenders(repo: pathlib.Path = REPO) -> list[str]:
     offenders: list[str] = []
     files = _real_python_files() if repo == REPO else _python_files(repo)
     roots = tuple(repo / root for root in SEARCHED)
-    allowed = repo / "packages" / "knowledge-layer" / "src" / "vector_store"
+    allowed = repo / "packages" / "knowledge-layer" / "src" / "knowledge_layer" / "vector_store"
     for path in files:
         relative = path.relative_to(repo)
         test_code = {"tests", "testing"} & set(relative.parts)

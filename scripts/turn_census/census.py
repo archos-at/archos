@@ -120,18 +120,17 @@ def source_packages() -> dict[str, Path]:
     """Each package a run imports besides ``agent``, by import name, and the directory it imports from.
 
     Every Python workspace member (``[tool.uv.workspace]`` in the root
-    ``pyproject.toml``; their package dirs are called ``src``) and the
+    ``pyproject.toml``; each package is ``src/<name>``) and the
     agent-runtime plugins under ``frontends/`` (``FRONTEND_PACKAGES``).
     """
     import tomllib
 
     packages: dict[str, Path] = {}
     members = tomllib.loads((ROOT / "pyproject.toml").read_text())["tool"]["uv"]["workspace"]["members"]
-    for pyproject in sorted(ROOT / member / "pyproject.toml" for member in members):
-        setuptools = tomllib.loads(pyproject.read_text()).get("tool", {}).get("setuptools", {})
-        for name, relative in setuptools.get("package-dir", {}).items():
-            if name:
-                packages[name] = (pyproject.parent / relative).resolve()
+    for member in sorted(members):
+        for init in sorted((ROOT / member / "src").glob("*/__init__.py")):
+            if init.parent.name != "agent":
+                packages[init.parent.name] = init.parent.resolve()
     for name, relative in FRONTEND_PACKAGES.items():
         packages[name] = (ROOT / relative).resolve()
     return packages
@@ -144,7 +143,7 @@ def tree_pythonpath(out: Path) -> str:
     ``frontends/`` plugins editable from ONE checkout. From a ``git worktree`` without its own venv, a run used to
     import the main checkout's code while the report named the worktree's
     commit. So ``packages/agent/src/`` goes first, and each workspace package is linked under
-    its import name (their package dirs are called ``src``), ahead of the
+    its import name, ahead of the
     inherited path. The recorder's directory stays first.
     """
     import hashlib

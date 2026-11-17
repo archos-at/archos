@@ -83,32 +83,32 @@
   "packages/agent/tests/tools/look/test_question.py": {
     "knowledge_layer.ingest.adapter": 1
   },
-  "packages/knowledge-layer/src/browse/tool.py": {
+  "packages/knowledge-layer/src/knowledge_layer/browse/tool.py": {
     "knowledge_layer.read_passage.tool": 1,
     "knowledge_layer.search.hit_metadata": 1,
     "knowledge_layer.vector_store.prefilter": 1
   },
-  "packages/knowledge-layer/src/chat_binding.py": {
+  "packages/knowledge-layer/src/knowledge_layer/chat_binding.py": {
     "knowledge_layer.browse.tool": 1
   },
-  "packages/knowledge-layer/src/estate/backend.py": {
+  "packages/knowledge-layer/src/knowledge_layer/estate/backend.py": {
     "knowledge_layer.browse.tool": 4,
     "knowledge_layer.read_passage.tool": 5
   },
-  "packages/knowledge-layer/src/estate/grep.py": {
+  "packages/knowledge-layer/src/knowledge_layer/estate/grep.py": {
     "knowledge_layer.browse.tool": 4
   },
-  "packages/knowledge-layer/src/estate/listing.py": {
+  "packages/knowledge-layer/src/knowledge_layer/estate/listing.py": {
     "knowledge_layer.browse.tool": 1
   },
-  "packages/knowledge-layer/src/estate/render.py": {
+  "packages/knowledge-layer/src/knowledge_layer/estate/render.py": {
     "knowledge_layer.search.grounding_hits": 4
   },
-  "packages/knowledge-layer/src/ingest/adapter.py": {
+  "packages/knowledge-layer/src/knowledge_layer/ingest/adapter.py": {
     "knowledge_layer.vector_store.reads": 1,
     "knowledge_layer.vector_store.writes": 1
   },
-  "packages/knowledge-layer/src/register.py": {
+  "packages/knowledge-layer/src/knowledge_layer/register.py": {
     "knowledge_layer.browse.tool": 2,
     "knowledge_layer.ingest.adapter": 1,
     "knowledge_layer.read_passage.tool": 2,
@@ -116,20 +116,20 @@
     "knowledge_layer.search.requery": 2,
     "knowledge_layer.search.retriever": 1
   },
-  "packages/knowledge-layer/src/search/knowledge_search.py": {
+  "packages/knowledge-layer/src/knowledge_layer/search/knowledge_search.py": {
     "knowledge_layer.browse.tool": 1
   },
-  "packages/knowledge-layer/src/search/lexical_query.py": {
+  "packages/knowledge-layer/src/knowledge_layer/search/lexical_query.py": {
     "knowledge_layer.vector_store.retrieval": 1
   },
-  "packages/knowledge-layer/src/search/ranked_search.py": {
+  "packages/knowledge-layer/src/knowledge_layer/search/ranked_search.py": {
     "knowledge_layer.vector_store.prefilter": 2
   },
-  "packages/knowledge-layer/src/search/retriever.py": {
+  "packages/knowledge-layer/src/knowledge_layer/search/retriever.py": {
     "knowledge_layer.vector_store.reads": 1,
     "knowledge_layer.vector_store.retrieval": 6
   },
-  "packages/knowledge-layer/src/view_image.py": {
+  "packages/knowledge-layer/src/knowledge_layer/view_image.py": {
     "knowledge_layer.ingest.adapter": 1,
     "knowledge_layer.ingest.pdfium_lock": 1
   },
@@ -264,10 +264,10 @@
     "knowledge_layer.vector_store.store": 1,
     "knowledge_layer.vector_store.writes": 1
   },
-  "packages/ris-adapter/src/lookup/grammar.py": {
+  "packages/ris-adapter/src/ris_adapter/lookup/grammar.py": {
     "knowledge_layer.search.grounding_hits": 1
   },
-  "packages/ris-adapter/src/lookup/render.py": {
+  "packages/ris-adapter/src/ris_adapter/lookup/render.py": {
     "knowledge_layer.search.trace_lanes": 1
   },
   "scripts/build_clause_index.py": {
