@@ -6,7 +6,7 @@
   "apps/agent-host/src/agent_host/auth/middleware.py": 109,
   "apps/agent-host/src/agent_host/auth/utils.py": 22,
   "apps/agent-host/src/agent_host/auth/workos_validator.py": 28,
-  "apps/agent-host/src/agent_host/chat_socket.py": 361,
+  "apps/agent-host/src/agent_host/chat_socket.py": 355,
   "apps/agent-host/src/agent_host/context_envelope.py": 103,
   "apps/agent-host/src/agent_host/conversation_bus.py": 120,
   "apps/agent-host/src/agent_host/corpus_upload.py": 38,
