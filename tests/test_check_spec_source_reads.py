@@ -130,3 +130,13 @@ def test_the_real_tree_passes(checker, monkeypatch, capsys):
     monkeypatch.chdir(ROOT)
 
     assert checker.main() == 0, capsys.readouterr().err
+
+
+def test_a_pending_spec_passes_until_it_stops_reading(checker, repo, capsys):
+    add(repo, "app/client.spec.ts", READS_SOURCE)
+    (repo / "ci" / "spec_source_reads_pending.txt").write_text("# drop after release 2026-W49\napp/client.spec.ts\n")
+    assert checker.main() == 0
+
+    add(repo, "app/client.spec.ts", "it('adds', () => expect(1 + 1).toBe(2))\n")
+    assert checker.main() == 1
+    assert "app/client.spec.ts no longer reads source files. Remove the line." in capsys.readouterr().err
