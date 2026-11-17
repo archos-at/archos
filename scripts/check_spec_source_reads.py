@@ -18,7 +18,8 @@ What counts as reading source text, in a spec or a test-support module:
   module that reads), and
 - it names a source file (``SOURCE_NAME``: `.ts`, `.tsx`, `.js`, `.py`, `.css`,
   `.sql`, `Dockerfile`, …) in a string, template or regex that is not a module
-  specifier, a test title, or the script a spawned process runs, or
+  specifier, a test title, a sentence, a generated file (whose freshness a
+  spec may check against its generator) or the script a spawned process runs, or
 - it imports a source file `?raw`.
 
 Data a spec reads (a JSON contract, a PDF or IFC fixture, a YAML stack file) is
@@ -61,6 +62,7 @@ SPECIFIER_BEFORE = re.compile(
     r"(?:\bfrom|\bimport|\brequire\s*\(|\bimport\s*\(|\bvi\.(?:mock|doMock|unmock|importActual|importMock)\s*\()\s*$"
 )
 SOURCE_NAME = re.compile(r"\.(?:[cm]?[jt]sx?|py|css|scss|sql|sh|astro)(?![\w-])|(?:^|[/'\"`])Dockerfile\b")
+GENERATED = re.compile(r"\.generated\.[\w]+$")
 PARSERS = (
     "typescript-api",
     "typescript",
@@ -70,6 +72,8 @@ PARSERS = (
     "@typescript-eslint/typescript-estree",
     "@/test-utils/source-ast",
     "./source-ast",
+    "@/test-utils/sql-statements",
+    "./sql-statements",
 )
 
 
@@ -206,8 +210,10 @@ def source_names(code: str, literals: list[Literal]) -> list[str]:
     in_spawn = lambda at: any(a < at < b for a, b in spawned)  # noqa: E731
     found = []
     for literal in literals:
-        match = SOURCE_NAME.search(literal.text)
-        if not match:
+        if len(literal.text.split()) >= 3:
+            continue
+        names = [m for m in SOURCE_NAME.finditer(literal.text) if not GENERATED.search(literal.text[: m.end()])]
+        if not names:
             continue
         before = code[: literal.start]
         if SPECIFIER_BEFORE.search(before) or TITLE_API.search(before) or in_spawn(literal.start):
@@ -256,12 +262,17 @@ def _module_path(importer: str, specifier: str, known: set[str]) -> str | None:
     return None
 
 
-def imported_readers(path: str, source: str, reading_modules: set[str], known: set[str]) -> set[str]:
-    """Names this file imports from a test-support module that reads files."""
+def imported_readers(path: str, source: str, readers_of: dict[str, set[str]], known: set[str]) -> set[str]:
+    """Names this file imports from a test-support module that are functions which read files."""
     names: set[str] = set()
     for match in re.finditer(r"import\s+(?:type\s+)?\{([^}]*)\}\s*from\s*['\"]([^'\"]+)['\"]", source):
-        if _module_path(path, match.group(2), known) in reading_modules:
-            names |= {part.split(" as ")[-1].strip() for part in match.group(1).split(",") if part.strip()}
+        module = _module_path(path, match.group(2), known)
+        if module not in readers_of:
+            continue
+        for part in match.group(1).split(","):
+            original, _, alias = part.strip().partition(" as ")
+            if original.strip() in readers_of[module]:
+                names.add((alias or original).strip())
     return names
 
 
@@ -270,14 +281,17 @@ def find(root: Path, paths: list[str]) -> list[Finding]:
     known = set(paths)
     sources = {path: (root / path).read_text(encoding="utf-8", errors="replace") for path in paths}
     scanned = {path: scan(source) for path, source in sources.items()}
-    reading_modules = {
-        path
-        for path, (code, _) in scanned.items()
-        if not TEST_FILE.search(path) and _call_spans(code, READ_API)
-    }
+    support = [path for path in paths if not TEST_FILE.search(path)]
+    readers_of: dict[str, set[str]] = {}
+    for _ in range(3):
+        readers_of = {
+            path: _readers_defined(scanned[path][0], set(READ_API) | imported_readers(path, sources[path], readers_of, known))
+            - set(READ_API)
+            for path in support
+        }
     findings = []
     for path, (code, literals) in scanned.items():
-        apis = set(READ_API) | imported_readers(path, sources[path], reading_modules, known)
+        apis = set(READ_API) | imported_readers(path, sources[path], readers_of, known)
         readers = _readers_defined(code, apis)
         names = raw_source_imports(sources[path])
         if _call_spans(code, readers):
