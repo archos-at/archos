@@ -16,15 +16,15 @@ regression tests named beside them.
 
 | Finding | Where | Test |
 |---|---|---|
-| Reading rounded while the comparison used the raw value — `0.795` rendered `0,80 m` on a row that said *nicht erfüllt* | `lib/bim/rules.ts` `measure()` | `rules.spec.ts` › *a reading never contradicts the verdict printed beside it* |
-| Gross `Qto_SpaceBaseQuantities.Height` accepted as *lichte* Raumhöhe — a room finishing at 2,42 m passed | `lib/bim/rules.ts` `oib3-raumhoehe` | `rules.spec.ts` › *will not pass a room on its GROSS height* |
-| Room markers matched as bare substrings — `store` ⊂ `storey`, `bad` ⊂ `Badminton`, `wc` ⊂ `showcase`; those rooms produced no row at all | `lib/bim/rules.ts` `isOccupiedSpace` | `rules.spec.ts` › *room names are matched by word, not by substring* |
+| Reading rounded while the comparison used the raw value — `0.795` rendered `0,80 m` on a row that said *nicht erfüllt* | `lib/bim/rules.ts` `measure()` | `rules-readings.spec.ts` › *a reading never contradicts the verdict printed beside it* |
+| Gross `Qto_SpaceBaseQuantities.Height` accepted as *lichte* Raumhöhe — a room finishing at 2,42 m passed | `lib/bim/rules.ts` `oib3-raumhoehe` | `rules-dimensions.spec.ts` › *will not pass a room on its GROSS height* |
+| Room markers matched as bare substrings — `store` ⊂ `storey`, `bad` ⊂ `Badminton`, `wc` ⊂ `showcase`; those rooms produced no row at all | `lib/bim/rules.ts` `isOccupiedSpace` | `rules-dimensions.spec.ts` › *room names are matched by word, not by substring* |
 | Mixed decimal separators in one string — `0.7 m — Schwellwert ≥ 0,80 m` | `lib/bim/rules.ts` `decimal()` | same as the first row |
-| Fire resistance demanded `REI` of columns and beams, where OIB 2 Tabelle 1b row 1 asks `R` | `lib/bim/rules.ts` | `rules.spec.ts` › OIB 2 Tabelle 1b |
-| `NOTDEFINED` / `SPACE` silently out of scope — the majority of every real model's rooms | `lib/bim/rules.ts` `UNINFORMATIVE_SPACE_TYPES` | `rules.spec.ts` › *checks a room whose PredefinedType says nothing* |
-| Door judged on nominal width against a *lichte Durchgangsbreite* threshold | `lib/bim/rules.ts` `oib4-tuer-durchgangsbreite` | `rules.spec.ts` › *reads the CLEAR width* |
+| Fire resistance demanded `REI` of columns and beams, where OIB 2 Tabelle 1b row 1 asks `R` | `lib/bim/rules.ts` | `rules-fire-resistance.spec.ts` › OIB 2 Tabelle 1b |
+| `NOTDEFINED` / `SPACE` silently out of scope — the majority of every real model's rooms | `lib/bim/rules.ts` `UNINFORMATIVE_SPACE_TYPES` | `rules-dimensions.spec.ts` › *checks a room whose PredefinedType says nothing* |
+| Door judged on nominal width against a *lichte Durchgangsbreite* threshold | `lib/bim/rules.ts` `oib4-tuer-durchgangsbreite` | `rules-dimensions.spec.ts` › *reads the CLEAR width* |
 | BCF emitted `<File IfcProject="">` and `IfcGuid="express:1421"` — both schema-invalid | `lib/bim/bcf.ts` | `bcf.spec.ts` |
-| `AcousticRating` passed on any non-empty string — a wall reading *siehe Beilage* was reported **erfüllt** under an `OIB 5` caption | `lib/bim/rules.ts` `ratedSoundReduction()` | `rules.spec.ts` › *refuses prose as a declaration* / *accepts a rated value however the exporter labelled it* |
+| `AcousticRating` passed on any non-empty string — a wall reading *siehe Beilage* was reported **erfüllt** under an `OIB 5` caption | `lib/bim/rules.ts` `ratedSoundReduction()` | `rules-walls.spec.ts` › *refuses prose as a declaration* / *accepts a rated value however the exporter labelled it* |
 | `slug()` could not decompose `ß`, so `Beispielstraße` downloaded as `Beispielstra-e` — a hole in the name of roughly half of all Viennese projects | `lib/bim/bcf.ts` `GERMAN_TRANSLITERATION` | `bcf.spec.ts` › *spells an Austrian project name instead of punching holes in it* |
 | BCF zip carried no directory entries — the spec's own *Incorrect* example | `lib/bim/zip.ts`, `bcf.ts` | `bcf.spec.ts` › the folder entry is asserted in the archive layout test |
 | The model download was never aborted; leaving mid-download still transferred the whole file | `features/bim/components/ifc-viewer-canvas.tsx` | `viewer-camera` specs + the `AbortController` at `ifc-viewer-canvas.tsx:335` |
