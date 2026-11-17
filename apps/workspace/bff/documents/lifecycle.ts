@@ -248,7 +248,7 @@ const EFFECT_REGISTRY: Record<DocumentVersionEffect, EffectRunner> = {
 
     if (!isAgentDocumentFilename(document.filename)) {
       console.warn(
-        `[documents] published version ${version.id} is not under the piloti/ namespace; not indexed`,
+        `[documents] published version ${version.id} is not under the agent document namespace; not indexed`,
       )
       return
     }

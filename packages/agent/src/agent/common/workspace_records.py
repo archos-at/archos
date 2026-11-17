@@ -60,6 +60,8 @@ from dataclasses import dataclass
 from typing import Any
 from typing import Literal
 
+from agent.common.agent_kind import AGENT_KINDS
+
 WORKSPACE_GROUP = "workspace"
 WORKSPACE_CALL = "call"
 _QUALIFIED_CALL_NAMES = (f"{WORKSPACE_GROUP}__{WORKSPACE_CALL}", f"{WORKSPACE_GROUP}.{WORKSPACE_CALL}")
@@ -77,10 +79,11 @@ _JSON_STARTS = ("{", "[")
 _AGENT_AUTHORED: dict[str, frozenset[str]] = {
     "role": frozenset({"assistant"}),
     "authoredby": frozenset({"agent", "piloti"}),
-    "authorkind": frozenset({"agent", "piloti"}),
+    "authorkind": frozenset(AGENT_KINDS),
 }
+_AGENT_KIND_ALTERNATIVES = "|".join(AGENT_KINDS)
 _AGENT_AUTHORED_TEXT_RE = re.compile(
-    r'"(?:role|authoredBy|authorKind)"\s*:\s*"(?:assistant|agent|piloti)"', re.IGNORECASE
+    rf'"(?:role|authoredBy|authorKind)"\s*:\s*"(?:assistant|{_AGENT_KIND_ALTERNATIVES})"', re.IGNORECASE
 )
 
 RecordOutcome = Literal["read", "proposed"]

@@ -1051,7 +1051,7 @@ describe('the audit trail of a proposal', () => {
 
     expect(audited()).toEqual([
       {
-        action: 'piloti.proposal.decided',
+        action: 'agent.proposal.decided',
         organizationId: 'org_1',
         actor: { userId: 'user_1', email: 'anna@example.test' },
         targetType: 'proposed_change',
@@ -1121,7 +1121,7 @@ describe('the audit trail of a proposal', () => {
 
     expect(audited()).toEqual([
       {
-        action: 'piloti.proposal.created',
+        action: 'agent.proposal.created',
         organizationId: 'org_1',
         actor: { userId: 'user_1', email: 'anna@example.test' },
         targetType: 'proposed_change',

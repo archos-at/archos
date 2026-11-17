@@ -1,5 +1,5 @@
 import type { Translator } from '@/i18n/translate'
-import { INBOX_TYPE_PRESENTATION, type InboxItemView } from '@/lib/inbox/types'
+import { inboxTypePresentation, type InboxItemView } from '@/lib/inbox/types'
 
 const REASONS: Record<string, { key: string; actor: boolean }> = {
   annotationAssigned: { key: 'assigned', actor: true },
@@ -10,7 +10,7 @@ const REASONS: Record<string, { key: string; actor: boolean }> = {
 }
 
 export function inboxReason(item: InboxItemView, t: Translator): string | null {
-  const i18nKey = INBOX_TYPE_PRESENTATION[item.type]?.i18nKey
+  const i18nKey = inboxTypePresentation(item.type)?.i18nKey
   const reason = i18nKey ? REASONS[i18nKey] : undefined
   if (!reason) return null
   const who =

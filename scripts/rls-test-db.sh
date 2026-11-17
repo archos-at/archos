@@ -4402,3 +4402,37 @@ check_in mt_0238 "SELECT count(*) FROM project_memory WHERE organization_id = 'o
 apply_in mt_0238 0238_memory_topics.sql
 check_in mt_0238 "SELECT count(*) FROM personal_memory WHERE organization_id = 'org_0238' AND topic IS NULL" "1" "0238 applies again after its down, and no note has a topic"
 echo "==> 0238 memory topics and their down migration verified"
+
+# ---------------------------------------------------------------------------
+# Migrations 0241 to 0243: the stored names' expand step (ADR-0182 phase 4).
+# 0241: current_org() and current_user_id() read app.* first, grid.* second.
+# 0242: the actor-kind checks accept 'agent' beside 'piloti', under brand-free
+# constraint names. 0243: the live-name index covers generated/ beside piloti/.
+# Each applies twice, its down restores the previous shape, and it applies again.
+# ---------------------------------------------------------------------------
+echo "==> verifying the 0241 to 0243 expand migrations and their downs on sn_0241"
+migrate_before sn_0241 0241_app_session_settings
+apply_in sn_0241 0241_app_session_settings.sql
+apply_in sn_0241 0241_app_session_settings.sql   # up twice: idempotent
+check_in sn_0241 "SELECT current_org() FROM (SELECT set_config('app.organization_id', 'org_new', false), set_config('grid.organization_id', 'org_old', false)) AS s" "org_new" "0241: current_org() prefers app.organization_id"
+check_in sn_0241 "SELECT current_org() FROM (SELECT set_config('grid.organization_id', 'org_old', false)) AS s" "org_old" "0241: current_org() falls back to grid.organization_id"
+check_in sn_0241 "SELECT current_user_id() FROM (SELECT set_config('app.user_id', 'user_new', false)) AS s" "user_new" "0241: current_user_id() reads app.user_id"
+check_in sn_0241 "SELECT count(*) FROM pg_attrdef d JOIN pg_attribute a ON a.attrelid = d.adrelid AND a.attnum = d.adnum WHERE a.attname = 'organization_id' AND pg_get_expr(d.adbin, d.adrelid) LIKE '%app.organization_id%'" "4" "0241: the four organization defaults read the new setting"
+apply_in sn_0241 0241_app_session_settings.down.sql
+check_in sn_0241 "SELECT coalesce(current_org(), 'none') FROM (SELECT set_config('app.organization_id', 'org_new', false)) AS s" "none" "0241 down: current_org() reads only the old setting again"
+apply_in sn_0241 0241_app_session_settings.sql
+apply_in sn_0241 0242_agent_actor_kind.sql
+apply_in sn_0241 0242_agent_actor_kind.sql   # up twice: idempotent
+check_in sn_0241 "SELECT count(*) FROM pg_constraint WHERE conname IN ('document_annotations_only_agent_proposes', 'document_annotations_agent_needs_a_person')" "2" "0242: both constraints carry their brand-free names"
+check_in sn_0241 "SELECT count(*) FROM pg_constraint WHERE conname IN ('document_annotations_only_piloti_proposes', 'document_annotations_piloti_needs_a_person')" "0" "0242: the old constraint names are gone"
+check_in sn_0241 "SELECT count(*) FROM pg_constraint WHERE conname IN ('document_annotations_author_known', 'document_annotation_replies_author_known', 'proposed_changes_proposer_known', 'document_annotations_only_agent_proposes') AND pg_get_constraintdef(oid) LIKE '%''agent''%' AND pg_get_constraintdef(oid) LIKE '%''piloti''%'" "4" "0242: every actor-kind check accepts both values"
+apply_in sn_0241 0242_agent_actor_kind.down.sql
+check_in sn_0241 "SELECT count(*) FROM pg_constraint WHERE conname IN ('document_annotations_only_piloti_proposes', 'document_annotations_piloti_needs_a_person')" "2" "0242 down: the old constraint names return"
+apply_in sn_0241 0242_agent_actor_kind.sql
+apply_in sn_0241 0243_documents_generated_namespace.sql
+apply_in sn_0241 0243_documents_generated_namespace.sql   # up twice: idempotent
+check_in sn_0241 "SELECT (indexdef LIKE '%generated/%' AND indexdef LIKE '%piloti/%')::text FROM pg_indexes WHERE indexname = 'uniq_documents_live_name_per_collection'" "true" "0243: the live-name index covers both namespaces"
+apply_in sn_0241 0243_documents_generated_namespace.down.sql
+check_in sn_0241 "SELECT (indexdef LIKE '%generated/%')::text FROM pg_indexes WHERE indexname = 'uniq_documents_live_name_per_collection'" "false" "0243 down: the index returns to 0083's two arms"
+apply_in sn_0241 0243_documents_generated_namespace.sql
+echo "==> 0241 to 0243 expand migrations and their downs verified"

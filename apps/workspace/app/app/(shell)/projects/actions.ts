@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation'
 import { isNewProjectDropKey } from '@/features/documents/lib/dropped-file-handover'
 import { withPageSession } from '@/lib/auth/require-auth'
 import { BadRequestError } from '@/lib/api/errors'
-import { createProjectFieldsSchema } from '@/lib/projects/create-project-schema'
+import { createProjectFieldsSchema, isAgentSetup, type ProjectSetup } from '@/lib/projects/create-project-schema'
 import { isMonth } from '@/lib/projects/month'
 import { PROJECT_OUTCOMES, type ProjectOutcome } from '@/lib/projects/project-status'
 import {
@@ -60,8 +60,8 @@ export async function createProject(
   redirect(createdProjectPath(projectId, formData.get('dropKey')))
 }
 
-function createdProjectPath(created: { id: string; closed: boolean; setup: 'piloti' | 'self' }, dropKey: unknown): string {
-  if (created.setup === 'piloti') {
+function createdProjectPath(created: { id: string; closed: boolean; setup: ProjectSetup }, dropKey: unknown): string {
+  if (isAgentSetup(created.setup)) {
     const drop = isNewProjectDropKey(dropKey) ? `?drop=${encodeURIComponent(dropKey)}` : ''
     return `/app/projects/${created.id}/setup${drop}`
   }

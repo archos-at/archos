@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { Table, getTableName, is } from 'drizzle-orm'
 import { describe, expect, it } from 'vitest'
 import * as schema from './schema'
+import { LEGACY_ORGANIZATION_SETTING, LEGACY_USER_SETTING } from './legacy-tenant-settings'
 import { ORGANIZATION_SETTING, PLATFORM_ROLE, USER_SETTING } from './tenant-context'
 
 const BOUNDARY_MIGRATIONS = [
@@ -238,9 +239,29 @@ describe('policy predicates say what they should', () => {
 })
 
 describe('settings parity between the app and the policies', () => {
-  it('uses the setting names the policies read', () => {
-    expect(MIGRATION).toContain(`current_setting('${ORGANIZATION_SETTING}', true)`)
-    expect(MIGRATION).toContain(`current_setting('${USER_SETTING}', true)`)
+  const EXPANSION = readFileSync(join(process.cwd(), 'migrations', '0241_app_session_settings.sql'), 'utf8')
+
+  it('reads the new setting names first and the legacy names after them', () => {
+    for (const [setting, legacy] of [
+      [ORGANIZATION_SETTING, LEGACY_ORGANIZATION_SETTING],
+      [USER_SETTING, LEGACY_USER_SETTING],
+    ]) {
+      const first = EXPANSION.indexOf(`current_setting('${setting}', true)`)
+      expect(first).toBeGreaterThan(-1)
+      expect(EXPANSION.indexOf(`current_setting('${legacy}', true)`)).toBeGreaterThan(first)
+    }
+  })
+
+  it('redefines the functions every policy calls and every column default that reads the setting', () => {
+    expect(EXPANSION).toMatch(/CREATE OR REPLACE FUNCTION current_org\(\) RETURNS text/)
+    expect(EXPANSION).toMatch(/CREATE OR REPLACE FUNCTION current_user_id\(\) RETURNS text/)
+    for (const table of ['messages', 'conversation_reads', 'message_edition_uses', 'project_base_confirmations']) {
+      expect(EXPANSION).toMatch(new RegExp(`ALTER TABLE ${table}\\s+ALTER COLUMN organization_id SET DEFAULT`))
+    }
+  })
+
+  it('still names the legacy settings in the migration that created them', () => {
+    expect(MIGRATION).toContain(`current_setting('${LEGACY_ORGANIZATION_SETTING}', true)`)
   })
 
   it('names the same bypass role the migration requires', () => {

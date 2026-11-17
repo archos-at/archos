@@ -23,7 +23,8 @@ import { filesCopy } from '@/i18n/namespaces/files'
 import { AnnotationRequestError } from '@/lib/annotations/client'
 import { MAX_ANNOTATION_BODY, type MarkMention } from '@/lib/annotations/types'
 import { MAX_MENTIONS_PER_MESSAGE } from '@/lib/limits/catalog'
-import { AGENT_MENTION_ID, MENTION_ERROR_REASONS, type MentionCandidate } from '@/lib/mentions/types'
+import { isAgentMentionId, MENTION_ERROR_REASONS, type MentionCandidate } from '@/lib/mentions/types'
+import { LEGACY_AGENT_MENTION_ID } from '@/lib/mentions/legacy-mention-ids'
 import { cn } from '@/lib/utils'
 import { useMentionablePeople } from '../../hooks/use-mentionable-people'
 
@@ -32,12 +33,12 @@ export interface ComposerSend {
   mentions: MarkMention[]
 }
 
-function withoutMention(text: string, mentions: readonly DraftMention[], targetId: string): string {
+function withoutMention(text: string, mentions: readonly DraftMention[], isTarget: (targetId: string) => boolean): string {
   const segments = splitMentionSegments(text, mentions)
   let out = ''
   let dropSpace = false
   for (const segment of segments) {
-    if (segment.kind === 'mention' && segment.targetId === targetId) {
+    if (segment.kind === 'mention' && isTarget(segment.targetId)) {
       dropSpace = true
       continue
     }
@@ -117,8 +118,8 @@ export function Composer({
       ...(mentionAgent
         ? [
             {
-              targetId: AGENT_MENTION_ID,
-              person: { userId: AGENT_MENTION_ID, name: agentName, email: null, profilePictureUrl: null },
+              targetId: LEGACY_AGENT_MENTION_ID,
+              person: { userId: LEGACY_AGENT_MENTION_ID, name: agentName, email: null, profilePictureUrl: null },
               isAgent: true,
               isParticipant: true,
               needsInvite: false,
@@ -136,7 +137,7 @@ export function Composer({
     [mentionAgent, agentName, people]
   )
   const standing = useMemo(() => reconcileMentions(body, picked), [body, picked])
-  const agentMentioned = standing.some((mention) => mention.targetId === AGENT_MENTION_ID)
+  const agentMentioned = standing.some((mention) => isAgentMentionId(mention.targetId))
   const pickerOpen = mentionsOn && query !== null && !dismissed
 
   const syncQuery = (text: string, caret: number | null) => {
@@ -170,14 +171,14 @@ export function Composer({
 
   const toggleAgent = () => {
     if (agentMentioned) {
-      const text = withoutMention(body, picked, AGENT_MENTION_ID)
+      const text = withoutMention(body, picked, isAgentMentionId)
       setBody(text)
       setPicked((current) => reconcileMentions(text, current))
     } else {
       const token = `@${agentName} `
       pendingCaret.current = token.length + body.length
       setBody(`${token}${body}`)
-      setPicked((current) => [...current, { targetId: AGENT_MENTION_ID, display: agentName }])
+      setPicked((current) => [...current, { targetId: LEGACY_AGENT_MENTION_ID, display: agentName }])
     }
     ref.current?.focus()
   }
@@ -195,7 +196,7 @@ export function Composer({
     setFailed(null)
     try {
       const kept = await onSubmit(body, {
-        piloti: sent.some((mention) => mention.targetId === AGENT_MENTION_ID),
+        piloti: sent.some((mention) => isAgentMentionId(mention.targetId)),
         mentions,
       })
       setBody('')
@@ -205,7 +206,7 @@ export function Composer({
       setUntold(
         keptIds
           ? mentions
-              .filter((mention) => mention.targetId !== AGENT_MENTION_ID && !keptIds.has(mention.targetId))
+              .filter((mention) => !isAgentMentionId(mention.targetId) && !keptIds.has(mention.targetId))
               .map((mention) => mention.display)
           : []
       )

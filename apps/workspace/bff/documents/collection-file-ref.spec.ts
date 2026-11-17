@@ -42,6 +42,18 @@ describe('collectionFileRef', () => {
     })
   })
 
+  it('names the pair for a PUBLISHED agent document under the new namespace exactly as under the old', () => {
+    expect(
+      collectionFileRef({
+        ...publishedAgent,
+        filename: 'generated/doc_1/aktenvermerk-2026-09-01.md',
+      })
+    ).toMatchObject({
+      collectionName: 'proj_abc',
+      filename: 'generated/doc_1/aktenvermerk-2026-09-01.md',
+    })
+  })
+
   it('refuses an agent draft under the namespace: nothing was ever published', () => {
     expect(collectionFileRef({ ...publishedAgent, publishedVersionId: null })).toBeNull()
   })

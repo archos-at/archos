@@ -11,10 +11,11 @@ import {
 } from '@/lib/proposals/types'
 import { conversations } from './conversations'
 import { projects } from './projects'
+import { AGENT_KINDS } from '@/lib/agent-kind'
 
 const list = (values: readonly string[]) => sql.raw(values.map((value) => `'${value}'`).join(', '))
 
-export const PROPOSER_KINDS = ['piloti', 'person'] as const
+export const PROPOSER_KINDS = ['person', ...AGENT_KINDS] as const
 export type ProposerKind = (typeof PROPOSER_KINDS)[number]
 
 export const APPLIED_STATUSES = ['applied', 'partially_applied', 'failed'] as const satisfies readonly ProposedChangeStatus[]
