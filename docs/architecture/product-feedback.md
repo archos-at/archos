@@ -35,7 +35,7 @@ team answers in PostHog ──▶ PostHog workflow ──▶ POST /api/webhooks/
 | Table, bounds, RLS | `apps/workspace/migrations/0100_product_feedback.sql`, `0155_product_feedback_posthog_ticket.sql` |
 | Platform routes (`platform:settings:view` to read, `:manage` to change status) | `apps/workspace/app/api/platform/feedback/` |
 | Platform page | `apps/workspace/ui/features/product-feedback/components/feedback-triage.tsx` |
-| The member's cases (list, chat, reply), and their routes | `features/product-feedback/components/feedback-threads.tsx`, `feedback-atoms.tsx`, `app/api/feedback/reports/route.ts` (GET), `app/api/feedback/reports/[reportId]/messages/route.ts` |
+| The member's cases (list, chat, reply), and their routes | `features/product-feedback/components/feedback-threads/case-list.tsx`, `feedback-threads/case-rows.tsx`, `feedback-threads/thread-view.tsx`, `feedback-threads/thread-messages.tsx`, `feedback-atoms.tsx`, `app/api/feedback/reports/route.ts` (GET), `app/api/feedback/reports/[reportId]/messages/route.ts` |
 | The office view (`org:settings:manage`) | `app/api/feedback/office-reports/route.ts`, `listOfficeProductFeedbackThreads` in `lib/product-feedback/service.ts` |
 | Taking a ticket from Slack | `app/api/platform/feedback/claim/route.ts`, `claimProductFeedbackTicket` in `lib/product-feedback/service.ts` |
 
