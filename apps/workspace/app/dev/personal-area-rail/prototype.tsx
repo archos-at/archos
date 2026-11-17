@@ -379,7 +379,7 @@ export function Foot({ personalDoor = false, officeShelfOpen = false }: { person
 }
 
 /** The page beside the rail: enough of a chat to say where the reader is and who reads along. */
-function Page({ me, fresh = false, noneLabel = 'Ohne Projekt' }: { me: boolean; fresh?: boolean; noneLabel?: string }): JSX.Element {
+export function Page({ me, fresh = false, noneLabel = 'Ohne Projekt' }: { me: boolean; fresh?: boolean; noneLabel?: string }): JSX.Element {
   const project = PROJECTS[0]!.name
   // „Alle Projekte“: the chat is bound to no project and may look into every one the reader can open.
   const across = me && noneLabel === 'Alle Projekte'

@@ -11,7 +11,7 @@
 import type { JSX, ReactNode } from 'react'
 import { useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Check, ChevronRight, FileText, Folder, FolderInput, LayoutGrid, LockKeyhole, Paperclip, Plus, Upload, Zap } from 'lucide-react'
+import { Check, FileText, Folder, FolderInput, LayoutGrid, LockKeyhole, Paperclip, Plus, Upload, Zap } from 'lucide-react'
 
 import { ProjectSectionActions, ProjectSectionFrame } from '@/components/shell/project-section-frame'
 import { ProjectSwitcher } from '@/components/shell/project-switcher'
@@ -32,7 +32,7 @@ import { DEFAULT_FILE_SORT } from '@/features/documents/lib/file-sort'
 import { I18nProvider } from '@/i18n'
 import { makeFile, useFixtureFolderNav } from '../file-browser/fixtures'
 import { REAL_FILES, REAL_FOLDERS } from '../files-page/fixtures'
-import { ALL_CHATS, ChatRow, Foot, GroupLabel, MoreRow, NavRow, PROJECTS } from '../personal-area-rail/prototype'
+import { ALL_CHATS, ChatRow, Foot, GroupLabel, MoreRow, NavRow, Page, PROJECTS } from '../personal-area-rail/prototype'
 
 const OWN = { id: 'none', name: 'Alle Projekte' }
 
@@ -75,20 +75,12 @@ function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null,
           </div>
         </SidebarHeader>
         <SidebarContent className="mt-3 flex-1 gap-0 overflow-y-auto px-3 py-px">
-          {section && (
-            <SidebarMenu className="mb-6 gap-0.5">
-              <NavRow icon={Folder} label="Ablage" active={section === 'files'} />
-              <NavRow icon={LayoutGrid} label="Übersicht" />
-              <NavRow icon={Zap} label="Automatisierung" active={section === 'automation'} />
-            </SidebarMenu>
-          )}
-          {!section && (ownFiles || !own) && (
-            <SidebarMenu className="mb-6 gap-0.5">
-              <NavRow icon={Folder} label="Dateien" active={projectFilesOpen || (own && ownFiles && openChat === null && !officeShelfOpen)} />
-              {!own && <NavRow icon={LayoutGrid} label="Übersicht" />}
-              {!own && <NavRow icon={Zap} label="Automatisierung" />}
-            </SidebarMenu>
-          )}
+          {/* The sections stand under every choice of the switcher, „Alle Projekte“ included. */}
+          <SidebarMenu className="mb-6 gap-0.5">
+            <NavRow icon={Folder} label="Ablage" active={section === 'files' || projectFilesOpen || (ownFiles && openChat === null && !officeShelfOpen)} />
+            <NavRow icon={LayoutGrid} label="Übersicht" />
+            <NavRow icon={Zap} label="Automatisierung" active={section === 'automation'} />
+          </SidebarMenu>
           <a href="#" className="bg-sheet shadow-press flex h-9 shrink-0 items-center justify-center gap-2 rounded-control text-sm font-medium">
             <Plus className="size-4" aria-hidden />
             Neuer Chat
@@ -218,22 +210,6 @@ function AllProjects({ page, own }: { page: 'files' | 'automation'; own: boolean
 }
 
 /**
- * The person's own Ablage with a folder per project they keep something for: what belongs to a project is in a
- * folder that says so, and inside a project „Meine Ablage“ opens at that folder.
- */
-const OWN_TREE_FOLDERS: FolderItem[] = [
-  { id: 'o-p1', parentId: null, name: PROJECTS[0]!.name, path: `/${PROJECTS[0]!.name}` },
-  { id: 'o-p2', parentId: null, name: PROJECTS[1]!.name, path: `/${PROJECTS[1]!.name}` },
-  ...OWN_FOLDERS,
-]
-const OWN_TREE_FILES: FileItem[] = [
-  ...OWN_FILES,
-  makeFile('op1', 'Notizen_Bauherrengespraech_03-11.pdf', '', { folderId: 'o-p1', fileSize: 90_000, createdAt: '2026-11-03T09:00:00Z' }),
-  makeFile('op2', 'Honorarueberlegung_Entwurf.pdf', '', { folderId: 'o-p1', fileSize: 140_000, createdAt: '2026-11-10T09:00:00Z' }),
-  makeFile('op3', 'Notizen_Bestandsaufnahme.pdf', '', { folderId: 'o-p2' }),
-]
-
-/**
  * D: one Dateien page. The track beside the tools says whose files these are: a project's (its name opens the list
  * of projects) or the person's own. `top` is what the rail's switcher shows; `?pos=title` makes the two the title.
  */
@@ -252,17 +228,7 @@ function SwitchPage({ own, top, titleSwitch }: { own: boolean; top: 'project' | 
         <div className="bg-background absolute left-8 right-8 top-[10px] z-10 flex h-[68px] flex-col justify-between">
           {/* Where the reader stands. In a project „Meine Ablage“ opens at the folder that carries the project's name. */}
           <span className="text-muted-foreground text-meta flex items-center gap-1.5">
-            {own ? (
-              top === 'project' ? (
-                <>
-                  Meine Ablage <ChevronRight className="size-3" aria-hidden /> <span className="text-foreground font-medium">{project.name}</span>
-                </>
-              ) : (
-                'Meine Ablage'
-              )
-            ) : (
-              project.name
-            )}
+            {own ? 'Meine Ablage' : project.name}
           </span>
           <div className="flex h-11 items-center gap-4">
           {titleSwitch ? (
@@ -294,7 +260,7 @@ function SwitchPage({ own, top, titleSwitch }: { own: boolean; top: 'project' | 
           </ProjectSectionActions>
           <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
             {own ? (
-              <Browser key={`own-${top}`} files={OWN_TREE_FILES} folders={OWN_TREE_FOLDERS} openFolder={top === 'project' ? 'o-p1' : null} />
+              <Browser key="own" files={OWN_FILES} folders={OWN_FOLDERS} />
             ) : (
               <Browser key="project" files={REAL_FILES} folders={REAL_FOLDERS} />
             )}
@@ -429,12 +395,23 @@ function InOfficeShelf(): JSX.Element {
   )
 }
 
+/** The chat beside the rail as the concept now has it: bound to no project (`me`), or just started in one (`new`). */
+function Talk({ place }: { place: string }): JSX.Element {
+  const own = place === 'me'
+  return (
+    <>
+      <Rail own={own} openChat={own ? 0 : null} />
+      <Page me={own} fresh={place === 'new'} noneLabel="Alle Projekte" />
+    </>
+  )
+}
+
 export default function PersonalFilesPreview(): JSX.Element {
   const params = useSearchParams()
   const variant = params?.get('v') ?? 'page'
   return (
     <I18nProvider initialLocale="de" fixedLocale>
-      <div className="bg-background text-foreground flex h-dvh overflow-hidden">{variant === 'all' ? <AllProjects page={params?.get('page') === 'automation' ? 'automation' : 'files'} own={params?.get('shelf') === 'own'} /> : variant === 'switch' ? <SwitchPage own={params?.get('shelf') === 'own'} top={params?.get('top') === 'all' ? 'all' : 'project'} titleSwitch={params?.get('pos') === 'title'} /> : variant === 'office' ? <InOfficeShelf /> : variant === 'chat' ? <FromChat /> : <OwnPage />}</div>
+      <div className="bg-background text-foreground flex h-dvh overflow-hidden">{variant === 'talk' ? <Talk place={params?.get('place') ?? 'me'} /> : variant === 'all' ? <AllProjects page={params?.get('page') === 'automation' ? 'automation' : 'files'} own={params?.get('shelf') === 'own'} /> : variant === 'switch' ? <SwitchPage own={params?.get('shelf') === 'own'} top={params?.get('top') === 'all' ? 'all' : 'project'} titleSwitch={params?.get('pos') === 'title'} /> : variant === 'office' ? <InOfficeShelf /> : variant === 'chat' ? <FromChat /> : <OwnPage />}</div>
     </I18nProvider>
   )
 }
