@@ -11,7 +11,7 @@
 import type { JSX, ReactNode } from 'react'
 import { useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Check, ChevronDown, FileText, Settings, Folder, FolderInput, LayoutGrid, LockKeyhole, Paperclip, Plus, Upload, Zap } from 'lucide-react'
+import { Check, ChevronDown, FileText, FolderLock, Settings, Folder, FolderInput, LayoutGrid, LockKeyhole, Paperclip, Plus, Upload, Zap } from 'lucide-react'
 
 import { ProjectSectionActions, ProjectSectionFrame } from '@/components/shell/project-section-frame'
 import { ProjectSwitcher } from '@/components/shell/project-switcher'
@@ -64,16 +64,33 @@ const OFFICE_FILES: FileItem[] = [
 ]
 
 /** The rail the concept settled on for now: the switcher names the project or „Mein Bereich“, the chats are the reader's own. */
-function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null, projectFilesOpen = false, section, shelfRows, ownShelf, gear = false }: { own: boolean; ownFiles?: boolean; officeShelfOpen?: boolean; openChat?: number | null; projectFilesOpen?: boolean; section?: 'files' | 'automation'; shelfRows?: 'project' | 'own'; ownShelf?: 'idle' | 'open'; gear?: boolean }): JSX.Element {
+function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null, projectFilesOpen = false, section, shelfRows, ownShelf, gear = false }: { own: boolean; ownFiles?: boolean; officeShelfOpen?: boolean; openChat?: number | null; projectFilesOpen?: boolean; section?: 'files' | 'automation'; shelfRows?: 'project' | 'own'; ownShelf?: 'idle' | 'open'; gear?: boolean | 'menu' | 'none' }): JSX.Element {
   return (
     <SidebarProvider className="h-full min-h-0 w-auto shrink-0">
       <Sidebar collapsible="icon" data-scope="project" aria-label="Navigation">
         <SidebarHeader className="shrink-0 gap-0 p-0 px-3">
           <SidebarBrand iconRail={false} />
-          <div className="mt-1 flex items-center gap-1.5">
+          <div className="relative mt-1 flex items-center gap-1.5">
             <ProjectSwitcher projects={[OWN, ...PROJECTS]} activeProjectId={own ? 'none' : 'p-1'} />
+            {/* The switcher's own menu, drawn open: the project's settings are its first entry, above the way to another. */}
+            {gear === 'menu' && (
+              <div className="bg-sheet shadow-md absolute left-0 right-0 top-full z-50 mt-1.5 rounded-[16px] p-1.5">
+                <div className="text-name flex h-9 items-center gap-2.5 rounded-control px-2.5 font-medium">
+                  <Settings className="text-muted-foreground size-4 shrink-0" aria-hidden />
+                  Projekteinstellungen
+                </div>
+                <div className="bg-desk mx-1 my-1.5 h-px" />
+                <div className="text-muted-foreground text-meta px-2.5 pb-1 pt-1 font-medium">Projekt wechseln</div>
+                {[OWN, ...PROJECTS].map((item) => (
+                  <div key={item.id} className={`text-name flex h-9 items-center gap-2.5 rounded-control px-2.5 ${item.id === 'p-1' ? 'bg-desk' : ''}`}>
+                    <span className="min-w-0 flex-1 truncate">{item.name}</span>
+                    {item.id === 'p-1' && <Check className="size-4 shrink-0" aria-hidden />}
+                  </div>
+                ))}
+              </div>
+            )}
             {/* The project's settings stand with its name: no section of their own, and none without a project. */}
-            {gear && !own && (
+            {gear === true && !own && (
               <span title="Projekteinstellungen" className="bg-sheet shadow-press text-muted-foreground flex size-10 shrink-0 items-center justify-center rounded-control">
                 <Settings className="size-4" aria-hidden />
               </span>
@@ -225,24 +242,55 @@ function AllProjects({ page, own }: { page: 'files' | 'automation'; own: boolean
  * D: one Dateien page. The track beside the tools says whose files these are: a project's (its name opens the list
  * of projects) or the person's own. `top` is what the rail's switcher shows; `?pos=title` makes the two the title.
  */
-function SwitchPage({ own, top, titleSwitch, mode, menuOpen }: { own: boolean; top: 'project' | 'all'; titleSwitch: boolean; mode: string; menuOpen: boolean }): JSX.Element {
+function SwitchPage({ own, top, titleSwitch, mode, menuOpen, settingsOpen }: { own: boolean; top: 'project' | 'all'; titleSwitch: boolean; mode: string; menuOpen: boolean; settingsOpen: boolean }): JSX.Element {
   const [view, setView] = useState<FileView>('cards')
   const search = useFileSearch(projectSearchScope('proj-demo'))
   const project = PROJECTS[0]!
   const on = 'bg-sheet shadow-xs rounded-[4px] px-3 py-1.5'
   const off = 'text-muted-foreground px-3 py-1.5'
+  const tall = mode === 'cards' || mode === 'wide'
+  const sides = [
+    { label: 'Projektablage', hint: top === 'project' ? `${project.short} · für das Team` : 'Kein Projekt ausgewählt', icon: Folder, picked: !own, off: top === 'all' },
+    { label: 'Meine Ablage', hint: 'Nur für Sie', icon: FolderLock, picked: own, off: false },
+  ]
   return (
     <>
-      <Rail own={top === 'all'} section="files" gear={mode !== 'track'} shelfRows={mode === 'rail' ? (own ? 'own' : 'project') : undefined} ownShelf={mode === 'foot' ? (own ? 'open' : 'idle') : undefined} />
+      <Rail own={top === 'all'} section="files" gear={mode === 'cards' || mode === 'wide' ? (settingsOpen ? 'menu' : 'none') : mode !== 'track'} shelfRows={mode === 'rail' ? (own ? 'own' : 'project') : undefined} ownShelf={mode === 'foot' ? (own ? 'open' : 'idle') : undefined} />
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         {/* The page's own title row, drawn over the frame's („Dateien“): the place is called Ablage here, and the
             choice between the project's and the person's own stands at the title, in one of two positions. */}
-        <div className="bg-background absolute left-8 right-8 top-[10px] z-40 flex h-[68px] flex-col justify-between">
+        <div className={`bg-background absolute left-8 right-8 top-[10px] z-40 flex flex-col justify-between ${tall ? 'h-[152px]' : 'h-[68px]'}`}>
           {/* Where the reader stands. In a project „Meine Ablage“ opens at the folder that carries the project's name. */}
           <span className="text-muted-foreground text-meta flex items-center gap-1.5">
             {own ? 'Meine Ablage' : project.name}
           </span>
-          <div className="flex h-11 items-center gap-4">
+          {tall && <h1 className="text-page-title">Ablage</h1>}
+          {mode === 'wide' && (
+            <div className="bg-desk grid max-w-[620px] grid-cols-2 rounded-[10px] p-1">
+              {sides.map((side) => (
+                <div key={side.label} className={`flex h-12 items-center gap-2.5 px-4 ${side.picked ? 'bg-sheet shadow-xs rounded-[8px]' : ''}`}>
+                  <side.icon className={`size-4 shrink-0 ${side.picked ? '' : 'text-muted-foreground'}`} aria-hidden />
+                  <span className={`text-[15px] leading-5 ${side.picked ? 'font-semibold' : 'text-muted-foreground font-medium'}`}>{side.label}</span>
+                  <span className="text-muted-foreground text-meta ml-auto shrink-0">{side.off ? 'Kein Projekt' : side.icon === FolderLock ? 'Nur Sie' : 'Team'}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {mode === 'cards' && (
+            <div className="grid max-w-[620px] grid-cols-2 gap-3">
+              {sides.map((side) => (
+                <div key={side.label} className={`flex h-[60px] items-center gap-3 rounded-[10px] px-4 ${side.picked ? 'bg-sheet ring-foreground shadow-sm ring-[1.5px]' : 'shadow-press'}`}>
+                  <side.icon className={`size-5 shrink-0 ${side.picked ? '' : 'text-muted-foreground'}`} aria-hidden />
+                  <div className="min-w-0">
+                    <div className={`text-[15px] leading-5 ${side.picked ? 'font-semibold' : 'font-medium'} ${side.off ? 'text-muted-foreground' : ''}`}>{side.label}</div>
+                    <div className="text-muted-foreground text-meta truncate">{side.hint}</div>
+                  </div>
+                  {side.picked && <Check className="ml-auto size-4 shrink-0" aria-hidden />}
+                </div>
+              ))}
+            </div>
+          )}
+          <div className={tall ? 'hidden' : 'flex h-11 items-center gap-4'}>
           {mode === 'rail' || mode === 'foot' ? (
             <h1 className="text-page-title">{own ? 'Meine Ablage' : mode === 'foot' ? 'Ablage' : 'Projektablage'}</h1>
           ) : mode === 'menu' ? (
@@ -283,6 +331,7 @@ function SwitchPage({ own, top, titleSwitch, mode, menuOpen }: { own: boolean; t
           )}
           </div>
         </div>
+        <div className={tall ? 'flex min-h-0 flex-1 flex-col pt-[84px]' : 'contents'}>
         <ProjectSectionFrame projectId="dev" projectName={own ? (top === 'all' ? 'Alle Projekte' : project.name) : project.name} pathname="/app/projects/dev/files" inboundMail={!own}>
           <ProjectSectionActions>
             <FilesHeaderControls
@@ -302,6 +351,7 @@ function SwitchPage({ own, top, titleSwitch, mode, menuOpen }: { own: boolean; t
             )}
           </div>
         </ProjectSectionFrame>
+        </div>
       </div>
     </>
   )
@@ -447,7 +497,7 @@ export default function PersonalFilesPreview(): JSX.Element {
   const variant = params?.get('v') ?? 'page'
   return (
     <I18nProvider initialLocale="de" fixedLocale>
-      <div className="bg-background text-foreground flex h-dvh overflow-hidden">{variant === 'talk' ? <Talk place={params?.get('place') ?? 'me'} /> : variant === 'all' ? <AllProjects page={params?.get('page') === 'automation' ? 'automation' : 'files'} own={params?.get('shelf') === 'own'} /> : variant === 'switch' ? <SwitchPage own={params?.get('shelf') === 'own'} top={params?.get('top') === 'all' ? 'all' : 'project'} mode={params?.get('mode') ?? 'track'} menuOpen={params?.get('open') === '1'} titleSwitch={params?.get('pos') === 'title'} /> : variant === 'office' ? <InOfficeShelf /> : variant === 'chat' ? <FromChat /> : <OwnPage />}</div>
+      <div className="bg-background text-foreground flex h-dvh overflow-hidden">{variant === 'talk' ? <Talk place={params?.get('place') ?? 'me'} /> : variant === 'all' ? <AllProjects page={params?.get('page') === 'automation' ? 'automation' : 'files'} own={params?.get('shelf') === 'own'} /> : variant === 'switch' ? <SwitchPage own={params?.get('shelf') === 'own'} top={params?.get('top') === 'all' ? 'all' : 'project'} mode={params?.get('mode') ?? 'track'} menuOpen={params?.get('open') === '1'} settingsOpen={params?.get('settings') === '1'} titleSwitch={params?.get('pos') === 'title'} /> : variant === 'office' ? <InOfficeShelf /> : variant === 'chat' ? <FromChat /> : <OwnPage />}</div>
     </I18nProvider>
   )
 }
