@@ -181,6 +181,20 @@ was a count of 2 955 server events, and a daily budget warning was reported as
 80 % of a monthly budget. A report whose numbers must be right is saved
 insights; a model may summarise them, never query for them.
 
+## Views: `views/`
+
+Saved views that put production, and the customer offices, in the data rather
+than in each query. An agent reads them by name and their description says what
+a row is. Edit the file, then save it with `view-update` (it needs the view's
+`latest_history_id` as `edited_history_id`), and re-check that a one-day query
+reads only that day in `query_log`: a lambda (`arrayFirst`) or `person_id`
+in the view makes PostHog read every row.
+
+| File | View |
+|---|---|
+| [`prod_events.sql`](views/prod_events.sql) | `prod_events`: every production event, staging left out, with `app_host` and `organization_id` |
+| [`customer_events.sql`](views/customer_events.sql) | `customer_events`: `prod_events` without the platform's own offices |
+
 ## Skills
 
 The project skill `querying-product-analytics`, which PostHog serves to every agent on

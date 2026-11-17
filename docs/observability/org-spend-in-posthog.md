@@ -88,7 +88,7 @@ Project 269895. Everything carries the tag `spend`.
 
 | View | One row per | Use it for |
 |---|---|---|
-| `piloti_llm_usage_hourly` | the `llm_usage_hourly` event, flattened, with `day_utc` and `organization_name` | Anything by model, purpose, person or project |
+| `piloti_llm_usage_hourly` | the `llm_usage_hourly` event, flattened, with `day_utc` and `organization_name`; `model` folded where the ledger named it twice (2026-11-11 until migration 0241) | Anything by model, purpose, person or project |
 | `piloti_org_spend_daily` | deployment × organization × UTC day | Trends and month totals per organization |
 | `piloti_org_budgets` | deployment × organization: the latest snapshot of the last 7 days | Limits, how much of them is used, who is blocked |
 

@@ -1,5 +1,5 @@
 lockfile_version: '1'
-generated_at: '2026-11-17T12:45:46.756454+00:00'
+generated_at: '2026-11-17T13:06:24.850283+00:00'
 apm_version: 0.28.0
 dependencies:
 - repo_url: _local/querying-product-analytics
@@ -12,8 +12,8 @@ dependencies:
   - .claude/skills/querying-product-analytics
   - .claude/skills/querying-product-analytics/SKILL.md
   deployed_file_hashes:
-    .agents/skills/querying-product-analytics/SKILL.md: sha256:eadb99ad01910b8e6b0ddb0b81ade2ce77a5f880c6a0d2df5165e881e878ecda
-    .claude/skills/querying-product-analytics/SKILL.md: sha256:eadb99ad01910b8e6b0ddb0b81ade2ce77a5f880c6a0d2df5165e881e878ecda
+    .agents/skills/querying-product-analytics/SKILL.md: sha256:98481d8f96f497bfccbc15ece32b4ce7ae6321506300aa8bc5ad56b3a5856059
+    .claude/skills/querying-product-analytics/SKILL.md: sha256:98481d8f96f497bfccbc15ece32b4ce7ae6321506300aa8bc5ad56b3a5856059
   source: local
   local_path: ./skills/querying-product-analytics
 - repo_url: _local/verify-on-dev
@@ -3412,7 +3412,7 @@ deployments:
   owners:
   - ./skills/querying-product-analytics
   active_owner: ./skills/querying-product-analytics
-  content_hash: sha256:eadb99ad01910b8e6b0ddb0b81ade2ce77a5f880c6a0d2df5165e881e878ecda
+  content_hash: sha256:98481d8f96f497bfccbc15ece32b4ce7ae6321506300aa8bc5ad56b3a5856059
 - kind: project-relative
   target: agent-skills
   value: .agents/skills/skill
@@ -5734,7 +5734,7 @@ deployments:
   owners:
   - ./skills/querying-product-analytics
   active_owner: ./skills/querying-product-analytics
-  content_hash: sha256:eadb99ad01910b8e6b0ddb0b81ade2ce77a5f880c6a0d2df5165e881e878ecda
+  content_hash: sha256:98481d8f96f497bfccbc15ece32b4ce7ae6321506300aa8bc5ad56b3a5856059
 - kind: project-relative
   target: claude
   value: .claude/skills/skill
