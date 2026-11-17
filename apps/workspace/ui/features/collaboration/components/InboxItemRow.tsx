@@ -24,7 +24,7 @@ import { filesCopy } from '@/i18n/namespaces/files'
 import { formatAbsoluteTime, formatRelativeTime } from '@/lib/format'
 import { inboxItemCopy } from '@/lib/inbox/item-copy'
 import {
-  INBOX_TYPE_PRESENTATION,
+  inboxTypePresentation,
   isMarkAnchored,
   UNKNOWN_TYPE_PRESENTATION,
   type InboxItemView,
@@ -93,7 +93,7 @@ export const InboxItemRow = forwardRef<HTMLLIElement, InboxItemRowProps>(functio
   const tFiles = useTranslations(filesCopy)
   const { locale } = useLocale()
 
-  const presentation = INBOX_TYPE_PRESENTATION[item.type] ?? UNKNOWN_TYPE_PRESENTATION
+  const presentation = inboxTypePresentation(item.type) ?? UNKNOWN_TYPE_PRESENTATION
 
   const documentProjectId =
     item.resourceType === 'document' ? projectIdFromDocumentHref(item.href) : null
@@ -187,7 +187,7 @@ export const InboxItemRow = forwardRef<HTMLLIElement, InboxItemRowProps>(functio
   const chatName = item.subject ?? t('inbox.untitledConversation')
   const place =
     item.resourceType === 'conversation' &&
-    presentation.icon !== 'piloti' &&
+    presentation.icon !== 'agent' &&
     !redacted &&
     !title.includes(chatName) &&
     !(showBody && body?.includes(chatName))

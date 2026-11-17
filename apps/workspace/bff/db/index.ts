@@ -1,5 +1,6 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
+import { LEGACY_ORGANIZATION_SETTING, LEGACY_USER_SETTING } from "./legacy-tenant-settings";
 import {
   MissingTenantContextError,
   ORGANIZATION_SETTING,
@@ -58,7 +59,9 @@ export function contextStatement(context: TenantContext): string {
   }
   return [
     settingLiteral(ORGANIZATION_SETTING, context.organizationId),
+    settingLiteral(LEGACY_ORGANIZATION_SETTING, context.organizationId),
     settingLiteral(USER_SETTING, context.userId ?? ""),
+    settingLiteral(LEGACY_USER_SETTING, context.userId ?? ""),
     timeout,
   ].join("; ");
 }

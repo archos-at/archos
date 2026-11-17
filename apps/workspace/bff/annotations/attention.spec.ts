@@ -109,7 +109,7 @@ describe('onWakeEnded', () => {
     expect(emitted()).toMatchObject({
       organizationId: 'org_1',
       recipientUserId: 'user_me',
-      type: 'piloti.work_done',
+      type: 'agent.work_done',
       resourceType: 'document',
       resourceId: 'doc_1',
       anchorId: 'ann_1',
@@ -121,7 +121,7 @@ describe('onWakeEnded', () => {
   it('tells who delegated a mark that the agent could not work it', async () => {
     await onWakeEnded({ ...wake, trigger: 'assigned', outcome: 'failed' })
 
-    expect(emitted()).toMatchObject({ type: 'piloti.work_failed', recipientUserId: 'user_me', anchorId: 'ann_1' })
+    expect(emitted()).toMatchObject({ type: 'agent.work_failed', recipientUserId: 'user_me', anchorId: 'ann_1' })
   })
 
   it('quotes what the mark says, on one line, so the person knows which one it was', async () => {
@@ -169,7 +169,7 @@ describe('onWakeEnded', () => {
   it.each(['thread_mention', 'thread_reply'] as const)('tells who asked (%s) when the agent answered', async (trigger) => {
     await onWakeEnded({ ...wake, trigger, outcome: 'answered' })
 
-    expect(emitted()).toMatchObject({ type: 'piloti.work_done', recipientUserId: 'user_me' })
+    expect(emitted()).toMatchObject({ type: 'agent.work_done', recipientUserId: 'user_me' })
   })
 
   it.each(['thread_mention', 'thread_reply'] as const)(
@@ -178,7 +178,7 @@ describe('onWakeEnded', () => {
       await onWakeEnded({ ...wake, trigger, outcome: 'failed' })
 
       expect(emitted()).toMatchObject({
-        type: 'piloti.work_failed',
+        type: 'agent.work_failed',
         recipientUserId: 'user_me',
         anchorId: 'ann_1',
         actorUserId: null,
@@ -229,7 +229,7 @@ describe('onAgentWrote', () => {
 
     expect(emitted()).toMatchObject({
       recipientUserId: 'user_me',
-      type: 'piloti.asks_you',
+      type: 'agent.asks_you',
       resourceType: 'document',
       resourceId: 'doc_1',
       anchorId: 'ann_1',
@@ -254,7 +254,7 @@ describe('onAgentWrote', () => {
 
     await onAgentWrote({ ...write, what: 'reply', replyId: 'reply_1' })
 
-    expect(emitted()).toMatchObject({ type: 'piloti.asks_you', payload: { excerpt: 'Und die Absturzsicherung?' } })
+    expect(emitted()).toMatchObject({ type: 'agent.asks_you', payload: { excerpt: 'Und die Absturzsicherung?' } })
   })
 
   it('cuts a long question to a line', async () => {
@@ -314,7 +314,7 @@ describe('onMarkSettledByPerson', () => {
     await onMarkSettledByPerson({ ...settle, closed: false })
 
     const [input] = vi.mocked(resolveInboxItemsAnchoredOn).mock.calls[0]
-    expect(input).toEqual({ organizationId: 'org_1', types: ['piloti.asks_you'], anchorId: 'ann_1' })
+    expect(input).toEqual({ organizationId: 'org_1', types: ['agent.asks_you'], anchorId: 'ann_1' })
     expect(input).not.toHaveProperty('recipientUserId')
   })
 
@@ -325,7 +325,7 @@ describe('onMarkSettledByPerson', () => {
     const [input] = vi.mocked(resolveInboxItemsAnchoredOn).mock.calls[0]
     expect(input).toEqual({
       organizationId: 'org_1',
-      types: ['piloti.asks_you', 'annotation.assigned_to_you', 'annotation.mentioned'],
+      types: ['agent.asks_you', 'annotation.assigned_to_you', 'annotation.mentioned'],
       anchorId: 'ann_1',
     })
     expect(input).not.toHaveProperty('recipientUserId')
@@ -423,6 +423,14 @@ describe('markParticipants', () => {
     })
 
     expect(markParticipants(mark)).toEqual(['user_author', 'user_replier', 'user_named', 'user_asked'])
+  })
+
+  it('never counts the agent under its new id either', () => {
+    const mark = people({
+      replies: [{ authorKind: 'person', createdBy: 'user_replier', mentions: [{ targetId: 'agent:core', display: PRODUCT_NAME }] }],
+    })
+
+    expect(markParticipants(mark)).toEqual(['user_author', 'user_replier'])
   })
 
   it('takes the person who took the agent’s mark over as its author, and nobody for an untaken proposal', () => {
@@ -728,7 +736,7 @@ describe('onMarkDeleted', () => {
       groupAnchor: { isNot: 'set:' },
     })
     expect(MARK_ANCHORED_INBOX_TYPES).toEqual(
-      expect.arrayContaining(['piloti.asks_you', 'annotation.assigned_to_you', 'annotation.activity']),
+      expect.arrayContaining(['agent.asks_you', 'annotation.assigned_to_you', 'annotation.activity']),
     )
   })
 

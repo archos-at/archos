@@ -1,4 +1,4 @@
-import { AGENT_MENTION_ID, type MentionInput } from '@/lib/mentions/types'
+import { isAgentMentionId, type MentionInput } from '@/lib/mentions/types'
 
 export interface DraftMention {
   targetId: string
@@ -131,7 +131,7 @@ export function toMentionInputs(mentions: readonly DraftMention[]): MentionInput
 }
 
 export function humanMentions(mentions: readonly DraftMention[]): DraftMention[] {
-  return mentions.filter((mention) => mention.targetId !== AGENT_MENTION_ID)
+  return mentions.filter((mention) => !isAgentMentionId(mention.targetId))
 }
 
 export function splitMentionSegments(

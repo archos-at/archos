@@ -571,14 +571,14 @@ describe('an undo in the audit trail', () => {
     for (const [input] of vi.mocked(recordAuditEvent).mock.calls) expectRegistered(input)
   })
 
-  it('records one piloti.change.undone, as the person who undid it, naming whom the agent had made it for', async () => {
+  it('records one agent.change.undone, as the person who undid it, naming whom the agent had made it for', async () => {
     put(row())
 
     await undoChange(change(1))
 
     expect(audited()).toEqual([
       {
-        action: 'piloti.change.undone',
+        action: 'agent.change.undone',
         organizationId: 'org_1',
         actor: { userId: 'user_1', email: 'anna@example.test' },
         targetType: 'document_annotation',
@@ -640,7 +640,7 @@ describe('an undo in the audit trail', () => {
 
     expect(undone.undoneBy).toBe('user_1')
     expect(current()?.status).toBe('open')
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('piloti.change.undone'), expect.any(Error))
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('agent.change.undone'), expect.any(Error))
     warn.mockRestore()
   })
 })

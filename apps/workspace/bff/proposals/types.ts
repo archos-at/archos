@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { ProjectProfilePatchOperationSchema } from '@/lib/project-profile/types'
 import { PROJECT_MEMORY_CONFIDENCES, PROJECT_MEMORY_KINDS } from '@/lib/projects/memory-vocabulary'
 import { memoryTopicField } from '@/lib/memory-topics/wire'
+import { AGENT_KINDS } from '@/lib/agent-kind'
 
 export const PROPOSED_CHANGE_KINDS = ['file_operation', 'memory', 'project_profile', 'operation'] as const
 export type ProposedChangeKind = (typeof PROPOSED_CHANGE_KINDS)[number]
@@ -145,7 +146,7 @@ const proposedChangeBaseSchema = z.object({
   id: z.guid(),
   projectId: z.string().nullable(),
   status: z.enum(PROPOSED_CHANGE_STATUSES),
-  proposedByKind: z.enum(['piloti', 'person']),
+  proposedByKind: z.enum(['person', ...AGENT_KINDS] as const),
   onBehalfOf: z.string(),
   onBehalfOfName: z.string().nullable(),
   originConversationId: z.string().nullable(),

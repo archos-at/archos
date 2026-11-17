@@ -92,6 +92,7 @@ import { insertAgentChanges } from '@/lib/changes/repository'
 import { recordAuditEvent, type AuditEventInput } from '@/lib/audit/service'
 import { expectRegistered } from '@/test-utils/audit'
 import type { AgentChangeRow } from '@/lib/db/schema/piloti-changes'
+import { isAgentKind } from '@/lib/agent-kind'
 import { POST } from './route'
 
 const SECRET = 'test-internal-token-annotations'
@@ -435,10 +436,10 @@ const record = (patch: Partial<AnnotationRecord> = {}): AnnotationRecord => ({
 
 function violatedChecks(row: DocumentAnnotationRow): string[] {
   const broken: string[] = []
-  if (row.status === 'proposed' && row.authorKind !== 'piloti') broken.push('only_piloti_proposes')
+  if (row.status === 'proposed' && !isAgentKind(row.authorKind)) broken.push('only_agent_proposes')
   if ((row.acceptedBy === null) !== (row.acceptedAt === null)) broken.push('acceptance_complete')
   if (row.authorKind !== 'person' && !['proposed', 'dismissed'].includes(row.status) && row.acceptedBy === null) {
-    broken.push('piloti_needs_a_person')
+    broken.push('agent_needs_a_person')
   }
   const closed = row.status === 'resolved' || row.status === 'dismissed'
   if (closed !== (row.closedBy !== null) || (row.closedBy === null) !== (row.closedAt === null)) {
@@ -969,7 +970,7 @@ describe('POST /api/internal/document-annotations — what a turn changed is in 
 
     expect(audited()).toEqual([
       {
-        action: 'piloti.change.applied',
+        action: 'agent.change.applied',
         organizationId: 'org_1',
         actor: { userId: 'user_1', email: null },
         targetType: 'document_annotation',
@@ -1062,7 +1063,7 @@ describe('POST /api/internal/document-annotations — what a turn changed is in 
     expect(response.status).toBe(200)
     expect(stored().status).toBe('resolved')
     expect(insertAgentChanges).toHaveBeenCalledTimes(1)
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('piloti.change.applied'), expect.any(Error))
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('agent.change.applied'), expect.any(Error))
     warn.mockRestore()
   })
 })

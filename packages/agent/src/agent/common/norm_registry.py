@@ -43,6 +43,7 @@ from pydantic import ValidationError
 from pydantic import field_validator
 
 from agent.common.family_query import family_query_number  # noqa: F401  (re-exported)
+from agent.common.legacy_lane_names import LEGACY_AGENT_AUTHORED_LANE
 from agent.common.oib_file_names import canonical_oib_file_name
 from agent.common.source_kinds import AGENT_AUTHORED_LANE
 from agent.common.source_kinds import AGENT_AUTHORED_LANE_LABEL
@@ -580,7 +581,7 @@ _LANE_LABELS: dict[str, str] = {
     **{key: label for key, label in _RANK_LANES.values()},
     "building_law_ris": "Rechtsquelle (RIS)",
     "building_law_base": "Basisdokument",
-    AGENT_AUTHORED_LANE: AGENT_AUTHORED_LANE_LABEL,
+    **dict.fromkeys((AGENT_AUTHORED_LANE, LEGACY_AGENT_AUTHORED_LANE), AGENT_AUTHORED_LANE_LABEL),
     MAIL_LANE: MAIL_LANE_LABEL,
     OFFICE_MAIL_LANE: MAIL_LANE_LABEL,
 }
@@ -848,7 +849,7 @@ def lane_for_hit(
     from agent.common.source_kinds import parse_shelf
 
     if is_agent_author(authored_by):
-        return (AGENT_AUTHORED_LANE, AGENT_AUTHORED_LANE_LABEL)
+        return (LEGACY_AGENT_AUTHORED_LANE, AGENT_AUTHORED_LANE_LABEL)
     known_shelf = parse_shelf(shelf) or legacy_shelf_for_collection_name(collection)
     if source_format == MAIL_SOURCE_FORMAT:
         return (OFFICE_MAIL_LANE if known_shelf is Shelf.OFFICE_SHELF else MAIL_LANE, MAIL_LANE_LABEL)

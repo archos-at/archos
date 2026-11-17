@@ -2,6 +2,7 @@ import type { InboxItemType, InboxTargetType } from '@/lib/db/schema/inbox'
 import type { ShareableResourceType } from '@/lib/db/schema/resource-shares'
 import type { MarkMention } from '@/lib/annotations/types'
 import type { UploadReport } from '@/lib/upload-batches/upload-report'
+import { LEGACY_AGENT_INBOX_TYPES, type StoredInboxType } from './legacy-agent-types'
 
 export type { InboxItemType, InboxTargetType, ShareableResourceType }
 
@@ -78,7 +79,7 @@ export interface InboxTypePresentation {
     | 'mail-x'
     | 'mail-warning'
     | 'mail-plus'
-    | 'piloti'
+    | 'agent'
   readonly i18nKey: string
   readonly tone: 'request' | 'info' | 'warning'
   readonly anchor?: 'mark'
@@ -108,12 +109,12 @@ export const INBOX_TYPE_PRESENTATION: Record<InboxItemType, InboxTypePresentatio
   'mail_import.completed': { icon: 'check-circle', i18nKey: 'mailImportCompleted', tone: 'info' },
   'mail_import.failed': { icon: 'alert-triangle', i18nKey: 'mailImportFailed', tone: 'warning' },
   'document.new_revision': { icon: 'layers', i18nKey: 'documentNewRevision', tone: 'info' },
-  'piloti.work_done': { icon: 'piloti', i18nKey: 'agentWorkDone', tone: 'info', anchor: 'mark' },
-  'piloti.work_failed': { icon: 'piloti', i18nKey: 'agentWorkFailed', tone: 'warning', anchor: 'mark' },
-  'piloti.asks_you': { icon: 'piloti', i18nKey: 'agentAsksYou', tone: 'request', anchor: 'mark' },
-  'piloti.proposal_waiting': { icon: 'piloti', i18nKey: 'agentProposalWaiting', tone: 'request' },
-  'piloti.intake_ready': { icon: 'piloti', i18nKey: 'agentIntakeReady', tone: 'request' },
-  'piloti.revision_checked': { icon: 'piloti', i18nKey: 'agentRevisionChecked', tone: 'info', anchor: 'mark' },
+  'agent.work_done': { icon: 'agent', i18nKey: 'agentWorkDone', tone: 'info', anchor: 'mark' },
+  'agent.work_failed': { icon: 'agent', i18nKey: 'agentWorkFailed', tone: 'warning', anchor: 'mark' },
+  'agent.asks_you': { icon: 'agent', i18nKey: 'agentAsksYou', tone: 'request', anchor: 'mark' },
+  'agent.proposal_waiting': { icon: 'agent', i18nKey: 'agentProposalWaiting', tone: 'request' },
+  'agent.intake_ready': { icon: 'agent', i18nKey: 'agentIntakeReady', tone: 'request' },
+  'agent.revision_checked': { icon: 'agent', i18nKey: 'agentRevisionChecked', tone: 'info', anchor: 'mark' },
   'annotation.assigned_to_you': { icon: 'user-plus', i18nKey: 'annotationAssigned', tone: 'request', anchor: 'mark' },
   'annotation.activity': { icon: 'message-square', i18nKey: 'annotationActivity', tone: 'info', anchor: 'mark' },
   'annotation.mentioned': { icon: 'at-sign', i18nKey: 'annotationMentioned', tone: 'request', anchor: 'mark' },
@@ -137,16 +138,26 @@ export const LEGACY_INBOX_TYPES: Readonly<Record<string, InboxItemType>> = {
   'job.completed': 'task_run.completed',
   'job.failed': 'task_run.failed',
   'job.waiting': 'task_run.waiting',
+  ...LEGACY_AGENT_INBOX_TYPES,
 }
 
-export function canonicalInboxType(type: string): string {
-  return LEGACY_INBOX_TYPES[type] ?? type
+export function canonicalInboxType(type: string): InboxItemType {
+  return (LEGACY_INBOX_TYPES[type] ?? type) as InboxItemType
 }
 
-export function legacyInboxTypeAliases(types: readonly InboxItemType[]): string[] {
+export function legacyInboxTypeAliases(types: readonly string[]): string[] {
   return Object.entries(LEGACY_INBOX_TYPES)
     .filter(([, current]) => types.includes(current))
     .map(([legacy]) => legacy)
+}
+
+export function storedInboxTypesOf(types: readonly string[]): StoredInboxType[] {
+  const current = types.map(canonicalInboxType)
+  return [...new Set([...current, ...legacyInboxTypeAliases(current)])] as StoredInboxType[]
+}
+
+export function inboxTypePresentation(type: string): InboxTypePresentation | undefined {
+  return INBOX_TYPE_PRESENTATION[canonicalInboxType(type) as InboxItemType]
 }
 
 export const UNKNOWN_TYPE_PRESENTATION: InboxTypePresentation = {
@@ -155,8 +166,8 @@ export const UNKNOWN_TYPE_PRESENTATION: InboxTypePresentation = {
   tone: 'info',
 }
 
-export function isMarkAnchored(type: InboxItemType): boolean {
-  return INBOX_TYPE_PRESENTATION[type]?.anchor === 'mark'
+export function isMarkAnchored(type: string): boolean {
+  return inboxTypePresentation(type)?.anchor === 'mark'
 }
 
 export const INBOX_LIST_LIMIT = 50

@@ -47,6 +47,8 @@ from pydantic import BaseModel
 from pydantic import BeforeValidator
 from pydantic import ValidationError
 
+from agent.common.agent_kind import is_agent_kind
+
 from .calls import ANNOTATION_GONE
 from .calls import Refused
 from .cards import excerpt
@@ -127,7 +129,7 @@ def _place(item: dict[str, Any]) -> str:
 
 def _author(item: dict[str, Any]) -> str:
     name = _text(item.get("createdByName")) or "a person"
-    if item.get("authorKind") == "piloti":
+    if is_agent_kind(item.get("authorKind")):
         return f"you, for {name}" if item.get("createdByName") else "you"
     return name
 
@@ -139,7 +141,7 @@ def _reply_lines(replies: list[Any]) -> list[str]:
     shown = usable[-MAX_LISTED_REPLIES:]
     lines = [f"  Replies ({len(usable)}{', the last ' + str(len(shown)) if len(shown) < len(usable) else ''}):"]
     for reply in shown:
-        who = "you" if reply.get("authorKind") == "piloti" else _text(reply.get("createdByName")) or "person"
+        who = "you" if is_agent_kind(reply.get("authorKind")) else _text(reply.get("createdByName")) or "person"
         lines.append(f"    - {who}: {_clipped(reply.get('body'), MAX_LISTED_REPLY)}")
     return lines
 

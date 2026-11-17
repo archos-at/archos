@@ -644,6 +644,7 @@
                 "type": "string",
                 "enum": [
                   "person",
+                  "agent",
                   "piloti"
                 ]
               },
@@ -689,6 +690,7 @@
                       "type": "string",
                       "enum": [
                         "person",
+                        "agent",
                         "piloti"
                       ]
                     },
@@ -1099,6 +1101,7 @@
                 "type": "string",
                 "enum": [
                   "person",
+                  "agent",
                   "piloti"
                 ]
               },

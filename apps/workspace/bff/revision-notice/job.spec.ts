@@ -125,7 +125,7 @@ describe('noticeRevision', () => {
     expect(emitInboxItems).toHaveBeenCalledWith([
       expect.objectContaining({
         recipientUserId: 'editor',
-        type: 'piloti.revision_checked',
+        type: 'agent.revision_checked',
         resourceType: 'document',
         resourceId: NEWER_ID,
         anchorId: 'mark-1',
