@@ -61,7 +61,7 @@ TITLE_API = re.compile(r"(?:\b(?:it|test|describe|bench|suite)(?:\.\w+)*|\.each\
 SPECIFIER_BEFORE = re.compile(
     r"(?:\bfrom|\bimport|\brequire\s*\(|\bimport\s*\(|\bvi\.(?:mock|doMock|unmock|importActual|importMock)\s*\()\s*$"
 )
-SOURCE_NAME = re.compile(r"\.(?:[cm]?[jt]sx?|py|css|scss|sql|sh|astro)(?![\w-])|(?:^|[/'\"`])Dockerfile\b")
+SOURCE_NAME = re.compile(r"\.(?:[cm]?[jt]sx?|py|css|scss|sql|sh|astro)(?![\w/-])|(?:^|[/'\"`])Dockerfile\b")
 GENERATED = re.compile(r"\.generated\.[\w]+$")
 PARSERS = (
     "typescript-api",
