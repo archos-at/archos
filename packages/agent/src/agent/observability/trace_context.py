@@ -13,9 +13,9 @@ Pure functions here; the processor that applies them lives beside the others in
 (``observability.direct_trace``) calls the same functions, so a span the agent runtime built
 and a span Grid built cannot disagree about what they carry.
 
-Nothing here is personal data or tenant data: the deployment's name, the
-commit, and a span's type. That is why it is installed unconditionally, unlike
-the identity attributes.
+Nothing here is personal data or tenant data: the deployment's name and host,
+the commit, and a span's type. That is why it is installed unconditionally,
+unlike the identity attributes.
 """
 
 from __future__ import annotations
@@ -26,6 +26,7 @@ from typing import Any
 
 ENVIRONMENT_ATTRIBUTE = "langfuse.environment"
 RELEASE_ATTRIBUTE = "langfuse.release"
+TAGS_ATTRIBUTE = "langfuse.trace.tags"
 # Langfuse's trace-level OTel names: https://langfuse.com/integrations/native/opentelemetry
 TRACE_NAME_ATTRIBUTE = "langfuse.trace.name"
 OBSERVATION_TYPE_ATTRIBUTE = "langfuse.observation.type"
@@ -34,6 +35,8 @@ OBSERVATION_STATUS_MESSAGE_ATTRIBUTE = "langfuse.observation.status_message"
 
 ENVIRONMENT_ENV = "APP_ENV"
 RELEASE_ENV = "GIT_SHA"
+APP_HOST_ENV = "POSTHOG_APP_HOST"
+APP_HOST_TAG_PREFIX = "app_host:"
 
 _ENVIRONMENT_INVALID = re.compile(r"[^a-z0-9_-]+")
 _ENVIRONMENT_MAX = 40
@@ -80,8 +83,18 @@ def langfuse_release(raw: str | None = None) -> str | None:
     return value
 
 
+def app_host(raw: str | None = None) -> str | None:
+    value = (os.environ.get(APP_HOST_ENV, "") if raw is None else raw).strip().lower()
+    return value or None
+
+
+def deployment_tags() -> list[str]:
+    host = app_host()
+    return [f"{APP_HOST_TAG_PREFIX}{host}"] if host else []
+
+
 def process_trace_attributes() -> dict[str, Any]:
-    """Environment and release for every span of this process. Absent values are omitted."""
+    """Environment, release and the deployment's tag for every span of this process. Absent values are omitted."""
     attributes: dict[str, Any] = {}
     environment = langfuse_environment()
     if environment:
@@ -89,6 +102,9 @@ def process_trace_attributes() -> dict[str, Any]:
     release = langfuse_release()
     if release:
         attributes[RELEASE_ATTRIBUTE] = release
+    tags = deployment_tags()
+    if tags:
+        attributes[TAGS_ATTRIBUTE] = tags
     return attributes
 
 

@@ -6,6 +6,7 @@ from typing import Any
 import pytest
 
 from agent.observability import posthog_client
+from agent.observability import trace_context
 
 
 class FakePosthog:
@@ -35,7 +36,7 @@ def configured_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("APP_ENV", "Staging")
     monkeypatch.setenv("OTEL_SERVICE_NAME", "grid-agent-worker")
     monkeypatch.setenv("GIT_SHA", "abc1234")
-    monkeypatch.setenv(posthog_client.APP_HOST_ENV, "app.dev.archos.tech")
+    monkeypatch.setenv(trace_context.APP_HOST_ENV, "app.dev.archos.tech")
 
 
 @pytest.fixture
@@ -100,7 +101,7 @@ def test_absent_super_properties_are_omitted(monkeypatch: pytest.MonkeyPatch) ->
     monkeypatch.delenv("APP_ENV", raising=False)
     monkeypatch.delenv("OTEL_SERVICE_NAME", raising=False)
     monkeypatch.delenv("GIT_SHA", raising=False)
-    monkeypatch.delenv(posthog_client.APP_HOST_ENV, raising=False)
+    monkeypatch.delenv(trace_context.APP_HOST_ENV, raising=False)
 
     assert posthog_client.super_properties() == {}
 

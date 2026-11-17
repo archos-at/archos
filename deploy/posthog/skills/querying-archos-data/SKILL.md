@@ -21,7 +21,7 @@ for the data you read.
 | Staging | `app.dev.archos.tech`, before 2026-11-05 `app.dev.piloti.at` | |
 | Metrics (`query-metrics`, `posthog.metrics`) | `deployment.environment.name = 'prod'` | `dev` for staging |
 | Logs (`logs` table) | `resource_attributes['deployment.environment.name'] = 'prod'` | Only from the collector deploy that adds it (2026-11-17 or later); older logs cannot be split. Severity is lowercase text (`warn`, `error`); WARN and above is `severity_number >= 13`. The message text is withheld by design: read `service_name`, the code location and the exception type |
-| Langfuse export (`langfuse observation`, `langfuse score`) | not separable | `langfuse_environment = 'production'` on both stacks; `default` is the MCP gateway's own traces. No organization. `langfuse_latency` is milliseconds and needs `toFloat()` |
+| Langfuse export (`langfuse observation`, `langfuse score`) | `has(JSONExtract(coalesce(properties.langfuse_tags, '[]'), 'Array(String)'), 'app_host:app.archos.tech')`, once the deploy that adds the tag (after 2026-11-17) is out; check `countIf(properties.langfuse_tags LIKE '%app_host:%')` | Staging is `app_host:app.dev.archos.tech`. Older observations carry no host and say `langfuse_environment = 'production'` on both stacks: they cannot be split. The tag is per observation; a `langfuse score` has none, so select it by `langfuse_trace_id` over tagged observations. `default` is the MCP gateway's spans and, before that deploy, Hatchet's `hatchet.start_step_run`; neither has a host. No organization. `langfuse_latency` is milliseconds and needs `toFloat()` |
 
 The repo's queries name the hosts once at the top:
 `WITH ['app.piloti.at', 'app.archos.tech'] AS production_hosts` …

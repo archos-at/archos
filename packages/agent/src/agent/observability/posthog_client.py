@@ -56,7 +56,6 @@ if TYPE_CHECKING:
 
 HOST_ENV = "POSTHOG_HOST"
 PROJECT_TOKEN_ENV = "POSTHOG_PROJECT_TOKEN"  # pragma: allowlist secret
-APP_HOST_ENV = "POSTHOG_APP_HOST"
 IN_APP_MODULES = ["agent", "agent_host"]
 
 _client: Posthog | None = None
@@ -98,7 +97,7 @@ def super_properties() -> dict[str, str]:
         "environment": trace_context.langfuse_environment(),
         "release": trace_context.langfuse_release(),
         "service": os.environ.get("OTEL_SERVICE_NAME", "").strip() or None,
-        "app_host": os.environ.get(APP_HOST_ENV, "").strip() or None,
+        "app_host": trace_context.app_host(),
     }
     return {key: value for key, value in values.items() if value}
 
