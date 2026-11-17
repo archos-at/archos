@@ -6,8 +6,8 @@ import { readFileSync } from "node:fs";
 import { baseStackConfig, langfuseStackConfig } from "./src/test-support/stack-config";
 import { checkSessionKey, loadMcpGateway } from "./src/config/mcp-gateway";
 import { GATEWAY_NAME } from "./src/platform/gateway";
-import { MCP_GATEWAY, toolAllowlist } from "./src/platform/mcp-gateway-config";
-import { LANGFUSE_PLATFORM_TOOLS } from "./src/platform/mcp-gateway";
+import { MCP_GATEWAY, tagPinGuardrails, toolAllowlist } from "./src/platform/mcp-gateway-config";
+import { LANGFUSE_PLATFORM_TOOLS, LANGFUSE_TRACE_TOOLS } from "./src/platform/mcp-gateway";
 import { LEGACY_PROJECT, objectName } from "./src/names";
 
 /** A stack config key of the project these specs run as. */
@@ -58,7 +58,13 @@ type AgTarget = { mcp: unknown; policies: { backendAuth?: unknown } };
 type AgRoute = {
   name: string;
   matches: unknown[];
-  policies: { mcpAuthentication: unknown; authorization: unknown; urlRewrite?: unknown; mcpAuthorization?: unknown };
+  policies: {
+    mcpAuthentication: unknown;
+    authorization: unknown;
+    urlRewrite?: unknown;
+    mcpAuthorization?: unknown;
+    mcpGuardrails?: { processors: Array<{ condition: string; reject: string; methods: unknown; kind: string }> };
+  };
   backends: Array<{ mcp: { targets: AgTarget[] } }>;
 };
 type AgConfig = { routes: AgRoute[]; frontendPolicies: { tracing: unknown } };
@@ -301,6 +307,7 @@ describe("the platform MCP gateway, switched on", () => {
     ];
     expect(tenantContent.filter((tool) => (LANGFUSE_PLATFORM_TOOLS as readonly string[]).includes(tool))).toEqual([]);
     expect(LANGFUSE_PLATFORM_TOOLS).toContain("getPrompt");
+    expect(langfuseRoute().policies.mcpGuardrails).toBeUndefined();
   });
 
   it("restricts no tool of a server that holds only the platform's own content, and refuses a name it cannot match literally", () => {
@@ -506,6 +513,62 @@ describe("the platform MCP gateway during a domain move", () => {
   });
 });
 
+const allowedTools = (): string[] => {
+  const rule = (langfuseRoute().policies.mcpAuthorization as { rules: Array<{ allow: string }> }).rules[0].allow;
+  return [...rule.matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+};
+
+describe("the platform MCP gateway on a stack whose offices are the team's own (ADR-0160, amendment of 2026-11-17)", () => {
+  beforeAll(() => build({ ...onStack(), [key("mcpGatewayLangfuseTraceOrgs")]: "*" }), 120_000);
+
+  it("offers every trace tool beside the configuration tools, with nothing to pin", () => {
+    expect(allowedTools()).toEqual([
+      ...LANGFUSE_PLATFORM_TOOLS,
+      ...LANGFUSE_TRACE_TOOLS.pinned,
+      ...LANGFUSE_TRACE_TOOLS.schema,
+      ...LANGFUSE_TRACE_TOOLS.unpinnable,
+    ]);
+    expect(langfuseRoute().policies.mcpGuardrails).toBeUndefined();
+  });
+});
+
+describe("the platform MCP gateway reading some organizations' traces (ADR-0160, amendment of 2026-11-17)", () => {
+  const TEAM = ["org_01HTEAMA", "org_01HTEAMB"];
+  beforeAll(() => build({ ...onStack(), [key("mcpGatewayLangfuseTraceOrgs")]: ` ${TEAM.join(" , ")} ` }), 120_000);
+
+  it("offers only the tools a pin can scope: never a fetch by id, never a list of values across every office", () => {
+    expect(allowedTools()).toEqual([...LANGFUSE_PLATFORM_TOOLS, ...LANGFUSE_TRACE_TOOLS.pinned, ...LANGFUSE_TRACE_TOOLS.schema]);
+    for (const tool of LANGFUSE_TRACE_TOOLS.unpinnable) expect(allowedTools()).not.toContain(tool);
+  });
+
+  it("refuses a listObservations call, under either spelling, unless its filter pins tags to those organizations alone (run against agentgateway v1.7.0 on 2026-11-17, ADR-0160)", () => {
+    const [processor] = langfuseRoute().policies.mcpGuardrails!.processors;
+    expect(processor.kind).toBe("expression");
+    expect(processor.methods).toEqual({ "tools/call": "request" });
+    expect(processor.condition).toBe(
+      'mcp.params.name in ["listObservations", "langfuse_listObservations"] && !(' +
+        "has(mcp.params.arguments) && has(mcp.params.arguments.filter) && " +
+        'mcp.params.arguments.filter.exists(f, has(f.column) && f.column == "tags" && ' +
+        'has(f.operator) && f.operator in ["any of", "all of"] && ' +
+        'has(f.value) && size(f.value) > 0 && f.value.all(v, v in ["org:org_01HTEAMA", "org:org_01HTEAMB"])))',
+    );
+    expect(processor.reject).toContain("org:org_01HTEAMA, org:org_01HTEAMB");
+  });
+
+  it.skipIf(SCHEMA_PATH === undefined)("writes the pin in a form the pinned agentgateway's own schema accepts", () => {
+    const schema = JSON.parse(readFileSync(SCHEMA_PATH!, "utf8")) as Record<string, unknown>;
+    const ajv = new Ajv2020({ strict: false, allErrors: true });
+    ajv.validate(schema, config());
+    expect(ajv.errors ?? []).toEqual([]);
+  });
+
+  it("refuses to render a pin it could not hold as a CEL literal, or a pin to nothing", () => {
+    const server = { name: "langfuse", url: "http://langfuse-web:3000/api/public/mcp", timeout: "300s", tools: ["listObservations"] } as const;
+    expect(() => tagPinGuardrails({ ...server, pinnedToTags: { tools: ["listObservations"], tags: ['org:x"] || true || ["'] } })).toThrow(/literal/);
+    expect(() => tagPinGuardrails({ ...server, pinnedToTags: { tools: ["listObservations"], tags: [] } })).toThrow(/at least one tag/);
+  });
+});
+
 describe("the platform MCP gateway, by default", () => {
   beforeAll(() => {
     const { [key("mcpGatewayEnabled")]: _, ...rest } = onStack();
@@ -552,5 +615,13 @@ describe("loadMcpGateway refuses a gateway it cannot gate", () => {
 
   it("derives the host and the issuer when complete", () => {
     expect(load(complete)).toMatchObject({ enabled: true, domain: HOST, issuer: "https://tenant.authkit.app", platformOrgId: ORG });
+  });
+
+  it("reads no trace unless a stack names whose, and takes only * or WorkOS organization ids for it", () => {
+    expect(load(complete).langfuseTraceOrgs).toEqual([]);
+    expect(load({ ...complete, [key("mcpGatewayLangfuseTraceOrgs")]: "*" }).langfuseTraceOrgs).toBe("all");
+    expect(load({ ...complete, [key("mcpGatewayLangfuseTraceOrgs")]: "org_01A,org_01B" }).langfuseTraceOrgs).toEqual(["org_01A", "org_01B"]);
+    expect(() => load({ ...complete, [key("mcpGatewayLangfuseTraceOrgs")]: 'org_01A,org_1" || true || "' })).toThrow(/org_/);
+    expect(() => load({ ...complete, [key("mcpGatewayLangfuseTraceOrgs")]: "all" })).toThrow(/org_/);
   });
 });

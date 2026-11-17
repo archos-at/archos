@@ -7,7 +7,7 @@ gateway presents each server's own credential, which never leaves the cluster.
 
 | Path | Server | Credential the gateway presents | Tools an agent reaches (ADR-0160) |
 |---|---|---|---|
-| `/langfuse/mcp` | Langfuse (`langfuse-web:3000/api/public/mcp`) | the project key's `Basic …` header (`otlp-basic-auth` in `langfuse-secrets`) | configuration only (`LANGFUSE_PLATFORM_TOOLS`): prompts and evaluators with their rules to read; skills, models and score configs to read and write; health. Never traces, scores, comments, datasets, queues, media or metrics, which carry every office's turns, and no prompt or evaluator write, which would move them (ADR-0160) |
+| `/langfuse/mcp` | Langfuse (`langfuse-web:3000/api/public/mcp`) | the project key's `Basic …` header (`otlp-basic-auth` in `langfuse-secrets`) | configuration (`LANGFUSE_PLATFORM_TOOLS`): prompts and evaluators with their rules to read; skills, models and score configs to read and write; health. Agent traces per `mcpGatewayLangfuseTraceOrgs` (`LANGFUSE_TRACE_TOOLS`): every trace on staging (`*`); in production only the platform owners' organizations, each `listObservations` call refused unless its `filter` pins `tags` to their `org:<id>`. Never scores, comments, datasets, queues, media or metrics, and no prompt or evaluator write (ADR-0160 and its amendment of 2026-11-17) |
 | `/cms/mcp` | The website's CMS (`cms.cms.svc:3000/api/mcp`), where `cmsEnabled` | the MCP key of the CMS's agent account, `Bearer …` (`authorization` in `cms-platform-mcp`); every write is a draft | all: the public website, written by the team |
 
 The gateway is [agentgateway](https://github.com/agentgateway/agentgateway)
