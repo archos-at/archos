@@ -1836,7 +1836,7 @@ describe('ChatArea — the awaiting banner is reachable', () => {
     await user.click(screen.getByRole('button', { name: `Ask ${PRODUCT_NAME} instead` }))
 
     expect(mockSetComposerPrefill).toHaveBeenCalledWith(`@${PRODUCT_NAME} `, [
-      { targetId: 'agent:piloti', display: PRODUCT_NAME },
+      { targetId: 'agent:core', display: PRODUCT_NAME },
     ])
   })
 })
@@ -1946,7 +1946,7 @@ describe('ChatArea — the hand-back offer', () => {
     await user.click(screen.getByRole('button', { name: `Let ${PRODUCT_NAME} carry on` }))
 
     expect(mockSetComposerPrefill).toHaveBeenCalledWith(`@${PRODUCT_NAME} — please carry on from here.`, [
-      { targetId: 'agent:piloti', display: PRODUCT_NAME },
+      { targetId: 'agent:core', display: PRODUCT_NAME },
     ])
     await waitFor(() => expect(screen.queryByTestId('handback-offer')).not.toBeInTheDocument())
   })

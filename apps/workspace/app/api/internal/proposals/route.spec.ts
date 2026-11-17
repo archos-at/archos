@@ -127,7 +127,7 @@ describe('POST /api/internal/proposals', () => {
       scope: 'project',
       kind: 'file_operation',
       payload: MOVE.payload,
-      proposedByKind: 'piloti',
+      proposedByKind: 'agent',
       onBehalfOf: 'user_1',
       originConversationId: 'conv_1',
       originMessageId: ANSWER,

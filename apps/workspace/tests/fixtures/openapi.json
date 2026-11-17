@@ -634,7 +634,7 @@
                     "additionalProperties": false
                   },
                   "setup": {
-                    "default": "piloti",
+                    "default": "agent",
                     "type": "string",
                     "enum": [
                       "agent",

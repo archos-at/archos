@@ -734,7 +734,7 @@ describe('the review', () => {
     const thread = await screen.findByTestId('review-thread')
     const box = within(thread).getByTestId('thread-reply')
     await userEvent.type(box, `@${PRODUCT_NAME.slice(0, 3).toLowerCase()}`)
-    await userEvent.click(pickerOption(thread, 'agent:piloti'))
+    await userEvent.click(pickerOption(thread, 'agent:core'))
     expect(box).toHaveValue(`@${PRODUCT_NAME} `)
     await userEvent.type(box, 'Stimmt die Breite?{Enter}')
 
@@ -743,7 +743,7 @@ describe('the review', () => {
         {
           body: `@${PRODUCT_NAME} Stimmt die Breite?`,
           addressesPiloti: true,
-          mentions: [{ targetId: 'agent:piloti', display: PRODUCT_NAME }],
+          mentions: [{ targetId: 'agent:core', display: PRODUCT_NAME }],
         },
       ])
     )
@@ -808,7 +808,7 @@ describe('the review', () => {
     const thread = await screen.findByTestId('review-thread')
     const box = within(thread).getByTestId('thread-reply')
     await userEvent.type(box, `@${PRODUCT_NAME.slice(0, 3).toLowerCase()}`)
-    await userEvent.click(pickerOption(thread, 'agent:piloti'))
+    await userEvent.click(pickerOption(thread, 'agent:core'))
     await userEvent.type(box, 'Stimmt die Breite?{Enter}')
 
     const work = await within(screen.getByTestId('review-thread')).findByTestId('thread-agent-work')
@@ -1649,7 +1649,7 @@ describe('one’s own reply in the thread', () => {
     const thread = await openThread()
     const box = within(thread).getByTestId('thread-reply')
     await userEvent.type(box, `@${PRODUCT_NAME.slice(0, 3).toLowerCase()}`)
-    await userEvent.click(pickerOption(thread, 'agent:piloti'))
+    await userEvent.click(pickerOption(thread, 'agent:core'))
     await userEvent.type(box, 'Stimmt die Breite?{Enter}')
     await waitFor(() => expect(agent.questions()).toHaveLength(1))
 
