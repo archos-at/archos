@@ -25,7 +25,7 @@ SELECT store, rows FROM (
   UNION ALL SELECT 9, 'mention id: messages.metadata', count(*)
     FROM messages WHERE metadata::text LIKE '%"targetId": "agent:piloti"%'
   UNION ALL SELECT 10, 'lane: messages.metadata', count(*)
-    FROM messages WHERE metadata::text LIKE '%"office_piloti"%'
+    FROM messages WHERE metadata::text ~ '"office_piloti"(?!:)'
   UNION ALL SELECT 11, 'lane: citation_events.detail.lanes', count(*)
     FROM citation_events WHERE jsonb_typeof(detail -> 'lanes') = 'object' AND detail -> 'lanes' ? 'office_piloti'
 ) AS counts ORDER BY n;

@@ -4482,6 +4482,16 @@ INSERT INTO inbox_items (organization_id, recipient_user_id, type, resource_type
   ('org_b1', 'user_b1', 'agent.asks_you', 'document', 'doc_1', 'ann_1', 'agent.asks_you:document:doc_1:ann_1', true, 1, '2026-11-10'),
   ('org_b1', 'user_b1', 'piloti.work_done', 'document', 'doc_1', 'ann_2', 'piloti.work_done:document:doc_1:ann_2', false, 1, '2026-11-02'),
   ('org_b1', 'user_b1', 'mention.requested', 'document', 'doc_1', 'ann_3', 'mention.requested:document:doc_1:ann_3', true, 1, '2026-11-03');
+INSERT INTO projects (id, organization_id, name, created_by, collection_name)
+VALUES ('aaaaaaaa-0000-4000-8000-000000000245', 'org_b1', 'Backfill 0245', 'user_b1', 'proj_0245');
+INSERT INTO documents (id, organization_id, created_by, filename, storage_key, collection_name, status, scope, project_id)
+VALUES ('d1d1d1d1-0000-4000-8000-000000000245', 'org_b1', 'user_b1', 'a.pdf', 'k/0245/a', 'proj_0245', 'completed', 'project', 'aaaaaaaa-0000-4000-8000-000000000245');
+INSERT INTO document_annotations (organization_id, document_id, number, page, shape, x, y, w, h, kind, body, author_kind, status, created_by, mentions)
+VALUES ('org_b1', 'd1d1d1d1-0000-4000-8000-000000000245', 1, 1, 'region', 0.1, 0.1, 0.5, 0.5, 'question', 'Laufbreite?', 'piloti', 'proposed', 'user_b1',
+        '[{"targetId": "agent:piloti", "display": "agent:piloti"}, {"targetId": "user_b2", "display": "Ben"}]');
+INSERT INTO inbox_items (organization_id, recipient_user_id, type, resource_type, resource_id, anchor_id, group_key, actionable, payload) VALUES
+  ('org_b1', 'user_b2', 'mention.requested', 'document', 'doc_2', 'ann_9', 'mention.requested:document:doc_2:ann_9', true,
+   '{"note": "agent:piloti", "mentions": [{"targetId": "agent:piloti", "display": "Agent"}]}');
 INSERT INTO citation_events (organization_id, turn_id, agent, kind, severity, detail) VALUES
   ('org_b1', 'turn_1', 'agent', 'health', 'info', '{"lanes": {"office_piloti": 2, "office_agent": 3, "project": 1}}'),
   ('org_b1', 'turn_2', 'agent', 'health', 'info', '{"lanes": {"office_piloti": 4}}'),
@@ -4491,9 +4501,14 @@ apply_in sn_0245 ../scripts/brand-free-backfill/dry-run.sql
 apply_in sn_0245 ../scripts/brand-free-backfill/actor-kind.sql
 apply_in sn_0245 ../scripts/brand-free-backfill/inbox-types.sql
 apply_in sn_0245 ../scripts/brand-free-backfill/inbox-types.sql   # twice: idempotent
-check_in sn_0245 "SELECT string_agg(type || '=' || count || '@' || created_at::date, ',' ORDER BY type) FROM inbox_items" "agent.asks_you=3@2026-11-01,agent.work_done=1@2026-11-02,mention.requested=1@2026-11-03" "backfill: an old inbox row folds into its twin or takes the new type, and others stay"
+check_in sn_0245 "SELECT string_agg(type || '=' || count || '@' || created_at::date, ',' ORDER BY type) FROM inbox_items WHERE recipient_user_id = 'user_b1'" "agent.asks_you=3@2026-11-01,agent.work_done=1@2026-11-02,mention.requested=1@2026-11-03" "backfill: an old inbox row folds into its twin or takes the new type, and others stay"
 check_in sn_0245 "SELECT count(*) FROM inbox_items WHERE group_key LIKE 'piloti.%'" "0" "backfill: no group key keeps the old type"
 apply_in sn_0245 ../scripts/brand-free-backfill/mention-ids.sql
+apply_in sn_0245 ../scripts/brand-free-backfill/mention-ids.sql   # twice: idempotent
+apply_in sn_0245 ../scripts/brand-free-backfill/actor-kind.sql    # twice: idempotent
+check_in sn_0245 "SELECT author_kind || ' ' || status FROM document_annotations WHERE document_id = 'd1d1d1d1-0000-4000-8000-000000000245'" "agent proposed" "backfill: the agent's proposal is the agent's, still proposed"
+check_in sn_0245 "SELECT mentions::text FROM document_annotations WHERE document_id = 'd1d1d1d1-0000-4000-8000-000000000245'" '[{"display": "agent:piloti", "targetId": "agent:core"}, {"display": "Ben", "targetId": "user_b2"}]' "backfill: a mark's agent mention takes the new id, a person's and the display text stay"
+check_in sn_0245 "SELECT payload::text FROM inbox_items WHERE anchor_id = 'ann_9'" '{"note": "agent:piloti", "mentions": [{"display": "Agent", "targetId": "agent:core"}]}' "backfill: an inbox payload's mention takes the new id, free text stays"
 apply_in sn_0245 ../scripts/brand-free-backfill/lanes.sql
 apply_in sn_0245 ../scripts/brand-free-backfill/lanes.sql   # twice: idempotent
 check_in sn_0245 "SELECT string_agg(detail -> 'lanes' ->> 'office_agent', ',' ORDER BY detail::text) FROM citation_events WHERE detail -> 'lanes' ? 'office_agent'" "4,5" "backfill: a lane count moves to the new key and adds to one already there"
