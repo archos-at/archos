@@ -80,6 +80,13 @@ whose message names the rule.
 - **Lines a tool reads do not count**: lint and type suppressions (`noqa`,
   `eslint-disable`, `@ts-expect-error`), test-environment pragmas, JSDoc types
   in plain JavaScript, bundler hints, `@disk-inputs`.
+- **No docstrings, and nothing reads one.** Text the model or a person reads at
+  run time is an explicit field: `description=` on a tool or an argparse parser, a
+  `*_DESCRIPTION` constant, `Field(description=...)`, or
+  `model_config = ConfigDict(json_schema_extra={"description": ...})` on a schema
+  (a card's `card_description()` reads that). `check_comments.py` fails on a
+  `__doc__` or `getdoc` read, and `test_model_facing_text.py` re-runs the snapshot
+  under `python -OO`, which strips every docstring.
 - A design rationale longer than a line belongs in an ADR or the area's doc,
   linked from the code only if the code would mislead without it.
 

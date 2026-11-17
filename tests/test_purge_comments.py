@@ -47,13 +47,13 @@ def test_a_module_docstring_sharing_its_line_keeps_the_code_after_it(tmp_path):
         assert out == text
 
 
-def test_a_model_facing_file_keeps_its_docstrings_and_loses_its_comments(tmp_path):
+def test_a_model_facing_file_loses_its_docstrings_too(tmp_path):
     text = (
-        'from pydantic import BaseModel\n\n\nclass Answer(BaseModel):\n    """Shown to the model."""\n'
+        'from pydantic import BaseModel\n\n\nclass Answer(BaseModel):\n    """Shown to nobody."""\n'
         "\n    # gone\n    text: str\n"
     )
     out = _purge(tmp_path, "f.py", text)
-    assert '"""Shown to the model."""' in out and "# gone" not in out
+    assert '"""' not in out and "# gone" not in out and "text: str" in out
 
 
 def test_linter_directives_survive(tmp_path):
