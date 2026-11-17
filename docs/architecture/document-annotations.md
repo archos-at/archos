@@ -219,12 +219,12 @@ quarantine, as `findDocumentForSession` does for a session.
 ## The Prüfansicht
 
 `features/documents/components/review/` holds the canvas. `document-review.tsx`
-is the document opened full screen:
+is the document opened full screen; its parts sit in `review/document-review/`:
 
 - marks drawn on the PDF pages (`review-page-layer.tsx`);
 - the open thread beside its mark (`thread-card.tsx`), on the side a whole card fits in pixels, else under the mark (`placeCard`); on a phone in a sheet from the bottom edge. On the sheet a card keeps inside the free stage, the canvas less the toolbars and chips at its foot (`review-stage.ts`): beside its mark it moves up as it grows, under its mark it gets shorter, and past the stage's height its thread scrolls inside it, never the reply field. A new line at the end of the thread (a reply, the agent at work, its answer) is scrolled into view for a reader at the end or one who just sent into it (`use-follow-end.ts`; a jump under reduced motion);
 - the list (`review-panel.tsx`), where the agent's proposals lead the open marks as a group you can walk through („Durchgehen": the card says „1/3", J or „Weiter" goes on, and taking one over or dismissing it moves to the next);
-- the tools, leading the viewer's own pill at the foot; on a touch screen a row of their own above it, each with its name. The first review a browser opens spells every tool out with its key (`TOOLS_INTRO_KEY`), folded after the first mark or by its ×. A tool in hand says what it does next at the top of the canvas.
+- the tools, leading the viewer's own pill at the foot; on a touch screen a row of their own above it, each with its name. The first review a browser opens spells every tool out with its key (`TOOLS_INTRO_KEY` in `lib/review-tools-intro.ts`), folded after the first mark or by its ×. A tool in hand says what it does next at the top of the canvas.
 
 Everything drawn on the page is in `--paper-ink`, never `--foreground`: the
 page stays white in dark mode, and the theme's ink there is paper-white.
@@ -672,7 +672,7 @@ the way a design tool shows its collaborators:
 | Cursor chat | „/" opens a field at the reader's pointer, the toolbar's button centred above the toolbars, always inside the canvas; every key shows beside it for the room as typed; Enter keeps the line 4 s, Esc takes it away. A colleague's chat keeps their name above the words. Nothing is stored | `cursor-chat.tsx` |
 | The mark a colleague has open | a ring round the pin (an outline round a region) in their colour, with their first name at its top-right; „Anna +1" for several; a person whose own pointer is within 48 px of the mark is not named twice (`selectionTagged`); never the reader's own tabs, never the agent | `peerSelections`, `PeerSelection` |
 | A box being dragged out | dashed in their colour, with their first name over its top-right corner; beside the box when the box is narrower than the name, so the name never lies over a pin next to it (`draftTagPlace`) | `review-page-layer.tsx` |
-| A colleague out of view | a chip at the edge that leads to them („Lena · Seite 2"), decided by whether their point is on screen (`peerSide`); a click jumps there; the face's tooltip names the page. Never over the open card: the card keeps out of the foot, and a row that would still lie over it steps aside (`covers`) | `Elsewhere` in `document-review.tsx` |
+| A colleague out of view | a chip at the edge that leads to them („Lena · Seite 2"), decided by whether their point is on screen (`peerSide` in `lib/review-peers.ts`); a click jumps there; the face's tooltip names the page. Never over the open card: the card keeps out of the foot, and a row that would still lie over it steps aside (`covers`) | `Elsewhere` in `document-review/elsewhere.tsx` |
 | The agent | its own pointer, always led by its name („{productName} · Fluchtweg · für Anna"), quieting once it is parked with nothing in hand (`agentResting`); the box it reads glows while it reads it (`look` sends the `look` op for a workspace document, from the canvas or the chat: presence and a `reading` activity) | `AgentCursor`, `tools/canvas/presence.py` `show_reading` |
 
 A write sends an `annotations.changed` hint. A hint is a nudge to re-read, never
@@ -689,7 +689,7 @@ read again when the room returns after a drop and when the tab returns to view.
 (`useChannel`'s `roster`, read through `useSyncExternalStore`), and a peer that
 did not change keeps its object. Nothing that holds the review (the file
 preview, the review itself, its list) reads the roster in render: the faces and
-the header read who is here by membership and page (`useRoomCompany`), each
+the header read who is here by membership and page (`useRoomCompany` in `hooks/use-room-company.ts`), each
 page's company layer reads the peers on its page (`usePeersOnPage`), and the
 marks are a memoised layer of their own. A pointer moving redraws its pointer.
 The agent's highlights are kept once per room (`createHighlightTracker`), not per
