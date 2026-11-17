@@ -82,10 +82,6 @@ describe("the program constructs in the split topology", () => {
       expect(url).toBe(`http://api:8000/v1/maintenance/housekeeping/${job.name.replace("housekeeping-", "")}`);
       expect(job.inputs.spec?.concurrencyPolicy).toBe("Forbid");
     }
-    const baseCorpus = housekeeping.find((r) => r.name === "housekeeping-base-corpus");
-    expect((baseCorpus?.inputs.spec as { suspend?: boolean }).suspend).toBe(false);
-    const reconcile = cronJobs.find((r) => r.name === "vector-reconcile");
-    expect((reconcile?.inputs.spec as { suspend?: boolean }).suspend).toBe(false);
   });
 
   it("keeps no files on the web role: no volume claim, nothing mounted at /app/data", () => {

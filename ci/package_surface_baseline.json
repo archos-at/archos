@@ -273,9 +273,6 @@
   "scripts/build_clause_index.py": {
     "knowledge_layer.ingest.adapter": 1
   },
-  "scripts/import_vectors.py": {
-    "knowledge_layer.vector_store.import_vectors": 1
-  },
   "scripts/intake_eval/fixture.py": {
     "knowledge_layer.browse.tool": 1,
     "knowledge_layer.read_passage.tool": 1

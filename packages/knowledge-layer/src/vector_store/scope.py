@@ -326,10 +326,9 @@ def office_condition(read: ScopeRead) -> models.Filter | None:
 
     None when the read touches no tenant scope: the corpus has no office to check.
 
-    The known legacy gap: a point imported from Chroma before enrichment
-    (``import_vectors.scope_enrichment`` sets ``office_id`` for office-shelf
-    scopes only) and a point written by an ingest job that named no
-    organization carry no ``office_id``. They pass, or a project's older
+    The known legacy gap: a point imported from Chroma (the import set
+    ``office_id`` for office-shelf scopes only) and a point written by an
+    ingest job that named no organization carry no ``office_id``. They pass, or a project's older
     documents would vanish from its own search; for them the scope list is the
     only boundary, as it was before this condition. A backfill of ``office_id``
     on those points closes the gap and lets this clause go.
