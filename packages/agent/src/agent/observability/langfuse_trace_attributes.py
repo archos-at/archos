@@ -650,9 +650,9 @@ def context_attributes_for(
 ) -> dict[str, Any]:
     """What :class:`TraceContextProcessor` adds to one span. Pure.
 
-    Every span: the process's environment and release, and its Langfuse
-    observation type. A root span also names its trace and carries the turn's
-    outcome when the turn recorded one.
+    Every span: the process's environment, release and deployment tag, and its
+    Langfuse observation type. A root span also names its trace and carries the
+    turn's outcome when the turn recorded one, its tags beside the deployment's.
     """
     from agent.observability.trace_context import OBSERVATION_TYPE_ATTRIBUTE
     from agent.observability.trace_context import TRACE_NAME_ATTRIBUTE
@@ -667,7 +667,7 @@ def context_attributes_for(
         additions[OBSERVATION_TYPE_ATTRIBUTE] = kind
     if is_root:
         additions[TRACE_NAME_ATTRIBUTE] = trace_name_for_root(name)
-        additions.update(outcome or {})
+        merge_span_attributes(additions, outcome or {})
     return additions
 
 
@@ -715,10 +715,10 @@ try:
             return item
 
     class TraceContextProcessor(Processor[Span, Span]):
-        """Environment, release and observation type on every span; trace name and outcome on the root.
+        """Environment, release, deployment tag and observation type on every span; trace name and outcome on the root.
 
-        Installed unconditionally: a deployment name, a commit and a span's
-        type are not personal data. A root span whose turn failed also gets
+        Installed unconditionally: a deployment name and host, a commit and a
+        span's type are not personal data. A root span whose turn failed also gets
         an OTel ERROR status, which the agent runtime never sets itself.
         """
 

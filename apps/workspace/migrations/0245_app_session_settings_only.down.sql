@@ -1,6 +1,6 @@
--- Reverse 0244: the functions and the four column defaults read the `app.` setting
+-- Reverse 0245: the functions and the four column defaults read the `app.` setting
 -- first and the `grid.` one second, as 0241 defined them. Never back to 0031:
--- from 0244 on the BFF sets only the `app.` names.
+-- from 0245 on the BFF sets only the `app.` names.
 
 CREATE OR REPLACE FUNCTION current_org() RETURNS text
   LANGUAGE sql STABLE PARALLEL SAFE

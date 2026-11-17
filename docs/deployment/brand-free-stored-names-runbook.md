@@ -46,7 +46,7 @@ psql "$OWNER_URL" -f apps/workspace/scripts/brand-free-backfill/<name>.sql
 - **Deploy 1:** migration 0241. `current_org()` and `current_user_id()` read
   `app.*` first, then `grid.*`, and so do the four `organization_id` column
   defaults. The BFF set both names.
-- **Switch (step 1):** migration 0244 reads `app.*` only, and its down file
+- **Switch (step 1):** migration 0245 reads `app.*` only, and its down file
   restores 0241. `contextStatement` (`bff/db/index.ts`) and the drizzle defaults
   set and read `app.*` only, and `bff/db/legacy-tenant-settings.ts` is gone.
 - **Backfill:** none. No row stores the setting.

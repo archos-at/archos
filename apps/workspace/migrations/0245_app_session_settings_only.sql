@@ -1,4 +1,4 @@
--- 0244: the row-level-security session settings are read under their `app.`
+-- 0245: the row-level-security session settings are read under their `app.`
 -- names only. The SWITCH step of the rename 0241 expanded
 -- (`docs/deployment/brand-free-stored-names-runbook.md`, section 1).
 --

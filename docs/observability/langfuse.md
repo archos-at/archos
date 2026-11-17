@@ -18,8 +18,9 @@ the Fachbereich): [`analyst-guide.md`](analyst-guide.md).
 | Field in Langfuse | Where it comes from | Values |
 |---|---|---|
 | Trace name | `trace_context.trace_name_for_root` (agent runs), `observed_generation` (auxiliary calls) | `chat-turn`, `research-job`, `conversation-title`, `project-summary`, `consistency-check`, `skill-review`, `lesson-distill`, `feedback-digest`, `cleanup-proposal`, `change-summary`, `revision-visual-compare` (two page images in one vision call, input shown without the pixels; metadata `page`, `prompt_version` and `purpose`, `person` from the compare view or `notice` when the agent compared a new Fassung on its own, ADR-0130), `look-reading` (the second reader of `look` with a `question`: the office's ingest vision model on the same crop, input shown without the pixels, metadata `prompt_version` and `region`; an ERROR generation when the model could not be reached, and the tool still answers), `filing-fit` (where an upload batch belongs, or a root sort's chunk with `purpose: sort`; metadata `batch_id`, `project_id`, `shelf`, `basis`, and the counts; a decision on the proposal it made is a `piloti-decision` score on its trace, through `proposed_changes.origin_trace_id`. With `basis: mail` it places a held mail's attachments, and its text when the mail matched no E-Mail-Verlauf, from names, the masked subject and the sender's domain only (ADR-0137): metadata `surface: inbound_mail`, `text_placed`, `sender_class`, and the mail's id as `batch_id`; a person's decision on each suggested part is a `piloti-decision` with subject `inbound_mail_suggestion`, through `inbound_mail_parts.suggestion_trace_id`. A `verified_writer`'s suggestion is filed by its sender's own filing without a click (ADR-0137's amendment), so no decision score follows it: read the acceptance rate on the other classes), `mail-thread-match` (a person's decision on the E-Mail-Verlauf a held mail matched: no generation, the trace exists to carry the score of the same name, ids derived from the mail's text part; metadata `mail_id`, `project_id`, `part_id`, `strength`, `preselected`, `candidates`, `chosen_rank`, `sender_trust`, `via`), `folder-proposals.map` and `folder-proposals.reduce` (a root sort's new folders: the groups of one chunk, then the merge across them), `folder-card` (one folder's written card in the ingest worker, ADR-0127: the summary model, metadata `collection`, `depth`, `prompt_version`, `documents`, `subfolders`, `mode` (`incremental`: the old card and the diff alone; `full`: the whole folder) and the diff sizes `diff_added`, `diff_removed`, `diff_changed`; a card that only lost documents is pruned without a call and has no generation), `similar-passages` (a retriever, not a generation: `observed_retrieval`), `agent-tool-call` (one MCP tool call on the agent door, or one A2A method, `lib/langfuse/tool-call-trace.ts`: one `TOOL` observation `mcp.<operation>` or `a2a.<operation>`; metadata and tags below), `source-monitor` (one run of the public-source monitor, `lib/langfuse/source-monitor-trace.ts`, ADR-0174: no generation, no page; metadata `checked`, `changed`, `failed`, `opened`, `duration_ms`, tag `feature:source-monitor`, and a `freshness-lag-days` score per watched source) |
-| Environment | `APP_ENV`, coerced to Langfuse's alphabet | `production`, … |
+| Environment | `APP_ENV`, coerced to Langfuse's alphabet | `production`, … Staging runs `APP_ENV=production` too, so the environment never names the deployment: the tag below does |
 | Release | `GIT_SHA`, the image's commit | the commit hash |
+| Deployment tag | `trace_context.deployment_tags` from `POSTHOG_APP_HOST` (the app domain, which Pulumi sets on the Python tiers only where the PostHog switch is on), on every span: the agent runtime's (`TraceContextProcessor`), and every span `direct_trace`'s provider starts (`ProcessContextSpanProcessor`), Hatchet's step runs included. The BFF's traces (`agent-tool-call`, `source-monitor`, `mail-thread-match`) take it from `deploymentTags` in `bff/langfuse/tool-call-trace.ts`, the redirect URI's host | `app_host:app.archos.tech`, `app_host:app.dev.archos.tech`; none when the host is unknown. Only from the deploy that adds it (after 2026-11-17) |
 | Session | the conversation id (the runtime sets `session.id`) | one session per chat |
 | User | the verified WorkOS subject, only with `TRACE_IDENTITY_ATTRIBUTES=true` | WorkOS user id |
 | Observation type | `nat.span.kind` mapped by `trace_context.observation_type` | `agent` (the turn), `generation` (a model call), `tool`, `retriever` (`retrieve.*`), `chain`, `embedding`, `guardrail`, `evaluator` |
@@ -409,6 +410,35 @@ retention and erasure workers (ADR-0044) do not reach PostHog: an erased
 person's events there are removed in PostHog (delete the person with their
 events).
 
+### Which deployment
+
+Staging and production export to one PostHog project and both file their
+traces under `langfuse_environment = 'production'`, so the environment
+cannot split them. `langfuse_tags` can: the export copies the trace's tag
+list, as a JSON string, onto every observation and score of the trace, and
+every trace carries `app_host:<host>` ([above](#what-every-trace-carries)).
+Production is
+
+```sql
+has(JSONExtract(coalesce(properties.langfuse_tags, '[]'), 'Array(String)'), 'app_host:app.archos.tech')
+```
+
+and staging the same with `app_host:app.dev.archos.tech`. It holds only from
+the deploy that adds the tag; earlier observations carry no deployment and
+cannot be split. A score filters the same way: on 2026-11-17, 1014 of 1015
+exported scores carried their trace's tags, and observations carried tags set
+only on the trace (`outcome:answered`).
+What carries no tag: the MCP gateway's spans (`initialize`, `tools/list`, the
+Langfuse and CMS tool calls), which agentgateway writes itself and which
+land in `default`.
+
+The environment stays `APP_ENV`. Nothing in the repository filters on it (the
+judge rules filter on trace name and tags, the golden dataset has no
+environment, `task langfuse:provision` declares none), but each stack's own
+Langfuse has only ever seen `production`, so its saved views and score
+history would split at a rename, and `APP_ENV` itself gates the internal-token
+checks and cannot change.
+
 Facts to plan around: **nothing is backfilled** (the sync is watermark-based,
 and starts when the integration is saved); there is **no filter** by observation
 type, name or level on the integration (the only lever is the export source);
@@ -511,7 +541,7 @@ Gotenberg has an egress policy, so no rule is needed. A spec
 
 | Concern | Module |
 |---|---|
-| Environment, release, types, trace names | `packages/agent/src/agent/observability/trace_context.py` |
+| Environment, release, deployment tag, types, trace names | `packages/agent/src/agent/observability/trace_context.py` |
 | The processors on the runtime's exporter | `packages/agent/src/agent/observability/langfuse_trace_attributes.py`, installed in `otel_header_redaction_exporter.py` |
 | A turn's outcome on its root | `packages/agent/src/agent/observability/turn_outcome.py`, bound in `agent_host/chat_socket.py` `_drive` |
 | Runtime scores | `packages/agent/src/agent/observability/langfuse_scores.py` |

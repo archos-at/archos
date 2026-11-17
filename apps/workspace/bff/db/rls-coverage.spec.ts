@@ -238,7 +238,7 @@ describe('policy predicates say what they should', () => {
 })
 
 describe('settings parity between the app and the policies', () => {
-  const SWITCH = readFileSync(join(process.cwd(), 'migrations', '0244_app_session_settings_only.sql'), 'utf8')
+  const SWITCH = readFileSync(join(process.cwd(), 'migrations', '0245_app_session_settings_only.sql'), 'utf8')
   const statements = SWITCH.split('\n').filter((line) => !line.startsWith('--')).join('\n')
 
   it('reads only the setting names the app sets', () => {

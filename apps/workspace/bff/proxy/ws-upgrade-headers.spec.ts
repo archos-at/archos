@@ -5,6 +5,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { findOversizedWsHeader, stripClientContextHeaders, withoutSessionCookies, WS_HEADER_LINE_MAX_BYTES } from './ws-upgrade-headers.js'
+import { TURN_DOOR_HEADER, TURN_SESSION_SOURCE_HEADER } from '../turns/headless-mode'
 
 describe('stripClientContextHeaders', () => {
   it('removes every x-grid-* header a client sent', () => {
@@ -43,6 +44,14 @@ describe('stripClientContextHeaders', () => {
       authorization: 'Bearer someone-elses-token',
       'x-internal-token': 'guess',
     }
+
+    stripClientContextHeaders(headers)
+
+    expect(headers).toEqual({})
+  })
+
+  it('removes the agent door a headless ask names, so a browser turn cannot claim one', () => {
+    const headers: Record<string, string> = { [TURN_DOOR_HEADER]: 'mcp', [TURN_SESSION_SOURCE_HEADER]: 'mcp' }
 
     stripClientContextHeaders(headers)
 
