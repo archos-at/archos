@@ -133,6 +133,7 @@ HISTORY_PATHS = re.compile(
             r"^apps/website/redirects\.mjs$",  # old public addresses, kept in the spelling they were published under
             r"^apps/website/src/data/changelog\.json$",  # generated from releasenotes/, linted there
             r"^apps/workspace/bff/release-notes/release-notes\.generated\.json$",  # the same, the app's copy
+            r"^packages/agent/tests/fixtures/model_facing_text\.json$",  # the agent's texts copied, linted at source
         )
     )
 )
