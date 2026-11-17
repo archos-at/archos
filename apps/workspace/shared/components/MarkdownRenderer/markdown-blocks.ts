@@ -2,7 +2,6 @@ import type { Root as HastRoot } from 'hast'
 import { directiveDepths } from '@/lib/text/answer-directives'
 import { closesCodeFence, openingCodeFence, type CodeFence, type CodeFenceOptions } from '@/lib/text/code-fence'
 
-
 // 2026-09, phone at 4x CPU throttle: re-parsing the whole shown answer every 50 ms cost 17 ms per render, about 100 ms of parsing per second.
 export interface MarkdownBlock {
   source: string

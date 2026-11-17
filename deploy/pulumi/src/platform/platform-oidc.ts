@@ -53,6 +53,7 @@ export function platformOidcSecurityPolicySpec(
       ],
     },
     authorization: {
+      // Unverified, checked 2026-10-09: WorkOS Connect docs say scopes do not enforce role permissions, so this rule may admit every WorkOS user (kubernetes.md §9b step 3 is the live check).
       defaultAction: "Deny",
       rules: admitted.map((permission) => ({
         name: permission === PLATFORM_VIEW_PERMISSION ? "platform-permission-only" : ruleName(permission),

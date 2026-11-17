@@ -5,6 +5,7 @@ import { BACKGROUND_WORK } from "../config/background-work";
 import { NODE_GROUP_LABEL } from "../constants";
 import { scrapeAnnotations } from "./scrape";
 
+// Not the Bitnami chart: its images moved behind a paid catalogue in 2025.
 export const RABBITMQ_OPERATOR_VERSION = "2.23.2";
 export const RABBITMQ_OPERATOR_MANIFEST = `https://github.com/rabbitmq/cluster-operator/releases/download/v${RABBITMQ_OPERATOR_VERSION}/cluster-operator.yml`;
 export const RABBITMQ_IMAGE = "rabbitmq:4.2.9-management@sha256:7fa20d0d23d63ed90499bbf62e24af48ec4ae5eb22d173f3db96e3f85b26884a";

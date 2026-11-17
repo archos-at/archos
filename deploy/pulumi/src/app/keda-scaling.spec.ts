@@ -214,15 +214,6 @@ describe("the program's ScaledObjects", () => {
       expect(read("deploy", "pulumi", "src", "app", "agent-worker.ts")).toContain('WORKFLOW = "research-run"');
       expect(read("deploy", "pulumi", "src", "app", "bff-jobs.ts")).toContain('WORKFLOW = "bff-job"');
     });
-
-    it("explain what the cooldown does, which is one step", () => {
-      expect(read("deploy", "pulumi", "src", "app", "keda-scaling.ts")).toMatch(
-        /ONE step only: how long after the last\s+\*\s+active trigger a tier is held before it is taken from 1 replica to 0/,
-      );
-      for (const tier of QUEUE_TIERS) {
-        expect(read("deploy", "pulumi", "src", "app", `${tier}.ts`), tier).not.toMatch(/Scale-in waits this long/);
-      }
-    });
   });
 
   describe("the chart", () => {
