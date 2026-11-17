@@ -14,9 +14,12 @@ import { storeyKey, supportsWebGpu, type BimViewerElement } from '../lib/model-i
 import { buildModelQuery, parseModelView, withModelView, type BimModelView } from '../lib/model-link'
 import { formatLevelElevation, levelElevation, pickStageModel, stageLevels, stageModelLabel, stageModelMatched } from '../lib/stage-model'
 
-import { screenshotFilename } from '../lib/viewer-performance'
+import { useAdvancedSheet } from '../hooks/use-advanced-sheet'
 import { useBimElementDetail, useBimElements, useBimModelSource, useDocumentBimModel, useProjectBimModels } from '../hooks/use-bim-model'
+import { useCopyLink } from '../hooks/use-copy-link'
 import { useModelViewport } from '../hooks/use-model-viewport'
+import { useStageCapture } from '../hooks/use-stage-capture'
+import { useStageHistory } from '../hooks/use-stage-history'
 import { useStageLayout } from '../hooks/use-stage-layout'
 
 import { ModelInspector } from './model-inspector'
@@ -24,7 +27,7 @@ import { ModelInspector } from './model-inspector'
 import { PhoneMoreRows, type PhoneSheet } from './stage-phone-chrome'
 
 import { ViewerRailItem, ViewerRailSection, ViewerSheet, type ViewerSheetSnap } from './viewer'
-import { NO_ELEMENTS, STAGE_HISTORY_DEPTH, StageStep, visibilityActions } from './model-stage-helpers'
+import { NO_ELEMENTS, visibilityActions } from './model-stage-helpers'
 
 export interface ModelStageProps {
   projectId: string | null
@@ -62,33 +65,7 @@ export function useModelStageController(props: ModelStageProps) {
     [pathname, router]
   )
 
-  const [history, setHistory] = useState<StageStep[]>([])
-
-  const collecting = useRef<StageStep | null>(null)
-
-  const pushStep = useCallback((step: StageStep) => {
-    if (collecting.current) {
-      collecting.current = {
-        view: collecting.current.view ?? step.view,
-        visibility: collecting.current.visibility ?? step.visibility,
-      }
-      return
-    }
-    setHistory((stack) => [...stack, step].slice(-STAGE_HISTORY_DEPTH))
-  }, [])
-
-  const asOneStep = useCallback((gesture: () => void) => {
-    collecting.current = { view: null, visibility: null }
-    try {
-      gesture()
-    } finally {
-      const step = collecting.current
-      collecting.current = null
-      if (step && (step.view || step.visibility)) {
-        setHistory((stack) => [...stack, step].slice(-STAGE_HISTORY_DEPTH))
-      }
-    }
-  }, [])
+  const { history, setHistory, collecting, pushStep, asOneStep } = useStageHistory()
 
   const setView = useCallback(
     (patch: Partial<BimModelView>) => {
@@ -143,33 +120,9 @@ export function useModelStageController(props: ModelStageProps) {
 
   const levels = useMemo(() => stageLevels(model?.summary), [model?.summary])
 
-  const modelFilenameRef = useRef(model?.filename ?? null)
-  modelFilenameRef.current = model?.filename ?? null
-
-  const [captureFailed, setCaptureFailed] = useState(false)
-  const handleCapture = useCallback(
-    (dataUrl: string | null) => {
-      if (!dataUrl) {
-        setCaptureFailed(true)
-        return
-      }
-      setCaptureFailed(false)
-      const link = document.createElement('a')
-      link.href = dataUrl
-      link.download = screenshotFilename(modelFilenameRef.current, new Date())
-      link.click()
-    },
-    []
-  )
-
-  useEffect(() => {
-    if (!captureFailed) return
-    const timer = setTimeout(() => setCaptureFailed(false), 4000)
-    return () => clearTimeout(timer)
-  }, [captureFailed])
+  const { captureFailed, setCaptureFailed, handleCapture, modelFilenameRef } = useStageCapture(model?.filename ?? null)
 
   const stageRef = useRef<HTMLDivElement>(null)
-  const advancedToggleRef = useRef<HTMLButtonElement>(null)
   const focusViewport = useCallback(() => {
     const root = stageRef.current
     if (!root) return
@@ -243,56 +196,16 @@ export function useModelStageController(props: ModelStageProps) {
     []
   )
   const linkedOpen = view.tab !== undefined && modelId !== null
-  const [advancedOpen, setAdvancedOpenEcho] = useState(linkedOpen)
-  useEffect(() => setAdvancedOpenEcho(linkedOpen), [linkedOpen])
-  const setAdvancedOpen = useCallback(
-    (open: boolean) => {
-      setAdvancedOpenEcho(open)
-      setView({ tab: open ? (view.tab ?? 'overview') : undefined })
-    },
-    [setView, view.tab]
-  )
-  const restoreAdvancedFocus = useRef(false)
-  const closeAdvanced = useCallback(() => {
-    restoreAdvancedFocus.current = true
-    setAdvancedOpen(false)
-  }, [setAdvancedOpen])
-  useEffect(() => {
-    if (advancedOpen || !restoreAdvancedFocus.current) return
-    restoreAdvancedFocus.current = false
-    if (advancedToggleRef.current) advancedToggleRef.current.focus()
-    else focusViewport()
-  }, [advancedOpen, focusViewport])
+  const {
+    advancedOpen,
+    setAdvancedOpenEcho,
+    setAdvancedOpen,
+    advancedToggleRef,
+    restoreAdvancedFocus,
+    closeAdvanced,
+  } = useAdvancedSheet({ linkedOpen, view, setView, focusViewport })
 
-  const [copied, setCopied] = useState(false)
-  useEffect(() => {
-    if (!copied) return
-    const timer = setTimeout(() => setCopied(false), 2000)
-    return () => clearTimeout(timer)
-  }, [copied])
-
-  const [copyFailed, setCopyFailed] = useState(false)
-  const copyLink = useCallback(() => {
-    if (typeof window === 'undefined') return
-    const clipboard = navigator.clipboard
-    if (!clipboard) {
-      setCopyFailed(true)
-      return
-    }
-    clipboard
-      .writeText(window.location.href)
-      .then(() => {
-        setCopyFailed(false)
-        setCopied(true)
-      })
-      .catch(() => setCopyFailed(true))
-  }, [])
-
-  useEffect(() => {
-    if (!copyFailed) return
-    const timer = setTimeout(() => setCopyFailed(false), 4000)
-    return () => clearTimeout(timer)
-  }, [copyFailed])
+  const { copied, setCopied, copyFailed, setCopyFailed, copyLink } = useCopyLink()
 
   const measureLabels = useMemo(
     () => ({
