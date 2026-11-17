@@ -94,29 +94,6 @@ def release(job_id: str) -> bool:
     return _update(_RELEASE, {"job_id": job_id})
 
 
-def hold_cutover_rows() -> int:
-    """Hold the jobs the retired claim queue still carries and nothing holds yet; how many. Never raises.
-
-    Schema init holds the rows present when ``held_until`` arrives; an API pod
-    still on the old release queues more while the rollout lasts, and each
-    pass of ``ingest_cutover`` holds those before it hands them over.
-    """
-    url = store._db_url()
-    if not url:
-        return 0
-    statement = store._HOLD_QUEUED_AT_CUTOVER.format(
-        until=store._from_now(url, store._CUTOVER_HOLD_SECONDS), now=store._now(url)
-    )
-    try:
-        store._ensure_table(url)
-        with DocumentMetadataStore._get_or_create_sync_engine(url).begin() as conn:
-            # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
-            return conn.execute(text(statement)).rowcount or 0
-    except Exception:
-        logger.warning("Could not hold the jobs the retired ingest queue carries (continuing)", exc_info=True)
-        return 0
-
-
 def mark_stopped_by_person(job_id: str) -> bool:
     """Record that a person stopped the job, before its run is cancelled; whether a run was marked."""
     return _update(_MARK_STOPPED, {"job_id": job_id, "prefix": STOPPED_BY_PERSON})

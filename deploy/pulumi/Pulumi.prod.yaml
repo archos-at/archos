@@ -371,7 +371,7 @@ config:
 
   # Dedicated agent-worker replicas execute research jobs, scaling the token-heavy
   # workload horizontally.
-  # KEDA scales the tier on research_job_queue (ADR-0079); one worker stays warm.
+  # KEDA scales the tier on Hatchet's research backlog (ADR-0150); one worker stays warm.
   grid-oib:agentWorkerMinReplicas: "1"
   grid-oib:agentWorkerMaxReplicas: "3"
   grid-oib:agentWorkerConcurrency: "1"

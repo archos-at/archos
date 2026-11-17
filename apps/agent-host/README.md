@@ -402,8 +402,8 @@ retries, the on-failure task). What each task must keep:
 - Only `jobs/ingest_worker.py` serves `ingest-document`; the `chat` and `api` roles
   dispatch and never run a job.
 
-The old `research_job_queue` and `ingest_job_queue` tables and their cutover loops
-stay until a later migration drops them ([the cutover](../../docs/deployment/hatchet.md#cutover-from-the-claim-queues)).
+The old `research_job_queue` and `ingest_job_queue` tables stay, unread, until a
+later migration drops them ([the cutover](../../docs/deployment/hatchet.md#cutover-from-the-claim-queues)).
 
 **Research waits, it is not refused.** Let a full cluster queue the job:
 `MAX_ACTIVE_JOBS_PER_ORG` is the `research-run` concurrency cap per organization,

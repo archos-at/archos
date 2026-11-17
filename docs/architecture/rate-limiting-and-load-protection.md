@@ -506,8 +506,8 @@ A document is one `ingest-document` run on Hatchet (ADR-0150,
 strategy, `GROUP_ROUND_ROBIN` keyed on the organization id, with run priority
 for interactive before bulk. The vision ceiling below is still the Dragonfly
 pool until page reading is its own task. Where a bullet says "claim", it
-describes the claim queue Hatchet replaced, `ingest_job_queue`, kept until the
-cutover drains it.
+describes the claim queue Hatchet replaced, `ingest_job_queue`, whose table
+stays, unread, until a migration drops it.
 
 - **Fair share, not a cap.** When an office has more runs than its share, its
   runs wait and the next free slot rotates to the next office. A lone office
@@ -642,7 +642,7 @@ Research is not refused for capacity either: it
 waits, so its L3 is the same order and ceiling ingestion has. A research job
 is one `research-run` on Hatchet (ADR-0150) with the same organization-keyed
 round robin; the admission caps are unchanged. The old `research_job_queue`
-table is kept until the cutover drains it.
+table stays, unread, until a migration drops it.
 
 - **Capacity waits, it never fails.** A submit writes a `SUBMITTED` `job_info`
   row and starts its run, which waits in Hatchet until a slot frees; the UI

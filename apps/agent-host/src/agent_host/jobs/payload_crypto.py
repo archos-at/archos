@@ -1,7 +1,7 @@
-"""Encrypt DB-claimed research-job payloads at rest (ADR-0021, security).
+"""Encrypt background-job payloads at rest (ADR-0021, ADR-0150, security).
 
-The claimable queue row (``research_job_queue.payload``) persists the full
-``run_agent_job`` payload durably in Postgres. That payload carries the user's
+A job's input on Hatchet persists the full ``run_agent_job`` payload durably in
+Postgres. That payload carries the user's
 auth token plus identity/budget context, so persisting it is at-rest exposure
 (table, WAL, backups, replicas).
 
@@ -17,11 +17,10 @@ Read path is fail-closed: when a KEK is configured, ``deserialize`` accepts
 carrying a forged auth token/usage context and the worker would execute it.
 The write path keeps its plaintext fallback for dev (no KEK, single node).
 
-Migration path for enabling the KEK on an existing deployment: queue rows are
-transient dispatch state (deleted on completion), so drain before setting the
-KEK — stop submitters, let workers empty ``research_job_queue``, then set the
-KEK and restart. Any plaintext row still present afterwards is rejected, never
-executed, and ages out through the normal claim-retry/reap path.
+Migration path for enabling the KEK on an existing deployment: a job's input is
+transient dispatch state, so drain before setting the KEK — stop submitters,
+let the workers finish what Hatchet holds, then set the KEK and restart. Any
+plaintext input still present afterwards is rejected, never executed.
 
 Longer term, minting a short-lived, narrowly-scoped job token at submit (instead
 of forwarding the user's token) would remove the credential from the payload

@@ -159,18 +159,13 @@ resolves `agent` from whatever the venv has installed, possibly another
 worktree, and validates the wrong code while appearing to pass. `pyproject.toml`'s
 `pythonpath` puts `packages/agent/src/` first, so a bare `pytest` is safe as well as the Taskfile.
 
-**The claim queues, kept until the cutover to Hatchet drains them (ADR-0150),
-are tested on Postgres by `task be:test:postgres`, in CI's Backend job.**
-`packages/agent/tests/common/test_claim_queue.py` and
-`tests/knowledge_layer_tests/test_ingest_queue.py` run every scenario on
-SQLite, which ranks in Python, and on Postgres, which runs production's claim
-SQL. The folder card builder's suites (`packages/agent/tests/knowledge/folder_cards/`:
-dirty set, budget, manifests, the build over a collection) run on both too, through the
-`database_url` and `agent_db` fixtures in their `conftest.py`, and so does the
-metadata store's mail records (`packages/agent/tests/knowledge/test_mail_facts.py`: the
-add-column path on a table from before the columns, and the read-back), and the research
-cutover (`apps/agent-host/tests/test_research_cutover.py`: a row it holds is skipped by the
-old claim's `FOR UPDATE SKIP LOCKED` and by a second cutover). Without `TEST_POSTGRES_URL` the Postgres parameter skips, so the task
+**The folder card builder's suites run on Postgres too, through `task
+be:test:postgres` in CI's Backend job.** `packages/agent/tests/knowledge/folder_cards/`
+(dirty set, budget, manifests, the build over a collection) runs every scenario on
+SQLite and on Postgres, through the `database_url` and `agent_db` fixtures in its
+`conftest.py`, and so does the metadata store's mail records
+(`packages/agent/tests/knowledge/test_mail_facts.py`: the add-column path on a table
+from before the columns, and the read-back). Without `TEST_POSTGRES_URL` the Postgres parameter skips, so the task
 reuses `scripts/rls-test-db.sh --exec` for a throwaway cluster and names a
 scratch database in it. Each file carries an `TEST_POSTGRES_REQUIRED` guard,
 set in CI, that fails instead of skipping. A new suite with a Postgres parameter
