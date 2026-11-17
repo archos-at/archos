@@ -155,7 +155,6 @@ backend:
   - 'ci/brand_names_baseline.json'
   - 'ci/comment_baseline.json'
   - 'ci/english_names_baseline_py.json'
-  - 'ci/package_surface_baseline.json'
   - 'ci/size_baseline.json'
   - 'contracts/cards/schemas.json'
   - 'contracts/thread-index.json'
@@ -272,7 +271,7 @@ workspace:
   - 'packages/agent/src/agent/knowledge/doc_class_vocabulary.py'
   - 'packages/agent/src/agent/knowledge/document_classification.py'
   - 'packages/agent/src/agent/skills/events.py'
-  - 'packages/knowledge-layer/src/ingest/chosen_document_type.py'
+  - 'packages/knowledge-layer/src/knowledge_layer/ingest/chosen_document_type.py'
   - 'tests/fixtures/base-knowledge/turn_law_austria.json'
   - 'tests/fixtures/golden/scoring_parity.json'
   # End of the files this tier's tests read.
@@ -371,10 +370,10 @@ infra:
   - 'packages/agent/src/agent/common/provider_limiter.py'
   - 'packages/agent/src/agent/knowledge/ingest_scheduler.py'
   - 'packages/agent/src/agent/knowledge/ingest_workflow.py'
-  - 'packages/knowledge-layer/src/embedding.py'
-  - 'packages/knowledge-layer/src/ingest/adapter.py'
-  - 'packages/knowledge-layer/src/ingest/page_reads.py'
-  - 'packages/knowledge-layer/src/ingest/vision_calls.py'
+  - 'packages/knowledge-layer/src/knowledge_layer/embedding.py'
+  - 'packages/knowledge-layer/src/knowledge_layer/ingest/adapter.py'
+  - 'packages/knowledge-layer/src/knowledge_layer/ingest/page_reads.py'
+  - 'packages/knowledge-layer/src/knowledge_layer/ingest/vision_calls.py'
   # End of the files this tier's tests read.
 # The two standalone IFC packages (ADR-0045). Their own family rather than a
 # line in `backend:` or `workspace:`, because they are outside BOTH workspaces —

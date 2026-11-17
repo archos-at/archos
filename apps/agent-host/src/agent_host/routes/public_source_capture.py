@@ -1,23 +1,3 @@
-"""Capture one page of a configured public source, for a citation (ADR-0170).
-
-An operator's agent onboarding a country cites pages, and the BFF stores what
-each citation is checked against (KC-6). The BFF cannot fetch: the sandboxed
-public-source fetcher admits the backend roles only (ADR-0162, its
-NetworkPolicy). So the BFF asks here, and this route makes the request through
-:func:`public_sources.capture.capture_page`, which uses the same transport every
-source reader uses: the source's hosts checked at every redirect, a public
-address, GET only. It answers the bytes' sha256 and size and the page's text
-(a PDF's pages joined by a form feed, with ``pages`` and a ``note`` when a scan
-has no text layer); the BFF stores them in the change request's capture. A refusal
-the reader names (a host off the source or no public address, ``egress_refused``;
-a body past the ceiling; a PDF behind a password, broken, too long or too slow)
-answers the problem's ``code`` beside its ``detail``.
-
-Public pages only, never a tenant's content, and nothing is kept here.
-Internal-token guarded like every other service-to-service route: reached from
-the BFF, never from a browser.
-"""
-
 import asyncio
 import logging
 from typing import Any
@@ -44,8 +24,6 @@ class CaptureRequest(BaseModel):
 
 
 class SourceRequest(BaseModel):
-    """A source configured in the database, as the BFF hands it over (ADR-0174)."""
-
     config: dict[str, Any]
     credential: str | None = Field(default=None, min_length=1, max_length=4000)
 
@@ -72,7 +50,6 @@ def _configured(config: dict[str, Any]):
 
 
 async def _captured(body: CaptureRequest):
-    """The page ``body`` names, fetched as its source allows; a refusal as the response the route answers."""
     from public_sources.capture import CaptureError
     from public_sources.capture import capture_page
     from public_sources.egress import EgressRefused
@@ -100,7 +77,6 @@ async def _captured(body: CaptureRequest):
 async def capture_public_source_page(
     body: CaptureRequest, _: None = Depends(_require_internal_token)
 ) -> dict | JSONResponse:
-    """Return ``{url, finalUrl, contentType, sha256, bytes, text, pages, note, retrievedAt}`` for one page."""
     page = await _captured(body)
     if isinstance(page, JSONResponse):
         return page
@@ -108,7 +84,6 @@ async def capture_public_source_page(
 
 
 def _page_facts(page) -> dict:
-    """What a capture says about its bytes, without its text."""
     return {
         "url": page.url,
         "finalUrl": page.final_url,
@@ -122,26 +97,14 @@ def _page_facts(page) -> dict:
 
 
 class CorpusTextRequest(CaptureRequest):
-    """A PDF of a configured source to keep as a base-corpus file (ADR-0165, "Texts are attached in the request")."""
-
     fileStem: str = Field(..., pattern=r"^[a-z0-9][a-z0-9._-]{0,99}$", description="The manifestation's key.")
 
 
 def corpus_text_name(stem: str, sha256: str) -> str:
-    """The name a text is kept under: its manifestation's key and the first twelve hex digits of its sha256.
-
-    Content-addressed, so the bytes under a name never change: other bytes are another name. The BFF names an
-    uploaded text the same way (``textFileName`` in ``text-wire.ts``).
-    """
     return f"{stem}-{sha256[:12]}.pdf"
 
 
 def _keep_corpus_text(name: str, content: bytes, sha256: str) -> str:
-    """Store the bytes under ``name`` and queue their ingestion: ``stored``, ``unchanged`` or ``name_taken``.
-
-    Nothing is ever replaced: a name that holds other bytes (somebody put a file there by hand, or twelve hex
-    digits collided) is refused.
-    """
     from agent import corpus_store
     from agent import oib_sync
     from agent.common.norm_registry import guess_doc_class
@@ -161,13 +124,6 @@ def _keep_corpus_text(name: str, content: bytes, sha256: str) -> str:
 async def import_public_source_text(
     body: CorpusTextRequest, _: None = Depends(_require_internal_token)
 ) -> dict | JSONResponse:
-    """Fetch a public PDF and keep it as a base-corpus file: ``{fileName, stored, …the capture's facts}``.
-
-    The fetch and the parse are the capture's (:func:`public_sources.capture.capture_page`): the source's hosts at
-    every hop, and the PDF read by the fetcher, which refuses one it cannot open before anything is kept. This tier
-    never parses the bytes; it hands them to the corpus store, where they are ingested like an upload and read by
-    nobody until a release marks them with a country (ADR-0173).
-    """
     from public_sources.pdf import is_pdf
 
     page = await _captured(body)
@@ -189,12 +145,6 @@ async def import_public_source_text(
 
 
 async def check_public_source(body: SourceRequest, _: None = Depends(_require_internal_token)) -> dict:
-    """KC-7 (ADR-0174): ``{valid, problems: [{fixture, detail}], fixtures: [{name, ok, requested, awaiting}]}``.
-
-    No live call. A fixture whose response is a capture the BFF did not hand over is not run: ``awaiting`` names
-    its URLs, it is not ``ok`` and it is no problem here. Whether a source may wait for its recording is the
-    BFF's to say: a draft may, so its hosts can be fetched for the capture; a submit may not.
-    """
     from public_sources.fixtures import run_source
     from public_sources.source import SourceError
     from public_sources.source import parse_inline_source
@@ -217,18 +167,10 @@ async def check_public_source(body: SourceRequest, _: None = Depends(_require_in
 _built_in: list[dict] | None = None
 
 
-class BuiltInRequest(BaseModel):
-    """Nothing to send: the built-in sources are this image's."""
+class BuiltInRequest(BaseModel): ...
 
 
 async def built_in_public_sources(_: BuiltInRequest, __: None = Depends(_require_internal_token)) -> dict:
-    """The repository's own sources (``configs/sources``, reviewed as code), each with its recorded fixtures' result.
-
-    A built-in source is an engine's configuration the agent's own tools read
-    (the RIS adapter's controllers and Bundesland parameters); every other
-    source is a platform record (ADR-0174). Listed read-only beside the records
-    in ``source-status``: the same check KC-7 runs on a record, no live call.
-    """
     global _built_in
     if _built_in is None:
         from public_sources.fixtures import run_source
@@ -260,7 +202,6 @@ def _built_in_view(source, results) -> dict:
 
 
 async def probe_public_source(body: ProbeRequest, _: None = Depends(_require_internal_token)) -> dict:
-    """One monitor check (ADR-0174): what the probe saw, whether it changed, and the page's text for a capture."""
     from public_sources.access import AccessError
     from public_sources.egress import EgressRefused
     from public_sources.monitor import MonitorError
@@ -304,7 +245,6 @@ async def probe_public_source(body: ProbeRequest, _: None = Depends(_require_int
 
 
 def add_public_source_capture_routes(router: APIRouter) -> None:
-    """The public-source routes the BFF calls: capture, corpus text, check (KC-7), probe and the built-in list."""
     router.post(
         "/v1/public-sources/capture",
         tags=["public-sources"],

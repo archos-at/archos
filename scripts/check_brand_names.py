@@ -1,66 +1,5 @@
 #!/usr/bin/env python3
 
-"""Keep the product's name out of every new code and infrastructure identifier.
-
-Why this exists
----------------
-
-The product has been called AI-Q, then Grid, then Piloti, now ARCHOS, and it is
-about to change again. Every rename so far was a code change across thousands of lines,
-because the name sat in identifiers, file names, environment variables, routes
-and resource names. The name belongs in user-facing copy, read from one place,
-so the next rename is a copy change.
-
-What it checks
---------------
-
-A ratchet, in the style of `scripts/check_file_size.py`: no new hit anywhere,
-and a baseline (`ci/brand_names_baseline.json`) holding the hits each file had
-when the check arrived.
-
-- A hit is a word of a token (a camelCase, snake_case, kebab-case or dotted
-  name) that is one of the brands: `aiq`, `archos`, `piloti`, `grid` (``brand_words``).
-- A file's count is its hits in its own name plus, for a code or config file
-  (``CONTENT_SUFFIXES``), its hits in the text. A directory is keyed `dir/`
-  and counts the hits in its own name, so a new file in an old directory is
-  not a new hit, and a new directory is.
-- A key over its baseline fails; so does one under it (``--update`` lowers and
-  removes entries, it never raises or adds one).
-
-What is not a hit
------------------
-
-- The name as a word in prose: the bare token `Piloti`, `Grid` or `ARCHOS` (a
-  comment, a docstring, a string a person reads, a generated fixture that renders
-  `PRODUCT_NAME` into copy). That copy is the brand's business, and the place to
-  centralise it is the `PRODUCT_NAME` constant; `scripts/check_brand_prose.py`
-  counts it in text, this check does not.
-- `grid` the English word: a bare lowercase `grid`, CSS and Tailwind
-  (`grid-cols-2`, `gridTemplateColumns`), and `grid` as the last word, the
-  layout noun (`FileGrid`, `document_grid`, `stat-grid`).
-- The repository's own name and URLs (``REPOSITORY``), which only the
-  repository's owners rename: `archos-at/archos` and the `archos-at` org
-  (`ghcr.io/archos-at/...`, `github.com/archos-at/...`). The image or repo
-  name after the org is not exempt, so an existing `grid-oib-*` hit stays.
-- The Kubernetes and Compose tier names `aiq-agent` and `aiq-api`
-  (``PENDING_INFRA_NAMES``), until the deploy rename (ADR-0145 row 10c) moves
-  them in its three operator-applied deploys.
-- The external names the owner kept (``EXTERNAL_NAMES``, ADR-0182 decision 4):
-  the Pulumi project and stack `grid-oib`, the buckets `grid-documents` and
-  `grid-org-<id>`, the Qdrant aliases `piloti_corpus` and `piloti_office`.
-- A legacy module's text, whose header says ``drop after release N`` (``LEGACY_HEADER``).
-- History and copy (``EXCLUDED``): ADRs, audits, release notes, migrations,
-  the i18n dictionaries and the site's content, published assets, lockfiles,
-  and Markdown, whose paths and names follow the code they describe.
-
-Usage:
-    python scripts/check_brand_names.py              # check, exit 1 on a finding
-    python scripts/check_brand_names.py --update     # ratchet the baseline down
-    python scripts/check_brand_names.py --rebaseline # rewrite it from the tree
-
-``--rebaseline`` is for a move or rename that re-keys entries: it records the
-tree as it is, new hits included, so its diff is the thing to review.
-"""
 
 from __future__ import annotations
 
@@ -146,7 +85,6 @@ def _is_brand(word: str) -> bool:
 
 
 def brand_words(token: str) -> list[str]:
-    """The brand words of ``token`` (`piloti_wakes` → ['piloti'], `FileGrid` → [], `Piloti` → [])."""
     if token in PROSE or token == "grid" or HOST.search(token):
         return []
     if CSS_GRID.match(token) or CSS_GRID_PROPERTY.match(token):
@@ -157,7 +95,6 @@ def brand_words(token: str) -> list[str]:
 
 
 def branded_tokens(text: str) -> list[str]:
-    """The tokens of ``text`` that contain a brand, grown out from each match (a regex for whole tokens is slow)."""
     tokens: list[str] = []
     end = 0
     for match in BRAND.finditer(text):
@@ -173,12 +110,6 @@ def branded_tokens(text: str) -> list[str]:
 
 
 def _without_exempt_names(text: str) -> str:
-    """``text`` with URLs, the repository's own name and the pending infra names blanked.
-
-    Each substitution runs only where a plain substring says it can match: the
-    three regexes over every file were half of this check (2.7s of 5.3,
-    2026-11-10), REPOSITORY alone 1.8s, and most files hold none of them.
-    """
     if "://" in text or "git@" in text:
         text = URL.sub(" ", text)
     lowered = text.lower()
@@ -192,7 +123,6 @@ def _without_exempt_names(text: str) -> str:
 
 
 def count_text(text: str) -> int:
-    """The brand hits in ``text``, URLs and the repository's own name left out."""
     if not BRAND.search(text):
         return 0
     return sum(len(brand_words(token)) for token in branded_tokens(_without_exempt_names(text)))
@@ -204,13 +134,11 @@ def is_content(path: str) -> bool:
 
 
 def tracked_files(root: Path) -> list[str]:
-    """Every file git tracks (staged included) that this check governs."""
     out = subprocess.run(["git", "ls-files"], cwd=root, capture_output=True, text=True, check=True).stdout
     return [path for path in out.splitlines() if not EXCLUDED.search(path) and (root / path).is_file()]
 
 
 def measure(root: Path, paths: list[str]) -> dict[str, int]:
-    """The hits per file and per directory (keyed `dir/`), zeros left out."""
     counts: Counter[str] = Counter()
     directories: set[str] = set()
     for path in paths:
@@ -235,7 +163,6 @@ def write_baseline(path: Path, counts: dict[str, int]) -> None:
 
 
 def check(current: dict[str, int], baseline: dict[str, int]) -> list[str]:
-    """New or grown keys, and keys the baseline should lower."""
     findings = []
     for key, count in sorted(current.items()):
         allowed = baseline.get(key, 0)
@@ -249,13 +176,14 @@ def check(current: dict[str, int], baseline: dict[str, int]) -> list[str]:
 
 
 def tightened(current: dict[str, int], baseline: dict[str, int]) -> dict[str, int]:
-    """The baseline lowered to the tree wherever the tree has fewer; nothing new, nothing raised."""
     return {key: min(allowed, current[key]) for key, allowed in baseline.items() if key in current}
 
 
 def main(argv: list[str] | None = None) -> int:
-    """CLI entry point: check (or ratchet) the brand-name baseline and return an exit code."""
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description="Keep the product's name out of every new code and infrastructure identifier.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--update", action="store_true", help="Lower and remove baseline entries; never raise one.")
     mode.add_argument("--rebaseline", action="store_true", help="Record the tree as it is, new hits included.")

@@ -1,10 +1,3 @@
-"""
-Job submission utilities.
-
-Provides functions to submit agent jobs (ADR-0021, ADR-0150): the submit persists
-the job, then starts its ``research-run`` on Hatchet, which a research worker runs.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -54,10 +47,6 @@ def _build_run_agent_payload(
     request_envelope=None,
     knowledge_context=None,
 ) -> dict:
-    """Build the JSON-serializable ``run_agent_job`` kwargs a research worker replays.
-
-    Keys mirror ``run_agent_job``'s signature exactly; every value round-trips through JSON.
-    """
     (
         parent_span_id,
         parent_function_id,
@@ -107,7 +96,6 @@ logger = logging.getLogger(__name__)
 
 
 async def _enforce_job_admission(db_url: str, organization_id: str | None) -> None:
-    """Refuse a submission past its organization's waiting-queue bound (fail-open on errors)."""
     try:
         await _enforce_queue_bound(db_url, organization_id)
     except JobAdmissionError:
@@ -117,7 +105,6 @@ async def _enforce_job_admission(db_url: str, organization_id: str | None) -> No
 
 
 async def _enforce_queue_bound(db_url: str, organization_id: str | None) -> None:
-    """Refuse only an organization whose own waiting queue is past its bound."""
     bound = orchestrator_runs.max_queued_per_org()
     if bound <= 0:
         return
@@ -131,7 +118,6 @@ async def _enforce_queue_bound(db_url: str, organization_id: str | None) -> None
 
 
 def _get_disabled_sources() -> set[str]:
-    """Org-disabled source ids from the submitting request (fail-open)."""
     try:
         from agent.common import get_disabled_sources_from_context
 
@@ -142,12 +128,6 @@ def _get_disabled_sources() -> set[str]:
 
 
 def _resolve_submission_principal(owner: str) -> Principal | None:
-    """Resolve the best available principal for async job ownership.
-
-    Used only when submit_agent_job is called programmatically without an
-    explicit principal.  Verified middleware identity is preferred; falls back
-    to a compatibility principal when auth is disabled.
-    """
     principal = get_current_principal()
     if principal is not None:
         return principal
@@ -167,16 +147,6 @@ def _get_parent_trace_context() -> tuple[
     str | None,  # parent_conversation_id
     dict[str, str],  # request_trace_tags
 ]:
-    """
-    Extract trace context from current workflow for propagation to async jobs.
-
-    This enables nested spans in Phoenix - the async job will appear as a child
-    of the workflow that submitted it.
-
-    Returns:
-        Tuple of (parent_span_id, parent_function_id, parent_function_name,
-                  parent_workflow_run_id, parent_workflow_trace_id, parent_conversation_id, request_trace_tags)
-    """
     try:
         from nat.plugin_api import ContextState
     except ImportError:
@@ -211,25 +181,13 @@ def _get_parent_trace_context() -> tuple[
     )
 
 
-class MissingPrincipalError(RuntimeError):
-    """No verified principal is available to own the async job.
-
-    Subclasses RuntimeError for backwards compatibility. HTTP routes map this
-    specific error to 403 with its static, user-safe message — arbitrary
-    RuntimeError text (which may carry hosts/DSNs) must never reach clients.
-    """
+class MissingPrincipalError(RuntimeError): ...
 
 
-class DuplicateJobIdError(ValueError):
-    """A caller-supplied job ID collides with an existing job.
-
-    Mapped to HTTP 409 Conflict by the submit route. Only raised for
-    caller-supplied IDs; auto-generated UUIDs skip the existence check.
-    """
+class DuplicateJobIdError(ValueError): ...
 
 
 def _job_store_settings() -> tuple[str, str, int]:
-    """The job database, the worker's config file and its log level, from the environment."""
     db_url = os.environ.get("NAT_JOB_STORE_DB_URL", "sqlite:///./data/jobs.db")
 
     config_path = os.environ.get("NAT_CONFIG_FILE", "")
@@ -244,7 +202,6 @@ def _captured_request_context(
     project_context: str | None,
     model_overrides: dict[str, str] | None,
 ) -> tuple[str | None, list[str] | None, str | None, dict[str, str] | None]:
-    """Fill each value the caller did not pass from the request the job is submitted in."""
     if auth_token is None:
         from agent.auth import get_auth_token
 
@@ -268,7 +225,6 @@ def _captured_request_context(
 
 
 def _effective_data_sources(data_sources: list[str] | None) -> list[str] | None:
-    """The data sources the worker may use: the request's, less what the organization turned off."""
     disabled_sources = _get_disabled_sources()
     if disabled_sources:
         if data_sources is None:
@@ -280,7 +236,6 @@ def _effective_data_sources(data_sources: list[str] | None) -> list[str] | None:
 
 
 def _verified_principal(principal: Principal | None, owner: str) -> Principal:
-    """The principal that owns the job: the one passed in, else the current request's verified one."""
     if principal is None:
         principal = _resolve_submission_principal(owner)
     if principal is None:
@@ -294,7 +249,6 @@ async def _verify_job_id_is_new(
     db_url: str,
     loop: asyncio.AbstractEventLoop,
 ) -> bool:
-    """Refuse a caller-supplied job ID that exists. Returns whether the ID's pre-existence was verified."""
     preexistence_verified = job_id is None
     if job_id is not None:
         try:
@@ -318,7 +272,6 @@ async def _discard_failed_submission(
     preexistence_verified: bool,
     loop: asyncio.AbstractEventLoop,
 ) -> None:
-    """Undo a submission that failed part-way: its job rows, when they were ours to delete."""
     if not preexistence_verified:
         logger.warning(
             "Skipping rollback for job %s after submission failure: pre-existence of the "
@@ -367,65 +320,6 @@ async def submit_agent_job(
     request_envelope: dict[str, str] | None = None,
     knowledge_context: dict | None = None,
 ) -> str:
-    """
-    Submit an agent job as a ``research-run`` on Hatchet (ADR-0021, ADR-0150).
-
-    This is the main entry point for submitting async jobs from application code.
-    It looks up the agent configuration from the registry, persists the job, and
-    starts the run, which a research worker runs.
-
-    Args:
-        agent_type: Agent type identifier (e.g., 'deep_researcher').
-        input_text: The user's query/request.
-        owner: Owner email for the job.
-        principal: Verified principal that owns the job.
-        job_id: Optional custom job ID.
-        expiry_seconds: Job expiry time in seconds (default 24h).
-        available_documents: Optional list of document dicts with file_name and summary.
-        data_sources: Optional list of allowed data sources to enforce in the worker.
-        auth_token: Optional auth token to propagate to the research worker for
-            data sources that require authentication.
-        model_overrides: Optional per-org runtime model overrides
-            (``{agent_group: openrouter_model_id}``). Auto-captured from the
-            submitting request's ``X-Grid-Model-Overrides`` header when not
-            explicitly provided.
-        usage_context: Optional identity + budget snapshot for LLM cost
-            tracking in the worker (see ``capture_usage_context``).
-            Auto-captured from the submitting request when not provided.
-        user_info: Optional user identity dict (name/email) set on the agent
-            state so worker-side prompts can render the authenticated user,
-            matching the synchronous chat path.
-        clarifier_result: Optional clarifier dialog log set on the agent state
-            so worker-side prompts render the structured Clarification Context
-            section, matching the synchronous chat path.
-        memory_reflection_enabled: Whether the worker should run the post-answer
-            memory-reflection stage over the finished report. Captured from the
-            submitting request's feature flag (the worker cannot read it).
-        memory_reflection_llm: Optional ``llms:`` ref for the reflection pass
-            (e.g. ``card_llm``). When set and enabled, the worker records durable
-            project findings from the completed report.
-        priority: ``"interactive"`` (the default) or ``"bulk"``. Inside one
-            organization Hatchet runs interactive jobs first: a question the
-            reader escalated goes before a scheduled sweep of the same
-            organization, and never before another organization's.
-        run_id: Optional id of the ``task_runs`` row this job is. Carried into
-            the worker so the run can flush its ledger to its own message; a
-            job submitted without one still narrates itself on its event
-            stream and writes nothing (``jobs/run_ledger_fold.py``).
-        request_envelope: ``{"header", "signature"}`` of the requester's signed
-            request-context envelope, as ``run_envelope.capture_request_envelope``
-            kept it from the submit. Never captured here: only a route that
-            verified it for the run's requester may pass one (ADR-0108).
-        knowledge_context: The turn context's ``knowledgeContext`` the BFF resolved for
-            the run's project (ADR-0173): gate, chain text, edition roles. Absent, the run fails closed (ADR-0175).
-
-    Returns:
-        The job ID.
-
-    Raises:
-        KeyError: If agent_type is not registered.
-        DuplicateJobIdError: If a caller-supplied job_id collides with an existing job.
-    """
     from nat.front_ends.fastapi.async_jobs.job_store import JobStore
 
     research_workflow.check_submittable(priority)

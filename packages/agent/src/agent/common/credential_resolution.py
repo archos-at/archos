@@ -1,33 +1,3 @@
-"""Unified LLM credential resolution for the bespoke, non-agent-runtime call sites.
-
-Six credential paths grew up outside the agent runtime's ``LLMProvider``/BYOK system (the
-VLM captioner, the embeddings client, the tag-backfill script, and the two
-BFF-invoked FastAPI routes — consistency-check and generate-summary). Each had
-its own hand-rolled env chain, and none could reach an org's bring-your-own-key
-(BYOK) credential. This module gives them ONE resolver so the same deployment
-key (the org's OpenRouter/BYOK key) powers everything, exactly like the agent
-runtime's agents already do.
-
-Resolution order (see :func:`resolve_llm_credential`):
-
-  1. **BYOK** — when an ``organization_id`` is supplied, the org's bring-your-own
-     credential from the BFF's internal endpoint wins. Mirroring ADR-0022/0014,
-     a BYOK swap replaces ``api_key`` + ``base_url`` ONLY — never the model.
-  2. **primary_env** — the call site's explicit override env var.
-  3. **fallback_envs** — additional env vars, in order.
-  4. **provider inference** — map the RESOLVED ``base_url`` host to that
-     provider's conventional key env var (e.g. an ``openrouter.ai`` base URL
-     pulls ``OPENROUTER_API_KEY``). This is what lets "just set OPENROUTER_API_KEY
-     and point the base URL at OpenRouter" light up every call site with no
-     per-site env plumbing.
-
-Every env read goes through :func:`read_api_key_env`, which treats an
-unresolved ``${...}`` placeholder as unset — docker compose ``env_file`` does
-NOT interpolate ``${VAR}`` references, so a line like
-``VLM_API_KEY=${OPENROUTER_API_KEY}`` reaches the process as a literal
-placeholder rather than a key.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -54,12 +24,6 @@ _nvidia_deprecation_warned = False
 
 
 def warn_on_legacy_nvidia_key() -> bool:
-    """Log a one-time deprecation warning when the env still carries only the legacy key.
-
-    An env with ``NVIDIA_API_KEY`` set but no ``OPENROUTER_API_KEY`` is a
-    deployment left behind by the OpenRouter migration: warn once per process
-    and point at the supported key. Returns True when the warning was emitted.
-    """
     global _nvidia_deprecation_warned
     if _nvidia_deprecation_warned:
         return False
@@ -75,14 +39,6 @@ def warn_on_legacy_nvidia_key() -> bool:
 
 
 def read_api_key_env(name: str) -> str:
-    """Read an env var, treating an unresolved ``${...}`` placeholder as unset.
-
-    docker compose ``env_file`` does not interpolate ``${VAR}`` references, so a
-    line like ``VLM_API_KEY=${OPENROUTER_API_KEY}`` reaches the process as a
-    literal placeholder string rather than a resolved value. Returning ``""`` for
-    such values keeps a mis-wired compose file from being read as a configured
-    key/URL (which would, e.g., make ``vlm_available`` lie).
-    """
     value = os.environ.get(name, "")
     if value.startswith("${") and value.endswith("}"):
         logger.error("%s contains an unresolved ${...} placeholder - treating as unset", name)
@@ -98,21 +54,6 @@ PROVIDER_KEY_ENV_BY_HOST: dict[str, str] = {
 
 @dataclass(frozen=True)
 class ResolvedCredential:
-    """The outcome of a resolution.
-
-    ``source`` labels WHERE ``api_key`` came from: ``'byok'`` (org credential),
-    ``'env'`` (primary or fallback env var), ``'provider-default'`` (inferred
-    from the base-URL host), or ``'none'`` (nothing resolved — ``api_key`` is
-    ``""``). ``base_url``/``model`` are always populated (from env/defaults; a
-    BYOK hit overrides ``base_url`` but never ``model``). ``api_key`` must never
-    be logged.
-
-    ``data_policy`` is the organization's retention policy (``common/openrouter``).
-    Send every request body through :meth:`request_body` (or pass
-    :meth:`request_extra_body` as the OpenAI SDK's ``extra_body``): it applies the
-    policy when ``base_url`` is OpenRouter and is a copy otherwise.
-    """
-
     api_key: str
     base_url: str
     model: str
@@ -120,23 +61,16 @@ class ResolvedCredential:
     data_policy: DataPolicy = NO_RETENTION_LIMITS
 
     def request_body(self, body: Mapping[str, Any]) -> dict[str, Any]:
-        """``body`` with this endpoint's data policy applied."""
         if not targets_openrouter(self.base_url):
             return dict(body)
         return self.data_policy.apply(body)
 
     def request_extra_body(self, extra_body: Mapping[str, Any] | None = None) -> dict[str, Any] | None:
-        """The OpenAI SDK ``extra_body`` for a call to this endpoint, or None when there is nothing to add."""
         merged = self.request_body(extra_body or {})
         return merged or None
 
 
 def _infer_provider_key_env(base_url: str) -> str | None:
-    """Return the conventional key env var for ``base_url``'s host, or ``None``.
-
-    Matches by host substring against :data:`PROVIDER_KEY_ENV_BY_HOST` so that,
-    e.g., ``https://openrouter.ai/api/v1`` resolves to ``OPENROUTER_API_KEY``.
-    """
     host = urlsplit(base_url).hostname or ""
     if not host:
         return None
@@ -157,22 +91,6 @@ def resolve_llm_credential(
     organization_id: str | None = None,
     data_policy: DataPolicy | None = None,
 ) -> ResolvedCredential:
-    """Resolve an LLM credential for a bespoke (non-agent-runtime) call site.
-
-    See the module docstring for the resolution order. ``base_url`` and
-    ``model`` are resolved first (from ``base_url_env``/``model_env`` when given,
-    else the defaults) because the resolved ``base_url`` drives provider
-    inference and both are returned to the caller.
-
-    A BYOK hit (``organization_id`` given and the org has a credential) swaps
-    ``api_key`` + ``base_url`` only — the model is left as resolved from
-    env/defaults, matching the agent runtime's model/credential separation (ADR-0022/0014).
-
-    ``data_policy`` defaults to the organization's (``openrouter.data_policy_for``,
-    fails closed). Pass one explicitly only for work that is not one
-    organization's: a cross-tenant pipeline carrying several tenants' text
-    passes ``ZERO_DATA_RETENTION``, since it cannot honour each tenant separately.
-    """
     resolved = _resolve(
         primary_env=primary_env,
         fallback_envs=fallback_envs,

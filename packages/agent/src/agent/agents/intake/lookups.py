@@ -1,23 +1,3 @@
-"""The intake's lookups (design §5.3, ADR-0173): thin tools, one per catalog operation, and no questionnaire.
-
-Every fact setup needs has a record and an operation; the intake asks the
-workspace's own door for it, as the person who started the run (echo, never
-sign: :func:`agent.tools.workspace.register.read_operation`). Nothing here
-knows a country: a country's question set is its records.
-
-:data:`INTAKE_LOOKUPS` maps each tool to the operation it runs, and
-``packages/agent/tests/agents/intake/test_lookups.py`` holds the map to the
-catalog's exposure fixture: an operation the door does not offer the agent, or
-one renamed, fails it. The two lookups the agent already holds natively
-(``knowledge_search`` for the corpus, ``law_lookup`` for statutes) are named in
-:data:`NATIVE_LOOKUPS` and bound as those tools, never a second path.
-``location-lookup`` joins when its operation exists.
-
-Not bound to the intake agent yet: binding them changes what it is offered,
-which waits for its country-neutral prompt (design §5.3, B1). Until then the
-agent's four intake tools are byte for byte what they were.
-"""
-
 from __future__ import annotations
 
 import json
@@ -88,7 +68,6 @@ async def _classification_evaluate(planned: dict[str, Any] | None = None) -> str
 
 
 def make_intake_lookup_tools() -> list[StructuredTool]:
-    """The intake's lookups as tools, each running its operation through the door."""
     return [
         StructuredTool.from_function(
             coroutine=_site_resolve,

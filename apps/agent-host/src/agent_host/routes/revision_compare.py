@@ -1,54 +1,3 @@
-"""Marking what changed between two Fassungen on the page, and saying it in words.
-
-``POST /v1/collections/{collection}/revision-compare`` is the AI-native half of the
-compare view (CONTEXT.md, „Fassung"). The BFF
-(``apps/workspace/bff/documents/revision-compare-service.ts``) has already
-decided that the caller may read both documents and that neither is held; this
-route gets two file names of ONE collection and a page number.
-
-**One vision call for the pair.** Both pages are rendered from the stored
-originals (``knowledge_layer.page_image``: nothing is kept per page, so a page
-is rendered on demand, as ``look`` does it) and sent together,
-older first. The model returns boxes on the NEWER page in page-relative
-``0..1`` coordinates plus a few German sentences; ``revision_compare`` parses it
-defensively (at most 12 boxes, a malformed or off-page one dropped).
-
-**The drawing analysis's credential path.** The endpoint, key and data policy
-are the organization's vision credential (BYOK first, then ``VLM_*``), and
-the model is the organization's ``ingest_vlm`` choice when it made one: a
-comparison is the same eyes on the same drawings as the page's caption. The
-call queues as interactive, since a person waits on it (ADR-0081), and is traced
-as a ``revision-visual-compare`` generation with the pixels left out (ADR-0089).
-It is booked to the usage ledger (role ``revision_compare``) for the organization
-and person the BFF names in ``x-grid-organization-id`` / ``x-grid-user-id``.
-
-**A second click costs no model call.** The result is cached under the content
-hashes of the two rendered pages (``revision_compare.cache_key``), so the same
-pair is answered from the shared cache while a re-uploaded file is compared
-afresh. Only a result that was read is cached; a failed or unreadable call never
-is. A cache hit still fetches and renders the two pages: that is the price of
-keying on what was compared, not on what the files are called.
-
-**Asked by a person, or by a notice.** ``purpose`` says who waits: ``person`` (the
-compare view, the default) queues as interactive; ``notice`` (the agent checking a
-new Fassung on its own, ADR-0130) queues as bulk, because nobody waits on it, and
-is filterable in Langfuse by its ``purpose`` metadata. The answer carries the
-generation's ``trace_id`` (``null`` on a cache hit, or with tracing off), so the
-notice can score what it left on the trace that produced it.
-
-``POST /v1/collections/{collection}/revision-pages`` is the cheap half a notice
-asks first: which pages of the newer Fassung changed, read from the chunks both
-Fassungen already have in the index (``revision_diff``), with no model call. A
-page the read content shows unchanged is never sent to the vision model.
-
-Answers: ``404`` when a page cannot be produced (the file is gone from the
-object store, the page is past the end, or the folder is a restricted one, whose
-files are never served without a turn), ``409`` when a document is not ingested
-in this collection, ``503`` when no vision model is configured, ``502`` when the
-model fails or does not answer in the requested form. End-user access is the
-BFF's, as for every documents route.
-"""
-
 import asyncio
 import base64
 import logging
@@ -123,8 +72,6 @@ class RevisionPagesResponse(BaseModel):
 
 
 class CompareRegionModel(BaseModel):
-    """One change, boxed on the newer page (page-relative ``0..1``, ``0, 0`` at the top left)."""
-
     page: int
     x: float
     y: float
@@ -146,13 +93,6 @@ class RevisionCompareResponse(BaseModel):
 
 
 def _vision_settings(organization_id: str | None) -> ResolvedCredential:
-    """The organization's vision endpoint, and its model: the ``ingest_vlm`` choice when it made one.
-
-    The same resolution the ingest job makes for a drawing's caption
-    (``adapter.resolve_vlm_credential`` plus the org's runtime model override).
-    The override read is fail-open: a BFF that cannot answer leaves the
-    deployment's model, as it does for ingestion.
-    """
     from knowledge_layer.ingest import resolve_vlm_credential
 
     cred = resolve_vlm_credential(organization_id)
@@ -170,7 +110,6 @@ def _vision_settings(organization_id: str | None) -> ResolvedCredential:
 
 
 async def _load_page(collection: str, file_name: str, page: int, organization_id: str | None):
-    """The page as JPEG bytes. Raises ``knowledge_layer.page_image.PageImageUnavailable``."""
     from knowledge_layer.page_image import load_page_jpeg
 
     return await load_page_jpeg(collection, file_name, page, organization_id=organization_id)
@@ -179,7 +118,6 @@ async def _load_page(collection: str, file_name: str, page: int, organization_id
 async def _pages(
     collection: str, older: str, newer: str, page: int, organization_id: str | None
 ) -> tuple[bytes, bytes]:
-    """The same page of both files. A page that cannot be produced is a 404 that says which side."""
     from knowledge_layer.page_image import PageImageUnavailable
 
     async def one(side: str, file_name: str) -> bytes:
@@ -195,11 +133,6 @@ async def _pages(
 
 
 def _licence_of(collection: str, older: str, newer: str):
-    """The licence the comparison runs under: either file's, the stricter one. Refuses an unattested licensed copy.
-
-    A page of the office's licensed copy reaches a model only when the office attested AI processing
-    (ADR-0164, design 4.7); a comparison of it otherwise answers 403 and reads nothing.
-    """
     from agent.tools.look.place import document_licence
 
     terms = [
@@ -221,10 +154,6 @@ def _data_url(jpeg: bytes) -> str:
 async def _ask_model(
     cred: ResolvedCredential, older_jpeg: bytes, newer_jpeg: bytes, page: int, purpose: str = "person"
 ) -> tuple[dict[str, Any], str | None]:
-    """One vision call with both pages: the parsed JSON object of its reply, and the generation's trace id.
-
-    Raises ``HTTPException`` 502. A notice queues as bulk, since nobody waits on it (ADR-0081).
-    """
     messages = compare.build_messages(_data_url(older_jpeg), _data_url(newer_jpeg))
     payload = cred.request_body(
         {"model": cred.model, "temperature": 0, "max_tokens": compare.MAX_COMPLETION_TOKENS, "messages": messages}
@@ -289,7 +218,6 @@ def _response(
 
 
 def _stored_chunks(collection: str, file_name: str) -> list[revision_diff.RevisionChunk] | None:
-    """One Fassung as the index holds it, for the cheap compare. Blocking; raises when the store cannot be read."""
     from agent.knowledge.collection_pages import read_chunks
 
     stored = read_chunks(collection, file_name)
@@ -308,7 +236,6 @@ async def _ingested_or_409(collection_name: str, older: str, newer: str) -> None
 
 
 async def _changed_pages(collection: str, request: RevisionPagesRequest, office: str | None) -> RevisionPagesResponse:
-    """The two Fassungen's stored chunks, read as ``office`` (ADR-0163; ``to_thread`` carries the context), diffed."""
     from knowledge_layer.search import reading_as
 
     try:
@@ -329,7 +256,6 @@ async def _changed_pages(collection: str, request: RevisionPagesRequest, office:
 
 
 def add_revision_compare_routes(router: APIRouter) -> None:
-    """Register the Fassung comparison endpoint."""
 
     @router.post(
         "/v1/collections/{collection_name}/fassung-compare",
@@ -348,11 +274,6 @@ def add_revision_compare_routes(router: APIRouter) -> None:
         x_grid_organization_id: str | None = Header(default=None),
         x_grid_user_id: str | None = Header(default=None),
     ) -> RevisionCompareResponse:
-        """Compare page ``page`` of ``older`` and ``newer`` (both files of this collection) with a vision model.
-
-        Returns ``{"regions": [{page, x, y, w, h, label}], "summary": [...], "model", "cached"}``:
-        boxes on the newer page in ``0..1`` page coordinates, at most twelve, and the changes in words.
-        """
         await _ingested_or_409(collection_name, request.older, request.newer)
         licence = await asyncio.to_thread(_licence_of, collection_name, request.older, request.newer)
         cred = await asyncio.to_thread(_vision_settings, x_grid_organization_id)
@@ -383,11 +304,6 @@ def add_revision_compare_routes(router: APIRouter) -> None:
     async def post_revision_pages(
         collection_name: str, request: RevisionPagesRequest, http_request: Request
     ) -> RevisionPagesResponse:
-        """The newer Fassung's changed and new pages, from the chunks both Fassungen have in the index.
-
-        ``409`` when either file is not ingested in this collection, ``503`` when the index cannot be read.
-        Read as the office the BFF names (``internal_office``, ADR-0163).
-        """
         from .internal_auth import internal_office
 
         await _ingested_or_409(collection_name, request.older, request.newer)

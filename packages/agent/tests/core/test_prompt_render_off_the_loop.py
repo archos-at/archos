@@ -1,23 +1,3 @@
-"""The system prompt is rendered in a THREAD, not on the event loop.
-
-``render_turn_context`` is a sync function, and one of its inputs is not
-local: the static half is resolved through the prompt store, which — with
-Langfuse prompt management on — makes one bounded HTTP call (2 s) the first
-time a TTL window needs it. Called straight from the async agent node that is
-one blocking socket read inside a coroutine, and a coroutine that blocks does
-not block its own turn: it blocks every other turn the worker is serving,
-including turns that are nowhere near a prompt render.
-
-Which is why the test cannot be a unit test of the renderer. What is asserted
-is WHERE it ran, so the fake store records ``threading.current_thread()`` from
-inside ``get`` and the assertion compares it with the thread the event loop is
-on — exactly the shape ``register.py`` already uses for its own blocking reads
-(``asyncio.to_thread``).
-
-The second claim is the one that makes the first one cheap: the render happens
-ONCE per turn, cached on the state, so the tool loop never pays for it twice.
-"""
-
 from __future__ import annotations
 
 import threading
@@ -39,15 +19,12 @@ from agent.core.models import ResearchAgentState
 _PROMPT = "Du bist der Agent."
 
 
-@tool
+@tool(description="Search the OIB knowledge corpus.")
 def knowledge_search(query: str) -> str:
-    """Search the OIB knowledge corpus."""
     return f"Treffer zu: {query}"
 
 
 class _RecordingStore:
-    """A prompt store that records the thread its (blocking) fetch ran on."""
-
     def __init__(self) -> None:
         self.threads: list[threading.Thread] = []
 
@@ -105,13 +82,6 @@ class TestTheRenderDoesNotRunOnTheLoopThread:
         )
 
     async def test_the_render_still_happens_once_per_turn(self, store):
-        """Three rounds, one render: the string is cached on the state, and a
-        thread hop per iteration would be a new cost, not a saved one.
-
-        Two store reads, not one: the turn resolves the static half once at its
-        start, off the loop, so its trace names what THIS turn renders with,
-        and the render's own read is the second. Neither grows with rounds.
-        """
         agent = _agent(
             AIMessage(content="", tool_calls=[{"name": "knowledge_search", "args": {"query": "a"}, "id": "1"}]),
             AIMessage(content="", tool_calls=[{"name": "knowledge_search", "args": {"query": "b"}, "id": "2"}]),

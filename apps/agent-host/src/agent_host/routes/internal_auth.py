@@ -1,15 +1,3 @@
-"""Shared guard for service-to-service internal endpoints.
-
-The maintenance purge routes and the skills submit route are both reachable
-only from inside the compose network (never on the AuthMiddleware external-path
-allowlist) and are authenticated with the shared ``INTERNAL_API_TOKEN``.
-
-Factored here so both route modules import one implementation rather than
-copy-pasting the constant-time compare / dev-default-refusal logic. Behavior is
-identical to the original ``routes.maintenance`` guard (which re-exports these
-names for backwards compatibility).
-"""
-
 import asyncio
 import hmac
 import logging
@@ -56,15 +44,6 @@ def _require_internal_token(request: Request) -> None:
 
 
 def internal_office(request: Request) -> str | None:
-    """The office a plain route reads an office's scope as (ADR-0163), or None.
-
-    A plain FastAPI route has no agent-runtime context, so the structural reads
-    (``knowledge_layer.vector_store.office_read``) find no office and refuse a
-    project or session scope. The office is the signed envelope's organization
-    (``document_search.request_office``) or, for a caller holding the internal
-    token (the BFF), the organization it names in ``ORGANIZATION_ID_HEADER``.
-    A route reads inside ``knowledge_layer.search.reading_as(internal_office(request))``.
-    """
     from .document_search import request_office
 
     office = request_office(request)
@@ -78,7 +57,6 @@ def internal_office(request: Request) -> str | None:
 
 
 async def read_as_internal_office[T](request: Request, read: Callable[..., T], *args: Any) -> T:
-    """``read(*args)`` on a worker thread, as the office :func:`internal_office` names (``to_thread`` carries it)."""
     from knowledge_layer.search import reading_as
 
     with reading_as(internal_office(request)):

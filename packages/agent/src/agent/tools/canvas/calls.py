@@ -1,5 +1,3 @@
-"""One canvas call: as whom, on which document, and what the model is told when the BFF says no."""
-
 from __future__ import annotations
 
 import asyncio
@@ -24,8 +22,6 @@ FEATURE_TAG = "feature:canvas"
 
 
 class Refused(Exception):
-    """A call that answers the model with a sentence instead of a result; ``code`` is what Langfuse records."""
-
     def __init__(self, message: str, code: str = "invalid_arguments") -> None:
         super().__init__(message)
         self.message = message
@@ -77,7 +73,6 @@ UNREACHABLE = (
 
 
 def envelope() -> SignedEnvelope:
-    """The turn's signed envelope, exactly as it arrived; a refusal off a chat turn (echo, never sign)."""
     header, signature = project_context.get_request_envelope_from_context()
     if not header or not signature:
         raise Refused(NO_ENVELOPE, "no_envelope")
@@ -85,11 +80,6 @@ def envelope() -> SignedEnvelope:
 
 
 def _with_answer(payload: dict[str, Any]) -> dict[str, Any]:
-    """Every body names the answer this turn writes (ADR-0093), as ``project_lookup`` does.
-
-    The BFF admits the document against the conversation's audience and marks
-    this answer when the document sits in a restricted folder.
-    """
     conversation_id = project_context.get_conversation_id_from_context()
     if not conversation_id:
         return payload
@@ -100,7 +90,6 @@ _ON_ONE_MARK = frozenset({"reply", "update", "delete"})
 
 
 def refusal_for(exc: CanvasRequestError, operation: str) -> Refused:
-    """A BFF refusal as the sentence the model relays."""
     if exc.reason == "no-document-subject":
         return Refused(NO_DOCUMENT, "no_document_subject")
     if exc.reason in (AGENT_DIRECT_EDITS_OFF, LEGACY_AGENT_DIRECT_EDITS_OFF_REASON):
@@ -122,7 +111,6 @@ def refusal_for(exc: CanvasRequestError, operation: str) -> Refused:
 
 
 async def call(payload: dict[str, Any], target: Target, signed: SignedEnvelope) -> dict[str, Any]:
-    """One request about ``target``, off the event loop, with every refusal worded for the model."""
     body = _with_answer({**payload, **target.body()})
     try:
         return await asyncio.to_thread(post_canvas, body, signed)
@@ -131,16 +119,10 @@ async def call(payload: dict[str, Any], target: Target, signed: SignedEnvelope) 
 
 
 def observe(step: str, request: dict[str, Any], outcome: dict[str, Any]) -> None:
-    """One ``canvas.<step>`` observation and the turn's ``feature:canvas`` tag. Never raises.
-
-    Counts, numbers and pages, never the text of a mark or a reply: the trace
-    records what the tool did, and the thread is where the words live.
-    """
     add_trace_tag(FEATURE_TAG)
     emit_step_span(f"canvas.{step}", request, outcome)
 
 
 def document_of(body: dict[str, Any], target: Target) -> dict[str, str]:
-    """``{"id", "name"}`` for the activity card, from what the BFF returned."""
     name = body.get("documentName") or target.file_name or "Dokument"
     return {"id": str(body.get("documentId") or target.document_id or ""), "name": str(name)}

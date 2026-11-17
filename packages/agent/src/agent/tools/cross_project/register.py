@@ -1,66 +1,3 @@
-"""``project_lookup``: a chat looks across the office's other projects (ADR-0094).
-
-The escalation step of docs/design/cross-project-escalation.md: the model
-climbs from this project to the office's reference projects on its own, when
-the question is comparative or the project's own sources are thin. The turn
-context lists the closest closed projects (``<reference_projects>``), so the
-model knows what is there before it looks.
-
-## One tool, three actions
-
-Search documents across projects, find projects by name or address, read one
-project's brief. One tool with an ``action``, not three: every bound tool's
-schema rides on every model call of every chat turn, and tool narrowing is off
-in production. ``propose_file_change`` is the precedent.
-
-## What the BFF decides and what this decides
-
-The BFF decides everything about access: it searches as the conversation's
-whole audience (a solo chat reaches what the asker may chat in, a shared one
-what every reader may open, always including the closed projects), records
-what it hands out on the conversation before it answers, and refuses when the
-audience changed mid-lookup. This tool echoes the envelope and words the
-answer. See ``client.py``.
-
-## Project facts narrow; likeness still ranks
-
-``project_facts`` lets ``search`` and ``find`` keep only projects with given
-facts („nur Tirol, GK 4", „nur Wohnbau-Neubauten"). The model passes one flat
-list of tokens (the five vocabularies share none, so a token names its fact),
-which keeps the schema riding on every call to one enum of 37 values; the tool
-groups them into the BFF's ``projectFacts``. Within a fact any value matches,
-across facts all must. A value no vocabulary holds is refused, never dropped:
-a dropped value would answer for projects the asker excluded.
-
-The BFF judges the facts on each project's Postgres profile, over what the
-audience may already reach and before the page is cut, so a filter only ever
-narrows, and the counts, paging, decisions and permits all describe the
-narrowed set. It does not send them to Qdrant as a ``project_facts`` filter:
-the page already holds only matching projects, and the chunks' mirrored copy
-can lag. In ``similar`` and ``closed`` the likeness order and the search's
-likeness lift still rank what the facts left; ``all`` stays newest first, and
-``named`` is narrowed too. A project whose profile does not record a fact does
-not match it, and the answer says so, so the model does not read absence as
-„never done".
-
-## What the model may do with an answer
-
-A search hit is rendered as an ordinary grounding hit (ADR-0061), with a
-``Projekt:`` line naming where it is from, and cited by its key like any other
-source. Its passage is all there is: another project's document is not in the
-turn's scope, so ``read_passage`` cannot open it further, which is why the BFF
-returns a longer passage than a hit list does. The records cite the same
-way, one source each: a project's recorded decisions as
-``Projektgedächtnis (‹Projekt›)`` and its brief as ``Projektdaten (‹Projekt›)``.
-
-Everything an answer carries was recorded by the BFF before it was returned,
-so the tool tells the turn (:func:`note_cross_project_hand_out`): the admission
-lets exactly these collections through. Only content that narrows the
-conversation's readers (an active project, a restricted folder) shuts the doors
-a whole project reads (memory, tasks, deep research, the profile, filing); a
-closed project's open folders are read by the whole office and shut nothing.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -192,10 +129,6 @@ _LEGACY_FACT_TOKENS: dict[str, str] = {
 
 
 def fact_token(value: object) -> object:
-    """A fact as its token: case, umlauts, ß and a label's spelling folded („Niederösterreich", „GK 4", 4).
-
-    Anything still unknown is left as it came, for the enum to refuse.
-    """
     if isinstance(value, int) and not isinstance(value, bool):
         value = str(value)
     if not isinstance(value, str):
@@ -248,20 +181,13 @@ _CLOSED_DOORS = (
 
 
 def _restricts(status: object, collection: object) -> bool:
-    """Whether content from this project and collection narrows the chat's readers.
-
-    Everything does except a closed project's open folder, which every office member reads.
-    """
     return str(status) != "closed" or is_restricted_collection(collection if isinstance(collection, str) else None)
 
 
-class ProjectLookupConfig(FunctionBaseConfig, name="project_lookup"):
-    """Configuration for the ``project_lookup`` tool."""
+class ProjectLookupConfig(FunctionBaseConfig, name="project_lookup"): ...
 
 
 class _Refused(Exception):
-    """A lookup that answers the model with a sentence instead of content; ``code`` is what Langfuse records."""
-
     def __init__(self, message: str, code: str = "invalid_arguments") -> None:
         super().__init__(message)
         self.message = message
@@ -276,14 +202,6 @@ def _envelope() -> SignedEnvelope:
 
 
 def _with_answer(payload: dict[str, Any]) -> dict[str, Any]:
-    """The body, naming the answer this turn writes (ADR-0093).
-
-    The BFF marks that answer in the transaction that records what the lookup
-    hands out, when the conversation then drew on a restricted folder, as the
-    restricted-use admission does: a vote on it is judged by the server's record
-    whether or not the answer is ever persisted. Without a conversation there is
-    no answer to name.
-    """
     conversation_id = project_context.get_conversation_id_from_context()
     if not conversation_id:
         return payload
@@ -291,7 +209,6 @@ def _with_answer(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _call(path: str, payload: dict[str, Any]) -> dict[str, Any]:
-    """One lookup, off the event loop, with every refusal worded for the model."""
     envelope = _envelope()
     try:
         return await asyncio.to_thread(post_lookup, path, _with_answer(payload), envelope)
@@ -306,11 +223,6 @@ async def _call(path: str, payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def _federal_state_note(project: dict[str, Any]) -> str | None:
-    """The project's Land, and a warning when it is not this chat's project's.
-
-    Said by the tool, not left to the model: a precedent from another Land
-    was decided under another Bauordnung, and nothing else on the hit shows it.
-    """
     theirs = project.get("federal_state", project.get("bundesland"))
     if not isinstance(theirs, str) or not theirs:
         return None
@@ -337,12 +249,6 @@ def _status_label(status: object) -> str:
 
 
 def project_facts_filter(values: list[str]) -> dict[str, list[str | int]]:
-    """The model's flat fact tokens as the BFF's ``projectFacts``: grouped by fact, in token order, de-duplicated.
-
-    Empty when none were passed, so the body leaves the filter out. A value no
-    vocabulary holds is refused with the sentence the model reads, never dropped:
-    a dropped value would widen the lookup to projects the asker excluded.
-    """
     grouped: dict[str, list[str | int]] = {}
     unknown = []
     for raw in values:
@@ -362,7 +268,6 @@ def project_facts_filter(values: list[str]) -> dict[str, list[str | int]]:
 
 
 def _facts_line(facts: dict[str, list[str | int]]) -> str:
-    """The facts a lookup was narrowed by, as a reader names them; the warning that unrecorded facts do not match."""
     labels = [
         _FACT_LABEL[f"gk{value}" if fact == "building_class" else str(value)]
         for fact, values in facts.items()
@@ -388,12 +293,6 @@ def search_payload(
     order: list[str] | None = None,
     project_facts: dict[str, list[str | int]] | None = None,
 ) -> dict[str, Any]:
-    """The ``CrossProjectSearchRequest`` body; empty optional arguments are left out.
-
-    ``order`` is the turn's reference fit (ADR-0064 use 10): the projects a
-    ``similar`` or ``closed`` search walks first. It only reorders the scope.
-    ``project_facts`` (:func:`project_facts_filter`) only narrows it.
-    """
     payload: dict[str, Any] = {"query": query.strip(), "scope": scope, "offset": max(0, int(offset))}
     if project_facts:
         payload["projectFacts"] = project_facts
@@ -418,7 +317,6 @@ _SNIPPET_ELLIPSIS = "…"
 
 
 def _hit(raw: dict[str, Any]) -> GroundingHit | None:
-    """One BFF hit as a grounding record, or None for one missing what a citation needs."""
     project = raw.get("project") if isinstance(raw.get("project"), dict) else {}
     filename, collection, project_id = raw.get("filename"), raw.get("collection"), project.get("id")
     if not (isinstance(filename, str) and filename and isinstance(collection, str) and project_id):
@@ -483,10 +381,6 @@ def _decisions(body: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def _decision_provenance(item: dict[str, Any]) -> str:
-    """Who stands behind a recorded decision: a person, the documents it was read from, or the agent's own note.
-
-    An older BFF sends no `origin`; its `confirmed` flag then says which of the first two it was.
-    """
     origin = item.get("origin") or ("person" if item.get("confirmed") else "agent")
     if origin == "person":
         return "confirmed by a person"
@@ -496,10 +390,6 @@ def _decision_provenance(item: dict[str, Any]) -> str:
 
 
 def _evidence_cite(evidence: Any) -> str:
-    """The first document a decision was read from, as `: file p. n`; no page when the document names none.
-
-    No parentheses and no comma of its own: it sits inside the line's `(…, year)`.
-    """
     first = next((e for e in evidence or [] if isinstance(e, dict) and plain_text(e.get("fileName"))), None)
     if first is None:
         return ""
@@ -514,11 +404,6 @@ def _decision_line(item: dict[str, Any]) -> str:
 
 
 def _decision_hits(decisions: list[dict[str, Any]]) -> list[GroundingHit]:
-    """One citable source per project: the decisions its memory recorded, before its passages.
-
-    One per project because the registry merges a source by (collection, file,
-    page): two decisions of one project are one source, the project's memory.
-    """
     by_project: dict[str, list[dict[str, Any]]] = {}
     for item in decisions:
         by_project.setdefault(str(item["project"].get("id")), []).append(item)
@@ -551,11 +436,6 @@ def _decision_hits(decisions: list[dict[str, Any]]) -> list[GroundingHit]:
 
 
 def _permit_hits(permits: list[dict[str, Any]]) -> list[GroundingHit]:
-    """One citable source per permit record: the DOCUMENT it was read from, with what it demands.
-
-    Cited like a passage (file, collection, the first requirement's page), so
-    the same Bescheid found as a passage too is one source, not two.
-    """
     hits = []
     for item in permits:
         project = item["project"]
@@ -589,7 +469,6 @@ def _permit_hits(permits: list[dict[str, Any]]) -> list[GroundingHit]:
 
 
 def _records_restrict(records: list[dict[str, Any]]) -> bool:
-    """Whether a decision or permit record narrows the chat's readers: a running project's or a restricted folder's."""
     return any(
         str(item["project"].get("status")) != "closed"
         or item.get("restricted")
@@ -599,7 +478,6 @@ def _records_restrict(records: list[dict[str, Any]]) -> bool:
 
 
 def _usable_hits(body: dict[str, Any]) -> list[dict[str, Any]]:
-    """The BFF's passages a citation can be built from, in its order: what the judge reads and the block renders."""
     raw_hits = body.get("hits") if isinstance(body.get("hits"), list) else []
     return [raw for raw in raw_hits if isinstance(raw, dict) and _hit(raw) is not None]
 
@@ -665,7 +543,6 @@ def _period(raw: object) -> str:
 
 
 def _edition_note(project: dict[str, Any]) -> str | None:
-    """The OIB edition the project was planned under; unconfirmed when only its documents suggest it."""
     edition = project.get("oibEdition")
     if not isinstance(edition, dict) or not plain_text(edition.get("value")):
         return None
@@ -694,12 +571,10 @@ def _others(projects: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def _any_active(projects: list[dict[str, Any]]) -> bool:
-    """Whether an answer named another project still running: that narrows the chat's readers."""
     return any(str(project.get("status")) != "closed" for project in _others(projects))
 
 
 def _hand_out(projects: list[dict[str, Any]]) -> None:
-    """Every project an answer named other than the chat's own: recorded by the BFF, noted for the turn."""
     collections = [str(project["collection"]) for project in _others(projects)]
     note_collections_read(collections)
     if collections:
@@ -723,12 +598,6 @@ BRIEF_SOURCE_NAME = "Projektdaten"
 
 
 def _brief_hit(project: dict[str, Any], body: str) -> GroundingHit:
-    """The brief as one citable source, the way the project's memory is one.
-
-    Without it an answer that states the project's facts cites a source the
-    verifier cannot resolve, and the reader is told a citation was removed
-    from the one claim the office's own record backs.
-    """
     name = plain_text(project.get("name")) or "Projekt"
     return GroundingHit(
         citation_key=f"{BRIEF_SOURCE_NAME} ({name})",
@@ -777,7 +646,6 @@ def _render_brief(body: dict[str, Any]) -> str:
 
 
 async def _judge(query: str, body: dict[str, Any]) -> HitVerdicts | None:
-    """The hit judge over the passages handed out; None, and the hits as they came, on any failure."""
     try:
         return await judge_hits(query, _usable_hits(body))
     except Exception:  # noqa: BLE001 — a judgement is worth less than the lookup
@@ -786,7 +654,6 @@ async def _judge(query: str, body: dict[str, Any]) -> HitVerdicts | None:
 
 
 def _reference_order() -> list[str]:
-    """The order the turn's reference fit put the catalog in; empty outside a turn or when none ran."""
     from agent.knowledge.restricted_use import current_cross_project_turn
 
     turn = current_cross_project_turn()
@@ -802,7 +669,6 @@ def _project_ref(project: object) -> dict[str, str] | None:
 
 
 def _observed_projects(records: list[Any]) -> list[dict[str, str]]:
-    """The distinct projects a lookup's answer names, by id and status: never names, never text."""
     seen: dict[str, dict[str, str]] = {}
     for record in records:
         ref = _project_ref(record.get("project") if isinstance(record, dict) else None)
@@ -812,12 +678,6 @@ def _observed_projects(records: list[Any]) -> list[dict[str, str]]:
 
 
 def lookup_observation(action: str, body: dict[str, Any], verdicts: HitVerdicts | None = None) -> dict[str, Any]:
-    """What one lookup handed out, as Langfuse should see it: counts, project ids, picks; no passage text.
-
-    The tool's own output is German prose for the model, so without this a
-    trace could not say how many projects were searched, whether anything came
-    back, or which projects it came from (ADR-0089: everything observable).
-    """
     if action == "search":
         hits = _usable_hits(body)
         decisions, permits = _decisions(body), permits_of(body)
@@ -856,13 +716,11 @@ def lookup_observation(action: str, body: dict[str, Any], verdicts: HitVerdicts 
 
 
 def _observe(action: str, payload: dict[str, Any], outcome: dict[str, Any]) -> None:
-    """One ``retrieve.project_lookup`` observation and the turn's ``feature:cross-project`` tag. Never raises."""
     add_trace_tag("feature:cross-project")
     emit_retrieval_span(tool_name=PROJECT_LOOKUP_TOOL, search_input={"action": action, **payload}, picks=outcome)
 
 
 def _only_project_name(records: list[Any]) -> str | None:
-    """The project's name when every record is from one project, else None."""
     names = {
         plain_text(record["project"].get("name"))
         for record in records
@@ -872,7 +730,6 @@ def _only_project_name(records: list[Any]) -> str | None:
 
 
 def record_outcome(action: str, body: dict[str, Any], outcome: ActionOutcome) -> None:
-    """What a lookup found, from the BFF's typed body: hits, the documents they are in, the one project named."""
     if action == "search":
         hits = _usable_hits(body)
         outcome.hits = len(hits)
@@ -965,7 +822,6 @@ async def run_project_lookup(
     open_folders_only: bool = False,
     project_facts: list[ProjectFact] | None = None,
 ) -> str:
-    """Look across the office's other projects. Module-level so the refusals are reachable without the agent runtime."""
     outcome = ActionOutcome()
     row = ActionRow("lookup", query=(query or "").strip())
     try:

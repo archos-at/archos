@@ -1,34 +1,3 @@
-"""Verify the norm registry's RIS pointers live against OGD-RIS and merge them back.
-
-The registry is a FLAT catalog (``configs/norms/<country>/registry.yml``): one entry
-per legal norm. Entries that carry a ``verify`` seed are re-checked against the live
-OGD-RIS search API; only the machine-derived pointer fields
-(``application``/``document_number``/``citation_url``/``full_law_url``/``verified_at``)
-are written back. Every curated field (title/short/rank/federal_state/topics/relevance/
-aliases/binding_note/review_note/verify) is left untouched. Entries WITHOUT a verify
-seed are skipped with a logged note.
-
-Merge semantics:
-
-- The file's header comment block is preserved verbatim.
-- Key order within each entry is preserved (``yaml.safe_dump(sort_keys=False)``);
-  the five pointer keys already exist on verified entries, so their positions do
-  not move.
-- ``verify_entry(client, entry)`` verifies exactly ONE entry and returns the merged
-  pointer dict — factored out so a future admin verify API can reuse it.
-
-Fails loudly: any entry whose verify seed has no unambiguous live hit aborts the
-build (non-zero exit) and the registry file is left untouched.
-
-Run (no project env needed):
-
-    uv run --no-project --with httpx --with pydantic --with beautifulsoup4 \
-        --with pyyaml python scripts/build_ris_catalog.py
-
-Behind a proxy, add ``--proxy-from-env``: the client ignores ``$HTTPS_PROXY``
-unless asked, because a proxy would take a request past the egress guard.
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -60,11 +29,6 @@ def _standalone_module(module_name: str, module_path: Path):
 
 
 def _load_norm_registry_module():
-    """Import norm_registry.py standalone (the package __init__ pulls langgraph/nat).
-
-    The flat module only needs pydantic + yaml at import time (``resolve_federal_state``
-    imports project_context lazily), so stubbing the agent package chain is enough.
-    """
     import types
 
     common_dir = REPO_ROOT / "packages" / "agent" / "src" / "agent" / "common"
@@ -88,11 +52,6 @@ NORMS_ROOT = REPO_ROOT / "configs" / "norms"
 
 
 def _pick_hit(entry_id: str, verify, hits):
-    """Select the currently-in-force whole-law anchor (the '§ 0' document).
-
-    Applies the verify seed's expect/exclude/statute_number guards and fails loud
-    (SystemExit) when the number of surviving candidates is not exactly one.
-    """
     candidates = []
     for hit in hits:
         kurztitel = hit.metadata.get("Kurztitel") or hit.title or ""
@@ -118,12 +77,6 @@ def _pick_hit(entry_id: str, verify, hits):
 
 
 async def verify_entry(client: RisClient, entry) -> dict:
-    """Live-verify ONE registry entry and return its merged pointer fields.
-
-    ``entry`` is a NormEntry (or any object exposing ``id``/``application``/
-    ``federal_state``/``verify``). Reused by the build loop below and by the future
-    admin verify API. Raises SystemExit on an ambiguous/missing hit.
-    """
     verify = entry.verify
     if verify is None:
         raise ValueError(f"entry '{entry.id}' has no verify seed")
@@ -154,7 +107,6 @@ async def verify_entry(client: RisClient, entry) -> dict:
 
 
 def _split_header(text: str) -> tuple[str, str]:
-    """Split the leading comment block from the YAML body (both re-joinable)."""
     lines = text.splitlines(keepends=True)
     for idx, line in enumerate(lines):
         stripped = line.strip()
@@ -164,10 +116,6 @@ def _split_header(text: str) -> tuple[str, str]:
 
 
 async def _process_registry(client: RisClient, registry_path: Path, *, dry_run: bool) -> int:
-    """Verify every seeded entry in one registry file; merge and write unless dry-run.
-
-    Returns the number of entries verified.
-    """
     text = registry_path.read_text(encoding="utf-8")
     header, body = _split_header(text)
     data = yaml.safe_load(body) or {}
@@ -195,14 +143,6 @@ async def _process_registry(client: RisClient, registry_path: Path, *, dry_run: 
 
 
 def _client(proxy_from_env: bool) -> RisClient:
-    """The RIS client; through ``$HTTPS_PROXY`` only when asked.
-
-    The client ignores environment proxies (``trust_env=False``): a proxy would
-    take a request past the egress guard. A developer behind one passes
-    ``--proxy-from-env``, which hands the client a transport through that proxy
-    instead of the guard. This script runs on a developer's machine, never in
-    the cluster.
-    """
     if not proxy_from_env:
         return RisClient()
     proxy = os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy")
@@ -231,7 +171,10 @@ async def _main(norms_root: Path, *, dry_run: bool, proxy_from_env: bool = False
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description="Verify the norm registry's RIS pointers live against OGD-RIS and merge them back.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument(
         "--norms-dir",
         type=Path,

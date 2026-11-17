@@ -1,5 +1,4 @@
-"""Old ``agent.agents.piloti`` in queued jobs and checkpoints answers as ``agent.core``: drop after release 2026-W48."""
-
+# drop after release 2026-W48
 from __future__ import annotations
 
 import importlib

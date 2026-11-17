@@ -446,7 +446,7 @@ def _regex_examples(description: str) -> list[str]:
 
 class TestRegexExamplesPassTheirOwnAnchorRule:
     async def test_every_example_in_the_description_is_accepted_without_a_folder(self, search_with):
-        from knowledge_layer.browse.tool import _has_literal_word
+        from knowledge_layer.browse import _has_literal_word
         from knowledge_layer.register import _KNOWLEDGE_SEARCH_DESCRIPTION
 
         examples = _regex_examples(_KNOWLEDGE_SEARCH_DESCRIPTION)
@@ -544,11 +544,11 @@ class TestPageEndReachesTheHit:
         [({"page_end": "5"}, 4, 5), ({"page_end": "4"}, 4, None), ({}, 4, None), ({"page_end": "x"}, 4, None)],
     )
     def test_only_a_later_numeric_end_is_stated(self, metadata, page, expected):
-        from knowledge_layer.search.grounding_hits import _page_end
+        from knowledge_layer.search import _page_end
 
         assert _page_end(SimpleNamespace(metadata=metadata), page) == expected
 
     def test_a_chunk_without_a_page_states_no_end(self):
-        from knowledge_layer.search.grounding_hits import _page_end
+        from knowledge_layer.search import _page_end
 
         assert _page_end(SimpleNamespace(metadata={"page_end": "5"}), None) is None

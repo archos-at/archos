@@ -1,22 +1,3 @@
-"""The ``ifc_measure`` tool's argument handling, its errors and its rendering.
-
-The tool is the seam where a language model's free-form intent becomes a
-geometric operation on a real building. Three things can go wrong there and
-none of them is visible from the engine's own tests:
-
-  - an enum value the engine would refuse arrives as an exception several
-    seconds and one download later, by which time the agent has been told only
-    that something failed;
-  - "the service is unreachable" and "your arguments are wrong" collapse into
-    one message, and a typo ends the turn with the agent instructed to say
-    nothing about the building;
-  - a ``decidable: false`` answer — the file cannot say — is rendered as a
-    FAILURE, which turns a finding about the export into a fact about the
-    building.
-
-All three are exercised here without a frontend and without IfcOpenShell.
-"""
-
 from __future__ import annotations
 
 import io
@@ -56,8 +37,6 @@ def build(**overrides):
 
 
 class TestBuildCall:
-    """Every enum, checked BEFORE the model is resolved or parsed."""
-
     def test_the_default_operation_is_the_briefing(self):
         assert build(operation="briefing") == ("briefing", {"format": "text"})
 
@@ -93,13 +72,6 @@ class TestBuildCall:
         assert "floorArea" in answer
 
     def test_every_measure_the_engine_has_is_accepted(self):
-        """Iterated from `MEASURES`, not from a list written out here.
-
-        This was a hardcoded tuple of six names. Its own title claimed it
-        covered every measure, and when a seventh (`lightEntryArea`) was added
-        it kept passing while testing nothing about it — the exact failure the
-        test exists to catch, hidden inside the test.
-        """
         from agent.tools.bim.measure_register import MEASURES
 
         assert len(MEASURES) >= 7
@@ -110,14 +82,6 @@ class TestBuildCall:
             ), name
 
     def test_no_distance_mode_is_advertised_as_a_clear_dimension(self):
-        """The entry for 'horizontal' read „what a lichte Breite check needs".
-
-        `operators.distance` measures CENTROID to CENTROID in plan — an
-        Achsabstand. On a 1.00 m opening between two 30 cm walls that is 1.30 m:
-        too large by half of each element, in the direction that turns a failed
-        escape-route width into a passing one. The tool description was
-        instructing the model to certify a clearance with the wrong number.
-        """
         from agent.tools.bim.measure_register import DISTANCE_MODES
 
         for name, text in DISTANCE_MODES.items():
@@ -135,13 +99,6 @@ class TestBuildCall:
         assert "none is a clear dimension" in answer
 
     def test_light_incidence_can_exclude_more_than_one_element(self):
-        """The recessed-window workflow needs two exclusions, not one.
-
-        A window deep in a thick wall is shaded by its own reveal AND by the
-        roof. With a single-value field, an agent told to "re-run without the
-        host wall" had to drop the roof exclusion to do it — silently answering
-        a different question than the one it was asked.
-        """
         name, args = build(
             operation="light_incidence",
             global_id="w1",
@@ -217,7 +174,6 @@ class TestBuildCall:
         assert "habitable_room" in answer
 
     def test_the_german_room_kinds_and_fire_aspect_are_still_accepted_for_one_release(self):
-        """Remove with ``_LEGACY_TOKENS``."""
         from agent.tools.bim.measure_register import IfcMeasureInput
 
         assert IfcMeasureInput(operation="room_inventory", room_kind="Aufenthaltsraum").room_kind == "habitable_room"
@@ -235,10 +191,6 @@ class TestBuildCall:
         assert build(operation="storey_heights") == ("storey_heights", {})
 
     def test_clearance_needs_two_elements_and_names_the_one_element_operator(self):
-        """The mistake worth catching in the same turn: `clearance` and
-        `measure/clearWidth` are both called a lichte Breite and take a
-        different number of elements. A model that reaches for the wrong one by
-        name has to be told which is which, not merely refused."""
         answer = build(operation="clearance", global_id="a")
         assert isinstance(answer, str)
         assert "TWO elements" in answer
@@ -251,19 +203,12 @@ class TestBuildCall:
         )
 
     def test_sun_position_refuses_without_an_instant_and_says_it_needs_a_zone(self):
-        """A timestamp without a zone read as UTC moves the sun 30° in Austria.
-        The refusal spells out the two accepted spellings so the model can fix
-        it in the same turn rather than discovering it as an undecidable."""
         answer = build(operation="sun_position")
         assert isinstance(answer, str)
         assert "ISO 8601" in answer and "time zone" in answer
         assert "+02:00" in answer
 
     def test_sun_position_forwards_the_instant_and_nothing_else(self):
-        """No latitude, no longitude, no global_id — even when the model sets
-        them. The operator accepts a coordinate override; offering it here would
-        let an agent supply the very number the operator refuses to assume, and
-        it would come back stamped `computed` with a tolerance."""
         assert build(operation="sun_position", when=" 2026-06-21T12:00:00+02:00 ", global_id="w1") == (
             "sun_position",
             {"when": "2026-06-21T12:00:00+02:00"},
@@ -277,22 +222,8 @@ class TestBuildCall:
 
 
 class TestTheEnumsMatchTheEngine:
-    """The tool's vocabulary is a COPY of the package's, and copies drift.
-
-    `measure_register` spells the enums out rather than importing them, so that
-    the agent runtime's plugin discovery does not pull IfcOpenShell, numpy and shapely into
-    every process at startup. The price of that is this test: an operator
-    renamed in the package has to fail HERE, in a sentence naming both sides,
-    rather than at a user whose perfectly good call is refused by name.
-    """
-
     @staticmethod
     def _engine():
-        """The engine's vocabulary as its own suite writes it (``ifc-spatial-py/tests/fixtures/vocabulary.json``).
-
-        Read from the file, not imported: this suite runs without IfcOpenShell, and
-        an ``importorskip`` here skipped every test in this class on every CI run.
-        """
         import json
         from types import SimpleNamespace
 
@@ -344,34 +275,12 @@ class TestTheEnumsMatchTheEngine:
         assert MAX_BATCH == self._engine().MAX_BATCH
 
     def test_every_operation_this_tool_offers_exists_on_the_engine(self):
-        """The gap this class exists for, checked one level up.
-
-        The enum tests above compare the ASPECT vocabularies. Nothing compared
-        the operation names themselves, so an operation could be offered in the
-        description, accepted by `_build_call`, and then refused by the engine
-        as an unknown tool — a failure the model cannot correct, because from
-        where it stands the call was exactly what it was told to make.
-        """
         from agent.tools.bim.measure_register import VALID_OPERATIONS
 
         engine_tools = {tool.name for tool in self._engine().create_tools()}
         assert VALID_OPERATIONS <= engine_tools, VALID_OPERATIONS - engine_tools
 
     def test_no_engine_tool_is_unreachable_from_the_agent(self):
-        """The SAME check in the other direction, which is the one that fails.
-
-        The assertion above catches an operation advertised and not implemented.
-        It cannot catch the opposite, and the opposite is what keeps happening:
-        `overhang`, `light_incidence`, `envelope`, `clearance` and `sun_position`
-        each shipped implemented, tested, and callable by nobody, so every
-        question they answered came back „das kann dieser Export nicht" — a
-        sentence about the file that was really about our wiring. `survey`
-        repeated it within one release.
-
-        A capability nobody can call is indistinguishable from a missing one,
-        and the second is what the user was told. The engine-side test that
-        caught this for OPERATORS has no counterpart for TOOLS; this is it.
-        """
         from agent.tools.bim.measure_register import VALID_OPERATIONS
 
         engine_tools = {tool.name for tool in self._engine().create_tools()}
@@ -383,13 +292,6 @@ class TestTheEnumsMatchTheEngine:
         )
 
     def test_every_operation_is_actually_described_to_the_model(self):
-        """Reachable is not the same as findable.
-
-        An operation in VALID_OPERATIONS that `_TOOL_DESCRIPTION` never mentions
-        is reachable only by a model that guesses the name. The description IS
-        the discovery mechanism — it is the only place the model learns an
-        operation exists — so an undocumented one is shipped off.
-        """
         from agent.tools.bim.measure_register import _TOOL_DESCRIPTION
         from agent.tools.bim.measure_register import VALID_OPERATIONS
 
@@ -401,13 +303,6 @@ class TestTheEnumsMatchTheEngine:
 
 
 class TestProvenanceIsThreeDifferentSentences:
-    """The reason this tool exists.
-
-    A declared value is the architect's own statement; a computed one is ours,
-    with a tolerance; an inferred one is a proposal. Rendering all three the
-    same way is how a guess acquires the authority of a measurement.
-    """
-
     def test_a_declared_value_is_reported_as_the_file_s_own_statement(self):
         line = _provenance_line({"value": 15.41678125, "unit": "m²", "provenance": "declared", "decidable": True})
         assert line.startswith("deklariert:")
@@ -449,18 +344,6 @@ class TestProvenanceIsThreeDifferentSentences:
         assert "15.41678125" in line
 
     def test_a_number_is_shown_to_its_tolerance_and_no_further(self):
-        """The false-precision rule, and why it is not "reshaping the value".
-
-        Before this, `floorArea` rendered as
-
-            gemessen (±0.15416781250000042 m²): 15.41678125000004 m²
-
-        Seventeen digits against a 15-centimetre band is a binary-float artifact
-        wearing the costume of a measurement — LESS faithful than 15.42, because
-        it asserts precision the operator disclaims in the same sentence. And the
-        skill tells the model that numbers come from the tool and are never to be
-        re-rounded, so it would have quoted every digit to an architect.
-        """
         line = _provenance_line(
             {
                 "value": 15.41678125000004,
@@ -491,11 +374,6 @@ class TestProvenanceIsThreeDifferentSentences:
         assert f": {shown} m" in line
 
     def test_a_declared_figure_is_never_re_rounded(self):
-        """The case the old „never round" rule was really protecting.
-
-        A declared value is the architect's own statement. Even where a tolerance
-        rides along, the renderer has no standing to restate it.
-        """
         line = _provenance_line(
             {
                 "value": 0.235926059936681,
@@ -509,13 +387,6 @@ class TestProvenanceIsThreeDifferentSentences:
 
 
 class TestUndecidableIsAFindingAboutTheExport:
-    """`decidable: false` is a successful answer, and must never read as an error.
-
-    The question was well formed and THIS FILE cannot answer it. That is a fact
-    about the export the architect can act on — `missing.remedy` is literally
-    what they change in their CAD — while an error is a fact about us.
-    """
-
     UNDECIDABLE = {
         "value": None,
         "unit": None,
@@ -552,13 +423,6 @@ class TestUndecidableIsAFindingAboutTheExport:
 
 class TestRendering:
     def test_a_measurement_files_the_model_it_read_under_the_turns_round(self):
-        """The Herleitung hangs on a round the documents it returned.
-
-        An ``ifc_measure`` round is announced as a retrieval („Sucht im
-        Gebäudemodell") and used to return no document, so the layer drew as a
-        search that found nothing. The model file is that document, and the
-        operation is its locus.
-        """
         from agent.common import turn_status
 
         token = turn_status.begin_lane_capture()
@@ -713,24 +577,11 @@ class TestRendering:
     }
 
     def test_an_obstruction_is_a_sentence_and_not_a_python_dict(self):
-        """The defect the query battery caught.
-
-        `_render_answer` matched entries by `ifcType`, and an obstruction has
-        `intrusionDepth` instead — so the flagship operator's own result fell
-        through to `- {'globalId': …, 'intrusionDepth': 1.056308}`. Handing a
-        model a Python literal after telling it to quote our numbers verbatim
-        is how a repr ends up in front of an architect.
-        """
         rendered = "\n".join(_render_answer(dict(self.BLOCKED)))
         assert "{" not in rendered and "'globalId'" not in rendered
         assert "Basic Roof:Roof_Flat · GlobalId 3cUkl32yn9qRSPvBJVyWh4 · protrudes 1.056 m into the prism" in rendered
 
     def test_the_verdict_line_says_which_way_it_went(self):
-        """`free` was in the payload and in no sentence.
-
-        A caller reading only the rendered text could not tell a clear prism
-        from a blocked one — the answer to the question that was asked.
-        """
         blocked = "\n".join(_render_answer(dict(self.BLOCKED)))
         assert "NICHT FREI (prism 45°, lateral 30°)" in blocked
         assert "1 element protrudes into the prism, deepest intrusion 1.056 m" in blocked
@@ -742,8 +593,6 @@ class TestRendering:
         assert "NICHT FREI" not in rendered
 
     def test_the_german_agrees_in_number(self):
-        """„1 Bauteil ragen" tells an Austrian architect a machine wrote this,
-        and everything after it is read as machine output rather than a finding."""
         one = "\n".join(_render_answer(dict(self.BLOCKED)))
         assert "1 element protrudes" in one
 
@@ -766,14 +615,6 @@ class TestRendering:
             assert word not in rendered
 
     def test_a_swivel_of_zero_degrees_is_stated_and_not_dropped(self):
-        """L2. 0° is a PARAMETER, and falsiness is not absence.
-
-        „seitlich 0°" says the Bestimmung asked for an unswivelled prism; no
-        phrase at all says nobody specified one. A reader checking a
-        Lichteinfall against the clause it came from cannot tell those apart,
-        and `swivel_deg=0.0` survives argument parsing precisely so it can be
-        reported.
-        """
         straight = {**self.BLOCKED, "prism": {**self.BLOCKED["prism"], "swivelDeg": 0.0}}
         assert "lateral 0°" in "\n".join(_render_answer(straight))
 
@@ -808,8 +649,6 @@ class TestRendering:
         assert "Available models" not in rendered
 
     def test_a_model_that_is_still_extracting_closes_the_turn(self):
-        """„noch nicht abfragbar" beside a filename reads as an invitation to
-        call again with that name, and extraction finishes after this turn."""
         from agent.tools.bim.failures import NO_MODEL_TEXT
 
         rendered = _render_unresolved(
@@ -825,9 +664,6 @@ class TestRendering:
         assert NO_MODEL_TEXT not in rendered
 
     def test_a_project_with_no_model_is_told_that_this_call_is_the_answer(self):
-        """The same reply `ifc_query` gives, because the two share
-        `render_unresolved` and a retry on the other tool is the same wasted
-        round."""
         rendered = _render_unresolved(
             {
                 "resolved": False,
@@ -852,8 +688,6 @@ class TestRendering:
         assert "This one call is the answer" in rendered
 
     def test_a_retryable_reason_keeps_its_invitation(self):
-        """`ambiguous` and `no_match` are fixed by a different `model_name`, so
-        nothing here tells the model to stop."""
         for reason in ("ambiguous", "no_match"):
             rendered = _render_unresolved(
                 {
@@ -868,15 +702,6 @@ class TestRendering:
 
 
 class TestOnlyAQuantityCountsAsAMeasurement:
-    """`_measured_count` decides what the confidence gate may stand on.
-
-    A ``provenance`` is attached to every decidable ``Answer`` the engine
-    returns, including the ones that answer a TOPOLOGY question. Counting those
-    as Messwerte let a `relations` lookup — a list of the walls bounding a room —
-    grant measurement grounding to an answer that then invented „rund 2,7 m",
-    and the trailer told the model it had measured something.
-    """
-
     RELATIONS = {
         "value": [
             {"globalId": "3cUkl32yn9qRSPvBJVyWcE", "ifcType": "IfcWall", "name": "Wand 01", "kind": "element"},
@@ -917,15 +742,9 @@ class TestOnlyAQuantityCountsAsAMeasurement:
         ],
     )
     def test_the_older_exclusions_are_untouched(self, answer):
-        """A heuristic, an undecidable finding and a bare list are still zero."""
         assert _measured_count(answer) == 0
 
     def test_the_gate_reaches_into_a_profile_and_a_survey(self):
-        """The same rule inside the two multi-answer shapes.
-
-        `element_profile` and `survey` are counted per sub-answer, so a payload
-        of topology lookups must not add up to a measurement either.
-        """
         profile = {
             "element": {"globalId": "1kTv"},
             "measures": {
@@ -959,13 +778,6 @@ class TestOnlyAQuantityCountsAsAMeasurement:
 
 
 class TestTheTrailerOnlyAppearsWhereAMeasurementCould:
-    """L3. „Messwerte in diesem Ergebnis: 0" on a `draw` is noise with a cost.
-
-    It is true and useless: the model reads it as a measurement that failed and
-    spends one of five tool iterations retrying an operation that never had a
-    number to give.
-    """
-
     PAYLOADS = {
         "briefing": {"briefing": "Zwei Geschoße, 14 Räume."},
         "find_elements": {"elements": [], "total": 0},
@@ -981,11 +793,6 @@ class TestTheTrailerOnlyAppearsWhereAMeasurementCould:
 
     @pytest.mark.parametrize("operation", sorted(PAYLOADS))
     def test_suppressing_the_trailer_still_grants_no_grounding(self, operation):
-        """The fail-closed property the suppression must not cost.
-
-        No trailer reads as no measurement, so an operation wrongly listed as
-        non-measuring loses information and never gains confidence.
-        """
         assert result_carries_measurement(_render(operation, self.PAYLOADS[operation])) is False
 
     def test_a_measuring_operation_still_states_its_count(self):
@@ -996,7 +803,6 @@ class TestTheTrailerOnlyAppearsWhereAMeasurementCould:
         assert result_carries_measurement(rendered) is True
 
     def test_relations_keeps_its_trailer_on_purpose(self):
-        """„0 Messwerte" is what stops a bounds list becoming „rund 2,7 m"."""
         assert "relations" not in NON_MEASURING_OPERATIONS
         assert MEASUREMENT_EVIDENCE_PREFIX in _render(
             "relations", {"value": [], "provenance": "declared", "decidable": True}
@@ -1007,24 +813,6 @@ class TestTheTrailerOnlyAppearsWhereAMeasurementCould:
 
 
 class TestAConversationWithoutAProjectIsRefusedBeforeTheNetwork:
-    """The dead path, decided deliberately.
-
-    `/api/internal/bim/query` and `/api/internal/bim/source` both require
-    `projectId` OR `modelId`. Neither tool has ever sent a `modelId` — both
-    address a model by project and file name — so a conversation outside a
-    project produced a request that could only 400.
-
-    A 400 is a REJECTION here, and a rejection means „there was a problem with
-    the arguments, call the tool again". So the agent retried a call no argument
-    could fix, for as many turns as its budget allowed, and the user got silence
-    instead of the one sentence that would have helped them: open the
-    conversation inside the project.
-
-    The alternative was to start sending `modelId`, which the tools have no way
-    to obtain without a project first. So the path is not dead code to revive —
-    it is a request that should never be made, refused where the reason is known.
-    """
-
     def test_both_halves_of_the_bim_surface_say_the_same_thing(self):
         from agent.tools.bim.measure_register import NO_PROJECT_TEXT as measure_text
         from agent.tools.bim.register import NO_PROJECT_TEXT as query_text
@@ -1052,20 +840,7 @@ class TestAConversationWithoutAProjectIsRefusedBeforeTheNetwork:
 
 
 class TestAModelTooBigToMeasureIsNotAnOutage:
-    """The third failure that was collapsing into „Dienst nicht erreichbar".
-
-    An outage means wait. A 300 MB export on a 4 GB worker never resolves on its
-    own, so the same sentence sent an architect off to wait for a service that
-    was never down — while `ifc_query` would have answered half their questions
-    the whole time.
-    """
-
     def test_the_ceiling_comes_from_the_memory_this_container_actually_has(self, monkeypatch):
-        """`os.sysconf` reports the HOST's RAM inside a cgroup-limited pod.
-
-        Sizing a 2 GB pod's ceiling for a 128 GB node is how a guard that exists
-        to prevent an OOM causes one, silently, taking the conversation with it.
-        """
         from agent.knowledge import ifc_spatial_client as client
 
         monkeypatch.delenv("BIM_SPATIAL_MAX_MODEL_BYTES", raising=False)
@@ -1079,13 +854,6 @@ class TestAModelTooBigToMeasureIsNotAnOutage:
         assert client._derive_max_model_bytes() == client._MAX_MODEL_BYTES_CAP
 
     def test_the_ratio_is_the_low_end_of_what_was_measured(self):
-        """Deliberately a NECESSARY and not a sufficient condition.
-
-        The footprint runs 20x–143x and tracks geometric complexity rather than
-        file size, so no static gate can be safe for both ends. At 143x the
-        guard would refuse a 30 MB model on a 4 GB pod — most real projects —
-        and would have removed the capability instead of protecting it.
-        """
         from agent.knowledge.ifc_spatial_client import PARSE_FOOTPRINT_RATIO
 
         assert PARSE_FOOTPRINT_RATIO == 20
@@ -1121,8 +889,6 @@ class TestAModelTooBigToMeasureIsNotAnOutage:
 
     @pytest.mark.parametrize("raw", ["max", "9223372036854771712", "nonsense"])
     def test_an_unlimited_or_unparsable_cgroup_falls_through(self, monkeypatch, tmp_path, raw):
-        """cgroup v1 writes a sentinel near 2^63 to mean "no limit"; taking it
-        literally would derive a ceiling of several exabytes."""
         from agent.knowledge import ifc_spatial_client as client
 
         limit = tmp_path / "memory.max"
@@ -1156,8 +922,6 @@ class TestAModelTooBigToMeasureIsNotAnOutage:
         assert "310 MB" in str(error)
 
     def test_an_oversized_model_is_refused_before_a_byte_is_transferred(self, monkeypatch):
-        """On the HEAD's byte count. Downloading 300 MB to then refuse it wastes
-        the transfer and holds the turn open for the whole of it."""
         from agent.knowledge import ifc_spatial_client as client
         from agent.knowledge.ifc_spatial_client import ModelTooLargeError
 
@@ -1171,18 +935,6 @@ class TestAModelTooBigToMeasureIsNotAnOutage:
 
 
 class TestAnEngineRefusalKeepsItsReason:
-    """The file got past this worker's gate and the engine refused it, in words.
-
-    A 70 MB export passes the memory gate of a large worker and stops at the
-    engine's own fixed 64 MiB. Cut off, empty or not IFC stops there too. The
-    engine said why, and the reader was told the service could not be reached,
-    so they waited for an outage that never ends.
-
-    The engine stands in here, because this suite runs without IfcOpenShell. What
-    it really raises, down to the cause read here, is pinned on its side of the
-    join in `packages/ifc-spatial-py/tests/test_tools.py`.
-    """
-
     SPILLED = "/tmp/ifc-spilled.ifc"  # noqa: S108
 
     class _Unreadable(RuntimeError):
@@ -1211,7 +963,6 @@ class TestAnEngineRefusalKeepsItsReason:
         client.reset_cache_for_tests()
 
     def _refused_with(self, monkeypatch, cause) -> tuple[str, str]:
-        """The tool's answer and traced outcome when the engine's `open_model` fails from ``cause``."""
         import sys
         import types
 
@@ -1237,7 +988,6 @@ class TestAnEngineRefusalKeepsItsReason:
         return TestTheToolBody._measure(monkeypatch, lambda *_: client.open_model(source), operation="briefing")
 
     def test_a_file_over_the_engines_limit_reads_as_too_large(self, monkeypatch):
-        """The reported case: 70 MB on a worker whose own gate would have allowed it."""
         answer, outcome = self._refused_with(monkeypatch, self._TooLarge(self.SPILLED, 70 * 1024**2, 64 * 1024**2))
 
         assert outcome == "model_too_large"
@@ -1267,7 +1017,6 @@ class TestAnEngineRefusalKeepsItsReason:
         assert self.SPILLED not in answer
 
     def test_a_reason_that_runs_on_does_not_reach_the_agent_whole(self, monkeypatch):
-        """The agent is told to pass the reason on, so its length is bounded where that sentence is written."""
         answer, outcome = self._refused_with(monkeypatch, self._Unreadable(self.SPILLED, "ö" * 2_000_000))
 
         assert outcome == "model_unreadable"
@@ -1282,7 +1031,6 @@ class TestAnEngineRefusalKeepsItsReason:
         ids=["read_failed", "memory", "no_cause"],
     )
     def test_a_failure_that_is_not_about_the_file_still_reads_as_an_outage(self, monkeypatch, cause):
-        """Here waiting is the right advice, so naming the file would be the wrong reason."""
         answer, outcome = self._refused_with(monkeypatch, cause)
 
         assert outcome == "service_unavailable"
@@ -1290,17 +1038,8 @@ class TestAnEngineRefusalKeepsItsReason:
 
 
 class TestADownloadCutShortIsNotABrokenFile:
-    """The connection dropped, and the file in the store is fine.
-
-    A real socket, because the point is how `read(n)` behaves: it hands back what
-    arrived and does not raise. The partial bytes would reach the engine, which
-    would truthfully call them cut off and ask for a new upload, and the spill
-    would keep that answer until the process restarts.
-    """
-
     @pytest.fixture()
     def serve(self):
-        """Serve ``body`` under a stated Content-Length, closing the connection after the body."""
         import http.server
         import threading
 
@@ -1349,7 +1088,6 @@ class TestADownloadCutShortIsNotABrokenFile:
         assert client._download(serve(whole, len(whole))) == whole
 
     def test_a_compressed_download_is_measured_by_what_was_sent(self, serve):
-        """Content-Length counts the compressed bytes, so the check runs before they are inflated."""
         import gzip
 
         from agent.knowledge import ifc_spatial_client as client
@@ -1362,7 +1100,6 @@ class TestADownloadCutShortIsNotABrokenFile:
             client._download(serve(packed[:20], len(packed), "gzip"))
 
     def test_a_length_that_is_no_number_says_nothing_about_the_download(self, serve):
-        """`²` counts as a digit in Python, and `int` still refuses it."""
         from agent.knowledge import ifc_spatial_client as client
 
         whole = b"ISO-10303-21;\nEND-ISO-10303-21;\n"
@@ -1370,21 +1107,12 @@ class TestADownloadCutShortIsNotABrokenFile:
         assert client._download(serve(whole, "²")) == whole
 
     def test_a_chunked_download_is_measured_by_its_chunks(self, serve):
-        """A stray length means nothing next to chunked framing: the file arrived whole."""
         from agent.knowledge import ifc_spatial_client as client
 
         assert client._download(serve(b"5\r\nhello\r\n0\r\n\r\n", 5845, chunked=True)) == b"hello"
 
 
 class TestUnavailableIsNotRejected:
-    """Could-not-look versus looked-and-your-arguments-were-wrong.
-
-    An unavailable service is nothing the agent can do anything about; a
-    rejected request is a mistake it can correct in the same turn. Collapsing
-    the two ends a turn on a typo, with the agent instructed to say nothing
-    about the building.
-    """
-
     def test_the_two_messages_are_different_and_say_different_things(self):
         rejected = _rejected_text("Unrecognized key(s): 'storeys'")
 
@@ -1409,8 +1137,6 @@ class TestUnavailableIsNotRejected:
 
 
 class TestTheSourceClientDrawsTheSameDistinction:
-    """The client that fetches the bytes, and the two errors it can raise."""
-
     @pytest.fixture(autouse=True)
     def _token(self, monkeypatch):
         monkeypatch.setenv("INTERNAL_API_TOKEN", "test-token")
@@ -1497,8 +1223,6 @@ class TestTheSourceClientDrawsTheSameDistinction:
 
 
 class TestTheSourceIdentityDecidesWhatIsReused:
-    """What "the same building as last time" means, and what it must not mean."""
-
     def test_the_object_s_etag_is_preferred(self):
         from agent.knowledge.ifc_spatial_client import source_identity
 
@@ -1526,12 +1250,6 @@ class TestTheSourceIdentityDecidesWhatIsReused:
 
 
 class TestTheSameModelIsParsedOncePerProcess:
-    """The claim the two-key cache makes, checked against a real IFC.
-
-    Skipped where the engine is not installed — which is also the deployment
-    shape `ifc_measure` refuses in words rather than pretending to answer.
-    """
-
     FIXTURE = (
         pathlib.Path(__file__).resolve().parents[5] / "packages/ifc-spatial-py/tests/fixtures/Ifc4_SampleHouse.ifc"
     )
@@ -1547,12 +1265,6 @@ class TestTheSameModelIsParsedOncePerProcess:
 
     @pytest.fixture()
     def served(self):
-        """The fixture behind an HTTP URL — the only scheme the client reads.
-
-        `file://` is refused by `_download`, and deliberately: a presigned URL
-        arrives from the BFF, and a client that would read whatever scheme it
-        was handed turns a model lookup into a local file read.
-        """
         import functools
         import http.server
         import threading
@@ -1620,8 +1332,6 @@ class TestTheSameModelIsParsedOncePerProcess:
 
 
 class TestWhatTheTraceRecords:
-    """The SHAPE of the call, never the building (ADR-0045 §Observability)."""
-
     @pytest.fixture(autouse=True)
     def _clean(self):
         from agent.observability.langfuse_trace_attributes import reset_contributions
@@ -1672,26 +1382,8 @@ class TestWhatTheTraceRecords:
 
 
 class TestTheDescriptionDescribesTheRealTool:
-    """The description is the only spec the model reads.
-
-    A parameter documented in it that the function does not have is not a typo
-    — it is an instruction the model follows to produce a call that silently
-    does something else.
-    """
-
     @staticmethod
     def _description_and_parameters() -> tuple[str, list[str]]:
-        """The description, and the arguments the tool actually takes.
-
-        The parameters used to be read off `_ifc_measure`'s signature through
-        the AST, because the function is nested inside a registration generator
-        and its signature is not reachable without standing up the whole agent-runtime
-        builder. It now takes ONE argument — a validated
-        :class:`IfcMeasureInput` — so the signature no longer names anything,
-        and the spec moved to the model's fields. Which is the point: the model
-        is a real object, importable without a builder, and the invariant gets
-        cheaper rather than weaker.
-        """
         from agent.tools.bim.measure_register import _TOOL_DESCRIPTION
         from agent.tools.bim.measure_register import IfcMeasureInput
 
@@ -1707,14 +1399,6 @@ class TestTheDescriptionDescribesTheRealTool:
         assert sorted(shown - set(parameters)) == []
 
     def test_every_argument_a_field_description_shows_being_set_exists(self):
-        """The same invariant where the argument teaching now lives.
-
-        Most of what the prose used to say about arguments is in the field
-        descriptions, and a field description that shows `kind='expensive'`
-        against a field called something else is the same defect one level down
-        — an instruction the model follows into a call that silently does
-        something else.
-        """
         import re
 
         from agent.tools.bim.measure_register import IfcMeasureInput
@@ -1730,13 +1414,6 @@ class TestTheDescriptionDescribesTheRealTool:
         assert sorted(shown - fields) == []
 
     def test_every_schema_field_is_read_by_the_dispatch(self):
-        """The model is the spec, and the call builders are what the spec dispatches to.
-
-        A field on the input model that no builder reads is a value the model
-        can set and this tool silently drops. The builders take the validated
-        model itself, so the check is that each field is read off it somewhere
-        between `_engine_call` and the engine.
-        """
         import inspect
         import re
 
@@ -1802,14 +1479,6 @@ class TestTheDescriptionDescribesTheRealTool:
 
 
 class TestTheRefusalPutsTheEnginesPhraseAfterAColon:
-    """`missing.what` is the engine's own German phrase, negated or not.
-
-    Roughly thirty of them are already negated („keine Nordrichtung“, „kein
-    auswertbares Prisma“). The renderer used to wrap each in a German sentence
-    and had to repair the double negation; it now places the phrase after a
-    colon, so its grammar cannot turn the finding around.
-    """
-
     @staticmethod
     def _line(what: str) -> str:
         return _provenance_line({"decidable": False, "missing": {"what": what, "remedy": "R"}})
@@ -1841,14 +1510,6 @@ class TestTheRefusalPutsTheEnginesPhraseAfterAColon:
 
 
 class TestAWrongOperatorIsNotAWrongId:
-    """The engine now RAISES for a wrong kind instead of returning undecidable.
-
-    Both arrive at `_unrunnable_text`, and they need opposite advice. Telling
-    the agent to re-check the GlobalId when the id is correct sends it to
-    `find_elements` for something it already has, and back with the same wrong
-    call — a loop that costs the turn and never terminates in an answer.
-    """
-
     WRONG_KIND = (
         "clearOpeningWidth() erwartet eine Öffnung, ein Fenster oder eine Tür — IfcPlate "
         "(GlobalId 3cUkl32) ist das nicht. Das ist ein Fehler im Aufruf, kein Befund über den "
@@ -1873,16 +1534,6 @@ class TestAWrongOperatorIsNotAWrongId:
 
 
 class TestOIB6ReachesTheModel:
-    """`envelope` — the operation that existed as geometry and as nothing else.
-
-    `thermal_envelope`, `envelope_area_by_orientation` and `compactness` were
-    implemented, tested, and on no tool surface. Every OIB 6 question therefore
-    came back as „das kann dieser Export nicht beantworten", which is a claim
-    about the architect's file and was actually a claim about our wiring — the
-    worst shape a gap can take, because it sends them to fix something that is
-    not broken.
-    """
-
     def test_the_operation_dispatches_to_the_engine_tool(self):
         assert _build_call(operation="envelope", kind="compactness") == ("envelope", {"what": "compactness"})
 
@@ -1893,8 +1544,6 @@ class TestOIB6ReachesTheModel:
         )
 
     def test_it_defaults_to_the_envelope_itself(self):
-        """Which elements ARE the envelope is the first question of an OIB 6
-        calculation, and the one the other two are built on."""
         assert _build_call(operation="envelope") == ("envelope", {"what": "thermalEnvelope"})
 
     def test_an_unknown_aspect_names_the_ones_that_exist(self):
@@ -1902,28 +1551,11 @@ class TestOIB6ReachesTheModel:
         assert isinstance(answer, str) and "thermalEnvelope" in answer
 
     def test_a_global_id_is_not_forwarded(self):
-        """The engine's schema has no `globalId` on this tool, and an envelope is
-        not a property of one element anyway. Forwarding a surplus id would turn
-        a harmless extra argument into a schema rejection the model cannot read
-        its way out of."""
         _, args = _build_call(operation="envelope", kind="compactness", global_id="3cUkl32yn9qRSPvBJVyWw5")
         assert args == {"what": "compactness"}
 
 
 class TestARatioDoesNotInheritAnAreaTolerance:
-    """A dimensionless value must not be rounded to the band of a different unit.
-
-    `_decimals` derives its precision from the answer's tolerance, which carries
-    the answer's UNIT. `envelope/areaByOrientation` has a tolerance of ±2.3 m²,
-    which earns ZERO decimals — and the window-to-wall ratios, which are the
-    entire point of that operator, rendered as `windowWallRatio=0` for north
-    (truly 0.193), south (0.405) and the building as a whole (0.177).
-
-    A facade reported at 0 does not read as an imprecise number. It reads as a
-    facade with no glazing in it — a statement about the building, produced by a
-    rounding rule, and false on three of four elevations.
-    """
-
     @staticmethod
     def _answer():
         return {
@@ -1946,16 +1578,10 @@ class TestARatioDoesNotInheritAnAreaTolerance:
         assert "windowWallRatio=0," not in text and "windowWallRatio=0\n" not in text
 
     def test_the_areas_still_follow_their_own_band(self):
-        """The band is not abandoned — only stopped from crossing units. A
-        ±2.3 m² area has no business showing a centimetre digit."""
         text = "\n".join(_render_answer(self._answer()))
         assert "opaque=186" in text and "transparent=40" in text
 
     def test_a_ratio_that_carries_a_unit_keeps_its_own_precision(self):
-        """`compactness.ratio` is A/V in 1/m — the answer's OWN value, whose
-        ±0.021 1/m band is exactly right for it. Overriding that one would be
-        this same bug pointing the other way, which is why the rule is a list of
-        keys and not a guess from the name."""
         text = "\n".join(
             _render_answer(
                 {
@@ -1971,16 +1597,6 @@ class TestARatioDoesNotInheritAnAreaTolerance:
 
 
 class TestTheDoorGraphRendersAsDoorsAndNotAsCounts:
-    """The graph flattened by `_value_text` reads „nodes=83 Einträge,
-    edges=77 Einträge, unbestimmt=0 Einträge" — measured on the institute
-    building in the corpus. Four counts and not one door.
-
-    It is the same defect `egressPath` already has a branch for: the counts are
-    not the answer. The answer is which rooms have no way out and which doors
-    the derivation could not read, and those two lists are the entire reason
-    `fire/doorGraph` is worth a call separate from `measure/egressPath`.
-    """
-
     GRAPH = {
         "value": {
             "nodes": [
@@ -2034,16 +1650,11 @@ class TestTheDoorGraphRendersAsDoorsAndNotAsCounts:
         assert "2 rooms, 1 door connection, of which 1 to the outside" in self._text()
 
     def test_a_room_with_no_door_edge_is_named(self):
-        """The finding `egressPath` cannot produce, because it is asked about one
-        room and this is about all of them."""
         text = self._text()
         assert "NO door edge" in text and "Dachraum" in text
         assert "no exit" in text
 
     def test_an_unresolved_door_is_named_with_its_reason(self):
-        """A hole in EVERY route through this building. A reader who sees only
-        the edge count cannot tell a building with one door from one with two of
-        which one was unreadable."""
         text = self._text()
         assert "UNDETERMINED" in text and "Zimmertür" in text and "Körpergeometrie fehlt" in text
 
@@ -2052,7 +1663,6 @@ class TestTheDoorGraphRendersAsDoorsAndNotAsCounts:
         assert "NOT counted as an edge" in text and "Bodenluke" in text and "TRAPDOOR" in text
 
     def test_the_counts_alone_never_stand_in_for_the_lists(self):
-        """The line this branch exists to prevent."""
         assert "unbestimmt=1 Eintrag" not in self._text()
 
     def test_the_caveat_and_the_method_still_travel(self):
@@ -2062,17 +1672,6 @@ class TestTheDoorGraphRendersAsDoorsAndNotAsCounts:
 
 
 class TestRenderingASurvey:
-    """A survey is many answers, and the rendering decides whether the caller
-    reads them as many.
-
-    The failure this branch exists to prevent is not a crash. Flattened through
-    the generic value renderer, seventeen measurements print as
-    „results=17 Einträge, summary=(…)" — a shape, not a finding — and the model
-    downstream reports „der Keller ist 2,70 m hoch" because that is the only
-    number it can see. The spread has to come first and the outlier has to have
-    a name, or the survey has bought nothing over measuring one room.
-    """
-
     SURVEY = {
         "measure": "clearHeight",
         "results": [
@@ -2114,14 +1713,12 @@ class TestRenderingASurvey:
         return _render("survey", payload)
 
     def test_the_spread_is_stated_before_any_single_room(self):
-        """Read top-down, the first fact has to be that the rooms disagree."""
         text = self._text()
         head = text.splitlines()[0]
         assert "2.450" in head and "0.250" in head and "2.700" in head
         assert head.index("spread") < text.index("Seminarraum")
 
     def test_the_outlier_is_named_not_just_identified(self):
-        """A GlobalId is not something a person can carry to a CAD window."""
         text = self._text()
         assert "Flur Keller Treppe (Keller): 0.250 m" in text
         assert "3Gz7u_d1P7IA35Wmtg48Rc" not in text
@@ -2133,8 +1730,6 @@ class TestRenderingASurvey:
         assert "wie die anderen" in text
 
     def test_the_agreement_line_counts_correctly_in_german(self):
-        """„1 Bauteile konnten" is the kind of sentence that makes a reader stop
-        trusting the rest of the number."""
         assert "1 element could" in self._text()
         many = self._text(
             summary={**self.SURVEY["summary"], "undecidable": [{"name": "A"}, {"name": "B"}]},
@@ -2158,7 +1753,6 @@ class TestRenderingASurvey:
         assert "about the export, not about the building" in text
 
     def test_a_survey_that_measured_nothing_does_not_lecture_about_a_spread(self):
-        """The sentence has to keep meaning something for the cases where it fires."""
         text = self._text(
             results=[],
             summary={"measured": 0, "of": 0, "undecidable": []},
@@ -2168,28 +1762,11 @@ class TestRenderingASurvey:
         assert "Kein Bauteil passt" in text
 
     def test_the_raw_dict_shape_never_reaches_the_reader(self):
-        """The line this branch exists to prevent."""
         text = self._text()
         assert "results=" not in text and "summary=" not in text and "Einträge" not in text
 
 
 class TestOperationsThatNeedNoSubject:
-    """The guard that ate `survey`.
-
-    `_build_call` refuses, with a helpful sentence, any operation reaching the
-    bottom of the function without a `global_id`. That is right for `measure`
-    and `relations`, which are about one element. It is wrong for the operations
-    that take a SELECTION — and `survey` shipped below the guard, so every call
-    the skill teaches („alle Räume dieses Geschoßes") came back
-
-        Error: operation 'survey' needs a global_id
-
-    while the engine underneath it was correct, tested, and never reached. The
-    engine tests could not see this: they call the handler directly. The
-    renderer tests could not see it either, because a payload that never arrives
-    is never rendered. Only the dispatch layer knows, so the test belongs here.
-    """
-
     SUBJECTLESS = [
         ("find_elements", {"ifc_type": "IfcSpace"}),
         ("survey", {"measure": "clearHeight", "ifc_type": "IfcSpace", "storey": "Keller"}),
@@ -2208,8 +1785,6 @@ class TestOperationsThatNeedNoSubject:
         assert built[0] == operation
 
     def test_survey_carries_the_whole_selection_through(self):
-        """The selector is the operation. Dropping `storey` here would silently
-        survey the entire building and report its spread as the Keller's."""
         name, args = _build_call(operation="survey", measure="clearHeight", ifc_type="IfcSpace", storey="Keller")
         assert name == "survey"
         assert args["measure"] == "clearHeight"
@@ -2222,28 +1797,8 @@ class TestOperationsThatNeedNoSubject:
 
 
 class TestTheSchemaIsWhatTheModelActuallySees:
-    """A pydantic model whose constraints never reach the wire buys nothing.
-
-    The whole benefit of typing this tool's input is invisible unless the enums
-    and the per-parameter text survive the trip from `IfcMeasureInput` through
-    the agent runtime's `FunctionInfo`, through the framework wrapper, and into the JSON
-    schema handed to the model. Each of those three hops is somebody else's
-    code, and the failure mode — a beautifully typed model, a bare schema on
-    the wire, and no way to tell from inside the process — is exactly what this
-    class exists to make impossible.
-
-    So it does not inspect `IfcMeasureInput`. It builds the tool the way the
-    agent builds it and reads the schema off the far end.
-    """
-
     @staticmethod
     def _wire_schema() -> dict:
-        """The `parameters` object an OpenAI-shaped tool call would carry.
-
-        The same two steps `nat.plugins.langchain.tool_wrapper` takes:
-        `args_schema=fn.input_schema` onto a `StructuredTool`, and whatever the
-        provider adapter makes of it.
-        """
         import asyncio
         from unittest.mock import MagicMock
 
@@ -2269,12 +1824,6 @@ class TestTheSchemaIsWhatTheModelActuallySees:
 
     @staticmethod
     def _enum(field: dict) -> list[str] | None:
-        """The allowed values, wherever the serialiser put them.
-
-        An optional `Literal` comes out as `anyOf: [{enum: […]}, {type: null}]`
-        rather than a bare `enum`, and a test that only looked for the bare form
-        would report the enums missing when they are there.
-        """
         if "enum" in field:
             return list(field["enum"])
         for branch in field.get("anyOf", []):
@@ -2306,15 +1855,6 @@ class TestTheSchemaIsWhatTheModelActuallySees:
         ]
 
     def test_the_enum_order_does_not_depend_on_string_hashing(self):
-        """`VALID_OPERATIONS` was a set, and string hashing is randomised.
-
-        A set-ordered enum reshuffles between restarts, which makes the tool
-        schema a different string to every prefix cache in front of the model
-        for no reason at all. The test above holds each wire enum to its
-        vocabulary in order; this holds every vocabulary to a sequence, whose
-        order no hash seed can move. (It replaced three fresh interpreters,
-        50 s of every CI run, that proved the same.)
-        """
         from agent.tools.bim import measure_register
 
         for name in (
@@ -2331,27 +1871,14 @@ class TestTheSchemaIsWhatTheModelActuallySees:
             assert isinstance(vocabulary, (tuple, list, dict)), (name, type(vocabulary))
 
     def test_every_parameter_carries_its_own_description(self):
-        """The fact the prose used to carry, at the point where it is needed.
-
-        A parameter with no description is one the model has to learn about
-        from 4 000 tokens of narrative somewhere above — which is what this
-        whole change is undoing.
-        """
         properties = self._wire_schema()["properties"]
         undescribed = sorted(name for name, field in properties.items() if not field.get("description"))
         assert undescribed == []
 
     def test_the_operation_is_required_and_nothing_else_is(self):
-        """Every other field is scoped BY the operation, so it is the one
-        decision no caller can skip. Making the rest required would refuse
-        calls that are complete — `briefing` takes nothing at all."""
         assert self._wire_schema()["required"] == ["operation"]
 
     def test_the_measure_vocabulary_travels_with_its_meanings(self):
-        """The enum says WHICH names exist; only the text says which one
-        answers the question. Shipping the names without the meanings would
-        make `clearHeight` and `extent` look interchangeable, which is the
-        confusion a Raumhöhennachweis turns on."""
         description = self._wire_schema()["properties"]["measure"]["description"]
 
         assert "lichte Raumhöhe" in description
@@ -2360,8 +1887,6 @@ class TestTheSchemaIsWhatTheModelActuallySees:
             assert f"{name} —" in description
 
     def test_the_overloaded_fields_say_which_operations_they_belong_to(self):
-        """`mode`, `kind` and `other_global_id` mean different things per
-        operation. A flat model can carry that; it cannot carry it silently."""
         properties = self._wire_schema()["properties"]
 
         for operation in ("distance", "view"):
@@ -2372,21 +1897,12 @@ class TestTheSchemaIsWhatTheModelActuallySees:
             assert f"'{operation}'" in properties["other_global_id"]["description"]
 
     def test_a_list_of_global_ids_is_expressible_as_a_real_array(self):
-        """The engine's `highlight`, `only` and `exclude` have always been
-        arrays. The wire can carry one, so the field offers one — and still
-        takes the comma-separated string the description teaches."""
         branches = self._wire_schema()["properties"]["global_id"]["anyOf"]
 
         assert {"type": "string"} in branches
         assert {"type": "array", "items": {"type": "string"}} in branches
 
     def test_no_enum_value_or_description_offers_the_model_a_verdict(self):
-        """The governing invariant, checked on the surface the model reads.
-
-        This layer MEASURES and the Bestimmung JUDGES. An enum value called
-        `compliant`, or a description that says what a number has to be, would
-        move the verdict into the tool — where nobody signs for it.
-        """
         import json
 
         properties = self._wire_schema()["properties"]
@@ -2407,23 +1923,6 @@ class TestTheSchemaIsWhatTheModelActuallySees:
 
 
 class TestAMalformedCallIsRefusedBeforeTheToolRuns:
-    """Where the refusal happens, and what that is actually worth.
-
-    `_build_call` has always refused an unknown measure, and refused it well —
-    but it refuses INSIDE the tool, after the call was accepted and dispatched.
-    Declaring the vocabulary in the input model moves the refusal in front of
-    the tool body: nothing runs, nothing resolves a project or opens a model,
-    and the permitted set travels with the error out of the schema itself.
-
-    What it does NOT buy is the turn back. The iteration budget is charged when
-    the model EMITS the call (the agent), nothing refunds it,
-    and the ToolNode hands the ValidationError back as the tool result rather
-    than short-circuiting the loop — so a rejected call costs the same fifth of
-    the budget either way. The saving is upstream of all of that: a value the
-    schema forbids is one most models never emit, and the enum in the args
-    schema is where a model reliably reads the vocabulary from.
-    """
-
     @staticmethod
     def _model():
         from agent.tools.bim.measure_register import IfcMeasureInput
@@ -2460,9 +1959,6 @@ class TestAMalformedCallIsRefusedBeforeTheToolRuns:
             self._model()(operation="find_elements", **{field: value})
 
     def test_a_call_that_decided_nothing_is_refused(self):
-        """`operation` used to default to 'briefing', so a call with no
-        arguments at all came back as a successful briefing. That reads as
-        „the tool worked" for a call that named no question."""
         import pydantic
 
         with pytest.raises(pydantic.ValidationError) as refused:
@@ -2471,8 +1967,6 @@ class TestAMalformedCallIsRefusedBeforeTheToolRuns:
         assert "operation" in str(refused.value)
 
     def test_a_batch_too_big_for_the_engine_is_refused_before_the_download(self):
-        """The engine refuses more than MAX_BATCH — after resolving, fetching
-        and tessellating the model. Seconds and a turn, to be told to count."""
         import pydantic
 
         from agent.tools.bim.measure_register import MAX_BATCH
@@ -2485,8 +1979,6 @@ class TestAMalformedCallIsRefusedBeforeTheToolRuns:
         assert "survey" in str(refused.value)
 
     def test_the_batch_ceiling_is_not_invented_for_the_other_list_operations(self):
-        """`view`, `fire` and `light_incidence` take lists and have no ceiling.
-        A schema stricter than the engine refuses calls that would have worked."""
         ids = [f"id{n}" for n in range(80)]
         assert self._model()(operation="view", global_id=ids).global_id.count(",") == 79
 
@@ -2498,40 +1990,18 @@ class TestAMalformedCallIsRefusedBeforeTheToolRuns:
 
     @pytest.mark.parametrize("angle", [0.0, 90.0])
     def test_the_schema_bounds_are_the_bounds_the_tool_actually_accepts(self, angle):
-        """The schema said 0 ≤ angle ≤ 90; `_build_call` accepts 0 < angle < 90.
-
-        Both endpoints passed validation and were then refused inside the tool —
-        a fifth of the iteration budget spent on an angle the schema had just
-        told the model was fine. The same "default written in two places" defect
-        the `mode` field was fixed for.
-        """
         import pydantic
 
         with pytest.raises(pydantic.ValidationError):
             self._model()(operation="light_incidence", global_id="1kTv", angle_deg=angle)
 
     def test_an_absent_angle_is_absent_and_not_zero(self):
-        """„not given" and „zero degrees" must not be the same value.
-
-        `_build_call` refuses both, so nothing breaks today — but the default
-        lived in the schema AND in an `or None` at the call site, which is
-        exactly how the two drift apart. ``swivel_deg=0`` is meanwhile a real
-        value (no lateral Verschwenkung) and must survive the trip.
-        """
         model = self._model()(operation="light_incidence", global_id="1kTv", angle_deg=45.0, swivel_deg=0.0)
         assert model.angle_deg == 45.0
         assert model.swivel_deg == 0.0
         assert self._model()(operation="briefing").angle_deg is None
 
     def test_a_name_this_surface_does_not_have_still_reaches_the_backlog(self, monkeypatch):
-        """The enums must not silence `capability_gaps`.
-
-        „measure='wandstaerke'" is not really a mistake — it is somebody asking
-        for a wall thickness this surface has no operator for, in one word, and
-        it is the most useful signal the BIM surface produces. `_build_call`
-        recorded it. Once the enum is on the wire the value never gets that
-        far, and the backlog would go quiet exactly as the refusals got cheaper.
-        """
         import pydantic
 
         recorded = self._gaps_recorded_by(
@@ -2542,9 +2012,6 @@ class TestAMalformedCallIsRefusedBeforeTheToolRuns:
         assert recorded[0]["field"] == "measure"
 
     def test_a_bad_kind_is_recorded_against_the_vocabulary_its_operation_uses(self, monkeypatch):
-        """`kind` is three vocabularies. „fire kind='thermalEnvelope'" is a
-        different request from „find_elements kind='thermalEnvelope'", and a
-        backlog that merged them would rank neither."""
         import pydantic
 
         recorded = self._gaps_recorded_by(monkeypatch, pydantic, operation="fire", kind="brandabschnitt")
@@ -2563,13 +2030,6 @@ class TestAMalformedCallIsRefusedBeforeTheToolRuns:
 
 
 class TestEveryWellFormedCallStillDispatchesIdentically:
-    """This is a schema refactor. The calls that worked have to work the same.
-
-    Each row is a call the tool accepted before the input model existed, driven
-    through the model and then through `_build_call`, and asserted against the
-    engine call it has always produced.
-    """
-
     CALLS = [
         (
             {"operation": "briefing"},
@@ -2657,7 +2117,6 @@ class TestEveryWellFormedCallStillDispatchesIdentically:
 
     @staticmethod
     def _dispatch(**arguments):
-        """Exactly what `_ifc_measure` does between the model and the engine."""
         from agent.tools.bim.measure_register import IfcMeasureInput
 
         parsed = IfcMeasureInput(**arguments)
@@ -2684,16 +2143,6 @@ class TestEveryWellFormedCallStillDispatchesIdentically:
         assert self._dispatch(**arguments) == expected
 
     def test_a_zero_angle_survives_the_dispatch_and_is_not_read_as_absent(self):
-        """0° is a MEASUREMENT, „absent" is a question never asked.
-
-        The schema stopped conflating them by typing the angles `float | None`,
-        but that only fixed the model. The dispatch is where an `or None` would
-        put the defect back, and until now nothing asserted it there: the model
-        test covers `IfcMeasureInput`, the parity table covers operations that
-        carry no angle. A Dachüberstand measured at a swivel of exactly 0° must
-        reach the engine as 0.0, or the answer silently becomes „no swivel
-        requested" and the reader cannot tell the two apart.
-        """
         base = {"operation": "light_incidence", "global_id": "1" * 22, "angle_deg": 45.0}
         _, args = self._dispatch(**base, swivel_deg=0.0)
 
@@ -2703,41 +2152,19 @@ class TestEveryWellFormedCallStillDispatchesIdentically:
         assert "swivel" not in without
 
     def test_every_operation_is_covered_by_a_row(self):
-        """A parity table that quietly stops covering an operation proves
-        nothing about the one it dropped."""
         from agent.tools.bim.measure_register import VALID_OPERATIONS
 
         assert {row[0]["operation"] for row in self.CALLS} == set(VALID_OPERATIONS)
 
     def test_an_array_of_ids_and_the_comma_string_are_the_same_call(self):
-        """The array is offered because the wire can carry one, not because it
-        means something different."""
         assert self._dispatch(operation="view", global_id=["a", "b"]) == self._dispatch(
             operation="view", global_id="a, b"
         )
 
     def test_a_view_without_a_mode_finally_reaches_the_engine(self):
-        """The one behaviour that DOES change, and it changes from broken.
-
-        `_ifc_measure` declared `mode: str = "min"` while the description
-        promised `view` defaulted to 'highlight'. Both were internally
-        consistent and they disagreed with each other, so every `view` call
-        that omitted `mode` — which is what the description invites — arrived
-        as mode='min', which `view` does not have, and was refused. The default
-        now lives in one place, and 'not given' reaches `_build_call` as 'not
-        given'.
-        """
         assert self._dispatch(operation="view", global_id="1kTv") == ("view", {"highlight": ["1kTv"]})
 
     def test_a_kind_the_operation_ignores_is_not_filed_as_a_missing_capability(self, monkeypatch):
-        """`element_profile` shrugs at a `kind` that is not 'expensive'.
-
-        `kind` is one field over four vocabularies and the enum is their union,
-        because `_build_call` is the layer that knows which one applies. A
-        ledger scoped to the operation's own vocabulary would file every one of
-        those shrugs as „somebody wanted a capability we lack", and drown the
-        entries that mean it.
-        """
         from agent.tools.bim import measure_register
 
         recorded: list[dict] = []
@@ -2759,11 +2186,6 @@ class TestEveryWellFormedCallStillDispatchesIdentically:
         ],
     )
     def test_the_case_the_tool_always_tolerated_is_still_tolerated(self, field, written, canonical):
-        """`_build_call` lower-cases these four and case-folds the fire and
-        envelope aspects, so kind='Compactness' has always been answered. A
-        `Literal` is case-sensitive, and a schema that started refusing calls
-        the tool used to answer would be this refactor breaking the very thing
-        it exists to make cheaper."""
         from agent.tools.bim.measure_register import IfcMeasureInput
 
         arguments = {"operation": "envelope"} | {field: written}
@@ -2771,10 +2193,7 @@ class TestEveryWellFormedCallStillDispatchesIdentically:
 
 
 class TestTheLooseSeamMeansWhatTheWireMeans:
-    """`_build_call` takes loose keyword arguments and validates them the way the wire does."""
-
     def test_an_empty_string_is_not_given(self):
-        """The question battery passes `relation=""` for every call; the schema's `Literal` must not see it."""
         assert _build_call(operation="briefing", relation="", measure="", mode="", kind="", room_kind="") == (
             "briefing",
             {"format": "text"},
@@ -2792,16 +2211,11 @@ class TestTheLooseSeamMeansWhatTheWireMeans:
 
 class TestAPayloadNobodyRendersIsABug:
     def test_an_unknown_payload_shape_raises_rather_than_dumping_the_dict(self):
-        """`str(payload)` used to be the fallthrough: thousands of tokens of raw
-        dict with the provenance verbs stripped out. A shape nobody renders is
-        a bug to fix, and this is what finds it."""
         with pytest.raises(TypeError, match="no renderer"):
             _render("relations", {"unexpected": "shape"})
 
 
 class TestTheToolBody:
-    """`_measure` is the tool minus the agent runtime: the guards, the engine call, the failure table."""
-
     @pytest.fixture(autouse=True)
     def _context(self, monkeypatch):
         from agent.tools.bim import measure_register
@@ -2811,7 +2225,6 @@ class TestTheToolBody:
 
     @staticmethod
     def _measure(monkeypatch, run, **arguments) -> tuple[str, str]:
-        """The answer and the traced outcome — read inside the task, where the ContextVar was written."""
         import asyncio
 
         from agent.observability.langfuse_trace_attributes import _CONTRIBUTED
@@ -2855,7 +2268,6 @@ class TestTheToolBody:
         ids=["rejected", "too_large", "unreadable", "unavailable", "no_engine", "unrunnable"],
     )
     def test_every_engine_failure_maps_to_its_own_sentence_and_outcome(self, monkeypatch, raised, outcome, expected):
-        """The failure table, one row at a time — the subclass before its base."""
 
         def run(*_):
             raise raised

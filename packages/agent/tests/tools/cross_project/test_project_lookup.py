@@ -1,14 +1,3 @@
-"""``project_lookup`` (ADR-0094): what it sends, what it renders, what it admits.
-
-The HTTP call is the only thing faked. The tool, the grounding renderer, the
-citation readers and the admission are the real ones, because what is under
-test is the seam: the signed bytes leave unchanged; the bodies are the ones the
-BFF's own schema accepts; a hit cites like any other source and names its
-project; what the BFF handed out is admitted for the turn and shuts its doors;
-a restricted collection of another project the BFF did NOT hand out is still
-withheld; and the BFF's refusals reach the reader in its own words.
-"""
-
 from __future__ import annotations
 
 import json
@@ -68,7 +57,6 @@ def _hit(filename: str, collection: str = OTHER_COLLECTION, **extra: Any) -> dic
 
 
 def _listed_project(**extra: Any) -> dict[str, Any]:
-    """One project as the BFF's ``CrossProjectListed`` answers it, every field the schema requires."""
     return {
         "id": OTHER,
         "name": "Wohnbau Graz",
@@ -231,7 +219,6 @@ class TestTheSearchAnswer:
     async def test_a_hit_says_its_land_and_warns_when_it_is_not_this_projects(
         self, monkeypatch, calls, turn, ours, line
     ) -> None:
-        """A precedent from another Land was decided under another Bauordnung: the tool says so, not the model."""
         context = None if ours is None else type("Context", (), {"federal_state": ours})()
         monkeypatch.setattr(project_context, "get_signed_request_context", lambda: context)
         _answering(monkeypatch, calls, {**SEARCH_BODY, "hits": [_hit("Detail Traufe.pdf")]})
@@ -725,7 +712,6 @@ class TestFindAndBrief:
     async def test_find_prints_each_projects_land_after_its_period_and_names_one_that_is_not_this_chats(
         self, monkeypatch, calls, turn, schema
     ) -> None:
-        """The Land is printed; one other than this chat's project's carries the warning of `_federal_state_note`."""
         monkeypatch.setattr(
             project_context, "get_signed_request_context", lambda: type("Context", (), {"federal_state": "vienna"})()
         )
@@ -824,8 +810,6 @@ class TestFindAndBrief:
 
 
 class TestTheWire:
-    """What the browser is told about a source from another project (ADR-0094)."""
-
     def _entry(self):
         from agent.citations.entries import SourceEntry
 
@@ -865,8 +849,6 @@ class TestTheWire:
 
 
 class TestWhatLangfuseSees:
-    """ADR-0089: the tool's output is prose for the model; the trace gets the facts as data."""
-
     @pytest.fixture
     def observed(self, monkeypatch) -> list[tuple[str, dict[str, Any], dict[str, Any]]]:
         seen: list[tuple[str, dict[str, Any], dict[str, Any]]] = []
@@ -919,8 +901,6 @@ class TestWhatLangfuseSees:
 
 
 class TestTheHitJudge:
-    """ADR-0064 use 11: reorder, name an injection, say when to page on; never drop a passage."""
-
     def _judging(self, monkeypatch, solved, injection=None):
         from agent.tools.cross_project.hit_judge import HitVerdicts
 
@@ -986,8 +966,6 @@ class TestTheHitJudge:
 
 
 class TestTheReferenceFitOrder:
-    """ADR-0064 use 10: a similar or closed search walks the turn's fit order; a named one does not."""
-
     async def test_a_closed_search_carries_the_order_the_turns_fit_put_the_catalog_in(self, monkeypatch, calls, turn):
         _answering(monkeypatch, calls, SEARCH_BODY)
         turn.reference_order = [OTHER]
@@ -1008,8 +986,6 @@ class TestTheReferenceFitOrder:
 
 
 class TestTheProjectFacts:
-    """The fact filter: a flat token list for the model, the BFF's ``projectFacts`` on the wire, said in the answer."""
-
     async def test_search_sends_the_tokens_grouped_by_fact_and_the_bffs_own_schema_accepts_the_body(
         self, monkeypatch, calls, turn, schema
     ) -> None:
@@ -1080,7 +1056,6 @@ class TestTheProjectFacts:
                 model.model_validate({"action": "search", "project_facts": [refused]})
 
     def test_the_tokens_are_exactly_the_bffs_vocabularies(self, schema) -> None:
-        """The tool's enum and the BFF's ``crossProjectFactsSchema`` cannot drift: the fixture is the BFF's zod."""
         facts = schema["$defs"]["CrossProjectSearchRequest"]["properties"]["projectFacts"]["properties"]
         theirs = {
             fact: set(facts[fact]["items"]["enum"])
@@ -1132,8 +1107,6 @@ class TestTheProjectFacts:
 
 
 class TestTheActionRow:
-    """One ``lookup`` row per call (ADR-0132), settled from the BFF's typed body."""
-
     @staticmethod
     def _call(emitted):
         actions = [step for step in emitted.steps if step.kind == "action"]

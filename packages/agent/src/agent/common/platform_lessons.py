@@ -1,25 +1,3 @@
-"""Platform lessons — the injected digest of user-reported failure patterns.
-
-The product's own correction ratchet (docs/contributing/correction-ratchet.md
-applied to the product itself: "human intervention is a failure signal"). The
-BFF distills down-votes into anonymized, deduplicated lessons
-(docs/architecture/platform-failure-learning.md); this module resolves the
-bounded digest of ACTIVE lessons through the same token-guarded internal
-channel as the retrieval settings (``GET /api/internal/platform-lessons/digest``),
-TTL-cached and fail-open.
-
-Platform-wide by design — no org layer and no per-request header: a lesson is
-anonymized fleet knowledge, identical for every tenant. Fail-open by design: a
-BFF outage must never take answering down, so every error path returns None
-and the prompt simply renders no lessons block.
-
-The turn also reports WHICH arm of the holdout it was in and which lessons it
-carried (:class:`LessonsResolution`), so the experiment is analysable from the
-trace alone: ``turn/context.py`` records ``lessons_arm`` and ``lesson_ids`` on
-the trace metadata (docs/observability/langfuse.md), which Langfuse's PostHog
-export carries onto every ``langfuse observation`` event.
-"""
-
 import hashlib
 import logging
 import os
@@ -47,8 +25,6 @@ LessonsArm = Literal["treated", "holdout", "off"]
 
 @dataclass(frozen=True)
 class LessonsResolution:
-    """What one turn's lessons lookup decided: the digest, the arm, the lessons in it."""
-
     digest: str | None
     arm: LessonsArm
     lesson_ids: tuple[str, ...] = ()
@@ -68,14 +44,12 @@ _cache_lock = threading.Lock()
 
 
 def reset_platform_lessons_cache() -> None:
-    """Test hook: clear the in-process resolution cache."""
     global _cache
     with _cache_lock:
         _cache = None
 
 
 def sanitize_lessons_digest(value: object) -> str | None:
-    """Reduce an untrusted payload to a bounded, well-formed digest or None."""
     if not isinstance(value, str):
         return None
     digest = value.strip()
@@ -87,7 +61,6 @@ def sanitize_lessons_digest(value: object) -> str | None:
 
 
 def sanitize_lesson_ids(value: object) -> tuple[str, ...]:
-    """Reduce an untrusted payload to a bounded, de-duplicated tuple of uuid strings."""
     if not isinstance(value, list):
         return ()
     ids: list[str] = []
@@ -103,7 +76,6 @@ def sanitize_lesson_ids(value: object) -> tuple[str, ...]:
 
 
 def _fetch_digest() -> tuple[str | None, tuple[str, ...]]:
-    """One HTTP round-trip to the BFF's internal platform-lessons endpoint: the digest and its lesson ids."""
     token = os.environ.get("INTERNAL_API_TOKEN")
     if not token:
         return None, ()
@@ -125,18 +97,6 @@ def _fetch_digest() -> tuple[str | None, tuple[str, ...]]:
 
 
 def is_in_holdout_slice(conversation_id: str, holdout_pct: int) -> bool:
-    """Whether this conversation is in the lessons control group.
-
-    The Python twin of ``isInHoldoutSlice`` in
-    ``apps/workspace/bff/platform-lessons/holdout.ts``: sha256 of the
-    conversation id, first four bytes, modulo 100. Both tiers must reach the
-    same verdict from the same key with no shared state — this tier decides
-    whether to INJECT, the BFF decides how to LABEL the resulting vote, and a
-    disagreement would silently mislabel every measurement.
-
-    Keyed on the conversation so a thread stays in one arm: a user must not get
-    a lesson-shaped answer and a lesson-free one to the same follow-up.
-    """
     if holdout_pct <= 0 or not conversation_id:
         return False
     if holdout_pct >= 100:
@@ -146,13 +106,6 @@ def is_in_holdout_slice(conversation_id: str, holdout_pct: int) -> bool:
 
 
 def _holdout_arm(conversation_id: str | None) -> LessonsArm:
-    """The arm this conversation is in. Fail-open: anything unreadable is ``off``, never a block.
-
-    ``off`` for an unreadable setting still INJECTS (the caller treats the turn
-    as treated), but it does not claim a place in the experiment, so the
-    comparison excludes it instead of counting it as treated, as the BFF does
-    for a vote with a NULL ``lessons_holdout``.
-    """
     if not conversation_id:
         return "off"
     try:
@@ -168,16 +121,6 @@ def _holdout_arm(conversation_id: str | None) -> LessonsArm:
 
 
 def resolve_platform_lessons(conversation_id: str | None = None) -> LessonsResolution:
-    """The turn's lessons: digest to inject, holdout arm, and the ids of the lessons in the digest.
-
-    A conversation in the holdout slice gets no digest at all — the control
-    group, so the two down-vote rates can be compared (``lessons.holdout_pct``,
-    default 0 = measurement off) — and costs no fetch.
-
-    Never raises. Called once per turn (``turn/context.py``); the TTL cache keeps
-    the per-turn cost at zero between refreshes. Blocking I/O — call it via
-    ``asyncio.to_thread`` from async code, like ``fetch_memory_digest``.
-    """
     arm = _holdout_arm(conversation_id)
     if arm == "holdout":
         return LessonsResolution(digest=None, arm=arm)
@@ -200,11 +143,6 @@ def resolve_platform_lessons(conversation_id: str | None = None) -> LessonsResol
 
 
 def get_platform_lessons_digest(conversation_id: str | None = None) -> str | None:
-    """The active-lessons digest, or None when there is none to inject.
-
-    The digest half of :func:`resolve_platform_lessons`, for callers that only
-    inject it. None for a conversation in the holdout slice.
-    """
     return resolve_platform_lessons(conversation_id).digest
 
 
@@ -225,11 +163,6 @@ _LESSONS_BLOCK_HEADER = (
 
 
 def render_lessons_block(digest: str | None) -> str | None:
-    """The full prompt section for ``digest``, or None when there is nothing.
-
-    Returning None rather than an empty string is what lets every template
-    guard it with a plain truthiness test and render no heading at all.
-    """
     if not digest or not digest.strip():
         return None
     return f"{_LESSONS_BLOCK_HEADER}\n{digest.strip()}\n"

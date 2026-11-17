@@ -1,16 +1,3 @@
-"""What this repo assumes about deepagents, checked against the installed release.
-
-deepagents moves fast (32 releases in the 0.7 line in three months), several
-of them changing tool output, defaults or private builders we call. Each test
-here names one assumption, the code that rests on it, and what to do when a bump
-breaks it. A failure here after `uv lock --upgrade-package deepagents` is the
-point: read the message, fix the named code, then update the test.
-
-The pin is exact (`deepagents==` in `pyproject.toml`) so a bump is a decision,
-not an accident; `test_the_installed_release_is_the_pinned_one` keeps the venv
-honest about which release these checks ran against.
-"""
-
 from __future__ import annotations
 
 import importlib
@@ -92,7 +79,6 @@ def test_the_installed_release_is_the_pinned_one() -> None:
 
 
 def test_the_filesystem_tool_names_are_the_ones_our_allowlists_use() -> None:
-    """`draft_tools` and the deep researcher build the FS tools from an allowlist of these names."""
     from deepagents.middleware.filesystem import FsToolName
 
     from agent.agents.deep_researcher.factory import FILESYSTEM_TOOL_NAMES
@@ -120,7 +106,6 @@ def test_filesystem_middleware_takes_the_arguments_we_pass() -> None:
 
 
 def test_the_allowlist_builds_only_the_listed_tools() -> None:
-    """An excluded name must not be dispatchable at all, not merely hidden from the model."""
     from deepagents.backends import CompositeBackend
     from deepagents.backends import StateBackend
     from deepagents.middleware.filesystem import FilesystemMiddleware
@@ -150,7 +135,6 @@ def test_the_builders_the_estate_overrides_exist_and_take_nothing(builder: str) 
 
 
 def test_the_stock_read_file_coroutine_takes_what_the_estate_wrapper_passes() -> None:
-    """The drafts' read goes through the stock coroutine with ``file_path``, ``runtime``, ``offset``, ``limit``."""
     from deepagents.backends import StateBackend
     from deepagents.middleware.filesystem import FilesystemMiddleware
     from deepagents.middleware.filesystem import ReadFileSchema
@@ -163,7 +147,6 @@ def test_the_stock_read_file_coroutine_takes_what_the_estate_wrapper_passes() ->
 
 
 def test_the_composite_strips_the_route_prefix_the_draft_route_puts_back() -> None:
-    """``_DraftRoute`` re-prefixes ``/drafts`` because the composite hands a routed backend ``/a.md``."""
     from deepagents.backends import CompositeBackend
     from deepagents.backends import StateBackend
 
@@ -178,11 +161,10 @@ def test_the_composite_strips_the_route_prefix_the_draft_route_puts_back() -> No
         "agent.tools.documents.draft_store:DraftBackend",
         "agent.skills.backend:SkillsBackend",
         "agent.tools.documents.filesystem:_DraftRoute",
-        "knowledge_layer.estate.backend:EstateBackend",
+        "knowledge_layer.estate:EstateBackend",
     ],
 )
 def test_our_backend_overrides_match_the_protocol(path: str) -> None:
-    """An override that drops an argument the stock tools pass is a TypeError the model reads as a failed tool."""
     from deepagents.backends.protocol import BackendProtocol
 
     module_name, class_name = path.split(":")
@@ -197,7 +179,6 @@ def test_our_backend_overrides_match_the_protocol(path: str) -> None:
 
 
 def test_state_backend_still_reads_through_the_one_hook_the_skills_backend_overrides() -> None:
-    """``SkillsBackend`` hands ``StateBackend`` its files by overriding ``_read_files`` (ADR-0135)."""
     from deepagents.backends import StateBackend
 
     from agent.skills.backend import SkillsBackend
@@ -211,7 +192,6 @@ def test_state_backend_still_reads_through_the_one_hook_the_skills_backend_overr
 
 
 def test_skills_middleware_takes_our_template_and_renders_outside_an_agent() -> None:
-    """The agent renders the catalog with ``before_agent`` + ``modify_request``, without hosting the middleware."""
     from deepagents.middleware.skills import SkillsMiddleware
 
     from agent.skills.models import Skill
@@ -237,12 +217,6 @@ def test_store_backend_still_has_the_helpers_the_draft_backend_calls() -> None:
 
 
 def test_stock_write_overwrites_so_the_draft_refusal_is_ours() -> None:
-    """Since 0.7 `write` creates or overwrites; `draft_store.write_refusal` keeps drafts create-only.
-
-    If this starts failing because the stock backend refuses again, the refusal
-    in `draft_store._overwrite_refusal` is redundant (not wrong), and the
-    deep-researcher README's note on overwrites is stale.
-    """
     from deepagents.backends.store import StoreBackend
     from langgraph.store.memory import InMemoryStore
 
@@ -253,7 +227,6 @@ def test_stock_write_overwrites_so_the_draft_refusal_is_ours() -> None:
 
 
 async def test_read_file_output_has_the_header_our_draft_description_names() -> None:
-    """`tools/documents/tools.py` tells the model the `@@ lines … @@` header is not part of the draft."""
     from langgraph.store.memory import InMemoryStore
 
     from agent.tools.documents.draft_store import DraftBackend
@@ -269,7 +242,6 @@ async def test_read_file_output_has_the_header_our_draft_description_names() -> 
 
 
 def test_the_task_tool_takes_description_and_subagent_type_only() -> None:
-    """`phase_events.py` and `tokenomics/nat_adapter.py` read `subagent_type` from the call's input."""
     from deepagents.middleware.subagents import TaskToolSchema
     from pydantic import ValidationError
 
@@ -283,21 +255,14 @@ def _fake_model() -> GenericFakeChatModel:
 
 
 def _deep_research_tool_names() -> dict[str, set[str]]:
-    """Build the real deep-research graph and return each agent's model-facing tool names.
-
-    `create_agent` is captured in both places deepagents calls it, so every
-    middleware stack the release assembles (orchestrator, each subagent and the
-    auto-added general-purpose one) is inspected as built, not as we think it is.
-    """
     from agent.agents.deep_researcher import factory
     from agent.agents.deep_researcher.custom_middleware import SourceRegistryMiddleware
     from agent.agents.deep_researcher.deepagents_runtime import DeepAgentsRuntime
     from agent.agents.deep_researcher.models import DeepResearchAgentState
     from agent.common import LLMProvider
 
-    @tool
+    @tool(description="Search the web.")
     def web_search_tool(query: str) -> str:
-        """Search the web."""
         return query
 
     calls: list[tuple[str, dict[str, Any]]] = []
@@ -350,13 +315,6 @@ def _deep_research_tool_names() -> dict[str, set[str]]:
 
 
 def test_write_todos_is_where_the_prompts_offer_it_and_delete_is_nowhere() -> None:
-    """0.7 dropped `TodoListMiddleware` from the defaults and added `delete` (CompositeBackend offers it).
-
-    `orchestrator.j2` and `planner.j2` offer `write_todos`, and the job's todo
-    artifact (`agent_host/jobs/callbacks.py`) is built from it, so
-    `factory.planning_middleware` adds it back; `FILESYSTEM_TOOL_NAMES` keeps
-    `delete` off every agent.
-    """
     agents = _deep_research_tool_names()
     assert {"orchestrator", "planner-agent", "writer-agent", "researcher-agent"} <= set(agents), sorted(agents)
     assert "task" in agents["orchestrator"]

@@ -1,19 +1,3 @@
-"""Mark one file's points with its licence mark and knowledge edition (office base knowledge).
-
-What a source may be used for (``licence_class``: ``public_open``,
-``public_restricted``, ``licensed``), whether the office stated its licence
-covers AI processing (``ai_processing_attested``), the longest quote a model
-may see (``quote_max_chars``, read by the licensed seam, ADR-0159) and which
-knowledge edition it belongs to (``knowledge_edition_id``) are decided by the
-platform, which holds them; the
-points carry a copy so a search can filter by them in the one query. Ingestion
-writes the same fields when its job names them (``vector_store.writes.licence_mark``),
-so a re-ingest keeps the mark; this route sets it on a file already indexed.
-
-Internal-token only, as every service-to-service write on this tier: the
-caller is the BFF, which decided the mark.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -33,14 +17,12 @@ logger = logging.getLogger(__name__)
 
 
 def _store() -> Any:
-    """The process-wide Qdrant store (a test stands in for it here)."""
     from knowledge_layer.vector_store import get_store
 
     return get_store()
 
 
 def _mark(collection: str, update: KnowledgeMarkUpdate) -> int | None:
-    """Set the mark on the file's chunks; their number, or None when the collection holds no chunk of the file."""
     from knowledge_layer.vector_store import AI_PROCESSING_FIELD
     from knowledge_layer.vector_store import COUNTRY_FIELD
     from knowledge_layer.vector_store import KNOWLEDGE_EDITION_FIELD
@@ -72,8 +54,6 @@ def _mark(collection: str, update: KnowledgeMarkUpdate) -> int | None:
 
 
 def _remember_corpus_country(collection: str, update: KnowledgeMarkUpdate) -> bool:
-    """A base-corpus text's country and released flag also go on its corpus row, so a re-ingest stamps them again
-    (ADR-0173). A field the body leaves out keeps the row's value. Whether a row was written."""
     from agent import corpus_store
     from agent.oib_sync import COLLECTION_NAME
 
@@ -87,7 +67,6 @@ def _remember_corpus_country(collection: str, update: KnowledgeMarkUpdate) -> bo
 
 
 def add_knowledge_mark_routes(router: APIRouter) -> None:
-    """Add the knowledge-mark route to the FastAPI app."""
 
     @router.put(
         "/v1/collections/{collection_name}/knowledge-mark",
@@ -98,14 +77,6 @@ def add_knowledge_mark_routes(router: APIRouter) -> None:
     async def put_knowledge_mark(
         collection_name: str, request: KnowledgeMarkUpdate, http_request: Request
     ) -> KnowledgeMarkResult:
-        """Overwrite the licence mark and ``knowledge_edition_id`` on every chunk of the file.
-
-        403 without the internal token. 422 for a licence class outside the
-        three. 404 when the collection holds no chunk of the file. 409 when
-        this process has no Qdrant store installed, 502 when the store
-        refuses; a base-corpus country or released flag lands on the corpus row first, so such a body answers 200
-        with ``chunks`` 0 instead of 404. Idempotent: the same body twice writes the same payload.
-        """
         _require_internal_token(http_request)
         try:
             from knowledge_layer.vector_store import get_store  # noqa: F401

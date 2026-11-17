@@ -1,22 +1,3 @@
-"""Conversation naming + topic tagging endpoint.
-
-Calls an OpenAI-compatible chat completions endpoint to turn the opening
-exchange of a chat into a concise, human title (ChatGPT-style) plus 0–3 OIB
-topic tags from a closed vocabulary. Backs the UI's
-``/api/conversations/[id]/generate-title`` BFF route, which persists the
-result on the ``conversations`` row so Historie can name and filter chats.
-
-Shares the summary route's LLM-settings resolution so it reaches the org's
-BYOK credential through the same env chain and fails open the same way.
-
-**A title is cosmetic, and nothing here may behave otherwise.** Every failure
-returns HTTP 200 with an empty title and a diagnosable code, logged at WARNING:
-the client already set a provisional name from the first message and keeps it,
-so "no generated title" is a chat that is merely named less well — not an
-incident. There is deliberately no server-side fallback title, because inventing
-one would overwrite that provisional name with something worse.
-"""
-
 import asyncio
 import logging
 
@@ -39,7 +20,6 @@ logger = logging.getLogger(__name__)
 _MAX_CHARS_PER_MESSAGE = 1200
 _MAX_TITLE_CHARS = 80
 
-# max_tokens bounds the whole completion; 120 ran out before the JSON closed (issue #233).
 _MAX_COMPLETION_TOKENS = 300
 
 SYSTEM_PROMPT = (
@@ -55,7 +35,6 @@ SYSTEM_PROMPT = (
 
 
 def _build_transcript(messages: list, locale_name: str) -> str:
-    """Render the opening exchange into a compact prompt block."""
     lines: list[str] = []
     for message in messages:
         content = (message.content or "").strip()
@@ -69,15 +48,6 @@ def _build_transcript(messages: list, locale_name: str) -> str:
 
 
 def _parse_llm_json(raw: str | None) -> tuple[str, list[str]]:
-    """Extract (title, tags) from the model's reply.
-
-    Fences, surrounding prose and a reply cut off by the token cap are absorbed
-    by :func:`~._llm_json.extract_json_object`; see that module for what is and
-    is not tolerated. Raises ValueError when no usable object can be recovered
-    so the caller can return a diagnosable ``llm_response_malformed`` code.
-    ``raw`` may be ``None`` when the model returns a null ``content`` (e.g. a
-    reasoning-only reply) — that is "no usable object", not a crash.
-    """
     data = extract_json_object(raw)
 
     title = data.get("title", "")
@@ -98,7 +68,6 @@ def _clean_title(title: str) -> str:
 
 
 def add_generate_conversation_title_routes(router: APIRouter) -> None:
-    """Register the generate-conversation-title endpoint."""
 
     @router.post(
         "/v1/generate-conversation-title",

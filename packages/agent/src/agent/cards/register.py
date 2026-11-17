@@ -1,21 +1,3 @@
-"""``emit_card`` tool — the agent's first-class channel for rich UI cards.
-
-The answering agent calls this mid-turn whenever a structured element (a
-dimension/stair diagram, a calculation, …) communicates better than prose.
-The card is validated against the shared card schema and pushed into the
-conversation-scoped :class:`~agent.cards.registry.CardRegistry`; the
-chat entrypoint reads that registry after the turn and attaches the cards to
-the response.
-
-This is the SYNCHRONOUS card channel: the answering agent emits cards from full
-context, as a visible tool step, on the chat path. The async
-deep-research job runner has no card registry bound in its research worker, so it
-still derives cards post-hoc from the finished report via
-:func:`agent.cards.generate.generate_cards`. Both surfaces describe the same
-schema AND the same trigger doctrine to the model through the shared
-:mod:`agent.cards.catalog`; each adds only what is true of itself.
-"""
-
 import json
 import logging
 
@@ -42,22 +24,6 @@ _CARD_DOCTRINE = render_card_doctrine()
 
 
 def _build_tool_description() -> str:
-    """Frame ``emit_card`` with the card INDEX; the shape arrives with the error.
-
-    Rendering every shape and worked example here costs ~5,200 tokens on every
-    turn whether or not a card is emitted, and grows ~190 per card type we add.
-    The index costs ~900 and ~23 per new type, which is what makes a growing
-    vocabulary affordable on a cost-optimised model tier.
-
-    Learning a shape used to cost a charged ``describe_card`` round trip, which
-    this description then had to talk the model into paying — and the shape it
-    fetched was needed only when the first attempt would have been wrong. So the
-    RETRY carries it instead: a failed ``emit_card`` hands back the full shape,
-    the building blocks and the worked example for the type that failed, which
-    is exactly what ``describe_card`` returned. A card that would have been
-    filled in correctly pays nothing; one that would not pays the same one round
-    trip it used to pay in advance, and pays it knowing which field was wrong.
-    """
     return (
         "Render a rich UI card alongside your answer, in addition to your written reply — always "
         "write the prose too: delete the cards mentally and the answer must still answer. On an "
@@ -90,14 +56,12 @@ _NO_CHANNEL = "Noted, but no card channel is available in this context; continue
 
 
 def _declared_type(payload: object) -> str:
-    """What the model called this element, for a refusal that can name it."""
     if not isinstance(payload, dict):
         return type(payload).__name__
     return str(payload.get("type", "?"))
 
 
 def _many_result(markers: list[str], refusals: list[str]) -> str:
-    """The array call's one reply: every marker to write, then what was refused."""
     if not markers:
         return "\n".join(refusals)
 
@@ -112,8 +76,7 @@ def _many_result(markers: list[str], refusals: list[str]) -> str:
     return registered + "\n\n" + "\n".join(refusals)
 
 
-class EmitCardConfig(FunctionBaseConfig, name="emit_card"):
-    """Configuration for the ``emit_card`` tool."""
+class EmitCardConfig(FunctionBaseConfig, name="emit_card"): ...
 
 
 @register_function(config_type=EmitCardConfig)
@@ -121,21 +84,6 @@ async def emit_card(tool_config: EmitCardConfig, builder: Builder):
     from agent.cards.registry import get_card_registry
 
     def _validated_or_refusal(payload: object) -> tuple[dict | None, str | None]:
-        """One card object through the shape check and the two closed channels.
-
-        Every card comes through here, whether it arrived on its own or as an
-        element of an array, so an array never buys a card a softer standard
-        than the one it would have met on its own call.
-
-        Every exit logs, including the refusals. A turn that came back with no
-        card used to be indistinguishable, after the fact, between "the model
-        never called this" and "the model called it and we refused": only the
-        success below wrote a line, so both left the same silence. Those two
-        call for opposite fixes, a doctrine that does not get the card named
-        versus a shape the model cannot fill in, and a triage that cannot tell
-        them apart picks by guess. Refusals are ``warning`` because each one is
-        a card the reader was supposed to get and did not.
-        """
         if isinstance(payload, dict) and payload.get("type") in CHAT_ONLY_CARD_TYPES:
             logger.warning("emit_card rejected a '%s' card: chat envelope only", payload["type"])
             return None, (
@@ -158,17 +106,6 @@ async def emit_card(tool_config: EmitCardConfig, builder: Builder):
         return None, f"Error: {refusal.message}"
 
     def _register(validated: dict) -> int | None:
-        """Add the card to this turn's registry and return the marker's N.
-
-        The marker names the card by its POSITION in this turn's registry, which
-        is the same 1-based index the frontend counts with — the registry keeps
-        emission order, and the response carries the cards in that order. Cards
-        gained no id field for this: an id would have to survive validation,
-        persistence and the deep-research path that builds cards post-hoc.
-
-        ``None`` means no conversation context is bound (e.g. an unusual
-        entrypoint). The answer still stands; the card cannot be delivered.
-        """
         registry = get_card_registry()
         if registry is None:
             logger.info("emit_card called with no active card registry; card of type %s dropped", validated["type"])
@@ -180,7 +117,6 @@ async def emit_card(tool_config: EmitCardConfig, builder: Builder):
         return position
 
     def _emit_one(payload: object) -> str:
-        """One card object: the refusal it earned, or the marker to write."""
         validated, refusal = _validated_or_refusal(payload)
         if refusal is not None:
             return refusal
@@ -197,14 +133,6 @@ async def emit_card(tool_config: EmitCardConfig, builder: Builder):
         )
 
     def _emit_many(payloads: list) -> str:
-        """The array form: every element validated, the sound ones registered.
-
-        A refusal carries the element's INDEX and the type it declared. The
-        model wrote the whole array in one call, so "card of type 'x' failed
-        validation" on its own leaves it guessing which object to fix — and the
-        cards that did register are already in the registry, so a blanket retry
-        would duplicate them.
-        """
         if not payloads:
             return "Error: card_json is an empty array. Pass at least one card object."
 
@@ -223,7 +151,6 @@ async def emit_card(tool_config: EmitCardConfig, builder: Builder):
         return _many_result(markers, refusals)
 
     async def _emit(card_json: str) -> str:
-        """Validate and register one Grid response card, or an array of them."""
         try:
             payload = json.loads(card_json, strict=False) if isinstance(card_json, str) else card_json
         except (json.JSONDecodeError, TypeError) as exc:
@@ -240,13 +167,11 @@ async def emit_card(tool_config: EmitCardConfig, builder: Builder):
     yield FunctionInfo.from_fn(_emit, description=_build_tool_description())
 
 
-class DescribeCardConfig(FunctionBaseConfig, name="describe_card"):
-    """Configuration for the ``describe_card`` tool."""
+class DescribeCardConfig(FunctionBaseConfig, name="describe_card"): ...
 
 
 @register_function(config_type=DescribeCardConfig)
 async def describe_card(tool_config: DescribeCardConfig, builder: Builder):
-    """L2 of the card vocabulary: shapes on demand, so L1 can stay one line each."""
 
     async def _describe(card_types: str) -> str:
         requested = [t.strip() for t in str(card_types).replace(" ", ",").split(",") if t.strip()]

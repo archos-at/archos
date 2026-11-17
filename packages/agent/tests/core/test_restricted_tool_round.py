@@ -1,11 +1,3 @@
-"""A tool round's restricted content is admitted before the model reads it (ADR-0087, ADR-0088).
-
-Through the compiled graph, because the admission sits in the tools node between
-the tool and every reader of its result: the source capture, the transcript the
-model reads on its next call, and the checkpointed history. A share that races
-the turn makes the BFF refuse, and then none of them may see the passages.
-"""
-
 from __future__ import annotations
 
 from typing import Any
@@ -51,9 +43,8 @@ _RESULT = (
 )
 
 
-@tool
+@tool(description="Search the project's documents.")
 def knowledge_search(query: str) -> str:
-    """Search the project's documents."""
     return _RESULT
 
 
@@ -130,7 +121,6 @@ class _QuietReaderConfig(FunctionBaseConfig, name="test_fixture_quiet_restricted
 @register_function(config_type=_QuietReaderConfig)
 async def _quiet_reader(config: _QuietReaderConfig, builder: Builder):
     async def _read(query: str) -> str:
-        """Read a restricted folder and say so only on the side channel."""
         note_collections_read([VERTRAEGE])
         return "Das Honorar beträgt pauschal 48.000 € netto."
 

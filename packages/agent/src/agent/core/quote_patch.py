@@ -1,34 +1,3 @@
-"""The answer's one repair: a misremembered quotation corrected in place.
-
-The repair used to rewrite the WHOLE answer when verification failed: a second
-frontier call with the full history, up to two retrievals, 10-25 s, and an
-answer adopted if it verified better. With the prose streaming (ADR-0066), the
-reader had read the answer by then, and an adopted rewrite swapped every byte
-of it. ADR-0067 narrows the repair to the one failure where one buys the
-reader something, and to the one place it happened:
-
-* A citation whose source line did not resolve gets no repair. The settled
-  snapshot has already dropped it where the reader can see; putting one back
-  seconds later is the swap again.
-* A quote no passage holds verbatim, when a passage of a source its own
-  sentence CITES comes close (``UnverifiedQuote.nearest``), is a quotation the
-  model misremembered. A close passage of a source it does not cite is never
-  used: the corpus holds near-identical texts per Bundesland, and a patch from
-  the wrong one would put that text under this citation. The
-  small model is given that passage and the quote and returns the passage's
-  own wording for it. Only the text between the quotation marks is replaced,
-  so the ``[N]`` markers and the rest of the answer cannot move. The
-  correction is kept only when the same verifier accepts it against that
-  passage and it stays close to what was quoted; otherwise the quote keeps its
-  marker, which is the floor.
-* A quote too long to be one, or with no citation in its sentence, is an
-  attribution problem, not a wording one, and keeps its marker.
-
-Bounded: at most :data:`MAX_PATCHES` quotes, in parallel, each within
-:data:`PATCH_TIMEOUT_S`. A timeout or a provider error costs nothing but the
-correction.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -72,14 +41,6 @@ _SYSTEM_PROMPT = (
 
 
 def select(quotes: Sequence[UnverifiedQuote]) -> list[UnverifiedQuote]:
-    """The flagged quotes this repair may correct, at most :data:`MAX_PATCHES`.
-
-    Misremembered, not unattributed (``reason`` is ``not_verbatim``), with a
-    passage of a cited source close enough (``nearest_closeness`` ≥
-    :data:`PATCH_FLOOR`, the score the verifier chose that passage by).
-    Every flagged quote's closeness is logged, selected or not: it is what
-    ``PATCH_FLOOR`` should be read off.
-    """
     chosen: list[UnverifiedQuote] = []
     for quote in quotes:
         if quote.reason != "not_verbatim":
@@ -115,7 +76,6 @@ _OUTER_PAIRS = frozenset(
 
 
 def _unwrapped(text: str) -> str:
-    """``text`` without one matched pair of outer quotation marks, when it has one."""
     text = text.strip()
     if len(text) >= 2 and (text[0], text[-1]) in _OUTER_PAIRS:
         return text[1:-1].strip()
@@ -123,12 +83,6 @@ def _unwrapped(text: str) -> str:
 
 
 def _reads_back_as_one_quote(corrected: str, span: str) -> bool:
-    """Whether ``corrected``, between ``span``'s own marks, is still exactly that one quotation.
-
-    A correction holding the enclosing quote's marks (``„…“`` inside ``„…“``)
-    nests them: the verifier would read only the inner phrase, and the patched
-    quote would ship without ever being checked again.
-    """
     if len(span) < 2:
         return True
     match = QUOTED_SPAN_RE.fullmatch(f"{span[0]}{corrected}{span[-1]}")
@@ -136,28 +90,12 @@ def _reads_back_as_one_quote(corrected: str, span: str) -> bool:
 
 
 def _on_one_line(text: str) -> str:
-    """``text`` with the passage's layout taken out, as the verifier takes it out.
-
-    A PDF or OCR passage carries its line breaks and hyphen wraps, and a
-    correction copied from it carries them too: spliced into a table row it
-    breaks the row, and a blank line splits the paragraph. The verifier reads
-    past exactly these (:func:`normalize_for_quote_match`), so the flattened
-    wording verifies as the wrapped one would.
-    """
     text = re.sub(r"-\n", "", text)
     text = re.sub(r"(?m)^[ \t]*>[ \t]?", "", text)
     return re.sub(r"\s+", " ", text).strip()
 
 
 def accept(original: str, corrected: str | None, passage: str, *, span: str = "") -> str | None:
-    """The corrected wording, on one line, when it holds, else ``None``.
-
-    Holds means: it is in the passage verbatim (normalised as the verifier
-    normalises), it is long enough to be verified and short enough to be a
-    quotation, it stays close to what was quoted, and, put between the marks
-    of ``span`` (the quote as written, marks included), it reads back as that
-    one quotation.
-    """
     if not corrected:
         return None
     corrected = _on_one_line(_unwrapped(corrected))
@@ -175,7 +113,6 @@ def accept(original: str, corrected: str | None, passage: str, *, span: str = ""
 
 
 def splice(content: str, patches: Sequence[tuple[UnverifiedQuote, str]]) -> str:
-    """``content`` with each quote's inner text replaced, right to left so offsets hold."""
     for quote, corrected in sorted(patches, key=lambda patch: patch[0].start, reverse=True):
         span = content[quote.start : quote.end]
         if quote.quote not in span:
@@ -185,7 +122,6 @@ def splice(content: str, patches: Sequence[tuple[UnverifiedQuote, str]]) -> str:
 
 
 async def patch_quotes(content: str, candidates: Sequence[UnverifiedQuote], patch: QuotePatchFn) -> tuple[str, int]:
-    """``(content with the candidates it could correct corrected, how many)``; ``candidates`` from :func:`select`."""
     if not candidates:
         return content, 0
 
@@ -208,7 +144,6 @@ async def patch_quotes(content: str, candidates: Sequence[UnverifiedQuote], patc
 
 
 def quote_patcher(llm: Any) -> QuotePatchFn:
-    """The patch call on ``llm`` (the small card model): no history, no tools."""
 
     async def patch(quote: str, passage: str) -> str | None:
         response = await llm.ainvoke(

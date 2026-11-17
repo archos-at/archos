@@ -1,5 +1,3 @@
-"""The handlers behind the async job routes (`jobs.py` registers them, with their OpenAPI metadata)."""
-
 from __future__ import annotations
 
 import asyncio
@@ -59,26 +57,17 @@ logger = logging.getLogger(__name__)
 
 
 def _job_caller(request: Request) -> JobCaller:
-    """The verified principal, and the job scope its request's signed envelope grants (ADR-0084)."""
     principal = require_verified_principal()
     return JobCaller(principal=principal, scope=signed_job_scope(request.headers, principal))
 
 
 def _job_status_value(status: Any) -> str:
-    """The job store's status as its lowercase wire word, enum or string alike."""
     return str(getattr(status, "value", status)).lower()
 
 
 async def internal_job_outcome(
     job_store: Any, db_url: str, job_id: str, organization_id: str
 ) -> InternalJobOutcomeResponse:
-    """The job's verdict for one organization, or a 404.
-
-    The tenant is checked against the job's ``job_access`` row, written at
-    submit: the service token names no organization, and a reconciler that
-    asked about another tenant's job id must learn nothing about it, not even
-    that it exists.
-    """
     from ..jobs.access import get_job_access
     from ..jobs.conversation_output import run_message_for_outcome
 
@@ -108,11 +97,6 @@ async def internal_job_outcome(
 
 
 async def _submitted(req: JobSubmitRequest, request: Request, principal: Any, expiry: int) -> tuple[str, bool]:
-    """Persist the job and its queue row; the job id, and whether the run acts as its requester.
-
-    Every failure is a status code with a user-safe message: arbitrary internal
-    error text (hosts, DSNs, stack details) is logged here and never echoed.
-    """
     from agent.auth import get_auth_token
 
     from ..jobs.run_envelope import capture_request_envelope
@@ -149,7 +133,6 @@ async def _submitted(req: JobSubmitRequest, request: Request, principal: Any, ex
 
 
 async def list_agents() -> AgentListResponse:
-    """List available agent types for async job submission."""
     agents = [
         AgentInfo(agent_type=agent_type, description=config.description)
         for agent_type, config in AGENT_REGISTRY.items()
@@ -158,14 +141,6 @@ async def list_agents() -> AgentListResponse:
 
 
 async def list_data_sources() -> DataSourcesResponse:
-    """List data sources from the registry plus derived capabilities.
-
-    ``vlm_available`` is derived from the knowledge layer's single VLM-key
-    resolver (``vlm_configured``) — the same seam the ingestion path uses —
-    so the advertised image-upload capability can never drift from what
-    ingestion will actually attempt. Resolves defensively: any import/lookup
-    failure reports ``vlm_available=False`` (fail-closed, no false offer).
-    """
     try:
         from knowledge_layer.ingest import vlm_configured
 
@@ -189,8 +164,6 @@ async def list_data_sources() -> DataSourcesResponse:
 
 
 class JobRouteHandlers:
-    """The async job routes' handlers, bound once at registration to the job store and the builder."""
-
     def __init__(
         self, builder: WorkflowBuilder | None, job_store: Any, db_url: str, default_expiry_seconds: int
     ) -> None:
@@ -204,7 +177,6 @@ class JobRouteHandlers:
         req: Annotated[JobSubmitRequest, Body(openapi_examples=JOB_SUBMIT_EXAMPLES)],
         request: Request,
     ) -> JobStatusResponse:
-        """Submit a new async job for deep research or other registered agents."""
         from nat.front_ends.fastapi.async_jobs.job_store import JobStatus
 
         try:
@@ -244,7 +216,6 @@ class JobRouteHandlers:
         )
 
     async def get_job_status(self, job_id: str, request: Request) -> JobStatusResponse:
-        """Get the current status of a job."""
 
         from ..jobs.access import authorize_job_access
 
@@ -258,7 +229,6 @@ class JobRouteHandlers:
         )
 
     async def stream_job_events(self, job_id: str, request: Request) -> StreamingResponse:
-        """SSE stream for job events from beginning."""
         from ..jobs.access import authorize_job_access
 
         await authorize_job_access(self.job_store, self.db_url, job_id, _job_caller(request), "read")
@@ -270,7 +240,6 @@ class JobRouteHandlers:
         )
 
     async def stream_job_events_from(self, job_id: str, last_event_id: int, request: Request) -> StreamingResponse:
-        """SSE stream for job events from specific event ID (for reconnection)."""
         from ..jobs.access import authorize_job_access
 
         await authorize_job_access(self.job_store, self.db_url, job_id, _job_caller(request), "read")
@@ -282,7 +251,6 @@ class JobRouteHandlers:
         )
 
     async def cancel_job(self, job_id: str, request: Request) -> dict:
-        """Cancel a submitted or running job."""
         from nat.front_ends.fastapi.async_jobs.job_store import JobStatus
 
         from ..jobs.access import authorize_job_access
@@ -304,7 +272,6 @@ class JobRouteHandlers:
         return {"job_id": job_id, "status": JobStatus.INTERRUPTED.value}
 
     async def write_now(self, job_id: str, request: Request) -> dict:
-        """Ask a running job to write its report now."""
         from nat.front_ends.fastapi.async_jobs.job_store import JobStatus
 
         from ..jobs.access import authorize_job_access
@@ -325,7 +292,6 @@ class JobRouteHandlers:
         return {"job_id": job_id, "write_now": True}
 
     async def add_document(self, job_id: str, body: JobDocumentRequest, request: Request) -> dict:
-        """Add one document to the Grundlage of a running job."""
         from nat.front_ends.fastapi.async_jobs.job_store import JobStatus
 
         from ..jobs.access import authorize_job_access
@@ -346,7 +312,6 @@ class JobRouteHandlers:
         return {"job_id": job_id, "document": data}
 
     async def get_job_state(self, job_id: str, request: Request) -> JobStateResponse:
-        """Get artifacts from event store."""
         from ..jobs.access import authorize_job_access
 
         await authorize_job_access(self.job_store, self.db_url, job_id, _job_caller(request), "read")
@@ -360,7 +325,6 @@ class JobRouteHandlers:
         )
 
     async def get_job_report(self, job_id: str, request: Request) -> JobReportResponse:
-        """Get the final report from a completed job."""
         from ..jobs.access import authorize_job_access
         from ..jobs.access import get_job_project_collection
 
@@ -390,14 +354,12 @@ class JobRouteHandlers:
         )
 
     async def kill_active_jobs(self, request: Request) -> dict:
-        """Interrupt every non-terminal job and stop its worker."""
         _require_internal_token(request)
         return await kill_every_active_job(self.job_store, self.db_url)
 
     async def get_internal_job_outcome(
         self, job_id: str, organization_id: str, request: Request
     ) -> InternalJobOutcomeResponse:
-        """The job's status, error, report and run-message content, for one organization."""
         _require_internal_token(request)
         return await internal_job_outcome(self.job_store, self.db_url, job_id, organization_id)
 
@@ -410,7 +372,6 @@ class JobRouteHandlers:
         limit: int = 50,
         offset: int = 0,
     ) -> ResearchRunsResponse:
-        """List research runs matching the given filters, newest first."""
         caller = _job_caller(request)
 
         clamped_limit = max(1, min(limit, 200))

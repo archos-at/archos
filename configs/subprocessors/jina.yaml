@@ -21,7 +21,7 @@ hosts: [api.jina.ai]
 env: [JINA_API_KEY]
 activation_env: [JINA_API_KEY]
 evidence:
-  - packages/knowledge-layer/src/search/cross_encoder.py
+  - packages/knowledge-layer/src/knowledge_layer/search/cross_encoder.py
 copy:
   name:
     de: Jina AI

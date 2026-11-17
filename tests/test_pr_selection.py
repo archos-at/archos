@@ -93,7 +93,7 @@ def test_a_non_python_input_adds_every_test_that_names_it(mod):
 
 
 def test_a_file_named_only_by_its_basename_still_counts(mod):
-    changed = ["packages/knowledge-layer/src/vector_store/schemas.json"]
+    changed = ["packages/knowledge-layer/src/knowledge_layer/vector_store/schemas.json"]
 
     assert mod.decide_python(changed, TESTS, recorded=True)[1] == ["packages/knowledge-layer/tests/test_schema.py"]
 

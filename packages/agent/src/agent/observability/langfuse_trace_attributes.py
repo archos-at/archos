@@ -1,66 +1,3 @@
-"""Stamp Langfuse trace attributes onto agent-runtime spans (ADR-0044).
-
-Langfuse groups observations into traces and then attributes those traces to a
-*session* and a *user*. Without those two identifiers a deployment's traces are
-a flat, anonymous list: you can see that a retrieval took 4s and cost €0.02,
-but not whose conversation it belonged to or what else happened in that
-conversation. Session/user attribution is most of what makes Langfuse more than a flat
-span list, so wiring it is the difference between "traces reach Langfuse" and
-"the app is integrated with Langfuse".
-
-WHAT WE GET FOR FREE, and therefore do not do here. Verified against the
-installed agent runtime, not assumed:
-
-* ``session.id`` — ``nat.observability.exporter.span_exporter`` already sets it
-  from ``Context.conversation_id`` at span creation, and Langfuse maps
-  ``session.id`` natively. This module still sets ``langfuse.session.id``,
-  because that is the attribute Langfuse checks *first* and pinning it makes
-  the mapping explicit rather than dependent on an upstream detail — but it
-  only ever sets it when there is a value, so it can never blank out the agent runtime's.
-* ``user.id`` — the agent runtime 1.9 sets it from ``Context.user_id`` at span creation
-  (#2152), and Langfuse maps ``user.id`` to the trace's user. The chat socket
-  opens every turn's session with ``user_id`` = the VERIFIED subject
-  (``agent_host.chat_socket``), the same WorkOS user id the envelope carries, so
-  this module no longer writes ``langfuse.user.id``
-  (``test_nat_puts_the_session_user_on_every_span`` pins the agent runtime's half). The agent runtime sets
-  it, and ``<prefix>.user.id``, on every span whatever
-  ``TRACE_IDENTITY_ATTRIBUTES`` says, so with the flag off
-  :class:`UserIdentityStripProcessor` removes both before export: the default
-  stays "no span names a person".
-* ``input.value`` / ``output.value`` — the agent runtime emits the OpenInference attribute
-  names, which Langfuse reads as the observation input/output.
-
-WHAT IS MISSING WITHOUT THIS MODULE: the tenant. The agent runtime has no concept of it; it
-arrives on the Grid ``X-Grid-*`` request headers (``project_context.py``),
-which nothing was projecting onto spans.
-
-## Why a Processor and not a resource attribute
-
-Resource attributes are per-PROCESS. Organization and project are per-REQUEST, and
-one agent process serves every tenant, so the only correct place is a
-per-span hook. The agent runtime's processing pipeline is exactly that hook, and its own
-``SpanHeaderRedactionProcessor`` reads request headers the same way.
-
-Context propagation into that pipeline is real rather than hoped-for:
-``SpanExporter._process_end_event`` calls ``_create_export_task`` synchronously
-while still inside the request, and ``asyncio.create_task`` snapshots the
-current ``contextvars`` context for the new task. The processor therefore
-observes the request's headers even though it runs on a different task.
-
-The cost — parsing the header envelope once per span — is paid on that export
-task, never on the turn the user is waiting for.
-
-## Why this is off by default
-
-Attaching identity to telemetry changes what the trace store *is*: ADR-0029
-accepted that traces carry user CONTENT, on the reasoning that the store is
-gated to platform operators. Tagging every span with its tenant and what a tool
-did is a further step, and it should arrive with the product decision that
-needs it rather than by default. So availability follows the house rule —
-``TRACE_IDENTITY_ATTRIBUTES`` is injected by the deployment only when the
-Langfuse tier is deployed. A stack without Langfuse is byte-identical to before.
-"""
-
 import contextvars
 import logging
 import os
@@ -78,7 +15,6 @@ IDENTITY_ATTRIBUTES_ENV = "TRACE_IDENTITY_ATTRIBUTES"
 
 SESSION_ID_ATTRIBUTE = "langfuse.session.id"
 TAGS_ATTRIBUTE = "langfuse.trace.tags"
-# Names from https://langfuse.com/integrations/native/opentelemetry.
 METADATA_PREFIX = "langfuse.trace.metadata."
 
 
@@ -88,12 +24,6 @@ _CONTRIBUTED: contextvars.ContextVar[dict[str, Any] | None] = contextvars.Contex
 
 
 def snapshot_contributions() -> dict[str, Any] | None:
-    """A frozen copy of the current turn's contributions, or None.
-
-    Copies both levels (the metadata dict and the tags list) so the caller
-    holds no live reference: later ``record_trace_metadata``/``add_trace_tag``
-    calls replace the ContextVar value and must never rewrite this snapshot.
-    """
     current = _CONTRIBUTED.get()
     if current is None:
         return None
@@ -108,41 +38,14 @@ def snapshot_contributions() -> dict[str, Any] | None:
 
 
 def begin_trace_contributions() -> contextvars.Token:
-    """Bind a fresh contribution dict for one job/turn; reset it in ``finally``.
-
-    Follows the ``cards/registry.py`` token discipline: the caller holds the
-    token and passes it to :func:`end_trace_contributions`, which restores
-    whatever was bound before. Starting fresh (rather than inheriting) is what
-    keeps a reused research worker process from handing job N's tags to job N+1
-    across tenants.
-    """
     return _CONTRIBUTED.set({"metadata": {}, "tags": []})
 
 
 def end_trace_contributions(token: contextvars.Token) -> None:
-    """Restore the contribution binding saved by :func:`begin_trace_contributions`."""
     _CONTRIBUTED.reset(token)
 
 
 def record_trace_metadata(**pairs: Any) -> None:
-    """Attach facts about what a tool actually did to this turn's traces.
-
-    The gap this closes is specific and, for one feature, total. Everything
-    expensive in a research turn happens in THIS process, where the agent runtime traces it
-    span by span. The IFC tools are the exception: their work happens in the
-    BFF, which exports OTel *logs* and no traces at all, so `ifc_query` reaches
-    Langfuse as one opaque span of N milliseconds. An operator looking at a
-    slow or wrong answer cannot see which model was read, which operation ran,
-    or whether the answer covered the whole building — none of which is
-    recoverable from the duration.
-
-    Best-effort like everything else here: a failure to record telemetry must
-    never fail the turn that was producing it.
-
-    Copy-on-write: builds a NEW dict and sets it, so an export task that
-    snapshotted the previous dict keeps seeing exactly what was known when its
-    span ended.
-    """
     try:
         current = _CONTRIBUTED.get()
         metadata = dict(current.get("metadata", {})) if current else {}
@@ -159,7 +62,6 @@ _UUID_V7 = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[
 
 
 def posthog_session_id_or_none(value: Any) -> str | None:
-    """``value`` as a PostHog session id (lower-case UUIDv7), or ``None`` for anything else. Pure."""
     if not isinstance(value, str):
         return None
     candidate = value.strip().lower()
@@ -167,21 +69,6 @@ def posthog_session_id_or_none(value: Any) -> str | None:
 
 
 def record_posthog_session(value: Any) -> bool:
-    """Link this turn's trace to the asker's PostHog session replay. Whether the id was recorded.
-
-    Identity-gated, decided from ``identity_attributes_enabled``'s own rule ("no
-    span names a person" unless the deployment opts in). A session id names no
-    one by itself, but on a trace it is a join key: the trace holds the turn's
-    question and answer, and the id opens that person's recording and, in
-    PostHog, their person profile. Handing Langfuse's operators that link is the
-    same step as handing them the user id, so it rides the same switch. It also
-    costs nothing real: with identity off the export's distinct id is
-    ``langfuse_unknown_user`` for every trace, so the replay link would have no
-    person to land on.
-
-    Best-effort like :func:`record_trace_metadata`; a value that is not a
-    UUIDv7 is dropped, never an error, because it came from a browser.
-    """
     session_id = posthog_session_id_or_none(value)
     if session_id is None or not identity_attributes_enabled():
         return False
@@ -194,15 +81,6 @@ LESSON_IDS_METADATA_KEY = "lesson_ids"
 
 
 def record_lessons(arm: str, lesson_ids: Sequence[str]) -> None:
-    """Put the turn's lessons arm and the lessons it carried on the trace.
-
-    ``lessons_arm`` is ``treated``, ``holdout`` or ``off``; ``lesson_ids`` is the
-    comma-joined ids of the lessons in the injected digest (a scalar, because
-    Langfuse stringifies a list and a PostHog property filter wants one text),
-    left out when there were none. With these two keys the holdout is a
-    breakdown on the exported ``langfuse observation`` events, without joining
-    back to the vote table: down-vote rate (the ``user-feedback`` score) by arm.
-    """
     record_trace_metadata(
         **{
             LESSONS_ARM_METADATA_KEY: arm,
@@ -216,12 +94,6 @@ REVIEW_CANVAS_TAG = "surface:review-canvas"
 
 
 def record_turn_surface(surface: str) -> None:
-    """Put where the question was asked on the turn's trace; a canvas turn is also tagged.
-
-    Both the review canvas and a thread on it carry ``surface:review-canvas``:
-    the tag finds every turn asked from a document, and ``turn_surface`` tells
-    the two apart. Labels only; recorded with no identity switch.
-    """
     record_trace_metadata(**{TURN_SURFACE_METADATA_KEY: surface})
     if surface != "chat":
         add_trace_tag(REVIEW_CANVAS_TAG)
@@ -232,12 +104,6 @@ TRIGGER_EVENT_METADATA_KEY = "trigger_event_id"
 
 
 def record_turn_trigger(trigger: Any) -> None:
-    """Put the event that woke the turn on its trace; a typed turn (``trigger`` None) records nothing.
-
-    ``trigger`` is a ``wire_v2.TurnTrigger``. Labels and an id only, recorded
-    with no identity switch: the id names a row the office already holds, not
-    a person.
-    """
     if trigger is None:
         return
     record_trace_metadata(**{TURN_TRIGGER_METADATA_KEY: trigger.kind, TRIGGER_EVENT_METADATA_KEY: trigger.event_id})
@@ -245,16 +111,6 @@ def record_turn_trigger(trigger: Any) -> None:
 
 
 def add_trace_tag(tag: str) -> None:
-    """Tag this turn's traces, e.g. so every turn that read a model is findable.
-
-    Tags are Langfuse's fast filter in the trace list, which is the same reason
-    the organization is written as one. "Show me the turns that touched a
-    building model" is otherwise a metadata scan.
-
-    Copy-on-write like :func:`record_trace_metadata`: sets a new dict so a
-    concurrent researcher holding the previous snapshot never observes this
-    append.
-    """
     try:
         current = _CONTRIBUTED.get()
         metadata = dict(current.get("metadata", {})) if current else {}
@@ -267,13 +123,6 @@ def add_trace_tag(tag: str) -> None:
 
 
 def reset_contributions() -> None:
-    """Drop what this turn contributed. Test-only; src/ uses the token pair.
-
-    Production code binds per job/turn via :func:`begin_trace_contributions`
-    and restores via :func:`end_trace_contributions` in ``finally``, so a
-    reused research worker cannot hand job N's tags to job N+1. This helper stays
-    for tests that need a blank slate without holding a token.
-    """
     _CONTRIBUTED.set(None)
 
 
@@ -288,37 +137,19 @@ _TURN_PROMPT_LINK: contextvars.ContextVar[dict[str, Any] | None] = contextvars.C
 
 
 def begin_turn_prompt_link() -> contextvars.Token[dict[str, Any] | None]:
-    """Bind a fresh per-turn box; the turn's resolutions fill it, its spans read it."""
     return _TURN_PROMPT_LINK.set({})
 
 
 def end_turn_prompt_link(token: contextvars.Token[dict[str, Any] | None]) -> None:
-    """Unbind the turn's box, restoring whatever was bound before."""
     _TURN_PROMPT_LINK.reset(token)
 
 
 def _link_targets() -> list[dict[str, Any]]:
-    """The process global, plus the turn's box when one is bound."""
     box = _TURN_PROMPT_LINK.get()
     return [_PROMPT_LINK] if box is None else [_PROMPT_LINK, box]
 
 
 def record_prompt_link(*, name: str, version: str, is_fallback: bool = False) -> None:
-    """Remember which prompt this process, and the current turn, renders with.
-
-    Called by the prompt store's caller on every resolution — at boot, on every
-    refresh, and on a fallback. A fallback names no prompt Langfuse holds, so
-    it becomes no LINK (:func:`current_prompt_attributes` yields ``{}``) and is
-    read back by :func:`current_fallback_identity` for the trace metadata
-    instead. Recording it, rather than clearing, is what keeps both facts on
-    the same per-turn record: a transition in another turn cannot swap this
-    turn's fallback for a served version, or the reverse.
-
-    The version is stored as it arrived, so that
-    :func:`prompt_observation_attributes` is the one place deciding what a
-    version becomes on a span. Best-effort like everything else here:
-    telemetry bookkeeping must never fail the render that was producing it.
-    """
     try:
         if not name or not version:
             return
@@ -331,24 +162,11 @@ def record_prompt_link(*, name: str, version: str, is_fallback: bool = False) ->
 
 
 def _current_link() -> dict[str, Any]:
-    """This turn's record when a turn bound one, else the process's."""
     link = _TURN_PROMPT_LINK.get()
     return _PROMPT_LINK if link is None else link
 
 
 def prompt_observation_attributes(*, name: str | None, version: str | None) -> dict[str, Any]:
-    """The two span attributes that link a generation to a prompt version.
-
-    Pure, so the mapping is testable without a span. Both or neither: a name
-    with no version renders as a prompt Langfuse cannot resolve to a text, and
-    a version with no name belongs to nothing.
-
-    The version is an INT because Langfuse's ingestion schema declares
-    ``promptVersion`` as one. While a string went out here, no GENERATION
-    observation reached production and the rest of every trace arrived intact. A version that is not a number is the
-    bundled fallback's git blob hash, which names no prompt Langfuse holds, so
-    it yields no link at all; Langfuse's own SDK links no fallback either.
-    """
     if not name or not version or not isinstance(version, int | str):
         return {}
     try:
@@ -359,10 +177,6 @@ def prompt_observation_attributes(*, name: str | None, version: str | None) -> d
 
 
 def current_prompt_attributes() -> dict[str, Any]:
-    """The prompt link for THIS turn's render when a turn bound a box, else the process's.
-
-    A fallback render is no link at all, whichever record holds it.
-    """
     link = _current_link()
     if link.get("is_fallback"):
         return {}
@@ -370,7 +184,6 @@ def current_prompt_attributes() -> dict[str, Any]:
 
 
 def current_fallback_identity() -> tuple[str, Any] | None:
-    """The bundled fallback's ``(name, version)`` when that is what renders, else ``None``."""
     link = _current_link()
     if not link.get("is_fallback"):
         return None
@@ -378,22 +191,15 @@ def current_fallback_identity() -> tuple[str, Any] | None:
 
 
 def reset_prompt_link() -> None:
-    """Forget the recorded prompt identity, in the process record and the turn's box."""
     for target in _link_targets():
         target.clear()
 
 
 def identity_attributes_enabled() -> bool:
-    """Whether to stamp per-request identity onto spans.
-
-    Defaults to FALSE. See the module docstring — this is a privacy posture
-    decision the deployment makes, not a performance toggle.
-    """
     return os.environ.get(IDENTITY_ATTRIBUTES_ENV, "").strip().lower() == "true"
 
 
 def _as_count(value: Any) -> int:
-    """A token count as a non-negative int; anything else is 0."""
     try:
         return max(0, int(value))
     except TypeError, ValueError:
@@ -401,29 +207,14 @@ def _as_count(value: Any) -> int:
 
 
 def _is_provider_usage(node: dict[str, Any]) -> bool:
-    """Whether ``node`` is OpenRouter's own usage object (the one carrying ``cost``)."""
     return isinstance(node.get("prompt_tokens"), int | float) and isinstance(node.get("completion_tokens"), int | float)
 
 
 def _is_langchain_usage(node: dict[str, Any]) -> bool:
-    """Whether ``node`` is LangChain's normalized ``usage_metadata``.
-
-    The only usage a Responses-API call leaves in the span: langchain-openai
-    builds no ``llm_output`` there and keeps ``usage`` out of
-    ``response_metadata``, so the provider object never reaches the span and
-    the scan above found nothing — which is why every ``api_type: responses``
-    generation rendered with bare input/output/total and no cache bucket.
-    """
     return isinstance(node.get("input_tokens"), int | float) and isinstance(node.get("output_tokens"), int | float)
 
 
 def _find_usage(node: Any, matches: Any, depth: int = 0) -> dict[str, Any] | None:
-    """First dict under ``node`` that ``matches``, or None.
-
-    A bounded recursive scan (not a fixed path) because the span metadata
-    serializer normalizes shapes across agent-runtime versions while the usage key names
-    are stable. Depth-capped so a pathological payload cannot recurse.
-    """
     if depth > 6 or node is None:
         return None
     children: Any = None
@@ -446,14 +237,6 @@ RESPONSE_METADATA_KEY = "chat_responses"
 
 
 def _find_provider_usage(node: Any, depth: int = 0) -> dict[str, Any] | None:
-    """The best usage object on ``node``'s RESPONSE side, or None.
-
-    Only ``chat_responses`` is scanned, because the input side of the same
-    span replays earlier AIMessages whose usage belongs to the call that
-    produced them. Within that side, OpenRouter's own object wins — it alone
-    carries ``cost`` — and LangChain's normalized one is the fallback, all a
-    Responses-API call leaves behind.
-    """
     if not isinstance(node, dict):
         return None
     responses = node.get(RESPONSE_METADATA_KEY)
@@ -467,27 +250,6 @@ def _find_provider_usage(node: Any, depth: int = 0) -> dict[str, Any] | None:
 
 
 def extract_provider_usage(metadata_json: Any) -> dict[str, int | float] | None:
-    """Provider token counts (+cost) out of a span's serialized metadata.
-
-    Reads the response side of ``nat.metadata`` and nothing else — the input
-    side (``chat_inputs`` and friends) replays earlier messages whose usage is
-    the previous call's, so reading it makes every generation after the first
-    repeat that answer's numbers. Within ``chat_responses`` it prefers the
-    OpenRouter ``usage`` object (``[].message.response_metadata.token_usage``),
-    the only span-side carrier of ``cost`` and of cached/reasoning detail, and
-    falls back to LangChain's normalized ``usage_metadata``, which is all a
-    Responses-API call leaves behind — counts including the cache bucket, no
-    cost. Returns the counts with ``cost_usd`` (or None when the provider
-    reported no cost), or None when the response side carries no usage, which
-    sends the caller to ``llm.token_count.*``. Pure, so tests pin it without a
-    span.
-
-    ``cache_discount`` is deliberately NOT returned: OpenRouter's ``cost`` is
-    already net of it ("The ``cache_discount`` field in the response body will
-    tell you how much the response saved on cache usage"), so emitting it as a
-    second cost bucket would bill the saving twice. The saving is visible where
-    it belongs — as ``input_cached_tokens`` priced at the cache-read rate.
-    """
     if not isinstance(metadata_json, str) or not metadata_json:
         return None
     try:
@@ -518,13 +280,6 @@ def extract_provider_usage(metadata_json: Any) -> dict[str, int | float] | None:
 
 
 def extract_span_token_counts(attributes: dict[str, Any]) -> dict[str, int] | None:
-    """The ``llm.token_count.*`` counts the agent runtime's exporter already set, or None.
-
-    The fallback when the provider object is absent from the metadata (older
-    traces, stripped payloads): token-only, no cached/reasoning/cost split.
-    None when all three are zero — absent usage stays absent rather than
-    rendering as a real measurement of zero tokens.
-    """
     prompt = _as_count(attributes.get("llm.token_count.prompt"))
     completion = _as_count(attributes.get("llm.token_count.completion"))
     total = _as_count(attributes.get("llm.token_count.total"))
@@ -534,13 +289,6 @@ def extract_span_token_counts(attributes: dict[str, Any]) -> dict[str, int] | No
 
 
 def is_generation_span(attributes: dict[str, Any]) -> bool:
-    """Whether a span is an LLM call, i.e. a Langfuse *generation*.
-
-    The agent runtime writes its event type under a namespaced key whose prefix varies with
-    the exporter, so the suffix is what is matched — the same test the usage
-    processor has always used, lifted here so both processors agree on what a
-    generation is rather than each carrying its own copy.
-    """
     event_type = next((value for key, value in attributes.items() if key.endswith(".event_type")), None)
     return isinstance(event_type, str) and event_type.startswith("LLM")
 
@@ -552,13 +300,6 @@ def langfuse_attributes_for(
     conversation_id: str | None,
     contributed: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Build the Langfuse attribute map for one request's identity.
-
-    Pure, so the mapping can be tested without an agent-runtime context, a span, or an
-    event loop. Absent values are OMITTED rather than written as ``None`` or
-    ``"unknown"``: Langfuse renders whatever it is given, and an empty session
-    would group every anonymous request into one bogus conversation.
-    """
     attributes: dict[str, Any] = {}
 
     if conversation_id:
@@ -581,18 +322,6 @@ def langfuse_attributes_for(
 
 
 def current_langfuse_attributes() -> dict[str, Any]:
-    """Read the ambient Grid request context and map it to Langfuse attributes.
-
-    Best-effort by construction: telemetry enrichment must never be able to
-    fail a turn, so every failure path returns ``{}`` and logs at DEBUG. A span
-    missing its tenant is a degraded trace; an exception escaping here would
-    be a broken export pipeline.
-
-    Reads contributions via :func:`snapshot_contributions` so the attribute map
-    holds no live reference: a tool contributing after this call must not
-    rewrite an already-built map, and an export task holding this map must not
-    observe a concurrent researcher's later writes.
-    """
     try:
         from agent.project_context import RequestContext
         from agent.project_context import get_conversation_id_from_context
@@ -610,14 +339,6 @@ def current_langfuse_attributes() -> dict[str, Any]:
 
 
 def current_contribution_attributes() -> dict[str, Any]:
-    """What tools recorded about this turn, with no identity: the half that is not personal data.
-
-    Tool facts (``feature:ifc``, ``ifc_op``), the usage rollup and the answer
-    dialect census are labels and counts. They used to ride the identity
-    processor and so vanished from every trace whenever
-    ``TRACE_IDENTITY_ATTRIBUTES`` was off, which made a privacy switch
-    silently turn off cost and quality reporting too (ADR-0089).
-    """
     try:
         return langfuse_attributes_for(
             organization_id=None,
@@ -631,12 +352,6 @@ def current_contribution_attributes() -> dict[str, Any]:
 
 
 def merge_span_attributes(attributes: dict[str, Any], additions: dict[str, Any]) -> None:
-    """Apply ``additions`` to a span's attribute map, uniting tag lists rather than replacing them.
-
-    Several processors tag the same span (tenant, tool facts, turn outcome), in
-    an order the pipeline decides. Whichever runs second must not erase the
-    first one's tags.
-    """
     for key, value in additions.items():
         existing = attributes.get(key)
         if key == TAGS_ATTRIBUTE and isinstance(existing, list | tuple) and isinstance(value, list | tuple):
@@ -648,12 +363,6 @@ def merge_span_attributes(attributes: dict[str, Any], additions: dict[str, Any])
 def context_attributes_for(
     *, name: str | None, attributes: dict[str, Any], is_root: bool, outcome: dict[str, Any] | None
 ) -> dict[str, Any]:
-    """What :class:`TraceContextProcessor` adds to one span. Pure.
-
-    Every span: the process's environment, release and deployment tag, and its
-    Langfuse observation type. A root span also names its trace and carries the
-    turn's outcome when the turn recorded one, its tags beside the deployment's.
-    """
     from agent.observability.trace_context import OBSERVATION_TYPE_ATTRIBUTE
     from agent.observability.trace_context import TRACE_NAME_ATTRIBUTE
     from agent.observability.trace_context import observation_type
@@ -678,35 +387,11 @@ try:
     from nat.observability.processor.processor import Processor
 
     class LangfuseTraceAttributeProcessor(Processor[Span, Span]):
-        """Attach session and tenant attributes to every span.
-
-        Inserted at the FRONT of the pipeline, ahead of the agent runtime's redaction
-        processor. That ordering is deliberate and is the only one that keeps
-        redaction meaningful: attributes added after the redaction pass can
-        never be redacted, so an operator who adds a ``langfuse.trace.metadata.*``
-        key to ``redaction_attributes`` would be configuring something with no effect.
-        Running first means these attributes are subject to exactly the same
-        redaction policy as ``input.value`` and ``output.value``.
-        """
-
         def __init__(self, *, identity: bool = True) -> None:
             super().__init__()
             self._identity = identity
 
         async def process(self, item: Span) -> Span:
-            """Stamp the current request's identity onto one span.
-
-            Mutates and returns the same object rather than building a copy —
-            that is the agent runtime's pipeline contract, and the redaction processor
-            downstream relies on it.
-
-            Reading the context here (rather than at span creation) is safe
-            because ``SpanExporter._process_end_event`` hands this pipeline to
-            ``asyncio.create_task`` while still inside the request, and
-            ``create_task`` snapshots the current ``contextvars``. Never raises:
-            ``current_langfuse_attributes`` absorbs its own failures, because an
-            exception escaping here would stop span export for the process.
-            """
             additions = current_langfuse_attributes() if self._identity else current_contribution_attributes()
             try:
                 merge_span_attributes(item.attributes, additions)
@@ -715,13 +400,6 @@ try:
             return item
 
     class TraceContextProcessor(Processor[Span, Span]):
-        """Environment, release, deployment tag and observation type on every span; trace name and outcome on the root.
-
-        Installed unconditionally: a deployment name and host, a commit and a
-        span's type are not personal data. A root span whose turn failed also gets
-        an OTel ERROR status, which the agent runtime never sets itself.
-        """
-
         async def process(self, item: Span) -> Span:
             try:
                 from agent.observability.trace_context import OBSERVATION_LEVEL_ATTRIBUTE
@@ -743,44 +421,13 @@ try:
             return item
 
     class UserIdentityStripProcessor(Processor[Span, Span]):
-        """Remove the user identity the agent runtime 1.9 stamps on every span, while identity attributes are off.
-
-        The agent runtime sets ``user.id`` and ``<prefix>.user.id`` from the session's user
-        (#2152), and the chat socket opens each session with the verified
-        subject. Attributing spans to a person is the step
-        ``TRACE_IDENTITY_ATTRIBUTES`` gates, so without the flag this
-        processor takes both back out.
-        """
-
         async def process(self, item: Span) -> Span:
             for key in [key for key in item.attributes if key == "user.id" or key.endswith(".user.id")]:
                 del item.attributes[key]
             return item
 
     class UsageAttributeProcessor(Processor[Span, Span]):
-        """Mirror provider usage onto generation spans in the namespaces Langfuse reads.
-
-        The agent runtime's exporter sets only ``llm.token_count.*`` (token-only, and zero
-        whenever ``usage_metadata`` was absent), while Langfuse's OTel
-        ingestion maps ``gen_ai.usage.*`` / ``langfuse.observation.*`` to
-        ``usageDetails``/``costDetails`` — hence empty usage on every
-        generation. This processor runs ahead of redaction and adds the
-        missing namespaces from what the span already carries, preferring the
-        provider object in ``nat.metadata`` (has cost + cached/reasoning)
-        over the bare ``llm.token_count.*`` counts.
-
-        Counts and the model name are not sensitive, so — unlike the identity
-        processor — this one is always installed. Never raises: enrichment
-        must degrade the trace, never fail the export.
-        """
-
         async def process(self, item: Span) -> Span:
-            """Stamp usage (+model, +verbatim cost when known) onto one LLM span.
-
-            Non-LLM spans and spans with no usage anywhere pass through
-            untouched: absent usage stays absent rather than rendering as a
-            real measurement of zero tokens.
-            """
             try:
                 attributes = item.attributes or {}
                 from agent.observability.decision_trace import decision_usage
@@ -828,23 +475,7 @@ try:
             return item
 
     class PromptLinkProcessor(Processor[Span, Span]):
-        """Name the prompt version on every generation span.
-
-        Without it Langfuse renders `promptName`/`promptVersion` as null on
-        every observation, and prompt management is a store nothing reads back:
-        the version an answer was produced with is exactly what an operator
-        comparing two prompt versions needs the trace to carry.
-
-        Generations only. A retrieval or tool span has no prompt, and stamping
-        one would make Langfuse's per-prompt aggregates count spans that never
-        used it. Installed unconditionally like the usage processor — a prompt
-        name and a version number are not personal data — and ahead of
-        redaction, so an operator can still redact them if a prompt name ever
-        carries something they would rather not export.
-        """
-
         async def process(self, item: Span) -> Span:
-            """Stamp the process's current prompt link onto one generation span."""
             try:
                 if not is_generation_span(item.attributes or {}):
                     return item
@@ -855,21 +486,6 @@ try:
             return item
 
     class InlineImageRedactionProcessor(Processor[Span, Span]):
-        """Replace every inline image in a span's attributes with its size and hash.
-
-        A tool result that carries a page crop (``view_image``'s ``image_url``
-        block) is copied into the tool span's ``output.value`` and into the
-        next chat generation's ``input.value``. Neither the operator's
-        redaction policy nor Langfuse's size limit is a reason to let a
-        customer's drawing travel to the trace store, so the pixels go on
-        every span, ahead of everything else, and always: a size and an eight
-        character hash say that an image was sent and which one.
-
-        Every string attribute, and every list of strings, is scanned, not only ``input.value``,
-        ``output.value`` and ``nat.metadata``, so a new place a payload is
-        copied to is covered without anyone remembering it. Never raises.
-        """
-
         async def process(self, item: Span) -> Span:
             try:
                 from agent.common.image_redaction import redact_inline_images

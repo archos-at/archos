@@ -10,7 +10,7 @@ from knowledge_layer import register as register_module
 from knowledge_layer.register import KnowledgeRetrievalConfig
 from knowledge_layer.register import knowledge_retrieval
 from knowledge_layer.search import LlamaIndexRetriever
-from knowledge_layer.search.hit_metadata import _folder_matches
+from knowledge_layer.search import _folder_matches
 from knowledge_layer.vector_store import ChunkRecord
 from knowledge_layer.vector_store import Pushdown
 from knowledge_layer.vector_store import build_payload

@@ -1,15 +1,3 @@
-"""A chat reply with every licensed quote in it capped, before LangChain reports it to anyone.
-
-``common/licensed_text.py`` explains the seam; this is its LangChain half. A call that
-expanded licensed text (``licensed_text.expand_messages``) returns through here:
-:func:`capped_result` for a whole ``ChatResult``, :class:`ChunkCap` for a stream's
-chunks. Every string the reply carries is a channel: the answer's text, each
-``additional_kwargs`` value (reasoning, the raw tool-call deltas), and each tool
-call's arguments, which are JSON text and so are read escape by escape
-(``QuoteCap.stream(json_raw=True)``). A reply that touched no licensed text never
-reaches this module.
-"""
-
 from __future__ import annotations
 
 from typing import Any
@@ -20,8 +8,6 @@ _JSON_KEYS = frozenset({"arguments", "args"})
 
 
 class ChunkCap:
-    """Caps the chunks of one streamed reply; each channel keeps its own run across chunks."""
-
     def __init__(self, cap: QuoteCap) -> None:
         self._cap = cap
         self._runs: dict[str, Any] = {}
@@ -66,7 +52,6 @@ class ChunkCap:
         return content
 
     def message(self, message: Any) -> Any:
-        """``message`` (an ``AIMessage`` or a chunk of one) with its content, kwargs and tool calls capped."""
         update: dict[str, Any] = {
             "content": self._content(message.content),
             "additional_kwargs": self._walk(dict(message.additional_kwargs or {}), "kwargs"),
@@ -90,14 +75,12 @@ class ChunkCap:
         return message.model_copy(update=update)
 
     def chunk(self, chunk: Any) -> Any:
-        """A ``ChatGenerationChunk`` with its message capped; ``text`` follows the message."""
         from langchain_core.outputs import ChatGenerationChunk
 
         return ChatGenerationChunk(message=self.message(chunk.message), generation_info=chunk.generation_info)
 
 
 def capped_result(result: Any, cap: QuoteCap | None) -> Any:
-    """A ``ChatResult`` with every generation's message capped; ``result`` itself without a cap."""
     if cap is None:
         return result
     from langchain_core.outputs import ChatGeneration

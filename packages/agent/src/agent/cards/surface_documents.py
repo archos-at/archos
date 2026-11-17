@@ -1,24 +1,3 @@
-"""``surface_documents`` — put REAL project/Büroablage files in front of the user.
-
-Discovery, not evidence. ``knowledge_search`` reads and cites passages; this
-tool opens a file in the UI. Citations already peek the cited file — the
-agent must not call this after citing.
-
-- ``filename=``: the user asked to *see* a named file (no legal question).
-- ``mode=one`` + ``query=``: they asked to see the best matching file and
-  you do not have the name.
-- ``mode=many`` + ``query=``: they are browsing; a short choice, not a catalogue.
-
-The model cannot invent filenames. The tool looks up or searches the in-scope
-project + Büroablage corpora and emits a ``document_grid`` system card.
-
-A browse (``mode=many``) asks the ``workspace-search`` operation, the search a
-person runs on the search page, as the turn's person (ADR-0122, ADR-0136), so
-its card can offer that page with the same question. A run with no signed
-request context (an eval, the CLI), or a search that could not run, browses the
-vector corpora as before and its card carries no link.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -56,11 +35,6 @@ SurfaceMode = Literal["one", "many"]
 
 
 def _source_for_collection(collection: str) -> Literal["project", "office"] | None:
-    """LEGACY: guess a card label from a collection-id prefix.
-
-    Live retrieval must not call this when a signed shelf map is present
-    (ADR-0047). Kept for names-only / pre-shelf callers.
-    """
     if collection.startswith("proj_"):
         return "project"
     if is_office_shelf_collection(collection):
@@ -72,7 +46,6 @@ def _source_for_target(
     collection: str,
     source_by_collection: dict[str, str],
 ) -> Literal["project", "office"] | None:
-    """Label a retrieve target. A signed map is exclusive — no prefix guess."""
     if source_by_collection:
         raw = source_by_collection.get(collection)
         return raw if raw in ("project", "office") else None
@@ -85,20 +58,6 @@ def _target_collections(
     shelf: str | None = None,
     scoped: list | None = None,
 ) -> list[str]:
-    """Project + Büroablage only. Never the OIB corpus (that is citations).
-
-    ``shelf`` narrows further: ``office_shelf`` keeps only the Büroablage,
-    ``project`` only this project's files. A listing question that names a
-    shelf must not surface the other one.
-
-    When ``scoped`` entries carry a stated shelf (ADR-0047), that shelf wins
-    and the collection-id prefix is not inspected.
-
-    A restricted folder's collection is never a target (ADR-0087, ADR-0088):
-    a card listing its files would put their names in front of the model and
-    the conversation without an admission. Searching it is admitted per tool
-    round instead.
-    """
     from agent.common.source_kinds import Shelf
     from agent.common.source_kinds import parse_shelf
     from agent.knowledge.restricted_collections import is_restricted_collection
@@ -136,7 +95,6 @@ def _target_collections(
 
 
 def _match_known_filename(requested: str, known: list[str]) -> str | None:
-    """Resolve a user/agent-supplied name onto an indexed file name."""
     needle = (requested or "").strip()
     if not needle or not known:
         return None
@@ -152,7 +110,6 @@ def _match_known_filename(requested: str, known: list[str]) -> str | None:
 
 
 def _filename_mentioned_in_query(query: str, known: list[str]) -> str | None:
-    """If the query already names a file, that file is the subject."""
     text = (query or "").strip().lower()
     if not text or not known:
         return None
@@ -163,7 +120,6 @@ def _filename_mentioned_in_query(query: str, known: list[str]) -> str | None:
 
 
 def _file_kind(file_name: str) -> str:
-    """Coarse kind so a screenshot query does not also surface IFC models."""
     lower = (file_name or "").lower()
     if lower.endswith(_MODEL_EXT):
         return "model"
@@ -185,7 +141,6 @@ def _query_kind(query: str) -> str | None:
 
 
 def _aggregate_hits(hits: list[tuple[object, str]]) -> list[dict]:
-    """One best chunk per file, score-sorted, quality-gated."""
     best: dict[str, dict] = {}
     for chunk, source in hits:
         file_name = getattr(chunk, "file_name", None)
@@ -215,7 +170,6 @@ def _pick_one(ordered: list[dict]) -> list[dict]:
 
 
 def _pick_many(ordered: list[dict], max_files: int) -> list[dict]:
-    """Keep the winner, plus only same-kind files that are almost as good."""
     if not ordered:
         return []
     winner = ordered[0]
@@ -257,8 +211,7 @@ def _aggregate_surfaced(
     return _pick_one(ordered)
 
 
-class SurfaceDocumentsConfig(FunctionBaseConfig, name="surface_documents"):
-    """Configuration for the ``surface_documents`` tool."""
+class SurfaceDocumentsConfig(FunctionBaseConfig, name="surface_documents"): ...
 
 
 _TOOL_DESCRIPTION = (
@@ -300,15 +253,6 @@ async def surface_documents(tool_config: SurfaceDocumentsConfig, builder: Builde
         mode: str | None = None,
         shelf: str | None = None,
     ) -> str:
-        """Show project or Büroablage files in the UI. Not a citation tool.
-
-        Args:
-            query: Topic to search when the user did not name a file (e.g. "Fluchtwege EG").
-            filename: Exact indexed file name to open (e.g. "Brandschutzplan_EG.pdf").
-            title: Optional card heading. Leave empty to use the file name or query.
-            mode: `one` (default) opens a single file; `many` offers a short browse choice.
-            shelf: `office_shelf` (Büroablage) or `project` (this project). Omit to search both.
-        """
         query = (query or "").strip()
         filename = (filename or "").strip() or None
         shelf = (shelf or "").strip() or None
@@ -456,7 +400,6 @@ async def _surface_named(
     retrieve_query: str,
     chunk_top_k: int,
 ) -> list[dict]:
-    """Open one known file. Search only to fetch a matching passage."""
     info = meta.get(file_name) or {}
     source = "project"
     hits = await _retrieve_all(targets, retrieve_query, chunk_top_k)
@@ -496,7 +439,6 @@ _SOURCE_OF_HIT_SHELF: dict[str, Literal["project", "office"]] = {"project": "pro
 
 
 def _target_shelves(targets: list[str], scoped: list | None) -> set[str]:
-    """Which shelves the targets hold, ``project`` and ``office_shelf``: what the browse may search."""
     from agent.common.source_kinds import Shelf
 
     by_collection = {}
@@ -517,7 +459,6 @@ def _target_shelves(targets: list[str], scoped: list | None) -> set[str]:
 
 
 def _search_scopes(shelves: set[str], project_id: str | None) -> list[dict[str, str]]:
-    """One ``workspace-search`` scope per shelf the turn reads; the project only with its id."""
     scopes: list[dict[str, str]] = []
     if "project" in shelves and project_id:
         scopes.append({"scope": "project", "projectId": project_id})
@@ -527,7 +468,6 @@ def _search_scopes(shelves: set[str], project_id: str | None) -> list[dict[str, 
 
 
 def _rows_from_search(structured: dict) -> list[dict]:
-    """The document hits of one ``workspace-search`` answer as card rows, in its order."""
     section = (structured.get("sections") or {}).get("document") or {}
     rows: list[dict] = []
     for hit in section.get("hits") or []:
@@ -553,7 +493,6 @@ def _rows_from_search(structured: dict) -> list[dict]:
 
 
 def _interleave(groups: list[list[dict]]) -> list[dict]:
-    """Rank 1 of each shelf, then rank 2, … ; a file named twice is kept once."""
     merged: list[dict] = []
     seen: set[str] = set()
     for rank in range(max((len(group) for group in groups), default=0)):
@@ -565,7 +504,6 @@ def _interleave(groups: list[list[dict]]) -> list[dict]:
 
 
 def _pick_browse(rows: list[dict], query: str, max_files: int) -> list[dict]:
-    """A short choice of one kind, best first: the query's kind when it names one, else the winner's."""
     hint = _query_kind(query)
     if hint:
         hinted = [row for row in rows if _file_kind(row["file_name"]) == hint]
@@ -578,11 +516,6 @@ def _pick_browse(rows: list[dict], query: str, max_files: int) -> list[dict]:
 
 
 async def _browse_workspace_search(query: str, shelves: set[str], max_files: int) -> tuple[list[dict], dict] | None:
-    """The browse through ``workspace-search``: the rows and the question for the card's link.
-
-    ``None`` when the operation could not answer for every shelf asked (no envelope, a
-    refusal, an outage); the caller then browses the vector corpora instead.
-    """
     from agent.project_context import get_project_id_from_context
     from agent.tools.workspace.register import read_operation
 
@@ -604,7 +537,6 @@ async def _browse_workspace_search(query: str, shelves: set[str], max_files: int
 
 
 def _search_line(search: dict) -> str:
-    """What the model may tell the reader about the link the card carries."""
     return (
         f"The workspace search finds {search['total']} document(s) for {search['text']!r}; the card links to the "
         "search page with this query for the rest."
@@ -661,7 +593,6 @@ async def _retrieve_all(
 
 
 async def _fetch_document_metadata(collections: list[str]) -> dict[str, dict]:
-    """Map file_name → {summary, tags, folder_path} across the given collections."""
     from agent.knowledge.factory import get_available_documents_async
 
     async def _for(collection: str) -> list:
@@ -703,12 +634,10 @@ def _file_label(doc: dict) -> str:
 
 
 def _folder_of(doc: dict) -> str:
-    """Materialised folder path this file is filed under, or ``""`` (ADR-0049)."""
     return str(doc.get("_folder_path") or "").strip()
 
 
 def _briefing_for_agent(query: str, documents: list[dict], mode: SurfaceMode) -> str:
-    """Concise agent briefing. One file: 4–6 lines. Many: one line per file."""
     if mode == "one" or len(documents) == 1:
         return _brief_one(documents[0])
     return _brief_many(query, documents)

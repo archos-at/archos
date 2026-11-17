@@ -32,12 +32,13 @@ VOCABULARIES: tuple[tuple[str, tuple[str, ...], str], ...] = (
     (
         "SOURCE_PROTOCOLS",
         tuple(ACCESS_TYPES),
-        "A source record's protocols: the keys of `ACCESS_TYPES` in `packages/public-sources/src/access`.",
+        "A source record's protocols: the keys of `ACCESS_TYPES` in "
+        "`packages/public-sources/src/public_sources/access`.",
     ),
     (
         "SOURCE_FORMATS",
         tuple(ENGINES),
-        "A source record's formats: the keys of `ENGINES` in `packages/public-sources/src/engines`.",
+        "A source record's formats: the keys of `ENGINES` in `packages/public-sources/src/public_sources/engines`.",
     ),
 )
 

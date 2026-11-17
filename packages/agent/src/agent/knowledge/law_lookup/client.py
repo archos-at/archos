@@ -1,14 +1,3 @@
-"""The requests a law lookup makes to its source: a search, and a document by its URL.
-
-Both are the record's: the search is the ``rest`` access type's ``search``
-operation rendered from the record's templates and tables, and the answer is
-read by the record's format engine. What this module adds is the transport
-discipline every source read shares: the public-source fetcher's transport
-(``public_sources.routing.source_transport``), every hop of a redirect checked
-against the record's hosts, bounded retries on transport errors and 5xx, a
-size bound and no binary payloads.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -30,22 +19,17 @@ _DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
 _DATE_ARGS = ("date_from", "date_to")
 
 
-class SourceRequestError(Exception):
-    """A request the source refused or could not answer: deterministic or exhausted, never raised past a stage."""
+class SourceRequestError(Exception): ...
 
 
 @dataclass(frozen=True)
 class Document:
-    """A document's text as the format engine read it."""
-
     url: str
     title: str
     text: str
 
 
 class SourceClient:
-    """Async reads of one law source, with a pooled connection and bounded retries."""
-
     def __init__(
         self,
         law: LawSource,
@@ -65,7 +49,6 @@ class SourceClient:
         self._client: httpx.AsyncClient | None = None
 
     def _http_client(self) -> httpx.AsyncClient:
-        """The client whose requests the public-source fetcher makes; without a fetcher, a refusal."""
         if self._client is None or self._client.is_closed:
             try:
                 transport = source_transport(self.law.transport_key, inner=self._transport)
@@ -90,17 +73,11 @@ class SourceClient:
             raise SourceRequestError(f"Refusing to fetch {url}: not https on a host of the source ({hosts})")
 
     async def aclose(self) -> None:
-        """Close the pooled connection (idempotent)."""
         if self._client is not None and not self._client.is_closed:
             await self._client.aclose()
         self._client = None
 
     async def search(self, args: dict[str, Any]) -> Any:
-        """Run the record's search operation for ``args``; the engine's parsed result.
-
-        ``args`` are the operation's template arguments (paging included). The
-        query is the record's parameters in the record's order, empty ones left out.
-        """
         for name in _DATE_ARGS:
             value = str(args.get(name) or "")
             if value and not _DATE_RE.fullmatch(value):
@@ -124,7 +101,6 @@ class SourceClient:
             raise SourceRequestError(str(exc)) from exc
 
     async def fetch_document(self, url: str) -> Document:
-        """Fetch a whole document and read it to plain text; binary payloads are refused."""
         url = self.law.public_host(url)
         self._validate_url(url)
         response = await self._get_with_retries(url)
@@ -140,7 +116,6 @@ class SourceClient:
         return Document(url=str(response.url), title=title, text=text)
 
     async def _get_with_retries(self, url: str, params: dict[str, str] | None = None) -> httpx.Response:
-        """GET with exponential backoff on transport errors and 5xx; a 5xx the engine reads as a refusal is final."""
         last_error: Exception | None = None
         client = self._http_client()
         for attempt in range(self.max_retries):
@@ -154,7 +129,6 @@ class SourceClient:
         raise SourceRequestError(f"Request failed after {self.max_retries} attempts: {last_error}") from last_error
 
     async def _attempt(self, client, url: str, params) -> tuple[httpx.Response | None, Exception | None]:
-        """One GET: the accepted response, or the error to retry on; a refusal is raised, never retried."""
         try:
             response = await client.get(url, params=params)
         except EgressRefused as exc:  # deterministic: a retry would be refused the same way
@@ -173,7 +147,6 @@ class SourceClient:
         return response
 
     def _raise_refusal(self, response: httpx.Response) -> None:
-        """A 5xx carrying the source's own error (a validation refusal) is not retried."""
         search = getattr(self.law.engine, "search", None)
         if search is None:
             return

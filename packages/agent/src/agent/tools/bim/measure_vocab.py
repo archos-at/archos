@@ -1,5 +1,3 @@
-"""The measure vocabulary: operations, relations, measures, kinds, and the tokens the model may name."""
-
 import logging
 from collections.abc import Sequence
 from typing import Any
@@ -224,12 +222,6 @@ def _enum_lines(entries: dict[str, str], indent: str = "    ") -> str:
 
 
 def _literal(*groups) -> Any:
-    """A ``Literal`` over these vocabularies, in the order they were written.
-
-    Order is part of the contract: the tuple becomes the ``enum`` array in the
-    schema the model is handed, and an enum that reshuffles between restarts
-    invalidates every prefix cache in front of it.
-    """
     names = dict.fromkeys(name for group in groups for name in group)
     return Literal[tuple(names)]  # type: ignore[valid-type]
 
@@ -259,13 +251,11 @@ _LEGACY_TOKENS: dict[str, dict[str, str]] = {
 
 
 def _canonical(asked: str, vocabulary: Sequence[str]) -> str:
-    """The vocabulary's own spelling of ``asked``, or ``asked`` unchanged when it is in no vocabulary."""
     wanted = asked.strip().lower()
     return next((known for known in vocabulary if known.lower() == wanted), asked)
 
 
 def _record_misses(data: dict[str, Any]) -> None:
-    """Write every value that is in no vocabulary to the capability ledger."""
     operation = str(data.get("operation") or "").strip().lower()
     checks = (
         ("operation", VALID_OPERATIONS),

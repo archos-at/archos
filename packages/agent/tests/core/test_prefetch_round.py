@@ -1,12 +1,3 @@
-"""Round 0: the decision's fetches run before the first LLM call, through the real tools node.
-
-Through the COMPILED GRAPH, because what is pinned is the seam between the
-prefetch and the two nodes: the model's first call sees the results, the
-round costs no budget, the ledger draws it as round 0, a repeat by the
-model is answered with the prefetch's own result, and nothing runs for a
-tool the turn has not bound or a source it switched off.
-"""
-
 from __future__ import annotations
 
 import json
@@ -33,16 +24,14 @@ _PROMPT = "Du bist der Agent."
 RAN: list[str] = []
 
 
-@tool
+@tool(description="Search the OIB knowledge corpus.")
 def knowledge_search(query: str) -> str:
-    """Search the OIB knowledge corpus."""
     RAN.append(f"knowledge_search:{query}")
     return f"Treffer zu: {query}"
 
 
-@tool
+@tool(description="Open a named passage of a known document.")
 def read_passage(document: str, clause: str | None = None) -> str:
-    """Open a named passage of a known document."""
     RAN.append(f"read_passage:{document}|{clause or ''}")
     return f"Passage aus {document}"
 
@@ -75,7 +64,6 @@ def _bypass_citation_pipeline():
 
 @pytest.fixture
 def steps(emitted):
-    """Every body the producers wrote during the test (``tests/conftest.py``)."""
     return emitted
 
 
@@ -122,8 +110,6 @@ class TestRoundZero:
         assert result.tool_iterations == 0
 
     async def test_two_turns_never_share_a_prefetch_call_id(self):
-        """The last turn's transcript keeps its calls; a provider refuses two
-        calls under one id, so the next turn's prefetch must not reuse it."""
         ids = []
         for _ in range(2):
             calls: list = []
@@ -192,8 +178,6 @@ class TestNothingRunsThatShouldNot:
 
 
 class TestPrefetchSwitch:
-    """``prefetch: false`` is the answer suite's navigate arm (ADR-0127): round 0 fetches nothing."""
-
     def _asked(self):
         from agent.core.decisions import TurnDecisions
         from agent.core.decisions import TurnFacts
