@@ -108,7 +108,6 @@ EXCLUDED = re.compile(
             r"^tests/test_legacy_headers\.py$",
             r"^deploy/postgres/rename-legacy-names\.sh$|^deploy/pulumi/src/data/postgres-rename\.ts$",
             r"^deploy/pulumi/index-postgres-rename\.spec\.ts$|^tests/test_postgres_rename_legacy_names\.py$",
-            r"^apps/workspace/app/storage-rename-boot(\.spec)?\.ts$",
             r"^scripts/rls-test-db\.sh$",
             r"^apps/workspace/bff/turns/headless-mode\.ts$",
             r"^apps/website/redirects\.mjs$",

@@ -60,8 +60,6 @@
   "apps/workspace/app/dev/platform-cards/page.tsx": 4,
   "apps/workspace/app/dev/platform-overview/page.tsx": 1,
   "apps/workspace/app/dev/share-dialog/page.tsx": 1,
-  "apps/workspace/app/storage-rename-boot.spec.ts": 4,
-  "apps/workspace/app/storage-rename-boot.ts": 12,
   "apps/workspace/bff/agent-api/ask-calls.spec.ts": 1,
   "apps/workspace/bff/agent-api/catalog/collaboration.ts": 2,
   "apps/workspace/bff/agent-api/catalog/index.ts": 4,
