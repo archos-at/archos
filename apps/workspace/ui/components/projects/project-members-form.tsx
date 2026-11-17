@@ -1,16 +1,15 @@
 'use client'
 
 import type { JSX } from 'react'
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useStore } from '@tanstack/react-form'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { Lock, Search, UserPlus, Users } from 'lucide-react'
 import { collectPages } from '@/lib/api/offset-page'
 import { cn } from '@/lib/utils'
-import { FieldShell, useAppForm, useFieldContext } from '@/components/form'
+import { useAppForm } from '@/components/form'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -18,7 +17,6 @@ import { Chip } from '@/components/ui/chip'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 import { FieldError } from '@/components/ui/field'
-import { Input } from '@/components/ui/input'
 import {
   Item,
   ItemActions,
@@ -30,7 +28,6 @@ import {
 } from '@/components/ui/item'
 import { LoadError } from '@/components/ui/load-error'
 import { SearchField } from '@/components/ui/search-field'
-import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import {
   Select,
   SelectContent,
@@ -43,17 +40,10 @@ import { useTranslations } from '@/i18n'
 import { commonCopy } from '@/i18n/namespaces/common'
 import { membersCopy } from '@/i18n/namespaces/members'
 import { capturePosthog } from '@/lib/analytics/posthog'
-
-type ProjectRole = 'project-viewer' | 'project-contributor' | 'project-editor' | 'project-admin'
-
-interface Member {
-  organizationMembershipId: string
-  userId: string
-  email: string | null
-  name: string
-  profilePictureUrl: string | null
-  role: ProjectRole | null
-}
+import { MemberAvatar } from './project-members-form/member-avatar'
+import type { Member, ProjectRole } from './project-members-form/member-types'
+import { MemberSuggestField } from './project-members-form/member-suggest-field'
+import { RoleSelectField } from './project-members-form/role-select-field'
 
 interface ProjectMembersFormProps {
   projectId: string
@@ -78,216 +68,9 @@ const ROLE_VALUES: ProjectRole[] = [
 
 const NO_ACCESS = 'none'
 
-const initials = (name: string): string => {
-  const parts = name.trim().split(/\s+/).filter(Boolean)
-  const letters = parts.slice(0, 2).map((part) => part.charAt(0).toUpperCase())
-  return letters.join('') || '?'
-}
-
 const searchSchema = z.object({
   query: z.string(),
 })
-
-function MemberAvatar({ member, className }: { member: Member; className?: string }): JSX.Element {
-  return (
-    <Avatar className={className}>
-      {member.profilePictureUrl && <AvatarImage src={member.profilePictureUrl} alt="" />}
-      <AvatarFallback className="text-xs font-medium">
-        {initials(member.name)}
-      </AvatarFallback>
-    </Avatar>
-  )
-}
-
-const MAX_SUGGESTIONS = 6
-
-interface MemberSuggestFieldProps {
-  label: string
-  placeholder: string
-  members: Member[]
-  roleLabel: (role: ProjectRole) => string
-  containerClassName?: string
-}
-
-interface RoleSelectFieldProps {
-  label: string
-  options: Array<{ value: ProjectRole; label: string; description: string }>
-  containerClassName?: string
-}
-
-function RoleSelectField({
-  label,
-  options,
-  containerClassName,
-}: RoleSelectFieldProps): JSX.Element {
-  const field = useFieldContext<ProjectRole>()
-  const errors = field.state.meta.isTouched
-    ? (field.state.meta.errors as Array<string | { message: string } | undefined>)
-    : []
-  const selectedLabel = options.find((option) => option.value === field.state.value)?.label
-
-  return (
-    <FieldShell label={label} htmlFor={field.name} errors={errors} className={containerClassName}>
-      <Select
-        value={field.state.value}
-        onValueChange={(value) => field.handleChange(value as ProjectRole)}
-      >
-        <SelectTrigger id={field.name} className="w-full" onBlur={field.handleBlur}>
-          <SelectValue>{selectedLabel}</SelectValue>
-        </SelectTrigger>
-        <SelectContent>
-          {options.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              <div className="flex flex-col gap-0.5 py-0.5 text-left">
-                <span>{option.label}</span>
-                <span className="text-muted-foreground text-xs font-normal">
-                  {option.description}
-                </span>
-              </div>
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </FieldShell>
-  )
-}
-
-function MemberSuggestField({
-  label,
-  placeholder,
-  members,
-  roleLabel,
-  containerClassName,
-}: MemberSuggestFieldProps): JSX.Element {
-  const t = useTranslations(membersCopy)
-  const field = useFieldContext<string>()
-  const listboxId = useId()
-  const [open, setOpen] = useState(false)
-  const [highlight, setHighlight] = useState(0)
-
-  const query = (field.state.value ?? '').trim().toLowerCase()
-  const suggestions = members
-    .filter((member) => member.email)
-    .filter((member) => `${member.name} ${member.email}`.toLowerCase().includes(query))
-    .sort(
-      (a, b) =>
-        Number(Boolean(a.role)) - Number(Boolean(b.role)) || a.name.localeCompare(b.name)
-    )
-    .slice(0, MAX_SUGGESTIONS)
-
-  const active = Math.min(highlight, Math.max(suggestions.length - 1, 0))
-  const optionId = (index: number): string => `${listboxId}-option-${index}`
-
-  const errors = field.state.meta.isTouched
-    ? (field.state.meta.errors as Array<string | { message: string } | undefined>)
-    : []
-
-  const pick = (member: Member): void => {
-    field.handleChange(member.email ?? '')
-    setOpen(false)
-  }
-
-  return (
-    <FieldShell label={label} htmlFor={field.name} errors={errors} className={containerClassName}>
-      {/* The suggestion list is the shared floating `PopoverContent` anchored
-          to the field, not a hand-rolled absolute panel: same floating
-          chrome, same outside-click/Escape contract. Keyboard behaviour is
-          ported unchanged (ArrowUp/Down move, Enter picks, Escape closes) and
-          rows grow to the touch floor on a coarse pointer. */}
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverAnchor asChild>
-          <Input
-            id={field.name}
-            name={field.name}
-            type="text"
-            role="combobox"
-            autoComplete="off"
-            aria-expanded={open}
-            aria-controls={listboxId}
-            aria-autocomplete="list"
-            aria-activedescendant={open && suggestions[active] ? optionId(active) : undefined}
-            aria-invalid={errors.length > 0 || undefined}
-            placeholder={placeholder}
-            value={field.state.value ?? ''}
-            onChange={(event) => {
-              field.handleChange(event.target.value)
-              setOpen(true)
-              setHighlight(0)
-            }}
-            onFocus={() => setOpen(true)}
-            onBlur={() => {
-              field.handleBlur()
-              setOpen(false)
-            }}
-            onKeyDown={(event) => {
-              if (event.key === 'ArrowDown') {
-                event.preventDefault()
-                setOpen(true)
-                setHighlight((value) => Math.min(value + 1, suggestions.length - 1))
-              } else if (event.key === 'ArrowUp') {
-                event.preventDefault()
-                setHighlight((value) => Math.max(value - 1, 0))
-              } else if (event.key === 'Enter') {
-                if (open && suggestions[active]) {
-                  event.preventDefault()
-                  pick(suggestions[active])
-                }
-              } else if (event.key === 'Escape') {
-                setOpen(false)
-              }
-            }}
-          />
-        </PopoverAnchor>
-        <PopoverContent
-          align="start"
-          sideOffset={4}
-          className="max-h-72 w-[var(--radix-popover-trigger-width)] overflow-y-auto p-1"
-          onOpenAutoFocus={(event) => event.preventDefault()}
-          onCloseAutoFocus={(event) => event.preventDefault()}
-        >
-          <div
-            id={listboxId}
-            role="listbox"
-            aria-label={t('invite.suggestionsAria')}
-          >
-            {suggestions.length === 0 ? (
-              <p className="text-muted-foreground px-3 py-2.5 text-sm">
-                {t('invite.noSuggestions')}
-              </p>
-            ) : (
-              suggestions.map((member, index) => (
-                <div
-                  key={member.organizationMembershipId}
-                  id={optionId(index)}
-                  role="option"
-                  aria-selected={index === active}
-                  onMouseDown={(event) => {
-                    event.preventDefault()
-                    pick(member)
-                  }}
-                  onMouseEnter={() => setHighlight(index)}
-                  className={cn(
-                    'duration-snap flex cursor-pointer items-center gap-3 rounded-control px-3 py-2 transition-colors ease-out pointer-coarse:min-h-11 motion-reduce:transition-none',
-                    index === active && 'bg-accent'
-                  )}
-                >
-                  <MemberAvatar member={member} className="size-7" />
-                  <div className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate text-sm font-medium">{member.name}</span>
-                    <span className="text-muted-foreground truncate text-xs">{member.email}</span>
-                  </div>
-                  <span className="text-muted-foreground shrink-0 text-xs">
-                    {member.role ? roleLabel(member.role) : t('roster.noAccess')}
-                  </span>
-                </div>
-              ))
-            )}
-          </div>
-        </PopoverContent>
-      </Popover>
-    </FieldShell>
-  )
-}
 
 export function ProjectMembersForm({
   projectId,
