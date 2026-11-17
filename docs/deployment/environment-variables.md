@@ -118,8 +118,7 @@ Variables set in `docker-compose.yaml` under `environment:` take precedence over
 | `CONFIG_FILE` | No | `/app/configs/config_oib_openrouter.yml` | The workflow config inside the backend container. Compose sets it from `BACKEND_CONFIG`, Pulumi from `backend.configFile`. The web roles' entrypoint (`apps/agent-host/start_web.py`) exports it as `NAT_CONFIG_FILE`; the ingest worker reads it first, then `NAT_CONFIG_FILE`, then the default. |
 | `NAT_CONFIG_FILE` | No | (set by `apps/agent-host/start_web.py` from `CONFIG_FILE`) | The config the runtime's FastAPI app loads. A research job records it at submit (`jobs/submit.py`) as the config its worker runs; the ingest worker falls back to it when `CONFIG_FILE` is unset. Not set by hand. |
 | `NAT_FASTAPI_LOG_LEVEL` | No | `20` | Python logging level a research job runs at, recorded at submit (`jobs/submit.py`): 10 DEBUG, 20 INFO, 30 WARNING. |
-| `QDRANT_URL` | Yes | (unset) | REST URL of the Qdrant cluster, the one vector store (ADR-0115): every chunk is written to and read from it, and a process without it fails its first knowledge-layer call. Kubernetes: `http://qdrant.<namespace>.svc.cluster.local:6333`, the ClusterIP Service in front of every peer (gRPC on 6334 behind the same name), set on every backend tier and on the `chroma-migration` Job's importer, and reachable only from those through the `allow-app-to-qdrant` NetworkPolicy. Compose: `http://qdrant:6333`. Tests that need a store read `QDRANT_TEST_URL` instead (skipped locally without it, failing on CI). aiq-agent, aiq-api, agent-worker, ingest-worker. |
-| `VECTOR_IMPORT_PENDING` | No | (unset) | `true` while an operator imports an old vector store (the Chroma export) into a Qdrant the new release already runs against, on Compose. The base-corpus sync then takes an empty corpus collection for the pending import, not for a reset: it queues nothing instead of re-embedding the whole corpus. Unset it once the import has verified, or a store that really was reset is never refilled. Kubernetes does not need it: the migration Job runs before the backend tiers roll and the sync is suspended meanwhile. aiq-api (the role that serves the housekeeping routes). |
+| `QDRANT_URL` | Yes | (unset) | REST URL of the Qdrant cluster, the one vector store (ADR-0115): every chunk is written to and read from it, and a process without it fails its first knowledge-layer call. Kubernetes: `http://qdrant.<namespace>.svc.cluster.local:6333`, the ClusterIP Service in front of every peer (gRPC on 6334 behind the same name), set on every backend tier, and reachable only from those through the `allow-app-to-qdrant` NetworkPolicy. Compose: `http://qdrant:6333`. Tests that need a store read `QDRANT_TEST_URL` instead (skipped locally without it, failing on CI). aiq-agent, aiq-api, agent-worker, ingest-worker. |
 | `QDRANT_API_KEY` | With `QDRANT_URL` | (unset) | Qdrant's read-write API key (`service.api_key`), sent as the `api-key` header. Open-source Qdrant answers anyone without one. Kubernetes: from `grid-oib:qdrantApiKey`, in the `grid-secrets` Secret (`secretKeyRef`); the same value is in the `qdrant-credentials` Secret the peers read. The read-only key (`grid-oib:qdrantReadOnlyApiKey`) is configured on the server but not handed to the backend: every tier that holds this key reaches a write path today, so there is no read-only tier to give it to (`docs/architecture/qdrant-retrieval-design.md` §12 says what would have to change). During a key rotation the peers also accept `QDRANT__SERVICE__ALT_API_KEY` (below). aiq-agent, aiq-api, agent-worker, ingest-worker. |
 | `QDRANT_SHARD_NUMBER` | No | `1` | Shards of the tenant collection (`piloti_office`), fixed when the backend first creates it: open-source Qdrant cannot reshard, so a cluster grows by moving shards and a different count means a new collection and an alias switch (`docs/architecture/qdrant-retrieval-design.md` §9). The corpus collection always has one. Kubernetes sets `6` when `grid-oib:qdrantReplicas` is above 1. Read in `knowledge_layer/vector_store/config.py`. |
 | `QDRANT_REPLICATION_FACTOR` | No | `1` | Replicas per shard, also fixed at creation. The write consistency factor is always `1`, whatever this says: a write is acknowledged once one replica has it, and the other becomes durable when Qdrant re-syncs it from the WAL after its peer returns. So with `2`, a lost peer (a rollout, a node drain) keeps reads, writes and the Raft quorum; losing the acknowledging peer for good before the re-sync loses the write, and the snapshots to SeaweedFS (and a re-ingest of the affected files) are the net behind that. The backend retries a transient write failure (connection, timeout, 5xx) three times with 0.2/0.8/2 s backoff, never a 4xx (`knowledge_layer/vector_store/store.py`). A self-hosted cluster does not re-replicate after a node loss by itself. Kubernetes sets `2` when `grid-oib:qdrantReplicas` is above 1. |
@@ -680,23 +679,6 @@ are the ones operators change or meet; the rest are in that function.
 | `QDRANT__STORAGE__LOW_MEMORY_MODE` | `grid-oib:qdrantLowMemoryMode`, unset by default | `no_resident` or `no_populate`: load segments without making them resident, to get a peer that OOMs while loading back up. Recovery only; remove it afterwards. An unknown value stops the peer at start, so the config refuses one. |
 
 ---
-
-## Chroma migration Job (Kubernetes/Pulumi-injected)
-
-The one-shot `chroma-migration` Job (`grid-oib:chromaMigration`,
-`deploy/pulumi/src/app/chroma-migration-job.ts`) sets these on its `export`
-init container, which runs `deploy/migration/chroma_export.py` through
-`uv run --script` on a read-only root. Not settable from the stack. The
-`import` container gets the backend's environment (`backendEnv`, service name
-`grid-chroma-migration`).
-
-| Variable | Value | Description |
-|----------|-------|-------------|
-| `UV_CACHE_DIR` | `/exchange/uv-cache` | Where uv builds the environment holding the `chromadb` the script pins, on the scratch volume. |
-| `UV_PYTHON_DOWNLOADS` | `never` | uv runs the image's Python 3.12 and never fetches another. |
-| `HOME`, `TMPDIR` | `/exchange/home`, `/exchange/tmp` | Anything else written lands on the scratch volume, not the read-only root. |
-| `ANONYMIZED_TELEMETRY` | `False` | `chromadb`'s usage reporting, off. |
-| `PYTHONUNBUFFERED` | `1` | The export's progress reaches `kubectl logs` as it happens. |
 
 ## Hatchet client (ADR-0150)
 

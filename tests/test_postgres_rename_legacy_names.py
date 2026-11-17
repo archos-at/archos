@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
-import time
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -14,15 +13,14 @@ _URL = os.environ.get("TEST_POSTGRES_URL")
 
 pytestmark = pytest.mark.skipif(not _URL or not shutil.which("psql"), reason="TEST_POSTGRES_URL or psql not available")
 
-OLD_DATABASES = ("aiq_jobs", "aiq_checkpoints")
-NEW_DATABASES = ("jobs", "checkpoints")
+DATABASES = ("jobs", "checkpoints", "app")
 RLS_ROLES = {
     "grid_app_owner": "app_owner",
     "grid_app_platform": "app_platform",
     "grid_app_rw": "app_rw",
     "grid_keda_scaler": "keda_scaler",
 }
-ROLES = ("aiq", "agent", "rename_helper", *RLS_ROLES, *RLS_ROLES.values())
+ROLES = ("agent", *RLS_ROLES, *RLS_ROLES.values())
 RLS_PASSWORDS = {
     "RUNTIME_PASSWORD": "rw-test-password",
     "SCALER_PASSWORD": "scaler-test-password",
@@ -84,7 +82,7 @@ def _roles() -> set[str]:
 @pytest.fixture(autouse=True)
 def _clean_cluster():
     def clean():
-        for name in (*OLD_DATABASES, *NEW_DATABASES, "grid_app", "app"):
+        for name in DATABASES:
             _psql(f"DROP DATABASE IF EXISTS {name} WITH (FORCE)")
         for role in ROLES:
             _psql(f"DROP ROLE IF EXISTS {role}")
@@ -94,98 +92,25 @@ def _clean_cluster():
     clean()
 
 
-def _old_install(*, superuser: bool) -> None:
+def _install(*, superuser: bool) -> None:
     attributes = "SUPERUSER LOGIN" if superuser else "LOGIN"
-    _psql(f"CREATE ROLE aiq {attributes} PASSWORD 'aiq-test-password'")  # pragma: allowlist secret
-    for name in OLD_DATABASES:
-        _psql(f"CREATE DATABASE {name} OWNER aiq")
-    _psql("CREATE TABLE job_info (id int)", user="aiq", database="aiq_jobs")
-
-
-def _assert_renamed(*, with_data: bool = True) -> None:
-    databases = _databases()
-    assert set(NEW_DATABASES) <= databases
-    assert not set(OLD_DATABASES) & databases
-    roles = _roles()
-    assert "agent" in roles
-    assert not {"aiq", "rename_helper"} & roles
-    for name in NEW_DATABASES:
-        assert _psql(f"SELECT pg_get_userbyid(datdba) FROM pg_database WHERE datname = '{name}'") == "agent"
-        assert _psql(f"SELECT datallowconn FROM pg_database WHERE datname = '{name}'") == "t"
-    if with_data:
-        assert _psql("SELECT count(*) FROM job_info", user="agent", database="jobs") == "0"
-
-
-def test_kubernetes_shape_renames_under_a_live_connection_and_a_second_run_is_a_no_op():
-    _old_install(superuser=False)
-    held = subprocess.Popen(
-        ["psql", "-X", "-d", "aiq_jobs", "-c", "SELECT pg_sleep(60)"],
-        env=_env("aiq"),
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-    try:
-        deadline = time.monotonic() + 10
-        while _psql("SELECT count(*) FROM pg_stat_activity WHERE datname = 'aiq_jobs'") == "0":
-            assert time.monotonic() < deadline, "the held connection never opened"
-            time.sleep(0.1)
-
-        first = _run_script(_superuser())
-        assert first.returncode == 0, first.stderr
-        assert "aiq_jobs -> jobs" in first.stdout
-        assert "role aiq -> agent" in first.stdout
-        assert held.wait(timeout=30) != 0, "the connection to the old database survived the rename"
-    finally:
-        held.kill()
-
-    _assert_renamed()
-    second = _run_script(_superuser())
-    assert second.returncode == 0, second.stderr
-    assert "->" not in second.stdout
-    _assert_renamed()
-
-
-def test_compose_shape_renames_the_superuser_it_logs_in_as():
-    _old_install(superuser=True)
-
-    first = _run_script("agent")
-    assert first.returncode == 0, first.stderr
-    assert "role aiq -> agent" in first.stdout
-    _assert_renamed()
-
-    second = _run_script("agent")
-    assert second.returncode == 0, second.stderr
-    assert "->" not in second.stdout
-    _assert_renamed()
-
-
-def test_a_fresh_install_without_the_old_names_is_left_alone():
-    _psql("CREATE ROLE agent LOGIN")
-    for name in NEW_DATABASES:
+    _psql(f"CREATE ROLE agent {attributes} PASSWORD 'agent-test-password'")  # pragma: allowlist secret
+    for name in DATABASES:
         _psql(f"CREATE DATABASE {name} OWNER agent")
 
-    result = _run_script(_superuser())
 
-    assert result.returncode == 0, result.stderr
-    assert "->" not in result.stdout
-    _assert_renamed(with_data=False)
+def test_an_install_with_no_old_name_is_left_alone_and_a_second_run_is_a_no_op():
+    _install(superuser=False)
 
-
-def test_the_app_database_is_renamed_before_the_migrations():
-    _psql("CREATE ROLE agent LOGIN")
-    _psql("CREATE DATABASE grid_app OWNER agent")
-
-    first = _run_script(_superuser())
-
-    assert first.returncode == 0, first.stderr
-    assert "grid_app -> app" in first.stdout
-    assert {"app"} <= _databases() and "grid_app" not in _databases()
-    assert "->" not in _run_script(_superuser()).stdout
+    for _ in range(2):
+        result = _run_script(_superuser())
+        assert result.returncode == 0, result.stderr
+        assert "->" not in result.stdout
+        assert set(DATABASES) <= _databases() and "agent" in _roles()
 
 
 def test_a_fresh_install_migrates_under_the_old_role_names_and_renames_them_after():
-    _psql("CREATE ROLE agent LOGIN")
-    _psql("CREATE DATABASE app OWNER agent")
+    _install(superuser=False)
 
     before = _run_script(_superuser(), ENSURE_RLS_ROLES="1", **RLS_PASSWORDS)
     assert before.returncode == 0, before.stderr
@@ -216,7 +141,7 @@ def test_a_fresh_install_migrates_under_the_old_role_names_and_renames_them_afte
 
 
 def test_compose_renames_the_roles_init_db_created_without_a_scaler():
-    _old_install(superuser=True)
+    _install(superuser=True)
     _psql("CREATE ROLE grid_app_platform NOLOGIN BYPASSRLS")
     _psql("CREATE ROLE grid_app_rw LOGIN NOINHERIT")
     _psql("GRANT grid_app_platform TO grid_app_rw")

@@ -22,7 +22,6 @@ import { buildOnlineIndexes } from "./src/app/online-indexes-job";
 import { runKnowledgeCarry } from "./src/app/knowledge-carry-job";
 import { reconcileAuditSchemas } from "./src/app/audit-schemas-job";
 import { carryOverFolderGrants, reconcileAuthzCatalog } from "./src/app/workos-authz-jobs";
-import { migrateChromaToQdrant } from "./src/app/chroma-migration-job";
 import { installBackend } from "./src/app/backend";
 import { installBackendScaling } from "./src/app/backend-scaling";
 import { installApi } from "./src/app/api";
@@ -181,25 +180,12 @@ if (cfg.auth.requireAuth) {
 
 const workers = installWorkers(wiring, cfg, secrets, [migrations]);
 
-const chromaMigration = cfg.chromaMigration.enabled
-  ? migrateChromaToQdrant(wiring, cfg, secrets, [
-      postgres.initJob,
-      postgres.pooler,
-      qdrant.statefulSet,
-      qdrant.service,
-      workers.baseCorpusSync,
-      ...(workers.vectorReconcile ? [workers.vectorReconcile] : []),
-    ])
-  : undefined;
-const afterChromaMigration = chromaMigration ? [chromaMigration] : [];
-
 const apiDependsOn = [
   hatchet.tokenSync,
   postgres.initJob,
   seaweed.bucketInitJob,
   dragonfly.service,
   qdrant.service,
-  ...afterChromaMigration,
 ];
 const api = installApi(wiring, cfg, secrets, apiDependsOn);
 const legacyApi = installApi(wiring, cfg, secrets, apiDependsOn, LEGACY_API_TIER);
@@ -213,7 +199,6 @@ const backendDependsOn = [
   seaweed.bucketInitJob,
   dragonfly.service,
   qdrant.service,
-  ...afterChromaMigration,
 ];
 const backend = installBackend(wiring, cfg, secrets, backendDependsOn);
 
@@ -260,7 +245,6 @@ const agentWorker = installAgentWorker(wiring, cfg, secrets, [
   seaweed.bucketInitJob,
   qdrant.service,
   ...queueScalerDeps,
-  ...afterChromaMigration,
 ]);
 
 const ingestWorker = installIngestWorker(wiring, cfg, secrets, [
@@ -270,7 +254,6 @@ const ingestWorker = installIngestWorker(wiring, cfg, secrets, [
   seaweed.bucketInitJob,
   qdrant.service,
   ...queueScalerDeps,
-  ...afterChromaMigration,
 ]);
 
 installIngestWorkerHeavy(wiring, cfg, secrets, [
@@ -280,7 +263,6 @@ installIngestWorkerHeavy(wiring, cfg, secrets, [
   seaweed.bucketInitJob,
   qdrant.service,
   ...queueScalerDeps,
-  ...afterChromaMigration,
 ]);
 
 const bffJobs = installBffJobs(wiring, cfg, secrets, [
