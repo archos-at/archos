@@ -422,7 +422,7 @@ who is in the document with the review's own `Presence`, without following.
 
 A reply in a thread can be wrong: a typo, a wrong name after „@“, an answer
 on the wrong mark. Its author has „Bearbeiten“ and „Löschen“ in the reply's
-own menu (`ReplyEntry` in `thread-card.tsx`): the composer takes the reply's
+own menu (`ReplyEntry` in `thread-card/reply-entry.tsx`): the composer takes the reply's
 place with its words and whom it mentions, as a mark is reworded, and a delete
 is confirmed, as a mark's is (`ConfirmDialog`). An edited reply says
 „bearbeitet“ beside its time (`editedAt`). Both go through
