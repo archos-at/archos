@@ -69,8 +69,9 @@ or the views below.
   `GROUP BY` before you filter on a value, or before you say one is absent.
 - **Metrics.** Pod and container series are labelled `k8s.pod.name` and
   `k8s.container.name`, not `service.name`. `aggregation: count` on a histogram
-  counts series, not requests; count requests with PromQL, quoting the dotted
-  name: `sum by ("http.response.status_code") (increase({__name__="http.server.request.duration"}[24h]))`.
+  counts series, not requests, and the bare histogram name sums durations; count
+  requests from its `_count` series with PromQL, quoting dotted names:
+  `sum by ("http.response.status_code") (increase({__name__="http.server.request.duration_count", "deployment.environment.name"="prod"}[24h]))`.
   Queue depth is `grid.queue.depth` and `hatchet_tenant_queue_size`; chart both with `max`.
 - **Small numbers.** Production has a handful of offices and tens of answers a
   week. Give counts beside every rate, and a longer window before calling a trend.
