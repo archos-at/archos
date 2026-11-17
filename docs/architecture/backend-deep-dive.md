@@ -394,7 +394,7 @@ backend pieces live in `chat_socket.py` and `conversation_bus.py`; the design is
   no row.
 - **Rehydrate.** A reload knows its turn and sends `attach{after_seq: 0}`; a turn
   the stream no longer holds is read from the persisted row
-  (`sessions-store.restoreSessionState`).
+  (`session-navigation.restoreSessionState`).
 
 ## 3. The card pipeline
 
