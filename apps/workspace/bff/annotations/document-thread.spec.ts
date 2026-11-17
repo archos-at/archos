@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * One person's thread about one document (ADR-0106): a derived id, created on
- * first use with the document as its subject, the same for the canvas and
- * for a wake of Piloti by that person's reply, and never somebody else's.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 

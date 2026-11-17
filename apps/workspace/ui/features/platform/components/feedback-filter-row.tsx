@@ -1,21 +1,5 @@
 'use client'
 
-/**
- * The ratings tab's own filters, under the page-wide scope: verdict, reason,
- * topic, how the answer was produced, its confidence, whether the voter wrote
- * something, and free text.
- *
- * Every filter here narrows EVERYTHING on the tab — the figures, the digest,
- * the trend, the bars, the organization table, the list and the export — so it
- * sits above all of them rather than inside the list. Each picker shows how
- * many votes in the scope carry each value ("Brandschutz · 42", from the
- * options endpoint), counted over the scope alone so a pick never makes the
- * other values look as if they had vanished.
- *
- * Controlled: the workspace owns the URL. The search is debounced here (300 ms)
- * so typing does not push a history entry per keystroke.
- */
-
 import type { JSX } from 'react'
 import { useEffect, useId, useRef, useState } from 'react'
 import { X } from 'lucide-react'
@@ -48,13 +32,11 @@ import { formatCount } from './answer-feedback-types'
 export interface FeedbackFilterRowProps {
   filters: RatingsFilters
   onFiltersChange: (next: RatingsFilters) => void
-  /** Per-value counts over the scope; null while loading or when they failed. */
   options: FeedbackFilterOptions | null
 }
 
 const SEARCH_DEBOUNCE_MS = 300
 
-/** Vocabulary → picker options, labelled and counted. */
 function counted<Key extends string>(
   keys: readonly Key[],
   label: (key: Key) => string,
@@ -71,8 +53,6 @@ export function FeedbackFilterRow({ filters, onFiltersChange, options }: Feedbac
   const expectedId = useId()
   const count = (value: number): string => formatCount(value, locale)
 
-  // The search box is local until it settles; an outside change (Clear all, a
-  // link) replaces it.
   const committed = filters.query ?? ''
   const [query, setQuery] = useState(committed)
   const latest = useRef(filters)
@@ -114,8 +94,6 @@ export function FeedbackFilterRow({ filters, onFiltersChange, options }: Feedbac
             onValueChange={(value) => {
               if (!value) return
               const verdict = value === 'up' || value === 'down' ? value : null
-              // A reason only exists on a down-vote; carrying it to the helpful
-              // votes would empty the tab.
               set({ verdict, reasons: verdict === 'up' ? [] : filters.reasons })
             }}
             aria-label={t('answerFeedback.filters.verdict')}

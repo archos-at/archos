@@ -1,9 +1,3 @@
-/**
- * A shelf's filing suggestions while an upload is on screen: read again on the
- * shelf's live hint, on a slow clock when no hint comes, and never on another
- * shelf's hint.
- */
-
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { scriptedChannels, type ScriptedChannels } from '@/test-utils/live-channels'

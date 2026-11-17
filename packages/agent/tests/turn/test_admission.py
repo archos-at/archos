@@ -1,5 +1,3 @@
-"""Admission, budget and profiling around the run's stream; a refusal is a value."""
-
 from __future__ import annotations
 
 import pytest
@@ -20,8 +18,6 @@ BODY = AnswerRetractedBody(value=EmptyValue())
 
 
 class _Agent:
-    """Streams one body, then its outcome (or raises it)."""
-
     def __init__(self, outcome):
         self.outcome = outcome
         self.calls: list[tuple[object, str | None]] = []
@@ -35,7 +31,6 @@ class _Agent:
 
 
 async def _answer(*args, **kwargs):
-    """The bodies the turn streamed, and its outcome."""
     items = [item async for item in answer_turn(*args, **kwargs)]
     *bodies, outcome = items
     assert isinstance(outcome, TurnOutcome)
@@ -44,7 +39,6 @@ async def _answer(*args, **kwargs):
 
 @pytest.fixture
 def admitted(monkeypatch):
-    """Record which organization the slot was taken for; no cache needed."""
     seen: list[str | None] = []
 
     class _Slot:
@@ -72,8 +66,6 @@ class TestAnswerTurn:
         assert admitted == ["org"]
 
     async def test_the_identity_reaches_the_cost_ledger_unparsed(self, admitted, monkeypatch):
-        """The ledger re-parses the signed envelope when handed nothing; the
-        turn already parsed it once and says so."""
         seen: dict = {}
 
         class _Tracker:

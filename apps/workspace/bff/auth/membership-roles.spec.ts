@@ -39,7 +39,6 @@ describe('resolveMembershipRoles', () => {
       statuses: ['active'],
       limit: 1,
     })
-    // The one membership lookup, shared with the session and every third-party check.
     expect(getCached).toHaveBeenCalledWith('org-membership:org_1:user_1', MEMBERSHIP_TTL_MS, expect.any(Function), expect.anything())
     expect(MEMBERSHIP_TTL_MS).toBeLessThanOrEqual(60_000)
   })

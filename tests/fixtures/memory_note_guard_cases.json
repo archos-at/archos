@@ -1,0 +1,488 @@
+{
+  "description": "Cross-language contract for what a memory note may not hold. Python: agent.knowledge.memory_content_guard (packages/agent/tests/knowledge/test_memory_content_guard_parity.py). TypeScript: apps/workspace/bff/knowledge/note-content-guard.ts (note-content-guard.spec.ts). For each case both assert `secret` (the kind of secret found, refused on every shelf, or null) and `contact` (the kind of contact detail found, refused on the shared shelves only, or null). A case with both null must be stored as it is.",
+  "secret_kinds": [
+    "iban",
+    "at_svnr",
+    "credit_card",
+    "de_svnr",
+    "de_tax_id",
+    "private_key",
+    "api_key",
+    "credential",
+    "identity_number"
+  ],
+  "contact_kinds": [
+    "email",
+    "phone"
+  ],
+  "cases": [
+    {
+      "name": "an unbroken IBAN",
+      "text": "IBAN AT611904300234573201 für die Kaution",
+      "secret": "iban",
+      "contact": null
+    },
+    {
+      "name": "an IBAN written with grouping spaces",
+      "text": "Kaution bitte auf AT61 1904 3002 3457 3201 überweisen",
+      "secret": "iban",
+      "contact": null
+    },
+    {
+      "name": "a German IBAN in groups",
+      "text": "Honorarkonto: DE89 3704 0044 0532 0130 00",
+      "secret": "iban",
+      "contact": null
+    },
+    {
+      "name": "an Austrian social-insurance number, spaced",
+      "text": "Bauleiter Huber, 1237 010180, ab Mai auf der Baustelle",
+      "secret": "at_svnr",
+      "contact": null
+    },
+    {
+      "name": "an Austrian social-insurance number, unbroken with its label",
+      "text": "SV-Nr. 1237010180 für die Anmeldung",
+      "secret": "at_svnr",
+      "contact": null
+    },
+    {
+      "name": "a labelled insurance number that fails its checksum",
+      "text": "Vom Kunden genannte Sozialversicherungsnummer: 1234 010180.",
+      "secret": "identity_number",
+      "contact": null
+    },
+    {
+      "name": "a payment card in groups of four",
+      "text": "Bürokarte 4111 1111 1111 1111, läuft 08/29 ab",
+      "secret": "credit_card",
+      "contact": null
+    },
+    {
+      "name": "a German pension-insurance number",
+      "text": "Rentenversicherung 15 070649 C 103",
+      "secret": "de_svnr",
+      "contact": null
+    },
+    {
+      "name": "a German tax ID with its label",
+      "text": "Steuer-ID 36 574 261 809",
+      "secret": "de_tax_id",
+      "contact": null
+    },
+    {
+      "name": "a tax number after its label",
+      "text": "Steuernummer des Bauherrn: 12 345/6789",
+      "secret": "identity_number",
+      "contact": null
+    },
+    {
+      "name": "an identity card number",
+      "text": "Personalausweis Nr. L01X00T471 liegt in Kopie vor",
+      "secret": "identity_number",
+      "contact": null
+    },
+    {
+      "name": "a US social-security number with its dashes",
+      "text": "Client SSN on file is 123-45-6789.",
+      "secret": "identity_number",
+      "contact": null
+    },
+    {
+      "name": "a private key header",
+      "text": "-----BEGIN RSA PRIVATE KEY-----\nMIIEow",
+      "secret": "private_key",
+      "contact": null
+    },
+    {
+      "name": "an API key with a provider prefix",
+      "text": "sk-live-9f3a7c21d8e44b0aa1",
+      "secret": "api_key",
+      "contact": null
+    },
+    {
+      "name": "a short prefixed key after its label",
+      "text": "API key: sk-live-abc",
+      "secret": "api_key",
+      "contact": null
+    },
+    {
+      "name": "a prefixed key with underscores",
+      "text": "The API key for the shared drive is sk_live_abcdef.",
+      "secret": "api_key",
+      "contact": null
+    },
+    {
+      "name": "a GitHub token",
+      "text": "CI nutzt ghp_0123456789abcdefghijABCDEFGHIJ456789",
+      "secret": "api_key",
+      "contact": null
+    },
+    {
+      "name": "an AWS access key id",
+      "text": "Bucket-Zugriff über AKIAIOSFODNN7EXAMPLE",
+      "secret": "api_key",
+      "contact": null
+    },
+    {
+      "name": "a JSON web token",
+      "text": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dBjftJeZ4CVPmB92K27uhbUJU1p1r",
+      "secret": "api_key",
+      "contact": null
+    },
+    {
+      "name": "a long random token with no prefix",
+      "text": "Schlüssel fürs Planportal 9f3a7c21d8e44b0aa1c5e7f90b2d4a68",
+      "secret": "api_key",
+      "contact": null
+    },
+    {
+      "name": "a password with the word Kennwort",
+      "text": "Bauamt-Portal Login m.huber, Kennwort Sommer2024",
+      "secret": "credential",
+      "contact": null
+    },
+    {
+      "name": "a password after Passwort and a colon",
+      "text": "WLAN-Passwort: Baustelle#7",
+      "secret": "credential",
+      "contact": null
+    },
+    {
+      "name": "an all-digit password after a colon",
+      "text": "Passwort: 20241234",
+      "secret": "credential",
+      "contact": null
+    },
+    {
+      "name": "an English password in a sentence",
+      "text": "The portal password is hunter2.",
+      "secret": "credential",
+      "contact": null
+    },
+    {
+      "name": "a password with no trigger word but a login label",
+      "text": "Projektserver-Zugang: Tulpe#4471!",
+      "secret": "credential",
+      "contact": null
+    },
+    {
+      "name": "a login with user and password on one line",
+      "text": "Login Planserver: m.huber / Tulpe#4471!",
+      "secret": "credential",
+      "contact": null
+    },
+    {
+      "name": "a quoted password",
+      "text": "Das Kennwort lautet „Fassade!2026“.",
+      "secret": "credential",
+      "contact": null
+    },
+    {
+      "name": "a PIN",
+      "text": "Alarmanlage Büro, PIN 4471",
+      "secret": "credential",
+      "contact": null
+    },
+    {
+      "name": "a door code",
+      "text": "Baustelle Lindengasse: Türcode 4711#",
+      "secret": "credential",
+      "contact": null
+    },
+    {
+      "name": "a bearer token",
+      "text": "Authorization: Bearer abcdefghijklmnop.qrstuv",
+      "secret": "credential",
+      "contact": null
+    },
+    {
+      "name": "a token assigned with an equals sign",
+      "text": "token=ab12cd34ef",
+      "secret": "credential",
+      "contact": null
+    },
+    {
+      "name": "a secret beside a contact is a secret first",
+      "text": "Passwort: Tulpe#4471, Rückfragen an huber@example.at",
+      "secret": "credential",
+      "contact": "email"
+    },
+    {
+      "name": "an e-mail address",
+      "text": "Rückfragen an bauamt.wien@example.at",
+      "secret": null,
+      "contact": "email"
+    },
+    {
+      "name": "an international phone number",
+      "text": "Bauherr erreichbar unter +43 664 1234567",
+      "secret": null,
+      "contact": "phone"
+    },
+    {
+      "name": "an international number with 00",
+      "text": "Statiker: 0049 89 1234567",
+      "secret": null,
+      "contact": "phone"
+    },
+    {
+      "name": "a national mobile number",
+      "text": "Polier Gruber 0664 1234567",
+      "secret": null,
+      "contact": "phone"
+    },
+    {
+      "name": "a national number, unbroken",
+      "text": "Polier Gruber 06641234567",
+      "secret": null,
+      "contact": "phone"
+    },
+    {
+      "name": "a landline with an area code",
+      "text": "Bauamt 01/4000-8010",
+      "secret": null,
+      "contact": "phone"
+    },
+    {
+      "name": "a labelled number without a prefix",
+      "text": "Tel. 5123456 (vormittags)",
+      "secret": null,
+      "contact": "phone"
+    },
+    {
+      "name": "a drawing number",
+      "text": "Plan A-101-03 Index C ist der freigegebene Grundriss EG.",
+      "secret": null,
+      "contact": null
+    },
+    {
+      "name": "a drawing number in digit groups",
+      "text": "Plan 2024-0815-001 ist freigegeben.",
+      "secret": null,
+      "contact": null
+    },
+    {
+      "name": "a plot number",
+      "text": "Grundstück Nr. 1234/5 und 1236/12 werden vereinigt.",
+      "secret": null,
+      "contact": null
+    },
+    {
+      "name": "a land register entry",
+      "text": "EZ 1234, KG 01004 Innere Stadt, GB Wien.",
+      "secret": null,
+      "contact": null
+    },
+    {
+      "name": "a cadastral municipality number",
+      "text": "KG-Nr. 01657 Margareten, Gst. .345/2",
+      "secret": null,
+      "contact": null
+    },
+    {
+      "name": "a dimension chain",
+      "text": "Achsmaße 3500 4200 3800 1250 mm laut Polierplan.",
+      "secret": null,
+      "contact": null
+    },
+    {
+      "name": "a room dimension",
+      "text": "Besprechungsraum 12,50 x 8,40 m, lichte Höhe 2,85 m.",
+      "secret": null,
+      "contact": null
+    },
+    {
+      "name": "an area and a volume",
+      "text": "BGF 12.450,50 m², BRI 48.300 m³.",
+      "secret": null,
+      "contact": null
+    },
+    {
+      "name": "a date and a deadline",
+      "text": "Bauverhandlung am 12.03.2027, Frist für Einwendungen 26/03/2027.",
+      "secret": null,
+      "contact": null
+    },
+    {
+      "name": "an ISO date",
+      "text": "Einreichung bis 2027-03-12 laut Bescheid.",
+      "secret": null,
+      "contact": null
+    },
+    {
+      "name": "a date range",
+      "text": "Rohbau 01.03.2027-30.09.2027, Ausbau ab 10/2027.",
+      "secret": null,
+      "contact": null
+    },
+    {
+      "name": "an article number",
+      "text": "Türdrücker Art.-Nr. 4512-889-0031, Edelstahl matt.",
+      "secret": null,
+      "contact": null
+    },
+    {
+      "name": "a long article number",
+      "text": "Bestellnummer 4003773012345 beim Händler angefragt.",
+      "secret": null,
+      "contact": null
+    },
+    {
+      "name": "nine unbroken digits",
+      "text": "Bestellnummer 123456789 ist bestätigt.",
+      "secret": null,
+      "contact": null
+    },
+    {
+      "name": "a pipe size",
+      "text": "Regenfallrohr DN 100/125/150 je nach Dachfläche.",
+      "secret": null,
+      "contact": null
+    },
+    {
+      "name": "a fire resistance class",
+      "text": "Trennwand Stiegenhaus REI 90, Türen EI2 30-C-Sm.",
+      "secret": null,
+      "contact": null
+    },
+    {
+      "name": "a standard with its year",
+      "text": "ÖNORM B 1800:2013 und ÖNORM B 1600 2017 sind vereinbart.",
+      "secret": null,
+      "contact": null
+    },
+    {
+      "name": "a guideline clause",
+      "text": "OIB-RL 2, Punkt 5.1.3: Fluchtweg höchstens 40 m.",
+      "secret": null,
+      "contact": null
+    },
+    {
+      "name": "a measurement against a limit",
+      "text": "Fluchtweg im 4. OG: 34,5 m, Grenzwert 40 m.",
+      "secret": null,
+      "contact": null
+    },
+    {
+      "name": "a fee",
+      "text": "Honorar pauschal 184.000 EUR netto, zahlbar in 6 Raten.",
+      "secret": null,
+      "contact": null
+    },
+    {
+      "name": "a load",
+      "text": "Nutzlast Lager 7,5 kN/m², Schneelast 1,36 kN/m².",
+      "secret": null,
+      "contact": null
+    },
+    {
+      "name": "a U-value",
+      "text": "Außenwand U = 0,18 W/m²K, Fenster Uw 0,9.",
+      "secret": null,
+      "contact": null
+    },
+    {
+      "name": "coordinates",
+      "text": "Lage 48.2082 N, 16.3738 O; Höhe 171,30 m ü. A.",
+      "secret": null,
+      "contact": null
+    },
+    {
+      "name": "a file number",
+      "text": "Bescheid MA 37/123456-2026/1 vom Magistrat.",
+      "secret": null,
+      "contact": null
+    },
+    {
+      "name": "a company VAT number",
+      "text": "Rechnungen an ATU12345678 adressieren.",
+      "secret": null,
+      "contact": null
+    },
+    {
+      "name": "a commercial register number",
+      "text": "Bauherr: Lindenhof GmbH, FN 123456a.",
+      "secret": null,
+      "contact": null
+    },
+    {
+      "name": "an IFC GlobalId",
+      "text": "Wand 2O2Fr$t4X7Zf8NOew3FLOH ist tragend.",
+      "secret": null,
+      "contact": null
+    },
+    {
+      "name": "a document id",
+      "text": "Siehe Dokument 3f2a9c1e-7b4d-4e8a-9c2f-1a2b3c4d5e6f.",
+      "secret": null,
+      "contact": null
+    },
+    {
+      "name": "a file name",
+      "text": "Einreichplan_Lindengasse_2024_Index_C.pdf ist aktuell.",
+      "secret": null,
+      "contact": null
+    },
+    {
+      "name": "the word Zugang without a credential",
+      "text": "Zugang: über die Tiefgarage, Tor 3 (Nordseite).",
+      "secret": null,
+      "contact": null
+    },
+    {
+      "name": "the word Passwort without a value",
+      "text": "Das Passwort für das Bauherrenportal kommt per Post.",
+      "secret": null,
+      "contact": null
+    },
+    {
+      "name": "the word Token in prose",
+      "text": "Design-Tokens kommen aus dem Styleguide des Bauherrn.",
+      "secret": null,
+      "contact": null
+    },
+    {
+      "name": "the word Kennwort with a year",
+      "text": "Kennwort wurde 2024 zuletzt geändert.",
+      "secret": null,
+      "contact": null
+    },
+    {
+      "name": "an insurance policy without a number",
+      "text": "Bauherrenhaftpflicht läuft über die Versicherung des Bauherrn.",
+      "secret": null,
+      "contact": null
+    },
+    {
+      "name": "a pin joint",
+      "text": "Die Stütze ist oben als Pin-Gelenk 2024 nachgewiesen.",
+      "secret": null,
+      "contact": null
+    },
+    {
+      "name": "a number that looks like an IBAN but fails mod 97",
+      "text": "Position AT61 1904 3002 3457 3202 im LV prüfen.",
+      "secret": null,
+      "contact": null
+    },
+    {
+      "name": "a level code",
+      "text": "Zugang: 3.OG über Stiege 2",
+      "secret": null,
+      "contact": null
+    },
+    {
+      "name": "a login that names a person",
+      "text": "Login: Frau Huber meldet sich selbst an.",
+      "secret": null,
+      "contact": null
+    },
+    {
+      "name": "a preference",
+      "text": "Antworte kurz und auf Deutsch, mit Paragrafen in Klammern.",
+      "secret": null,
+      "contact": null
+    }
+  ]
+}

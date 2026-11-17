@@ -1,34 +1,5 @@
 'use client'
 
-/**
- * The catalog read the other way round: for each permission, who has it.
- *
- * The role catalog answers "what does this role let someone do". This answers
- * the question that actually arrives in an incident or an audit — *"who can
- * delete documents in the Archiv?"* — and it is a genuinely different question,
- * because a permission may be granted by several roles and by none. Nobody
- * should have to read eighteen role definitions and hold the union in their
- * head; that reading is exactly what a computer is for.
- *
- * The inversion is computed here from `ROLES` rather than stored. A maintained
- * permission→roles map would be a second source of truth that agrees with the
- * catalog only until the next role edit, and disagreeing about who can do what
- * is the one failure mode an access reference must not have.
- *
- * Deprecated permissions are shown, marked, and NOT hidden. They still sit on
- * live grants (`project:edit` is on Project Editor and Project Admin today), so
- * an admin auditing a role meets the slug whether or not we print it — the
- * useful act is to say it is retained-but-superseded rather than to let it look
- * like an unknown.
- *
- * Two columns, not four. The description belongs *under* the permission it
- * describes rather than beside it: pairing them keeps a long sentence from
- * stretching the row that the "granted by" badges have to line up in, and leaves
- * the one column a reader actually scans down — who holds this — narrow enough
- * to compare. `Table` already scrolls inside its own box, so a long slug never
- * makes the page body scroll sideways.
- */
-
 import type { JSX } from 'react'
 import { KeyRound } from 'lucide-react'
 
@@ -54,18 +25,10 @@ import { organizationCopy } from '@/i18n/namespaces/organization'
 import { groupByTier } from './role-catalog'
 
 export interface PermissionReferenceProps {
-  /** Defaults to the shipped catalog. Injectable so specs can pin edge cases. */
   permissions?: readonly PermissionSpec[]
-  /** The roles the inversion is computed from. Defaults to the shipped catalog. */
   roles?: readonly RoleSpec[]
 }
 
-/**
- * Invert the role→permissions catalog into permission slug → granting roles.
- *
- * Built from the roles actually passed in, so the answer can never be stale
- * relative to the catalog it was derived from.
- */
 export function invertRoles(roles: readonly RoleSpec[]): ReadonlyMap<string, readonly RoleSpec[]> {
   const granting = new Map<string, RoleSpec[]>()
   for (const role of roles) {

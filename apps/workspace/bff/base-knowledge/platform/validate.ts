@@ -10,6 +10,8 @@
  *   file the base corpus holds, so a publish never names a text that is not
  *   there (ADR-0165, "Texts are attached in the request"). The corpus is the
  *   api tier's, so that answer is handed in like KC-7's (`checkedOutside`).
+ *   A golden case states at least one thing an answer is held to, names each
+ *   must-not once, and names an edition and a territory that exist.
  * - KC-3: intervals are ordered, and no two editions of one work are in force
  *   on the same day: two in one batch, or a new one beside one already on the
  *   platform (the as-of resolver refuses that as ambiguous, so it is refused
@@ -31,6 +33,10 @@
  * the record it is about and an RFC 6901 `pointer` into that record, so an
  * agent repairs the field and resends the batch with the same keys.
  *
+ * A warning is not a check: {@link releaseWarnings} names what a request would
+ * release that nothing refuses and a reviewer weighs before approving or
+ * publishing it (the country's own territory stating no coverage).
+ *
  * The rest of the kit (anchors, hosts, level obligations, instruction-like
  * text) needs sources and packs that arrive later; until then a reviewer
  * checks those claim by claim.
@@ -42,7 +48,7 @@ import type { DecisionTable } from '../wire/ruleset'
 import { dayAfter } from '../time/editions'
 import { normalizeForQuote, quoteFound, quoteLongEnough } from './quote'
 import { proposalKey, recordIdOf, referencesOf } from './records'
-import type { ProposedRecord } from './wire'
+import type { ProposedRecord, RevisionView } from './wire'
 
 /** A platform record that already exists: its type and country. */
 export interface KnownRecord {
@@ -223,11 +229,18 @@ function namedTerritoryFields(record: ProposedRecord): [string, string][] {
   }
   if (record.type === 'ruleset') return each(record.values.territoryIds, '/values/territoryIds')
   if (record.type === 'source') return [[record.territoryId, '/territoryId']]
+  if (record.type === 'golden_case') return record.context.territoryId ? [[record.context.territoryId, '/context/territoryId']] : []
   return []
 }
 
 /** The field a reference is named by, for the pointer. */
-const REFERENCE_FIELD: Readonly<Record<string, string>> = { edition: '/workKey', manifestation: '/editionKey', work: '/addressees', ruleset: '/values/workIds' }
+const REFERENCE_FIELD: Readonly<Record<string, string>> = {
+  edition: '/workKey',
+  manifestation: '/editionKey',
+  work: '/addressees',
+  ruleset: '/values/workIds',
+  golden_case: '/expected/edition/editionKey',
+}
 
 /**
  * What a record claims to be, which one of its quotes must name: a territory's
@@ -281,6 +294,30 @@ function quoteProblems(
   return []
 }
 
+/**
+ * A golden case states something an answer can be held to (an expected value, an edition, a citation or a
+ * must-not), and names each must-not once: a case with nothing to check would pass whatever the answer said.
+ * Its site may lie in another country (a question the office's law does not cover), so its territory is only
+ * held to exist.
+ */
+function goldenCaseProblems(record: ProposedRecord): Problem[] {
+  if (record.type !== 'golden_case') return []
+  const { values, edition, citations } = record.expected
+  const found: Problem[] = []
+  const hint = 'Give the case an expected value, edition or citation, or a must-not, and each must-not its own id.'
+  if (values.length === 0 && !edition && citations.length === 0 && record.mustNot.length === 0) {
+    found.push(kitProblem('KC-1', record, '/expected', 'states nothing an answer is held to.', hint))
+  }
+  const decides = [...values.map((value) => value.grounding), ...(edition ? [edition.grounding] : []), ...citations.map((citation) => citation.grounding)].some((grounding) => grounding !== 'unconfirmed')
+  if (!decides && record.mustNot.length === 0 && values.length + citations.length + (edition ? 1 : 0) > 0) {
+    found.push(kitProblem('KC-1', record, '/expected', 'has only unconfirmed expectations and no must-not, so no run could pass or fail it.', 'Confirm one expectation against its source (grounding records or text), or add a must-not.'))
+  }
+  const ids = record.mustNot.map((rule) => rule.id)
+  const twice = ids.findIndex((id, index) => ids.indexOf(id) !== index)
+  if (twice >= 0) found.push(kitProblem('KC-1', record, `/mustNot/${twice}/id`, `the must-not "${ids[twice]}" is named twice.`, hint))
+  return found
+}
+
 export function validateProposal(
   records: readonly ProposedRecord[],
   countryId: string,
@@ -309,6 +346,7 @@ export function validateProposal(
     if (record.type === 'source' && territoryCountry(record.territoryId) !== countryId) {
       own.push(problem('KC-1', record, '/territoryId', `${record.territoryId} lies outside ${countryId}, the country of this request.`))
     }
+    own.push(...goldenCaseProblems(record))
   })
   const exists = (id: string, type: KnowledgeRecordType) => batch.get(id) === type || known.get(id)?.type === type
   records.forEach((record, index) => {
@@ -328,4 +366,34 @@ export function validateProposal(
   })
   for (const [index, found] of overlapProblems(records, existing)) problems[index]?.push(found)
   return problems.flatMap((own, index) => own.map((found) => ({ ...found, index })))
+}
+
+/** What a request would release that no check refuses, and a reviewer weighs before approving or publishing it. */
+export interface ReleaseWarning {
+  code: 'country_states_no_coverage'
+  recordId: string
+  detail: string
+}
+
+export const NO_COVERAGE_WARNING =
+  'the country states no coverage: a site in it stays at gate none, without binding editions, unless a region on its chain states one'
+
+/**
+ * The request's warnings, from each record's newest revision in it. A country whose own territory record
+ * (`id === countryId`) states no `coverageLevel` leaves a site in it at gate `none` (`context/resolve.ts`
+ * `coverageAt`, the nearest territory on the chain that states one) unless a region on its chain states one:
+ * its law is read, and no edition binds. Silent when a territory of the request states coverage, since the
+ * region may then be the one that answers. A union states none by design (it never lends its coverage to a
+ * member). Pure.
+ */
+export function releaseWarnings(
+  countryId: string,
+  revisions: readonly (Pick<RevisionView, 'type' | 'recordId'> & { claims: readonly { path: string; value: unknown }[] })[],
+): ReleaseWarning[] {
+  const states = (revision: (typeof revisions)[number]) =>
+    revision.claims.some((claim) => claim.path === 'coverageLevel' && claim.value !== null && claim.value !== undefined)
+  const territories = revisions.filter((revision) => revision.type === 'territory')
+  const country = territories.find((revision) => revision.recordId === countryId)
+  if (!country || country.claims.some((claim) => claim.path === 'kind' && claim.value === 'union')) return []
+  return territories.some(states) ? [] : [{ code: 'country_states_no_coverage', recordId: countryId, detail: NO_COVERAGE_WARNING }]
 }

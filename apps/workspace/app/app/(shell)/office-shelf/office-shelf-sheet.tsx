@@ -49,6 +49,7 @@ export async function OfficeShelfSheet({ standalone }: { standalone: boolean }):
         <OfficeShelfWorkspace
           canManage={canManage}
           showModels={showModels}
+          organizationName={session.organizationName}
           trailingActions={<PageSheetClose label={tCommon('actions.close')} />}
         />
       </RoutePageSheet>

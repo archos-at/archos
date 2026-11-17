@@ -1,17 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * `/api/organization/instructions` — who may read the block and who may write it.
- *
- * The gate is the interesting half. Writing the instruction block changes what
- * Piloti says to everyone in the organization, so it takes
- * `org:settings:manage` — the permission ADR-0016's registry already defines for
- * settings that shape how the organization behaves for everyone in it, and the
- * same one `/api/organization/settings` uses for the web-search toggle beside
- * it. Reading takes only a session: the block shapes every answer a member
- * gets, so it is not a secret from them.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const session = {
@@ -71,7 +60,6 @@ describe('/api/organization/instructions', () => {
     const res = await GET(get())
     expect(res.status).toBe(200)
     expect((await res.json()).instructions.instructions).toBe('Assume Vienna.')
-    // Keyed by the session, never by a caller-supplied organization id.
     expect(getOrgInstructions).toHaveBeenCalledWith('org-1')
   })
 

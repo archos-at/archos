@@ -13,15 +13,6 @@ import {
   type IngestFailureKind,
 } from './ingest-failure'
 
-/**
- * The stored messages, verbatim from the tiers that write them:
- * `packages/knowledge-layer/src/ingest/renditions.py` OFFICE_RENDITION_REQUIRED,
- * `packages/knowledge-layer/src/ingest/deferred_files.py` ORIGINAL_DOWNLOAD_FAILED,
- * `packages/agent/src/agent/knowledge/ingest_status_store.py` INTERRUPTED_MESSAGE,
- * `adapter.py`'s pdf_pages_unreadable format and DOCUMENT_DELETED_DURING_INGEST, `transcription.py`
- * SCAN_NEEDS_VLM and the adapter's image variant. The Python parity test
- * holds the prefixes; these hold the exact sentences.
- */
 const BACKEND_MESSAGES: Array<[string, IngestFailureKind]> = [
   [
     'office_rendition_required: Word and presentation files are indexed from their PDF rendition, and none could be read (conversion disabled or failed, or the download failed)',
@@ -32,8 +23,6 @@ const BACKEND_MESSAGES: Array<[string, IngestFailureKind]> = [
     'download_failed',
   ],
   ['interrupted: ingestion stopped when the service restarted; retry to index this file', 'interrupted'],
-  // The queued job's payload could not be read: reading never started, and no
-  // service restarted. Said as a start that failed, never as the restart.
   ['unreadable_job: the queued ingestion job could not be read; retry to index this file', 'dispatch_failed'],
   [
     'vlm_not_configured: scanned PDF pages need a vision model to be transcribed (VLM_API_KEY)',
@@ -53,11 +42,6 @@ const BACKEND_MESSAGES: Array<[string, IngestFailureKind]> = [
   ['some_new_reason: text nobody mapped yet', 'unknown'],
 ]
 
-/**
- * The BFF's two constants, read from `lib/documents/ingest-dispatch.ts`. That module
- * is `server-only` and pulls the database in, so the spec reads its source
- * rather than importing it; a reworded constant fails here.
- */
 function bffConstant(name: string): string {
   const source = readFileSync(path.resolve(__dirname, '../../../../bff/documents/ingest-dispatch.ts'), 'utf8')
   const match = new RegExp(`export const ${name} = '([^']+)'`).exec(source)

@@ -1,25 +1,5 @@
 'use client'
 
-/**
- * The proposal card as an MCP App (ADR-0142): what the host's sandboxed iframe
- * runs for a `proposal-get` result on Piloti's door.
- *
- * The view holds no data of its own. The host hands it the tool result
- * (`ui/notifications/tool-result`), whose `structuredContent` is the route's
- * own answer, `{ proposal }`; the card is the catalog card for it, drawn by the
- * A2UI renderer the chat uses (`A2uiCard`), in Piloti's components with the
- * host's theme (`host-theme.ts`) and the host's language (`hostContext.locale`).
- * Its buttons call the app-only tools (`proposal-card-apply`,
- * `proposal-card-dismiss`) through the host, which run the proposal routes as
- * the person. Whenever the card settles on a proposal that is no longer open
- * (the person's press, a 409's re-read, a replayed result that turned out
- * decided), the model is told it is no longer open (`ui/update-model-context`),
- * so the next turn does not offer to apply it.
- *
- * `ProposalCardFrame` is the part a spec or a `/dev` preview drives without a
- * host: a tool result, a host context and something that calls tools.
- */
-
 import { useEffect, useMemo, useState } from 'react'
 import {
   useApp,
@@ -41,18 +21,12 @@ export const APP_INFO = { name: 'piloti-proposal-card', version: '1.0.0' } as co
 
 type HostApp = Pick<App, 'callServerTool' | 'updateModelContext'>
 
-/** What the model reads once the card shows a proposal that is no longer open: one line, in the catalog's words. */
 export function settledContext(response: ProposalResponse): string {
   const { proposal } = response
   const by = proposal.decidedByName ? ` by ${proposal.decidedByName}` : ''
   return `${PRODUCT_NAME} proposal ${proposal.id} is ${proposal.status}${by}; it is no longer open; do not apply or dismiss it.`
 }
 
-/**
- * The transport, telling the model each settled state the card reads, once per
- * proposal and status: a decision on the card, a 409's re-read, a replayed
- * result that is already decided. A host that refuses the update changes nothing.
- */
 function reportingTransport(app: HostApp, initial: ProposalResponse | null): ProposalTransport {
   const base = appProposalTransport(app, initial)
   const told = new Set<string>()
@@ -76,7 +50,6 @@ function reportingTransport(app: HostApp, initial: ProposalResponse | null): Pro
 function CardBody({ result, app }: { result: CallToolResult | null; app: HostApp }) {
   const t = useTranslations(chatCopy)
   const initial = useMemo(() => proposalOfResult(result), [result])
-  // One transport per proposal shown: the seed is the result the host handed over.
   const transport = useMemo(() => reportingTransport(app, initial), [app, initial])
   if (!result) {
     return <p className="card-caption text-muted-foreground" data-testid="mcp-app-waiting">{t('cards.mcpApp.waiting')}</p>
@@ -114,7 +87,6 @@ export function ProposalCardFrame({
   useEffect(() => applyHostTheme(hostContext), [hostContext])
   const locale = resolveLocale(hostContext?.locale)
   return (
-    // The host's language, pinned: the frame has no session to read a preference from.
     <I18nProvider key={locale} initialLocale={locale} fixedLocale>
       <main className="text-foreground font-sans antialiased" data-testid="mcp-app-proposal-card">
         <CardBody result={result} app={app} />
@@ -123,7 +95,6 @@ export function ProposalCardFrame({
   )
 }
 
-/** The view a host loads: connects to the host and draws whatever proposal it hands over. */
 export function ProposalCardApp() {
   const [result, setResult] = useState<CallToolResult | null>(null)
   const [hostContext, setHostContext] = useState<McpUiHostContext | undefined>(undefined)
@@ -135,7 +106,6 @@ export function ProposalCardApp() {
       created.onhostcontextchanged = (changed) => setHostContext((previous) => ({ ...previous, ...changed }))
     },
   })
-  // The context `ui/initialize` answered with; later changes arrive through the handler above.
   useEffect(() => {
     if (app) setHostContext((previous) => ({ ...app.getHostContext(), ...previous }))
   }, [app])
@@ -147,7 +117,6 @@ export function ProposalCardApp() {
   return <ProposalCardFrame result={result} hostContext={hostContext} app={app} />
 }
 
-/** No host to talk to: the unreadable line, in the browser's language, so the frame is never blank. */
 function UnconnectedFrame() {
   const locale = resolveLocale(typeof navigator === 'undefined' ? undefined : navigator.language)
   return (

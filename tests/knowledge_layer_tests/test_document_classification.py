@@ -1,9 +1,3 @@
-"""Unit tests for the shared document classification helpers.
-
-Covers the tag-classification prompt/call/parse/post-filter and the shared
-one-sentence summary helper. The LLM call is always mocked.
-"""
-
 import json
 from unittest.mock import MagicMock
 from unittest.mock import patch
@@ -23,10 +17,6 @@ from agent.knowledge.document_classification import fallback_summary_from_text
 from agent.knowledge.document_classification import reconcile_image_tags
 from agent.knowledge.document_classification import summarize_document_text
 
-# =============================================================================
-# Deterministic fallback summary (used to anchor a tags-only row)
-# =============================================================================
-
 
 class TestFallbackSummaryFromText:
     def test_short_text_returned_verbatim_single_line(self):
@@ -39,7 +29,6 @@ class TestFallbackSummaryFromText:
         text = "word " * 100  # 500 chars
         result = fallback_summary_from_text(text, max_chars=50)
         assert result.endswith("…")
-        # The ellipsis is the only character beyond the cap.
         assert len(result) <= 51
         assert "\n" not in result
 
@@ -55,11 +44,6 @@ def _llm_returning(content: str) -> MagicMock:
     return llm
 
 
-# =============================================================================
-# Vocabulary shape / drift guards
-# =============================================================================
-
-
 class TestVocabulary:
     def test_vocabularies_are_immutable_tuples(self):
         assert isinstance(DOCUMENT_TYPE_TAGS, tuple)
@@ -67,12 +51,10 @@ class TestVocabulary:
 
     def test_allowed_tags_is_union(self):
         assert ALLOWED_TAGS == frozenset(DOCUMENT_TYPE_TAGS) | frozenset(DISCIPLINE_TAGS)
-        # The six OIB disciplines the user asked for are all present.
         assert "Brandschutz" in ALLOWED_TAGS
         assert "Standsicherheit" in ALLOWED_TAGS
 
     def test_the_generative_prompt_says_what_the_token_means(self):
-        """The fallback lists ``correspondence`` beside German words, so it says it is the Korrespondenz."""
         assert "correspondence steht für Korrespondenz" in _build_tag_prompt("text", "brief.pdf")
 
     def test_only_the_token_is_stored_never_its_german_label(self):
@@ -81,21 +63,12 @@ class TestVocabulary:
         ]
 
     def test_prompt_contains_every_vocabulary_member(self):
-        """Drift guard: the prompt is built from the constants, so every
-        allowed tag must literally appear in the prompt text."""
         prompt = _build_tag_prompt("some document text", "plan.pdf")
         for tag in ALLOWED_TAGS:
             assert tag in prompt, f"vocabulary member missing from prompt: {tag}"
 
 
-# =============================================================================
-# Tag classification
-# =============================================================================
-
-
 class TestClassifyDocumentTags:
-    """The generative fallback: what runs when no decision did."""
-
     @pytest.fixture(autouse=True)
     def _no_decision(self):
         with patch.object(document_classification, "decide_document_tags", return_value=None):
@@ -125,9 +98,6 @@ class TestClassifyDocumentTags:
         assert classify_document_tags("text", "f.pdf", llm) is None
 
     def test_off_vocabulary_tags_are_dropped(self):
-        """The user's core concern: an off-vocabulary tag (a semantic duplicate
-        like 'Feuerschutz' for the canonical 'Brandschutz', or any invented
-        category) is deterministically dropped and never reaches storage."""
         llm = _llm_returning('["Feuerschutz", "Brandschutz", "MadeUpCategory", "Grundriss"]')
         result = classify_document_tags("text", "f.pdf", llm)
         assert result == ["Brandschutz", "Grundriss"]
@@ -157,11 +127,6 @@ class TestClassifyDocumentTags:
         assert classify_document_tags("text", "f.pdf", llm) is None
 
 
-# =============================================================================
-# Tags as a decision (ADR-0064)
-# =============================================================================
-
-
 def _decision(type_choice: str, type_probabilities: dict, disciplines: dict[int, float]) -> dict:
     answers = {"type": {"type": "choice", "choice": type_choice, "probabilities": type_probabilities}}
     for index in range(len(DISCIPLINE_TAGS)):
@@ -171,7 +136,6 @@ def _decision(type_choice: str, type_probabilities: dict, disciplines: dict[int,
 
 @pytest.fixture
 def endpoint(monkeypatch):
-    """The decision endpoint, answered by a handler the test sets."""
     decisions.reset_breaker()
     monkeypatch.delenv(decisions.ENABLED_ENV, raising=False)
     seen: dict = {}
@@ -183,7 +147,6 @@ def endpoint(monkeypatch):
                 return httpx.Response(status)
             return httpx.Response(status, json={"answers": answers, "usage": {"input_tokens": 400, "cost": 0.00005}})
 
-        # ``decide_blocking`` builds a transport of its own per call.
         return patch.object(httpx, "AsyncHTTPTransport", return_value=httpx.MockTransport(handler))
 
     endpoint_value = decisions._Endpoint(url="https://openrouter.ai/api/alpha/decisions", api_key="k", model="m")
@@ -194,7 +157,6 @@ def endpoint(monkeypatch):
 
 class TestTagsAreDecided:
     def test_the_questions_are_the_vocabulary(self):
-        """Drift guard: every type is an option and every discipline a question."""
         questions = document_classification.tag_questions()
         assert list(questions["type"]["criteria"]) == list(DOCUMENT_TYPE_TAGS)
         assert [k for k in questions if k.startswith("discipline_")] == [
@@ -206,13 +168,11 @@ class TestTagsAreDecided:
         llm = MagicMock()
         with install(_decision("Gutachten", {"Gutachten": 0.9}, {4: 0.52, 5: 0.96})):
             tags = classify_document_tags("Bauphysikalisches Gutachten …", "bp.pdf", llm)
-        # 0.52 is the borderline the threshold leaves out on purpose.
         assert tags == ["Gutachten", "Energieeinsparung/Wärmeschutz"]
         llm.invoke.assert_not_called()
         assert seen["body"]["state"]["file_name"] == "bp.pdf"
 
     def test_an_unsure_type_is_no_decision_and_the_prompt_tags(self, endpoint):
-        """Every decision acts at 0.8: a type below it hands the document to the prompt."""
         install, _ = endpoint
         with install(_decision("Bebauungsplan", {"Bebauungsplan": 0.55, "Flächenwidmungsplan": 0.45}, {})):
             tags = classify_document_tags("Plandokument …", "pd.pdf", _llm_returning('["Flächenwidmungsplan"]'))
@@ -242,7 +202,6 @@ class TestTagsAreDecided:
         assert tags == ["Schnitt"]
 
     def test_correspondence_is_a_type_the_decision_offers_and_keeps(self, endpoint):
-        """An E-Mail-Verlauf is typed by its token; the old catch-all no longer claims a letter."""
         install, seen = endpoint
         with install(_decision("correspondence", {"correspondence": 0.93, "Sonstiges": 0.07}, {})):
             tags = classify_document_tags("Sehr geehrte Frau Rainer, …", "AW_Termin.eml", None)
@@ -256,11 +215,6 @@ class TestTagsAreDecided:
         with install(_decision("Foto", {"Foto": 1.0}, {})):
             assert document_classification.decide_document_tags("   ", "f.pdf") is None
         assert "body" not in seen
-
-
-# =============================================================================
-# Shared summary helper
-# =============================================================================
 
 
 class TestSummarizeDocumentText:
@@ -282,8 +236,6 @@ class TestSummarizeDocumentText:
 
 
 class TestTheDokumentartIsSuggested:
-    """ADR-0064 use 8: a class for a person to accept, never set on its own."""
-
     def _answer(self, chosen: str, p: float) -> dict:
         return {"doc_class": {"type": "choice", "choice": chosen, "probabilities": {chosen: p}}}
 
@@ -307,16 +259,7 @@ class TestTheDokumentartIsSuggested:
             assert document_classification.suggest_doc_class("text", "f.pdf") is None
 
 
-# =============================================================================
-# An image the vision model saw as a photograph (reconcile_image_tags)
-# =============================================================================
-
-
 class TestReconcileImageTags:
-    """The classifier reads the vision model's caption, not the pixels. When the
-    vision model saw a photograph, Foto is added first; what the classifier read
-    stays — a photo of a plan is a Foto AND a Grundriss."""
-
     def test_a_photo_of_a_plan_is_foto_and_floor_plan(self):
         result = reconcile_image_tags(
             ["Grundriss", "Brandschutz", "Schallschutz"], content_type="image", segment_types=["photo"]

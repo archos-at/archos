@@ -71,6 +71,9 @@ TURN_VALUES = frozenset(
         "workspace_block",
         # Re-ordered for every question (``register._apply_reference_fit``).
         "reference_projects",
+        # The asker's own notes (ADR-0180): a shared conversation has more than
+        # one asker, and the head is the same bytes for all of them.
+        "personal_memory",
     }
 )
 

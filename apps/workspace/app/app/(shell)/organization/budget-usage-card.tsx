@@ -432,7 +432,7 @@ export const BudgetUsageCard: FC<{ isAdmin: boolean }> = ({ isAdmin }) => {
                     unitWord={unitWord}
                     onSaved={load}
                     trigger={
-                      <Button variant="outline" className="w-full sm:w-auto">
+                      <Button variant="secondary" className="w-full sm:w-auto">
                         {t('budgets.setLimit')}
                       </Button>
                     }

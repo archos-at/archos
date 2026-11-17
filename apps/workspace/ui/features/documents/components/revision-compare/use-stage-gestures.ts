@@ -4,19 +4,14 @@ import type { RefObject } from 'react'
 import { useEffect, useLayoutEffect, useRef } from 'react'
 import { clampZoom } from './lib/pages'
 
-/** The attribute a scroll frame of the stage carries, so a gesture finds the frame it landed in. */
 export const FRAME_ATTRIBUTE = 'data-compare-frame'
 
-/** Where a zoom started, so the point under the pointer stays under it. */
 interface Anchor {
   frame: HTMLElement
-  /** Pointer position inside the frame's visible box. */
   x: number
   y: number
-  /** The same point in the frame's scrolled content, before the zoom. */
   contentX: number
   contentY: number
-  /** New zoom over the zoom the content was drawn at. */
   ratio: number
 }
 
@@ -29,35 +24,18 @@ interface Pan {
   top: number
 }
 
-/** One wheel notch on a mouse is ~100 px of delta; a trackpad pinch sends many small ones. */
 const WHEEL_SENSITIVITY = 0.002
 const MAX_WHEEL_DELTA = 100
 
 const frameOf = (target: EventTarget | null): HTMLElement | null =>
   target instanceof Element ? target.closest<HTMLElement>(`[${FRAME_ATTRIBUTE}]`) : null
 
-/** A press that belongs to a control on the sheet (a box, the divider), not to the sheet. */
 const onControl = (target: EventTarget | null): boolean =>
   target instanceof Element && target.closest('button, a, input, [role="slider"]') !== null
 
 const overflows = (frame: HTMLElement): boolean =>
   frame.scrollWidth > frame.clientWidth || frame.scrollHeight > frame.clientHeight
 
-/**
- * The stage's own gestures, the ones a drawing viewer is expected to have:
- *
- *  - **Ctrl / Cmd + wheel** zooms (a trackpad pinch arrives as exactly this in
- *    Chromium and Firefox), anchored at the pointer.
- *  - **Two fingers** pinch-zoom on a touch screen. The frames are
- *    `touch-action: pan-x pan-y`, so one finger still scrolls natively and the
- *    page itself is never zoomed instead.
- *  - **Dragging with the mouse** pans a frame that has something to pan.
- *    Side by side, the other frame follows through its scroll sync.
- *
- * Listeners go on the stage element once and find the frame from the event, so
- * a mode switch (which swaps the frames) needs no re-binding. `scale` is the
- * drawn scale: when it changes, a pending anchor is applied.
- */
 export function useStageGestures(
   stageRef: RefObject<HTMLElement | null>,
   options: { enabled: boolean; zoom: number; scale: number; onZoom: (zoom: number) => void },
@@ -101,8 +79,6 @@ export function useStageGestures(
           ratio: next / drawn,
         }
       }
-      // Set here, not only after the re-render: a pinch fires faster than
-      // React renders, and the next step's anchor ratio must build on this one.
       zoomRef.current = next
       onZoomRef.current(next)
     }

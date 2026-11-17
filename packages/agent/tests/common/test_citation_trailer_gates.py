@@ -1,20 +1,3 @@
-"""Trailer-value grounding, digest rejection, mechanical quote gates.
-
-Specs for the three citation-verification gates behind the reviewer
-findings:
-
-1. **Digest rejection** — an already-read digest line (``"<file> |
-   <collection> | Seiten <p> | Punkte <n> | Turn <k>"``) is the read-index,
-   not evidence, so a source line in that shape is removed in verification
-   even when it names a genuinely retrieved document.
-2. **Trailer values** — ``drop_ungrounded_trailer_values``: a Zahl, Klasse or
-   Frist in a verdict, a takeaway or a detail survives only with a Fundstelle
-   that resolves to a source this turn retrieved; otherwise the field drops
-   while the prose keeps every word.
-3. **Mechanical quote gates** — a quote over 40 words, or with no ``[N]`` in
-   its sentence, is flagged at ``verify_quoted_spans`` even when verbatim.
-"""
-
 CHUNK = (
     "Die lichte Durchgangshoehe von Treppen muss mindestens 2,10 m betragen. Handlaeufe sind beidseitig anzubringen."
 )
@@ -50,8 +33,6 @@ def _oib_entry():
 
 
 class TestDigestShapedCitationsRejected:
-    """A digest line cites the index; verification must not accept it."""
-
     _DIGEST_LINE = "oib-rl_2_ausgabe_mai_2023.pdf | oib_knowledge | Seiten 12 | Punkte 3.5.2 | Turn 1"
 
     def _report(self, line: str) -> str:
@@ -104,8 +85,6 @@ class TestDigestShapedCitationsRejected:
 
 
 class TestDropUngroundedTrailerValues:
-    """Values with Zahl/Klasse/Frist need a turn-source Fundstelle."""
-
     def _drop(self, meta: dict | None, sources: list) -> dict | None:
         from agent.citations.trailer_values import drop_ungrounded_trailer_values
 
@@ -149,13 +128,11 @@ class TestDropUngroundedTrailerValues:
         assert self._drop(meta, [_oib_entry()]) == meta
 
     def test_bare_locators_are_not_values(self):
-        """``Tabelle 1b``, ``Pkt. 3.5.2`` and ``§ 63`` locate; they claim nothing."""
         for value in ("Tabelle 1b", "Pkt. 3.5.2", "§ 63 Wiener Bauordnung"):
             meta = {"v": 1, "verdict": {"value": value, "subject": "Fundstelle"}}
             assert self._drop(meta, [_oib_entry()]) == meta
 
     def test_each_value_shape_triggers(self):
-        """Zahl, Klasse and Frist each need their Fundstelle."""
         for value in ("100 cm", "REI 60", "GK 4", "vier Wochen", "binnen sechs Wochen", "unverzüglich"):
             meta = {"v": 1, "verdict": {"value": value, "subject": "Angabe"}}
             assert self._drop(meta, [_oib_entry()]) is None, value
@@ -199,7 +176,6 @@ class TestDropUngroundedTrailerValues:
         assert self._drop(meta, [_oib_entry()]) is None
 
     def test_a_detail_carrying_its_own_value_drops_alone(self):
-        """The claim stands; only the ungrounded footnote goes."""
         meta = {
             "v": 1,
             "takeaways": [
@@ -241,7 +217,6 @@ class TestDropUngroundedTrailerValues:
         assert self._drop(meta, [_oib_entry()]) == meta
 
     def test_no_turn_sources_is_abstain_not_acquittal(self):
-        """Nothing retrieved means nothing to judge against — pass through."""
         meta = {"v": 1, "verdict": {"value": "100 cm", "subject": "Hohe"}}
 
         assert self._drop(meta, []) == meta
@@ -251,8 +226,6 @@ class TestDropUngroundedTrailerValues:
 
 
 class TestMechanicalQuoteGates:
-    """Form gates at ``verify_quoted_spans``: too long, or uncited, is flagged."""
-
     def test_a_41_word_verbatim_cited_quote_is_flagged_for_length(self):
         from agent.citations.quote_verification import verify_quoted_spans
 
@@ -303,12 +276,6 @@ class TestMechanicalQuoteGates:
         assert flagged.reason == "uncited"
 
     def test_a_trailing_marker_in_the_next_sentence_attributes(self):
-        """Citations trail their sentence; abbreviations split the window.
-
-        The one-sentence lookahead keeps ``… Satz. [1] …`` and ``… „Quote"
-        vgl. … [1].`` passing — a quote two sentences from any marker is
-        still flagged (see above).
-        """
         from agent.citations.quote_verification import verify_quoted_spans
 
         reg = _registry(CHUNK)

@@ -255,7 +255,7 @@ export function PlatformOrgBudgetDialog({
         </DialogHeader>
         {body()}
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={saving}>
+          <Button variant="secondary" onClick={onClose} disabled={saving}>
             {canManage ? tc('actions.cancel') : tc('actions.close')}
           </Button>
           {canManage && !error ? (

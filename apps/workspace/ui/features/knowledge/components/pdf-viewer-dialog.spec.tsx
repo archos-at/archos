@@ -35,17 +35,9 @@ describe('PdfViewerDialog', () => {
       />,
     )
     await waitFor(() => expect(document.querySelectorAll('[data-page]')).toHaveLength(1))
-    // The passage highlight needs a text layer, which the browser's own viewer
-    // never exposed — so the document must NOT be handed to a bare frame.
     expect(document.querySelector('iframe')).toBeNull()
   })
 
-  /**
-   * The in-app viewer scrolls itself, so `page` reaches it as a prop rather than
-   * as a URL fragment. The fragment still has to be on the "open in new tab"
-   * link, which hands the document to the BROWSER's viewer — dropping it there
-   * would send someone who opened page 12 in a tab back to page 1.
-   */
   it('keeps the page fragment on the link out to the browser viewer', () => {
     render(
       <PdfViewerDialog
@@ -91,12 +83,6 @@ describe('PdfViewerDialog', () => {
     expect(document.querySelector('[data-testid="pdf-scroll"]')).toBeNull()
   })
 
-  // Regression: the shared DialogContent primitive carries `sm:max-w-lg`
-  // (512px). Because tailwind-merge treats the `sm:` variant separately from an
-  // unprefixed `max-w-*`, a plain override does NOT win at ≥sm viewports, so the
-  // maximized viewer was silently clamped to 512px — tall-and-narrow, which
-  // letterboxes wide/landscape drawings. The fix must override the `sm:` width
-  // so the dialog can fill the viewport and render the document large.
   it('overrides the primitive sm width clamp so it is not capped at 512px', () => {
     render(
       <PdfViewerDialog
@@ -107,9 +93,7 @@ describe('PdfViewerDialog', () => {
       />,
     )
     const dialog = screen.getByRole('dialog')
-    // 95% of the width, and clear of the Dynamic Island on a phone on its side.
     expect(dialog.className).toContain('sm:max-w-[calc(100vw-2*max(2.5vw,env(safe-area-inset-left),env(safe-area-inset-right)))]')
-    // The narrow 512px clamp must not be the effective width.
     expect(dialog.className).not.toContain('sm:max-w-lg')
   })
 })

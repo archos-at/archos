@@ -1,11 +1,3 @@
-"""The German number rules of the content screen (agent.common.de_numbers).
-
-The Steuer-ID check is held to python-stdnum's ``de.idnr``, the library this
-rule would otherwise be bought from: it has no Rentenversicherungsnummer, and
-the TypeScript twin needs the rule written out anyway. Where they would differ,
-stdnum is right.
-"""
-
 from __future__ import annotations
 
 import random

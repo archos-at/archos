@@ -7,22 +7,15 @@
  * input is read off the profile (its type, the codes a code may take), and its
  * derivation says what each answer means (a class number, the high-rise code,
  * the code for no building). No country's classes are named here: Austria's
- * OIB 2023 table is one seed among the records (`seeds/`), and a German or
+ * OIB 2023 table is one released record among the others, and a German or
  * Swiss project is classified by its own country's table or not at all.
  */
 
-import seed from './seeds/at-oib-2023-building-class.json'
-import {
-  rulesetValuesSchema,
-  type DecisionTable,
-  type RulesetValues,
-} from '@/lib/base-knowledge/wire/ruleset'
+import type { DecisionTable } from '@/lib/base-knowledge/wire/ruleset'
 import type { DerivationDefinition, FactDefinition } from '@/lib/base-knowledge/wire/setup-facts'
 import type { ProjectPrimitiveValue } from '@/lib/project-profile/types'
 import { evaluateDecisionTable, type Candidate } from './decision-table'
 import type { Facts } from './expression'
-
-export const AT_OIB_2023_BUILDING_CLASS: RulesetValues = rulesetValuesSchema.parse(seed)
 
 /** A Building's stored answers, by the table's input keys. */
 export type BuildingClassInputs = Readonly<Record<string, ProjectPrimitiveValue | undefined>>

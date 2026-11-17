@@ -1,10 +1,3 @@
-"""Tests for the admin norm-registry routes.
-
-Covers the ``X-Admin-Token`` guard (oib.py semantics), the GET shape, PUT
-validation (422 pydantic / 409 optimistic conflict / success resets the
-registry cache), and the live-verify endpoint against a mocked ``RisClient``.
-"""
-
 from __future__ import annotations
 
 import tempfile
@@ -28,7 +21,6 @@ from agent_host.routes.norms import add_norm_routes
 
 @pytest.fixture
 def configured_store():
-    """Configure the module-level norm store on a fresh temp SQLite DB (seeded)."""
     with tempfile.TemporaryDirectory() as tmpdir:
         db_url = f"sqlite:///{Path(tmpdir) / 'norms.db'}"
         NormRegistryStore._tables_initialized.discard(db_url)
@@ -55,7 +47,6 @@ def _client(app):
 
 
 def _valid_body(entry_id: str = "custom-fed", version: int = 1) -> dict:
-    """A full PUT envelope: the expected version plus a valid NormsFile registry."""
     return {
         "version": version,
         "registry": {
@@ -72,11 +63,6 @@ def _valid_body(entry_id: str = "custom-fed", version: int = 1) -> dict:
             ],
         },
     }
-
-
-# --------------------------------------------------------------------------- #
-# Auth guard (oib.py semantics: unset token -> open; set token -> must match)
-# --------------------------------------------------------------------------- #
 
 
 @pytest.mark.asyncio
@@ -103,11 +89,6 @@ async def test_get_accepts_correct_admin_token(app, monkeypatch):
     assert resp.status_code == 200
 
 
-# --------------------------------------------------------------------------- #
-# GET shape
-# --------------------------------------------------------------------------- #
-
-
 @pytest.mark.asyncio
 async def test_get_returns_version_and_registry(app, monkeypatch):
     monkeypatch.setattr(norms_module, "_ADMIN_TOKEN", None)
@@ -119,11 +100,6 @@ async def test_get_returns_version_and_registry(app, monkeypatch):
     assert "entries" in data["registry"]
     assert isinstance(data["registry"]["entries"], list)
     assert data["registry"]["entries"]  # seed has entries
-
-
-# --------------------------------------------------------------------------- #
-# PUT
-# --------------------------------------------------------------------------- #
 
 
 @pytest.mark.asyncio
@@ -158,8 +134,6 @@ async def test_put_version_conflict_is_409(app, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_put_get_roundtrips_profile_overrides(app, monkeypatch):
-    """The optional CountryProfile overrides (doctrine/states/language/parcel_tags)
-    survive a PUT -> GET round-trip through the store (NormsFile carries them)."""
     monkeypatch.setattr(norms_module, "_ADMIN_TOKEN", None)
     body = _valid_body(entry_id="fed-overrides")
     body["registry"]["doctrine"] = "Custom Normenhierarchie doctrine"
@@ -200,11 +174,6 @@ async def test_put_success_writes_and_resets_cache(app, configured_store, monkey
     assert any(e.id == "brand-new" for e in stored.entries)
 
 
-# --------------------------------------------------------------------------- #
-# verify (mocked RisClient)
-# --------------------------------------------------------------------------- #
-
-
 def _fake_hit(**kwargs):
     hit = MagicMock()
     hit.metadata = kwargs.get("metadata", {})
@@ -235,9 +204,7 @@ async def test_verify_returns_filtered_candidates(app, monkeypatch):
             citation_url="https://ris.example/cite",
             full_law_url="https://ris.example/GeltendeFassung?Gesetzesnummer=20000006",
         ),
-        # Not a § 0 whole-law anchor -> filtered out.
         _fake_hit(metadata={"Kurztitel": "Bauordnung für Wien", "Paragraph/Artikel": "§ 3"}),
-        # Excluded by the 'exclude' term.
         _fake_hit(
             metadata={"Kurztitel": "Bauordnung für Wien (Novelle)", "Paragraph/Artikel": "§ 0"},
             full_law_url="https://ris.example/x",

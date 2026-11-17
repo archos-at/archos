@@ -1,13 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * What a reading is submitted with (ADR-0111): the intake's own agent, the
- * job id the intake already claimed, the project's MAIN collection only (in
- * the payload and in the signed envelope alike), no project context, memory,
- * organization instructions, data sources, run row or thread, and the
- * priority of what started it.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 

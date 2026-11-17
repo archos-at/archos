@@ -1,39 +1,3 @@
-/**
- * The guard that every card type in the union actually DRAWS something.
- *
- * A chain of tests already keeps a new card type honest on the way in — the
- * schema is synced with `models.py`, `CARD_INTERACTIVITY` is exhaustive over
- * the union so `tsc` rejects an unclassified type, and `preview-fixtures.spec`
- * demands a fixture or a stated exclusion. Not one of them asks the only
- * question the reader cares about: does anything appear on screen?
- *
- * `AnswerCardItem` is a flat chain of `if (card.type === '…')` tests ending in
- * `return null`, so a type that clears every guard above and has no branch
- * renders NOTHING — no warning, no dropped card, no red test. The agent says it
- * made a finding, the answer shows an empty gap, and the only place that is
- * visible is production. This file closes that hole: it mounts one card of
- * every type through the real dispatcher and fails when the container comes
- * back empty.
- *
- * Two instances of each type are mounted:
- *
- *   1. the gallery fixture, which carries the card's rich state;
- *   2. the MINIMAL card — the fixture stripped to the fields the canonical
- *      schema actually requires — because a renderer that only paints when an
- *      optional field happens to be present is a card that renders nothing on
- *      the day the model omits it, and that failure belongs here rather than in
- *      a thread.
- *
- * The seven `PREVIEW_EXCLUDED` types are MOCKED, not skipped. The gallery
- * cannot invent a building, but "we cannot preview it" is not "it may render
- * nothing": `IfcModelPickerCard` returns `null` without a project or a ready
- * model, so the model list and the surfaced-document index are stubbed here
- * with exactly the one row each of them needs to have something to draw.
- *
- * Runs in the DOM environment (the config default) rather than `node` — the
- * assertion IS the mount.
- */
-
 import { discriminatedOptions } from '@/lib/api/zod-union'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { z } from 'zod'
@@ -42,19 +6,10 @@ import { answerCardSchema, type AnswerCard } from '@/shared/cards/schemas'
 import { PREVIEW_EXCLUDED, previewFixtureFor } from '../preview-fixtures'
 import { AnswerCardItem } from './AnswerCards'
 import { rendererSettled } from '@/features/a2ui/A2uiCard'
-// The canonical card JSON Schema, generated from `models.py` and the input the
-// Zod mirror is generated FROM. Loaded at runtime (it lives above the app
-// root, outside the Docker build context) — see the helper for why a static
-// import breaks the production image build.
 import { loadCardJsonSchema } from '@/test-utils/card-json-schema'
 
 const cardJsonSchema = loadCardJsonSchema()
 
-/**
- * One ready model, for every card that resolves a file name against the
- * project's models. `status: 'ready'` is the load-bearing part — a `pending`
- * model is exactly the state in which the picker draws nothing.
- */
 const READY_MODEL = {
   id: 'model-1',
   documentId: 'doc-1',
@@ -82,7 +37,6 @@ vi.mock('@/features/bim/hooks/use-bim-model', async (importOriginal) => {
   }
 })
 
-/** The live document row a surfaced file name resolves to. */
 const RESOLVED_FILE = {
   id: 'file-1',
   filename: 'einreichplan.pdf',
@@ -122,7 +76,6 @@ vi.mock('@/features/documents/hooks/use-surfaced-documents', async (importOrigin
 
 type CardInput = z.input<typeof answerCardSchema>
 
-/** Only the corner of the JSON Schema this file reads. */
 interface JsonSchemaDocument {
   $defs: Record<
     string,
@@ -133,15 +86,6 @@ interface JsonSchemaDocument {
   >
 }
 
-/**
- * Sample cards for the types the gallery refuses to preview.
- *
- * They live here rather than in `preview-fixtures.ts` on purpose: the gallery's
- * exclusions are about not showing a platform owner a building that does not
- * exist, and this file shows nobody anything — it only asks whether the
- * component paints. Each carries the minimum the schema demands plus nothing
- * invented, since the numbers come from the mocked model, not from the card.
- */
 const EXCLUDED_FIXTURES: Record<string, CardInput> = {
   ifc_viewer: { type: 'ifc_viewer', title: 'Modell ansehen' },
   ifc_compliance: { type: 'ifc_compliance', title: 'Prüfbuch' },
@@ -157,18 +101,10 @@ const EXCLUDED_FIXTURES: Record<string, CardInput> = {
   },
 }
 
-/**
- * Every card type, read off the union itself — never a list.
- *
- * `discriminatedOptions` is keyed by the discriminator value zod resolved, so it is
- * right even for `project_profile_patch`, whose `type` literal is wrapped in a
- * `.default()`.
- */
 const ALL_TYPES = [...discriminatedOptions(answerCardSchema).keys()].filter(
   (type): type is string => typeof type === 'string'
 )
 
-/** The card of `type` to mount: the gallery's fixture, or the stand-in above. */
 function fixtureFor(type: string): AnswerCard | undefined {
   const preview = previewFixtureFor(type)
   if (preview) return preview
@@ -176,42 +112,16 @@ function fixtureFor(type: string): AnswerCard | undefined {
   return excluded ? answerCardSchema.parse(excluded) : undefined
 }
 
-/**
- * `required` per card type, read off the canonical JSON Schema.
- *
- * Read off the JSON Schema rather than off the Zod mirror, because this file
- * is asking what `models.py` REQUIRES and `schemas.json` is generated from
- * those models and pinned to them by `test_schema_sync.py`. Zod still does the
- * PARSING, so the stripped card comes back with its defaults filled.
- *
- * It once had to be read here because the Zod mirror could not answer at all:
- * the generator flattened every nested `$ref` to `z.any()`, `z.any()` accepts
- * a missing key, and so Zod believed `energy_performance.hwb` and every other
- * object-valued field was optional when `models.py` requires them — a minimal
- * instance built from Zod's answer was a card the backend could never emit,
- * and the eight schematic cards it produced crashed on a required field.
- * `scripts/generate-card-schemas.mjs` resolves those refs now (guarded by
- * `apps/workspace/shared/cards/nested-fields.spec.ts`), so the two sources agree; the
- * canonical one is still the one to ask.
- */
 const REQUIRED_FIELDS: Record<string, string[]> = Object.fromEntries(
   Object.values((cardJsonSchema as JsonSchemaDocument).$defs)
     .map((definition) => {
-      // The discriminator is a `const` on most cards and a `default` on the two
-      // that let the backend fill it in.
       const literal = definition.properties?.type?.const ?? definition.properties?.type?.default
       if (typeof literal !== 'string') return null
-      // `type` is added back because a card that defaults its discriminator
-      // does not list it, and a minimal instance without one is not a card.
       return [literal, [...new Set(['type', ...(definition.required ?? [])])]] as const
     })
     .filter((entry): entry is readonly [string, string[]] => entry !== null)
 )
 
-/**
- * The fixture reduced to its required fields and re-parsed, so the schema's
- * defaults fill the rest — the leanest card the agent is allowed to emit.
- */
 function minimalFrom(card: AnswerCard): AnswerCard {
   const keep = new Set(REQUIRED_FIELDS[card.type] ?? ['type'])
   const stripped = Object.fromEntries(
@@ -220,7 +130,6 @@ function minimalFrom(card: AnswerCard): AnswerCard {
   return answerCardSchema.parse(stripped)
 }
 
-/** Mount one card through the real dispatcher and report what it painted. */
 function drawn(card: AnswerCard): { text: string; elements: number } {
   const { container } = render(
     <AnswerCardItem card={card} index={0} projectId="p1" messageId="message-1" />
@@ -231,7 +140,6 @@ function drawn(card: AnswerCard): { text: string; elements: number } {
   }
 }
 
-/** The assertion itself, so both cases fail with the same diagnosis. */
 function expectDrawsSomething(card: AnswerCard, shape: 'fixture' | 'minimal'): void {
   const { text, elements } = drawn(card)
   const blame =
@@ -242,15 +150,6 @@ function expectDrawsSomething(card: AnswerCard, shape: 'fixture' | 'minimal'): v
   expect(text, blame).not.toBe('')
 }
 
-/**
- * Answer every request with an empty payload.
- *
- * The mocked hooks cover the data a card needs to have something to draw; what
- * is left is incidental (thumbnails, rule facts, a model query) and would
- * otherwise leave the run to reach a dev server that is not there, printing a
- * wall of ECONNREFUSED for cards that render their empty state perfectly well.
- * The question here is whether the component paints, not what the network says.
- */
 beforeEach(() => {
   vi.stubGlobal(
     'fetch',
@@ -258,8 +157,6 @@ beforeEach(() => {
   )
 })
 
-// Cards are checked in the commit they render in, so the A2UI renderer must
-// already be here rather than arriving behind the placeholder.
 beforeAll(rendererSettled)
 afterEach(() => vi.unstubAllGlobals())
 
@@ -274,8 +171,6 @@ describe('every card type renders', () => {
   })
 
   it('knows what every type requires, so a minimal card is really minimal', () => {
-    // Without an entry the stripped card would keep only `type` — which parses
-    // for nothing and would turn this file into noise rather than a guard.
     const unknown = ALL_TYPES.filter((type) => !REQUIRED_FIELDS[type])
     expect(
       unknown,
@@ -284,8 +179,6 @@ describe('every card type renders', () => {
   })
 
   it('mounts every excluded type rather than skipping it', () => {
-    // The exclusions are a gallery decision; renderability is not negotiable,
-    // so each one must have a stand-in here.
     const unmocked = Object.keys(PREVIEW_EXCLUDED).filter((type) => !(type in EXCLUDED_FIXTURES))
     expect(unmocked, 'a type excluded from the gallery still has to render').toEqual([])
   })

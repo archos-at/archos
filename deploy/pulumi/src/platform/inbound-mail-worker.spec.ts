@@ -14,6 +14,7 @@ import worker, {
   SIGNATURE_LIFETIME_S,
   TOKEN_PATTERN,
   UNKNOWN_ADDRESS_TEXT,
+  REQUEST_ID_HEADER,
   VERDICT_HEADER,
   VERDICT_REJECT,
   type Env,
@@ -243,6 +244,52 @@ describe("inbound mail worker: the verdict contract", () => {
     expect(contract.cases.find((c) => /closed project/.test(c.note))?.outcome).toBe("accepted");
   });
 
+  describe("the delivery line for Workers Logs", () => {
+    function lines(spy: { mock: { calls: unknown[][] } }): Record<string, unknown>[] {
+      return spy.mock.calls.map((args) => JSON.parse(String(args[0])) as Record<string, unknown>);
+    }
+
+    it.each([
+      [202, {}, "accepted", "log"],
+      [404, REJECT, "rejected", "log"],
+      [503, {}, "retry", "error"],
+    ] as const)("names a %i as %s with the BFF's request id", async (status, headers, outcome, level) => {
+      const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+      const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+      stubFetch(respond(status, { ...headers, [REQUEST_ID_HEADER]: "req-1" }));
+      const { message } = fakeMessage();
+      await deliver(message).catch(() => undefined);
+      const [line] = lines(level === "error" ? error : log);
+      expect(line).toEqual({
+        event: "inbound_mail_delivery",
+        outcome,
+        status,
+        verdict: status === 404 ? VERDICT_REJECT : null,
+        requestId: "req-1",
+      });
+    });
+
+    it("never carries an address, a subject or a body", async () => {
+      const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+      stubFetch(respond(202));
+      const { message } = fakeMessage();
+      await deliver(message);
+      const text = log.mock.calls.flat().join(" ");
+      expect(text).not.toContain("example.org");
+      expect(text).not.toContain("riverside");
+      expect(text).not.toContain("Site visit");
+    });
+
+    it("names an address that is not project-shaped without calling the BFF", async () => {
+      const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+      const fetchMock = stubFetch(respond(202));
+      const { message } = fakeMessage("someone@inbox.example.test");
+      await deliver(message);
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(lines(log)[0]).toMatchObject({ outcome: "unknown_address", status: null });
+    });
+  });
+
   it("accepts a 2xx even if it carries the reject header", async () => {
     // Any 2xx means the BFF took the mail; bouncing it would tell the sender
     // it was lost when it was not.
@@ -329,6 +376,20 @@ describe("inbound mail worker: the verdict contract", () => {
     const { message, setReject } = fakeMessage();
     await expect(deliver(message)).rejects.toThrow("network connection lost");
     expect(setReject).not.toHaveBeenCalled();
+  });
+
+  it("still writes its delivery line when the BFF never answers", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    stubFetch(() => Promise.reject(new TypeError("network connection lost")));
+    const { message } = fakeMessage();
+    await expect(deliver(message)).rejects.toThrow("network connection lost");
+    expect(JSON.parse(String(error.mock.calls[0][0]))).toEqual({
+      event: "inbound_mail_delivery",
+      outcome: "retry",
+      status: null,
+      verdict: null,
+      requestId: null,
+    });
   });
 });
 

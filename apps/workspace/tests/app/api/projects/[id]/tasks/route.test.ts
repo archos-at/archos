@@ -16,8 +16,6 @@ import { GET, POST } from '@/app/api/projects/[id]/tasks/route'
 import { requireAuthorizedSession } from '@/lib/auth/require-auth'
 import { listJobs, createJob } from '@/lib/jobs/service'
 import type { AuthorizedSession } from '@/lib/auth/types'
-// The type the MOCKED service returns, not a table row: this helper stands in
-// for `listJobs`/`createJob` output.
 import type { TaskView } from '@/lib/tasks/task-wire'
 
 const mockSession = vi.mocked(requireAuthorizedSession)
@@ -42,7 +40,6 @@ function makeParams(id: string): { params: Promise<{ id: string }> } {
   return { params: Promise.resolve({ id }) }
 }
 
-/** A job is a name and a prompt. Nothing else is required. */
 const validBody = { name: 'Weekly', prompt: 'Fasse die Woche zusammen.' }
 
 function req(body?: unknown): Request {
@@ -54,8 +51,6 @@ function req(body?: unknown): Request {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  // A signed-in deployment: the session's WorkOS claim is the skills gate, and
-  // a session without the claim is the default (off).
   vi.stubEnv('REQUIRE_AUTH', 'true')
   session.featureFlags = null
   mockSession.mockResolvedValue(session as unknown as AuthorizedSession)
@@ -97,10 +92,6 @@ describe('POST /api/projects/[id]/tasks', () => {
     expect(mockCreate).not.toHaveBeenCalled()
   })
 
-  // The body no longer carries an output kind at all: a task is always a
-  // research run that files a report, so the service writes that itself. A
-  // caller that still sends one is not refused — the field is dropped, which is
-  // what keeps a stale client from 400ing on a question nobody asks any more.
   it('drops an output kind the caller still sends, rather than refusing it', async () => {
     session.featureFlags = ['skills']
     mockCreate.mockResolvedValue(asJob({ id: 'job-new', name: 'Weekly' }))

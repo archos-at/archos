@@ -9,8 +9,6 @@ vi.mock('./seen-repository', () => ({
   recordReleaseWeekSeen: vi.fn(),
   setReleaseNoticeEnabled: vi.fn(),
 }))
-// The specs read their own weeks, never the committed artifact: that file is whatever the
-// release-notes workflow last wrote, and the current week may have no summary yet.
 vi.mock('./release-notes', async (original) => ({
   ...(await original<typeof import('./release-notes')>()),
   releaseNoteArtifact: vi.fn(),
@@ -45,7 +43,6 @@ const week = (id: string, summary: string | null) => ({
 const SOURCE: ReleaseNoteArtifact = {
   sections: RELEASE_NOTE_SECTIONS,
   areas: RELEASE_NOTE_AREAS,
-  // The current week has no summary yet; the latest summary is W44's.
   releases: [week('2026-W45', null), week('2026-W44', 'The week.'), week('2026-W43', 'The week before.')],
 }
 
@@ -100,14 +97,12 @@ describe('the weekly summary notice (ADR-0156, amendment)', () => {
     vi.mocked(recordReleaseWeekSeen).mockResolvedValue({ lastSeenWeek: '2026-W44', enabled: true })
     vi.mocked(setReleaseNoticeEnabled).mockResolvedValue({ lastSeenWeek: '2026-W40', enabled: false })
     expect(await setReleaseNoticePreference(SESSION, true)).toEqual({ enabled: true })
-    // Re-enabling records the newest summary as seen in the same write.
     expect(recordReleaseWeekSeen).toHaveBeenCalledWith('user-1', 'org-1', latestReleaseSummary()?.id, true)
     expect(await setReleaseNoticePreference(SESSION, false)).toEqual({ enabled: false })
     expect(setReleaseNoticeEnabled).toHaveBeenCalledWith('user-1', 'org-1', false)
   })
 
   it('after turning it back on, the next week shows: the latest only, never a backlog', async () => {
-    // Off since W40, back on in W44 (which recorded W44): W45 and W46 are published since.
     const later: ReleaseNoteArtifact = {
       ...SOURCE,
       releases: [week('2026-W46', 'Two weeks on.'), week('2026-W45', 'A week on.'), ...SOURCE.releases.slice(1)],

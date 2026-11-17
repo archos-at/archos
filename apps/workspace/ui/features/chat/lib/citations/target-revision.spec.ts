@@ -1,11 +1,3 @@
-/**
- * A target remembers that its document is an older Fassung.
- *
- * The stored row a citation resolves against carries the reader-visible `supersededBy`
- * (`revision.supersededBy` of the by-name listing row); the target hands it to the peek. A row nobody
- * replaced, a base-corpus file and an unresolved name carry none.
- */
-
 import { describe, expect, test } from 'vitest'
 import { buildCitationModel, resolveCitationTarget, type StoredDocumentRef } from './index'
 import type { CitationSource } from '../../types'

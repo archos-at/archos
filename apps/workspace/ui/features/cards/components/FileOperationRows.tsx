@@ -1,12 +1,5 @@
 'use client'
 
-/**
- * The rows of a file-operation proposal: one line per item, „from → to“ in the
- * words of its verb, each with its verdict once the server has one. Shared by
- * the server-backed receipt and by the card of an answer older than server
- * proposals, so the two cannot draw the same proposal differently.
- */
-
 import { Check, FolderPlus, X } from 'lucide-react'
 import { motion, useIconSwapTransition } from '@/components/motion'
 import { Chip } from '@/components/ui/chip'
@@ -20,17 +13,9 @@ import {
   type FileOperationResult,
 } from '../lib/file-operations'
 
-/** The project root has no path to print; it has a name the reader knows. */
 const folderText = (path: string | null | undefined, rootLabel: string): string =>
   path && path.trim() ? path : rootLabel
 
-/**
- * One row: what this operation does, in the operation's own words.
- *
- * Rendered as „from → to" wherever there IS a from — the reader is deciding
- * about a change, and a change the card only states the destination of asks
- * them to remember where the file is now.
- */
 function OperationRow({
   operation,
   item,
@@ -92,10 +77,6 @@ function OperationRow({
   )
 }
 
-/**
- * The folder a move creates before its first move: the person confirms the
- * folder as well as the files, so it is named first, with what it is for.
- */
 function NewFolderNote({ folder }: { folder: FileOperationNewFolder }) {
   const t = useTranslations(chatCopy)
   return (
@@ -119,7 +100,6 @@ function NewFolderNote({ folder }: { folder: FileOperationNewFolder }) {
   )
 }
 
-/** Every row of the proposal, each with its verdict once there is one. */
 export function OperationList({
   operation,
   items,
@@ -129,7 +109,6 @@ export function OperationList({
   operation: FileOperationKind
   items: readonly FileOperationItem[]
   results?: readonly FileOperationResult[] | null
-  /** The folder this move creates first; only a move has one. */
   newFolder?: FileOperationNewFolder | null
 }) {
   return (
@@ -147,10 +126,6 @@ export function OperationList({
   )
 }
 
-/**
- * A row's verdict, in a slot that is there before it: the check pops in as an
- * icon swap (scale on the snap spring, opacity on a tween), a failure is a quiet ✗ beside the reason the row prints.
- */
 function RowStatus({ result }: { result?: FileOperationResult }) {
   const swap = useIconSwapTransition()
   const Icon = result ? (result.ok ? Check : X) : null

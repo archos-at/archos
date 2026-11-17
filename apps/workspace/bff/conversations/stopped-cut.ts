@@ -19,7 +19,7 @@
 import { v5 as uuidv5 } from 'uuid'
 import type { Message } from '@/lib/db/schema/messages'
 import { ConflictError } from '@/lib/api/errors'
-import { holdsNoMoreThan, sharedPrefixChars, stoppedAnswer } from '@/features/chat/lib/stopped-answer'
+import { holdsNoMoreThan, sharedPrefixChars, stoppedAnswer } from '@/lib/turns/stopped-answer'
 
 /**
  * How long after the stored answer was written its asker may still cut it.

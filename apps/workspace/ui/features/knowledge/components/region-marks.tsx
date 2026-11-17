@@ -5,28 +5,10 @@ import type { PageRegion } from '../lib/page-region'
 
 export interface RegionMarksProps {
   regions: readonly PageRegion[]
-  /** CSS colour, so the box wears the tint of the chip that opened the viewer. */
   color?: string
-  /** Changing it remounts the marks, which replays the arrival pulse. */
   ping?: number
 }
 
-/**
- * The boxes of a passage read off a picture of the page (issue #433), laid over
- * whatever shows that page: a PDF page's canvas or an uploaded image.
- *
- * Positioned in PERCENT of the element they sit in, because that is what a
- * region is — a share of the page as the viewer shows it — so it needs no
- * scale, survives every zoom step, and the parent only has to be `relative`
- * and exactly the size of the page.
- *
- * Two layers per box. The fill multiplies with the page, as the passage mark
- * does, so the drawing underneath stays readable through it. The label must
- * not multiply — a blended label on a dark line of the plan is unreadable — so
- * it sits beside the fill rather than inside it. The frame is an outline, which
- * the arrival pulse does not animate, so the box stays visible for the length
- * of the pulse rather than only after it.
- */
 export const RegionMarks: FC<RegionMarksProps> = ({ regions, color, ping = 0 }) => (
   <>
     {regions.map((region, index) => {

@@ -1,20 +1,5 @@
 'use client'
 
-/**
- * The three model-backed cards: room schedule, one element, revision diff.
- *
- * They share one property that is the whole design: **the card carries an
- * identifier and nothing else.** A file name, a GlobalId, a pair of revisions —
- * and the component fetches the numbers from the model. The agent therefore
- * cannot state a floor area, get a fire rating wrong, or invent a delta,
- * because it never supplies one; the worst it can do is point at the wrong
- * table, which is visible immediately.
- *
- * Every row that names an element links into the model page at that element
- * (`buildModelHref`), so a card is a way *into* the building rather than a
- * screenshot of it.
- */
-
 import type { JSX } from 'react'
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
@@ -41,19 +26,15 @@ import {
   type BimModelHeaderView,
 } from '@/features/bim/hooks/use-bim-model'
 
-/** Resolve a model by file name, the way the agent addresses one. */
 function useResolvedModel(
   projectId: string | null,
   modelFile: string | null
 ): {
   model: BimModelHeaderView | null
   models: BimModelHeaderView[]
-  /** True only while there is nothing to show — see `NoModel`. */
   isLoading: boolean
   error: string | null
-  /** The name matched several models, so none of them is "the" one. */
   ambiguous: boolean
-  /** It matched a model that is not readable YET, or not at all. */
   notReady: 'extracting' | 'failed' | null
 } {
   const { data, isLoading, error } = useProjectBimModels(projectId)
@@ -61,30 +42,17 @@ function useResolvedModel(
     () => (data ?? []).filter((candidate) => candidate.status === 'ready'),
     [data]
   )
-  // AMBIGUOUS is not resolved — see `resolveModelByFilename`. `ifc_query`
-  // declines to answer when a name hits more than one ready model, and this
-  // took the first hit: for a project holding `haus-a.ifc` and `haus-a-alt.ifc`
-  // the tool correctly refused while the card beside that same answer drew a
-  // DIFFERENT building's geometry under the agent's title.
   const { model, ambiguous } = useMemo(
     () => resolveModelByFilename(models, modelFile),
     [models, modelFile]
   )
-  // Why a name that matched nothing READY is still a name this project knows.
-  // Told "not available in this project", an architect goes looking for an
-  // upload that is either half a minute from finishing or sitting there with a
-  // failure they could fix by re-exporting.
   const notReady = useMemo(
     () => (model ? null : notReadyModelStatus(data ?? [], modelFile)),
     [model, data, modelFile]
   )
-  // `isLoading` is narrowed to "and nothing to show yet": the list polls every
-  // four seconds while any model is extracting and keeps its previous data
-  // across the refetch, so the raw flag would flicker every card in a thread.
   return { model, models, isLoading: isLoading && data === null, error, ambiguous, notReady }
 }
 
-/** POST one query to a model and keep the typed slice the caller asked for. */
 function useModelQuery<T>(
   modelId: string | null,
   body: Record<string, unknown> | null,
@@ -95,9 +63,6 @@ function useModelQuery<T>(
     isLoading: false,
     error: false,
   })
-  // The body is an object literal at every call site, so it is a new reference
-  // on every render; keying the effect on its serialization is what stops the
-  // fetch from looping.
   const key = body ? JSON.stringify(body) : null
 
   useEffect(() => {
@@ -125,7 +90,6 @@ function useModelQuery<T>(
     return () => {
       cancelled = true
     }
-    // `pick` is a stable module-level selector at every call site.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modelId, key])
 
@@ -161,15 +125,6 @@ function CardShell({
   )
 }
 
-/**
- * Three situations, not one.
- *
- * "Das referenzierte Modell ist in diesem Projekt nicht verfügbar" is the
- * sentence that tells an architect their upload vanished, and it was rendered
- * for a list that had not arrived yet AND for a list whose request failed —
- * the second one permanently. The sibling file preview refuses to conflate
- * these and says so in a comment; these five cards did it on every mount.
- */
 function NoModel({
   isLoading = false,
   error = null,
@@ -196,7 +151,6 @@ function NoModel({
           ? t('preview.loadFailed')
           : ambiguous
             ? // "Not in this project" would be false: it is in the project
-              // twice over, which is why nothing is drawn.
               t('card.ambiguousModel')
             : notReady === 'failed'
               ? // The one of these the reader can do something about.
@@ -209,18 +163,6 @@ function NoModel({
   )
 }
 
-// ---------------------------------------------------------------------------
-// Raumbuch
-// ---------------------------------------------------------------------------
-
-/**
- * The Raumbuch AND whether it covers the whole model.
- *
- * `truncated` was dropped here, so the chat card printed a
- * Netto-Grundfläche computed over part of a building with none of the
- * warning the model page refuses to show the same number without.
- */
-/** A text link in a dense table is 18px tall; under a finger it grows to the 44px floor. */
 const TOUCH_LINK = 'pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:items-center'
 
 const pickSchedule = (payload: Record<string, unknown>) =>
@@ -274,28 +216,6 @@ export function IfcScheduleCard({
 
   const download = () => {
     if (!schedule) return
-    /*
-      `roomScheduleToCsv`, not a second hand-rolled writer.
-
-      This one hard-coded German headers, so an English-locale reader
-      downloaded a German file; it abbreviated them differently —
-      `NGF`/`BGF` against the model page's `Netto-Grundfläche` /
-      `Brutto-Grundfläche` — and left out the Kategorie column and the
-      per-storey subtotals entirely. Two files both called "Raumbuch", of the
-      same rooms, with different columns and different names for the columns
-      they shared. It also wrote `24.5` where the shared writer writes `24,5`,
-      which the German-locale Excel this export targets reads as TEXT: the
-      downloaded Raumbuch would not sum, which is the one thing anyone
-      downloads it for.
-
-      The storey filter is applied to the schedule, so the file is still
-      exactly the table on screen — INCLUDING its footer. `totals` came through
-      the spread untouched, so a file called "Raumbuch Erdgeschoss" ended in a
-      row labelled `Gesamt` carrying the whole building's Netto-Grundfläche.
-      The writer computes the footer from the storeys it is given and names the
-      scope; `truncated` travels with it so the caveat on screen is in the file
-      as well.
-    */
     const csv = roomScheduleToCsv(
       { ...schedule, storeys },
       { storeyFilter: storey, truncated: payload?.truncated === true }
@@ -303,10 +223,6 @@ export function IfcScheduleCard({
     const url = URL.createObjectURL(new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8' }))
     const anchor = document.createElement('a')
     anchor.href = url
-    // `haus-a-raumbuch.csv`, matching the model page. This wrote
-    // `raumbuch-haus-a.ifc.csv` — the extension of the source file left in the
-    // middle of a CSV's name, and the two exports of the same table sorting
-    // apart in a downloads folder.
     anchor.download = `${(model?.filename ?? 'modell').replace(/\.(ifc|ifczip)$/i, '')}-raumbuch.csv`
     anchor.click()
     URL.revokeObjectURL(url)
@@ -318,8 +234,6 @@ export function IfcScheduleCard({
       title={title}
       icon={Table2}
       action={
-        // Not for an empty selection: a CSV of nothing is a file the reader
-        // has to open to discover is empty.
         schedule &&
         storeys.length > 0 && (
           <Button type="button" size="sm" variant="ghost" onClick={download}>
@@ -336,13 +250,8 @@ export function IfcScheduleCard({
       ) : error ? (
         <p className="text-sm text-destructive">{t('schedule.failed')}</p>
       ) : !schedule || schedule.totals.rooms === 0 ? (
-        // "The query failed" and "this model has no rooms" are different
-        // answers, and the model page has always distinguished them. The card
-        // rendered the failure sentence for both.
         <EmptyState title={t('schedule.empty')} />
       ) : storeys.length === 0 ? (
-        // A storey the card named that this model does not have. Saying so
-        // beats a table with headers, no rows and no explanation.
         <EmptyState title={t('schedule.storeyEmpty', { storey: storey ?? '' })} />
       ) : (
         <div className="space-y-3">
@@ -421,15 +330,9 @@ export function IfcScheduleCard({
             </table>
           </div>
           {payload?.truncated && (
-            // Above everything it invalidates. The model page refuses to show
-            // these numbers without this sentence; a card in a chat thread is
-            // read by the same person about the same building.
             <p className="text-xs text-destructive">{t('schedule.truncated')}</p>
           )}
           {schedule.totals.roomsWithoutArea > 0 && (
-            // Stated beside the total, not in a tooltip: a Flächenaufstellung
-            // that silently omits four rooms is the failure this whole
-            // subsystem exists to prevent.
             <p className="text-xs text-warning">
               {t('schedule.missing', { count: schedule.totals.roomsWithoutArea })}
             </p>
@@ -440,10 +343,6 @@ export function IfcScheduleCard({
     </CardShell>
   )
 }
-
-// ---------------------------------------------------------------------------
-// One element
-// ---------------------------------------------------------------------------
 
 const pickElement = (payload: Record<string, unknown>) =>
   payload.element as BimElementDetail | null | undefined
@@ -521,11 +420,6 @@ export function IfcElementCard({
             <p className="text-muted-foreground">{element.materials.join(' · ')}</p>
           )}
           {Object.entries(element.properties).map(([setName, properties]) => (
-            // The set name is a heading over the list, not a term IN it. It
-            // used to be the `<dt>` and every property name was a second
-            // `<dd>`, so each row arrived as two definitions with no term
-            // between them: "Feuerwiderstand" and "REI 90" were read out as an
-            // unlabelled pair, which is the whole content of the card.
             <div key={setName} className="space-y-0.5">
               <p className="text-xs font-medium text-muted-foreground">{setName}</p>
               <dl className="space-y-0.5">
@@ -545,18 +439,6 @@ export function IfcElementCard({
   )
 }
 
-// ---------------------------------------------------------------------------
-// Prüfbuch
-// ---------------------------------------------------------------------------
-
-/**
- * The rule run AND whether it saw the whole model.
- *
- * `truncated` was discarded, so "9 erfüllt · 0 nicht erfüllt" over a capped
- * model was presented in chat as a fact about the building. The model page
- * refuses to print the same counts without `compliance.truncatedModel` above
- * them; the counts do not become safer for being in a card.
- */
 const pickCompliance = (payload: Record<string, unknown>) =>
   payload.compliance
     ? {
@@ -573,15 +455,6 @@ export interface IfcComplianceCardProps {
   projectId: string | null
 }
 
-/**
- * The requirement verdicts, as a card.
- *
- * Carries rule IDS and nothing else — the counts, thresholds and readings are
- * fetched, so an answer cannot state that a requirement is met. `rule_ids` that
- * do not resolve are REPORTED rather than dropped: silently narrowing the list
- * would turn a hallucinated id into a shorter, cleaner-looking Prüfbuch, which
- * is the one direction this card must never fail in.
- */
 export function IfcComplianceCard({
   title,
   modelFile,
@@ -597,9 +470,6 @@ export function IfcComplianceCard({
     ambiguous,
     notReady,
   } = useResolvedModel(projectId, modelFile)
-  // The SAME facts the model page runs the catalogue with. Without them the
-  // fire-resistance rules stand down here and produce a verdict on the model
-  // page, so the chat and the page disagreed about the same building.
   const facts = useProjectRuleFacts(projectId)
   const request = useMemo(
     () => ({
@@ -609,16 +479,8 @@ export function IfcComplianceCard({
     }),
     [facts.buildingClass, facts.mainUse]
   )
-  // WAIT for the brief. Without the guard the catalogue runs once with no
-  // Gebäudeklasse and again with it, and the first run is both discarded and
-  // WRONG — every fire-resistance rule stands down, so for a moment the card
-  // contradicts the model page about the same building. It also costs a
-  // measured ~1.5 s and ~126 MB of server work per card, thrown away.
-  const {
-    data: run,
-    isLoading: queryLoading,
-    error,
-  } = useModelQuery(facts.ready ? (model?.id ?? null) : null, request, pickCompliance)
+  const query = useModelQuery(facts.ready ? (model?.id ?? null) : null, request, pickCompliance)
+  const { data: run, isLoading: queryLoading, error } = query
   const rules = run?.rules ?? null
   const isLoading = queryLoading || !facts.ready
 
@@ -635,10 +497,6 @@ export function IfcComplianceCard({
     return ruleIds.filter((id) => !known.has(canonicalBimRuleId(id))).length
   }, [rules, ruleIds])
 
-  // Rendered here rather than left to the answer text: the agent is told to
-  // repeat the export path, and a model asked to reproduce a URL will
-  // eventually reproduce a wrong one. The card composes it from the model it
-  // actually resolved.
   const bcfHref = useMemo(() => {
     if (!model || !projectId || !selected || rulesWithOpenWork(selected).length === 0) return null
     const query = new URLSearchParams({ modelId: model.id })
@@ -704,13 +562,15 @@ export function IfcComplianceCard({
                     </span>
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {rule.applicable
-                      ? t('compliance.counts', {
+                    {/* A hint, from the records, is said as is: its counts would read as missing data. */}
+                    {!rule.applicable
+                      ? `${t('compliance.notApplicable')}: ${rule.notApplicableReason ?? ''}`
+                      : (rule.hint ??
+                        t('compliance.counts', {
                           passed: rule.passed,
                           failed: rule.failed,
                           undecidable: rule.undecidable,
-                        })
-                      : `${t('compliance.notApplicable')}: ${rule.notApplicableReason ?? ''}`}
+                        }))}
                   </p>
                 </li>
               ))}
@@ -725,14 +585,9 @@ export function IfcComplianceCard({
   )
 }
 
-// ---------------------------------------------------------------------------
-// Revision diff
-// ---------------------------------------------------------------------------
-
 const pickComparison = (payload: Record<string, unknown>) =>
   payload.comparison as BimComparison | undefined
 
-/** Rows shown per group before the badge count speaks for the rest. */
 const DIFF_ROWS = 6
 
 interface DiffEntry {
@@ -743,12 +598,6 @@ interface DiffEntry {
   changes?: Array<{ field: string; before: unknown; after: unknown }>
 }
 
-/**
- * One side of a revision delta, as rows that open the element.
- *
- * Renders nothing when the group is empty, so a revision that only added
- * something does not carry two empty headings.
- */
 function DiffGroup({
   label,
   entries,
@@ -761,16 +610,7 @@ function DiffGroup({
   entries: readonly DiffEntry[]
   status: 'info' | 'fail' | 'warning'
   projectId: string | null
-  /** The revision this group's elements exist in. */
   filename: string
-  /**
-   * How many elements the comparison actually found.
-   *
-   * `entries` is capped at `MAX_COMPARISON_ROWS` by `compare.ts`, so its
-   * length is a property of the cap rather than of the revision. "… 492
-   * weitere" computed from it is a remainder of a cap presented as a count of
-   * the building.
-   */
   total: number
 }): JSX.Element | null {
   const t = useTranslations(bimCopy)
@@ -851,11 +691,6 @@ export function IfcDiffCard({
     ambiguous,
     notReady,
   } = useResolvedModel(projectId, modelFile)
-  // The base revision resolves by the SAME rule as the current one. It used to
-  // take the first substring hit, which is the bug the sibling resolver exists
-  // to prevent — and worse here, because a diff names two buildings: `haus-a`
-  // against a project holding `haus-a.ifc` and `haus-a-alt.ifc` reported the
-  // additions and deletions of an arbitrary one of them as a revision history.
   const { model: baseModel, ambiguous: baseAmbiguous } = useMemo(
     () => resolveModelByFilename(models, baseModelFile),
     [models, baseModelFile]
@@ -877,11 +712,6 @@ export function IfcDiffCard({
           notReady={notReady}
         />
       ) : model.id === baseModel.id ? (
-        // Both names resolved to the same revision — the ordinary case of the
-        // agent naming the current model as `base_model_file`, or a substring
-        // matching both. The query is deliberately not sent, so the branch
-        // below saw `comparison: null` and reported a broken comparison for
-        // something that simply has nothing to compare.
         <EmptyState title={t('compare.sameRevision')} />
       ) : isLoading ? (
         <Spinner size="sm" />

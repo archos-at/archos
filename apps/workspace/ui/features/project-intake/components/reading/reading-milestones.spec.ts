@@ -1,7 +1,3 @@
-/**
- * The milestones', the documents' and the found values' states, as pure data:
- * what the step claims in each phase.
- */
 import { describe, expect, it } from 'vitest'
 import {
   READING_COMPLETED,

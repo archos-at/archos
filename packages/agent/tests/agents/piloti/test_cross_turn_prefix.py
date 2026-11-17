@@ -1,38 +1,3 @@
-"""What a turn sends again, byte for byte, and what it sends new.
-
-A provider caches the prefix of a request: the tool schemas, then the system
-prompt, then the messages. Within a turn every round extends the one before,
-so the rounds hit. Across turns, and across conversations, the cache carries
-only as far as the new request repeats an earlier one. This drives
-conversations through the code that builds the requests (``history_window``,
-``request_messages``, ``conversation._answer_update``) in both context layouts
-and measures two things:
-
-* a follow-up: the new characters on its first call (what the turn pays at
-  the full input price), against the previous turn's last request;
-* an opening turn: how much of its first call another conversation of the
-  same project already sent.
-
-Measured 2026-11-04, sizes as below. The turn layout repeats the tool schemas,
-the system prompt and the history up to the question before last; the turn
-context after it, the bulk of a request, is new on every turn and in every
-conversation. The conversation layout moves the project's part of that context
-to the head: the follow-up's new characters drop by about two thirds, and an
-opening turn shares the head with the project's other conversations. It adds
-nothing to what the history carries, so the reads every round repeats stay as
-they were.
-
-History edits are measured the same way: a conversation that outgrows its
-history budget, with older turns pruned and the window moved in steps
-(``history.PRUNE_BATCH_TURNS``, ``history.TRIM_TO_SHARE``) against the same
-conversation edited on every turn.
-
-The floors are ratchets: a change that sends more new characters, or shares
-less, fails; one that does better lowers or raises them. Ported from the
-unmerged ``feat/chat-conversation-context-layout`` branch (drafted there as ADR-0154; ADR-0177 here), where it
-was first measured on 2026-11-04.
-"""
-
 from __future__ import annotations
 
 import pytest
@@ -51,16 +16,13 @@ from agent.agents.piloti.prompt import TurnPrompt
 from agent.agents.piloti.prompt import request_messages
 from agent.common.message_utils import content_to_text
 
-#: The bound tool schemas, ahead of every message (the IFC tools alone are about 8 k tokens).
 TOOL_SCHEMAS = "T" * 40_000
 SYSTEM = "S" * 20_000
-#: What the project and the office set: the inventory, the project, the office.
 PROJECT = "Inventar-Zeile " * 1_800
 HISTORY_BUDGET = 40_000
 
 
 def _note(conversation: str, turn: int) -> str:
-    """What a turn varies: the date, the asker, the open file, the workspace."""
     return f"Date: 2026-11-04\nUser: {conversation}\nFocus: Plan {turn}.pdf\n" + ("Arbeitsstand " * 150)
 
 
@@ -76,7 +38,6 @@ def _prompt(layout: str, conversation: str, turn: int) -> TurnPrompt:
 
 
 def _results(turn: int, cited: str) -> str:
-    """A knowledge_search result in the grounding grammar: three passages, one of them cited."""
     return "".join(
         f"--- Result {index} ---\nSource: OIB-RL 2\nCitation: {key}\n\n" + (f"Passage {key} " * 300) + "\n\n"
         for index, key in enumerate((cited, f"T{turn}-B", f"T{turn}-C"), start=1)
@@ -86,7 +47,6 @@ def _results(turn: int, cited: str) -> str:
 def _run_turn(
     transcript: list[BaseMessage], layout: str, conversation: str, turn: int, budget: int = HISTORY_BUDGET
 ) -> tuple[list[list[BaseMessage]], list[BaseMessage]]:
-    """One turn: two search rounds and an answer, then the write-back. Returns its requests and the new transcript."""
     stored = [*transcript, HumanMessage(content=f"Frage {turn}: Abstand zur Grundgrenze?")]
     history = history_window(stored, budget)
     prompt = _prompt(layout, conversation, turn)
@@ -121,7 +81,6 @@ def _conversation(
 
 
 def _wire(message: BaseMessage) -> str:
-    """What the provider sees of one message, close enough to compare prefixes."""
     calls = "".join(f"{c['id']}{c['name']}{c['args']}" for c in getattr(message, "tool_calls", None) or [])
     return f"<{message.type}:{getattr(message, 'tool_call_id', '')}>{content_to_text(message.content)}{calls}"
 
@@ -141,14 +100,12 @@ def _shared(before: list[BaseMessage], after: list[BaseMessage]) -> int:
 
 
 def _new_on_follow_up(layout: str, turns: int) -> int:
-    """The characters the last turn's first call sends that the turn before did not."""
     played = _conversation(layout, turns)
     before, first = played[-2][-1], played[-1][0]
     return len(_text(first)) - _shared(before, first)
 
 
 def _shared_by_another_conversation(layout: str) -> float:
-    """The share of an opening turn's first call that another conversation of the project already sent."""
     first_a = _conversation(layout, 1, "A")[0][0]
     first_b = _conversation(layout, 1, "B")[0][0]
     return _shared(first_a, first_b) / len(_text(first_b))
@@ -175,16 +132,13 @@ def test_the_conversation_layout_sends_no_more_than_the_turn_layout():
         _conversation(TURN_LAYOUT, 5), _conversation(CONVERSATION_LAYOUT, 5), strict=True
     ):
         for turn_request, conversation_request in zip(turn_requests, conversation_requests, strict=True):
-            # The same parts in another order, plus two tags: never more to read on any round.
             assert len(_text(conversation_request)) <= len(_text(turn_request)) + 64
 
 
-#: Small enough that sixteen turns outgrow it, so the window has to move.
 LONG_BUDGET = 9_000
 
 
 def _carried_follow_ups(turns: int) -> float:
-    """The share of follow-ups whose first call repeats the previous turn past the head and the oldest kept turn."""
     played = _conversation(CONVERSATION_LAYOUT, turns, budget=LONG_BUDGET)
     head = len(_text(played[0][0][:2]))
     carried = 0

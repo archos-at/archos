@@ -1,11 +1,3 @@
-"""A filed mail survives ingestion: its format onto every chunk, its records onto the metadata row (ADR-0137).
-
-``POST /v1/ingest`` puts ``source_format: mail`` and ``mail_thread`` on the job config of a filed
-E-Mail-Verlauf, and ``mail_origin`` on an attachment's (``test_ingest_mail.py`` in ``agent_host``). This is
-the job's end: the format goes on the CHUNK, because a retrieval hit is a chunk and the lane is read off
-it (``norm_registry.lane_for_hit``); the records go on the ROW, which the listing and the reader read.
-"""
-
 from __future__ import annotations
 
 from knowledge_layer.ingest import EMBED_EXCLUDED_METADATA_KEYS

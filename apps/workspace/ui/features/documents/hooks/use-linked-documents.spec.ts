@@ -1,9 +1,3 @@
-/**
- * A link to a document the paged level has not loaded (ADR-0102): read by id,
- * pinned beside the level, and settled as absent on a 403 or 404 so a
- * comparison stops waiting for it.
- */
-
 import { describe, expect, it } from 'vitest'
 import { renderHook, waitFor } from '@/test-utils'
 import { http, HttpResponse } from 'msw'

@@ -52,6 +52,7 @@ from pydantic import model_validator
 from agent.auth import Principal
 from agent.common.job_admission import JobAdmissionError
 
+from ..jobs.run_result import TEMPORARY_CONVERSATION_KEY
 from ..registry import get_agent_config
 from .internal_auth import _require_internal_token
 
@@ -153,6 +154,10 @@ class SkillSubmitPayload(BaseModel):
     memory_reflection_enabled: bool = Field(
         False,
         description="Whether the worker may run the post-run memory reflection pass (the org's flag, BFF-evaluated)",
+    )
+    temporary_conversation: bool = Field(
+        False,
+        description="The run's conversation is temporary (ADR-0180): the worker reflects nothing from its report",
     )
     organization_id: str = Field(..., description="WorkOS organization id owning the run (required)")
     user_id: str | None = Field(None, description="Skill owner's WorkOS user id")
@@ -299,7 +304,7 @@ def _skill_usage_context(body: SkillSubmitPayload) -> dict:
     """The identity and budget the worker's usage ledger attributes the run's spend to."""
     # Identity keys must match cost_tracking._read_identity_from_context so
     # the worker's usage ledger attributes scheduled-run spend correctly.
-    return {
+    context: dict = {
         "identity": {
             "organization_id": body.organization_id,
             "user_id": body.user_id,
@@ -308,6 +313,12 @@ def _skill_usage_context(body: SkillSubmitPayload) -> dict:
         },
         "budget_header": body.budget_header,
     }
+    if body.temporary_conversation:
+        # Beside the identity, not in it: the worker reads it to skip the memory
+        # reflection (``job_outcome.reflection_enabled``). Only when true, so a
+        # run's stored payload is unchanged for every other conversation.
+        context[TEMPORARY_CONVERSATION_KEY] = True
+    return context
 
 
 async def _submit_skill_run(

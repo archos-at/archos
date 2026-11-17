@@ -1,11 +1,3 @@
-"""Conversation pub/sub bus (ADR-0028 stateless-agent target).
-
-The whole cross-replica protocol is exercised over the in-process transport with
-two ConversationBus instances standing in for two replicas — no live Redis. This
-is the same transport that serves the fail-open single-node path, so these tests
-also cover that path.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -28,18 +20,20 @@ from agent_host.conversation_bus import reset_bus_for_tests
 CONV = "conv-123"
 
 
-def _two_replicas() -> tuple[ConversationBus, ConversationBus]:
-    """Two buses sharing ONE in-memory broker == two replicas on one Dragonfly."""
-    transport = InMemoryTransport()
+class Clock:
+    def __init__(self) -> None:
+        self.now = 0.0
+
+    def __call__(self) -> float:
+        return self.now
+
+
+def _two_replicas(clock: Clock | None = None) -> tuple[ConversationBus, ConversationBus]:
+    transport = InMemoryTransport(clock=clock) if clock else InMemoryTransport()
     return ConversationBus(transport, replica_id="R1"), ConversationBus(transport, replica_id="R2")
 
 
 def _start_collector(aiter, n: int) -> tuple[asyncio.Task, list]:
-    """Start consuming ``aiter`` in the background; returns (task, out-list).
-
-    Returning the task lets the caller wait for the subscription to actually
-    register (pub/sub is fire-and-forget) BEFORE publishing, then await results.
-    """
     out: list = []
 
     async def _run():
@@ -73,8 +67,6 @@ async def test_owner_frames_reach_the_relay_in_order():
 
 @pytest.mark.asyncio
 async def test_relay_ignores_its_own_published_frames():
-    """owner==relay fast path writes the socket directly, so the subscriber must
-    drop frames it published itself (no double delivery)."""
     (owner,) = (_two_replicas()[0],)
     got = []
 
@@ -117,7 +109,6 @@ def _frame(turn_id: str, seq: int) -> dict:
 
 @pytest.mark.asyncio
 async def test_a_turn_is_read_back_by_its_own_turn_id_in_seq_order():
-    """`attach` reads one turn from the stream by the frame's own cursor, from any replica."""
     owner, relay = _two_replicas()
     for turn_id, seq in [("t1", 1), ("t2", 1), ("t1", 3), ("t1", 2)]:
         await owner.publish_frame(CONV, _frame(turn_id, seq))
@@ -142,7 +133,6 @@ async def test_stream_buffer_is_bounded(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_the_in_process_stream_keeps_a_bounded_number_of_conversations(monkeypatch):
-    """It has no TTL, so a long-lived single node would otherwise keep every conversation it served."""
     import agent_host.conversation_bus as bus_mod
 
     monkeypatch.setattr(bus_mod, "_IN_MEMORY_STREAMS", 2)
@@ -180,21 +170,13 @@ def test_bus_is_in_memory_without_redis(monkeypatch):
     reset_bus_for_tests()
 
 
-# ---------------------------------------------------------------------------
-# A black-holed bus, the turn claim, the subscription's ready signal
-# ---------------------------------------------------------------------------
-
-
 class _BlackHole(InMemoryTransport):
-    """Dragonfly that accepts the connection and never answers."""
-
     async def xadd(self, stream: str, data: str, maxlen: int, ttl: int) -> None:
         await asyncio.sleep(3600)
 
 
 @pytest.mark.asyncio
 async def test_a_black_holed_bus_costs_one_bound_per_outage_not_one_per_frame(monkeypatch):
-    """publish_frame runs under the turn's sequencer lock for every delta: a second each was measured."""
     monkeypatch.setattr(conversation_bus, "BUS_CALL_TIMEOUT_S", 0.05)
     bus = ConversationBus(_BlackHole(), replica_id="R1")
     started = asyncio.get_running_loop().time()
@@ -255,9 +237,6 @@ async def test_the_subscription_says_when_no_publish_can_be_missed():
     assert received[0].payload == {"turn_id": "t1", "seq": 1}
 
 
-# ---- one running turn per conversation (ADR-0080) -------------------------
-
-
 @pytest.mark.asyncio
 async def test_one_turn_holds_the_conversation_and_the_other_replica_sees_who():
     first, second = _two_replicas()
@@ -284,12 +263,12 @@ async def test_only_the_holder_renews_or_releases_the_marker():
 
 @pytest.mark.asyncio
 async def test_a_marker_nobody_renews_expires_and_the_next_turn_takes_it(monkeypatch):
-    """A replica killed mid-turn stops renewing; its marker ends with its TTL."""
     monkeypatch.setattr(conversation_bus, "RUNNING_TTL_SECONDS", 0.05)
-    first, second = _two_replicas()
+    clock = Clock()
+    first, second = _two_replicas(clock)
     await first.acquire_running(CONV, "t1")
 
-    await asyncio.sleep(0.1)
+    clock.now += 0.1
 
     assert await second.running_holder(CONV) is None
     assert not await first.renew_running(CONV, "t1")  # too late: not renewed back to life
@@ -299,11 +278,12 @@ async def test_a_marker_nobody_renews_expires_and_the_next_turn_takes_it(monkeyp
 @pytest.mark.asyncio
 async def test_a_renewed_marker_outlives_its_ttl(monkeypatch):
     monkeypatch.setattr(conversation_bus, "RUNNING_TTL_SECONDS", 0.2)
-    first, second = _two_replicas()
+    clock = Clock()
+    first, second = _two_replicas(clock)
     await first.acquire_running(CONV, "t1")
 
-    for _ in range(4):
-        await asyncio.sleep(0.1)
+    for _ in range(4):  # on the TTL's own clock, so no stalled loop can lapse it between two renewals
+        clock.now += 0.1
         assert await first.renew_running(CONV, "t1")
 
     assert await second.running_holder(CONV) == RunningMarker(replica="R1", turn_id="t1")

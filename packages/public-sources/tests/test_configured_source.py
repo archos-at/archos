@@ -1,5 +1,3 @@
-"""A source configured in the database (ADR-0174): parsed, tested, fetched and watched with no file of its own."""
-
 from __future__ import annotations
 
 import hashlib
@@ -39,6 +37,18 @@ def _site(pages: dict[str, bytes], seen: list[httpx.Request] | None = None) -> h
         return httpx.Response(200, headers={"content-type": "text/html; charset=utf-8", "etag": '"v1"'}, content=body)
 
     return httpx.MockTransport(handler)
+
+
+def test_a_source_says_how_a_work_s_identifier_is_read_from_an_address_on_its_hosts():
+    source = parse_inline_source(synthetic_source(identifiers={"xa_law_number": {"query": "Law"}}))
+    assert source.identifier_at("https://gazette.xa.example/code?page=2&law=77", "xa_law_number") == "77"
+    assert source.identifier_at("https://gazette.xa.example/code?page=2", "xa_law_number") is None
+    assert source.identifier_at("https://gazette.xa.example/code?law=77", "another_scheme") is None
+    assert source.identifier_at("https://mirror.example/code?law=77", "xa_law_number") is None
+    assert source.identifier_at("http://gazette.xa.example/code?law=77", "xa_law_number") is None
+    assert parse_inline_source(synthetic_source()).identifiers == {}
+    with pytest.raises(SourceError):
+        parse_inline_source(synthetic_source(identifiers={"xa_law_number": {"path": 2}}))
 
 
 async def test_a_configured_source_passes_its_inline_fixtures():
@@ -140,7 +150,6 @@ async def test_the_fetcher_serves_a_configured_source_by_its_hosts_and_attaches_
         off = await client.post("/v1/fetch", json={**payload, "url": "https://evil.example/"})
         assert off.status_code == 403
 
-        # A repository record keeps its own hosts: a caller cannot widen them.
         widened = {**payload, "source": "at-ris", "url": "https://gazette.xa.example/"}
         assert (await client.post("/v1/fetch", json=widened)).status_code == 403
 

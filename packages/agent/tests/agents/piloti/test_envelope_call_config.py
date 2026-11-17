@@ -1,10 +1,3 @@
-"""The run config reaches every rung of the envelope ladder.
-
-The config carries the callbacks that stream the answer's prose
-(``on_llm_new_token``). A rung that drops it still answers, so nothing fails:
-the reply just arrives whole at the end instead of streaming.
-"""
-
 from __future__ import annotations
 
 from typing import Any
@@ -17,8 +10,6 @@ class _Rejected(Exception):
 
 
 class _FakeLLM:
-    """Records each call as ``(response_format, args)``; rejects the formats in ``reject``."""
-
     def __init__(self, reject: frozenset[str] = frozenset(), calls: list | None = None, response_format=None):
         self.reject = reject
         self.calls: list[tuple[str | None, tuple[Any, ...]]] = [] if calls is None else calls

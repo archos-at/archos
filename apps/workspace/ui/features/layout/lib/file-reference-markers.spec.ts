@@ -15,7 +15,6 @@ const parse = (markdown: string, fileNames: string[]): Root => {
   return tree
 }
 
-/** Every file-reference link in the tree, as `[label, filename]`. */
 const references = (tree: Root): Array<[string, string]> => {
   const found: Array<[string, string]> = []
   visit(tree, 'link', (node: Link) => {
@@ -45,8 +44,6 @@ describe('remarkFileReferences', () => {
     expect(references(tree)).toEqual([['PD8280-2.PDF', 'PD8280-2.PDF']])
   })
 
-  // The whole reason this is a set rather than a grammar: a chip that opens
-  // nothing is worse than plain text.
   it('leaves a filename the reader does not own as prose', () => {
     const tree = parse('Siehe Konzept.pdf.', ['pd8280-2.pdf'])
     expect(references(tree)).toEqual([])
@@ -63,7 +60,6 @@ describe('remarkFileReferences', () => {
   })
 
   it('lets the longer name win when both are owned', () => {
-    // Longest-first is the caller's contract (`fileNamesPresentIn`).
     const tree = parse('Siehe Grundriss Plan.pdf.', ['Grundriss Plan.pdf', 'Plan.pdf'])
     expect(references(tree)).toEqual([['Grundriss Plan.pdf', 'Grundriss Plan.pdf']])
   })
@@ -86,29 +82,18 @@ describe('remarkFileReferences', () => {
     expect(references(tree)).toEqual([])
   })
 
-  // The matching used to compile the names into a regex alternation, so every
-  // one of these characters had to be escaped by hand and correctly. There is
-  // no pattern any more, so there is nothing left to escape wrongly — these pin
-  // that the names are treated as literal text.
   it('treats regex metacharacters in a filename as literal text', () => {
     const awkward = 'Plan (Rev.2) [final] +neu $1.pdf'
     expect(references(parse(`Siehe ${awkward} bitte.`, [awkward]))).toEqual([[awkward, awkward]])
   })
 
   it('does not let a filename act as a pattern against the prose', () => {
-    // `.` would match any character, `.*` would swallow the sentence.
     expect(references(parse('Siehe PlanXpdf und Plan.pdf.', ['Plan.pdf']))).toEqual([
       ['Plan.pdf', 'Plan.pdf'],
     ])
     expect(references(parse('Siehe irgendwas.', ['.*']))).toEqual([])
   })
 
-  // Case-insensitive search runs over a lowercased copy, which is only sound
-  // while the fold preserves length. `İ` (U+0130) folds to two code units, so a
-  // name carrying one takes the slower path that compares slices of the
-  // original. Getting it wrong would not lose the match — it would slide every
-  // later index and draw the chip over the WRONG span, so the prose either side
-  // is what this asserts.
   it('keeps the span right for a name whose lowercase is longer than itself', () => {
     const turkish = 'İstanbul-Lageplan.pdf'
     expect(turkish.toLowerCase().length).toBeGreaterThan(turkish.length)

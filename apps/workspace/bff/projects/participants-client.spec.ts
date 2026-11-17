@@ -1,10 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The Beteiligte's typed client: the paths and verbs it sends, the answers it
- * parses, and how it reads a refusal.
- */
 import { describe, expect, test, vi } from 'vitest'
 import { createParticipantsClient, ParticipantsRequestError } from './participants-client'
 

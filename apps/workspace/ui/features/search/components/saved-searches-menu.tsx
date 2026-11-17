@@ -24,37 +24,18 @@ import { useSavedSearchSummary } from '../hooks/use-saved-search-summary'
 import { ColleagueMark, DialogForm, PanelBody, QuietLine, RailAction, SavedSearchList, SavedSearchRow } from './search-atoms'
 
 export interface SavedSearchesMenuProps {
-  /** null while the list is read. */
   items: readonly SavedSearchView[] | null
   failed: boolean
   onApply: (item: SavedSearchView) => void
   onToggleShare: (item: SavedSearchView) => void
-  /** Renames one's own; the dialog says so under the field when the name is taken. */
   onRename: (item: SavedSearchView, name: string) => Promise<SavedSearchRenameOutcome>
-  /** Takes it out of the list; the delete is sent when the undo toast's window closes. */
   onDelete: (item: SavedSearchView) => void
-  /** „Rückgängig“ in the toast, inside the window. */
   onUndoDelete: (item: SavedSearchView) => void
-  /** Save the current search; resolves whether it was saved. */
   onSave: (draft: { name: string; shared: boolean }) => Promise<boolean>
-  /** The name the save dialog opens with: the words and the chips of this search. */
   suggestedName?: string
-  /** How long „Rückgängig“ is offered; the caller's undo window. */
   undoMs?: number
 }
 
-/**
- * The reader's saved searches and the ones colleagues shared, behind one
- * toolbar button: a name applies one, and under it one line says what it asks
- * (`savedSearchSummary`). The person who saved it shares, renames or deletes
- * it (with „Rückgängig“ in a toast) in the row's ⋯, the house's `ActionMenu`
- * as on a Dateien row; a colleague's names the colleague. Saving the current search is the list's
- * own last action, „Diese Suche speichern“, under a name it already proposes:
- * there is no second button beside the first for it.
- *
- * Wide, the list is a popover at the button; on a phone, the kit's bottom
- * sheet, where the thumb is.
- */
 export function SavedSearchesMenu(props: SavedSearchesMenuProps): JSX.Element {
   const t = useTranslations(searchCopy, 'saved')
   const phone = useMediaQuery(PHONE_QUERY)
@@ -120,7 +101,6 @@ export function SavedSearchesMenu(props: SavedSearchesMenuProps): JSX.Element {
   )
 }
 
-/** The list and the save action, in whichever container the width gives them. */
 function SavedSearchesBody({
   items,
   failed,
@@ -190,10 +170,6 @@ function SavedSearchesBody({
   )
 }
 
-/**
- * One's own saved search's ⋯: share or stop sharing, rename, and delete set
- * apart, as a Dateien row orders its operations.
- */
 function SavedSearchItemMenu({
   item,
   onToggleShare,
@@ -232,7 +208,6 @@ function SavedSearchItemMenu({
   )
 }
 
-/** „Umbenennen“: the name in a field, ready to type over; a name already taken is said under the field. */
 function RenameSearchDialog({
   item,
   onClose,
@@ -339,11 +314,6 @@ function SaveSearchDialog({
   )
 }
 
-/**
- * The dialog's form. It opens with the name filled from the search, so
- * „Speichern“ is ready at once; the button is never disabled for an empty
- * name (a disabled button cannot say why), it says so under the field instead.
- */
 function SaveSearchForm({
   suggestedName,
   onSave,

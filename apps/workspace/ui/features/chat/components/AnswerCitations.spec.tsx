@@ -1,12 +1,3 @@
-/**
- * A shared citation link opens ONE document.
- *
- * Every answer on screen reads the same `?cite=` parameter against its own
- * documents, so a source cited twice in a conversation resolved twice — and two
- * dialogs for one document stacked on each other is not a viewing session. The
- * same holds for closing it: the link is spent, not passed to the next answer.
- */
-
 import { render, screen } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { vi, describe, test, expect } from 'vitest'
@@ -33,15 +24,11 @@ const locus = (page: number, number: number): CitationSource => ({
   timestamp: at,
 })
 
-// Two answers citing the same source build their OWN model from their own
-// citation payload, so the models are equivalent but not the same objects — the
-// case a reference-based comparison would wave through.
 const answered = () => buildCitationModel({ citations: [locus(5, 1), locus(18, 2)] })
 const first = answered()
 const second = answered()
 const link = encodeCitationLink({ document: first[0]!, locus: first[0]!.loci[1]! })
 
-// The viewer itself is not what this asserts — how MANY of it are mounted is.
 vi.mock('./source-preview/source-document-dialog', () => ({
   SourceDocumentDialog: ({
     citation,

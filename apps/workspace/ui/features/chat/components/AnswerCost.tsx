@@ -1,17 +1,5 @@
 'use client'
 
-/**
- * What this answer cost, in the unit the organization sees: the credits
- * ("Punkte") billed for it, or on the organization's own provider key the
- * tokens. One line in the answer's details, beside its time.
- *
- * Read from the ledger (`GET /api/conversations/:id/messages/:messageId/usage`),
- * where each generation's credits were frozen when it was recorded, so the
- * number here is the one the budget was charged. Mounted only while the
- * details are open, so a closed answer costs no request. The post-answer
- * stages land a moment after the answer, so a re-open can show a little more.
- */
-
 import { type FC, useEffect, useState } from 'react'
 
 import { useLocale, useTranslations } from '@/i18n'

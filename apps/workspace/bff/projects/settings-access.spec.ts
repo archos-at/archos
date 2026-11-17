@@ -24,7 +24,7 @@ vi.mock('@/lib/authz/projects', () => ({
 vi.mock('@/lib/authz/organizations', () => ({ canManageBudgets: () => budgetAdmin }))
 
 import { NotFoundError } from '@/lib/api/errors'
-import { resolveProjectSettingsAccess } from './settings-access'
+import { canWriteProjectMemory, resolveProjectSettingsAccess } from './settings-access'
 
 const session = { organizationId: 'org-1', userId: 'u1' } as AuthorizedSession
 
@@ -33,6 +33,19 @@ beforeEach(() => {
   budgetAdmin = false
   managesEvenWhenClosed = false
   outage = null
+})
+
+describe('canWriteProjectMemory', () => {
+  test('is the right the memory item routes enforce, the legacy umbrella included, and nothing a viewer holds', async () => {
+    held = new Set(['project:view'])
+    await expect(canWriteProjectMemory(session, 'p1')).resolves.toBe(false)
+    held = new Set(['project:view', 'project:memory:write'])
+    await expect(canWriteProjectMemory(session, 'p1')).resolves.toBe(true)
+    held = new Set(['project:view', 'project:edit'])
+    await expect(canWriteProjectMemory(session, 'p1')).resolves.toBe(true)
+    held = new Set(['project:view', 'project:documents:write'])
+    await expect(canWriteProjectMemory(session, 'p1')).resolves.toBe(false)
+  })
 })
 
 describe('resolveProjectSettingsAccess', () => {
@@ -50,7 +63,6 @@ describe('resolveProjectSettingsAccess', () => {
   })
 
   test('decides by permission, so a custom role holding only members:manage gets the roster', async () => {
-    // The old page asked `role === 'project-admin'` and would have refused this.
     held = new Set(['project:view', 'project:members:manage'])
     const access = await resolveProjectSettingsAccess(session, 'p1')
     expect(access.manageMembers).toBe(true)
@@ -64,9 +76,6 @@ describe('resolveProjectSettingsAccess', () => {
   })
 
   test('a closed project keeps status changes and the roster for its manager, nothing else (ADR-0090)', async () => {
-    // `can` refuses every write into a closed project but members:manage, so
-    // only the roster survives it; closing, reopening and deleting are asked
-    // with `evenWhenClosed`.
     held = new Set(['project:view', 'project:members:manage'])
     managesEvenWhenClosed = true
     const access = await resolveProjectSettingsAccess(session, 'p1')

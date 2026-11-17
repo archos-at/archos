@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * A project's address (ADR-0138): reading never mints one (the PR this ports
- * did, so a read wrote); creating is idempotent; replacing and switching off
- * end every follow on the project, in the trail as the person who did it.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
@@ -104,7 +99,6 @@ describe('the project address', () => {
       }),
     )
     expect(auditFollowsEnded).toHaveBeenCalledWith('org_1', PROJECT, session.userId, [expect.objectContaining({ id: 'f-1' })])
-    // An ended follow is asked to renew no more.
     expect(settleFollowExpiring).toHaveBeenCalledWith('org_1', ['f-1'])
   })
 

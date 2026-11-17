@@ -4,14 +4,12 @@
 import { describe, expect, it } from 'vitest'
 import { distanceToBox, NEAREST_MARKER_REACH_PX, nearestMarkerIndex, type MarkerBox } from './nearest-marker'
 
-/** A 22 x 26 pill with its left edge at `left`, on one line. */
 const pill = (left: number, top = 100): MarkerBox => ({ left, right: left + 22, top, bottom: top + 26 })
 
 describe('distanceToBox', () => {
   it('is zero inside the box and straight-line outside it', () => {
     expect(distanceToBox(110, 110, pill(100))).toBe(0)
     expect(distanceToBox(130, 110, pill(100))).toBe(8)
-    // Diagonal: 3 right of the corner, 4 below it.
     expect(distanceToBox(125, 130, pill(100))).toBe(5)
   })
 })
@@ -24,7 +22,6 @@ describe('nearestMarkerIndex', () => {
   })
 
   it('gives a tap between two neighbours to the nearer, whichever is later in the DOM', () => {
-    // 5px from the first pill's right edge, 3px from the second's left edge.
     expect(nearestMarkerIndex(127, 112, [first!, second!])).toBe(1)
     expect(nearestMarkerIndex(125, 112, [first!, second!])).toBe(0)
   })

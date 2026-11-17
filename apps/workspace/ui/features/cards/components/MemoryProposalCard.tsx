@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Chip } from '@/components/ui/chip'
 import { useTranslations } from '@/i18n'
 import { chatCopy } from '@/i18n/namespaces/chat'
+import { useMemoryKindLabels } from '@/components/memory/memory-kinds'
 import { cn } from '@/lib/utils'
 import { useChatStore } from '@/features/chat/store'
 import { useCardDecision } from '../hooks/use-card-decision'
@@ -21,35 +22,14 @@ interface MemoryProposalCardProps {
   content: string
   kind: MemoryKind
   confidence?: MemoryConfidence
-  /** Message this card belongs to — keys its persisted decision. */
   messageId?: string
-  /** Stable identity of this card within that message (`cardKey`). */
   cardKey: string
-  /**
-   * Whether this surface requires the answer to be persisted. With no owning
-   * message the card then shows WHAT is proposed and offers nothing — see
-   * `AnswerCards.decisionsMustPersist`.
-   */
   decisionsMustPersist?: boolean
-  /** The earlier note this one corrects, quoted; accepting the proposal retires it. */
   supersedes?: string | null
-  /** The stored proposal this card is a receipt of (ADR-0105). Absent: the fallback below. */
+  topic?: string | null
   proposalId?: string | null
 }
 
-/**
- * Confirmation card emitted by the `remember` tool when an org-scoped memory
- * write can't be completed by the agent's service token (default-deny). The
- * agent never writes org-wide memory silently; instead the user completes the
- * write through their OWN authenticated session — org-wide (allowed for any org
- * member) or scoped to just this project. Mirrors ProjectProfilePatchCard:
- * propose, never auto-apply.
- *
- * A card with a `proposal_id` is the receipt of a stored `memory` proposal
- * (ADR-0105) and is drawn by {@link MemoryReceipt}: the server files the note in
- * the deciding person's session and records who decided and when. Without one
- * it is the fallback below.
- */
 export function MemoryProposalCard({ proposalId, ...props }: MemoryProposalCardProps) {
   return proposalId ? (
     <MemoryReceipt
@@ -65,39 +45,33 @@ export function MemoryProposalCard({ proposalId, ...props }: MemoryProposalCardP
   )
 }
 
-/**
- * FALLBACK for answers older than server proposals (and for a proposal the
- * agent could not store): the browser writes the note through the reader's own
- * session, and the answer is recorded on the owning message
- * (`useCardDecision`), not in local state. A card that forgot it had been saved
- * would ask again after a reload. Kept as it was for those answers; a new
- * proposal never reaches it when the server could store it.
- */
 function BrowserWrittenMemoryCard({
   title,
   content,
   kind,
   confidence = 'medium',
+  topic,
   messageId,
   cardKey,
   decisionsMustPersist,
 }: Omit<MemoryProposalCardProps, 'proposalId' | 'supersedes'>) {
   const t = useTranslations(chatCopy)
-  // Same source as ProjectProfilePatchCard's projectId: the active chat store.
+  const kindLabels = useMemoryKindLabels()
   const projectId = useChatStore((s) => s.projectId)
+  const temporary = useChatStore((s) => s.currentConversation?.temporary === true)
   const { decision, decide, canDecide } = useCardDecision(messageId, cardKey, {
     mustPersist: decisionsMustPersist,
   })
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  // Which button is working: the project save used to say nothing while the
-  // org-wide Yes beside it was the one that announced „Speichern …".
   const [savingTo, setSavingTo] = useState<'org' | 'project'>('org')
 
   const save = async (url: string, savedDecision: 'savedOrg' | 'savedProject') => {
-    // Ignored while a save is in flight, rather than refused by `disabled`:
-    // see the buttons below.
     if (isSubmitting) return
+    if (temporary) {
+      setError(t('memoryProposal.temporaryConversation'))
+      return
+    }
     setError(null)
     setSavingTo(savedDecision === 'savedProject' ? 'project' : 'org')
     setIsSubmitting(true)
@@ -105,7 +79,7 @@ function BrowserWrittenMemoryCard({
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ kind, content, confidence }),
+        body: JSON.stringify({ kind, content, confidence, ...(topic ? { topic } : {}) }),
       })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
@@ -153,7 +127,7 @@ function BrowserWrittenMemoryCard({
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm font-medium text-foreground">{title}</p>
         <Chip variant="muted" size="sm">
-          {t(`memoryProposal.kind.${kind}`)}
+          {kindLabels.kind(kind)}
         </Chip>
       </div>
 
@@ -199,7 +173,7 @@ function BrowserWrittenMemoryCard({
             {projectId && (
               <Button
                 type="button"
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 onClick={handleSaveProject}
                 aria-disabled={isSubmitting || undefined}
@@ -215,7 +189,7 @@ function BrowserWrittenMemoryCard({
             )}
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               size="sm"
               onClick={handleDismiss}
               aria-disabled={isSubmitting || undefined}

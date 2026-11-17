@@ -44,7 +44,6 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-/** The task as the worker registered it. */
 const registered = async () => {
   const started = await startBffJobWorker('bff-jobs-pod-1', work)
   await started.stop()
@@ -69,7 +68,6 @@ describe('the bff-job task’s failures, as the SDK reads them', () => {
     expect(later).toBeInstanceOf(RetryAfterError)
     expect((later as RetryAfterError).afterMs).toBe(60_000)
 
-    // No backoff configured: Hatchet retries at once.
     work.run.mockRejectedValueOnce(new RetryLaterError('attempt-failed', 0))
     const plain = await fn(INPUT, ctx()).catch((error: unknown) => error)
     expect(plain).not.toBeInstanceOf(RetryAfterError)

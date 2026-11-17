@@ -68,6 +68,14 @@ export interface DnsConfig {
    * the move stays inside it. The one API token must be able to edit both.
    */
   formerZoneId: string;
+  /**
+   * The former zone's own baseline during a move of the baseline stack: its `www`, `_dmarc` and
+   * `www` redirect stay published, under the resource names they had while it was this stack's
+   * zone (`platform/dns.ts`), so the move neither deletes them nor needs a hand edit of the state.
+   * Set when `dnsZoneBaseline` and `formerDnsZoneName` are both set; the new zone's baseline then
+   * takes names suffixed with its zone.
+   */
+  formerZoneBaseline?: { zoneName: string; dmarc?: string };
 }
 
 /** A Cloudflare zone id is 32 hex digits; anything else is a placeholder or a pasted name. */
@@ -129,6 +137,12 @@ export function loadDns(
       }
     }
     refuseStrayFormerHosts(formerHosts, { dnsZoneName, formerZoneName, formerZoneId });
+    if (cfg.get("formerDnsDmarc") !== undefined && !(dnsZoneBaseline && formerZoneName !== "")) {
+      throw new Error(
+        `${pulumi.getProject()}:formerDnsDmarc keeps the former zone's _dmarc while the baseline stack moves; ` +
+          "it needs dnsZoneBaseline and formerDnsZoneName.",
+      );
+    }
     // Each host's record is named after the host, so a former host this stack still serves
     // would register the same resource twice: refuse it here, by name, not as a duplicate URN.
     const shared = formerHosts.filter((host) => dnsHosts.includes(host));
@@ -203,6 +217,8 @@ export function loadDns(
     apexRedirectTo: dnsApexRedirectTo,
     formerHosts,
     formerZoneId: formerZoneId !== "" ? formerZoneId : dnsZoneId,
+    formerZoneBaseline:
+      dnsZoneBaseline && formerZoneName !== "" ? { zoneName: formerZoneName, dmarc: cfg.get("formerDnsDmarc") } : undefined,
   };
 }
 

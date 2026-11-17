@@ -8,35 +8,15 @@ import { Button } from '@/components/ui/button'
 import { SearchField } from '@/components/ui/search-field'
 import { cn } from '@/lib/utils'
 
-/**
- * The control row above a data list: search, filters, and — once rows are
- * selected — the actions that apply to them.
- *
- * Previously each admin surface scattered these: a search box here, a row of
- * filter chips there, per-row action buttons repeated on every line. Selection
- * and bulk actions did not exist at all, so reclassifying twenty documents
- * meant twenty dropdowns.
- *
- * When a selection is active the toolbar swaps to a selection bar. The two
- * states are mutually exclusive on purpose: filtering and acting on a
- * selection are different jobs, and showing both invites acting on rows you
- * can no longer see.
- */
-
 export interface DataToolbarProps {
   searchValue: string
   onSearchChange: (value: string) => void
   searchPlaceholder: string
-  /** Accessible name for the search field. */
   searchLabel: string
   clearLabel: string
-  /** Filter/sort controls, rendered beside the search field. */
   filters?: ReactNode
-  /** Rendered at the far end (a primary action). */
   actions?: ReactNode
-  /** Number of selected rows; > 0 swaps the toolbar for the selection bar. */
   selectedCount?: number
-  /** Rendered in the selection bar. */
   selectionActions?: ReactNode
   selectionLabel?: (count: number) => string
   onClearSelection?: () => void
@@ -61,9 +41,6 @@ export function DataToolbar({
 }: DataToolbarProps): JSX.Element {
   if (selectedCount > 0 && selectionLabel) {
     return (
-      // The selection bar is an Item-row treatment, not card chrome: the
-      // list's own row geometry (`px-4 py-3`) with the row-hover fill, so it
-      // reads as the list's own state rather than a card laid over it.
       <div
         className={cn(
           'bg-accent/40 flex flex-wrap items-center gap-2 rounded-surface px-4 py-3',

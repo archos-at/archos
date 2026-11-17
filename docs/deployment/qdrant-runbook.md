@@ -56,9 +56,11 @@ application (`https://qdrant.dev.piloti.at/oauth2/callback` for staging,
 `https://qdrant.piloti.at/oauth2/callback` for prod). The dashboard is on by
 default, so do it before the deploy ([Dashboard](#on-a-public-host)).
 
-**3. The migration flag. A setting, not a secret.** `chromaMigration: "true"`
-is already in `Pulumi.dev.yaml`; prod gets it in the promotion PR, and every
-stack removes it after its migration
+**3. The migration flag. A setting, not a secret.** Every stack has run the
+migration and removed the flag (prod on 2026-10-18; dev's flag was left on until
+2026-11-12, which suspended its base-corpus sync for weeks, and
+`deploy/pulumi/stack-files.spec.ts` now fails a stack that sets it). For a new
+stack migrating off Chroma, set it, and remove it after its migration
 ([Migrating from Chroma on Kubernetes](#migrating-from-chroma-on-kubernetes)).
 
 **Check before deploying**, without printing a value:

@@ -2,7 +2,9 @@
  * @vitest-environment node
  */
 import { describe, expect, it } from 'vitest'
+import { DELETION_LIFECYCLE } from '../bff/db/schema/deletion-queue'
 import {
+  conversationExists,
   conversationIsHeld,
   findConversationsAwaitingTraceErasure,
   markConversationTracesErased,
@@ -132,8 +134,48 @@ describe('conversation trace erasure queries', () => {
     expect(select.text).toContain('q.purged_at <= now() - make_interval(mins => $)')
     expect(select.text).toContain("q.payload->>'langfuseTracesErasedAt' IS NULL")
     expect(select.text).toContain('NOT legal_hold_blocks(q.entity_type, q.entity_id, q.organization_id)')
-    // 35 days, 15 minutes, 100 rows.
-    expect(select.values).toEqual([35, 15, 100])
+    // 35 days and 15 minutes for each kind of row, then 100 rows.
+    expect(select.values).toEqual([35, 15, 35, 15, 100])
+  })
+
+  it('also finds a failed row whose chat is gone, by its last attempt, and never one whose chat exists', async () => {
+    const { sql, executed } = makeSelectSql([])
+    await findConversationsAwaitingTraceErasure(sql, 100)
+    const select = executed[1]
+    expect(select.text).toContain('SELECT q.id, q.entity_id, q.organization_id, q.status')
+    expect(select.text).toContain(
+      "q.status = 'failed' AND q.claimed_at >= now() - make_interval(days => $) AND q.claimed_at <= now() - make_interval(mins => $) " +
+        'AND NOT EXISTS (SELECT 1 FROM conversations c WHERE c.id = q.entity_id)',
+    )
+    // The purger still holds these, with attempts left.
+    expect(select.text).not.toContain("'pending'")
+    expect(select.text).not.toContain("'purging'")
+  })
+
+  it('asks whether the chat is there before the traces of a failed row go', async () => {
+    const { sql, executed } = makeSelectSql([{ present: true }])
+    expect(await conversationExists(sql, { entity_id: 's_1' })).toBe(true)
+    expect(executed[0].text).toBe(`SET LOCAL ROLE ${PLATFORM_ROLE}`)
+    expect(executed[1].text).toContain('SELECT 1 FROM conversations c WHERE c.id = $')
+    expect(executed[1].values).toEqual(['s_1'])
+
+    const gone = makeSelectSql([{ present: false }])
+    expect(await conversationExists(gone.sql, { entity_id: 's_1' })).toBe(false)
+  })
+
+  it('closes a failed row whose chat is gone as purged, a declared move, in the stamp’s transaction', async () => {
+    const { sql, executed } = makeSelectSql([])
+    await markConversationTracesErased(sql, 'q1')
+    const [stamp, close] = executed.filter((q) => q.text.startsWith('UPDATE deletion_queue'))
+    expect(stamp.text).not.toContain('status')
+    expect(close.text).toContain("SET status = 'purged', purged_at = now(), last_error = NULL")
+    expect(close.text).toContain("q.entity_type = 'conversation' AND q.status = 'failed'")
+    expect(close.text).toContain('NOT EXISTS (SELECT 1 FROM conversations c WHERE c.id = q.entity_id)')
+    expect(close.values).toEqual(['q1'])
+    // The worker is plain JavaScript and spells the statuses; the declaration decides whether it may.
+    expect(DELETION_LIFECYCLE.moves).toContainEqual(expect.objectContaining({ from: 'failed', to: 'purged', event: 'close' }))
+    // One transaction: one step-up for both writes.
+    expect(executed.filter((q) => q.text.startsWith('SET LOCAL ROLE'))).toHaveLength(1)
   })
 
   it('asks the hold predicate about the one conversation before its traces go', async () => {

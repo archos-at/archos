@@ -15,16 +15,13 @@ import { cn } from '@/lib/utils'
 type Law = NonNullable<IntakeView['applicableLaw']>
 type Role = ProjectLawUse['role']
 
-/** The gate states that name no law; each says why instead (`projectLawFor`). */
 const REFUSALS = ['organization_unplaced', 'site_unknown', 'not_entitled', 'knowledge_unavailable', 'none'] as const
 type Refusal = (typeof REFUSALS)[number]
 const isRefusal = (gate: Law['gate']): gate is Refusal => (REFUSALS as readonly string[]).includes(gate)
 
-/** Binding first, then guidance, then the rest: the order a person weighs them in. */
 const ROLE_ORDER: readonly Role[] = ['binding', 'guidance', 'interpretation', 'authority_practice', 'information']
 const legendOf = (role: Role): 'binding' | 'guidance' | 'other' => (role === 'binding' || role === 'guidance' ? role : 'other')
 
-/** The role as a dot: filled binds, a ring guides, a dashed ring interprets or informs. */
 function RoleDot({ role }: { role: Role }): JSX.Element {
   return (
     <span
@@ -42,13 +39,6 @@ function RoleDot({ role }: { role: Role }): JSX.Element {
 const nameOf = (use: ProjectLawUse): string =>
   [use.designation ?? use.workId, use.editionLabel].filter(Boolean).join(' ')
 
-/**
- * „Was für dieses Projekt gilt": the law at the project's site from the
- * platform's records (ADR-0175), one chip per edition the chain names, its role
- * in the dot. The server's read (`projectLawFor`), the same the turn reads, so
- * the page and the answer name the same law. Where the gate refuses, it says
- * why and what would change it; it never falls back to a list for every site.
- */
 export function RulesCard({ view }: { view: IntakeView }): JSX.Element | null {
   const t = useTranslations(intakeProfileStepCopy)
   const law = view.applicableLaw
@@ -88,10 +78,6 @@ export function RulesCard({ view }: { view: IntakeView }): JSX.Element | null {
   )
 }
 
-/**
- * Why a work applies to this project, or what would decide it (ADR-0178): the
- * building facts in the country's terms, then the provision the record cites.
- */
 function ApplicabilityNote({ use, factLabels }: { use: ProjectLawUse; factLabels: Record<string, string> }): JSX.Element | null {
   const t = useTranslations(intakeProfileStepCopy)
   const applicability = use.applicability
@@ -118,7 +104,6 @@ function LawChip({ projectId, use, factLabels }: { projectId: string; use: Proje
   const peek = useHoverPopover()
   const name = nameOf(use)
   const toCheck = use.applicability?.verdict === 'check'
-  // The qualifier the turn reads goes with the role: „verbindlich, nicht kuratiert“; an open scope says „zu prüfen“.
   const role = [
     t(`rules.role.${use.role}`),
     use.qualifier ? t(`rules.qualifier.${use.qualifier}`) : null,

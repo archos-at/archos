@@ -1,30 +1,5 @@
 'use client'
 
-/**
- * Citation health (platform staff): how often citation verification had to
- * intervene, what it caught, why, on which retrieval lanes, for which
- * organizations. Backed by the `citation_events` ledger
- * (packages/agent/src/agent/common/citation_events.py, the quality sibling of the timing
- * ledger behind `agent-profiler.tsx`).
- *
- * One tab of Platform → Answer quality. The page owns the title and the scope
- * (date range, organizations, projects) and passes `scope` in; this organism
- * fetches in it, refetches when it changes, and owns everything below, top to
- * bottom in reading order:
- *
- * 1. the four headline tiles, clean rate first;
- * 2. "What to do": the findings as compact rows, the remedy one click away;
- * 3. the stacked daily trend;
- * 4. "Sources to add": the specific sources answers cited and could not prove;
- * 5. why citations were dropped, and the retrieval lanes in play;
- * 6. per-organization rates, sortable;
- * 7. the newest flagged turns, each linking into the timing view.
- *
- * Every section is its own card on the page, never a card inside a card: the
- * previous version stacked six of them inside one giant card and read as a
- * wall of text.
- */
-
 import type { JSX } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
@@ -87,11 +62,6 @@ import { formatRelativeTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { CopyableId } from './copyable-id'
 
-/**
- * Defect kinds in FIXED order. This drives the chart's palette slots, so a
- * kind keeps its identity when another disappears from the window. Keep in
- * sync with `CITATION_DEFECT_KINDS` (lib/citations/service).
- */
 const DEFECT_KINDS = [
   'answer_ungrounded',
   'citations_removed',
@@ -188,7 +158,6 @@ interface MissingSourceDto {
   turns: number
   organizations: number
   lastSeenAt: string
-  /** Null when the inventory this source depends on could not be read. */
   present: boolean | null
   action: MissingSourceAction
   fileName: string | null
@@ -196,7 +165,6 @@ interface MissingSourceDto {
 }
 
 interface SnapshotDto {
-  /** The scope the server read; absent on servers that predate it. */
   scope?: QualityScope
   windowDays: number
   totals: {
@@ -216,42 +184,25 @@ interface SnapshotDto {
   sourceMix: SourceMixDto[]
   unavailableTools: { tool: string; turns: number }[]
   missingSources: MissingSourceDto[]
-  /**
-   * False when the platform inventory (base corpus + norm catalog) could not be
-   * read, so "held / not held" is unknown. Absent on older servers: treated as
-   * known.
-   */
   inventoryKnown?: boolean
-  /** Distinct rejected sources in the window; `missingSources` lists the first few. */
   missingSourcesTotal?: number
   organizations: OrganizationDto[]
-  /** Organizations with any turn in the window; `organizations` lists the first few. */
   organizationsTotal?: number
   recent: DefectSampleDto[]
 }
 
-/**
- * Where each remedy lives. The managers own their add flows (upload
- * validation, RIS verification, audit trail); linking to them with the
- * candidate copied beats duplicating, or bypassing, those checks.
- */
 const ACTION_ANCHOR: Partial<Record<MissingSourceAction, string>> = {
-  upload_to_base_knowledge: '/app/platform/knowledge',
-  add_to_norm_catalog: '/app/platform/norms',
+  upload_to_base_knowledge: '/app/platform/countries',
+  add_to_norm_catalog: '/app/platform/countries',
 }
 
-/** The timing tab of Platform → Answer quality, preselecting one conversation. */
-/** The runtime view of one conversation, in the same scope, so the tab switch keeps the filter. */
 const timingHref = (conversationId: string, scopeQuery: string): string =>
   `/app/platform/quality?view=timing&${scopeQuery}&conversation=${encodeURIComponent(conversationId)}`
 
-/** Finding metrics the server sends as fractions (0–1), rendered as percentages. */
 const FRACTION_METRICS = new Set(['share', 'platformShare'])
 
-/** How many findings show before "Show N more". */
 const FINDINGS_VISIBLE = 3
 
-/** Findings whose remedy names an entity, and so need a subject-less variant. */
 const FINDINGS_WITH_SUBJECT_FALLBACK = new Set<FindingId>([
   'retrieval_unavailable',
   'answers_ungrounded',
@@ -259,14 +210,12 @@ const FINDINGS_WITH_SUBJECT_FALLBACK = new Set<FindingId>([
 
 const SEVERITY_RANK: Record<FindingSeverity, number> = { error: 0, warn: 1, info: 2 }
 
-/** Severity → icon + well tone. The icon shape differs per step, so severity is never color-alone. */
 const FINDING_STYLE: Record<FindingSeverity, { icon: LucideIcon; tone: StatCardIconTone }> = {
   error: { icon: AlertTriangle, tone: 'destructive' },
   warn: { icon: AlertCircle, tone: 'warning' },
   info: { icon: Info, tone: 'muted' },
 }
 
-/** A recent finding's badge: icon + label, the tint only repeating them. */
 const SEVERITY_BADGE: Record<
   Severity,
   { icon: LucideIcon; variant: 'outline' | 'warning' | 'success'; className?: string }
@@ -281,7 +230,6 @@ const SEVERITY_BADGE: Record<
   ok: { icon: CheckCircle2, variant: 'success' },
 }
 
-/** The clean rate is the one number to read first: tone and icon say how bad it is. */
 function cleanRateTone(rate: number): { className: string; icon: LucideIcon } {
   if (rate >= 0.95) return { className: 'text-success', icon: ShieldCheck }
   if (rate >= 0.8) return { className: 'text-warning', icon: ShieldAlert }
@@ -305,11 +253,6 @@ function useNumberFormats(locale: string): {
   }, [locale])
 }
 
-/**
- * Relative time, with the absolute UTC moment on hover. The trend buckets by
- * UTC day, so the exact timestamp is stated in UTC too rather than in the
- * viewer's zone, where a late-evening finding would land on another day.
- */
 function UtcTime({ iso, locale }: { iso: string; locale: string }): JSX.Element {
   const date = new Date(iso)
   const absolute = Number.isNaN(date.getTime())
@@ -322,7 +265,6 @@ function UtcTime({ iso, locale }: { iso: string; locale: string }): JSX.Element 
   )
 }
 
-/** Ranked horizontal bars: magnitude by category, recessive track, value at the end. */
 function RankedBars({
   rows,
   format,
@@ -397,7 +339,7 @@ function FindingRow({
       <li className="group/finding">
         <CollapsibleTrigger
           className={cn(
-            'duration-snap hover:bg-muted/40 flex w-full items-start gap-3 px-6 py-3 text-left transition-colors motion-reduce:transition-none',
+            'duration-snap hover:bg-hover flex w-full items-start gap-3 px-6 py-3 text-left transition-colors motion-reduce:transition-none',
             'outline-none',
             FOCUS_RING_INSET
           )}
@@ -572,8 +514,6 @@ function MissingSourcesCard({
                 candidate.present === null ? 'unknown' : candidate.present ? 'present' : 'absent'
               const StatusIcon = MISSING_STATUS_ICON[status]
               const name = candidate.fileName ?? candidate.documentNumber ?? candidate.target
-              // Only a source known NOT to be held gets an add: without the
-              // inventory, "add" may duplicate one the platform already has.
               const anchor =
                 candidate.present === false ? ACTION_ANCHOR[candidate.action] : undefined
               const actionLabel = t(`citations.missingActions.${candidate.action}`)
@@ -618,11 +558,9 @@ function MissingSourcesCard({
                     {anchor && can[candidate.action === 'add_to_norm_catalog' ? 'norms' : 'corpus'] ? (
                       <Button
                         asChild
-                        variant="outline"
+                        variant="secondary"
                         size="sm"
                         onClick={() => {
-                          // The identifier on the clipboard fills the target
-                          // manager's form without retyping a document number.
                           void navigator.clipboard
                             ?.writeText(
                               candidate.documentNumber ?? candidate.fileName ?? candidate.target
@@ -637,7 +575,7 @@ function MissingSourcesCard({
                       </Button>
                     ) : anchor ? (
                       <Button
-                        variant="outline"
+                        variant="secondary"
                         size="sm"
                         disabled
                         aria-label={actionLabel}
@@ -681,7 +619,6 @@ function OrganizationsCard({
 }): JSX.Element {
   const t = useTranslations(platformCopy)
   const { count, percent } = useNumberFormats(locale)
-  // The server already orders by flagged turns; that is the default view.
   const [sort, setSort] = useState<{ key: OrgSortKey; desc: boolean }>({
     key: 'defectTurns',
     desc: true,
@@ -800,7 +737,6 @@ function RecentCard({
   locale: string
   kindLabel: (kind: string) => string
   reasonLabel: (reason: string) => string
-  /** The scope as a query string, carried into the runtime view's links. */
   scopeQuery: string
 }): JSX.Element {
   const t = useTranslations(platformCopy)
@@ -952,16 +888,11 @@ export function CitationHealth({ scope }: { scope: QualityScope }): JSX.Element 
   const { count, percent, decimal } = useNumberFormats(locale)
   const scopeLabel = useQualityScopeLabel()
 
-  // The query string is the scope's identity: the page may rebuild the object
-  // on every render, and refetching on identity would loop.
   const scopeQuery = qualityScopeQuery(scope)
   const [snapshot, setSnapshot] = useState<SnapshotDto | null>(null)
-  /** The scope the shown snapshot belongs to; differs from `scope` after a failed switch. */
   const [shownScope, setShownScope] = useState<{ query: string; scope: QualityScope } | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
-  // Only the newest request may land: a slow 90-day response must not
-  // overwrite the 7-day one the user switched to after it.
   const requestRef = useRef<AbortController | null>(null)
   const load = useCallback((query: string) => {
     requestRef.current?.abort()
@@ -997,8 +928,6 @@ export function CitationHealth({ scope }: { scope: QualityScope }): JSX.Element 
     (reason: string) => {
       const key = `citations.reasons.${reason}`
       const translated = t(key)
-      // A missing key resolves to the dotted path; show the bare reason key
-      // instead: the backend may emit a new one before the dictionary catches up.
       return translated.endsWith(key) ? reason : translated
     },
     [t]
@@ -1007,13 +936,9 @@ export function CitationHealth({ scope }: { scope: QualityScope }): JSX.Element 
   const copyFor = useCallback(
     (finding: FindingDto): FindingCopy => {
       const vars: Record<string, string> = { subject: finding.subject?.label ?? '' }
-      // `share` and `platformShare` are fractions (0–1); the copy carries no
-      // "%" of its own, so the locale decides "12.5%" vs "12,5 %".
       for (const [name, value] of Object.entries(finding.metrics)) {
         vars[name] = FRACTION_METRICS.has(name) ? percent(value) : decimal(value)
       }
-      // Several findings have no entity to point at: fall back to the generic
-      // wording rather than interpolating an empty name into the sentence.
       const actionKey =
         finding.subject === null && FINDINGS_WITH_SUBJECT_FALLBACK.has(finding.id)
           ? `citations.findings.${finding.id}.actionNoSubject`
@@ -1053,7 +978,7 @@ export function CitationHealth({ scope }: { scope: QualityScope }): JSX.Element 
 
   const toolbar = (
     <div className="flex flex-wrap items-center justify-end gap-2">
-      <Button variant="outline" size="sm" onClick={() => load(scopeQuery)} disabled={loading}>
+      <Button variant="secondary" size="sm" onClick={() => load(scopeQuery)} disabled={loading}>
         <RefreshCw
           className={cn('size-3.5', loading && 'animate-spin motion-reduce:animate-none')}
           aria-hidden
@@ -1062,7 +987,7 @@ export function CitationHealth({ scope }: { scope: QualityScope }): JSX.Element 
       </Button>
       {/* A plain link, not a fetch: the route sets Content-Disposition, so the
           browser downloads without buffering the bundle in JS. */}
-      <Button asChild variant="outline" size="sm">
+      <Button asChild variant="secondary" size="sm">
         <a href={`/api/platform/citation-health/export?${scopeQuery}`} download>
           <Download className="size-3.5" aria-hidden />
           {t('citations.export')}
@@ -1093,7 +1018,6 @@ export function CitationHealth({ scope }: { scope: QualityScope }): JSX.Element 
 
   const tone = cleanRateTone(snapshot.totals.cleanRate)
   const staleWindow = shownScope !== null && shownScope.query !== scopeQuery
-  // Label what is SHOWN: after a failed switch that is still the old scope.
   const shownLabel = scopeLabel(shownScope?.scope ?? scope)
 
   return (

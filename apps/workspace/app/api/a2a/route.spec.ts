@@ -1,14 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The A2A door (ADR-0124), end to end below the principal: a JSON-RPC request
- * goes through the official SDK, the request handler, the dispatcher and the
- * real ask routes, and stops at the ask service, which is mocked. Pinned: who
- * is turned away (no token, Piloti's own credential: the recursion lock), both
- * protocol versions (1.0 `SendMessage`, 0.3 `message/send`), the task the ask
- * becomes, the A2A errors a route's refusal becomes, and the stream.
- */
 
 import { webcrypto } from 'node:crypto'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -105,7 +97,6 @@ const legacyMessage = (text: string, extra: Record<string, unknown> = {}) => ({
 type Envelope = { result?: Record<string, unknown>; error?: { code: number; message: string } }
 
 beforeAll(() => {
-  // The shared setup swaps `crypto` for a stub without randomUUID, which the route factory uses.
   vi.stubGlobal('crypto', webcrypto)
 })
 

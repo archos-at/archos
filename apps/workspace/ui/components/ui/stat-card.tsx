@@ -15,12 +15,6 @@ export type StatCardIconTone =
   | 'project'
 export type StatCardIconSize = 'md' | 'sm'
 
-/**
- * Tint pairs for {@link StatCardIcon}. The five feedback tones reuse the
- * `chip.tsx` tint pairs verbatim; `office` and `project` are the Büroablage
- * and project-document provenance tints, for surfaces whose meaning is that
- * source (the Archiv entry card, a project's documents), not feedback.
- */
 const STAT_CARD_ICON_TONES: Record<StatCardIconTone, string> = {
   muted: 'bg-muted text-muted-foreground',
   success: 'bg-success-subtle text-success',
@@ -31,12 +25,6 @@ const STAT_CARD_ICON_TONES: Record<StatCardIconTone, string> = {
   project: 'bg-source-project-tint text-source-project-text',
 }
 
-/**
- * The stat-well icon: a tinted rounded well (`size-9` at `md`, `size-7` at
- * `sm`) with the glyph two steps below it. One component so stat wells,
- * entry-card wells and dialog-adjacent wells stop re-deriving the same
- * chip tints inline.
- */
 export function StatCardIcon({
   icon: Icon,
   tone = 'muted',
@@ -63,36 +51,14 @@ export function StatCardIcon({
   )
 }
 
-/**
- * StatCard — the documented numeric stat tile (`design-language.md`
- * §"Component patterns": Stat). One primitive so the ~11 hand-rolled stat sites
- * render the number consistently in `text-2xl … tabular-nums` instead of
- * drifting on `tabular-nums` and padding.
- *
- * Reading order is label, figure, hint: the label row (with the optional icon
- * well) on top, the number below it. The icon used to sit BESIDE a three-line
- * value/label/hint stack, vertically centred, so in a five-up row it floated
- * mid-tile and took the width the label then wrapped into one word per line.
- * On top it costs one line and no width, and every tile in a row puts its
- * figure on the same baseline.
- *
- * The tile is `h-full` so a grid row of tiles is one height whatever each hint
- * says, and {@link StatCardSkeleton} is the same box, so loading and loaded
- * share one height without each surface reserving a `min-h-[…]` literal.
- *
- * @example
- * <StatCard label="Projekte" value={12} hint="+2 diese Woche" />
- */
 export interface StatCardProps extends React.HTMLAttributes<HTMLDivElement> {
   label: React.ReactNode
   value: React.ReactNode
-  /** Optional supporting line rendered under the figure. */
   hint?: React.ReactNode
-  /** Optional leading icon (a lucide glyph), drawn in a small well beside the label. */
   icon?: React.ReactNode
 }
 
-const STAT_CARD_CLASS = 'flex h-full min-h-28 flex-col rounded-surface border bg-card p-5 shadow-xs'
+const STAT_CARD_CLASS = 'flex h-full min-h-28 flex-col rounded-surface bg-card p-5 shadow-xs'
 
 export function StatCard({
   label,
@@ -121,7 +87,6 @@ export function StatCard({
   )
 }
 
-/** The loading stand-in for one {@link StatCard}: the same box, shimmering. */
 export function StatCardSkeleton({ className }: { className?: string }): JSX.Element {
   return (
     <div className={cn(STAT_CARD_CLASS, className)} aria-hidden>

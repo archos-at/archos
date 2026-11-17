@@ -3,8 +3,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-// The route factory (`@/lib/api/handler`) statically imports the session
-// guard, which pulls in authkit; internal routes never call it.
 vi.mock('@/lib/auth/require-auth', () => ({
   requireAuthorizedSession: vi.fn(),
 }))
@@ -54,9 +52,6 @@ describe('GET /api/internal/document-exists', () => {
     expect(documentStillExists).not.toHaveBeenCalled()
   })
 
-  // The backend discards what it indexed on a definite "no" only, and a 404 is
-  // also what a BFF without this route answers — so a missing row is a 200
-  // that says so, never a 404.
   it('answers a missing document with 200 and exists: false', async () => {
     vi.mocked(documentStillExists).mockResolvedValue(false)
     const res = await GET(request())

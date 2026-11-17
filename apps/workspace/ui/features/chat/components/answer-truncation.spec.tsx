@@ -1,19 +1,3 @@
-/**
- * The truncation line under the answer: the last hop, and the empty case.
- *
- * `research_truncated` on the terminal frame → `researchTruncated` on the
- * message → `AgentResponse`, which puts ONE muted line in the answer details,
- * opened on its own because a cut-off is not a note to hide.
- * The sentence is not the same in both cases and that is the whole point: an
- * answer that found nothing cannot be told it rests on "the evidence gathered
- * up to that point", and cut-off-before-anything-was-found is the worst case
- * this feature exists for.
- *
- * Rendered for BOTH variants, because the prop is passed twice — the default
- * card the thread uses and the box-less inline rendering. One of the two is
- * always the one a refactor forgets.
- */
-
 import { fireEvent, render, screen } from '@/test-utils'
 import { chatCopy } from '@/i18n/namespaces/chat'
 import { vi, describe, test, expect, beforeEach } from 'vitest'
@@ -33,8 +17,6 @@ vi.mock('../store', () => ({
 
 vi.mock('@/adapters/api', () => ({ cancelJob: vi.fn() }))
 vi.mock('@/adapters/auth', () => ({ useAuth: () => ({ accessToken: null }) }))
-// The disclosure fetches descriptions on expand; a standard skill has none,
-// which is the shape this test wants anyway.
 const listInvocableSkills = vi.fn()
 vi.mock('@/adapters/api/skills-client', () => ({
   listInvocableSkills: (...args: unknown[]) => listInvocableSkills(...args),
@@ -51,31 +33,21 @@ beforeEach(() => {
   ])
 })
 
-/**
- * The copy is READ from the dictionaries rather than pasted here: what these
- * assert is that the answer resolves the right key in whichever locale is
- * reading (the harness renders English), not that someone typed the sentence
- * into two places. The German is the product's real language and is pinned
- * separately, below.
- */
 const copy = {
   truncated: chatCopy.messages.en.answerSources.researchTruncated,
   truncatedEmpty: chatCopy.messages.en.answerSources.researchTruncatedWithoutSources,
 }
 
-/** An answer that carries a real source, so the chips row renders. */
 const CITED = 'Die Antwort [1].\n\n## Quellen\n[1] OIB-Richtlinie 3 — https://example.org/oib3'
 
 describe.each(['default', 'inline'] as const)('the %s answer variant', (variant) => {
   test('a turn that was cut off says so, under the sources', async () => {
     render(<AgentResponse content={CITED} variant={variant} researchTruncated />)
-    // The trigger is marked, not opened: the reader opens the details.
     expect(screen.getByTestId('answer-details-attention')).toBeInTheDocument()
     fireEvent.click(screen.getByTestId('answer-details-trigger'))
 
     const note = screen.getByText(copy.truncated)
     expect(note).toBeInTheDocument()
-    // A fact about the evidence, not an error: it is a note, not an alert.
     expect(note).toHaveAttribute('role', 'note')
   })
 
@@ -83,12 +55,9 @@ describe.each(['default', 'inline'] as const)('the %s answer variant', (variant)
     render(
       <AgentResponse content="Dazu habe ich nichts gefunden." variant={variant} researchTruncated />
     )
-    // The trigger is marked, not opened: the reader opens the details.
     expect(screen.getByTestId('answer-details-attention')).toBeInTheDocument()
     fireEvent.click(screen.getByTestId('answer-details-trigger'))
 
-    // The gap row above already says the answer cites nothing; promising "the
-    // evidence gathered up to that point" beside it would contradict it.
     expect(screen.getByText(copy.truncatedEmpty)).toBeInTheDocument()
     expect(screen.queryByText(copy.truncated)).not.toBeInTheDocument()
   })
@@ -105,9 +74,6 @@ describe('both locales carry a real sentence', () => {
   test.each([['researchTruncated'], ['researchTruncatedWithoutSources']] as const)(
     '%s is written twice, not translated once',
     (key) => {
-      // German is the product's language here and English is its own sentence,
-      // not a gloss of it — so the two must differ, and neither may be a
-      // half-finished template that ships a brace to the reader.
       expect(chatCopy.messages.de.answerSources[key]).not.toBe(chatCopy.messages.en.answerSources[key])
       for (const text of [chatCopy.messages.de.answerSources[key], chatCopy.messages.en.answerSources[key]]) {
         expect(text.trim().length).toBeGreaterThan(20)
@@ -117,8 +83,6 @@ describe('both locales carry a real sentence', () => {
   )
 
   test('the two German sentences are not the same sentence', () => {
-    // The empty case is the one worth getting right; a copy-paste that left
-    // both keys identical would promise evidence that is not there.
     expect(chatCopy.messages.de.answerSources.researchTruncated).not.toBe(
       chatCopy.messages.de.answerSources.researchTruncatedWithoutSources
     )

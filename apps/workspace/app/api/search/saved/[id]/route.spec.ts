@@ -1,10 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * `/api/search/saved/[id]` — the owner renames, shares or deletes their own;
- * anyone else's answers 404, as does an id that is no saved search's.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const session = {

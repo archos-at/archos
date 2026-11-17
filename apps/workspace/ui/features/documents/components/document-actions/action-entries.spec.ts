@@ -1,12 +1,3 @@
-/**
- * What a document menu offers — independent of whether it opens from ⋯ or a
- * right-click. The renderer is tested in action-menu.spec; this file pins the
- * heuristics: a viewer who may not mutate sees nothing that mutates, retry is
- * offered wherever it could help (failed, still settling, or stranded at the
- * birth status — the backend refuses a genuinely running job), an indexed file
- * a person uploaded can be re-read, and an empty move submenu is not a submenu.
- */
-
 import { describe, expect, it, vi } from 'vitest'
 import {
   cancelOffer,
@@ -111,15 +102,11 @@ describe('documentActionEntries', () => {
 
   it('offers retry only for a failed document the viewer may manage', () => {
     expect(ids({ ...DOCUMENT, status: 'failed' })).toContain('reingest')
-    // No status at all: nothing is known, so nothing is offered.
     expect(ids(DOCUMENT)).not.toContain('reingest')
     expect(ids({ ...DOCUMENT, status: 'failed' }, { canManage: false })).not.toContain('reingest')
   })
 
   it('offers retry on a still-settling row the backend may have lost', () => {
-    // A `processing` row whose job vanished is indistinguishable in the menu
-    // from one that is busy; the backend refuses the busy one with 409, so
-    // the menu offers everywhere a retry could help.
     expect(ids({ ...DOCUMENT, status: 'processing' })).toContain('reingest')
     expect(ids({ ...DOCUMENT, status: 'pending' })).toContain('reingest')
     expect(ids({ ...DOCUMENT, status: 'uploaded' })).toContain('reingest')
@@ -129,8 +116,6 @@ describe('documentActionEntries', () => {
   })
 
   it('does not offer it while the bytes are still uploading', () => {
-    // The one in-flight row that is certainly busy: there is nothing stored
-    // to re-read yet.
     expect(ids({ ...DOCUMENT, status: 'uploading' })).not.toContain('reingest')
     expect(reingestOffer({ status: 'uploading' })).toBeNull()
   })
@@ -145,9 +130,6 @@ describe('documentActionEntries', () => {
   })
 
   it('keeps agent-authored documents to their own rules', () => {
-    // A published agent report is indexed under its published version, which
-    // only the publish path may dispatch; a filed draft (`stored`) is never
-    // indexed at all.
     expect(ids({ ...DOCUMENT, status: 'completed', authoredBy: 'agent' })).not.toContain('reingest')
     expect(ids({ ...DOCUMENT, status: 'stored', authoredBy: 'agent' })).not.toContain('reingest')
   })
@@ -212,13 +194,10 @@ describe('cancelOffer — stopping a read', () => {
   })
 
   it('offers no stop where there is no ingest job to stop', () => {
-    // `uploading`: the bytes are still arriving from the browser; the tray's
-    // own cancel aborts that transport. A terminal row is already ended.
     expect(cancelOffer({ status: 'uploading' })).toBe(false)
     expect(cancelOffer({ status: 'completed' })).toBe(false)
     expect(cancelOffer({ status: 'failed' })).toBe(false)
     expect(cancelOffer({ status: 'cancelled' })).toBe(false)
-    // No status at all: nothing is known, so nothing is offered.
     expect(cancelOffer({})).toBe(false)
   })
 

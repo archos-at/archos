@@ -71,7 +71,7 @@ export const POST = internalApiRoute(
     // purpose, because `create_task` relays the envelope's `error` to the model.
     // It is English: the model reads it and words it for the reader in their
     // language. (Until October 2026 it was German and quoted to the reader
-    // verbatim; anything an agent reads is English now, AGENTS.md "Industry
+    // verbatim; anything an agent reads is English now, working-style.md "Industry
     // standard first", and a second language in the model's context is a
     // translation every agent pays for.)
     const allowed =

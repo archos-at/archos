@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The org picker lists only models with a zero-data-retention endpoint by
- * default, never falls back to the whole catalog when the ZDR list is down, and
- * shows an org that opted out every model with the non-ZDR ones marked.
- */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const session = {
@@ -17,7 +12,6 @@ const session = {
   featureFlags: ['runtime-model-config'] as string[] | null,
 }
 
-// A deployment that signs people in: the gates read the session's WorkOS claim.
 beforeEach(() => {
   vi.stubEnv('REQUIRE_AUTH', 'true')
 })

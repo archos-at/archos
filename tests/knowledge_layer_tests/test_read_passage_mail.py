@@ -1,11 +1,3 @@
-"""`read_passage` says which mail a document came with, and reads a Verlauf's message as mail (ADR-0137).
-
-An attachment a person filed from a mail is read like any file; the result opens with one line naming
-the message that brought it, in the words of its Verlauf: the signing domain for a verified sender,
-„Domain nicht bestätigt“ for every other one. A passage of the Verlauf itself carries its format on a
-``Format:`` line and is placed in the mail lane, Projektwissen in colour, never building law.
-"""
-
 from __future__ import annotations
 
 from types import SimpleNamespace

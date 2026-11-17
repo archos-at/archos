@@ -1,12 +1,3 @@
-"""
-The OTLP tracing exporter must follow "availability = flag AND capability"
-(ADR-0029): no configured endpoint => no exporter, no retry storm.
-
-This is the coverage the original observability push lacked. `configs/` was in
-no CI paths-filter bucket, so the commit that switched tracing on never ran a
-backend job at all.
-"""
-
 import pytest
 import yaml
 
@@ -25,15 +16,8 @@ def _make_config(endpoint: str | None) -> OtelCollectorRedactionTelemetryExporte
 
 @pytest.mark.parametrize("endpoint", ["", "   ", None])
 async def test_blank_endpoint_yields_a_noop_exporter(endpoint):
-    # None is what `${OTEL_EXPORTER_OTLP_ENDPOINT:-}` interpolates to when the
-    # var is unset — this exact value crashed agent-runtime startup before `endpoint`
-    # was made Optional (pydantic str validation).
-    # `register_telemetry_exporter` turns the factory into an async context manager.
     async with otelcollector_redaction_telemetry_exporter(_make_config(endpoint), None) as exporter:
         assert isinstance(exporter, _DisabledSpanExporter)
-        # And it must actually swallow spans rather than raise, synchronously:
-        # The agent runtime calls export() without awaiting it, and an async override leaked
-        # an unawaited coroutine per trace event.
         assert exporter.export(object()) is None
 
 
@@ -45,11 +29,6 @@ async def test_configured_endpoint_yields_a_real_exporter():
 
 
 def test_shipped_config_does_not_default_to_a_localhost_collector():
-    """
-    Regression guard: the endpoint default must stay empty. A non-empty default
-    silently re-enables span export in Compose/local dev, where the exporter
-    then queues and retries against a collector that does not exist.
-    """
     with open(CONFIG_PATH, encoding="utf-8") as fh:
         raw = yaml.safe_load(fh)
 

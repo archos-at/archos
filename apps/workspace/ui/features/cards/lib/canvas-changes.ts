@@ -1,33 +1,9 @@
-/**
- * The server's change record, matched to the rows of a `canvas_activity` card
- * (ADR-0109).
- *
- * A card row is what the turn REMEMBERED; a `agent_changes` row is what is
- * true now: who the turn acted for, whether somebody undid it, whether the
- * reader may undo it. Where a row has a change, the change wins; where it has
- * none (an answer older than the record, a failed request) the card's own
- * copy stands.
- *
- * Pure, so the pairing is specced without a component.
- */
-
 import type { AgentChangeView } from '@/lib/changes/types'
 import type { CanvasActivityItem, LiveMark } from './canvas-activity'
 
-/** The kind of change the server records for each row of the card. */
 const queueKey = (objectKind: string, op: string, annotationId: string): string =>
   `${objectKind}:${op}:${annotationId}`
 
-/**
- * The server change behind each row, by the row's index in `items`.
- *
- * Rows pair with changes in the order the turn made them (the server answers
- * oldest first), per mark and kind of change: two changes to one mark are two
- * rows. A deleted row carries no id, and the change's mark number is null once
- * the mark is gone, so deletions pair by order, and only when the card and the
- * record agree on how many there were; a guess between two deletions could
- * offer the wrong one's undo.
- */
 export function matchChanges(
   items: readonly CanvasActivityItem[],
   changes: readonly AgentChangeView[] | null
@@ -60,11 +36,6 @@ export function matchChanges(
   return matched
 }
 
-/**
- * Whether the mark still stands as the change left it, judged by the fields
- * its `after` names. Only the label under a row needs this ("changed since");
- * whether undo is offered is the server's `canUndo`, never this.
- */
 export function standsAsChanged(change: AgentChangeView, live: LiveMark): boolean {
   const after = change.after
   if (!after) return true

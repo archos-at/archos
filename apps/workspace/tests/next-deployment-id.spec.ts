@@ -1,12 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * A tab opened before a deploy posts server action ids the new build does not
- * know ("Failed to find Server Action"). `deploymentId` lets the client notice
- * the server is another build and reload, so it must follow the commit the
- * image was built from (`GIT_SHA`, a build arg of `deploy/Dockerfile`).
- */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const loadConfig = async () => {

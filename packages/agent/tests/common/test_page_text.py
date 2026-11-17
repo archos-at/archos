@@ -1,5 +1,3 @@
-"""Page furniture is found by repetition on most pages, digits read as one."""
-
 from __future__ import annotations
 
 from agent.common.page_text import furniture_key

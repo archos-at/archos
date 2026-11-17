@@ -1,15 +1,5 @@
 'use client'
 
-/**
- * „Prüfung anfragen" (ADR-0086): the uploader asks the people who may review
- * and allow a file held back by the content check to look at it.
- *
- * One button for every surface that shows the uploader their held file: the
- * upload summary, and the Files preview. The server refuses anyone but the
- * uploader, so a surface shows it only to them. Once sent, it says so and
- * rests: a second press would only fold into the same inbox row.
- */
-
 import { useState, type JSX } from 'react'
 import { ShieldQuestion } from 'lucide-react'
 import { toast } from 'sonner'
@@ -21,7 +11,6 @@ import { uploadBatchesCopy } from '@/i18n/namespaces/upload-batches'
 
 export interface RequestReviewButtonProps {
   documentId: string
-  /** The name the toasts say. */
   name: string
   className?: string
   testId?: string

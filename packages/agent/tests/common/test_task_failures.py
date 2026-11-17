@@ -1,5 +1,3 @@
-"""What a task tells the orchestrator about a failure: a class and a category, and which of them pass."""
-
 from __future__ import annotations
 
 import sqlite3

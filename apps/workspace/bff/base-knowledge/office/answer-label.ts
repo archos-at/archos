@@ -10,7 +10,16 @@ import { directiveApplicability, type DirectiveApplicability, type ProjectTerrit
 
 export type AnswerRole = 'requirement_source' | 'interpretation' | 'authority_practice'
 
+/**
+ * How current the office's check leaves the edition, in the platform's tokens
+ * (`context/resolve.ts`), so a citation's line reads one vocabulary for both.
+ */
+export type OfficeFreshness = 'current' | 'check_due' | 'newer_known' | 'superseded'
+
 export interface OfficeAnswerLabel {
+  /** The knowledge records a passage of this copy is marked with (`knowledge_edition_id`): how a citation finds this label. */
+  editionId: string
+  workId: string
   documentId: string
   fileName: string
   kind: BaseKnowledgeEntry['values']['kind']
@@ -23,9 +32,17 @@ export interface OfficeAnswerLabel {
   /** The day of the last check (YYYY-MM-DD), or null when never checked. */
   lastCheckedOn: string | null
   checkOverdue: boolean
+  freshness: OfficeFreshness
   textUse: BaseKnowledgeEntry['textUse']
   /** For a directive: whether it applies to this project's authority. */
   directive: DirectiveApplicability | null
+}
+
+function freshnessOf(entry: BaseKnowledgeEntry): OfficeFreshness {
+  const result = entry.freshness.lastCheck?.result
+  if (result === 'newer_known') return 'newer_known'
+  if (result === 'withdrawn') return 'superseded'
+  return entry.freshness.overdue ? 'check_due' : 'current'
 }
 
 function roleOf(kind: BaseKnowledgeEntry['values']['kind']): AnswerRole {
@@ -37,6 +54,8 @@ function roleOf(kind: BaseKnowledgeEntry['values']['kind']): AnswerRole {
 export function officeAnswerLabel(entry: BaseKnowledgeEntry, project: ProjectTerritory): OfficeAnswerLabel {
   const { values } = entry
   return {
+    editionId: entry.editionId,
+    workId: entry.workId,
     documentId: entry.documentId,
     fileName: entry.fileName,
     kind: values.kind,
@@ -47,6 +66,7 @@ export function officeAnswerLabel(entry: BaseKnowledgeEntry, project: ProjectTer
     role: roleOf(values.kind),
     lastCheckedOn: entry.freshness.lastCheck?.checkedAt.slice(0, 10) ?? null,
     checkOverdue: entry.freshness.overdue,
+    freshness: freshnessOf(entry),
     textUse: entry.textUse,
     directive: values.kind === 'authority_directive' ? directiveApplicability(values.addressees, project) : null,
   }

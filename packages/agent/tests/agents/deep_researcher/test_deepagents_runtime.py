@@ -1,5 +1,3 @@
-"""Tests for DeepAgents runtime config, skill collection resolution, and backend wiring."""
-
 from __future__ import annotations
 
 from typing import Any
@@ -23,8 +21,6 @@ SYNTHESIS_SKILL_SOURCE = f"{SKILLS_ROOT}synthesis/"
 
 
 class TestSkillCollections:
-    """Public skill config uses collection names, not DeepAgents virtual paths."""
-
     def test_builtin_skill_collections_are_discovered(self) -> None:
         collections = discover_skill_collections()
 
@@ -51,8 +47,6 @@ class TestSkillCollections:
 
 
 class TestDeepAgentsRuntimeRouting:
-    """Runtime uses stock DeepAgents backends with only the routes required."""
-
     def test_baseline_uses_plain_state_backend(self) -> None:
         runtime = DeepAgentsRuntime()
 
@@ -62,12 +56,6 @@ class TestDeepAgentsRuntimeRouting:
         assert runtime.collections == ()
 
     def test_curated_offers_are_absent_from_the_skills_mount(self) -> None:
-        """An offer the org never switched on must not be readable from /skills/.
-
-        Chat drops ``grid-catalog: curated`` from always_on; the deep run's
-        builtin collections drop it too, so the same gate holds on both agents.
-        An offer the org took up arrives through the BFF payload, as an office skill.
-        """
         runtime = DeepAgentsRuntime(
             skills=DeepResearchSkillsConfig(agents={"writer-agent": ("synthesis",)}),
         )
@@ -130,7 +118,6 @@ class TestDeepAgentsRuntimeRouting:
         assert runtime.skill_sources_for("researcher-agent", skills) == []
 
     def test_each_run_gets_its_own_skills_and_shares_the_default(self) -> None:
-        """The skills are per tenant and per run (ADR-0018); the job's default backend is not."""
         runtime = DeepAgentsRuntime(skills=DeepResearchSkillsConfig(agents={"writer-agent": ("synthesis",)}))
         first, second = runtime.skill_runtime(), runtime.skill_runtime()
         a, b = runtime.backend_for(first), runtime.backend_for(second)
@@ -167,9 +154,6 @@ class TestDeepAgentsRuntimeRouting:
 
         assert isinstance(backend, CompositeBackend)
         assert backend.default is fake_sandbox
-        # Every skill of `research` is a curated offer, so the run holds none of
-        # them and mounts no `/skills/` route: an offer reaches a run only as an
-        # office skill the organization took up.
         assert set(backend.routes) == {SHARED_ROUTE}
         assert isinstance(backend.routes[SHARED_ROUTE], StateBackend)
         assert runtime.skill_sources_for("researcher-agent", skill_runtime) == []
@@ -275,8 +259,6 @@ class TestDeepAgentsRuntimeRouting:
 
 
 class TestDeepAgentsRuntimeJobId:
-    """job_id should drive the sandbox name; a missing one falls back to uuid."""
-
     def test_explicit_job_id_is_kept(self) -> None:
         sandbox = DeepResearchSandboxConfig()
         with patch("agent.agents.deep_researcher.deepagents_runtime._create_sandbox_backend") as create_backend:
@@ -313,13 +295,6 @@ class TestDeepAgentsRuntimeJobId:
 
 
 class TestTheSkillsMountIsReadOnly:
-    """The permission rules deny writes on `/skills/**` in the tools; the backend refuses on its own too.
-
-    Nothing is on disk behind the mount any more, but deepagents 0.7 offers a
-    recursive `delete`, and a write that reached the backend another way must
-    still change nothing.
-    """
-
     def _skills(self) -> Any:
         runtime = DeepAgentsRuntime(skills=DeepResearchSkillsConfig(agents={"writer-agent": ("synthesis",)}))
         return runtime.backend_for(runtime.skill_runtime()).routes[SKILLS_ROOT]

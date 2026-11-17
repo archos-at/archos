@@ -96,7 +96,6 @@ describe('a source fixture names the capture the platform took', () => {
     expect(problems).toEqual([])
     expect(awaiting).toEqual([])
     expect(handedOver()).toEqual({ capture_id: CAPTURE, content_type: 'application/pdf', text: TEXT })
-    // What the revision keeps is the id alone.
     const stored = { fixtures: [{ responses: { [URL]: { capture_id: CAPTURE } } }] }
     expect(JSON.stringify(withRecordings(stored, new Map()))).not.toContain(TEXT)
   })

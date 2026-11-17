@@ -29,8 +29,6 @@ describe('loadOrganizationDirectory', () => {
   })
 
   it('does not cache a failed load: the next call reads WorkOS again', async () => {
-    // A failed listUsers was stored as the roster, so for the whole TTL every
-    // `@` picker in the organization listed nobody.
     listUsers.mockReturnValueOnce(Promise.reject(new Error('workos 429')))
     listUsers.mockReturnValueOnce(page([ANNA]))
 

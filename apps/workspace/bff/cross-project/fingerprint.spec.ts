@@ -1,15 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The fingerprint the closing debrief asks for is the one the reference ranking
- * reads, in the shape the intake wizard really stores: a building's answers
- * under its instance (`construction_method@bldg1`), several buildings read as all of them.
- * Each case builds its profile with `buildIntakeProfile`, the producer, so a
- * hand-written profile in a shape production never stores cannot pass here.
- * Whether a fact applies, and whether the wizard can write it, is read off the
- * intake definition.
- */
 
 import { describe, expect, it } from 'vitest'
 import { projectIntakeDefinitionV1 } from '@/lib/project-profile/intake-definition'

@@ -777,7 +777,7 @@ export const PrefillButton: FC<{ label: string; title: string; onClick: () => vo
     aria-label={ariaLabel}
     onClick={onClick}
     className={cn(
-      'inline-flex h-6 shrink-0 items-center gap-1 rounded-control border bg-card px-2 text-[11px] font-medium text-muted-foreground shadow-xs',
+      'inline-flex h-6 shrink-0 items-center gap-1 rounded-control bg-card px-2 text-[11px] font-medium text-muted-foreground shadow-xs',
       'transition-colors duration-quick ease-out motion-reduce:transition-none hover:bg-accent hover:text-foreground',
       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 pointer-coarse:h-11 pointer-coarse:px-3 print:hidden'
     )}

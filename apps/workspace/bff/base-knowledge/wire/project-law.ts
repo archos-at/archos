@@ -52,11 +52,17 @@ export const projectLawUseSchema = z
   })
   .strict()
 
-/** The gate, and the uses where it names law: none where it refuses. At most MAX_CONTEXT_USES (40), as the context. */
+/**
+ * Most uses the project page shows, binding first: an overview a person reads,
+ * not the register the turn carries (`MAX_CONTEXT_USES`); the chat names the rest.
+ */
+export const MAX_PROJECT_LAW_USES = 40
+
+/** The gate, and the uses where it names law: none where it refuses. */
 export const projectLawSchema = z
   .object({
     gate: z.enum(GATE_STATES),
-    uses: z.array(projectLawUseSchema).max(40),
+    uses: z.array(projectLawUseSchema).max(MAX_PROJECT_LAW_USES),
     /** The label of each building fact a use's applicability names, in the country's terms. */
     factLabels: z.record(z.string(), z.string()),
   })

@@ -1,16 +1,5 @@
 'use client'
 
-/**
- * Knowledge-base transparency panel — shows the user exactly what the RAG
- * knows: every document of the shared OIB Richtlinien corpus with its live
- * index state (indexed / outdated / pending / failed / removed / inconsistent), plus
- * the project's own uploaded documents that join the retrieval scope.
- *
- * Data sources: `GET /api/knowledge-base` (base corpus, served by the
- * dedicated BFF service) and `GET /api/documents?projectId=…` (project docs,
- * every page — the panel counts and lists them all).
- */
-
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { AlertCircle, Eye, FileSearch, FileText, FolderOpen, Layers, RotateCcw } from 'lucide-react'
@@ -52,7 +41,6 @@ interface KnowledgeBasePanelProps {
   projectId: string
 }
 
-/** Badge color per corpus state — success only when the RAG really knows it. */
 const STATE_VARIANT: Record<KnowledgeFileState, 'success' | 'info' | 'warning' | 'destructive' | 'secondary'> = {
   ingested: 'success',
   pending: 'info',
@@ -146,12 +134,6 @@ function ProjectDocumentRow({ doc }: { doc: ProjectDocument }) {
   )
 }
 
-/**
- * Loading placeholder that mirrors the loaded geometry — the four stat tiles,
- * then two card sections each with `Item`-shaped rows (icon + two text lines +
- * trailing badge) — so the panel loads with the skeleton vocabulary instead
- * of three arbitrary slabs.
- */
 function LoadingSkeleton() {
   return (
     <div className="space-y-8" data-testid="knowledge-loading">
@@ -199,10 +181,6 @@ export function KnowledgeBasePanel({ projectId }: KnowledgeBasePanelProps) {
     setIsLoading(true)
     setHasError(false)
     const corpusRequest = getKnowledgeBase()
-    // Project documents are complementary; their failure must not blank the
-    // corpus view, so they resolve to an empty list instead of rejecting.
-    // Every page: the stat cards count the project's documents, and a count
-    // read off the first page stopped at 500 without saying so.
     const documentsRequest = fetchListingPages<ProjectDocument>(
       `/api/documents?projectId=${encodeURIComponent(projectId)}`
     )
@@ -232,8 +210,6 @@ export function KnowledgeBasePanel({ projectId }: KnowledgeBasePanelProps) {
         status.summary.removed +
         status.summary.inconsistent
     : 0
-  // "Indexed" = everything the assistant can actually search: verified corpus
-  // files and successfully ingested project docs.
   const readyProjectDocs = documents.filter((doc) => documentStatusVariant(doc.status) === 'success').length
   const indexed = status ? status.summary.ingested + readyProjectDocs : 0
 
@@ -247,7 +223,7 @@ export function KnowledgeBasePanel({ projectId }: KnowledgeBasePanelProps) {
           <AlertTitle>{t('error.title')}</AlertTitle>
           <AlertDescription className="flex flex-col items-start gap-3">
             {t('error.description')}
-            <Button variant="outline" size="sm" onClick={() => void load()}>
+            <Button variant="secondary" size="sm" onClick={() => void load()}>
               <RotateCcw className="size-3.5" aria-hidden />
               {t('error.retry')}
             </Button>
@@ -313,7 +289,7 @@ export function KnowledgeBasePanel({ projectId }: KnowledgeBasePanelProps) {
                   icon={FolderOpen}
                   title={t('project.empty')}
                   action={
-                    <Button asChild variant="outline" size="sm">
+                    <Button asChild variant="secondary" size="sm">
                       <Link href={`/app/projects/${projectId}/files`}>{t('project.goToFiles')}</Link>
                     </Button>
                   }

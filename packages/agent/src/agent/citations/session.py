@@ -84,6 +84,12 @@ def _registry_from_cached_entries(entries: Any) -> SourceRegistry:
                             project_name=item.get("project_name"),
                             project_status=item.get("project_status"),
                             project_federal_state_note=item.get("project_federal_state_note"),
+                            work_id=item.get("work_id"),
+                            edition_id=item.get("edition_id"),
+                            public_url=item.get("public_url"),
+                            retrieved_at=item.get("retrieved_at"),
+                            revision_index=item.get("revision_index"),
+                            revision_date=item.get("revision_date"),
                         )
                     )
                 except Exception:

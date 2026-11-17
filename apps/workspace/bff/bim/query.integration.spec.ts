@@ -25,6 +25,10 @@ import { readZipEntries } from '@/test-utils/read-zip'
 import { REVIEWER_READER } from '@/lib/documents/document-reader'
 
 vi.mock('server-only', () => ({}))
+vi.mock('@/lib/base-knowledge/context/service', async () => {
+  const { settledContext } = await import('./rule-basis.fixtures')
+  return { contextForPage: vi.fn(async () => settledContext()) }
+})
 
 const url = process.env.TEST_DATABASE_URL
 const ORG = `org_bim_${Date.now()}`
@@ -45,14 +49,7 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
   let modelId: string
   let otherModelId: string
   let revisionModelId: string
-  /**
-   * A DIFFERENT building in the same project — not a revision of the first.
-   *
-   * The ordinary case, and the one the confirmation key got wrong: `Haus-A`
-   * and `Nebengebäude` side by side.
-   */
   let otherBuildingId: string
-  /** A model past both the count ceiling and the property-catalog scan limit. */
   let bigModelId: string
   let PLACED_PROJECT: string
   let FIXTURE_PROJECT: string
@@ -64,19 +61,8 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
   let db: ReturnType<typeof import('@/lib/db').getDb>
   let withPlatformAccess: typeof import('@/lib/db/tenant-context').withPlatformAccess
 
-  /** Rows in {@link bigModelId} — over `COUNT_CEILING` and over the scan limit. */
   const BIG_MODEL_ELEMENTS = 10_100
 
-  /**
-   * The backfill half of `0038_bim_element_search_keys.sql`, read from the
-   * migration itself rather than restated here — the whole point of the tests
-   * below is that the SQL and the TypeScript agree, and a copy of the SQL in
-   * the spec would agree with itself no matter what shipped.
-   *
-   * Only the UPDATEs: the `ALTER`/`CREATE INDEX` are already applied by the
-   * migration chain, and `COMMENT ON COLUMN` needs table ownership the test
-   * role does not have.
-   */
   const runSearchKeyBackfill = async (): Promise<void> => {
     const source = readFileSync(
       join(process.cwd(), 'migrations', '0038_bim_element_search_keys.sql'),
@@ -85,7 +71,6 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
     const statements = source
       .split(/;\s*(?:\n|$)/)
       .filter((statement) => /^\s*(WITH|UPDATE)\b/i.test(statement))
-    // The two element backfills and the `search_keys_indexed` flip.
     expect(statements).toHaveLength(3)
     for (const statement of statements) {
       await withPlatformAccess('re-run the search-key backfill', () =>
@@ -94,7 +79,6 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
     }
   }
 
-  /** `global_id -> search_keys`, with the value arrays put in a stable order. */
   const readSearchKeys = async (): Promise<Record<string, Record<string, string[]>>> => {
     const rows = await withPlatformAccess('read the search keys', () =>
       db.execute<{ global_id: string; search_keys: Record<string, string[]> | null }>(sql`
@@ -105,18 +89,12 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
       Array.from(rows).map((row) => [
         row.global_id,
         Object.fromEntries(
-          // `jsonb_agg(DISTINCT …)` and a JS `Set` do not agree on order, and
-          // nothing reads these in order — `@>` and `?` are set operations.
           Object.entries(row.search_keys ?? {}).map(([key, values]) => [key, [...values].sort()])
         ),
       ])
     )
   }
 
-  // `documents.organization_id` is a plain column with no foreign key to
-  // `organizations` (WorkOS owns org identity), so a document row is all the
-  // fixture needs — and it is written through the platform role because a
-  // tenant-scoped insert cannot seed two tenants.
   const seedDocument = async (organizationId: string, filename: string): Promise<string> => {
     const rows = await withPlatformAccess('seed a BIM fixture document', () =>
       db.execute<{ id: string }>(sql`
@@ -148,10 +126,6 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
 
     db = getDb()
     const { elements: extracted, ...summary } = index
-    // A null-valued property, which the two `search_keys` writers used to
-    // disagree about: SQL emitted `[null]`, TypeScript omitted the key, and a
-    // `{operator: 'exists'}` filter therefore matched or did not depending on
-    // which one had written the row.
     const elements = extracted.map((element, position) =>
       position === 0
         ? {
@@ -163,7 +137,6 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
           }
         : element
     )
-    // The OIB rules bind in Austria only (ADR-0169): the model under test stands in a project placed in Vienna.
     const placedRows = await withPlatformAccess('seed a BIM project placed in Austria', () =>
       db.execute<{ id: string }>(sql`
         INSERT INTO projects (organization_id, name, created_by, collection_name, profile)
@@ -196,9 +169,6 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
       indexStorageBucket: null,
     })
 
-    // A second revision of the SAME building: one wall downgraded, one wall
-    // removed, one door added. Everything else keeps its GlobalId, which is
-    // what the comparison is built on.
     const revisionElements = elements
       .filter((element) => element.name !== 'Innenwand OG')
       .map((element) =>
@@ -262,8 +232,6 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
       indexStorageBucket: null,
     })
 
-    // `bim_check_confirmations.project_id` is a real foreign key, so the
-    // fixture needs a project row rather than a made-up uuid.
     const projectRows = await withPlatformAccess('seed a BIM fixture project', () =>
       db.execute<{ id: string }>(sql`
         INSERT INTO projects (organization_id, name, created_by, collection_name)
@@ -289,17 +257,6 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
       indexStorageBucket: null,
     })
 
-    // A model big enough for the two bounds to engage: past `COUNT_CEILING`
-    // so the element count stops early, and past the property-catalog scan
-    // limit so the catalog samples. Written in one INSERT rather than through
-    // `completeBimModel`, because ten thousand round trips through the ORM
-    // would dominate the suite's runtime and none of it is what is under test.
-    //
-    // The three types are deliberately spread across the alphabet and given
-    // DIFFERENT property sets: rows come back from
-    // `bim_elements_model_type_express_idx` in type order, so a catalog that
-    // took a flat `LIMIT` off the top would report `Pset_DoorCommon`, part of
-    // `Pset_WallCommon`, and never see `Pset_WindowCommon` at all.
     const bigDocumentId = await seedDocument(ORG, 'big-building.ifc')
     const bigModelIdRun = await extraction.startBimModel({
       organizationId: ORG,
@@ -347,22 +304,10 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
         UPDATE bim_models SET element_count = ${BIG_MODEL_ELEMENTS} WHERE id = ${bigModelId}::uuid
       `)
     )
-    // `completeBimModel` ran with an empty element list, so it stored a
-    // rule-input projection describing ZERO elements, and the raw insert above
-    // did not update it. A `compliance` query would take the fast path and
-    // report a catalogue run over nothing as complete and untruncated. No test
-    // does that today; clearing the column means none can start to.
     await withPlatformAccess('drop the empty rule-input projection', () =>
       db.execute(sql`UPDATE bim_models SET rule_inputs = NULL WHERE id = ${bigModelId}::uuid`)
     )
-    // Those rows went in raw, so they carry no `search_keys` yet. Running the
-    // migration's own backfill over them puts the fixture in the state a real
-    // deployment is in after 0038, rather than a state only a test produces.
     await runSearchKeyBackfill()
-    // Vitest's default hook timeout is 10 s and this setup does not fit in it
-    // on a CI runner: it parses an IFC, seeds four models, inserts 10 100 rows
-    // and runs the migration's own backfill over them. `testTimeout` in
-    // `vitest.config` does not cover hooks, so the number is repeated here.
   }, 120_000)
 
   afterAll(async () => {
@@ -452,8 +397,6 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
       limit: 25,
       offset: 0,
     })
-    // Three walls carry REI 90; a case-sensitive comparison would return none
-    // and the answer would read as "no fire-rated walls".
     expect(result.total).toBe(3)
   })
 
@@ -464,7 +407,6 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
       limit: 200,
       offset: 0,
     })
-    // Only the two EI 30 walls HAVE a FireRating that is not REI 90.
     expect(notRei90.total).toBe(2)
 
     const noRating = await run({
@@ -473,7 +415,6 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
       limit: 200,
       offset: 0,
     })
-    // Everything else in the model carries no FireRating at all.
     expect(noRating.total).toBe(19 - 5)
   })
 
@@ -488,8 +429,6 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
       limit: 25,
       offset: 0,
     })
-    // The three external walls are at 0.18; the windows at 1.1 must not match,
-    // and a text comparison would have ordered "1.1" before "0.18".
     expect(result.total).toBe(3)
     expect(result.elements?.every((element) => element.ifcType === 'IfcWall')).toBe(true)
   })
@@ -513,11 +452,6 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
   })
 
   it('extracts the same search keys the migration backfills', async () => {
-    // `buildSearchKeys` in TypeScript and the `jsonb_each` backfill in SQL are
-    // two implementations of one lookup map. If they drift, a freshly
-    // extracted model and a backfilled one answer the same filter differently
-    // — and the difference is invisible, because the pre-filter only ever
-    // REMOVES candidates the exact predicate would have matched.
     const fromExtractor = await readSearchKeys()
     expect(
       Object.values(fromExtractor).filter((keys) => Object.keys(keys).length > 0).length
@@ -532,11 +466,6 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
   })
 
   it('answers every property filter identically with and without the pre-filter', async () => {
-    // The pre-filter is an index-servable NECESSARY condition AND-ed into the
-    // predicate. A key it fails to emit — a case, a prefix, a set-qualified
-    // form — does not slow the query down, it deletes matching elements from
-    // the answer. `search_keys_indexed` switches the pre-filter off entirely,
-    // so the two runs below are the same question asked with and without it.
     const requests = [
       { properties: [{ name: 'FireRating', operator: 'eq', value: 'rei 90', source: 'property' }] },
       { properties: [{ set: 'Pset_WallCommon', name: 'FireRating', operator: 'eq', value: 'REI 90', source: 'property' }] },
@@ -548,9 +477,6 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
       { properties: [{ name: 'ThermalTransmittance', operator: 'lte', value: 0.2, source: 'property' }] },
       { properties: [{ name: 'NetFloorArea', operator: 'gt', value: 10, source: 'quantity' }] },
       { properties: [{ set: 'Qto_WallBaseQuantities', name: 'NetSideArea', operator: 'exists', source: 'quantity' }] },
-      // The null-valued property. `exists` asks only about the NAME, so this
-      // has to match the wall carrying `AcousticRating: null` — and it is the
-      // filter the two `search_keys` writers used to answer differently.
       { properties: [{ name: 'AcousticRating', operator: 'exists', source: 'property' }] },
       { storeys: ['Erdgeschoss'] },
       { storeys: ['ERDGESCHOSS'], properties: [{ name: 'FireRating', operator: 'exists', source: 'property' }] },
@@ -570,8 +496,6 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
       )
 
     const withPrefilter = await answers()
-    // Not vacuous: every filter has to actually match something, or "identical"
-    // would be ten empty answers agreeing with ten empty answers.
     expect(withPrefilter.filter((answer) => answer.total > 0).length).toBe(requests.length)
 
     await withPlatformAccess('mark the model unindexed', () =>
@@ -585,11 +509,6 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
   })
 
   it('answers correctly for a model whose elements were never indexed', async () => {
-    // The rolling-deploy case: a pod on the previous image extracts a model
-    // after 0038 has run, writing elements with no `search_keys` and leaving
-    // `search_keys_indexed` at its default. If the query layer trusted the
-    // column anyway, every property filter against that model would return
-    // nothing — a building reported as having no fire-rated walls at all.
     await withPlatformAccess('simulate an older image writing this model', () =>
       db.execute(sql`
         UPDATE bim_elements SET search_keys = NULL WHERE model_id = ${modelId}::uuid
@@ -650,9 +569,6 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
   })
 
   it('samples the property catalog of a large model, and says it sampled', async () => {
-    // The old query unnested every element: 11.6 M rows on a 400 000-element
-    // model, two sorts over a 4 MB `work_mem`, past the 30 s statement timeout
-    // and out as HTTP 500. This is the bound that replaced it.
     const result = await runBimQuery(
       { op: 'properties', maxValues: 10 },
       { modelId: bigModelId, organizationId: ORG }
@@ -660,12 +576,8 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
 
     expect(result.propertyScan?.total).toBe(BIG_MODEL_ELEMENTS)
     expect(result.propertyScan?.complete).toBe(false)
-    // 200 per type, three types — the per-type cap, not a slice off the top.
     expect(result.propertyScan?.scanned).toBe(600)
 
-    // The point of stratifying: `IfcWindow` sorts last and would never be
-    // reached by a flat LIMIT, so its property set appearing here is the
-    // assertion that the sample covers the model rather than its first rows.
     expect(result.properties?.map((entry) => entry.set).sort()).toEqual([
       'Pset_DoorCommon',
       'Pset_DoorCommon',
@@ -675,16 +587,11 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
       'Pset_WindowCommon',
     ])
 
-    // And the counts are labelled as the sample's, so an agent quoting the
-    // summary cannot present 200 walls as the model's wall count.
     expect(result.summary).toContain('Stichprobe von 600 der 10100 Bauteile')
     expect(result.summary).toContain('NUR auf die Stichprobe')
   })
 
   it('stops counting elements at the ceiling and says the total is a floor', async () => {
-    // An exact `count(*)` over a filtered 400 000-element model was measured at
-    // 15.8 s warm / 21.9 s cold, holding a second pool slot beside the page
-    // query for the whole time. Nothing in the product needs the exact figure.
     const { COUNT_CEILING } = await import('./repository')
     const result = await runBimQuery(
       { op: 'elements', filter: {}, limit: 25, offset: 0 },
@@ -693,18 +600,12 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
 
     expect(result.total).toBe(COUNT_CEILING)
     expect(result.totalIsLowerBound).toBe(true)
-    // `truncated` must not be computed from `offset + rows < total` alone: on
-    // the last page inside the cap that is false while 90 000 rows remain.
     expect(result.truncated).toBe(true)
     expect(result.summary).toContain(`Mindestens ${COUNT_CEILING} Bauteile`)
     expect(result.summary).not.toMatch(/^10000 Bauteile/)
   })
 
   it('returns the same elements whichever plan serves the page', async () => {
-    // The two plans are a thousandfold apart in speed and must be identical in
-    // result — the pre-filter is a necessary condition, never part of the
-    // answer, so removing it can only change the plan. If it ever changes the
-    // rows, one of the two is silently wrong and no user could tell which.
     const repository = await import('./repository')
     const { buildBimElementPlan } = await import('./query')
 
@@ -723,14 +624,9 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
         ...over,
       })
 
-    // Half of the 10 100 elements carry `REI 90`, so the pre-filter admits far
-    // more than the budget while the walk reaches the end of the page in ~150
-    // rows: exactly the regime the walk exists for.
     const walked = await page({})
     expect(walked.walked).toBe(true)
 
-    // `candidates: null` is how a caller says "there is nothing to weigh", so
-    // it pins the same request to the pre-filter plan.
     const assisted = await page({ plan: { ...plan, candidates: null } })
     expect(assisted.walked).toBe(false)
 
@@ -740,8 +636,6 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
   })
 
   it('does not walk for a filter the pre-filter already answers narrowly', async () => {
-    // One element out of 10 100. Walking would read the whole model to find
-    // it; the GIN index finds it outright.
     const repository = await import('./repository')
     const { buildBimElementPlan } = await import('./query')
 
@@ -762,13 +656,6 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
   })
 
   it('refuses to overwrite a projection written while it was working', async () => {
-    // The lazy path reads `rule_inputs`, spends a second or two loading
-    // elements, and writes back. A re-extraction can land in that gap:
-    // `startBimModel` reuses the SAME row, so `completeBimModel` writes the new
-    // revision's projection — and a blind write-back would then replace it with
-    // one computed from the PREVIOUS revision's elements. Every later reader
-    // would get verdicts for a building that had already been superseded, on
-    // the fast path, with nothing to show which revision they described.
     const repository = await import('./repository')
     const { buildStoredRuleInputs } = await import('./rule-inputs')
 
@@ -783,17 +670,12 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
     expect(original).not.toBeNull()
     expect(await truncationFlag()).toBe(false)
 
-    // A writer that started before that projection existed still holds `null`,
-    // and must lose.
     await repository.saveBimRuleInputs(modelId, ORG, buildStoredRuleInputs([], true), null)
     expect(await truncationFlag()).toBe(false)
 
-    // Passing what is actually there DOES write, so the lazy backfill this
-    // guard protects still works.
     await repository.saveBimRuleInputs(modelId, ORG, buildStoredRuleInputs([], true), original)
     expect(await truncationFlag()).toBe(true)
 
-    // Put the fixture's own projection back for the tests that follow.
     await withPlatformAccess('restore the fixture projection', () =>
       db.execute(sql`
         UPDATE bim_models SET rule_inputs = ${JSON.stringify(original)}::jsonb
@@ -819,10 +701,6 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
       metric: 'count',
       limit: 50,
     })
-    // `measured` and `truncated` ride on every group now: a `sum` skips nulls,
-    // so "250 über 100 Bauteile" was a sum of ten values asserted over a
-    // hundred elements, and a group list cut at the limit reads as the whole
-    // Flächenaufstellung. For a plain count `measured` equals `elements`.
     expect(result.groups).toEqual([
       { key: null, elements: 5, metric: null, measured: 5, truncated: false },
     ])
@@ -862,8 +740,6 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
     })
     expect(result.groups).toEqual(
       expect.arrayContaining([
-        // Both rooms on each storey publish the area, so `measured` matches
-        // `elements`; a storey where one did not would report the shortfall.
         { key: 'Erdgeschoss', elements: 2, metric: 44.5, measured: 2, truncated: false },
         { key: 'Obergeschoss', elements: 2, metric: 24.5, measured: 2, truncated: false },
       ])
@@ -895,8 +771,6 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
       groupBy: 'material',
       limit: 50,
     })
-    // Every wall's first layer is Stahlbeton; the three-layer external walls
-    // must not be counted three times.
     expect(result.groups).toEqual([
       { key: 'Stahlbeton', elements: 5, metric: null, measured: 5, truncated: false },
     ])
@@ -905,24 +779,16 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
   it('reports the model health it computed at extraction', async () => {
     const result = await run({ op: 'health' })
     expect(result.health?.score).toBeGreaterThan(0)
-    // The fixture is well-formed structurally; the findings it does have are
-    // about missing optional information, not about broken structure.
     expect(result.health?.totals.error).toBe(0)
     expect(result.summary).toContain('Modellprüfung')
   })
 
   it('attaches no caveat when the model has nothing to qualify', async () => {
-    // The fixture places every element in a storey and gives every room an
-    // area, so a storey breakdown over it needs no disclaimer.
     const result = await run({ op: 'aggregate', filter: {}, metric: 'count', groupBy: 'storey', limit: 50 })
     expect(result.caveat).toBeNull()
   })
 
   it('builds the Raumbuch over the whole element set', async () => {
-    // The Raumbuch reads rows through their own loader rather than the paged
-    // element list, so this is the only place that proves the two agree — a
-    // Flächenaufstellung short by a page is exactly the failure that would not
-    // show up in a unit test over hand-made records.
     const result = await run({ op: 'schedule' })
     const schedule = result.schedule
     expect(schedule?.totals.rooms).toBe(4)
@@ -931,32 +797,15 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
       'Erdgeschoss',
       'Obergeschoss',
     ])
-    // Storey order is the summary's (by elevation), never alphabetical.
     expect(schedule?.storeys[0].rooms.length).toBeGreaterThan(0)
     expect(result.summary).toContain('Raumbuch')
   })
 
   it('sums a take-off per type and counts what publishes nothing', async () => {
-    // Parsed through the schema rather than hand-built, so this exercises the
-    // request an API caller actually sends — `filter` and `byMaterial` omitted,
-    // filled in by the zod defaults.
     const result = await run(bimQuerySchema.parse({ op: 'takeoff', quantity: 'NetSideArea' }))
     const walls = result.takeoff?.find((row) => row.group === 'IfcWall')
     expect(walls?.elements).toBe(5)
-    /*
-      The conservation law, actually checked.
-
-      This used to read `missing + (value === null ? 0 : 1) > 0`, which is `≥ 1`
-      for any row that exists at all — the fixture's walls do publish
-      `NetSideArea`, so the right-hand term was always 1 and no implementation
-      could fail it. The invariant it claimed to test — that a row accounts for
-      every element in it, a sum plus its blind spot — was never checked, and
-      this is the only place it runs against real SQL.
-    */
     expect(walls?.missing).toBeLessThanOrEqual(walls?.elements ?? 0)
-    // Three of the fixture's five walls publish no `NetSideArea` — a figure
-    // the old assertion could not have caught either way, and exactly the
-    // "sum plus its blind spot" the comment above is about.
     expect(walls?.missing).toBe(3)
     expect(walls?.value).toBeGreaterThan(0)
     expect(result.summary).toContain('Massenermittlung')
@@ -967,35 +816,23 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
       (await run(bimQuerySchema.parse({ op: 'takeoff', quantity: 'NetSideArea', byMaterial: true })))
         .takeoff ?? []
     const wallRows = rows.filter((row) => row.group.startsWith('IfcWall'))
-    // A wall with three material layers is still one wall. Grouping by the
-    // PRIMARY material keeps the element counts summing back to the type total.
     expect(wallRows.reduce((sum, row) => sum + row.elements, 0)).toBe(5)
   })
 
   it('treats an absent filter as "every element" rather than crashing', async () => {
-    // `buildBimPredicate` is reached with an unparsed request by the internal
-    // route and by callers composing a query in code. A TypeError deep in
-    // predicate building would surface as a 500 on a perfectly answerable
-    // request, so the empty case is pinned here where the module is real.
     const { buildBimPredicate } = await import('./query')
     expect(buildBimPredicate(undefined)).toBeUndefined()
     expect(buildBimPredicate({})).toBeUndefined()
   })
 
   it('runs the OIB rule catalog over the whole element set', async () => {
-    // The rules read published values, so this is the only place that proves
-    // they read the values as STORED — a Pset merged occurrence-over-type and
-    // round-tripped through jsonb, not a hand-made record.
     const result = await run(bimQuerySchema.parse({ op: 'compliance', buildingClass: 3 }))
     const rules = result.compliance ?? []
     expect(rules.length).toBeGreaterThan(0)
-    // Every rule reports SOME state; none may silently vanish.
     for (const rule of rules) {
       expect(typeof rule.applicable).toBe('boolean')
       expect(rule.thresholdDe.length).toBeGreaterThan(0)
     }
-    // The fixture's walls carry Pset_WallCommon.FireRating REI 90, so the
-    // fire rule must actually decide rather than fall through to undecidable.
     const fire = rules.find((rule) => rule.ruleId === 'oib2-fire-resistance-load-bearing')
     expect(fire?.applicable).toBe(true)
     expect((fire?.passed ?? 0) + (fire?.failed ?? 0)).toBeGreaterThan(0)
@@ -1003,13 +840,6 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
   })
 
   it('stands a rule down rather than assuming a Gebaeudeklasse it was not given', async () => {
-    /*
-      Stands down, but as UNDECIDABLE rather than "nicht einschlägig". The rule
-      applies to this building; it cannot be evaluated without the project's
-      Gebäudeklasse. Reported as inapplicable it also dropped out of
-      `rulesWithOpenWork` and out of the BCF export, so one unset project fact
-      quietly removed OIB 2 Feuerwiderstand from the Prüfbuch.
-    */
     const result = await run(bimQuerySchema.parse({ op: 'compliance' }))
     const fire = (result.compliance ?? []).find(
       (rule) => rule.ruleId === 'oib2-fire-resistance-load-bearing'
@@ -1027,8 +857,6 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
     const storeys = suggestions.find((entry) => entry.key === 'storeys_above_ground')
     expect(storeys?.value).toBe(2)
     expect(storeys?.evidence).toContain('Erdgeschoss')
-    // Never asserted as settled: every suggestion carries a confidence, and
-    // the Fluchtniveau's can never be better than medium.
     expect(suggestions.find((entry) => entry.key === 'escape_level')?.confidence).toBe('medium')
   })
 
@@ -1052,10 +880,6 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
   })
 
   it('diffs the requirement status between two revisions', async () => {
-    // The v2 fixture downgrades `Aussenwand Nord` from REI 90 to REI 30, which
-    // at Gebäudeklasse 5 turns a passing rule into a failing one. This is the
-    // only place that proves the op reads BOTH revisions from real SQL rather
-    // than comparing a model against itself.
     const result = await runBimQuery(
       bimQuerySchema.parse({ op: 'compliance-diff', baseModelId: modelId, buildingClass: 5 }),
       { modelId: revisionModelId, organizationId: ORG }
@@ -1079,8 +903,6 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
   })
 
   it('judges the corrected file after a same-name re-upload, not the memoised one', async () => {
-    // `startBimModel` upserts on the document, so the re-extraction keeps the
-    // model id and only `completeBimModel` tells the two files apart.
     const extraction = await import('./extraction-repository')
     const { elements, ...summary } = index
     const documentId = await seedDocument(ORG, 'wiederhochgeladen.ifc')
@@ -1156,15 +978,11 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
     }))
     const rules = await run(bimQuerySchema.parse({ op: 'compliance', buildingClass: 5 }))
 
-    // Against the revision it was made on: covering.
     const current = attachConfirmations(rules.compliance ?? [], confirmations, modelId)
     expect(
       outstandingRules(current).map((rule) => rule.ruleId)
     ).not.toContain('oib2-fire-resistance-load-bearing')
 
-    // Against a LATER revision of the SAME building: still recorded, no
-    // longer covering. The series has to be passed, because a confirmation
-    // from outside the building on screen is not shown at all.
     const later = attachConfirmations(rules.compliance ?? [], confirmations, revisionModelId, [
       modelId,
       revisionModelId,
@@ -1175,11 +993,6 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
   })
 
   it('keeps one building’s signature when another building is confirmed', async () => {
-    // The failure 0045 exists for. The key used to be (org, project, rule), so
-    // a project holding two BUILDINGS — the ordinary case — shared one row:
-    // confirming a rule on the second updated the first's in place, and the
-    // architect who signed it off last month opened it again to find no record
-    // that they ever had.
     const repository = await import('./repository')
     await repository.upsertBimCheckConfirmation({
       organizationId: ORG,
@@ -1206,9 +1019,6 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
     const { attachConfirmations } = await import('./rules')
     const rules = await run(bimQuerySchema.parse({ op: 'compliance', buildingClass: 5 }))
 
-    // Haus-A's Prüfbuch, given only Haus-A's revisions. The Nebengebäude row
-    // exists and must not appear here — least of all labelled "Älterer Stand",
-    // which claims it is an earlier version of this same building.
     const attached = attachConfirmations(rules.compliance ?? [], confirmations, modelId, [
       modelId,
       revisionModelId,
@@ -1231,24 +1041,17 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
       note: null,
     })
     const stored = await repository.listBimCheckConfirmations(ORG, FIXTURE_PROJECT, REVIEWER_READER)
-    // Same count: the row for THIS revision was updated in place. A second
-    // revision, or a second building, would each get their own — which is the
-    // whole of 0045.
     expect(stored).toHaveLength(before.length)
     expect(stored.find((entry) => entry.modelId === modelId)?.confirmedBy).toBe('b.beispiel')
   })
 
   it('never shows another tenant’s confirmations', async () => {
     const repository = await import('./repository')
-    // The row exists for ORG; a missing tenant scope would return it here.
     expect(await repository.listBimCheckConfirmations(OTHER_ORG, FIXTURE_PROJECT, REVIEWER_READER)).toEqual([])
   })
 
   it('withdrawing a confirmation returns the rule to the catalogue’s verdict', async () => {
     const repository = await import('./repository')
-    // Scoped to the building's revisions. The Nebengebäude row is deliberately
-    // NOT in the list, and deliberately survives: withdrawing on one building
-    // must not take back a signature made on another.
     await repository.deleteBimCheckConfirmation({
       organizationId: ORG,
       projectId: FIXTURE_PROJECT,
@@ -1260,9 +1063,6 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
   })
 
   it('exports the catalogue’s open items as a BCF an unzip can read', async () => {
-    // The BCF unit tests build from hand-written verdicts. This one starts at
-    // the fixture IFC and ends at bytes, so an element the catalogue flags but
-    // the exporter cannot name would surface here and nowhere else.
     const { buildComplianceBcf } = await import('./bcf')
     const { attachConfirmations } = await import('./rules')
 
@@ -1284,9 +1084,6 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
     const archive = readZipEntries(bcf.bytes)
     expect([...archive.keys()][0]).toBe('bcf.version')
 
-    // Every GlobalId the viewpoints select must be an element that really
-    // exists in this model — a selection naming something else opens an empty
-    // topic in the CAD.
     const known = new Set(index.elements.map((element) => element.globalId))
     const selected = [...archive.values()]
       .flatMap((content) => [...content.matchAll(/IfcGuid="([^"]+)"/g)])
@@ -1296,10 +1093,6 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
   })
 
   it('reports a model that is not ready as a retryable 409, not a crash', async () => {
-    // `BimModelNotReadyError` was a bare `Error`, so `isAuthzError` did not
-    // match it and the handler returned HTTP 500 "Internal server error" with
-    // a stack per request. A 250 MB upload spends its first minute extracting;
-    // every poll in that window read to the user as a crashed server.
     const { BimModelNotReadyError: Err } = await import('./query')
     const extracting = new Err('extracting', 'Model is still being extracted')
     const missing = new Err('failed', 'Model not found')
@@ -1307,8 +1100,6 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
     expect(extracting.status).toBe(409)
     expect(extracting.code).toBe('MODEL_NOT_READY')
     expect(missing.status).toBe(404)
-    // The status the model is in stays readable — the internal route branches
-    // on it to tell the agent "still reading" from "extraction failed".
     expect(extracting.modelStatus).toBe('extracting')
   })
 
@@ -1320,8 +1111,6 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
   })
 
   it('never returns another tenant’s elements', async () => {
-    // Same request, other tenant's model: the row exists, so a missing scope
-    // would return 19 elements rather than a refusal.
     const result = await runBimQuery(
       { op: 'elements', filter: {}, limit: 200, offset: 0 },
       { modelId: otherModelId, organizationId: OTHER_ORG }

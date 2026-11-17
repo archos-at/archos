@@ -1,8 +1,3 @@
-/**
- * The narrow forms of the diagram views: what a reader on a phone gets when a
- * graph would not fit. jsdom has no container queries, so both forms mount;
- * these read the list form only.
- */
 import { render, screen, within } from '@/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 

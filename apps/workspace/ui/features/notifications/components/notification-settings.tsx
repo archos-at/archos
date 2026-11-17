@@ -1,20 +1,5 @@
 'use client'
 
-/**
- * "Benachrichtigungen" in the profile (ADR-0112): turn system notifications on
- * for this device, see and remove the devices that receive them, choose what
- * they are about, and choose whether the lock screen shows content.
- *
- * Split in two so the states can be looked at without a browser to produce
- * them: {@link NotificationSettings} reads the hook, {@link NotificationSettingsView}
- * draws a result of it and is what `/dev/notifications` renders from fixtures.
- *
- * A switch for this device, not a button: it is a standing state the person can
- * read back. Where the browser cannot (an old one, an iPhone outside the Home
- * Screen) or may not (the person said no) the section says so and what to do,
- * instead of a switch that does nothing.
- */
-
 import type { JSX } from 'react'
 import { Bell, BellOff, Info, Monitor, Smartphone, Tablet, X } from 'lucide-react'
 

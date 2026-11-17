@@ -15,11 +15,6 @@ function pathed(relativePath: string): File {
   return file
 }
 
-/**
- * ADR-0086: the decision hook plans every durable-shelf upload against the
- * office's screening, so what the policy names opens the dialog instead of
- * going straight out, and a release re-plans without re-reading anything.
- */
 describe('useUploadDecision — upload screening', () => {
   it('opens the dialog for a loose file the policy names, instead of sending it', async () => {
     const sendDirect = vi.fn()
@@ -114,11 +109,6 @@ describe('useUploadDecision — what the operating system left in the folder', (
   })
 })
 
-/**
- * ADR-0099: a name that continues a document already on the shelf is a reason
- * to ask, even when nothing of that name exists, and the reader's answers
- * re-plan like a release does.
- */
 describe('useUploadDecision — Fassungen across names', () => {
   const answer = (name: string, ids = ['b']) => ({
     name,

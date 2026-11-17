@@ -1,0 +1,166 @@
+from __future__ import annotations
+
+from agent.knowledge.law_lookup import sections as _sections
+from agent.knowledge.law_lookup.sections import PASSAGE_MAX_CHARS
+from agent.knowledge.law_lookup.sections import cut_on_subsection
+from agent.knowledge.law_lookup.source import law_source
+
+_LAW_SOURCE = law_source("at-ris")
+
+
+def split_sections(text):
+    return _sections.split_sections(text, _LAW_SOURCE.grammar)
+
+
+def subsection_body(section, subsection):
+    return _sections.subsection_body(section, subsection, _LAW_SOURCE.grammar)
+
+
+def headings_index(sections):
+    return _sections.headings_index(sections, _LAW_SOURCE.section_plural)
+
+
+_LAW = """Bauordnung für Wien
+
+Bauansuchen
+§ 63. (1) Dem Ansuchen sind anzuschließen:
+a) der Nachweis des Eigentums.
+(2) Die Baupläne müssen von einem Befugten verfasst sein.
+
+Bauverhandlung
+§ 64. (1) Über das Bauansuchen ist zu verhandeln.
+
+Artikel 5
+Art. 5. Dieser Artikel tritt in Kraft.
+"""
+
+
+class TestSplitting:
+    def test_each_paragraph_becomes_one_section_in_document_order(self):
+        sections = split_sections(_LAW)
+
+        assert [(s.kind, s.number) for s in sections] == [("§", "63"), ("§", "64"), ("Art", "5")]
+
+    def test_a_section_carries_the_heading_above_it(self):
+        assert split_sections(_LAW)[0].heading == "Bauansuchen"
+
+    def test_a_sentence_above_a_section_is_not_mistaken_for_a_heading(self):
+        text = "Dies ist ein ganzer Satz.\n§ 1. Der Inhalt."
+
+        assert split_sections(text)[0].heading == ""
+
+    def test_a_bare_artikel_line_above_a_section_is_not_a_second_section(self):
+        sections = split_sections("Artikel 5\nArt. 5. Dieser Artikel tritt in Kraft.")
+
+        assert len(sections) == 1
+        assert "tritt in Kraft" in sections[0].body
+
+    def test_a_document_with_no_paragraphs_splits_into_nothing(self):
+        assert split_sections("Der Verwaltungsgerichtshof hat entschieden: …") == []
+
+    def test_a_section_body_runs_to_the_next_section_and_no_further(self):
+        body = split_sections(_LAW)[0].body
+
+        assert "Die Baupläne" in body
+        assert "ist zu verhandeln" not in body
+
+    def test_the_header_block_before_each_section_is_folded_into_it(self):
+        text = (
+            "§ 63\n\nText\n\nBelege für das Baubewilligungsverfahren\n"
+            "§ 63.\n(1)\nFür das Baubewilligungsverfahren hat der Bauwerber vorzulegen:\n"
+            "§ 64\n\nText\n\nBaupläne\n§ 64.\n(1) Die Baupläne haben zu enthalten:"
+        )
+        sections = split_sections(text)
+        assert [s.label for s in sections] == ["§ 63", "§ 64"]
+        assert sections[0].heading == "Belege für das Baubewilligungsverfahren"
+        assert "hat der Bauwerber vorzulegen" in sections[0].body
+
+    def test_a_sentence_opening_with_a_cross_reference_starts_nothing(self):
+        text = "§ 65.\n(1) Baupläne müssen unterfertigt sein.\n§ 66.\n(1) Anderes.\n§ 65 Abs. 2 gilt sinngemäß."
+        sections = split_sections(text)
+        assert [s.label for s in sections] == ["§ 65", "§ 66"]
+        assert sections[1].body.endswith("§ 65 Abs. 2 gilt sinngemäß.")
+
+    def test_a_table_of_contents_entry_is_not_a_second_section(self):
+        text = (
+            "§ 7\nAbstellmöglichkeiten für Fahrräder\n§ 8\nAbstellmöglichkeiten für Kraftfahrzeuge\n"
+            "§ 7\nAbstellmöglichkeiten für Fahrräder\n(1) Beim Neubau sind Fahrradabstellplätze zu schaffen.\n"
+            "§ 8\nAbstellmöglichkeiten für Kraftfahrzeuge\n(1) Beim Neubau von Gebäuden sind Stellplätze zu schaffen."
+        )
+        sections = split_sections(text)
+        assert [s.label for s in sections] == ["§ 7", "§ 8"]
+        assert "Stellplätze zu schaffen" in sections[1].body
+        assert sections[0].heading == "Abstellmöglichkeiten für Fahrräder"
+        assert sections[1].heading == "Abstellmöglichkeiten für Kraftfahrzeuge"
+
+    def test_a_heading_under_the_marker_beats_the_abschnitt_title_above_it(self):
+        text = "2. Abschnitt\nBauplätze\n§ 7\nAbstellmöglichkeiten für Fahrräder\n(1) Beim Neubau."
+        assert split_sections(text)[0].heading == "Abstellmöglichkeiten für Fahrräder"
+
+    def test_a_repealed_provision_beats_its_longer_table_of_contents_entry(self):
+        text = "§ 8\nAbstellmöglichkeiten für Kraftfahrzeuge\n§ 9\nBauplätze\n§ 8.\n(entfällt)\n§ 9.\n(1) Ein Bauplatz."
+        sections = split_sections(text)
+        assert [s.label for s in sections] == ["§ 8", "§ 9"]
+        assert "(entfällt)" in sections[0].body
+
+    def test_a_subsection_under_the_marker_is_not_a_heading(self):
+        assert split_sections("Dies ist Text.\n§ 1.\n(1)\nDer Inhalt.")[0].heading == ""
+
+
+class TestAbsaetze:
+    def test_the_named_subsection_is_cut_out_of_the_section(self):
+        section = split_sections(_LAW)[0]
+
+        body, subsection = subsection_body(section, "2")
+
+        assert subsection == "2"
+        assert body.startswith("(2) Die Baupläne")
+        assert "Nachweis des Eigentums" not in body
+
+    def test_the_run_in_first_subsection_is_found_too(self):
+        body, subsection = subsection_body(split_sections(_LAW)[0], "1")
+
+        assert subsection == "1"
+        assert "Nachweis des Eigentums" in body
+        assert "Die Baupläne" not in body
+
+    def test_a_subsection_the_section_does_not_have_returns_the_whole_section(self):
+        body, subsection = subsection_body(split_sections(_LAW)[0], "9")
+
+        assert subsection == ""
+        assert "Nachweis des Eigentums" in body
+
+
+class TestCutting:
+    def test_a_short_passage_is_returned_untouched(self):
+        assert cut_on_subsection("(1) Kurz.") == "(1) Kurz."
+
+    def test_a_long_passage_is_cut_on_a_subsection_boundary(self):
+        text = "\n".join(f"({index}) " + "Wort " * 120 for index in range(1, 12))
+
+        cut = cut_on_subsection(text)
+
+        assert len(cut) <= PASSAGE_MAX_CHARS + len("... [truncated]")
+        assert cut.endswith("... [truncated]")
+        kept = cut.removesuffix("... [truncated]")
+        assert kept.count("(") == kept.count(")")
+
+    def test_one_enormous_subsection_still_gets_cut(self):
+        cut = cut_on_subsection("(1) " + "Wort " * 200_000)
+
+        assert len(cut) <= PASSAGE_MAX_CHARS + len("... [truncated]")
+
+
+class TestTheIndex:
+    def test_the_index_is_id_plus_heading_per_paragraph(self):
+        index = headings_index(split_sections(_LAW))
+
+        assert "§ 63 — Bauansuchen" in index
+        assert "§ 64 — Bauverhandlung" in index
+
+    def test_a_long_law_says_that_its_index_was_cut(self):
+        sections = split_sections("\n".join(f"§ {n}. Der Inhalt." for n in range(1, 200)))
+
+        index = headings_index(sections)
+
+        assert "index truncated" in index

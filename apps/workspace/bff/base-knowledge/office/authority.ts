@@ -10,7 +10,7 @@
  */
 
 import type { Addressee } from '../wire'
-import { FEDERAL_STATE_TERRITORIES } from './reading'
+import type { SubdivisionTerritories } from './reading'
 
 /** Where the project is, as far as its profile says. */
 export interface ProjectTerritory {
@@ -26,11 +26,14 @@ export type DirectiveApplicability =
   | { verdict: 'authority_unknown' }
 
 /** The project's territory from its profile facts (`federal_state`, `country`). */
-export function projectTerritory(facts: { federalState?: unknown; country?: unknown }): ProjectTerritory {
+export function projectTerritory(facts: { federalState?: unknown; country?: unknown }, subdivisions: SubdivisionTerritories): ProjectTerritory {
   const state = typeof facts.federalState === 'string' ? facts.federalState : null
-  if (state && FEDERAL_STATE_TERRITORIES[state]) return { territoryId: FEDERAL_STATE_TERRITORIES[state], label: state }
+  if (state && subdivisions[state]) return { territoryId: subdivisions[state], label: state }
   const country = typeof facts.country === 'string' ? facts.country : null
-  if (country && /^[a-z]{2}$/.test(country) && country !== 'at') return { territoryId: country.toUpperCase(), label: country }
+  // A country whose records list its Länder is placed by its Land: a country alone says nothing of which authority decides.
+  const subdivided = (code: string) => Object.values(subdivisions).some((territoryId) => territoryId.startsWith(`${code}-`))
+  // With no setup record published at all the country's own structure is unknown: no territory, never a guess.
+  if (Object.keys(subdivisions).length > 0 && country && /^[a-z]{2}$/.test(country) && !subdivided(country.toUpperCase())) return { territoryId: country.toUpperCase(), label: country }
   return { territoryId: null, label: null }
 }
 

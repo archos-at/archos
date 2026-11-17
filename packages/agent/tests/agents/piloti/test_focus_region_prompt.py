@@ -1,12 +1,3 @@
-"""The „Focus region“: the box a person drew on the review canvas, as the model reads it.
-
-What is load-bearing: it reaches the prompt at all, below the KV-cache boundary
-(it varies per question); it names the document, page and box in words a person
-would use; it sends the model to look at exactly that crop before it answers;
-and a question asked in a thread is answered there by the model's own
-`canvas__reply`, because nothing posts for it.
-"""
-
 import re
 
 from langchain_core.messages import HumanMessage
@@ -26,7 +17,6 @@ CANVAS_NAMES = [tool["name"] for tool in CANVAS]
 WITHOUT_CANVAS = ["look"]
 REGION = FocusRegion(page=2, x=0.05, y=0.1, w=0.25, h=0.2)
 IN_A_THREAD = FocusRegion(page=3, x=0.8, y=0.7, w=0.1, h=0.1, annotation_id="33333333-0000-4000-8000-000000000003")
-#: test_product_framing.py's rule: a file is never a plan.
 FILE_AS_PLAN = re.compile(r"(?<![\w-])(Plan|Pläne|Plänen|Planstand|Planstände|Planständen)(?![\w-])")
 
 

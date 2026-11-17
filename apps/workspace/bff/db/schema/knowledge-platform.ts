@@ -22,6 +22,7 @@ import type {
   IndexRunState,
   PersonDecisionSource,
   ReleaseAction,
+  ReleaseDecisionSource,
   ReleaseChannel,
   BindingMode,
   RelationEndType,
@@ -66,6 +67,8 @@ export const knowledgeTerritoryRevisions = pgTable('knowledge_territory_revision
   coverageLevel: text('coverage_level').$type<CoverageLevel>(),
   /** Whether the node's own municipal law is held (0213). */
   municipalLaw: boolean('municipal_law'),
+  /** The IANA zone a day is read in at this node (0235); NULL inherits from the nearest parent that states one. */
+  zone: text('zone'),
 })
 
 /** How one instrument bears on another (migration 0211, design §3.5). Append-only like every body. */
@@ -117,7 +120,17 @@ export const knowledgeChangeRequests = pgTable('knowledge_change_requests', {
   secondReview: text('second_review').$type<SecondReviewState>(),
   secondReviewBy: text('second_review_by'),
   secondReviewAt: timestamp('second_review_at', { withTimezone: true }),
+  /** Set only on a request the promotion's carry Job opened from another deployment's release (migration 0239, ADR-0181). */
+  carriedFrom: jsonb('carried_from').$type<CarriedFrom>(),
 })
+
+/** Where a carried request came from: the bundle, the deployment that released it, its release seq, the promotion. */
+export interface CarriedFrom {
+  sha256: string
+  sourceDeployment: string
+  sourceSeq: number
+  promotion: string
+}
 
 export const knowledgeReviewDecisions = pgTable('knowledge_review_decisions', {
   id: uuid('id').primaryKey(),
@@ -162,7 +175,7 @@ export const knowledgeApprovals = pgTable('knowledge_approvals', {
   changeRequestId: uuid('change_request_id').notNull(),
   approver: text('approver').notNull(),
   role: text('role').$type<ApprovalRole>().notNull(),
-  decisionSource: text('decision_source').$type<PersonDecisionSource>().notNull(),
+  decisionSource: text('decision_source').$type<ReleaseDecisionSource>().notNull(),
   decidedAt: timestamp('decided_at', { withTimezone: true }).notNull().defaultNow(),
   /** Set only on an author's own approval through the override (migration 0214): why no second person approved. */
   overrideReason: text('override_reason'),
@@ -188,7 +201,7 @@ export const knowledgeReleaseMoves = pgTable('knowledge_release_moves', {
   toRevisionId: uuid('to_revision_id'),
   changeRequestId: uuid('change_request_id').notNull(),
   releasedBy: text('released_by').notNull(),
-  decisionSource: text('decision_source').$type<PersonDecisionSource>().notNull(),
+  decisionSource: text('decision_source').$type<ReleaseDecisionSource>().notNull(),
   releasedAt: timestamp('released_at', { withTimezone: true }).notNull().defaultNow(),
   reason: text('reason'),
 })
@@ -200,6 +213,8 @@ export const knowledgeIndexRuns = pgTable('knowledge_index_runs', {
   changeRequestId: uuid('change_request_id').notNull(),
   state: text('state').$type<IndexRunState>().notNull().default('requested'),
   failure: text('failure'),
+  /** When the run handed its text to the corpus; a retry that finds it ingested then only titles it (0240). */
+  handedAt: timestamp('handed_at', { withTimezone: true }),
   requestedAt: timestamp('requested_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })

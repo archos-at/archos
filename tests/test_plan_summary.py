@@ -1,10 +1,3 @@
-"""The run summary states each Plan decision and its reason.
-
-A skipped job reads as passed, so a summary that shows the wrong tier as
-running, or hides why a push diffed against the root commit, misleads exactly
-the reader who opened it to find out why something did not run.
-"""
-
 from __future__ import annotations
 
 import importlib.util

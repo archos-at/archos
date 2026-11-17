@@ -1,32 +1,15 @@
 'use client'
 
-/**
- * „Diesem E-Mail-Verlauf folgen“ as one card, wherever it is offered: the
- * „E-Mails“ tab of a Verlauf (`FollowControl`) and the E-Mail-Eingang's offer
- * after a filing (`FollowOffer`). Two hand-rolled copies had grown in the two
- * features, the same glyph, title, line and button on the same plate; a second
- * surface showing the same thing composes the same parts
- * (`design-language.md`, „Component layers“).
- *
- * Its own container decides the arrangement: in the narrow rail the actions
- * sit under the words, in the detail's width beside them.
- */
-
 import type { HTMLAttributes, JSX, ReactNode } from 'react'
 import { Repeat2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export interface FollowCardProps extends Omit<HTMLAttributes<HTMLElement>, 'title'> {
-  /** What the reader's follow is: „Diesem E-Mail-Verlauf folgen“, „Sie folgen … bis …“. */
   title: ReactNode
-  /** One line under it: what following does, or why it cannot grow. */
   hint?: ReactNode
-  /** The title is a status that changes under the reader (a follow just started). */
   titleRole?: 'status'
   titleTestId?: string
-  /** The presses, beside the words where there is room. */
   actions?: ReactNode
-  /** What follows under the card's head: who else follows. */
   children?: ReactNode
 }
 
@@ -69,7 +52,6 @@ export function FollowCard({
   )
 }
 
-/** The card's one line under the title. */
 export function FollowCardHint({
   children,
   testId,

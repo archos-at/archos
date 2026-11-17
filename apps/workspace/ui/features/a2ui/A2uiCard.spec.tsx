@@ -1,10 +1,3 @@
-/**
- * The real A2UI renderer over the Piloti catalog — nothing mocked below the
- * card renderer. What these pin is the contract ADR-0065 rests on: a stored
- * card and a composed surface both come out of `A2uiSurface` as the card
- * components, with the card's own fields intact, and nothing A2UI refuses
- * costs the reader a card.
- */
 import { render, screen, waitFor } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { memo, useEffect } from 'react'
@@ -17,7 +10,6 @@ import { AnswerCardItem } from '@/features/cards/components/AnswerCards'
 import { DrawnProvider, SURFACE_EXCLUDED_LEAVES, preflight, structuralRefusal } from './catalog'
 import { surfaceLeaves } from './surface-messages'
 
-/** One derivation step, enough for a `calculation` to pass its schema. */
 const STEPS = [{ label: 'Fläche', operation: 'product', unit: 'm²', operands: [{ label: 'Länge', value: 40 }, { label: 'Breite', value: 30 }] }]
 
 const BASIS = {
@@ -58,8 +50,6 @@ describe('a card through A2UI', () => {
   })
 
   it('draws a lone card the surface excludes through A2UI, without a refusal', async () => {
-    // The exclusion is for a leaf INSIDE a surface. A lone card sits in the
-    // message itself, so a stored proposal draws like any card.
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
     const proposal = {
       type: 'memory_proposal',
@@ -90,7 +80,6 @@ describe('a card through A2UI', () => {
     const other = { ...BASIS, title: '5.2' } as AnswerCard
     render(<A2uiCard card={tabs([['Variante A', BASIS], ['Variante B', other]])} surfaceKey="m1:3" render={renderCard} />)
     await waitFor(() => expect(screen.getByRole('tabpanel')).toBeInTheDocument())
-    // The first panel arrives with its card, which has its own entrance.
     expect(screen.getByRole('tabpanel')).not.toHaveClass('fade-in-0')
     await userEvent.setup().click(screen.getByRole('tab', { name: 'Variante B' }))
     expect(screen.getByRole('tabpanel')).toHaveClass('fade-in-0')
@@ -172,13 +161,9 @@ describe('a card through A2UI', () => {
   })
 
   it('refuses a leaf the backend keeps out of a surface, an interactive card first', () => {
-    // An interactive card's decision is keyed by its position in the message,
-    // which a card inside a surface does not have: drawn there, its answer
-    // would have nowhere to be kept.
     const surface = [
       { id: 'root', component: 'Column', children: ['a', 'b'] },
       { id: 'a', component: 'Text', text: 'Davor.' },
-      // A valid proposal: the catalog's own schema would draw it.
       {
         id: 'b',
         component: 'memory_proposal',
@@ -214,17 +199,12 @@ describe('a card through A2UI', () => {
   })
 
   it('keeps every interactive and live card type out of a surface', () => {
-    // The ratchet: a new interactive or live card type fails here until it is
-    // added to this hand-kept list; cards/models.py derives its own from the
-    // catalog (where a live card is still one that asks).
     for (const type of ACTING_CARD_TYPES) expect(SURFACE_EXCLUDED_LEAVES.has(type)).toBe(true)
   })
 
   const LEAF = { component: 'calculation', title: 'x', steps: STEPS }
 
   it('refuses a surface that is not one tree under root', () => {
-    // A2UI draws each of these as a grey "[Loading id...]" placeholder and
-    // reports the surface drawn, so they are refused before it sees them.
     const column = (children: string[]) => ({ id: 'root', component: 'Column', children })
     expect(preflight([column(['a', 'missing']), { id: 'a', ...LEAF }])).toMatch(/'missing' does not exist/)
     expect(preflight([column(['a']), { id: 'a', component: 'Column', children: ['root'] }])).toMatch(/cycle/)
@@ -274,9 +254,6 @@ describe('a card through A2UI', () => {
   })
 
   it('drops a malformed leaf from the fallback and draws its valid sibling', async () => {
-    // A surface's components are open records, so nothing checks a leaf
-    // before `preflight` refuses it; the fallback must not hand the renderer a
-    // `calculation` with no steps and lose the whole answer to a TypeError.
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
     const malformed = {
       type: 'surface',
@@ -294,8 +271,6 @@ describe('a card through A2UI', () => {
   })
 
   it('mounts a card once, A2UI’s drawing only, with no hidden copy beside it', async () => {
-    // It used to draw the card directly first and mount A2UI's copy invisibly
-    // behind it: two copies of every card, and a swap when A2UI had drawn.
     let mounts = 0
     function Counted() {
       useEffect(() => {
@@ -349,8 +324,6 @@ describe('a card through A2UI', () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => undefined)
     const first = { ...BASIS, title: '1' } as AnswerCard
     let failing = true
-    // Throws for A2UI's copy only: the direct copy is drawn from the card
-    // object itself, A2UI's from a copy of its props.
     const Leaf = memo(function Leaf({ card }: { card: AnswerCard }) {
       if (failing && card !== first) throw new Error('library bug')
       return <div data-testid="leaf">{(card as { title?: string }).title}</div>

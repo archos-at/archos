@@ -1,9 +1,3 @@
-"""trivy scans every digest pin the Pulumi program has, and a change only the ones it adds.
-
-`ci/pinned_images.py` finds the pins by shape rather than from a list of names,
-so a new image is scanned the day it is pinned.
-"""
-
 from __future__ import annotations
 
 import importlib.util

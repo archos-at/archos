@@ -193,7 +193,9 @@ full-text index.
 | `paragraph_refs[]` | keyword | Every `§ n` the text cites (`§ 3`, `§ 12.1`, `§ 3a`), derived at write time. No tokenizer keeps the `§`, so "§ 3" as a phrase is the token `3` and matches "Abs. 3" |
 | `stand` | datetime, `is_principal` on documents | Document date, for recency |
 | `licence_class` | keyword | How the source may be used: `public_open`, `public_restricted`, `licensed` (office base knowledge). Set by `PUT /v1/collections/{c}/knowledge-mark` and by an ingest job that names it (`writes.licence_mark`) |
-| `knowledge_edition_id` | keyword | The knowledge edition the source belongs to; written like `licence_class` |
+| `knowledge_edition_id` | keyword | The knowledge edition the source belongs to; written like `licence_class`. Every ranked read (`hybrid_search`, `grouped_search`) prefers the editions that bind at the turn's site by it: each channel is rescored by `$score * (1 + EDITION_PREFERENCE)` for a passage of one (`boost.ranking_formula`, 0.05), a preference and never a filter, so another edition's passage stays a candidate |
+| `country_id` | keyword | The country whose pack a base-corpus point belongs to (ADR-0173); `scope.corpus_country_condition` reads only the request's countries |
+| `released` | bool | Whether a base-corpus point's text is released: a release writes true, a rollback and an ingest no release names false, and `corpus_country_condition` reads no point marked false. A point from before the flag has none and is read by its country alone |
 | `ai_processing_attested` | not indexed (bool) | Whether the office stated its licence covers processing by the hosted AI services; written like `licence_class`. The licensed seam (ADR-0159) lists a licensed point without its text until it is true |
 | `quote_max_chars` | not indexed (int) | The longest quote of a licensed point's text a model may see; written like `licence_class`. A job value that is no positive int is left out |
 

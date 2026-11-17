@@ -1,22 +1,5 @@
 'use client'
 
-/**
- * What's new: every change to the product, a page of weeks at a time, narrowed by product area
- * (ADR-0156). The organism of `/app/whats-new`.
- *
- * It renders what the server already chose: the page, the area and the reader's language
- * (`localizeReleaseNotes`). The filter and the pager are links, so a filtered page has an address
- * to share and the back button undoes a filter.
- *
- * A week reads from the top down: its dates, its summary, then its changes. A real week holds about
- * a hundred changes, so only the newest week of the newest page opens by itself; an older one shows
- * its summary and what it holds, and opens on demand. A page narrowed to one area opens every week,
- * because a week has few changes left and no summary to stand for them. Within a week the changes
- * come in the order the release notes keep (new, improved, then the small print), each section
- * grouped by product area so an area is named once; the fixes are folded, because a returning member
- * scans what they gained before what was repaired, unless fixes are all the week has.
- */
-
 import type { JSX } from 'react'
 import Link from 'next/link'
 import { ChevronLeft, ChevronRight, Sparkles } from 'lucide-react'
@@ -51,18 +34,14 @@ import {
   WeekTimeline,
 } from './whats-new-atoms'
 
-/** The sections shown folded: ordinary fixes, read on demand. */
 const FOLDED: ReadonlySet<ReleaseNoteSection> = new Set(['fixes'])
 
 export interface WhatsNewListProps {
   list: LocalizedReleaseNoteList
-  /** The page's own path; the filter and the pager add their query to it. */
   basePath?: string
-  /** Query the page's own address carries and every link keeps (the dev preview's `data=real`). */
   query?: Readonly<Record<string, string>>
 }
 
-/** The address of one page of the list: an area, and the cursor the page starts after. */
 export function whatsNewHref(
   basePath: string,
   area: ReleaseNoteArea | null,
@@ -76,7 +55,6 @@ export function whatsNewHref(
   return search ? `${basePath}?${search}` : basePath
 }
 
-/** Where the links of one list point: its path and the query they keep. */
 interface Address {
   basePath: string
   keep: Readonly<Record<string, string>>
@@ -139,7 +117,6 @@ function AreaFilter({ list, address, t }: { list: LocalizedReleaseNoteList; addr
   )
 }
 
-/** "26 October – 1 November 2026", in the reader's language; a version shows as itself. */
 export function weekTitle(week: LocalizedReleaseNoteWeek, locale: string, unreleased: string): string {
   if (week.kind === 'version' && week.version) return week.version
   if (!week.date) return unreleased
@@ -153,7 +130,6 @@ export function weekTitle(week: LocalizedReleaseNoteWeek, locale: string, unrele
   return week.dateEnd ? format.formatRange(start, new Date(`${week.dateEnd}T00:00:00Z`)) : format.format(start)
 }
 
-/** A section's changes, one group per product area, in the vocabulary's order. */
 export function groupByArea(
   notes: readonly LocalizedReleaseNote[],
 ): { area: ReleaseNoteArea; notes: LocalizedReleaseNote[] }[] {
@@ -249,7 +225,6 @@ function NoteItems({ notes }: { notes: readonly LocalizedReleaseNote[] }): JSX.E
   return (
     <ChangeList>
       {notes.map((note, index) => (
-        // Positional: a week's notes are a fixed sequence, and two may share a text.
         <ChangeItem key={index}>{note.text}</ChangeItem>
       ))}
     </ChangeList>
@@ -261,7 +236,7 @@ function Pager({ list, address, t }: { list: LocalizedReleaseNoteList; address: 
   return (
     <nav aria-label={t('pageLabel')} className="flex items-center justify-between gap-2">
       {list.cursor ? (
-        <Button asChild variant="outline" size="sm">
+        <Button asChild variant="secondary" size="sm">
           <Link href={whatsNewHref(address.basePath, list.area, null, address.keep)}>
             <ChevronLeft className="size-4" aria-hidden />
             {t('newer')}
@@ -271,7 +246,7 @@ function Pager({ list, address, t }: { list: LocalizedReleaseNoteList; address: 
         <span />
       )}
       {list.nextCursor && (
-        <Button asChild variant="outline" size="sm">
+        <Button asChild variant="secondary" size="sm">
           <Link href={whatsNewHref(address.basePath, list.area, list.nextCursor, address.keep)}>
             {t('older')}
             <ChevronRight className="size-4" aria-hidden />

@@ -1,5 +1,3 @@
-"""Calendar invitations: every kind of time in Vienna's, and a broken part never fails the read."""
-
 from __future__ import annotations
 
 import pytest
@@ -15,14 +13,10 @@ def ics(*events: str, method: str = "REQUEST") -> bytes:
 @pytest.mark.parametrize(
     ("dtstart", "expected", "all_day"),
     [
-        # UTC in winter and in summer: Vienna's offset changes with the date.
         ("DTSTART:20261103T080000Z", "2026-11-03T09:00:00+01:00", False),
         ("DTSTART:20260715T080000Z", "2026-07-15T10:00:00+02:00", False),
-        # An IANA zone of its own, converted.
         ("DTSTART;TZID=America/New_York:20261103T090000", "2026-11-03T15:00:00+01:00", False),
-        # Floating (no zone): taken as the office's clock.
         ("DTSTART:20261103T090000", "2026-11-03T09:00:00+01:00", False),
-        # A whole day starts at midnight of that day.
         ("DTSTART;VALUE=DATE:20261103", "2026-11-03T00:00:00+01:00", True),
     ],
 )

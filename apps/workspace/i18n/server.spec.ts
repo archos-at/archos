@@ -3,8 +3,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-// What Next does when `cookies()` or `headers()` is called with no request in
-// scope, which is every job slice the runner runs in its own process.
 const OUTSIDE_A_REQUEST = '`cookies` was called outside a request scope.'
 const cookies = vi.fn()
 const headers = vi.fn()

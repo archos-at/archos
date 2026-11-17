@@ -1,13 +1,5 @@
 'use client'
 
-/**
- * The words for an Answer-quality scope, shared by every view that says which
- * scope it is showing: the date range in the reader's locale, then how far
- * organizations and projects narrow it ("1.–30. Sept. 2026 · 2 Organisationen").
- * One composition, so the citation and runtime views cannot describe the same
- * scope two ways.
- */
-
 import { useCallback } from 'react'
 import { useLocale, useTranslations } from '@/i18n'
 import { platformCopy } from '@/i18n/namespaces/platform'

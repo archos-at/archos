@@ -21,7 +21,7 @@ import { stripCardMarkers } from '@/lib/text/card-markers'
 /**
  * The verifier's labels, as `common/citation_verification.py` writes them
  * (`UNVERIFIED_QUOTE_MARKER`, `DROPPED_CITATION_MARKER`), and what an agent reads
- * instead: English, because anything an agent reads is (AGENTS.md), and in
+ * instead: English, because anything an agent reads is (working-style.md, "Industry standard first"), and in
  * parentheses, so a bracketed label is not read as a Markdown link reference.
  * `packages/agent/tests/common/test_answer_dialect_parity.py` holds the keys to
  * the Python constants.

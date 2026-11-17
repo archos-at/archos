@@ -1,21 +1,3 @@
-"""Parity guard: every ``reason:`` prefix an ingest failure can carry has a UI category and a retry category.
-
-The knowledge layer, the ingest status store and the API plugin's ingest worker
-write a failed document's ``error_message`` as ``reason: text``
-(``vlm_not_configured: …``). Two things read the reason, in two languages:
-
-* the UI maps it to a sentence in the reader's language with
-  ``INGEST_FAILURE_PREFIXES`` in ``apps/workspace/ui/features/documents/lib/ingest-failure.ts``;
-* the backend maps it to a failure category (``PREFIX_CATEGORIES`` in
-  ``agent/knowledge/ingest_failures.py``), which decides whether reading
-  the file again is worth anything, and the BFF holds the categories and the
-  reader version in ``apps/workspace/bff/documents/retry-policy.ts``.
-
-There is no shared schema, and an unmapped reason does not break: it shows the
-generic "could not read" sentence and is retried as ``unknown``, so the drift is
-silent. It is caught here.
-"""
-
 import re
 from pathlib import Path
 
@@ -40,16 +22,9 @@ TS_RETRY_POLICY = REPO_ROOT / "apps" / "workspace" / "bff" / "documents" / "retr
 BACKEND_ROOTS = (
     REPO_ROOT / "packages" / "knowledge-layer" / "src",
     REPO_ROOT / "packages" / "agent" / "src" / "agent" / "knowledge",
-    # The ingest worker settles a job whose queued payload it cannot read
-    # (`unreadable_job:`, `jobs/ingest_dispatch.py`). It was outside the scan,
-    # and its reason reached the UI unmapped.
     REPO_ROOT / "apps" / "agent-host" / "src",
 )
 
-#: A reason-prefixed literal where a failure is written: an ``error=`` /
-#: ``error_message=`` argument or assignment, or a module constant (either one
-#: possibly parenthesised over several lines). Logger lines share the shape and
-#: are not failures.
 _WRITTEN_REASON = re.compile(
     r"""(?:\berror(?:_message)?\s*=\s*\(?\s*|^[A-Z][A-Z0-9_]*\s*=\s*\(?\s*)f?["']([a-z]+(?:_[a-z]+)+):\s""",
     re.MULTILINE,
@@ -61,7 +36,6 @@ def _prefix(message: str) -> str:
 
 
 def _ts_prefixes() -> set[str]:
-    """The keys of ``INGEST_FAILURE_PREFIXES`` in the UI mapper."""
     source = TS_MAPPER.read_text(encoding="utf-8")
     match = re.search(r"export const INGEST_FAILURE_PREFIXES = \{(.*?)\} as const", source, re.DOTALL)
     assert match, f"INGEST_FAILURE_PREFIXES not found in {TS_MAPPER}"
@@ -69,7 +43,6 @@ def _ts_prefixes() -> set[str]:
 
 
 def _ts_categories() -> tuple[str, ...]:
-    """``INGEST_FAILURE_CATEGORIES`` in the BFF's retry policy, in order."""
     source = TS_RETRY_POLICY.read_text(encoding="utf-8")
     match = re.search(r"export const INGEST_FAILURE_CATEGORIES = \[(.*?)\] as const", source, re.DOTALL)
     assert match, f"INGEST_FAILURE_CATEGORIES not found in {TS_RETRY_POLICY}"
@@ -107,7 +80,6 @@ def _known_messages() -> tuple[str, ...]:
         DOCUMENT_DELETED_DURING_INGEST,
         SCREENING_UNAVAILABLE,
         pages_verdict,
-        # One word, so the reason scan below cannot see it: named here instead.
         QUARANTINED_PREFIX,
     )
 
@@ -122,14 +94,11 @@ def test_the_page_counts_the_ui_parses_are_in_the_verdict():
 
 def test_every_reason_the_backend_writes_has_a_ui_category():
     written = _written_backend_prefixes()
-    # The scan must find the ones this file imports, or it has gone blind; and
-    # the worker's, or it no longer reaches the API plugin.
     assert {"office_rendition_required", "original_download_failed", "vlm_not_configured", "unreadable_job"} <= written
     assert written <= _ts_prefixes(), f"unmapped in ingest-failure.ts: {sorted(written - _ts_prefixes())}"
 
 
 def test_every_reason_has_a_retry_category():
-    """A reason without one is retried as ``unknown`` forever, which is the bug this category exists to end."""
     reasons = _written_backend_prefixes() | _ts_prefixes() | {_prefix(m) for m in _known_messages()}
     missing = sorted(reasons - set(PREFIX_CATEGORIES))
     assert not missing, f"no category in ingest_failures.PREFIX_CATEGORIES: {missing}"

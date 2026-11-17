@@ -17,8 +17,9 @@ export const DELETION_MAX_ATTEMPTS = 10
 /**
  * A queued deletion's lifecycle (ADR-0179), from every writer of the status:
  * the purger (`purger/db.js`), the Papierkorb (`projects/folder-bin-repository.ts`),
- * the project restore (`projects/repository.ts`) and the chat erasure
- * (`conversations/repository.ts`).
+ * the project restore (`projects/repository.ts`), the chat erasure
+ * (`conversations/repository.ts`) and the scheduler's trace sweep
+ * (`workers/maintenance-sql.js`).
  *
  * A row is born `pending`. A holder claims it (`purging`): the purger once it
  * is due, or „Endgültig löschen" in a request, which may also `retry` a
@@ -34,8 +35,10 @@ export const DELETION_MAX_ATTEMPTS = 10
  * closing write (finish, release, fail) matches the one it took, so a holder
  * whose stale claim was taken over changes nothing. `failed` is also closed
  * `purged` where the erasure is proven: by the holder whose purge finished
- * after the reap had failed its row, and for a folder the BFF marked purged
- * with no traces owed (`closeErased`, `purger/db.js`).
+ * after the reap had failed its row, for a folder the BFF marked purged
+ * with no traces owed (`closeErased`, `purger/db.js`), and for a chat whose
+ * row is gone once the trace sweep has erased the traces the purger could not
+ * (`markConversationTracesErased`, `workers/maintenance-sql.js`).
  *
  * Attempts are not a state: a `pending` row always has attempts left, and the
  * one that has none is `failed`. The database refuses the other reading

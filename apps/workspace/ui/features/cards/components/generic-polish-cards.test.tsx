@@ -1,12 +1,3 @@
-/**
- * Render tests for the two GENERIC polish cards — key takeaways and the
- * callout. Focus: the block renders every takeaway; a takeaway's detail is
- * absent while collapsed and present after a click (the whole point of the
- * card is that the qualification survives without costing the block its
- * scannability); a takeaway with nothing behind it offers no expander; and the
- * callout names its kind in words, never by tint alone.
- */
-
 import { describe, expect, it } from 'vitest'
 import { render as rtlRender, screen } from '@testing-library/react'
 import type { ReactElement } from 'react'
@@ -15,13 +6,6 @@ import userEvent from '@testing-library/user-event'
 import { KeyTakeawaysCard } from './KeyTakeawaysCard'
 import { CalloutCard } from './CalloutCard'
 
-/**
- * The cards render in German because the reader is Austrian, and the copy now
- * comes from the dictionary rather than from literals in the components. A
- * test that renders without a provider sees the default locale (`en`), so the
- * locale is pinned here; `fixedLocale` also skips the provider's preference
- * reconciliation, which would be a fetch.
- */
 const render = (ui: ReactElement) =>
   rtlRender(
     <I18nProvider initialLocale="de" fixedLocale>
@@ -61,28 +45,19 @@ describe('KeyTakeawaysCard', () => {
   it('gives a takeaway with no detail no expander to click', () => {
     render(<KeyTakeawaysCard title={null} items={items} />)
 
-    // Exactly one row is a button — an expander that opens onto nothing would
-    // teach the reader the chevrons are decorative.
     expect(screen.getAllByRole('button')).toHaveLength(1)
   })
 
   it('spends the card’s one figure on the first takeaway and nothing else', () => {
-    // §A2: a card carries exactly one element above 14px and it must be the
-    // card's answer. This card's answer is five things, so the figure goes to
-    // the first — a reader who reads nothing else reads takeaway one.
     render(<KeyTakeawaysCard title="Gebäudeklasse 4" items={items} />)
 
     expect(screen.getByText(items[0].text)).toHaveClass('card-figure-16')
     expect(screen.getByText(items[1].text)).toHaveClass('card-body')
     expect(screen.getByText(items[1].text)).not.toHaveClass('card-figure-16')
-    // The title is the Title step, NOT a second thing above 14px.
     expect(screen.getByText('Gebäudeklasse 4')).toHaveClass('card-title')
   })
 
   it('sets every takeaway on one text column, with no rules between rows', () => {
-    // The rank is the ordinal and the first row's figure. A 6px staircase
-    // (the first §A5 mark) read as misregistration, and hairlines between rows
-    // are the generic-list look, so neither is drawn.
     const four = [
       { text: 'Erstens' },
       { text: 'Zweitens' },
@@ -97,9 +72,6 @@ describe('KeyTakeawaysCard', () => {
   })
 
   it('skips a takeaway with no text and keeps the ordinals contiguous', () => {
-    // Every field inside every array item reaches the renderer unvalidated
-    // (§0.5.1), so a missing `text` is a normal input, not a crash. „01, 03"
-    // would tell the reader something was withheld.
     render(
       <KeyTakeawaysCard
         title={null}
@@ -156,10 +128,6 @@ describe('CalloutCard', () => {
   })
 
   it('is capped narrower than the column it sits in', () => {
-    // The §A5 mark: "the only card narrower than the column". A remark that
-    // spans the full 636px reads as a section of the answer; one that stops
-    // short of it reads as an aside, which is what a callout is. `ch` rather
-    // than px so the cap is a measure and follows the type.
     const { container } = render(
       <CalloutCard kind="note" text="Die Frist läuft ab Zustellung des Bescheids." />,
     )
@@ -171,11 +139,6 @@ describe('CalloutCard', () => {
   })
 })
 
-/**
- * The semantic color contract: muted and flat. Every colored treatment pairs
- * hue + label + icon, never hue alone, no side stripe carries it, and running
- * text stays ink on every wash.
- */
 describe('KeyTakeawaysCard distillation marker', () => {
   it('marks the block with a dark-green eyebrow and a check icon, washed at the pill only, and no side stripe', () => {
     const { container } = render(<KeyTakeawaysCard title={null} items={[{ text: 'Erstens' }]} />)
@@ -193,7 +156,6 @@ describe('KeyTakeawaysCard distillation marker', () => {
       eyebrow.className,
       'the wash is the project green at ~7%, not the full-strength chip tint',
     ).toContain('var(--source-project)')
-    // Hue never travels alone: the written label and a check glyph beside it.
     expect(eyebrow.querySelector('svg.lucide-circle-check')).not.toBeNull()
   })
 
@@ -227,7 +189,6 @@ describe('CalloutCard action-axis tiers', () => {
     )
 
     const card = container.querySelector('[data-slot="card"]')
-    // The wash marks the kind pill, never the remark behind it.
     expect(card?.className).not.toContain('var(--source-office)')
     expect(card?.innerHTML, 'no side stripe: the well and the word carry the tone').not.toMatch(/w-\[3px\]|border-l/)
     const pill = screen.getByText('Frist')
@@ -257,9 +218,7 @@ describe('CalloutCard action-axis tiers', () => {
 
     const card = container.querySelector('[data-slot="card"]')
     const cls = card?.className ?? ''
-    // No edge …
     expect(card?.innerHTML, 'no side stripe: the well and the word carry the tone').not.toMatch(/w-\[3px\]|border-l/)
-    // … and no chromatic hue anywhere on the card: no wash, no tinted edge.
     for (const chromatic of [
       'bg-warning',
       'bg-danger',
@@ -273,14 +232,10 @@ describe('CalloutCard action-axis tiers', () => {
     }
     const eyebrow = screen.getByText('Hinweis')
     expect(eyebrow).toHaveClass('text-muted-foreground')
-    // Still coded twice over colour: the word and the glyph.
     expect(card?.querySelector('svg.lucide-info')).not.toBeNull()
   })
 
   it('renders Tipp on the neutral tier, not in a second green', () => {
-    // A Tipp in success green would put a second green beside the takeaways'
-    // distillation marker with a different meaning — the bulb and the word
-    // carry it instead.
     const { container } = render(
       <CalloutCard kind="tip" text="Ein Schnitt durch das Treppenhaus erspart Rückfragen." />,
     )

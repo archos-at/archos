@@ -1,10 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The phone tab bar's destinations: which tabs each scope carries, which one
- * is lit, where the bar stands down, and where the header's back goes.
- */
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -150,7 +146,6 @@ describe('where the bar stands down', () => {
 
 describe('the phone header back', () => {
   it('leads out of a page one level below a tab', () => {
-    // Dateien's places are tabs of its header, and an opened mail has its own way back: no second arrow.
     expect(phoneBackTarget('/app/projects/p1/files/bin', 'p1')).toBeNull()
     expect(phoneBackTarget('/app/projects/p1/files/mail/m1', 'p1')).toBeNull()
     expect(phoneBackTarget('/app/projects/p1/settings/members', 'p1')).toEqual({

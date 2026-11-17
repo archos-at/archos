@@ -1,9 +1,3 @@
-/**
- * The kit's contract with accessibility, pinned on the atom every control in
- * the viewport is made of. If this holds, no control in the chrome can be
- * nameless or lie about its state.
- */
-
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -24,8 +18,6 @@ describe('ViewerIconButton', () => {
   })
 
   it('claims no state when it is an action', () => {
-    // Home is not a mode. A button that reports `aria-pressed="false"` forever
-    // tells a screen-reader user there is a setting here they can turn on.
     render(<ViewerIconButton label="Ganzes Modell zeigen" icon={Home} />)
     expect(screen.getByRole('button')).not.toHaveAttribute('aria-pressed')
   })
@@ -49,11 +41,6 @@ describe('ViewerIconButton', () => {
 
 describe('ViewerIconButtonBase', () => {
   it('forwards the props a Radix trigger needs to drive it', async () => {
-    // The reason this variant exists. `asChild` clones ONE dom-forwarding
-    // child, and `ViewerIconButton` returns a Tooltip root — so a control that
-    // also opens a popover has to reach the button itself. Wrapped in a
-    // `<span>` instead, the popover's props land on the span, the focused
-    // button keeps none of them, and the menu cannot be opened from a keyboard.
     const onClick = vi.fn()
     render(
       <ViewerIconButtonBase
@@ -70,7 +57,6 @@ describe('ViewerIconButtonBase', () => {
     expect(button).toHaveAttribute('aria-haspopup', 'dialog')
     expect(button).toHaveAttribute('data-state', 'closed')
 
-    // Keyboard, not just pointer: this is the half that was broken.
     button.focus()
     await userEvent.keyboard('{Enter}')
     expect(onClick).toHaveBeenCalledTimes(1)

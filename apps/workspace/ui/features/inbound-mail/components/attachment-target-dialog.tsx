@@ -1,17 +1,5 @@
 'use client'
 
-/**
- * „Ändern“ on an attachment: its name, its Dokumentart and whether it comes
- * in as the next Fassung of a document the project already has. An edit is a
- * question, so it is a `Dialog` (a bottom sheet on a phone); nothing reaches
- * the draft until „Übernehmen“. Escape, the X and a scrim click ask before
- * they leave a changed edit behind (`useUnsavedEditGuard`); „Abbrechen“ is
- * the reader saying so, and closes at once.
- *
- * The folder is not here. It has its own place to choose from, the folder
- * picker the filing chip opens, so there is never a dialog on a dialog.
- */
-
 import type { JSX } from 'react'
 import { useEffect, useId, useState } from 'react'
 import { Button } from '@/components/ui/button'
@@ -47,7 +35,6 @@ export function AttachmentTargetDialog({ open, onOpenChange, part, draft, onAppl
   const [documentType, setDocumentType] = useState<DocumentTypeTag | null>(draft.documentType)
   const [revisionOf, setRevisionOf] = useState<string | null>(draft.revisionOf)
 
-  // Each opening starts from the draft as it is now.
   useEffect(() => {
     if (!open) return
     setName(draft.name)

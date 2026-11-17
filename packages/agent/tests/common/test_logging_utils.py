@@ -1,5 +1,3 @@
-"""Tests for targeted dependency-logger quieting."""
-
 import logging
 
 from agent.common.logging_utils import suppress_noisy_dependency_logs
@@ -12,7 +10,6 @@ def test_step_manager_warnings_are_suppressed_but_errors_kept():
         suppress_noisy_dependency_logs()
         assert not lg.isEnabledFor(logging.WARNING)
         assert lg.isEnabledFor(logging.ERROR)
-        # Idempotent.
         suppress_noisy_dependency_logs()
         assert lg.level == logging.ERROR
     finally:
@@ -20,7 +17,6 @@ def test_step_manager_warnings_are_suppressed_but_errors_kept():
 
 
 def test_pdfminer_and_function_info_warnings_are_suppressed():
-    """pdfminer's per-font and per-colour warnings were ~2,000 lines a week from the ingest worker."""
     names = ("pdfminer.pdffont", "pdfminer.pdfinterp", "nat.builder.function_info")
     loggers = {name: logging.getLogger(name) for name in ("pdfminer", "nat.builder.function_info")}
     original = {name: lg.level for name, lg in loggers.items()}

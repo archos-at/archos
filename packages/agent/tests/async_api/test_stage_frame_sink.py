@@ -1,20 +1,3 @@
-"""The stage channel, from the agent tier's sink call to the socket (chat wire v2).
-
-`agent` owns the graph and never learns what a WebSocket is; `agent_host` owns
-the socket and publishes an implementation of
-``agent.stages.delivery.StageFrameSink`` to it at start-up. Nothing else
-connects the two halves, so nothing else can say whether they are connected:
-the runner tests stub the sink. This file is where the real sink meets the real
-registry and the turn's own sequencer.
-
-What is pinned is the crossing itself (a stage value handed to the published
-sink arrives on the socket as a ``stage`` event on the turn's own ``seq``, after
-its terminal) and the property the design calls non-negotiable at this
-boundary: a send that cannot happen is reported, never raised.
-
-See docs/architecture/post-answer-stages.md §2.7, §4, §7.1.
-"""
-
 from __future__ import annotations
 
 from agent.common.wire_v2 import WIRE_EVENT
@@ -36,8 +19,6 @@ READY = StageValue(
 
 
 class _Socket:
-    """Records the JSON frames the client would have received; each must parse as a v2 event."""
-
     def __init__(self, *, raise_on_send: bool = False) -> None:
         self.sent: list[dict] = []
         self.raise_on_send = raise_on_send
@@ -50,7 +31,6 @@ class _Socket:
 
 
 async def _answered_turn(monkeypatch, socket: _Socket | None) -> ChatRegistry:
-    """A turn that already ended (RUN_STARTED, RUN_FINISHED) on a registry private to one test."""
     monkeypatch.setattr(chat_socket, "_persist_in_background", lambda *args: None)
     registry = ChatRegistry()
     if socket is not None:

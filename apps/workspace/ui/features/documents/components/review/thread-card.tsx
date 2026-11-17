@@ -73,7 +73,6 @@ export const KIND_ICONS: Record<AnnotationKind, typeof TriangleAlert> = {
 
 const day = (value: string, locale: string) => formatDayRange(value, value, locale)
 
-/** One message in a thread: who, when, what. Piloti speaks with its glyph, never a person's face. */
 function Message({
   authorKind,
   name,
@@ -92,17 +91,11 @@ function Message({
   userId: string
   at: string
   body: string
-  /** Whom it mentions, drawn as the chat's chips. */
   mentions?: readonly MarkMention[]
-  /** The reader, so a mention of them stands out. */
   viewerId: string | null
-  /** Piloti's finding nobody has taken over: it says so in its byline. */
   proposal?: boolean
-  /** The reply was written by a turn an event woke, and where (`number` of the Anmerkung). */
   woken?: { trigger: AgentWakeTrigger; number: number } | null
-  /** Its author reworded it then: the byline says „bearbeitet“. */
   editedAt?: string | null
-  /** What its author may do with it (`ReplyActions`), at the end of the byline. */
   actions?: React.ReactNode
 }): JSX.Element {
   const t = useTranslations(filesCopy)
@@ -159,11 +152,6 @@ function Message({
   )
 }
 
-/**
- * A chip for who is on it and by when: quiet (dashed, muted) until set, then
- * the fact itself in ink on a solid edge. `onClear` puts the way to unset it
- * INSIDE the chip, so the × reads as part of the fact it removes.
- */
 const MetaChip = forwardRef<
   HTMLButtonElement,
   {
@@ -182,7 +170,6 @@ const MetaChip = forwardRef<
         'border-border/80 text-muted-foreground inline-flex h-6 max-w-full items-center rounded-full border text-[11px] font-medium transition-colors duration-quick ease-out',
         !set && 'border-dashed',
         set && 'bg-secondary text-foreground border-transparent',
-        // Overdue is ink and weight, not gold: gold is the Büroablage's colour.
         tone === 'urgent' && 'text-foreground border-foreground/50 border-solid font-medium'
       )}
     >
@@ -201,7 +188,7 @@ const MetaChip = forwardRef<
       {onClear && (
         <button data-attr="files-clear"
           type="button"
-          className="text-muted-foreground hover:text-foreground mr-1 inline-flex size-4 shrink-0 items-center justify-center rounded-full outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/60"
+          className="text-muted-foreground hover:text-foreground mr-1 inline-flex size-4 shrink-0 items-center justify-center rounded-full outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/60"
           aria-label={clearLabel}
           onClick={onClear}
         >
@@ -212,7 +199,6 @@ const MetaChip = forwardRef<
   )
 })
 
-/** The reader as the Zuständige picker offers them („Mir zuweisen"), or null while nobody knows who reads. */
 function useSelfAssignee(review: DocumentReview): FileAssignee | null {
   const t = useTranslations(filesCopy)
   if (!review.me) return null
@@ -220,11 +206,6 @@ function useSelfAssignee(review: DocumentReview): FileAssignee | null {
   return { userId: review.me, name: name || t('review.assigneeYou'), email: null, profilePictureUrl: null }
 }
 
-/**
- * Who is on it and by when, editable while the reader may write. The
- * Zuständige is picked among who may write the document (`access="write"`),
- * since they must answer and close the mark; the reader may pick themselves.
- */
 function ResponsibilityRow({
   documentId,
   assigneeUserId,
@@ -316,10 +297,6 @@ function ResponsibilityRow({
   )
 }
 
-/**
- * The three kinds as one quiet segmented row: three buttons, the one in force
- * pressed, each reached by Tab (a radio group would owe arrow keys).
- */
 function KindPicker({ value, onChange }: { value: AnnotationKind; onChange: (kind: AnnotationKind) => void }) {
   const t = useTranslations(filesCopy)
   return (
@@ -348,15 +325,8 @@ function KindPicker({ value, onChange }: { value: AnnotationKind; onChange: (kin
   )
 }
 
-/**
- * Where a card is shown: beside or under its mark on the sheet
- * ({@link CardSide}, decided by `placeCard`), `detached` from the sheet (a
- * mark of an earlier Fassung, which is not drawn), or `docked` in the phone's
- * bottom sheet, which is its frame.
- */
 export type CardPlacement = CardSide | 'detached' | 'docked'
 
-// Beside its mark a card moves up by `--card-shift` to keep out of the stage's foot (`useCardFit`).
 const PLACEMENT_CLASSES: Record<Exclude<CardPlacement, 'docked'>, string> = {
   right: 'absolute top-[calc(var(--card-shift,0px)*-1)] left-4 origin-top-left',
   left: 'absolute top-[calc(var(--card-shift,0px)*-1)] right-4 origin-top-right',
@@ -364,24 +334,12 @@ const PLACEMENT_CLASSES: Record<Exclude<CardPlacement, 'docked'>, string> = {
   detached: 'relative origin-top',
 }
 
-/** The hairline from the mark's edge to its card: which mark this is about, without the card sitting on it. */
 const HAIRLINE_CLASSES: Partial<Record<CardPlacement, string>> = {
   right: 'top-[calc(0.875rem+var(--card-shift,0px))] -left-4 h-px w-4',
   left: 'top-[calc(0.875rem+var(--card-shift,0px))] -right-4 h-px w-4',
   below: '-top-3 left-3.5 h-3 w-px',
 }
 
-/**
- * The card's frame: a floating sheet beside its mark, on the side with room; or
- * the content of the phone's sheet. A dialog named by its own header
- * (`labelledBy`, the id of the line that says what it is about) or, where it
- * has none, by `label`. `data-review-card` is how the review finds it, and it
- * takes the focus itself (`tabIndex={-1}`) when the keyboard opened it.
- *
- * On the sheet it keeps inside the review's free stage (`useCardFit`): never
- * under the toolbars or the chips at the canvas's foot. A column, so what has
- * to give is the part that scrolls (the thread), never the reply field.
- */
 export function ReviewCard({
   placement,
   children,
@@ -423,7 +381,7 @@ export function ReviewCard({
       aria-label={labelledBy ? undefined : label}
       className={cn(
         'focus-visible:ring-ring/60 outline-none focus-visible:ring-2',
-        'bg-popover text-popover-foreground border-border/70 animate-in fade-in-0 zoom-in-95 duration-base ease-entrance motion-reduce:animate-none w-[20rem] rounded-overlay border shadow-xl',
+        'bg-popover text-popover-foreground animate-in fade-in-0 zoom-in-95 duration-base ease-entrance motion-reduce:animate-none w-[20rem] rounded-overlay shadow-xl',
         'flex max-h-(--card-max-height) flex-col',
         PLACEMENT_CLASSES[placement]
       )}
@@ -435,12 +393,6 @@ export function ReviewCard({
   )
 }
 
-/**
- * Piloti, brought into a thread by a question this tab asked it itself (the
- * organization lets no events wake it): answering, or not able to, with a way
- * to ask again. An answer whose thread target never reached the server stays
- * here, to be added to the thread by hand.
- */
 function AgentThreadRow({ ask, review }: { ask: CanvasAsk; review: DocumentReview }): JSX.Element {
   const t = useTranslations(filesCopy)
   const tChat = useTranslations(chatCopy)
@@ -479,7 +431,6 @@ function AgentThreadRow({ ask, review }: { ask: CanvasAsk; review: DocumentRevie
                 await review.reply(annotationId, body)
                 review.piloti.dismiss(ask.id)
               } catch {
-                // A full thread, a conflict or the network: the answer stays here to add again.
                 setAdoptFailed(true)
               } finally {
                 setAdopting(false)
@@ -512,12 +463,6 @@ function AgentThreadRow({ ask, review }: { ask: CanvasAsk; review: DocumentRevie
   )
 }
 
-/**
- * Piloti at work in this thread as the SERVER knows it (`pilotiWork`, read off
- * the mark's wake): the same line for everyone in the room, after a reload too.
- * A delegation already says „Piloti arbeitet daran" in its chip, so only how it
- * ended is said here.
- */
 function AgentWorkRow({ annotation }: { annotation: AnnotationView }): JSX.Element | null {
   const t = useTranslations(filesCopy)
   const work = annotation.pilotiWork
@@ -549,7 +494,6 @@ function AgentWorkRow({ annotation }: { annotation: AnnotationView }): JSX.Eleme
   )
 }
 
-/** Setting a new mark: what kind, what is there, optionally who and by when. */
 export function DraftCard({
   review,
   draft,
@@ -567,7 +511,6 @@ export function DraftCard({
   const [dueOn, setDueOn] = useState<string | null>(null)
   const self = useSelfAssignee(review)
   const { piloti } = review
-  /** The draft's place handed to Piloti: asked at once with what was typed, or a card waiting for the question. */
   const askAgent = piloti.available
     ? (body: string) => {
         const region = askRegionOf(draft)
@@ -608,15 +551,6 @@ export function DraftCard({
   )
 }
 
-/**
- * Where the mark stands among the document's Fassungen, as the card's first
- * lines (the card is all the reader looks at): set on an earlier Fassung (listed,
- * not drawn), or on a document another one replaced, each with „Auf aktuelle
- * Fassung übernehmen" where the server says this reader's carry goes through
- * (`carryTarget`), named by the document it lands on: the end of the chain of
- * replacements, not the direct successor the notice names; and where a carried
- * mark came from or went on to, linked where the page can open that document.
- */
 function RevisionLines({
   review,
   annotation,
@@ -679,7 +613,6 @@ function RevisionLines({
       <p key={key} className="flex items-start gap-1.5" data-testid={`thread-carried-${key}`}>
         <Link2 className="mt-px size-3 shrink-0" aria-hidden />
         {href ? (
-          // Replaces, as walking the marks does: closing the review it opens then steps back out in one go.
           <NextLink href={href} replace className="hover:text-foreground underline underline-offset-2">
             {text}
           </NextLink>
@@ -695,15 +628,6 @@ function RevisionLines({
   )
 }
 
-/**
- * Whether Piloti took this reply up, as far as the card can tell: it was for
- * Piloti, and Piloti answered after it, works for its author now, or this tab
- * is asking it in the thread (`asking`: wakes off, so the browser asked, and
- * only Piloti's answer would tell the server). The server decides with the
- * reply's own wake (`editReply`) and lets a change through in the moment
- * before a browser ask's answer lands; the card keeps the author from
- * changing what Piloti is reading.
- */
 function takenUpByAgent(annotation: AnnotationView, reply: AnnotationReplyView, asking: boolean): boolean {
   if (!replyIsForAgent(annotation, reply)) return false
   if (asking || agentRepliedSince(annotation.replies, reply)) return true
@@ -713,17 +637,9 @@ function takenUpByAgent(annotation: AnnotationView, reply: AnnotationReplyView, 
   )
 }
 
-/** Whether this tab's own ask of Piloti, answering in this mark's thread, is still thinking. */
 const agentAskingIn = (review: DocumentReview, annotationId: string): boolean =>
   review.piloti.asks.some((ask) => ask.replyInThread && ask.annotationId === annotationId && ask.status === 'thinking')
 
-/**
- * One reply in the thread. Its author may reword it („Bearbeiten“: the
- * composer in its place, with its words and whom it mentions, as a mark is
- * reworded) or delete it (confirmed, as a mark is), while the mark is live
- * and Piloti has not taken it up. An edit never wakes Piloti, so the composer
- * offers no @Piloti and says so where Piloti could be asked.
- */
 function ReplyEntry({
   review,
   annotation,
@@ -743,7 +659,6 @@ function ReplyEntry({
     reply.authorKind === 'person' &&
     reply.createdBy === review.me &&
     !takenUpByAgent(annotation, reply, agentAskingIn(review, annotation.id))
-  // Saved or let go, the box goes and the reply's ⋯ comes back: the focus goes with it.
   const moreRef = useFocusBackOnClose<HTMLButtonElement>(editing && mayChange)
   const failureOf = (error: unknown) =>
     error instanceof AnnotationRequestError && error.reason === REPLY_TAKEN_UP_REASON ? t('review.replyTakenUp') : null
@@ -774,7 +689,6 @@ function ReplyEntry({
           documentId={review.documentId}
           initialBody={reply.body}
           initialMentions={reply.mentions}
-          // A rewording is saved, not sent: its failure says so.
           describeFailure={(error) => failureOf(error) ?? t('review.saveFailed')}
           onSubmit={save}
           onEscape={() => setEditing(false)}
@@ -850,7 +764,6 @@ function ReplyEntry({
   )
 }
 
-/** One mark's thread: the finding, the conversation, the decision, and who is on it. */
 export function ThreadCard({
   review,
   annotation,
@@ -864,14 +777,12 @@ export function ThreadCard({
   placement: CardPlacement
   canPickAssignee: boolean
   onCopyLink?: (annotation: AnnotationView) => void
-  /** Going through Piloti's proposals: where this one stands among them, and the way to the next. */
   walk?: { index: number; total: number; onNext: () => void } | null
 }): JSX.Element {
   const t = useTranslations(filesCopy)
   const [busy, setBusy] = useState(false)
   const [failed, setFailed] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
-  /** The author rewording their own mark: the composer in the mark's place, with its text and whom it mentions. */
   const [editing, setEditing] = useState(false)
   const self = useSelfAssignee(review)
   const headerId = useId()
@@ -880,8 +791,6 @@ export function ThreadCard({
   const live = isLive(annotation)
   const { piloti } = review
   const agentReplies = annotation.replies.filter((reply) => reply.authorKind === 'piloti').length
-  // Piloti was brought into this thread by this tab and has not answered in it yet,
-  // or answered without the thread target reaching it (its answer is only here).
   const threadAsk = piloti.asks.find(
     (ask) =>
       ask.replyInThread &&
@@ -891,34 +800,17 @@ export function ThreadCard({
         (ask.status === 'answered' && ask.degraded.includes('thread')) ||
         (ask.status === 'thinking' && agentReplies <= ask.baseline))
   )
-  // What lands at the end of the thread: a reply, Piloti's work line, its answer. Kept in view for a reader at the end.
   const thread = useFollowEnd<HTMLDivElement>(
     `${annotation.replies.length}:${annotation.pilotiWork?.state ?? ''}:${threadAsk?.id ?? ''}:${threadAsk?.status ?? ''}`
   )
 
-  /**
-   * The reply goes in as the person's own, with whom it mentions as picked
-   * (never read out of the text): colleagues are told by the server, and
-   * @Piloti says the reply addresses Piloti. The server answers whether it
-   * wakes Piloti itself (`queued`, or `suppressed` when a cap held it): then
-   * the mark's own view says how Piloti's work stands (`pilotiWork`), for
-   * everyone. When a rule met the reply but the organization's switch is off
-   * (`wake: 'off'`: an @Piloti, or an answer to Piloti's own Rückfrage), this
-   * tab asks Piloti as before, under the turn id a server wake of the same
-   * reply would use, so the two never both run. Answers with the mentions the
-   * server kept.
-   */
   const sendReply = async (body: string, { piloti: mentioned, mentions }: ComposerSend) => {
-    // Sent into the thread: what follows it (the reply, Piloti at work, its answer) comes into view.
     thread.follow()
     const { annotation: after, wake, replyId } = await review.reply(annotation.id, body, {
       addressesPiloti: mentioned,
       mentions,
     })
     const kept = after.replies.find((reply) => reply.id === replyId)?.mentions
-    // `off` is the server saying a wake rule met this reply (an @Piloti, or an
-    // answer to Piloti's own open Rückfrage) and the switch is off: this tab
-    // asks. Anything else, the server already did what there was to do.
     if (wake !== 'off' || !piloti.available) return kept
     piloti.ask({
       text: body.trim(),
@@ -942,21 +834,12 @@ export function ThreadCard({
       setBusy(false)
     }
   }
-  // The status this card shows goes with the move: a tab that missed a colleague's
-  // move gets a 409 and the fresh list, never an act on a state it did not see.
   const move = (status: 'open' | 'resolved' | 'dismissed') =>
     act(() => review.update(annotation.id, { status, expectedStatus: annotation.status }))
 
-  // Only the person who wrote it rewords a mark: Piloti's text stays Piloti's, a colleague's theirs.
   const mayReword = annotation.canEdit && annotation.authorKind === 'person' && annotation.createdBy === review.me
-  // The mark's own rewording, saved or let go: the focus back to the card's ⋯ it was opened from.
   const menuRef = useFocusBackOnClose<HTMLButtonElement>(editing && mayReword)
 
-  /**
-   * The reworded text goes in with whom it mentions as the composer kept them:
-   * the ones already there stay while their name stands in the text, and the
-   * server tells only whom the new text adds (`newlyMentioned`).
-   */
   const saveEdit = async (body: string, { mentions }: ComposerSend) => {
     const after = await review.update(annotation.id, { body, mentions })
     setEditing(false)
@@ -993,8 +876,6 @@ export function ThreadCard({
           },
         ]
       : []),
-    // Piloti as the delegate (ADR-0105): the mark keeps its assignee, Piloti
-    // works it for this person, woken by the server. Only an open mark.
     ...(review.pilotiWakes && annotation.canEdit && annotation.status === 'open'
       ? [
           {
@@ -1023,9 +904,6 @@ export function ThreadCard({
           },
         ]
       : []),
-    // The author's own mark that a colleague's answer or a carry keeps: the
-    // delete stays in view, withheld, with why, and resolving is offered in
-    // its place while the mark is open (the server's rule, `deleteRefusalOf`).
     ...(!annotation.canDelete && annotation.deleteRefused
       ? [
           { type: 'separator' as const },
@@ -1269,7 +1147,6 @@ export function ThreadCard({
             documentId={review.documentId}
             pickerSide="above"
             onSubmit={sendReply}
-            // Esc steps out of the field, keeping what is typed; the next Esc closes the thread.
             onEscape={() => {
               if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
             }}

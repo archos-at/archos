@@ -1,11 +1,3 @@
-/**
- * Step 4, Rückfragen, drawn from its fixtures: the round in three groups, one
- * question at a time, each answered with the wizard's own control, marked
- * „weiß ich nicht", or settled by handing in its document; the location's
- * documents with their reasons; the contradictions, settled by picking a
- * value; the note while Piloti still reads; the few questions of a past
- * project; and the interview folded away.
- */
 import { fireEvent, render, screen, within } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -86,7 +78,6 @@ describe('questionRound', () => {
       'request:noise',
       'contradiction:storeys_above_ground@bldg1',
     ])
-    // The Widmung was found by the reading: settled, so it counts as done.
     expect(round.settledIds).toEqual(['request:zoning'])
     expect(round.more.map((need) => need.key)).toEqual(['work_type', 'land_designation'])
   })
@@ -182,7 +173,6 @@ describe('QuestionsStep', () => {
     const file = new File(['%PDF'], 'Flaechenaufstellung.pdf', { type: 'application/pdf' })
     fireEvent.change(within(card).getByTestId('document-hand-in-input'), { target: { files: [file] } })
     expect(onFiles).toHaveBeenCalledWith([file])
-    // Handed in: the round moves on, Piloti reads the answer out of it.
     expect(await screen.findByTestId('intake-question-units_over_400@bldg1')).toBeInTheDocument()
   })
 

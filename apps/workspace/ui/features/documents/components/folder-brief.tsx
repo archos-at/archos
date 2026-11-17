@@ -31,7 +31,6 @@ import {
   type ReadState,
 } from '../lib/folder-knowledge'
 
-/** Read state → the tone its swatch and meter segment are drawn in. */
 export const READ_STATE_TONE: Record<ReadState, MeterTone> = {
   readable: 'ink',
   reading: 'inkSoft',
@@ -40,20 +39,8 @@ export const READ_STATE_TONE: Record<ReadState, MeterTone> = {
   unindexed: 'muted',
 }
 
-/**
- * The states Piloti is meant to read, in the order the legend reads them: what
- * Piloti has, then what is moving, then what needs a person. The headline's read
- * count and the legend's counts add up to its „von N", which is the whole point
- * of listing them apart from `unindexed`.
- */
 const MEANT_TO_READ: readonly ReadState[] = ['readable', 'reading', 'failed', 'held']
 
-/**
- * The states the bar draws. `unindexed` is out of the headline's denominator
- * (`readShare`), so it is out of the bar too and named as an aside, unless it is
- * all there is. The legend leaves out `readable`: the headline says how many
- * are read, and a number is said once.
- */
 function meterStates(tally: KnowledgeTally): readonly ReadState[] {
   return tally.total - tally.unindexed > 0 ? MEANT_TO_READ : ['unindexed']
 }
@@ -61,70 +48,26 @@ function meterStates(tally: KnowledgeTally): readonly ReadState[] {
 const meterSegments = (tally: KnowledgeTally) =>
   meterStates(tally).map((state) => ({ key: state, value: tally[state], tone: READ_STATE_TONE[state] }))
 
-/** Whether the documents Piloti never reads are named beside the legend rather than in it. */
 function hasUnindexedAside(tally: KnowledgeTally): boolean {
   return tally.unindexed > 0 && tally.total - tally.unindexed > 0
 }
 
 export interface FolderBriefProps {
   brief: FolderBriefData
-  /** The folder the brief is about, or null at the shelf root. */
   folderName: string | null
-  /** Which shelf's root the null folder is — the words differ, the brief does not. */
   shelfKind: 'project' | 'office'
-  /** Show a slice of the subtree as a flat listing below the brief. */
   onSelect: (selection: BriefSelection) => void
-  /** Walk into a folder below this one. */
   onOpenFolder: (folderId: string) => void
-  /**
-   * Re-read every failed document in the subtree. Absent when the reader may
-   * not write here — a re-read changes the document's state for everybody.
-   */
   onReadAgain?: () => void
   readAgainProgress?: BulkReingestProgress | null
   collapsed: boolean
   onCollapsedChange: (collapsed: boolean) => void
-  /**
-   * What Piloti expects the PROJECT to hold and does not (`useMissingDocuments`)
-   * — the agent's own `documents_missing:` list. Shown at the project root only;
-   * null when unknown, so an unread list is never presented as "nothing missing".
-   */
   missing?: readonly MissingDocument[] | null
-  /**
-   * Load what Piloti put on each document, for a {@link FolderBriefData.partial}
-   * brief (ADR-0102): the workspace then reads the whole shelf once and the
-   * brief is built from it. Absent offers nothing to load.
-   */
   onLoadDetails?: () => void
-  /** The shelf is being read for {@link onLoadDetails}. */
   detailsLoading?: boolean
-  /** What the project's documents say about each other (`useDocumentFindings`): at the project's root only. */
   findings?: { projectId: string; response: DocumentFindingsResponse } | null
-  /** The folder holds folders, so the brief speaks for them too. */
   hasSubfolders?: boolean
 }
-
-/**
- * „Was Piloti hier weiß" — the folder, as Piloti understands it.
- *
- * A file manager answers "what is in here" with a list of names. That is the
- * wrong question for a shelf whose point is that an assistant reads it: the
- * planner wants to know whether Piloti has READ what is in here, what it took
- * it to be, and what it could not make sense of — and before this, the only way
- * to find out was to open each folder and each file in turn (feld72, Jour fixe
- * 2026-10-09: answers reported documents missing that had been read).
- *
- * So every level opens with Piloti's account of its whole subtree, built from
- * nothing but what the listing already carries (`folder-knowledge.ts`):
- *
- * 1. How much of it Piloti can cite (a sentence and a bar, each state a swatch and a word).
- * 2. What it is about (types, disciplines, kinds of content, as chips that narrow the listing).
- * 3. What needs a person (failures with one re-read for all, held and unplaced documents).
- * 4. Where below it the trouble sits (the deepest folder, one click away).
- *
- * It never shows CONTENT of a document Piloti cannot cite: a quarantined file
- * is counted, never described (`buildFolderBrief`).
- */
 
 export function FolderBrief({
   brief,
@@ -146,23 +89,17 @@ export function FolderBrief({
   const td = useTranslations(dossierCopy)
   const { locale } = useLocale()
   const { tally } = brief
-  // What it found, beside what it read: at the root, where the findings are the project's.
   const found = folderName === null && findings && findings.response.findings.length > 0 ? findings : null
   const foundCount = found?.response.findings.length ?? 0
   useOpenOnFindingsLink(foundCount > 0, collapsed, onCollapsedChange)
-  // On a phone too, at every level: shown at the root (for its finding) and gone in every folder, the read line was a
-  // rule nobody could see (review of 2026-11-10, finding 10).
   if (tally.total === 0) return null
 
-  // The title above names the folder; the line says only how far it reaches („and its subfolders“ where there are some).
   const scope = folderName
     ? t(hasSubfolders ? 'brief.scopeFolderTree' : 'brief.scopeFolder')
     : t(shelfKind === 'office' ? 'brief.scopeOffice' : 'brief.scopeProject')
   const headline = briefHeadline(tally, t)
   const meterLabel = `${headline} ${scope}. ${legendSentence(tally, t)}`
 
-  // ONE ELEMENT THAT OPENS IN PLACE: folded, one quiet line on the listing's edge; open, a sheet on the column's edge
-  // with its content 16px in, on a phone too (a 12px bleed left the sheet's edge at 220 under a 232 title).
   const open = !collapsed
   const allRead = everythingRead(tally)
   const quietPages = allRead && !hasUnindexedAside(tally) && tally.pages > 0
@@ -171,7 +108,6 @@ export function FolderBrief({
     <Card
       className={cn(
         'gap-0 border-0 bg-sheet py-0 shadow-sm transition-[background-color,border-color,box-shadow] duration-quick ease-out motion-reduce:transition-none',
-        // Open, a sheet: 32px to the listing under it, as between sections; folded, its line keeps 16px (principle 5).
         collapsed ? 'bg-transparent shadow-none' : 'mb-4'
       )}
       data-testid="folder-brief"
@@ -257,7 +193,6 @@ export function FolderBrief({
 
 type Translate = ReturnType<typeof useTranslations>
 
-/** Every document Piloti is meant to read has been read: nothing reading, failed or held. */
 export function everythingRead(tally: KnowledgeTally): boolean {
   return tally.reading + tally.failed + tally.held === 0 && tally.readable === tally.total - tally.unindexed
 }
@@ -266,7 +201,6 @@ function briefHeadline(tally: KnowledgeTally, t: Translate): string {
   const share = readShare(tally)
   if (share === null) return t('brief.headlineNothingToRead', { count: tally.total })
   const meantToRead = tally.total - tally.unindexed
-  // Beside documents the agent never reads, „all" says what it counts: the knowledge base's.
   if (tally.readable === meantToRead) return t(tally.unindexed > 0 ? 'brief.headlineAllOfKnowledge' : 'brief.headlineAll', { count: meantToRead })
   if (tally.readable === 0) return t('brief.headlineNone', { count: meantToRead })
   return t('brief.headlineSome', { readable: tally.readable, count: meantToRead })
@@ -280,21 +214,19 @@ function legendSentence(tally: KnowledgeTally, t: Translate): string {
   return states.join(', ')
 }
 
-/** Each state the headline does not name (never `readable`), as swatch + count + word, and a way into exactly those documents. */
 function ReadStateLegend({ tally, onSelect }: { tally: KnowledgeTally; onSelect: (s: BriefSelection) => void }) {
   const t = useTranslations(filesCopy)
   const { locale } = useLocale()
   const states = tally.total > tally.unindexed ? MEANT_TO_READ.filter((state) => state !== 'readable' && tally[state] > 0) : []
   if (hasUnindexedAside(tally)) states.push('unindexed')
   return (
-    // `-mx-1.5`: the entries' inset holds their hover fill, so dots and page count stand on the brief's edges.
     <div className="-mx-1.5 flex flex-wrap items-center gap-x-1 gap-y-1">
       {states.map((state) => (
         <button data-attr={state === 'unindexed' ? 'folder-brief-state-unindexed' : 'files-select'}
           key={state}
           type="button"
           onClick={() => onSelect({ kind: 'state', state })}
-          className="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring touch-target inline-flex items-center gap-1.5 rounded-control px-1.5 py-0.5 text-xs transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 motion-reduce:transition-none"
+          className="text-muted-foreground hover:bg-hover hover:text-foreground focus-visible:ring-ring touch-target inline-flex items-center gap-1.5 rounded-control px-1.5 py-0.5 text-xs transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 motion-reduce:transition-none"
           title={t('brief.showState', { state: t(`brief.slice.${state}`) })}
           data-testid={`folder-brief-state-${state}`}
         >
@@ -315,19 +247,12 @@ function ReadStateLegend({ tally, onSelect }: { tally: KnowledgeTally; onSelect:
   )
 }
 
-/**
- * What Piloti took the documents to be: the document types and disciplines it
- * assigned, each family under its own label, the topics it recognised, and the
- * kinds of content in them. Folded to one line by default; the line names the
- * biggest types, so the folder still says what it is without being opened.
- */
 function AboutSection({ brief, onSelect }: { brief: FolderBriefData; onSelect: (s: BriefSelection) => void }) {
   const t = useTranslations(filesCopy)
   const { documentTypes, disciplines, contents, tally, topics, photos } = brief
   const { locale } = useLocale()
   if (tally.readable === 0) return null
   const contentNames = contents.map(({ label }) => t(`preview.contentTypeNames.${label}`))
-  // The closed line names the first four kinds and counts the rest; the disclosure holds them all.
   const kinds = [...documentTypes, ...disciplines].map(({ label }) => tagLabel(label, t))
   const more = kinds.length - 4
   const summary = kinds.length === 0 ? t('brief.noTypes') : [...kinds.slice(0, 4), ...(more > 0 ? [t('brief.aboutMore', { count: more })] : [])].join(CLAUSE_JOIN)
@@ -388,12 +313,6 @@ function AboutSection({ brief, onSelect }: { brief: FolderBriefData; onSelect: (
   )
 }
 
-/**
- * „Worum es hier geht“ before the documents are loaded (ADR-0102). The folder
- * is read page by page, and what Piloti put on each document lives beside the
- * rows rather than in the counts, so the section says that and offers to load
- * them instead of claiming Piloti recognised nothing.
- */
 function DeferredAboutSection({
   tally,
   onLoadDetails,
@@ -425,11 +344,6 @@ function DeferredAboutSection({
   )
 }
 
-/**
- * One family of chips under its run-in label — „Dokumentart", „Fachbereich",
- * „Themen" — so a type and a discipline are told apart by a word, not only by
- * fill against outline.
- */
 function ChipFamily({ label, testId, children }: { label: string; testId?: string; children: ReactNode }) {
   return (
     <div className="flex min-w-0 flex-col gap-1" data-testid={testId}>
@@ -466,7 +380,6 @@ function TagChip({
   )
 }
 
-/** Failures, holds and unplaced documents — the things a person has to do something about. */
 function NeedsYouSection({
   brief,
   onSelect,
@@ -479,11 +392,6 @@ function NeedsYouSection({
   readAgainProgress?: BulkReingestProgress | null
 }) {
   const t = useTranslations(filesCopy)
-  // Counted from the tally, which both briefs carry exactly; the attention
-  // lists only NAME documents for an action, and a summary-built brief names
-  // the failed ones alone, up to the summary's limit (ADR-0102). The re-read
-  // button counts what it will send: not a file that failed for a lasting
-  // reason (`offeredForRetry`), which stays in the tally and is not sent.
   const { failed, held, unplaced } = brief.tally
   const sendable = offeredForRetry(brief.attention.failed).length
   if (failed + held + unplaced === 0) return null
@@ -543,7 +451,6 @@ function NeedsYouSection({
   )
 }
 
-/** What needs the reader by its glyph: failed (red, alert), held (ochre, a clock), unplaced (muted, an open circle). */
 const AttentionGlyph = ({ tone }: { tone: MeterTone }): JSX.Element => {
   const Glyph = tone === 'destructive' ? CircleAlert : tone === 'warning' ? Clock : CircleDashed
   return <Glyph className={cn('mt-[5px] size-3.5 shrink-0', TONE_INK[tone === 'muted' ? 'ink' : tone])} aria-hidden />
@@ -561,7 +468,6 @@ function AttentionRow({
   tone: MeterTone
   text: string
   hint?: string
-  /** The button's accessible name: three „Anzeigen" in a row are three different things. */
   showLabel: string
   onShow: () => void
   testId: string
@@ -596,7 +502,6 @@ function AttentionRow({
   )
 }
 
-/** The deepest folders below this one where something waits — the reader goes there, not to an ancestor. */
 function HotspotSection({
   hotspots,
   onOpenFolder,
@@ -618,7 +523,7 @@ function HotspotSection({
             <button data-attr="files-open-folder"
               type="button"
               onClick={() => onOpenFolder(folder.id)}
-              className="hover:bg-accent focus-visible:ring-ring touch-target group flex w-full min-w-0 items-center gap-2 rounded-control px-1.5 py-1 text-left transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 motion-reduce:transition-none"
+              className="hover:bg-hover focus-visible:ring-ring touch-target group flex w-full min-w-0 items-center gap-2 rounded-control px-1.5 py-1 text-left transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 motion-reduce:transition-none"
               data-testid={`folder-brief-hotspot-${folder.id}`}
             >
               <CornerDownRight className="text-muted-foreground size-3.5 shrink-0" aria-hidden />
@@ -634,19 +539,8 @@ function HotspotSection({
   )
 }
 
-/** How many expected documents the brief names before it says how many more. */
 const MAX_MISSING_SHOWN = 8
 
-/**
- * „Was Piloti noch fehlt" — the documents the project's intake answers say it
- * should have, that no file has been named as.
- *
- * This is the list the agent reads as `documents_missing:` on every turn, and
- * it was invisible to the people it describes. It explains the complaint that
- * started this surface: an answer calling a document missing that had been
- * uploaded and read. Read is not the same as KNOWN AS — until a file is bound
- * to the role, Piloti cannot tell that this PDF is the Energieausweis.
- */
 function MissingSection({ missing }: { missing: readonly MissingDocument[] }) {
   const t = useTranslations(filesCopy)
   const shown = missing.slice(0, MAX_MISSING_SHOWN)
@@ -677,7 +571,6 @@ function MissingSection({ missing }: { missing: readonly MissingDocument[] }) {
   )
 }
 
-/** „12 Fotos vom 3.–20. Sept. 2026“ — the span the camera clocks say, not the upload dates. */
 function photoLine(photos: PhotoSpan, locale: string, t: Translate): string {
   return t('brief.photos', { count: photos.count, span: formatDayRange(photos.from, photos.to, locale) })
 }

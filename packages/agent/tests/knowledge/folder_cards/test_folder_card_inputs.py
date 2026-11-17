@@ -1,5 +1,3 @@
-"""What a card is built from, and the hash that says whether it must be built again."""
-
 from __future__ import annotations
 
 import pytest
@@ -95,7 +93,6 @@ class TestInputHash:
 
 
 def test_a_folder_without_a_card_still_reads_its_description():
-    """The first build of a folder reads what a person wrote about it, before any card exists."""
     from agent.knowledge.folder_cards.inputs import folder_inputs
 
     inputs = folder_inputs("proj_a", "Gutachten", [], {}, {"Gutachten": "Alle   externen Gutachten"})

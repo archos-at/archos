@@ -4,14 +4,6 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { sanitizeRetrievalLedger } from './message-retrieval-ledger'
 
-/**
- * The Python↔TS crossing, pinned to one artifact: the backend's ledger builder
- * produces this fixture (`packages/agent/tests/agents/piloti/test_retrieval_ledger.py`
- * asserts it still does), and this side asserts the sanitizer passes it
- * through shape-shifted (snake_case wire in, bounded camelCase out). A renamed
- * key or a moved cap on either side fails one of the two tests instead of
- * shipping green with the Herleitung's account silently dropped.
- */
 const FIXTURE_PATH = resolve(__dirname, '../../../../tests/fixtures/derivation/retrieval_ledger_wire.json')
 
 const fixture = JSON.parse(readFileSync(FIXTURE_PATH, 'utf-8')) as unknown
@@ -51,7 +43,6 @@ const ROUND_1 = {
   documents: 2,
 }
 
-/** One file, three Punkte — the round the fan folds to a single card. */
 const ROUND_2 = {
   index: 2,
   key: 'status.retrieval.clause',
@@ -101,8 +92,6 @@ describe('sanitizeRetrievalLedger', () => {
   })
 
   test('tallies are derived from the docs, not trusted from the payload', () => {
-    // The untrusted boundary: a tampered payload rendering "999 Treffer" over
-    // one file is exactly what this sanitizer exists to stop.
     const ledger = sanitizeRetrievalLedger([
       {
         index: 0,
@@ -124,8 +113,6 @@ describe('sanitizeRetrievalLedger', () => {
         docs: [
           { name: 'a.pdf', detail: 'p.12', repeat: true },
           { name: 'a.pdf', detail: 'p.60', repeat: false },
-          // A stored turn from before the backend stamped it, and a payload
-          // that made the field up: both render off `newDocs` instead.
           { name: 'b.pdf' },
           { name: 'c.pdf', repeat: 'ja' },
         ],

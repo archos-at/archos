@@ -1,20 +1,3 @@
-"""The base corpus never answers with a cover page or an Impressum.
-
-``clause_documents`` tags the Punkt body chunks ``chunking: "clause"`` and the
-matter around them — the cover page, the Impressum — ``chunking: "page"``.
-Neither of the latter is citable evidence, and a title-shaped query
-("OIB-Richtlinie 2 Ausgabe Mai 2023") matched exactly them, so an overview
-question came back as four garbled cover pages at page 1.
-
-``base_collection_filters`` now carries ``chunking != "page"`` on every
-base-corpus search. The load-bearing claim is that ``$ne`` KEEPS records that
-have no ``chunking`` key at all — Begriffsbestimmungen, Zitierte Normen,
-project uploads and office files never carry one, and a filter that dropped
-them would delete most of the searchable world. Only the store can answer that,
-so these tests run the real filter dict through the real translation
-(``qdrant.scope.translate``) into a real Qdrant.
-"""
-
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -36,7 +19,6 @@ PROJECT = "proj_abc"
 
 
 def _record(chunk_id: str, chunking: str | None, file_name: str = "oib-rl_2.pdf"):
-    """One stored chunk. ``chunking=None`` means the key is ABSENT, not empty."""
     metadata = {"page_label": "1", "content_type": "text"}
     if chunking is not None:
         metadata["chunking"] = chunking
@@ -48,20 +30,12 @@ def _kept(scope: str, filters: dict | None) -> list[str]:
 
 
 class TestQdrantNeSemantics:
-    """(d) The measurement the store filter is built on, pinned against the real store.
-
-    A change that made ``$ne`` exclude keyless points would empty the corpus of
-    every non-Punkt document, and nothing else in the suite would notice:
-    retrieval would simply return less.
-    """
-
     def test_ne_keeps_records_that_lack_the_key(self, qdrant_store):
         write(BASE, [_record("cover", "page"), _record("punkt", "punkt"), _record("glossar", None)])
 
         assert _kept(BASE, {"chunking": {"$ne": "page"}}) == ["glossar", "punkt"]
 
     def test_the_assembled_base_filter_keeps_keyless_records(self, qdrant_store):
-        """End to end: the real filter dict, the real translation, the real store."""
         write(
             BASE,
             [
@@ -77,14 +51,6 @@ class TestQdrantNeSemantics:
 
 
 class _StoreBackedRetriever:
-    """A retriever whose answers the FILTER decides, because a real store applies it.
-
-    A hand-written double would have to re-implement ``$ne`` to answer these
-    tests, and its guess at the semantics is the thing under test. This one
-    writes the records to Qdrant and hands the filter dict to it through the
-    same translation the adapter uses.
-    """
-
     backend_name = "fake"
 
     def __init__(self, records_by_collection: dict[str, list]):
@@ -118,7 +84,6 @@ def _chunk(chunk_id: str, content: str, metadata: dict, collection_name: str):
 
 @pytest.fixture
 def search_harness(monkeypatch, qdrant_store):
-    """Install a retriever and neutralise everything the search reaches outside itself."""
 
     def install(retriever):
         monkeypatch.setattr(register_module, "_get_retriever", lambda config: retriever)
@@ -150,7 +115,6 @@ async def _search(config, query="OIB-Richtlinie 2 Ausgabe Mai 2023"):
 
 class TestSearchNeverAnswersWithAPageChunk:
     async def test_a_page_chunk_from_the_base_corpus_never_reaches_the_answer(self, search_harness):
-        """(a) The cover page is in the store and out of the result."""
         retriever = _StoreBackedRetriever({BASE: [_record("cover", "page"), _record("punkt", "punkt")]})
         search_harness(retriever)
 
@@ -160,7 +124,6 @@ class TestSearchNeverAnswersWithAPageChunk:
         assert "punkt body" in out
 
     async def test_a_chunk_with_no_chunking_key_still_reaches_the_answer(self, search_harness):
-        """(b) The whole corpus outside the Punkt-structured Richtlinien has no such key."""
         retriever = _StoreBackedRetriever(
             {BASE: [_record("cover", "page"), _record("glossar", None, file_name="begriffsbestimmungen.pdf")]}
         )
@@ -172,7 +135,6 @@ class TestSearchNeverAnswersWithAPageChunk:
         assert "cover body" not in out
 
     async def test_a_page_chunk_in_a_project_collection_is_untouched(self, search_harness):
-        """(c) Session and project collections are user content and are never filtered."""
         retriever = _StoreBackedRetriever(
             {
                 BASE: [_record("punkt", "punkt")],

@@ -1,20 +1,5 @@
 'use client'
 
-/**
- * Similar projects: the closed projects most like this one that the person may
- * open, one card each (the project hub's Similar projects section,
- * `/app/projects/{id}/settings/references`). The data is the
- * service's (`getSimilarProjects`); this draws it from the reference atoms and
- * the raised-card shape, and says so when there is none.
- *
- * The page says what it compared before what it found: this project's
- * fingerprint, the facts still open in its briefing, and, for each reference,
- * what the two share. A closed project that shares nothing is still listed,
- * below the alike ones and apart from them, so „ähnlich" never means „neu".
- * Each card offers „Piloti fragen": a new chat in THIS project, its question
- * prefilled, where the agent reads the reference with `project_lookup`.
- */
-
 import type { JSX } from 'react'
 import Link from 'next/link'
 import { Chip } from '@/components/ui/chip'
@@ -37,12 +22,10 @@ import {
   periodYears,
 } from './reference-atoms'
 
-/** The composer prefill the project chat consumes (`?new=1&ask=`): a fresh chat about one reference. */
 export function askHref(projectId: string, question: string): string {
   return `/app/projects/${projectId}/chat?new=1&ask=${encodeURIComponent(question)}`
 }
 
-/** What the ranking compared: this project's fingerprint, open facts named, and where to add them. */
 function ComparedBy({ projectId, basis }: { projectId: string; basis: ReferenceBasis }): JSX.Element {
   const t = useTranslations(referencesCopy)
   const tp = useTranslations(projectsCopy)

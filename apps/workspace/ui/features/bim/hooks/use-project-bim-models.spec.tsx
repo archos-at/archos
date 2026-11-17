@@ -1,18 +1,3 @@
-/**
- * One model list per project per moment, however many surfaces ask for it.
- *
- * The list stopped being one page's data. The chat welcome asks whether this
- * project has a readable model, the file preview asks which model belongs to
- * the document being previewed, its metadata rail asks what that model
- * contains, and every `ifc_viewer` card in a thread asks again. Each of those
- * mounts a separate hook, so opening a preview fired the identical request
- * three or four times within a tick — each spending a point of the `bim-query`
- * budget on rows the browser already had in flight.
- *
- * The collapse is in-flight only, deliberately: it can never show anyone a
- * stale model, so it needs no answer to "how old may this be".
- */
-
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { scriptedChannels, type ScriptedChannels } from '@/test-utils/live-channels'
@@ -26,7 +11,6 @@ vi.mock('@/features/realtime/connection', async (original) => ({
 
 let fetchMock: ReturnType<typeof vi.fn>
 
-/** Deferred so several hooks can mount while the first request is unresolved. */
 function pending(): { resolve: () => void; promise: Promise<unknown> } {
   let release: () => void = () => {}
   const promise = new Promise<unknown>((done) => {
@@ -61,7 +45,6 @@ describe('useProjectBimModels', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
 
     gate.resolve()
-    // Every caller gets the answer, not just the one that happened to ask.
     for (const hook of [first, second, third]) {
       await waitFor(() => expect(hook.result.current.data).toHaveLength(1))
     }
@@ -86,8 +69,6 @@ describe('useProjectBimModels', () => {
 
     const first = renderHook(() => useProjectBimModels('proj-1'))
     await waitFor(() => expect(first.result.current.isLoading).toBe(false))
-    // No TTL: a surface mounting later gets a fresh read, so a model that
-    // finished extracting in between is not hidden behind a cached answer.
     const second = renderHook(() => useProjectBimModels('proj-1'))
     await waitFor(() => expect(second.result.current.isLoading).toBe(false))
 
@@ -101,16 +82,6 @@ describe('useProjectBimModels', () => {
   })
 })
 
-/**
- * Polling for an extraction must not tear the viewer down.
- *
- * The list is read again while any model is still being read (on the shelf's
- * hint, and on a slow clock), and the effect that re-reads is the same one that loads. It used to blank
- * `data` on every run, so for the whole minute after an upload the list
- * emptied four times a minute — which took the stage's `modelId` to null,
- * unmounted the canvas, destroyed the WebGPU device and the WASM kernel, and
- * re-downloaded and re-triangulated the entire model on the next tick.
- */
 describe('refetching while a model is still being read', () => {
   const listing = (status: string) => ({
     ok: true,
@@ -124,20 +95,15 @@ describe('refetching while a model is still being read', () => {
     const { result } = renderHook(() => useProjectBimModels('p1'))
     await waitFor(() => expect(result.current.data).toHaveLength(1))
 
-    // The reload path is the poll's path — both bump the same tick.
     result.current.reload()
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
 
-    // The refetch is in flight and the list is STILL there. Blanking it here
-    // is what unmounted the canvas.
     expect(result.current.isLoading).toBe(true)
     expect(result.current.data).toHaveLength(1)
     gate.resolve()
   })
 
   it('does not carry one project’s models into another', async () => {
-    // A stale row from the same project is a better answer than none; a row
-    // from a different project is not an answer at all.
     fetchMock.mockResolvedValue(listing('ready'))
     const { result, rerender } = renderHook(({ id }) => useProjectBimModels(id), {
       initialProps: { id: 'p1' },
@@ -153,11 +119,6 @@ describe('refetching while a model is still being read', () => {
   })
 })
 
-/**
- * A model that is still being read is waited for on the project shelf's live
- * channel: the server says `shelf.changed` when the extraction lands, and the
- * list is read again through its own route. The clock is only the floor.
- */
 describe('waiting for an extraction', () => {
   const listing = (status: string) => ({ ok: true, json: async () => ({ models: [{ id: 'model-1', status }] }) })
   const CHANGED = { kind: 'shelf.changed', folders: false }

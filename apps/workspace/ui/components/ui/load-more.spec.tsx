@@ -1,9 +1,3 @@
-/**
- * The end of an infinite list (ADR-0102): reaching it reads the next page,
- * once per arrival, never after a failure on its own, and the button is the
- * way on for a keyboard and for an engine without the observer.
- */
-
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@/test-utils'
 import { installLayoutObservers } from '@/test-utils/layout-observers'

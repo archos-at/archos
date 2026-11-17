@@ -7,27 +7,16 @@ import { toast } from 'sonner'
 import { useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 
-/** Mirrors the backend's `MAX_TOPICS`, `MAX_TOPIC_CHARS`, `MAX_TOPIC_WORDS` (document_classification.py). */
 export const MAX_TOPICS = 6
 const MAX_TOPIC_CHARS = 40
 const MAX_TOPIC_WORDS = 3
 
-/** A typed topic as the backend will store it, or null when it is not a usable term. */
 export function normalizeTopicInput(raw: string): string | null {
   const term = raw.replace(/ /g, ' ').split(/\s+/).filter(Boolean).join(' ').replace(/^[ .,;:\-–—"'„“]+|[ .,;:\-–—"'„“]+$/g, '')
   if (!term || term.length > MAX_TOPIC_CHARS || term.split(' ').length > MAX_TOPIC_WORDS) return null
   return /\p{L}/u.test(term) ? term : null
 }
 
-/**
- * The topics of one document, editable: Piloti's own keywords („Attika",
- * „Holzrahmenbau"), which unlike the tags come from no fixed list — so the
- * input is free text, bounded like the backend bounds it.
- *
- * Saving sends the document's tags too, because a person's correction is kept
- * as theirs for both together (`tags_set_by = 'person'`): once someone has
- * curated a file's labels, a re-read touches neither.
- */
 export function DocumentTopicsEditor({
   fileId,
   tags,
@@ -35,7 +24,6 @@ export function DocumentTopicsEditor({
   onSaved,
 }: {
   fileId: string
-  /** The document's current tags, sent unchanged beside the topics. */
   tags: readonly string[]
   initialTopics: readonly string[]
   onSaved?: (fileId: string, topics: string[]) => void
@@ -49,7 +37,6 @@ export function DocumentTopicsEditor({
   useEffect(() => {
     setTopics([...initialTopics])
     setInput('')
-    // The pane is reused across files; the file id is what resets it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fileId])
 
@@ -98,7 +85,7 @@ export function DocumentTopicsEditor({
               onClick={() => void persist(topics.filter((existing) => existing !== topic), topics)}
               disabled={saving}
               aria-label={t('preview.removeTag', { tag: topic })}
-              className="hover:bg-accent hover:text-foreground focus-visible:ring-ring touch-target -mr-0.5 rounded-control p-0.5 transition-colors duration-snap ease-out focus-visible:outline-none focus-visible:ring-2 disabled:opacity-50 motion-reduce:transition-none"
+              className="hover:bg-hover hover:text-foreground focus-visible:ring-ring touch-target -mr-0.5 rounded-control p-0.5 transition-colors duration-snap ease-out focus-visible:outline-none focus-visible:ring-2 disabled:opacity-50 motion-reduce:transition-none"
             >
               <X className="size-3" aria-hidden />
             </button>
@@ -127,7 +114,6 @@ export function DocumentTopicsEditor({
               disabled={saving}
               placeholder={t('preview.reading.addTopic')}
               aria-label={t('preview.reading.addTopic')}
-              // 16px on a coarse pointer, or iOS zooms the pane in on focus and never zooms back.
               className="border-input text-foreground placeholder:text-muted-foreground focus-visible:ring-ring pointer-coarse:h-11 pointer-coarse:w-40 pointer-coarse:pl-8 pointer-coarse:text-base h-6 w-32 rounded-control border border-dashed bg-transparent pl-6 pr-1.5 text-xs focus-visible:border-solid focus-visible:outline-none focus-visible:ring-2 disabled:opacity-50"
             />
           </span>

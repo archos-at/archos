@@ -8,8 +8,6 @@ const GERMAN_BROWSER = 'de-AT,de;q=0.9,en;q=0.8'
 
 describe('pickRequestLocale', () => {
   it('answers a signed-in request in the saved language, whatever the cookie says', () => {
-    // The pilot case: a stale `en` cookie from the old reconciliation, a German
-    // browser, and a person (or office) who chose German.
     expect(
       pickRequestLocale({ saved: { known: true, locale: 'de' }, cookie: 'en', acceptLanguage: 'en-US' })
     ).toBe('de')

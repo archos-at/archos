@@ -95,7 +95,6 @@ const period = (overrides: Record<string, unknown>) => ({
 
 const access = (closed: boolean) => ({ role: 'project-editor', closed, readsBecauseClosed: false })
 
-/** A project where the reader may do everything a closed or active project lets them. */
 function allow(closed: boolean) {
   requireProjectAccess.mockImplementation(async (_s, _p, permission, options?: { evenWhenClosed?: boolean }) => {
     const asked = Array.isArray(permission) ? permission : [permission]
@@ -139,7 +138,6 @@ describe('the project record', () => {
       startedOn: '2023-03',
       endedOn: '2025-11',
     })
-    // No e-mail anywhere in what the reader gets.
     expect(JSON.stringify(view)).not.toContain('a@b.at')
   })
 
@@ -168,7 +166,6 @@ describe('the project record', () => {
     allow(false)
     repo.findProjectPeriod.mockResolvedValue(period({ startedOn: null }))
     expect(await getProjectRecord(session, 'p1')).toMatchObject({ startedOn: '2023-05', startedOnIsDefault: true })
-    // A finished project brought into Piloti later: created long after it ended.
     repo.findProjectPeriod.mockResolvedValue(period({ startedOn: null, status: 'closed', endedOn: '2021-06-01' }))
     expect(await getProjectRecord(session, 'p1')).toMatchObject({ startedOn: null, startedOnIsDefault: false, endedOn: '2021-06' })
   })

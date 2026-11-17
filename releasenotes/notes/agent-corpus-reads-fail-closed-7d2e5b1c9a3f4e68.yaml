@@ -1,0 +1,5 @@
+security:
+  - >
+    A search or read of the shared building-law base now returns nothing when a
+    request does not say which countries your office may read, instead of
+    reading every country's texts, unreleased ones included.

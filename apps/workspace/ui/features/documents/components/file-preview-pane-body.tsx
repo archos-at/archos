@@ -7,10 +7,11 @@ import { cn } from '@/lib/utils'
 import { SimilarPassagesDialog } from '@/features/similar-passages/components/similar-passages-dialog'
 
 import { FilePreviewDocumentPanel } from './file-preview-pane-document'
+import type { ReactNode } from 'react'
 import { FilePreviewDetailsPanel } from './file-preview-pane-details'
 import type { FilePreviewController } from './use-file-preview-controller'
 
-export function FilePreviewBody({ controller }: { controller: FilePreviewController }) {
+export function FilePreviewBody({ controller, detailsLead }: { controller: FilePreviewController; detailsLead?: ReactNode }) {
   const { actions, file, peeking, reader, setSimilarAsk, similarAsk } = controller
   return (
     <>
@@ -35,13 +36,11 @@ export function FilePreviewBody({ controller }: { controller: FilePreviewControl
           className={cn(
             'flex min-h-0 flex-1 flex-col overscroll-contain',
             peeking || reader ? 'overflow-hidden' : '@2xl:flex-row @2xl:overflow-hidden overflow-y-auto',
-            // The desk under both columns: the rail's foot fades by a mask (`scroll-fade-bottom`), which shows what lies
-            // under it, and that was the dialog's white sheet, a white band at the rail's foot.
             !peeking && !reader && 'bg-desk'
           )}
         >
         <FilePreviewDocumentPanel controller={controller} />
-        <FilePreviewDetailsPanel controller={controller} />
+        <FilePreviewDetailsPanel controller={controller} detailsLead={detailsLead} />
         </div>
     </>
   )

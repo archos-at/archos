@@ -3,7 +3,6 @@ import userEvent from '@testing-library/user-event'
 import { vi, describe, test, expect, beforeEach } from 'vitest'
 import { ErrorBanner } from './ErrorBanner'
 
-// Mock the error registry
 vi.mock('../lib/error-registry', () => ({
   getErrorMeta: (code: string) => {
     const registry: Record<
@@ -87,14 +86,12 @@ describe('ErrorBanner', () => {
     test('renders error status for connection errors', () => {
       render(<ErrorBanner code="connection.failed" />)
 
-      // Banner should be visible with error status
       expect(screen.getByText('Connection Failed')).toBeInTheDocument()
     })
 
     test('renders warning status for interrupted responses', () => {
       render(<ErrorBanner code="agent.response_interrupted" />)
 
-      // Banner should be visible with warning status
       expect(screen.getByText('Response Interrupted')).toBeInTheDocument()
     })
   })
@@ -125,7 +122,6 @@ describe('ErrorBanner', () => {
     test('does not display timestamp when not provided', () => {
       const { container } = render(<ErrorBanner code="connection.failed" />)
 
-      // Should render but without a time string
       expect(container.textContent).not.toMatch(/\d{1,2}:\d{2}/)
     })
   })
@@ -182,11 +178,9 @@ describe('ErrorBanner', () => {
         />
       )
 
-      // Expand
       await user.click(screen.getByText('Show details'))
       expect(screen.getByText('Error details')).toBeInTheDocument()
 
-      // Collapse: the details fold away before they unmount.
       await user.click(screen.getByText('Hide details'))
       await waitForElementToBeRemoved(() => screen.queryByText('Error details'))
     })
@@ -226,9 +220,6 @@ describe('ErrorBanner', () => {
       )
 
       const button = screen.getByText('Show details').closest('button')!
-      // The id is generated per banner (useId): two error cards in one thread
-      // used to share the literal `error-details`, so both disclosure buttons
-      // pointed at the first card's <pre>. The contract is the LINKAGE.
       const controlsId = button.getAttribute('aria-controls')
       expect(controlsId).toBeTruthy()
 
@@ -238,13 +229,6 @@ describe('ErrorBanner', () => {
   })
 })
 
-/**
- * The support reference (ledger item 11).
- *
- * The property that matters is not that an id is drawn — it is that the id
- * drawn is a PREFIX of the id copied, and that both are the id the BFF logged.
- * A digest, or a re-formatted id, would look right and find nothing.
- */
 describe('ErrorBanner — support reference', () => {
   const REQUEST_ID = '3f2a1b4c-9d8e-4f70-bc21-0a5d6e7f8091'
 
@@ -260,14 +244,11 @@ describe('ErrorBanner — support reference', () => {
     const reference = screen.getByTestId('error-request-id')
     expect(reference).toHaveTextContent('Support reference')
     expect(reference).toHaveTextContent('3f2a1b4c')
-    // The long form is not on screen: it is what the clipboard gets.
     expect(reference).not.toHaveTextContent(REQUEST_ID)
   })
 
   test('copies the WHOLE id, not the eight characters it shows', async () => {
     const user = userEvent.setup()
-    // AFTER `setup()`: user-event installs a clipboard stub of its own, and a
-    // spy defined before it is the one that gets replaced.
     const writeText = vi.fn().mockResolvedValue(undefined)
     Object.defineProperty(navigator, 'clipboard', {
       value: { writeText },

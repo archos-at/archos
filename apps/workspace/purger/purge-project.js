@@ -128,7 +128,7 @@ async function purgeProject(tx, entry, deps) {
     project ? project.collection_name : (entry.payload && entry.payload.collectionName) || null
   )
   // Narrowed at the boundary, where the SQL shape is known — the same rule
-  // AGENTS.md sets for raw `sql<T>` results in the repositories.
+  // code-conventions.md sets for raw `sql<T>` results in the repositories.
   const conversations = /** @type {{ id: string }[]} */ (
     await tx`SELECT id FROM conversations WHERE project_id = ${projectId}`
   )

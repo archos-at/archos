@@ -38,6 +38,7 @@ export function selectRecallCandidates(scope: SQL | undefined, embedded: Embedde
     .select({
       id: projectMemory.id,
       scope: projectMemory.scope,
+      topic: projectMemory.topic,
       kind: projectMemory.kind,
       content: projectMemory.content,
       confidence: projectMemory.confidence,

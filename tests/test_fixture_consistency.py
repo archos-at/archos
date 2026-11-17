@@ -1,15 +1,3 @@
-"""The two eval fixture projects are two slices of ONE invented project, and their shared facts stay shared.
-
-The office-file set reads the Plankopf of EP-01 and EP-02 as text (``tests/fixtures/files_eval/project.yaml``,
-which extends the intake eval's); the visual set draws the same sheets (``tests/fixtures/visual/drawings.json``).
-They once disagreed (Index B dated 14.03.2026 on the drawings and 03.02.2026 in the text; the Schnitt at 1:50
-by one office and 1:100 by another), and a north-star row asking across both could not have a right answer.
-This reads the Plankopf values, the Fassung dates, the scales, the author and the folder off both sides and
-fails when they differ, so a change to one fixture that forgets the other is caught here and not in a paid run.
-
-Planted differences stay: the Schnitt is drawn at another scale than the Grundrisse, and Index A is older than B.
-"""
-
 from __future__ import annotations
 
 import re
@@ -36,7 +24,6 @@ _TITLE_KEYS = {"Plannummer": "number", "Index": "index", "Datum": "date", "Maßs
 
 
 def _text_side() -> dict[str, dict]:
-    """Per sheet the office-file project holds as text: its Plankopf values, author and folder."""
     found = {}
     for file in fixture_files.load_project().files:
         for page in file.pages:
@@ -53,7 +40,6 @@ def _text_side() -> dict[str, dict]:
 
 
 def _drawn_side() -> dict[str, dict]:
-    """Per sheet the visual project draws: the values of its Plankopf fields on every page, the caption's author."""
     found = {}
     for drawing in drawings.load_spec()["drawings"]:
         values: dict[str, set[str]] = {key: set() for key in _TITLE_KEYS.values()}

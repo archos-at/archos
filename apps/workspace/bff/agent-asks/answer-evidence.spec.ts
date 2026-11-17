@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The evidence of an ask's answer (ADR-0124): read from what the message
- * stores, linked the way the UI links a citation, absent where the message has
- * none.
- */
 
 import { describe, expect, it, vi } from 'vitest'
 

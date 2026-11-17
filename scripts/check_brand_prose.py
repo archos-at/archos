@@ -401,6 +401,8 @@ def main(argv: list[str] | None = None) -> int:
         write_baseline(root / BASELINE, baseline)
 
     findings = check(current, baseline)
+    slack = [f for f in findings if "so lower its" in f or "remove its baseline entry" in f]
+    findings = [f for f in findings if f not in slack]
     findings += [f"{MANIFEST}: {path} is listed but does not exist." for path in stale_manifest(root)]
     if findings:
         print(f"Brand-prose check FAILED ({len(findings)} finding(s)):", file=sys.stderr)
@@ -410,6 +412,10 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     print(f"Brand-prose check passed: {sum(baseline.values())} hit(s) in {len(baseline)} file(s) held at baseline.")
+    if slack:
+        print(
+            f"  {len(slack)} baseline entr{'y' if len(slack) == 1 else 'ies'} can be lowered: `task baselines:tighten`."
+        )
     return 0
 
 

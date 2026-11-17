@@ -1,11 +1,3 @@
-"""``apps/agent-host/entrypoint.py`` starts the four roles of the image and refuses every other name (ADR-0082).
-
-``PROCESS_ROLE`` has no default and ``web`` is not a value: a container that does
-not say which job it does stops at once, with the names it may take, instead of
-serving a route set nobody sized it for. Run as a subprocess because ``main()``
-replaces the process (``execvp``) for the roles that start one.
-"""
-
 from __future__ import annotations
 
 import ast
@@ -98,7 +90,6 @@ def test_a_colliding_bare_name_takes_a_name_of_its_own(legacy, current):
 
 
 def test_the_ui_image_adopts_the_same_names():
-    """``legacy-env-names.cjs`` is the same table for the UI image's Node processes."""
     module = _entrypoint_module()
     script = (
         "const m = require(process.argv[1]);"

@@ -79,7 +79,6 @@ function mark(overrides: Partial<AnnotationRecord> = {}): AnnotationRecord {
   } as AnnotationRecord
 }
 
-/** The one emission the call made. */
 function emitted(): InboxEmission {
   expect(emitInboxItems).toHaveBeenCalledTimes(1)
   const [emissions] = vi.mocked(emitInboxItems).mock.calls[0]
@@ -132,7 +131,6 @@ describe('onWakeEnded', () => {
       subject: 'Grundriss EG.pdf',
       related: '4',
       excerpt: 'Türbreite prüfen',
-      // Every excerpt names its mentions, none here, so a folded row never keeps another's.
       mentions: [],
       variant: 'assigned',
     })
@@ -369,7 +367,6 @@ describe('the tenant scope of the write', () => {
   })
 })
 
-/** A mark's people, as the thread reads them. */
 function people(overrides: Partial<MarkPeople & Pick<AnnotationRecord, 'kind' | 'status'>> = {}) {
   return {
     authorKind: 'person' as const,
@@ -384,14 +381,12 @@ function people(overrides: Partial<MarkPeople & Pick<AnnotationRecord, 'kind' | 
   }
 }
 
-/** Everyone may open the document, unless a test says who may not. */
 const everyone: MayOpen = async (userIds) => new Set(userIds)
 const allBut =
   (...hidden: string[]): MayOpen =>
   async (userIds) =>
     new Set(userIds.filter((userId) => !hidden.includes(userId)))
 
-/** Who the one emission went to. */
 function recipients(): string[] {
   expect(emitInboxItems).toHaveBeenCalledTimes(1)
   return vi.mocked(emitInboxItems).mock.calls[0][0].map((emission) => emission.recipientUserId)
@@ -464,7 +459,6 @@ describe('onAssigneeChanged', () => {
   it('clears the daily reminder’s stamp, so a mark handed back (A→B→A) is reminded of its Frist again', async () => {
     await onAssigneeChanged({ ...act, dueOn: '2026-10-18', previousAssigneeUserId: 'user_carol', assigneeUserId: 'user_bob' })
 
-    // The row's payload merges (`payload || excluded.payload`): only an explicit null takes the old stamp off.
     const merged = { reminder: 'due_soon:2026-10-18', ...emitted().payload }
     expect(merged).toHaveProperty('reminder', null)
   })
@@ -601,8 +595,6 @@ describe('onMarkReplied', () => {
     await onMarkReplied({ ...reply, replyText: '@Anna Berger ist bestellt.', replyMentions: [anna], mark: thread, mayOpen: everyone })
     expect(vi.mocked(emitInboxItems).mock.calls[0][0][0].payload).toMatchObject({ mentions: [anna] })
 
-    // The next row folds into this one and its payload merges: a quote
-    // without mentions writes `[]` rather than inheriting Anna's.
     await onMarkMoved({ ...ref, actorUserId: 'user_bob', byAgent: false, markText: 'Tür T30 fehlt', move: 'resolved', mark: thread, mayOpen: everyone })
     expect(vi.mocked(emitInboxItems).mock.calls[1][0][0].payload).toMatchObject({ excerpt: 'Tür T30 fehlt', mentions: [] })
   })
@@ -674,7 +666,6 @@ describe('onMarkMentioned', () => {
         subject: 'Grundriss EG.pdf',
         related: '4',
         excerpt: '@Anna Berger bitte prüfen',
-        // The row draws them as the thread's chips.
         mentions: [{ targetId: 'user_anna', display: 'Anna Berger' }],
       },
     })
@@ -808,7 +799,6 @@ describe('onMarksSet', () => {
 
   it('counts a batch in one emission per reader, and leaves out whom a mark already tells otherwise', async () => {
     assigned('user_lead', 'user_anna')
-    // Anna is the Zuständige of 7 (she hears `annotation.assigned_to_you` about it).
     await onMarksSet({ ...base, by: 'created_piloti', marks: [set(5), set(6), set(7, ['user_anna'])] })
 
     const rows = sent()
@@ -934,7 +924,6 @@ describe('onReplyDeleted', () => {
   })
 
   it('keeps a mention the mark still makes: its row counts one less and quotes nothing, but still asks', async () => {
-    // Anna's mark names Ben; Carl's deleted reply named him again.
     await onReplyDeleted({ ...input, withdrawn: [] })
 
     expect(markInboxItemsInertAnchoredOn).not.toHaveBeenCalled()

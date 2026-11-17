@@ -34,11 +34,12 @@ from agent.turn.admission import spanned
 
 logger = logging.getLogger(__name__)
 
-#: How long a turn holds for an upload still being indexed, in seconds.
+#: How long a turn holds for an attachment still being indexed, in seconds.
 #: Ingestion of one PDF is seconds; a large plan set is minutes, and a turn
 #: that waits minutes is a hung chat. Twenty covers the common attachment and
 #: lets the rest fall through to the "still being read" paragraph, which tells
 #: the model to say so. Operators tune it with INGEST_WAIT_SECONDS.
+#: Only this conversation's own attachments hold the turn: see :func:`held_uploads`.
 INGEST_WAIT_SECONDS_DEFAULT = 20.0
 INGEST_POLL_SECONDS = 1.0
 AVAILABLE_DOCUMENTS_DEFAULT_LIMIT = 50
@@ -230,6 +231,26 @@ async def await_ingest_settling(
     return current
 
 
+#: The shelves whose in-flight files hold the turn. A file attached to THIS
+#: conversation is what the next message is about. A project or office-filing
+#: upload is a colleague's work: in an office of fifty there is nearly always
+#: one being read, and holding for it put twenty seconds in front of every
+#: answer, „Servus, wie geht's?" included. Those are still named to the model
+#: (``in_flight_documents``), so a question about one is answered with "still
+#: being read" rather than as if the file did not exist.
+HOLDING_SHELVES = frozenset({Shelf.SESSION})
+
+
+def held_uploads(scope: Iterable[ScopedCollection], pending: dict[str, list[str]]) -> dict[str, list[str]]:
+    """The part of ``pending`` that holds the turn: files on a :data:`HOLDING_SHELVES` collection.
+
+    By the shelf the scope STATES, never by the collection's name: an entry with
+    no stated shelf is unknown and does not hold.
+    """
+    holding = {entry.collection for entry in scope if entry.shelf in HOLDING_SHELVES}
+    return {collection: names for collection, names in pending.items() if collection in holding and names}
+
+
 def in_flight_names(pending: dict[str, list[str]]) -> list[str]:
     """The pending filenames across collections, first occurrence wins."""
     names: list[str] = []
@@ -257,8 +278,9 @@ class Inventory:
     #: How many rows the cap dropped per shelf, carried out for the same reason:
     #: it is what puts "and N more" into the rendered block.
     inventory_drops: dict = field(default_factory=dict)
-    #: The uploads still indexing, per collection, when the inventory was read.
-    #: :func:`wait_for_uploads` holds for them.
+    #: The attachments still indexing, per collection, when the inventory was
+    #: read: the ones :func:`wait_for_uploads` holds for (:func:`held_uploads`).
+    #: Files still indexing elsewhere in scope are in ``in_flight_documents`` only.
     pending: dict[str, list[str]] = field(default_factory=dict)
     #: EVERY row the scope holds, before the prompt cap. The cap bounds what the
     #: model READS on every call; it must not bound what a tool can RESOLVE. A
@@ -296,7 +318,8 @@ async def load_inventory(
     except Exception:  # noqa: BLE001 - see above; an answer without the inventory beats no answer
         logger.warning("Document inventory load failed; continuing without one", exc_info=True)
         return Inventory(None, None)
-    return Inventory(documents, in_flight_names(pending) or None, families, drops, pending, every_row)
+    held = held_uploads(scope, pending)
+    return Inventory(documents, in_flight_names(pending) or None, families, drops, held, every_row)
 
 
 def pending_uploads(inventory: Inventory) -> StatusStep | None:
@@ -351,13 +374,16 @@ async def _hold(
     read_in_flight: ReadInFlight,
     timeout_seconds: float | None,
 ) -> Inventory:
-    names = [entry.collection for entry in scope]
     pending = inventory.pending
-    settled = await await_ingest_settling(names, pending, read=read_in_flight, timeout_seconds=timeout_seconds)
+    # Poll only the held collections: a colleague's upload elsewhere in scope
+    # must not keep the loop going until the deadline.
+    settled = await await_ingest_settling(list(pending), pending, read=read_in_flight, timeout_seconds=timeout_seconds)
     if settled == pending:
         return inventory
     documents, families, drops, every_row = await _documents_and_families(scope, fetch_one)
-    return Inventory(documents, in_flight_names(settled) or None, families, drops, settled, every_row)
+    finished = set(in_flight_names(pending)) - set(in_flight_names(settled))
+    in_flight = [name for name in inventory.in_flight_documents or [] if name not in finished]
+    return Inventory(documents, in_flight or None, families, drops, settled, every_row)
 
 
 async def _documents_and_families(

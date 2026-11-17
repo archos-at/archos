@@ -1,9 +1,3 @@
-/**
- * The import dialog's list while an import runs: read again on the project's
- * shelf hint, on a slow clock when no hint comes, never on another shelf's
- * hint, and not at all once nothing is running.
- */
-
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { scriptedChannels, type ScriptedChannels } from '@/test-utils/live-channels'
@@ -29,7 +23,6 @@ const listOf = (status: MailImportView['status']): MailImportList => ({
   partSize: 1,
 })
 const reads = () => vi.mocked(fetchMailImports).mock.calls.length
-/** Let the first read land, so the hook knows an import is running. */
 const landed = () => act(() => vi.advanceTimersByTimeAsync(0))
 
 beforeEach(() => {

@@ -15,7 +15,6 @@ export const READ_MARK_TONE: Record<ReadMark['state'], MeterTone> = {
   allRead: 'ink',
 }
 
-/** The dictionary key a mark reads as; every one takes `{count}`. */
 export const READ_MARK_KEY: Record<ReadMark['state'], string> = {
   failed: 'brief.states.failed',
   held: 'brief.states.held',
@@ -24,18 +23,6 @@ export const READ_MARK_KEY: Record<ReadMark['state'], string> = {
   allRead: 'brief.allRead',
 }
 
-/**
- * Where a folder's WHOLE subtree stands with Piloti, as one swatch and a word:
- * „2 fehlgeschlagen", „3 werden gelesen", „Alles gelesen".
- *
- * On every folder tile and row, so the read state of nested folders is visible
- * from the level above them without opening each one — the first thing feld72
- * asked for. Nothing is drawn for an empty folder.
- *
- * `dotOnly` is the tile's form: the swatch alone, its words on hover and for a
- * screen reader. The colour is enough to browse by; spelled out on every tile
- * the state was louder than browsing needs. The list view's row keeps the words, except on a phone, where the row has the room for the name and the swatch.
- */
 export function FolderReadState({
   tally,
   withUnplaced = false,
@@ -46,11 +33,6 @@ export function FolderReadState({
   tally: KnowledgeTally | undefined
   withUnplaced?: boolean
   dotOnly?: boolean
-  /**
-   * The tile's form: nothing while the subtree is read (the normal case is
-   * quiet, the UI revision's rule), the swatch and its words when something
-   * failed, is held or is still being read.
-   */
   exceptionsOnly?: boolean
   className?: string
 }): JSX.Element | null {

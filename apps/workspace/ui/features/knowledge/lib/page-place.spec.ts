@@ -1,7 +1,3 @@
-/**
- * A place's geometry: the box converted to the viewer's corners, the clip a
- * thumbnail draws around it, and the routes the page is read from.
- */
 import { describe, expect, test } from 'vitest'
 import { CLIP_ASPECT, placeBox, placeClip, placeFileUrl, placePreviewUrl, placeRegions, type PagePlace } from './page-place'
 
@@ -50,7 +46,6 @@ describe('placeClip', () => {
     expect(mark!.y).toBeGreaterThan(0)
     expect(mark!.x + mark!.width).toBeLessThan(crop.width)
     expect(mark!.y + mark!.height).toBeLessThan(crop.height)
-    // The box is in the middle of the clip.
     expect(crop.x + mark!.x + mark!.width / 2).toBeCloseTo(450, 5)
   })
 

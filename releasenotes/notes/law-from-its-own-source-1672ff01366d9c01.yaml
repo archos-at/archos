@@ -1,0 +1,8 @@
+---
+# area: building-law
+fixes:
+  - >
+    Answers no longer cite a law from a website that only republishes it, or from a page
+    served without encryption: the text is read from the official legal database or the
+    knowledge base. An answer that still rests on a web page for a rule gets a lower
+    confidence.

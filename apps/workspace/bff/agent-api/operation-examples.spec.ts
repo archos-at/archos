@@ -1,12 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * An operation's `examples` are inputs an agent copies, so each must be one the
- * operation takes: it parses against the operation's own schemas and fills
- * every path parameter. An example that drifted from its schema would teach the
- * mistake it exists to prevent.
- */
 
 import { describe, expect, it } from 'vitest'
 import { AGENT_OPERATIONS } from './catalog'
@@ -28,7 +22,6 @@ describe('operation examples', () => {
       expect(() => validateOperationInput(op, example)).not.toThrow()
       expect(() => resolvePath(op, example.params)).not.toThrow()
     }
-    // And they reach the agent as JSON Schema's own `examples`.
     expect(inputSchemaOf(op).examples).toEqual(op.examples)
   })
 })

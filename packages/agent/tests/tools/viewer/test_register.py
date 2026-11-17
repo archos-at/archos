@@ -1,10 +1,3 @@
-"""``show_in_viewer`` (ADR-0144): one allow-listed viewer action, only on a document the person may see.
-
-Only the HTTP calls are faked (the canvas route the document is read through,
-and the document-id lookup). The resolver, the wire model and the emitter are
-the real ones, so the event a test reads is the frame a turn would send.
-"""
-
 from __future__ import annotations
 
 import knowledge_layer.view_image as view
@@ -29,19 +22,16 @@ GLOBAL_ID = "1kTvQ9x8n5RfBW2$hK0aZq"
 
 @pytest.fixture(autouse=True)
 def no_base_corpus(monkeypatch):
-    """No file of these tests is a platform-corpus file, unless a test says so."""
     monkeypatch.setattr(view, "_find_pdf", lambda _name: None)
 
 
 @pytest.fixture(autouse=True)
 def page_runs_the_viewer():
-    """The asking page declared it can run the tool (``user_message.client_tools``), unless a test says not."""
     set_turn_client_tools(["show_in_viewer"])
 
 
 @pytest.fixture
 def sent(monkeypatch) -> list[ViewerActionBody]:
-    """The viewer actions the turn put on its stream."""
     seen: list[ViewerActionBody] = []
     monkeypatch.setattr(turn_status, "emit", lambda body: seen.append(body))
     from agent.tools.viewer import register
@@ -123,7 +113,6 @@ class TestADocumentThePersonMayNotSee:
 
         result = await run_show_in_viewer("open_document", "Grundriss_EG.pdf", page=2)
 
-        # Worded as the read it is, never as a change the person may not make.
         assert ("may not open" in result) if status == 403 else ("not available to the person" in result)
         assert "change" not in result
         assert sent == []
@@ -237,7 +226,6 @@ class TestAChatAttachment:
         from agent.knowledge import AvailableDocument
         from agent.knowledge.inventory import set_turn_documents
 
-        # The person's own upload: on no shelf, so the page's GET /api/documents/{id} could never open it.
         set_turn_documents([AvailableDocument(file_name="Skizze.pdf", shelf="session", collection="s_conv_1")])
         answering(monkeypatch, calls, LIST_BODY)
 
@@ -254,5 +242,4 @@ class TestOneRead:
         result = await run_show_in_viewer("open_document", DOCUMENT_ID)
 
         assert result.startswith("Proposed")
-        # Resolving the id read the document through the BFF for its name; that read stands.
         assert [payload["op"] for payload, _ in calls] == ["list"]

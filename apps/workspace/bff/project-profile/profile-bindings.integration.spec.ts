@@ -34,7 +34,6 @@ describe.skipIf(!url)('profile saves and building bindings against Postgres', ()
   const inTenant = <T>(run: () => Promise<T>, organizationId = ORG): Promise<T> =>
     withTenant({ organizationId, userId: USER }, run)
 
-  /** A profile naming exactly these buildings. */
   function profileWith(ids: string[]) {
     const facts: Record<string, unknown> = {}
     for (const id of ids) {
@@ -124,7 +123,6 @@ describe.skipIf(!url)('profile saves and building bindings against Postgres', ()
     )
     expect(own).not.toBeNull()
 
-    // The same id from another tenant: no row, so no lock and no profile.
     const foreign = await inTenant(
       () => db.transaction((tx) => projects.lockProjectProfile(tx, projectId)),
       OTHER_ORG

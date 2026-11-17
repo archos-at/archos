@@ -1,9 +1,3 @@
-"""A citation written as a path resolves to the citation key it means (ADR-0133 slice 6).
-
-The model reads paths (a hit's ``Path:``, a ``read_file`` header) and may cite one. Without the
-mapping verification drops the citation and the answer loses its source without a word.
-"""
-
 from __future__ import annotations
 
 import pytest
@@ -63,17 +57,13 @@ class TestTheRegistry:
     @pytest.mark.parametrize(
         ("stored", "line", "shown"),
         [
-            # A comma in the file name is no end of the path; the page is.
             (
                 "Bescheid, Stand 2024.pdf, p.3",
                 "[1] /project/Behörde/Bescheid, Stand 2024.pdf.md, p.3",
                 "[1] Bescheid, Stand 2024.pdf, p.3",
             ),
-            # A German page reference survives the rewrite.
             ("Plan.pdf, p.3", "[1] /project/Einreichung/Plan.pdf.md S. 3", "[1] Plan.pdf S. 3"),
-            # Text after the page is no part of the path.
             ("Plan.pdf, p.3", "[1] /project/A/Plan.pdf.md, p.3 – Abschnitt 2", "[1] Plan.pdf, p.3 – Abschnitt 2"),
-            # A path inside parentheses keeps the closing one.
             ("Plan.pdf, p.3", "[1] Plan.pdf, p.3 (siehe /project/A/Plan.pdf.md)", "[1] Plan.pdf, p.3 (siehe Plan.pdf)"),
         ],
     )

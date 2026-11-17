@@ -1,12 +1,3 @@
-"""Which stages are on for this turn.
-
-The defect these guard: the feature header is written once, at the WebSocket
-upgrade, and is then frozen for the life of the socket — so switching a stage off
-did not reach an already-open tab. The evaluation is per turn now, and it falls
-back to the frozen value rather than to "nothing", so a BFF blip degrades to the
-previous behaviour instead of disabling every stage.
-"""
-
 import io
 import json
 from unittest.mock import patch
@@ -76,8 +67,6 @@ class TestFetchEnabledStages:
 class TestResolveEnabledStages:
     @pytest.mark.asyncio
     async def test_the_live_answer_wins_over_the_connection_time_value(self):
-        """The whole point: 'off' has to mean off on the NEXT TURN, not on the
-        next socket handshake."""
         with patch.object(bff_http._opener, "open", return_value=_body({"enabled": []})):
             resolved = await flags.resolve_enabled_stages(organization_id="org_1", memory_reflection_enabled=True)
         assert resolved == frozenset()
@@ -96,12 +85,6 @@ class TestResolveEnabledStages:
 
 
 class TestFetchTurnFlags:
-    """The capability half of the same call.
-
-    It rides the stages endpoint rather than one of its own because both are
-    answered per turn, in the same gather, under the same 1.5s budget.
-    """
-
     def test_reads_the_deep_research_feature(self):
         with patch.object(
             bff_http._opener, "open", return_value=_body({"enabled": [], "features": {"deepResearch": False}})
@@ -115,8 +98,6 @@ class TestFetchTurnFlags:
             assert flags.fetch_turn_flags(organization_id="org_1").deep_research_allowed is True
 
     def test_an_older_bff_without_features_keeps_deep_research(self):
-        """A mixed deployment must behave as it did before the field existed —
-        withdrawal is a decision somebody made in WorkOS, not a missing key."""
         with patch.object(bff_http._opener, "open", return_value=_body({"enabled": ["memory_reflection"]})):
             resolved = flags.fetch_turn_flags(organization_id="org_1")
         assert resolved.deep_research_allowed is True
@@ -132,13 +113,10 @@ class TestFetchTurnFlags:
         [({"folderCards": True}, True), ({"folderCards": False}, False), ({}, False), (None, False), ("x", False)],
     )
     def test_folder_cards_is_an_entitlement_only_an_explicit_true_grants(self, features, expected):
-        """Unlike the two above: an older BFF or a missing field is a no, not a yes."""
         with patch.object(bff_http._opener, "open", return_value=_body({"enabled": [], "features": features})):
             assert flags.fetch_turn_flags(organization_id="org_1").folder_cards_allowed is expected
 
     def test_the_two_capabilities_are_read_independently(self):
-        """`task-automation` is its own flag. An org may keep deep research and
-        lose the right to queue work, or the reverse."""
         payload = {"enabled": [], "features": {"deepResearch": True, "tasks": False}}
         with patch.object(bff_http._opener, "open", return_value=_body(payload)):
             resolved = flags.fetch_turn_flags(organization_id="org_1")
@@ -158,7 +136,6 @@ class TestFetchTurnFlags:
 class TestResolveTurnFlags:
     @pytest.mark.asyncio
     async def test_a_bff_failure_never_withdraws_deep_research(self):
-        """The one that matters: a blip must not look like a withdrawn flag."""
         with patch.object(bff_http._opener, "open", side_effect=OSError("connection refused")):
             resolved = await flags.resolve_turn_flags(organization_id="org_1", memory_reflection_enabled=False)
         assert resolved.deep_research_allowed is True

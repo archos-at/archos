@@ -11,20 +11,6 @@ vi.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(),
 }))
 
-/**
- * Focus, on the way out.
- *
- * This dialog is opened imperatively from five surfaces — the Files workspace,
- * the Archiv, the composer's file chips, the file-sources tab and the document
- * grid card — by setting state rather than through a `DialogTrigger`. Radix
- * restores focus to its trigger, so with none it dropped focus to the document
- * body: a keyboard user who pressed Escape lost the card they were on and
- * restarted from the top of the page, in all five places.
- *
- * A test is the only thing that catches this. It has no visual symptom, it
- * affects only keyboard and screen-reader users, and it regresses the moment
- * someone reorders the focus handlers.
- */
 const FILE = {
   id: 'doc-1',
   filename: 'plan.pdf',
@@ -44,12 +30,6 @@ const FILE = {
   capture: null,
 }
 
-/**
- * The shape every real caller has: a button that opens the dialog by setting
- * state. Deliberately a harness rather than one of the five workspaces — the
- * behaviour under test belongs to the dialog, and pinning it here means it holds
- * for the sixth caller too.
- */
 function Harness() {
   const [open, setOpen] = useState(false)
   return (
@@ -75,7 +55,6 @@ describe('FilePreviewDialog focus handling', () => {
     await user.keyboard('{Escape}')
 
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-    // Not the body. Before this, `document.body` held focus here.
     await waitFor(() => expect(opener).toHaveFocus())
   })
 
@@ -86,16 +65,10 @@ describe('FilePreviewDialog focus handling', () => {
     await user.click(screen.getByRole('button', { name: 'Open plan.pdf' }))
     const dialog = await screen.findByRole('dialog')
 
-    // Radix focuses the first focusable child by default, which here is
-    // Download — so opening a file to LOOK at it left a download button one
-    // Enter away. The panel takes focus instead.
     await waitFor(() => expect(dialog).toHaveFocus())
   })
 
   it('falls back to Radix when the opener is gone', async () => {
-    // The opener can be unmounted by what the dialog did — deleting the document
-    // is one of its own actions. Focusing a detached node silently does nothing
-    // AND suppresses Radix's fallback, so the guard has to let the default run.
     const user = userEvent.setup()
 
     function Vanishing() {
@@ -125,8 +98,6 @@ describe('FilePreviewDialog focus handling', () => {
 
     await user.keyboard('{Escape}')
 
-    // The point is that it does not throw and does not leave focus on a detached
-    // node; where Radix then puts it is Radix's business.
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     expect(document.activeElement?.isConnected).toBe(true)
   })

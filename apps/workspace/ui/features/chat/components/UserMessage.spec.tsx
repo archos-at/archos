@@ -16,7 +16,6 @@ Line 3`
 
     const { container } = render(<UserMessage content={multilineContent} />)
 
-    // Single newlines within a markdown paragraph are preserved as soft breaks
     const markdown = container.querySelector('.markdown-content')
     expect(markdown?.textContent).toBe(multilineContent)
   })
@@ -24,7 +23,6 @@ Line 3`
   test('renders empty content', () => {
     const { container } = render(<UserMessage content="" />)
 
-    // Component should still render, just with empty text
     expect(container.querySelector('[class*="rounded"]')).toBeInTheDocument()
   })
 
@@ -39,7 +37,6 @@ Line 3`
   test('renders special characters', () => {
     const { container } = render(<UserMessage content="Code: `const x = 1` and <html> tags" />)
 
-    // Since MarkdownRenderer renders markdown, check for the presence of content parts
     expect(container.textContent).toContain('Code:')
     expect(container.textContent).toContain('const x = 1')
   })
@@ -61,11 +58,9 @@ Line 3`
   test('does not display timestamp when not provided', () => {
     const { container } = render(<UserMessage content="Hello" />)
 
-    // No timestamp text should be present
     expect(container.querySelectorAll('[class*="text-subtle"]')).toHaveLength(0)
   })
 
-  // ── Solo threads must not change at all (spec CC-4, NF-8) ────────────────────
   describe('without an author (solo thread)', () => {
     test('renders the unattributed bubble, with no authorship anywhere', () => {
       render(<UserMessage content="Hello" timestamp={new Date('2026-07-29T09:05:00Z')} />)
@@ -75,9 +70,6 @@ Line 3`
     })
   })
 
-  // Notion #38, topic 9: the bubble's side and notch say whose turn it is, so
-  // no "Eingabe" tab repeats it on screen; a screen reader, which has neither,
-  // still hears it.
   describe('the role mark', () => {
     test('is not drawn over the bubble, only named for a screen reader', () => {
       render(<UserMessage content="Hello" />)
@@ -89,7 +81,6 @@ Line 3`
     })
   })
 
-  // ── Shared threads: who said this, at a glance (spec CC-4, CC-5) ─────────────
   describe('with an author (shared thread)', () => {
     test("renders a colleague's name and avatar, without the role tab", () => {
       render(
@@ -101,7 +92,6 @@ Line 3`
 
       expect(screen.getByText('Anna Berger')).toBeInTheDocument()
       expect(screen.getByTestId('message-author-initials')).toHaveTextContent('AB')
-      // The author header replaces the generic role tab — showing both is noise.
       expect(screen.queryByText(/^input$/i)).not.toBeInTheDocument()
     })
 
@@ -117,9 +107,6 @@ Line 3`
     })
 
     test('every human message stays on the same side, whoever wrote it', () => {
-      // Left/right is the grammar of a group chat between people. Piloti is the
-      // thing being talked to, so humans keep ONE column — a colleague's bubble
-      // is never mirrored across it.
       const colleague = render(
         <UserMessage content="x" author={{ userId: 'user_anna', name: 'Anna Berger' }} />
       )
@@ -134,8 +121,6 @@ Line 3`
     })
 
     test("a colleague's bubble is the same bubble as the reader's own", () => {
-      // Differentiation is the avatar + name header, NOT a second bubble
-      // treatment: no muted surface, no mirrored corner, no per-person colour.
       const colleague = render(
         <UserMessage content="x" author={{ userId: 'user_anna', name: 'Anna Berger' }} />
       )
@@ -147,10 +132,6 @@ Line 3`
         expect(container.querySelector('.bg-card')).toBeInTheDocument()
         expect(container.querySelector('.bg-muted\\/45')).toBeNull()
       }
-      // Same asymmetric corner on both, so neither reads as "the other side".
-      // `rounded-bubble` + `rounded-tr-[4px]` is the same geometry the old
-      // `rounded-[12px_4px_12px_12px]` spelled out by hand — the base radius is
-      // the token now, and only the deliberately tighter notch stays literal.
       for (const { container } of [colleague, mine]) {
         expect(container.querySelector('.rounded-bubble')).toBeInTheDocument()
         expect(container.querySelector('.rounded-tr-\\[4px\\]')).toBeInTheDocument()
@@ -171,7 +152,6 @@ Line 3`
     })
 
     test('side="start" mirrors the bubble for the other party of a two-party thread', () => {
-      // Only the feedback thread passes it (person and team); the Piloti chat never does.
       const { container } = render(
         <UserMessage content="x" side="start" author={{ userId: 'piloti-team:Matthias', name: 'Matthias' }} />
       )
@@ -184,7 +164,6 @@ Line 3`
       expect(container.querySelector('.bg-muted')).toBeInTheDocument()
       expect(screen.getByTestId('message-author')).not.toHaveClass('flex-row-reverse')
       expect(screen.getByRole('button', { name: /copy/i })).toHaveClass('left-2')
-      // A two-party thread leaves room on the other side, so the sides read on a phone.
       expect(container.querySelector('.max-w-\\[85\\%\\]')).toBeInTheDocument()
     })
 
@@ -200,7 +179,6 @@ Line 3`
 
       expect(screen.queryByTestId('message-author')).not.toBeInTheDocument()
       expect(screen.getByText('Continued from Anna Berger')).toHaveClass('sr-only')
-      // The header carried the time; a grouped follow-up keeps its own under the bubble.
       expect(screen.getByText(/\d{1,2}:\d{2}/)).toBeInTheDocument()
     })
 

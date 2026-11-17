@@ -64,11 +64,9 @@ describe('isVlmConfigured', () => {
 
     const t0 = 1_000_000
     expect(await isVlmConfigured(t0)).toBe(true)
-    // Second call inside the TTL window uses the cache — no extra fetch.
     expect(await isVlmConfigured(t0 + 10_000)).toBe(true)
     expect(mockFetch).toHaveBeenCalledTimes(1)
 
-    // Past the TTL, it re-probes and can observe a changed capability.
     mockFetch.mockResolvedValue(okJson({ data_sources: [], vlm_available: false }))
     expect(await isVlmConfigured(t0 + 60_000)).toBe(false)
     expect(mockFetch).toHaveBeenCalledTimes(2)

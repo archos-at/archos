@@ -1,8 +1,3 @@
-"""Tests for tokenomics report data builders.
-
-Module under test: packages/agent/src/agent/tokenomics/report/_report_builders.py
-"""
-
 from agent.tokenomics.pricing import PricingRegistry
 from agent.tokenomics.profile import PHASE_ORCHESTRATOR
 from agent.tokenomics.profile import PhaseStats

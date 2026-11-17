@@ -1,5 +1,3 @@
-"""The write fence: a turn that lost its conversation cannot write the conversation's thread (ADR-0080)."""
-
 from __future__ import annotations
 
 import asyncio
@@ -27,8 +25,6 @@ THREAD = {"configurable": {"thread_id": "t", "checkpoint_ns": ""}}
 
 
 class Fence:
-    """A fence the test closes by hand, or lets close by the clock (``runway``: seconds until its deadline)."""
-
     def __init__(self, write_timeout: float = 0.2, runway: float = 3600.0) -> None:
         self.closed = False
         self.write_timeout = write_timeout
@@ -48,8 +44,6 @@ class Fence:
 
 
 class RecordingSaver(InMemorySaver):
-    """An in-memory saver that says how many checkpoints it was asked to commit, and can be slow."""
-
     def __init__(self, delay: float = 0.0) -> None:
         super().__init__()
         self.commits = 0
@@ -114,7 +108,6 @@ async def test_a_write_in_flight_is_bounded_by_the_write_timeout():
 
 
 async def test_a_slow_write_that_ends_before_the_deadline_is_not_cut_off():
-    """The bound is measured from the fence's deadline: runway left means a write may take longer than write_timeout."""
     saver = RecordingSaver(delay=0.3)
     token = bind_write_fence(Fence(write_timeout=0.1, runway=1.0))
     try:
@@ -126,7 +119,6 @@ async def test_a_slow_write_that_ends_before_the_deadline_is_not_cut_off():
 
 
 async def test_a_write_still_running_one_write_timeout_past_the_deadline_is_cut_off():
-    """The safety margin: nothing the old owner started is still running write_timeout after its deadline."""
     saver = RecordingSaver(delay=5.0)
     fence = Fence(write_timeout=0.1, runway=0.1)
     token = bind_write_fence(fence)
@@ -173,7 +165,6 @@ async def test_a_timeout_the_write_raises_itself_is_not_mistaken_for_the_bound()
 
 
 async def test_a_released_fence_past_its_deadline_is_not_followed():
-    """The turn ended on its own: its late writes keep write_timeout from their start, and nothing spins to follow."""
     fence = Fence(write_timeout=0.5, runway=0.0)
     fence.released = True
     scope = asyncio.timeout(10)  # never entered: a reschedule of it would raise
@@ -190,7 +181,6 @@ async def test_a_released_fence_past_its_deadline_is_not_followed():
 
 
 async def test_the_fence_reaches_the_tasks_a_graph_spawns():
-    """LangGraph writes its checkpoints from tasks of its own; they inherit the turn's fence."""
 
     class State(TypedDict):
         messages: Annotated[list, add_messages]
@@ -255,7 +245,6 @@ async def test_guarded_write_refuses_before_it_starts_anything():
 
 
 def test_every_public_method_of_the_saver_is_forwarded():
-    """A method LangGraph adds to the base class would silently skip the fence if it were not forwarded here."""
     base = {name for name, member in inspect.getmembers(BaseCheckpointSaver, inspect.isfunction) if name != "__init__"}
     own = {name for name, member in vars(FencedCheckpointer).items() if inspect.isfunction(member)}
 

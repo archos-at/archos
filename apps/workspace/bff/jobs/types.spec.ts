@@ -31,10 +31,6 @@ describe('createJobSchema', () => {
     ).toThrow()
   })
 
-  // A standing task is always a research run that files a report, so there is
-  // no output to state. „Chat" meant „leaves no deliverable", which is the one
-  // thing a standing task is for; an older `chat` definition keeps its kind and
-  // keeps firing as one, but nothing new is created that way.
   it('takes no output kind — the wire no longer carries one', () => {
     expect(createJobSchema.parse({ ...base })).not.toHaveProperty('output')
     expect(createJobSchema.parse({ ...base, output: 'chat' })).not.toHaveProperty('output')
@@ -45,7 +41,6 @@ describe('createJobSchema', () => {
       'data-table-analysis'
     )
     expect(createJobSchema.parse({ ...base, skillName: null }).skillName).toBeNull()
-    // Still the agentskills.io name rule when a name IS given.
     expect(() => createJobSchema.parse({ ...base, skillName: 'Not A Name' })).toThrow()
   })
 
@@ -82,8 +77,6 @@ describe('patchJobSchema', () => {
 
 describe('AGENT_FOR_OUTPUT', () => {
   it('maps each output kind onto the one agent that runs it', () => {
-    // The mirror of `_OUTPUT_AGENT_TYPES` in routes/skills.py, and what the
-    // skill picker filters `grid-agents` by.
     expect(AGENT_FOR_OUTPUT).toEqual({
       chat: 'researcher',
       'deep-research': 'deep_researcher',
@@ -96,9 +89,6 @@ describe('withAlwaysOnSources', () => {
     expect(withAlwaysOnSources(null)).toBeNull()
   })
 
-  // The project's own documents, and the law they are judged against. A
-  // Normprüfung with RIS switched off does not answer the question faster — it
-  // answers a different question in the same words.
   it('prepends every always-on source when absent, including for an empty list', () => {
     expect(withAlwaysOnSources([])).toEqual([KNOWLEDGE_SOURCE_ID, RIS_SOURCE_ID])
     expect(withAlwaysOnSources(['web_search'])).toEqual([
@@ -108,8 +98,6 @@ describe('withAlwaysOnSources', () => {
     ])
   })
 
-  // A job stored before RIS became always-on must start including it, rather
-  // than keeping a narrower world nobody can see or fix from the wizard.
   it('adds only what is missing, and keeps what the caller already had', () => {
     expect(withAlwaysOnSources([KNOWLEDGE_SOURCE_ID, 'web_search'])).toEqual([
       RIS_SOURCE_ID,
@@ -134,16 +122,11 @@ describe('when a job runs', () => {
   })
 
   it('treats an absent due date and an explicit null differently on a patch', () => {
-    // Absent keeps what the row has; null clears it. The same contract
-    // `skillName` and `scheduleCron` follow, and what stops an unrelated edit
-    // from silently demoting a one-shot to a manual task.
     expect('dueAt' in patchJobSchema.parse({ prompt: 'x' })).toBe(false)
     expect(patchJobSchema.parse({ prompt: 'x', dueAt: null }).dueAt).toBeNull()
   })
 
   it('refuses a cron and a due date together, naming the field', () => {
-    // Otherwise `task_definitions_due_only_when_once` rejects it in the
-    // database and the reader gets a 500 with nothing to act on.
     const result = createJobSchema.safeParse({
       ...base,
       scheduleCron: '0 8 * * 1',

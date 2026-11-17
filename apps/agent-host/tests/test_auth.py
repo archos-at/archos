@@ -1,5 +1,3 @@
-"""Unit tests for agent_host.auth (middleware, JWT validator, base types)."""
-
 from __future__ import annotations
 
 import json
@@ -30,7 +28,6 @@ from agent_host.auth.errors import AuthError
 
 
 def _with_legacy_tags(tags: dict[str, str]) -> dict[str, str]:
-    """Each of the middleware's own ``tags`` under ``app.*``, and under ``aiq.*`` for one release (ADR-0145)."""
     own = {k: v for k, v in tags.items() if k != "enduser.id"}
     return {
         **{k: v for k, v in tags.items() if k == "enduser.id"},
@@ -38,20 +35,10 @@ def _with_legacy_tags(tags: dict[str, str]) -> dict[str, str]:
     }
 
 
-# ---------------------------------------------------------------------------
-# TokenValidator (ABC)
-# ---------------------------------------------------------------------------
-
-
 class TestTokenValidator:
     def test_cannot_instantiate_abstract(self) -> None:
         with pytest.raises(TypeError, match="abstract"):
             TokenValidator()  # type: ignore[abstract]
-
-
-# ---------------------------------------------------------------------------
-# JWTValidator
-# ---------------------------------------------------------------------------
 
 
 def _rsa_private_key():
@@ -208,11 +195,6 @@ class TestJWTValidatorGetSigningKey:
         assert call_kw.get("use") == "sig"
 
 
-# ---------------------------------------------------------------------------
-# get_current_user / AuthMiddleware
-# ---------------------------------------------------------------------------
-
-
 def _http_scope(
     path: str,
     *,
@@ -240,7 +222,6 @@ def _http_scope(
 
 @pytest.fixture
 def capture_asgi():
-    """Inner ASGI app that records scope state and emits a minimal response."""
     state: dict = {}
 
     async def app(scope, receive, send):
@@ -908,7 +889,6 @@ class TestAuthMiddlewareHelpers:
         "path", ["/chat", "/chat/stream", "/v1/chat", "/v1/chat/completions", "/generate", "/v1/workflow"]
     )
     def test_no_http_turn_route_is_reachable_from_outside(self, path: str) -> None:
-        # A turn runs on the chat socket alone (ADR-0068); these are the agent runtime's HTTP turn routes.
         mw = AuthMiddleware(MagicMock(), external_hostnames=set())
         assert mw._path_allowed(path) is False
 
@@ -971,11 +951,6 @@ class TestAuthPackageExports:
             assert getattr(auth_pkg, name) is not None
 
 
-# ---------------------------------------------------------------------------
-# Error subclasses
-# ---------------------------------------------------------------------------
-
-
 class TestAuthErrorSubclasses:
     def test_token_expired_is_auth_error(self) -> None:
         assert issubclass(TokenExpiredError, AuthError)
@@ -987,11 +962,6 @@ class TestAuthErrorSubclasses:
 
     def test_base_auth_error_code(self) -> None:
         assert AuthError.error_code == "auth_error"
-
-
-# ---------------------------------------------------------------------------
-# validate() error codes (JWTValidator)
-# ---------------------------------------------------------------------------
 
 
 class TestValidateErrorCodes:
@@ -1061,11 +1031,6 @@ class TestValidateErrorCodes:
         assert user["sub"] == "user-1"
         assert user["type"] == "jwt"
         assert error is None
-
-
-# ---------------------------------------------------------------------------
-# Middleware error code propagation
-# ---------------------------------------------------------------------------
 
 
 class TestMiddlewareErrorCodes:

@@ -12,19 +12,11 @@ import { projectIntakeCopy } from '@/i18n/namespaces/project-intake'
 import { useAppConfig } from '@/shared/context'
 import { cn } from '@/lib/utils'
 
-/**
- * „Dokument nachreichen": a row on a Rückfrage. The question
- * names the document that would answer it (`foundIn`); dropping a file here, or
- * choosing one, files it through the page's one upload and Piloti reads it. The
- * question closes when the value is found, which the page notices when it
- * polls, so this only hands the files over.
- */
 export function DocumentHandIn({
   label,
   onFiles,
   disabled = false,
 }: {
-  /** The question this answers, for the choose button's name. */
   label: string
   onFiles: (files: File[], info?: DropInfo) => void
   disabled?: boolean
@@ -41,8 +33,6 @@ export function DocumentHandIn({
       data-testid="document-hand-in"
       data-dragging={isDragging || undefined}
       className={cn(
-        // A row of the card, not a box in it: no border at rest, a ring only
-        // while a file is over it. `ring-inset` so the card's clip cannot cut it.
         'flex items-center gap-3 rounded-md px-2 py-1.5 transition-shadow duration-quick ease-out motion-reduce:transition-none',
         isDragging && 'bg-primary/5 ring-ring ring-2 ring-inset'
       )}

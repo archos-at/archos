@@ -3,8 +3,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-// The route factory (`@/lib/api/handler`) statically imports the session
-// guard, which pulls in authkit; internal routes never call it.
 vi.mock('@/lib/auth/require-auth', () => ({
   requireAuthorizedSession: vi.fn(),
 }))
@@ -54,9 +52,6 @@ describe('POST /api/internal/document-image-upload-url', () => {
     expect(presignDocumentImageUpload).not.toHaveBeenCalled()
   })
 
-  // The service returns null both for an unknown row and for an index past
-  // MAX_STORED_IMAGES_PER_DOCUMENT; either way the backend keeps the caption
-  // and stops asking, so one status covers both.
   it('404s when the service cannot place the image', async () => {
     vi.mocked(presignDocumentImageUpload).mockResolvedValue(null)
     expect((await POST(request(validBody))).status).toBe(404)

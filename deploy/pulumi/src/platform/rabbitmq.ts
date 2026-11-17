@@ -27,14 +27,15 @@ export const RABBITMQ_OPERATOR_MANIFEST = `https://github.com/rabbitmq/cluster-o
 /**
  * The RabbitMQ the cluster runs: the minor Hatchet's own compose file pins at
  * `HATCHET_IMAGE_TAG` (`docker-compose.yml` at v0.114.2: `rabbitmq:4.2.8-management`),
- * at its latest patch (4.2.9, whose base carries the OpenSSL fix 4.2.8's lacks),
+ * at its latest patch (4.2.9, whose base carries the OpenSSL fix 4.2.8's lacks; the digest of the
+ * 2026-11-12 rebuild, which carries apt 2.8.4ubuntu0.1 for CVE-2026-109518),
  * not the operator's default. Hatchet declares every queue as a classic queue
  * with `x-consumer-timeout`, hardcoded, and RabbitMQ 4.3 accepts that argument
  * only on quorum queues: on the operator's default 4.3.4 every Hatchet component
  * died at boot with `406 PRECONDITION_FAILED - invalid arg 'x-consumer-timeout'`.
  * Move it only with Hatchet, to the minor its compose file names.
  */
-export const RABBITMQ_IMAGE = "rabbitmq:4.2.9-management@sha256:d1fb8b38bd0805935907a22b2b7483fba38c9a8dd7e8a74bfba4a6e7a9e91707";
+export const RABBITMQ_IMAGE = "rabbitmq:4.2.9-management@sha256:7fa20d0d23d63ed90499bbf62e24af48ec4ae5eb22d173f3db96e3f85b26884a";
 /** The namespace the manifest creates for the operator. */
 export const RABBITMQ_OPERATOR_NAMESPACE = "rabbitmq-system";
 

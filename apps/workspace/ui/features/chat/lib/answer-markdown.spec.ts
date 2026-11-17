@@ -1,13 +1,3 @@
-/**
- * What lands on the clipboard.
- *
- * The point of copying the SOURCE markdown rather than the rendered block is
- * that the parts which make an answer usable as evidence survive the paste, so
- * that is what these check: the `[N]` numbering, the tables, the emphasis, and
- * a sources list that still names a document, a page and a link once it is
- * outside Piloti. Plus the one thing that must NOT survive: `[[card:N]]`.
- */
-
 import { describe, expect, it } from 'vitest'
 import { buildCitationModel, CitationAccumulator, type CitedDocument } from './citations'
 import type { CitationSource } from '../types'

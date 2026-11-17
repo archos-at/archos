@@ -2,15 +2,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The skill body editor's stylesheet, held to the two phone rules a desktop
- * browser can never show.
- *
- * Source text at 13px made iOS Safari zoom the page on focus and leave it
- * zoomed; the toolbar's 36px buttons were under the 44px floor and, sixteen of
- * them, wrapped into four rows. Asserted on the source because there is no
- * pointer in jsdom, and the rule is one line a retune can delete.
- */
 
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -18,7 +9,6 @@ import { describe, expect, test } from 'vitest'
 
 const css = readFileSync(join(__dirname, 'markdown-editor.css'), 'utf8')
 
-/** The body of the first `@media (pointer: coarse)` block that mentions `needle`. */
 const coarseBlockWith = (needle: string): string => {
   for (const match of css.matchAll(/@media \(pointer: coarse\) \{/g)) {
     let depth = 0

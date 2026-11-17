@@ -336,6 +336,9 @@ export const research: typeof en.research = {
     sessionLabel: 'Chat: {title}',
     /** Dieselbe Zeile, ergänzt um den Zustand, den ihr Symbol zeigt. */
     sessionLabelWithStatus: 'Chat: {title} — {status}',
+    /** Eine Zeile eines temporären Chats (ADR-0180): die Marke als Tooltip, und die Zeile mit ihr im Namen. */
+    temporaryMark: 'Temporärer Chat: Daraus wird nichts gemerkt.',
+    sessionLabelTemporary: '{label} (temporärer Chat, daraus wird nichts gemerkt)',
     // FB-10: Deep-Research-Bereich im Sitzungsbereich. Die Anzahl trägt ein
     // CountPill neben der Überschrift, nicht der Text selbst.
     deepResearchHeading: 'Deep Research',

@@ -1,10 +1,3 @@
-"""The licence mark: ``PUT /v1/collections/{c}/knowledge-mark``, and the ingest job that carries it.
-
-The store is stood in for here, so the route's refusals and its call are
-checked without a Qdrant; the write itself runs on a real one in
-``packages/knowledge-layer/tests/test_vector_store_office_filter.py``.
-"""
-
 from __future__ import annotations
 
 import typing
@@ -36,8 +29,6 @@ BODY = {
 
 
 class _Store:
-    """The store's three calls the route makes, recorded."""
-
     def __init__(self, chunks: int = 3, exists: bool = True) -> None:
         self.chunks, self.present = chunks, exists
         self.written: list[tuple[str, dict]] = []
@@ -85,6 +76,7 @@ async def test_the_mark_lands_on_every_chunk_of_the_file(store):
         "file_name": "OIB-RL_2.pdf",
         "licence_class": "licensed",
         "edition_id": "ed-2026",
+        "released": None,
         "chunks": 3,
     }
     assert store.counted == [("office_shelf_org_1", {"file_name": "OIB-RL_2.pdf"})]
@@ -103,11 +95,16 @@ async def test_the_mark_lands_on_every_chunk_of_the_file(store):
     ]
 
 
-async def test_a_country_alone_leaves_the_licence_mark_as_it_is(store):
-    response = await _put({"file_name": "OIB-RL_2.pdf", "country_id": "ZZ"})
+async def test_a_country_or_a_withdrawal_alone_leaves_the_licence_mark_as_it_is(store):
+    response = await _put({"file_name": "OIB-RL_2.pdf", "country_id": "QA"})
+    withdrawn = await _put({"file_name": "OIB-RL_2.pdf", "released": False})
 
     assert response.status_code == 200
-    assert store.written[0][1] == {"OIB-RL_2.pdf": {"country_id": "ZZ"}}
+    assert withdrawn.status_code == 200 and withdrawn.json()["released"] is False  # the BFF checks the echo
+    assert [written for _, written in store.written] == [
+        {"OIB-RL_2.pdf": {"country_id": "QA"}},
+        {"OIB-RL_2.pdf": {"released": False}},
+    ]
 
 
 async def test_a_malformed_country_is_refused(store):
@@ -171,9 +168,6 @@ def test_the_wire_classes_are_the_stores():
     assert typing.get_args(LicenceClass) == LICENCE_CLASSES
 
 
-# ---------------------------------------------------------------- the ingest job carries the mark
-
-
 @pytest.fixture
 def ingest_app(monkeypatch):
     ingestor = MagicMock()
@@ -223,7 +217,7 @@ async def test_an_ingest_job_with_an_unknown_class_is_refused(ingest_app):
     assert await _ingest(app, licence_class="free_for_all") == 422
 
 
-async def test_a_base_corpus_country_lands_on_its_corpus_row_so_a_reingest_keeps_it(store, monkeypatch):
+async def test_a_withdrawal_lands_on_the_corpus_row_and_keeps_its_country_so_a_reingest_keeps_it(store, monkeypatch):
     from agent import corpus_store
     from agent.oib_sync import COLLECTION_NAME
 
@@ -232,16 +226,17 @@ async def test_a_base_corpus_country_lands_on_its_corpus_row_so_a_reingest_keeps
     monkeypatch.setattr(corpus_store, "set_mark", lambda name, mark: marks.__setitem__(name, mark))
 
     response = await _put(
-        {"file_name": "OIB-RL_2.pdf", "country_id": "ZZ"}, path=f"/v1/collections/{COLLECTION_NAME}/knowledge-mark"
+        {"file_name": "OIB-RL_2.pdf", "released": False}, path=f"/v1/collections/{COLLECTION_NAME}/knowledge-mark"
     )
 
     assert response.status_code == 200
-    assert marks["OIB-RL_2.pdf"] == corpus_store.FileMark(country_id="ZZ", edition_id="edition:rl2")
+    withdrawn = corpus_store.FileMark(country_id="AT", edition_id="edition:rl2", released=False)
+    assert marks["OIB-RL_2.pdf"] == withdrawn
+    assert withdrawn.job_config() == {"country_id": "AT", "knowledge_edition_id": "edition:rl2", "released": False}
 
 
 @pytest.mark.parametrize("missing", ["chunks", "collection"])
 async def test_a_withdrawal_reaches_the_corpus_row_of_a_file_that_has_no_chunks_yet(store, monkeypatch, missing):
-    """A text rolled back before it was indexed: no chunk to mark (404), and still nobody's to read as a PDF."""
     from agent import corpus_store
     from agent.oib_sync import COLLECTION_NAME
 
@@ -252,10 +247,11 @@ async def test_a_withdrawal_reaches_the_corpus_row_of_a_file_that_has_no_chunks_
     store.present = missing != "collection"
 
     response = await _put(
-        {"file_name": "a-text.pdf", "country_id": "ZZ"}, path=f"/v1/collections/{COLLECTION_NAME}/knowledge-mark"
+        {"file_name": "a-text.pdf", "released": False}, path=f"/v1/collections/{COLLECTION_NAME}/knowledge-mark"
     )
 
-    assert response.status_code == 404
+    assert response.status_code == 200
+    assert (response.json()["chunks"], response.json()["released"]) == (0, False)
     assert store.written == []
-    assert marks["a-text.pdf"] == corpus_store.FileMark(country_id="ZZ", edition_id="edition:one")
+    assert marks["a-text.pdf"] == corpus_store.FileMark(country_id="QA", edition_id="edition:one", released=False)
     assert not corpus_store.released_to("a-text.pdf", ["QA"])

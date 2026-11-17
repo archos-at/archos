@@ -1,17 +1,3 @@
-/**
- * Counts mounted Radix `Popover` roots, for specs that pin WHEN a peek pays for
- * its popover.
- *
- * A closed Radix popover renders no DOM at all, so "no popover until engaged"
- * cannot be read off the document. Wire it in with
- *
- *   vi.mock('@/components/ui/popover', async (importOriginal) =>
- *     (await import('@/test-utils/popover-mounts')).countPopoverMounts(await importOriginal())
- *   )
- *
- * and read `popoverMounts.current` (mounted now) or `.total` (ever mounted).
- */
-
 import { useEffect, type ComponentProps } from 'react'
 import type * as PopoverModule from '@/components/ui/popover'
 

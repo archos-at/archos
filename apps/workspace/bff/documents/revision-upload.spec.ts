@@ -73,8 +73,6 @@ describe('resolveRevisionOf', () => {
     ).resolves.toEqual(nothing)
   })
 
-  // The choice is an addition to the upload, never its gate: what may not be
-  // honoured is dropped and reported, and the file is stored on its own.
   it('drops an older document in another collection (a restricted folder has its own, ADR-0087), without throwing', async () => {
     vi.mocked(getAccessibleDocument).mockResolvedValue(older({ collectionName: 'proj_restricted' }))
 
@@ -107,7 +105,6 @@ describe('resolveRevisionOf', () => {
     vi.mocked(getAccessibleDocument).mockResolvedValue(older({ status: 'quarantined' }))
     await expect(resolveRevisionOf(session, OLDER_ID, target)).resolves.toEqual(ignored('unavailable'))
 
-    // Bytes that were never screened are held the same way.
     vi.mocked(getAccessibleDocument).mockResolvedValue(older({ screenedHash: 'other', screeningOutcome: null }))
     await expect(resolveRevisionOf(session, OLDER_ID, target)).resolves.toEqual(ignored('unavailable'))
   })

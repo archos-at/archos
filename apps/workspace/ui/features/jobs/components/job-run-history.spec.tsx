@@ -1,13 +1,3 @@
-/**
- * The run history row, at the width of a phone.
- *
- * Two things were wrong on the row that mattered most. The link to a run's
- * conversation was painted over the status badge, because the badges and the
- * link shared one non-wrapping line; and what a skipped run owed the reader (why
- * it was skipped, and when) lived in `title` attributes, which a touch screen
- * never shows.
- */
-
 import { render, screen } from '@/test-utils'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import type { JobRun } from '@/adapters/api/jobs-client'
@@ -67,8 +57,6 @@ describe('a run row', () => {
 })
 
 describe('a run’s status', () => {
-  // The history used to show a submission word, and every run the worker took
-  // read „Submitted" whatever became of it, a failed one included.
   test('is the run’s own: a failed run reads failed, with its reason', async () => {
     listJobRuns.mockResolvedValue([run({ status: 'failed', error: 'Job timed out' })])
     render(<JobRunHistory projectId="p1" jobId="j1" />)

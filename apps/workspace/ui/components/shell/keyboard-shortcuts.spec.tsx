@@ -25,7 +25,6 @@ const projects = [
   { id: 'p2', name: 'Donau Loft' },
 ]
 
-// cmdk scrolls the selected item into view; happy-dom may not implement it.
 if (!Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = () => {}
 }
@@ -36,8 +35,6 @@ describe('KeyboardShortcuts', () => {
   beforeEach(() => {
     push.mockClear()
     window.localStorage.removeItem(SHORTCUTS_PREFERENCE_KEY)
-    // The palette's open state is a module store now; a test that opened it
-    // would otherwise hand an open palette to the next one.
     useShellOverlays.setState({ paletteOpen: false })
     pathname = '/app/projects'
     vi.stubGlobal(
@@ -52,18 +49,15 @@ describe('KeyboardShortcuts', () => {
     pressCmdK()
 
     expect(await screen.findByPlaceholderText('Type a command or search…')).toBeInTheDocument()
-    // Projects arrive from the existing GET /api/projects endpoint.
     expect(await screen.findByText('Alpine Tower')).toBeInTheDocument()
     expect(screen.getByText('Donau Loft')).toBeInTheDocument()
     expect(screen.getByText('Projects')).toBeInTheDocument()
     expect(screen.getByText('General')).toBeInTheDocument()
-    // Global actions, navigation-only.
     expect(screen.getByText('New project')).toBeInTheDocument()
     expect(screen.getByText('Organization')).toBeInTheDocument()
     expect(screen.getByText('Profile')).toBeInTheDocument()
     expect(screen.getByText('Toggle theme')).toBeInTheDocument()
     expect(screen.getByText('Sign out')).toBeInTheDocument()
-    // Outside a project there is no current-project section group.
     expect(screen.queryByText('Current project')).toBeNull()
   })
 
@@ -74,12 +68,9 @@ describe('KeyboardShortcuts', () => {
     pressCmdK()
 
     expect(await screen.findByText('Current project')).toBeInTheDocument()
-    // Click-dummy IA (spec §5): Chat/Files/Settings + Setup (intake).
     for (const section of ['Chat', 'Files', 'Overview', 'Setup']) {
       expect(screen.getByText(section)).toBeInTheDocument()
     }
-    // Members/Research left the IA (FB-9/FB-10). "Overview" is listed above,
-    // as the project hub's name.
     expect(screen.queryByText('Members')).toBeNull()
     expect(screen.queryByText('Research')).toBeNull()
   })
@@ -100,14 +91,11 @@ describe('KeyboardShortcuts', () => {
     fireEvent.keyDown(window, { key: '?', shiftKey: true })
 
     expect(await screen.findByText('Keyboard shortcuts')).toBeInTheDocument()
-    // Grouped: what the shell binds, where you can jump, what the chat does.
-    // As headings: the jump to the Chat section is a row with the same word.
     for (const group of ['General', 'Jump to', 'Chat']) {
       expect(screen.getByRole('heading', { level: 3, name: group })).toBeInTheDocument()
     }
     expect(screen.getByText('Open the command palette')).toBeInTheDocument()
     expect(screen.getByText('Close a dialog or menu')).toBeInTheDocument()
-    // Composer rows document the send / newline bindings.
     expect(screen.getByText('Send message')).toBeInTheDocument()
     expect(screen.getByText('New line')).toBeInTheDocument()
     expect(screen.getByText('Pick a numbered option')).toBeInTheDocument()
@@ -119,18 +107,12 @@ describe('KeyboardShortcuts', () => {
     fireEvent.keyDown(window, { key: '?', shiftKey: true })
 
     await screen.findByText('Keyboard shortcuts')
-    // Rows are derived from the shared IA, so they carry the rail's own labels.
-    // Scoped to the jump group: the composer's group is headed "Chat" too.
     const jumps = within(document.querySelector<HTMLElement>('[data-shortcut-group="navigation"]')!)
     for (const label of ['All projects', 'Organization', 'Chat', 'Files', 'Office filing', 'Overview']) {
       expect(jumps.getByText(label)).toBeInTheDocument()
     }
-    // Flag-gated sections stay out until their flag is on.
     expect(screen.queryByText('Skills')).toBeNull()
     expect(screen.queryByText('Knowledge')).toBeNull()
-    // The keycaps show the leader sequence, not a bare letter. Asserted
-    // against the <kbd> elements rather than the row text — the label "Files"
-    // contains an F, so a text assertion would pass without a keycap.
     const filesRow = document.querySelector('[data-shortcut="jump-f"]')
     const caps = Array.from(filesRow?.querySelectorAll('kbd') ?? []).map((cap) => cap.textContent)
     expect(caps).toEqual(['G', 'F'])
@@ -143,7 +125,6 @@ describe('KeyboardShortcuts', () => {
     fireEvent.keyDown(window, { key: '?', shiftKey: true })
 
     await screen.findByText('Keyboard shortcuts')
-    // Mentions only exist where collaboration is on.
     expect(screen.queryByText('Mention a colleague')).toBeNull()
   })
 
@@ -197,8 +178,6 @@ describe('KeyboardShortcuts', () => {
     render(<KeyboardShortcuts authRequired canViewOrganization />)
 
     fireEvent.keyDown(window, { key: 'g' })
-    // Reaching for a capital letter fires a Shift keydown of its own. It
-    // cannot complete a sequence, so it must not cost the user their `g`.
     fireEvent.keyDown(window, { key: 'Shift', shiftKey: true })
     fireEvent.keyDown(window, { key: 'CapsLock' })
     fireEvent.keyDown(window, { key: 'p' })
@@ -210,9 +189,6 @@ describe('KeyboardShortcuts', () => {
     render(<KeyboardShortcuts authRequired canViewOrganization />)
 
     fireEvent.keyDown(window, { key: 'g' })
-    // Escape is a real key, not a modifier: it means "never mind". Ignoring
-    // every multi-character key would leave the leader armed here, so a `p`
-    // typed straight after a cancel would still navigate.
     fireEvent.keyDown(window, { key: 'Escape' })
     fireEvent.keyDown(window, { key: 'p' })
 
@@ -226,7 +202,6 @@ describe('KeyboardShortcuts', () => {
     fireEvent.keyDown(window, { key: 'z' })
     expect(push).not.toHaveBeenCalled()
 
-    // The leader is spent: a following `p` is a fresh key, not a completion.
     fireEvent.keyDown(window, { key: 'p' })
     expect(push).not.toHaveBeenCalled()
   })
@@ -235,7 +210,6 @@ describe('KeyboardShortcuts', () => {
     render(<KeyboardShortcuts authRequired canViewOrganization />)
 
     fireEvent.keyDown(window, { key: 'g' })
-    // Reaching for a modifier is not a completion — the leader stays armed.
     fireEvent.keyDown(window, { key: 'Shift', shiftKey: true })
     fireEvent.keyDown(window, { key: 'p' })
 
@@ -266,7 +240,6 @@ describe('KeyboardShortcuts', () => {
 
     const { container } = render(<KeyboardShortcuts authRequired canViewOrganization />)
 
-    // Zero global keydown listeners registered while gated off.
     expect(addListener.mock.calls.filter(([type]) => type === 'keydown')).toHaveLength(0)
     expect(container).toBeEmptyDOMElement()
 
@@ -294,7 +267,6 @@ describe('KeyboardShortcuts', () => {
     fireEvent.click(screen.getByTestId('shell-search'))
 
     expect(await screen.findByPlaceholderText('Type a command or search…')).toBeInTheDocument()
-    // A phone has no Escape: the palette carries its own way out.
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
     await waitFor(() => expect(screen.queryByPlaceholderText('Type a command or search…')).toBeNull())
     expect(useShellOverlays.getState().paletteOpen).toBe(false)

@@ -28,11 +28,6 @@ const ICONS: Record<ProjectSettingsSectionKey, LucideIcon> = {
   references: GitCompareArrows,
 }
 
-/**
- * The project Settings section nav. Told which sections exist rather than
- * working it out, for the organization nav's reason: the access rules stay on
- * the server, and a link that lands on a 404 is worse than no link.
- */
 export function ProjectSettingsNav({
   projectId,
   sections,
@@ -58,6 +53,8 @@ export function ProjectSettingsNav({
       rootHref={settingsSectionHref(projectId, 'overview')}
       pillId="project-settings-nav-pill"
       orientation="tabs"
+      track
+      compactOnPhone
       data-testid="project-settings-nav"
     />
   )

@@ -1,16 +1,3 @@
-"""``DELETE /v1/drafts/{conversation_id}``: the working directory's cleanup door.
-
-A conversation's drafts are the one thing it owns that live outside ``app``
-— in the LangGraph store, under a namespace the BFF cannot reach. So its
-conversation deletion calls this route, and the two properties that matter are
-that it is internal-token only (the maintenance.py pattern) and that it is
-IDEMPOTENT: a purger which had to tell "deleted" from "was not there" apart
-would retry the second one forever.
-
-The store is the real ``InMemoryStore`` behind the real ``DraftBackend``,
-because the thing under test is that the namespace is empty afterwards.
-"""
-
 from __future__ import annotations
 
 import pytest
@@ -32,7 +19,6 @@ OTHER = "conv-cleanup-2"
 
 @pytest.fixture
 def store(monkeypatch: pytest.MonkeyPatch) -> InMemoryStore:
-    """One store behind the route and the assertions."""
     memory = InMemoryStore()
 
     async def _get_store(dsn: str | None = None) -> InMemoryStore:
@@ -76,8 +62,6 @@ def _delete(client: TestClient, conversation_id: str = CONVERSATION, token: str 
 
 
 class TestTheGuard:
-    """Internal-token only, and fails closed exactly as the purge routes do."""
-
     def test_a_missing_token_is_forbidden(self, client, prod_token) -> None:
         assert _delete(client, token=None).status_code == 403
 
@@ -96,8 +80,6 @@ class TestTheGuard:
 
 
 class TestTheDeletion:
-    """204, the namespace empty, and nobody else's conversation touched."""
-
     async def test_the_conversations_files_are_gone(self, client, prod_token, store) -> None:
         await _write(store, CONVERSATION, "befund")
         await _write(store, CONVERSATION, "aktenvermerk")
@@ -109,7 +91,6 @@ class TestTheDeletion:
         assert _keys(store, CONVERSATION) == []
 
     async def test_another_conversations_working_directory_stands(self, client, prod_token, store) -> None:
-        # The namespace is the whole of the predicate, and it is per conversation.
         await _write(store, CONVERSATION, "befund")
         await _write(store, OTHER, "befund")
 
@@ -119,11 +100,9 @@ class TestTheDeletion:
         assert _keys(store, OTHER) == [f"{DRAFT_ROOT}befund.md"]
 
     def test_a_conversation_that_never_wrote_a_draft_is_a_204(self, client, prod_token) -> None:
-        """Idempotence, first half: nothing to delete is not an error."""
         assert _delete(client).status_code == 204
 
     async def test_deleting_twice_answers_the_same(self, client, prod_token, store) -> None:
-        """Idempotence, second half: a purger must not have to retry a no-op."""
         await _write(store, CONVERSATION, "befund")
 
         assert _delete(client).status_code == 204
@@ -131,8 +110,6 @@ class TestTheDeletion:
         assert _keys(store, CONVERSATION) == []
 
     def test_a_store_failure_is_a_500_not_a_silent_204(self, client, prod_token, monkeypatch) -> None:
-        """A sweep that did not happen must not report that it did — the caller
-        retries on a 5xx, and a 204 here would orphan the bytes forever."""
 
         async def _explode(conversation_id: str, dsn: str | None = None) -> int:
             raise RuntimeError("store is down")

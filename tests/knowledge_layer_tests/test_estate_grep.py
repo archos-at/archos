@@ -1,19 +1,3 @@
-"""``grep`` on the estate: two stages, citable content, and never a silent no (ADR-0133 slice 4).
-
-The candidates come from the files fixture's Brandschutzkonzept cut by the real section chunker
-(overlap and breadcrumbs, ``fixture_files.chunk_specs``), so the counts are checked against text
-held twice as production holds it. What is pinned:
-
-* a count counts each place in the document once, on the chunks' own text, and on the stored
-  page text when the document has it (which then decides);
-* ``content`` returns the matching pages as grounding blocks citing ``file, p.N`` with a ``Path:``,
-  the records collected for the call's artifact;
-* a collection whose scan failed, or a regex scan that ran out of time, makes the result
-  ``incomplete``, and an incomplete search never says "no match";
-* a path narrows to its mount and folder, and a restricted folder's path answers as a folder that
-  does not exist; the Herleitung row is ``search`` with its mode.
-"""
-
 from __future__ import annotations
 
 import re
@@ -83,7 +67,6 @@ class TestContent:
         assert len({hit.page for hit in result.hits}) == len(result.hits), "one block per page"
 
     async def test_the_lines_around_the_matches_are_fenced_as_data(self) -> None:
-        """The index prints the documents' own lines: they sit in the passages' fence."""
         result = await _backend(Retriever({COLLECTION: _chunks()})).grep("Fluchtweg", output_mode="content", context=1)
         index = result.text[result.text.index("## Lines around the matches") :]
         opened, closed = index.index("<document_content>\n"), index.index("\n</document_content>")

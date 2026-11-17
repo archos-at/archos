@@ -14,13 +14,6 @@ import { documentHitActionEntries } from '../lib/hit-actions'
 import { documentFolderHref, documentHitHref, documentLinkHref, documentReviewHitHref } from '../lib/search-hrefs'
 import { useSearchReturn } from './use-search-return'
 
-/**
- * The newer Fassung of a superseded document, as this reader may open it:
- * `GET /api/documents/[id]/status` resolves `revision.supersededBy` for the
- * reader (operation `document-status`), so a Fassung they may not open is not
- * named. Asked when the item is chosen, never per row: the hit carries only
- * that a newer Fassung exists. `null` when there is none the reader may open.
- */
 export async function currentRevisionId(documentId: string, fetcher: typeof fetch = fetch): Promise<string | null> {
   try {
     const response = await fetcher(`/api/documents/${encodeURIComponent(documentId)}/status`)
@@ -33,11 +26,6 @@ export async function currentRevisionId(documentId: string, fetcher: typeof fetc
   }
 }
 
-/**
- * Puts `text` on the clipboard and says how it went, as the review's
- * „Link kopieren“ does: a browser without a clipboard, or one that refuses
- * the write, is told rather than left silent.
- */
 function copyToClipboard(text: string, messages: { done: string; failed: string }): void {
   if (!navigator.clipboard) {
     toast.error(messages.failed)
@@ -49,14 +37,6 @@ function copyToClipboard(text: string, messages: { done: string; failed: string 
   )
 }
 
-/**
- * A document hit's menu entries, wired: open where the row's link goes;
- * Piloti fragen through the product's one ask (`askAboutFile`, which carries
- * the file into the chat as its subject and its peek), at the passage's page
- * when the hit was found by one; the current Fassung; the open points in the
- * document's Prüfansicht, from which closing comes back to this search; the
- * folder it lies in; and its link.
- */
 export function useDocumentHitActions(hit: DocumentHit): ActionMenuEntry[] {
   const t = useTranslations(searchCopy, 'hitActions')
   const router = useRouter()
@@ -99,7 +79,6 @@ export function useDocumentHitActions(hit: DocumentHit): ActionMenuEntry[] {
               toast.error(t('currentUnavailable'))
               return
             }
-            // A Fassung lives on its predecessor's shelf.
             router.push(documentHitHref({ id: current, shelf: hit.shelf, projectId: hit.projectId }, from))
           })
         },

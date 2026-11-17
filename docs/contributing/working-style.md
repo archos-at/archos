@@ -1,8 +1,9 @@
 # Working style
 
-The rules in [`AGENTS.md`](../../AGENTS.md) are the short form. This is the
-long form: the cases that produced each one, kept out of always-loaded context
-because a case teaches once and then costs on every turn.
+How we work. [`AGENTS.md`](../../AGENTS.md) carries a one-line form of the few
+rules about an agent's own behaviour; every rule is here in full, with the case
+that produced it, kept out of always-loaded context because a case teaches once
+and then costs on every turn.
 
 ## Value driven
 
@@ -154,7 +155,7 @@ A dependency is not free, and this repo pays for the ones it has: a 21 KB
 advisories on the default branch. So "buy" is not licence to add a package for
 something a function would do.
 
-The two rules meet at scale. "The best part is no part" ([Scope](../../AGENTS.md#scope))
+The two rules meet at scale. "The best part is no part" ([Scope](#scope))
 decides whether the thing should exist. This rule decides who writes it once the
 answer is yes. For genuinely small, genuinely local things, neither buying nor
 building is the answer. Deleting the requirement is.
@@ -244,6 +245,63 @@ A related failure with the same root: stopping because the remaining work is
 large. Size is not ambiguity. A long task is finished by working through it, and
 "this is a lot, shall I?" is the same stall wearing a different hat.
 
+## Code is memory; a comment is a liability
+
+Sources: Potato's talk on the agent environment behind the Grok desktop client
+(<https://youtu.be/O_zcc6Xl12g>, watched 2026-11-16), and Anthropic's prompting
+guide for the current model family, section "Say who owns the code"
+(<https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-fable-5-2#say-who-owns-the-code>,
+undated, read 2026-11-16; kept despite the
+[three-month rule](#prompting-advice-has-a-three-month-shelf-life) because it is
+the vendor's live page for the model this repo runs).
+
+**The codebase is the agent's largest input, and it repeats what it finds.** A
+workaround, a deprecated call or a comment that justifies a shortcut looks like
+the established pattern to the next agent, which copies it. Code arrives as a
+stream now, so a weed spreads before review sees it. Keep the code the way you
+want it copied: remove the workaround rather than explain it.
+
+**Spend effort in this order.** First the code and its deterministic checks: API
+design, architecture, types, lint rules, tests. Then verification: running the
+code, property and formal checks, review artifacts such as captures and traces.
+Prose (rules, skills, this file) comes last, for what needs judgment. Each
+correction you give an agent moves down that list if it can: a check is
+reproducible, a sentence is not.
+
+**A comment is a liability.** It goes stale without a diff, no check reads it,
+and it gives an agent a place to justify not doing the right thing. The talk's
+case: agents patched an architecture clash with `setTimeout` and wrote comments
+explaining why each patch was fine; the timers spread through the app until
+garbage collection made it lag. Their fix was to ban almost all comments and
+encode each lesson as a lint rule whose message names the root cause.
+
+So, here:
+
+- Fix the code instead of commenting on it. If a rule must hold, make it a
+  check whose error says what to do instead: this repo's ratchets
+  (`scripts/check_*.py`), the module seams (dependency-cruiser, import-linter)
+  and the `any` ban are that pattern.
+- An API that takes nuance to use well is a candidate for a ban outside the one
+  module that wraps it, held by a lint rule, so the misuse cannot recur.
+- A comment may still carry what neither the code nor a check can: a measured
+  number with its date, a vendor bug with its link, a legal or contractual
+  constraint. Short, and never "why this workaround is acceptable".
+- Deleting a comment that restates the code is a cleanup, not a loss.
+- **Needing to explain how code works is an architectural fault.** If a reader
+  needs prose to follow what a module does, the names, the boundaries or the
+  data shapes are wrong: rethink the design until the code reads on its own,
+  rather than documenting around it. What a person must know about why it is
+  built this way goes in an ADR.
+
+**Say who owns the code.** The root `AGENTS.md` opens with the
+guide's sentence: you are the owner and long-term maintainer of this codebase,
+and its design is up to you. In Anthropic's tests a model told this
+consolidated duplicated code in about 75% of runs instead of under 10%. The
+cost, from the same page: more unrequested change (tests, docs, sometimes a
+changed behaviour) and 70–80% more output, and a PR summary that leaves small
+changes out. Review the diff, not only the summary. A task where the user wants
+the smallest possible change says so, and that wins.
+
 ## Ratchet every correction
 
 A **ratchet** turns one way and cannot slip back. A correction that changes only
@@ -262,6 +320,13 @@ surprises you, or you correct yourself twice for one reason:
 [`correction-ratchet.md`](correction-ratchet.md).
 
 ## Everything you learn is written down
+
+Every fact about this system that you had to find out, because no doc told you,
+lands in the repo in the same change: what you read in code, what a failure
+taught you, and every finding of a subagent, scout or consultant you ran (their
+reports die with the session). Re-check it in the code first. Write it where the
+next agent will already be looking (the doc for that area, the scoped
+`AGENTS.md`, the gotchas register, the ADR, the glossary), never in a new note.
 
 Reworking the project mail inbox (PR #831) in October 2026 began with eleven
 scouts and thirteen consultants reading the code for a day. Their reports turned
@@ -349,6 +414,44 @@ Say what the agent is for, what a good answer is and which rails hold, give it
 well-described tools, and leave the thinking to it. A rule earns its place by
 the reason it states, once, where it applies.
 
+## Context earns its place
+
+Source: Jina Yoon, "Read this before deleting your AGENTS.md", PostHog
+newsletter, 2026-08-31 (<https://posthog.com/newsletter/fix-your-agents>). Its
+thesis: models got better, so context that once filled a gap now gets in their
+way, and the work has moved from adding context to subtracting it. Its figures
+are PostHog's own and unverified. The practices below are the ones we adopt.
+
+**Every line names the failure it prevents.** That holds for a line in
+`AGENTS.md`, a scoped guide, a skill or a prompt. If you cannot name the
+failure, delete the line. The cases in this file are that name for the root
+rules; a rule whose case no longer happens is a candidate for deletion, not a
+fixture. Run the audit when the model generation moves (the same trigger as the
+[three-month rule](#prompting-advice-has-a-three-month-shelf-life)). After a
+Claude Code upgrade, `/doctor` does the mechanical part (unused plugins and
+skills, token cost per file). It cannot tell whether a line is still true.
+
+**A line about state outside the code goes stale without a diff.** PostHog's
+case: their `AGENTS.md` said every merge goes through the merge queue. The queue
+was paused for a day and the line was not updated, so agents followed wrong
+instructions for 21 hours. The queue lived in a GitHub setting, so no code check
+could see it. Ours: the `grid-app-authz-catalog` crash in
+[gotchas.md](gotchas.md), where WorkOS still held a permission the catalog had
+dropped, and CI could not see the remote state. So a line about a GitHub
+setting, a WorkOS environment, a Langfuse project or a cluster says where that
+state lives, or which check reads it. It does not state the state as fact.
+
+**Every mistake leaves a test for the context.** Code gets a regression test.
+Context gets a case: the [correction ratchet](correction-ratchet.md), an entry
+in [gotchas.md](gotchas.md), a case in this file, and for a prompt the golden
+run. When you rewrite or delete a line, re-check the case that produced it.
+
+**Ask the agent what its context got wrong, then verify.** The closing
+checklist in [definition-of-done.md](definition-of-done.md#the-closing-checklist)
+asks which guides and skills the work used, and which line misled it or was
+missing. That report is a cheap bug report, but it is not a fact. Reproduce it
+before you change the context it blames.
+
 ## A rejection names its premise
 
 An ADR's rejected option is only as durable as the reason it was rejected for.
@@ -374,5 +477,109 @@ documents ([ADR-0133](../adr/0133-piloti-reads-the-estate-through-standard-files
   filesystem tools served by our own backend. Because the reasons were written
   as facts about that tool, the re-check took one paragraph.
 
-The rule lives in [`docs/adr/AGENTS.md`](../adr/AGENTS.md) and in the
+The rule lives in [`docs/adr/README.md`](../adr/README.md#process) and in the
 template's comments.
+
+## Cost a move before you build it
+
+Before moving a thing onto another mechanism, or converting it to a pattern,
+read the code and write down four answers: what exists and how many lines would
+go, what replaces it and what that costs, what behaviour changes or is lost, and
+the net. Build only what clears the bar the user set. An inventory row that says
+"an engine feature could do this" is a lead, and a scout's "verified" is too.
+
+On 11 November 2026 an audit asked which of our own sweeps, leases and clocks
+the workflow engine could take over
+([`hatchet-use-2026-11.md`](../audit/hatchet-use-2026-11.md)). Nine moves
+looked like obvious wins from the inventory. Read against the code, six were
+not: the job row's second wait had three readers that cannot ask the engine,
+the housekeeping clocks had to stay for deployments that run without it, a
+research run's cancel was already pushed, and three more would have added code
+or a second mechanism. The one that was built before anyone costed it, the
+folder-card build, added about 140 lines where a reduction had been promised.
+
+The costing that finally ran took one reader two minutes a move and asked four
+things: what exists today and how many lines of it would go, which construct
+replaces it and what that costs in new lines, what behaviour changes or is
+lost, and the verdict with the net figure. It answered "do not" three times
+out of three, with reasons that are now written where the code is. That is the
+order: cost first, in the code, and build only what clears the bar the owner
+set (there: less code, fewer mechanisms, nothing lost).
+
+A frame is not a finding either. The day began as "find every implicit state
+machine" and found 120; declaring a lifecycle was worth it for about a dozen
+records. What paid was a reader with one plain question about one area: what
+can go wrong here? The forty defects of that day came from that question, not
+from the label.
+
+A second case, the same day. The audit of implicit state machines planned
+three steps for a document's state, and each was costed before it was built.
+The first shrank from a guarded upsert with a new column, about 120 lines, to
+six lines, because a finished read must still overwrite a cancel. The second
+became a parity test and the third a ratchet, because the single way in
+already existed
+([`implicit-state-machines-2026-11.md`](../audit/implicit-state-machines-2026-11.md#where-a-records-state-lives)).
+
+## Dead here is not dead in production
+
+Before you remove a table, column, route or variable, check it against what
+production runs (`git fetch origin prod`, then `git grep` on `FETCH_HEAD`), not
+only against your branch.
+
+The same day a migration dropped `bff_job_lane_turns`. A scout had proven the
+table dead: no reader and no writer anywhere on the branch. Production was two
+weeks and a whole workflow engine behind `develop`, and its running release
+still claimed every background job through that table. The drop would have
+broken production's old pods during the rollout of its next release, and any
+rollback to it. `ci/migration_contract.py` caught it; no person and no agent
+had.
+
+So a removal is checked against what production runs, not against the branch:
+`git fetch origin prod`, then `git grep` on `FETCH_HEAD` for the table, column,
+route or variable, before the migration is written. The folder-card table's
+unused columns stayed for the same reason. The `migration:contract` label says
+"production is past every build that reads this"; whoever sets it has looked.
+
+The wider lesson is the gap itself. Thirty-six migrations and one engine apart,
+every removal on `develop` is a guess about production, and every promotion is
+a single large step. Promoting in small steps, often, is what makes the check
+above cheap.
+
+## Industry standard first
+
+Where a published standard or the dominant convention covers the problem, use it
+and its vocabulary: MCP for agents, A2A for agent-to-agent work, OAuth 2.1 and
+the RFCs behind it for delegation, OpenAPI for HTTP contracts, the vendor's own
+product (a WorkOS feature) before our own. Look the standard up before you
+design; a name we invent for a thing the standard already names is a
+translation every agent and new colleague pays for. Deviate only with the reason
+written in an ADR. Anything an agent reads (tool names, descriptions, errors,
+cards over the wire) is English, with one word per concept; German is for
+people, through i18n, and for domain data. How to name a thing:
+[`naming.md`](naming.md).
+
+## Agents can act in every tool we choose
+
+A tool we adopt (CMS, CRM, tracker, analytics, an infrastructure service) lets an
+agent read, create, edit, publish and query in it through the vendor's official
+MCP server, or at least a complete, documented API with scoped tokens. Its
+configuration is code an agent can change by PR, and an agent's edits have a
+draft or review step and a revision history to roll back from. Record the check
+in the tool's ADR; the checklist is in [`ai-native-tooling.md`](ai-native-tooling.md).
+
+## Question the rules, including these
+
+A rule records a decision someone made with what they knew then. When one blocks
+the better result, or a new standard makes it wrong, say so and change the rule
+in the same change, with the reason. Keep the code straight rather than
+contorting it around the rule, and never break the rule silently.
+
+## Scope
+
+Fix errors you meet, including ones that pre-date your change. "It was already
+broken" leaves it broken; when a fix is genuinely out of scope, say so loudly in
+the PR.
+
+Question necessity first, then simplify. The best part is no part: ask whether
+existing machinery already covers it, and finish with a pass that tries to
+delete. Reduce complexity, never features. That pass is part of done.

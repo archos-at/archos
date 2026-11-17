@@ -116,9 +116,9 @@ For each row: set `status='purging'`, run the entity's step list, then set `purg
 
 The status and its moves are declared once (`DELETION_LIFECYCLE` in `apps/workspace/bff/db/schema/deletion-queue.ts`, ADR-0179; migration 0223 adds the CHECK on the five values), and five rules keep a row from saying something untrue:
 
-- **The purged mark is written in the purge's own transaction** (`markPurged(tx, id)`), so a purge that committed is `purged`. One case remains: a chat or folder is erased through the BFF over HTTP, and if the purger's transaction then fails on its final attempt, `reapStranded` records `failed` for something already erased.
+- **The purged mark is written in the purge's own transaction** (`markPurged(tx, id)`), so a purge that committed is `purged`. One case remains: a chat or folder is erased through the BFF over HTTP, and if the purger's transaction then fails on its final attempt, `reapStranded` records `failed` for something already erased. The next two rules close such a row: `closeErased` for a folder, the trace sweep for a chat.
 - **A claim is a token.** Every claim writes a fresh `claimed_at`, and every closing write (finish, release, fail), the purger's and a request's alike, matches the `claimed_at` it took. A request's claim has no deadline and the purger takes a claim over after 15 minutes, so two holders can run the same idempotent purge; a holder whose claim was taken over changes nothing. A final attempt that was reaped to `failed` while still alive closes its own row `purged` when it finishes.
-- **A folder already purged is closed `purged`** (`closeErased`, every tick before the reap): a folder row that is `failed`, or stranded at the cap, whose `project_folders.purged_at` is set and whose payload owes no trace erasure. A chat's row cannot be told apart this way, because nothing durable records whether its traces were erased.
+- **A folder already purged is closed `purged`** (`closeErased`, every tick before the reap): a folder row that is `failed`, or stranded at the cap, whose `project_folders.purged_at` is set and whose payload owes no trace erasure. A chat's `failed` row is closed by the scheduler instead (`conversation-trace-erasure`, see **Langfuse traces**): the chat's `conversations` row being gone is the durable record that the chat is erased, and `payload.langfuseTracesErasedAt` the record for its traces, which only that sweep writes. So it erases the traces, stamps the row and closes it `purged` in one transaction. A folder whose removal owes trace erasure still stays `failed`, for a person.
 - **A request that releases its claim applies the purger's rule**: `failed` at the attempt cap, `pending` below it. A request that purged the folder and hands the trace erasure to the purger resets the attempts.
 - **A `pending` row always has an attempt left, and the database refuses one that has none** (CHECK `deletion_queue_pending_has_attempts`, migration 0227, `NOT VALID` like 0223's). The purger claims only below the cap, so a `pending` row at it would wait for ever. No writer leaves one: a failed attempt at the cap is `failed` (`markFailed`, `releaseBinEntry`), a hold's release refunds its attempt, and the hand-over to the purger starts the attempts again. The purger's per-tick repair of such rows (`reofferExhausted`) is gone: the migration did it once, for the rows from before these rules.
 
@@ -244,7 +244,9 @@ finishes cleanly. Three outcomes, by design:
 - **Langfuse unreachable, a 429 or a 5xx**: the step throws, the attempt is
   recorded and the queue row retries with its usual backoff. It runs after the
   BFF's erasure, so the retry finds the chat gone (`already-gone`) and goes
-  straight back to the traces.
+  straight back to the traces. When it fails on every attempt up to the cap,
+  the row ends `failed` with the chat erased and its traces still at Langfuse;
+  the scheduler's sweep below goes back for them and closes the row.
 - **Langfuse answers something that is not the session's data** (a row of another
   session): the step throws before deleting anything. The client deletes what it
   is shown, and a filter Langfuse ignores returns everything.
@@ -267,7 +269,23 @@ blocked by `legal_hold_blocks`. For each it asks the hold predicate once
 more, deletes the chat's traces with the same client, and stamps
 `payload.langfuseTracesErasedAt` on the row (a jsonb merge; no column). A chat
 under a hold keeps its traces and is looked at again, inside the 35 days, after
-the hold is released. A chat the purger erased itself is in the same set and is
+the hold is released.
+
+The same sweep takes a row that ended `failed` although the chat itself was
+erased: the purger's trace step failed on every attempt (Langfuse down for the
+hours the ten attempts span), or the purger's closing write failed on the last
+one. It reads `status = 'failed'` rows with no `conversations` row of that id,
+whose last attempt (`claimed_at`) is within the same 35 days and at least the
+same 15 minutes ago, unstamped and not held. The missing row is what says the
+chat is erased, so nothing new is stored. A `failed` row whose chat still
+exists (the BFF's erasure itself failed, or the row names a live chat) is never
+selected and keeps its traces, and the sweep asks for the row once more right
+before it deletes. After the traces are deleted it stamps the row and closes it
+`purged` in the same transaction (`markConversationTracesErased`; the
+lifecycle's `close` from `failed`), so the row leaves the failed list of
+`GET /api/deletions`. `pending` and `purging` rows stay the purger's. A row
+that failed more than 35 days ago is not reached: by then the retention sweep
+has removed the traces, and the row stays `failed`. A chat the purger erased itself is in the same set and is
 simply repeated: the list finds nothing. Same failure semantics as the purger's
 step: not configured is a no-op, a 429, a 5xx, a timeout or a database outage
 stops the run and retries on the next tick (a WARN streak, one ERROR after about
@@ -292,7 +310,8 @@ removes them. A trace whose root observation was never recorded is not found by
 it.
 
 A row that reaches `failed` stays in `GET /api/deletions` with its `last_error`
-(the Recently deleted panel shows only projects). A person who deletes the chat
+(the Recently deleted panel shows only projects), unless the chat is gone and
+the trace sweep closes it (above). A person who deletes the chat
 again gets a new pending row, and a successful erase closes both.
 Migration 0095 queued the chats that were already stuck deleting before this
 existed.
@@ -370,7 +389,7 @@ How the design satisfies the articles enterprise DPAs and security questionnaire
 | **Art. 17** — right to erasure "without undue delay" | Deletion pipeline for all five entity types; grace + retry bounded within the Art. 12(3) one-month response window; `purged_at` timestamps are the evidence of completion |
 | **Art. 17** — erasing a folder and what was derived from it | The folder's purge after at most 23 days (or at once by „Endgültig löschen"): the documents by the document delete's steps, and under „Mit dem Ordner entfernen" the memory notes drawn from it, the answers that drew on it (replaced), the conversations' Langfuse traces; the queue row (ids, counts, who, when; no content) is the proof. A legal hold defers it |
 | **Art. 5(1)(e)** — derived content outliving a deleted folder | The organization's setting „Inhalte aus gelöschten Ordnern": unchanged, project, admins only, or removed with the folder; keeping derived personal data longer than its source is the organization's decision |
-| **Art. 17 / Art. 5(1)(e)** — the prompts and answers in LLM traces | Langfuse traces are deleted by conversation id when the purger erases a chat or a project (native delete API, every edition; asynchronous, usually within about 15 minutes), and by the scheduler's daily sweep once older than `TRACE_RETENTION_DAYS` (default 30, minimum 3). A chat deleted by the request itself is picked up by a scheduler job from its closed queue row, within about the hour (legal-held chats keep theirs); the 30-day sweep is the net behind it. Langfuse does not remove copies saved into datasets; Piloti creates none |
+| **Art. 17 / Art. 5(1)(e)** — the prompts and answers in LLM traces | Langfuse traces are deleted by conversation id when the purger erases a chat or a project (native delete API, every edition; asynchronous, usually within about 15 minutes), and by the scheduler's daily sweep once older than `TRACE_RETENTION_DAYS` (default 30, minimum 3). A chat deleted by the request itself is picked up by a scheduler job from its closed queue row, within about the hour (legal-held chats keep theirs); the same job goes back for an erased chat whose trace deletion failed on every purger attempt; the 30-day sweep is the net behind it. Langfuse does not remove copies saved into datasets; Piloti creates none |
 | **Art. 12(3)** — respond within one month | Grace periods capped at ≤ 23 days; `attempts`/`failed` status surfaces stuck purges before the deadline |
 | **Art. 18** — restriction of processing | Legal hold: data preserved, hidden from active use, purge blocked until release |
 | **Art. 5(2) / Art. 30** — accountability, records of processing | `deletion_queue` rows survive purge as the record of what was erased, when, by whose request; `legal_holds` records restriction events |

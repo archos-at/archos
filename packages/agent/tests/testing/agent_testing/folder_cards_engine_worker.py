@@ -1,23 +1,3 @@
-"""An ingest worker for the folder cards' real-engine tests: our tasks, served with a scripted builder.
-
-``python -m agent_testing.folder_cards_engine_worker <dir>`` serves what the standard
-ingest worker serves (``ingest_workflow.serve`` with ``folder_cards.workflow.workflows()``)
-against the engine the ``HATCHET_CLIENT_*`` variables name. The dirty set, the sweep, the
-run over a collection and everything between Hatchet and them is the production code.
-Only one folder's build is a stand-in, because it needs a model, the BFF and Qdrant.
-
-The folder's own name (its last segment) says how its build ends:
-
-* ``ok-…``: built at once.
-* ``slow-…``: built after ``SLOW_SECONDS``.
-* ``flaky-…``: fails on its first attempt, built on the next.
-* ``bad-…``: fails on every attempt.
-
-Each build's start and end is a line in ``<dir>/events.log``:
-``<event> <collection> <folder path> <attempt> <monotonic seconds>``, read by the tests.
-No debounce, and two seconds of backoff, so a test waits seconds where production waits minutes.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -67,7 +47,6 @@ class ScriptedBuilder:
 
 
 def script(events: Path) -> None:
-    """Replace one folder's build, and what it would read, with the script; keep everything around it."""
     queue.QUIET_SECONDS = 0
     workflow.BACKOFF_FACTOR = BACKOFF_FACTOR
     gate._fetch = lambda organization_id: True

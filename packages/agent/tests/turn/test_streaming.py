@@ -1,5 +1,3 @@
-"""A turn's wire bodies folded back into its text: the agent runtime's single-output fold and the Stop partial."""
-
 from __future__ import annotations
 
 import json
@@ -61,7 +59,6 @@ class TestFoldTurn:
             fold_turn([_delta("Vorläufig")])
 
     def test_the_return_annotation_is_an_object_nat_can_resolve(self):
-        """The agent runtime builds the workflow's single output type from it; a string annotation breaks `nat run`."""
         assert fold_turn.__annotations__["return"] is str
 
 
@@ -90,7 +87,6 @@ class TestTurnTextFold:
 
 
 def test_a_stopped_turn_keeps_no_card_place():
-    """A cancelled turn carries no cards, so neither the settled nor the streamed text keeps a ``[[card:N]]``."""
     settled = TurnTextFold()
     settled.add(StateSnapshotBody(snapshot=AnswerSnapshot(text="Vorher.\n\n[[card:1]]\n\nNachher [1].")))
     assert settled.partial() == "Vorher.\n\nNachher [1]."
@@ -104,7 +100,6 @@ def _card(index: int) -> CardBody:
 
 
 def _stamped(*bodies) -> TurnTextFold:
-    """Folded with the seqs a wire would stamp them, from 1."""
     fold = TurnTextFold()
     for seq, body in enumerate(bodies, start=1):
         fold.add(body, seq)
@@ -112,8 +107,6 @@ def _stamped(*bodies) -> TurnTextFold:
 
 
 class TestStoppedWhereTheReaderWas:
-    """``cancel_turn.shown``: the stopped answer is the text the asker had on screen, not what had arrived."""
-
     def test_the_text_is_cut_to_what_was_shown(self):
         fold = _stamped(_delta("Erster Satz. "), _delta("Zweiter Satz, das der Leser nie sah."))
 
@@ -134,7 +127,6 @@ class TestStoppedWhereTheReaderWas:
         assert _stamped(_delta("Vorher.\n\n[[card:")).stopped(ShownAnswer(seq=1, chars=15)).text == "Vorher."
 
     def test_the_reader_was_still_on_the_streamed_text_when_the_settle_replaced_it(self):
-        """The snapshot was in flight at the press: the cut is of the text they were reading."""
         snapshot = AnswerSnapshot(text="Ganz neu formuliert [1].", sources=[WireSource(content="c", number=1)])
         fold = _stamped(_delta("Alt gestreamt [4] und weiter."), StateSnapshotBody(snapshot=snapshot))
 
@@ -201,7 +193,6 @@ class TestStoppedWhereTheReaderWas:
         assert (kept.answer_meta, kept.cards) == (None, [])
 
     def test_without_a_shown_position_the_settled_text_keeps_its_sources_past_a_card_place(self):
-        """The card place is dropped, and that no longer reads as a text that differs from the settle."""
         sources = [WireSource(content="c", number=1)]
         text = "Vorher.\n\n[[card:1]]\n\nNachher [1]."
         kept = _stamped(StateSnapshotBody(snapshot=AnswerSnapshot(text=text, sources=sources))).stopped()
@@ -218,11 +209,6 @@ def _stopped_cases() -> list[dict]:
 
 @pytest.mark.parametrize("case", _stopped_cases(), ids=lambda case: case["case"])
 def test_the_stop_rule_the_client_and_the_bff_apply_too(case):
-    """``stopped-cases.jsonl`` is read by ``stopped-answer.spec.ts`` as well: the two copies of the rule cannot drift.
-
-    The server folds every frame it stamped, including those after the press;
-    the cut is of what the reader had at ``shown.seq``.
-    """
     fold = TurnTextFold()
     for seq, body in enumerate(case["events"], start=1):
         envelope = {"v": 2, "conversation_id": "c", "turn_id": "t", "seq": seq, "ts": 0}

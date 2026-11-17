@@ -1,25 +1,3 @@
-/**
- * Why a document could not be read, as a category the UI can say in the
- * reader's language.
- *
- * The stored `errorMessage` is written by whichever tier gave up: the knowledge
- * layer (`reason: text`, e.g. `office_rendition_required: …`), the ingest status
- * store (`interrupted: …`), the BFF (`INGEST_DISPATCH_FAILED_MESSAGE`,
- * `RENDITION_REQUIRED_MESSAGE` in `lib/documents/ingest-dispatch.ts`) or a provider
- * error passed through verbatim. It is persisted server-side, so it cannot be
- * localized where it is written; it is classified here and the raw text stays
- * available behind a „Details" disclosure.
- *
- * `tests/knowledge_layer_tests/test_ingest_failure_prefix_parity.py` reads
- * {@link INGEST_FAILURE_PREFIXES} and fails when the backend grows a
- * `reason:` prefix this file does not map (the knowledge layer, the agent's
- * knowledge package and the API plugin's ingest worker are all scanned).
- *
- * This is the SENTENCE. Whether reading the file again is worth anything is
- * not decided from this text: the backend sends a category beside it, which
- * the BFF persists and `lib/documents/retry-policy.ts` decides from.
- */
-
 import type { Translator } from '@/i18n/translate'
 
 export type IngestFailureKind =
@@ -41,15 +19,6 @@ export type IngestFailure =
   | { kind: 'unreadable_pages'; failed: number; total: number; raw: string }
   | { kind: Exclude<IngestFailureKind, 'unreadable_pages'>; raw: string }
 
-/**
- * The backend's machine prefixes (the text before the first `:`), each to its
- * category. Parsed by the Python parity test: keep it one `'prefix': 'kind',`
- * entry per line.
- *
- * `unreadable_job` (the queued job's payload could not be read,
- * `jobs/ingest_dispatch.py`) says the dispatch sentence: reading never started,
- * and no service restarted.
- */
 export const INGEST_FAILURE_PREFIXES = {
   office_rendition_required: 'rendition_failed',
   original_download_failed: 'download_failed',
@@ -62,13 +31,6 @@ export const INGEST_FAILURE_PREFIXES = {
   screening_unavailable: 'screening_unavailable',
 } as const satisfies Record<string, IngestFailureKind>
 
-/**
- * Whole sentences the BFF stores, matched by their start so a later
- * `: detail` suffix still classifies. Mirrors `INGEST_DISPATCH_FAILED_MESSAGE`,
- * `RENDITION_REQUIRED_MESSAGE` and `DRAWING_UNREADABLE_MESSAGE` in `lib/documents/ingest-dispatch.ts`, which is
- * `server-only` and cannot be imported here; `ingest-failure.spec.ts` holds
- * the two in step.
- */
 export const BFF_FAILURE_PHRASES = {
   'Ingestion could not be started': 'dispatch_failed',
   'The PDF version of this file could not be created': 'rendition_failed',
@@ -95,12 +57,10 @@ function fromPrefix(prefix: string, raw: string): IngestFailure | null {
   const kind: IngestFailureKind = INGEST_FAILURE_PREFIXES[prefix]
   if (kind !== 'unreadable_pages') return { kind, raw }
   const counts = UNREADABLE_PAGES.exec(raw)
-  // Without both numbers the sentence would say "undefined of undefined".
   if (!counts) return { kind: 'unknown', raw }
   return { kind, failed: Number(counts[1]), total: Number(counts[2]), raw }
 }
 
-/** The category of a stored ingest failure; `null` when there is no message. */
 export function classifyIngestFailure(errorMessage: string | null | undefined): IngestFailure | null {
   const raw = errorMessage?.trim()
   if (!raw) return null
@@ -117,10 +77,6 @@ export function classifyIngestFailure(errorMessage: string | null | undefined): 
   return { kind: 'unknown', raw }
 }
 
-/**
- * The sentence for a failure, from the `files` namespace. `unknown` says the
- * generic sentence; the raw text is for the „Details" disclosure, not here.
- */
 export function ingestFailureSentence(failure: IngestFailure, t: Translator): string {
   if (failure.kind === 'unreadable_pages') {
     return t('ingestFailure.unreadable_pages', { failed: failure.failed, total: failure.total })
@@ -128,11 +84,6 @@ export function ingestFailureSentence(failure: IngestFailure, t: Translator): st
   return t(`ingestFailure.${failure.kind}`)
 }
 
-/**
- * Whether a tracked file's failure happened while it was being read, not on
- * the way up. Only a file the server accepted has an ingest failure; before
- * that, `errorMessage` is the upload's own and is shown as it is.
- */
 export function failedWhileReading(file: { serverFileId?: string | null; jobId?: string | null }): boolean {
   return Boolean(file.serverFileId || file.jobId)
 }

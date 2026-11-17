@@ -1,32 +1,5 @@
 'use client'
 
-/**
- * Everything the model page used to be, behind one button.
- *
- * ## Why it still exists
- *
- * The Prüfbuch runs the OIB rule catalogue over the building and exports BCF;
- * the Raumbuch is a room schedule an architect would otherwise assemble by
- * hand; the revision timeline answers "what did this change break". None of
- * that is decoration and deleting it would be deleting the product.
- *
- * ## Why it is not the front door
- *
- * Because none of it is what someone opening a model came to do. They came to
- * look at a building. Five tabs of tables occupying half the screen before a
- * single click is what made the old page read as a debugging console — the
- * work was there, it was just standing in front of the thing it was about.
- *
- * ## Why a drawer and not a modal
- *
- * A modal over a modal would hide the building, and the building is what every
- * one of these panels is talking about. As a drawer INSIDE the stage, a health
- * finding highlights walls the reader can see while they read the finding, and
- * a room in the Raumbuch selects itself in the viewport beside it. That
- * two-way link is the whole reason to keep these panels in the viewer rather
- * than on a page of their own.
- */
-
 import type { JSX } from 'react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ClipboardCheck, X } from 'lucide-react'
@@ -61,37 +34,16 @@ import { IfcModelCompare } from './ifc-model-compare'
 import { IfcProfileSuggestions, IfcQuantityTakeoff, IfcRoomSchedule } from './ifc-model-tables'
 import { IfcRevisionTimeline } from './ifc-revision-timeline'
 
-/**
- * Distinguishes two requests for the same comparison.
- *
- * A counter rather than a timestamp so the value is deterministic under test
- * and cannot collide when two clicks land in the same millisecond.
- */
 let compareRequests = 0
 const compareToken = (): number => (compareRequests += 1)
 
 export interface ModelAdvancedSheetProps {
   open: boolean
   onClose: () => void
-  /**
-   * The project the sheet was opened from, or `null` in the org-wide Archiv.
-   *
-   * Four of the five tabs are facts about the MODEL and work either way.
-   * Compliance is the exception and is not a gap to paper over: the OIB
-   * catalogue is run against a Gebäudeklasse and a Hauptnutzung that live in
-   * the project brief, so without a project there is no regulation to check
-   * against. Guessing one would assert a verdict about a building to an
-   * architect, which is the one failure this product cannot afford — so the
-   * tab is disabled and says why.
-   */
   projectId: string | null
   model: BimModelHeaderView
   models: readonly BimModelHeaderView[]
   elements: readonly BimViewerElement[]
-  /**
-   * The state of the walk that fills {@link elements}, because an empty array
-   * is not a fact about the building — see `IfcElementTable`.
-   */
   elementsLoading?: boolean
   elementsError?: boolean
   onReloadElements?: () => void
@@ -101,7 +53,6 @@ export interface ModelAdvancedSheetProps {
   onSelectStorey: (storey: string | null) => void
   selectedGlobalId: string | null
   onSelectElement: (element: BimViewerElement | null) => void
-  /** Turn a finding into a VIEW: highlight the offending elements and x-ray. */
   onShowElements: (globalIds: string[], status?: 'fail' | 'info') => void
   onOpenModel: (filename: string) => void
 }
@@ -128,9 +79,6 @@ export function ModelAdvancedSheet({
   const t = useTranslations(bimCopy)
   const modelId = model.status === 'ready' ? model.id : null
 
-  // Each heavy table is fetched only once its tab is open: a Raumbuch over a
-  // 200k-element model is a real query, and almost nobody opens this drawer.
-  /** The drawer's own heading — see the `tabIndex={-1}` on it below. */
   const headingRef = useRef<HTMLHeadingElement>(null)
   useEffect(() => {
     if (open) headingRef.current?.focus()
@@ -138,19 +86,6 @@ export function ModelAdvancedSheet({
 
   const [takeoffQuantity, setTakeoffQuantity] = useState<string>('NetSideArea')
   const [takeoffByMaterial, setTakeoffByMaterial] = useState(false)
-  /**
-   * A tab that has BEEN opened keeps its data.
-   *
-   * The gate used to be "is this tab open right now", so leaving Mengen and
-   * coming back re-ran the room schedule and the take-off — two full element
-   * reads — for data the browser had held a second earlier. The comment on
-   * these calls says they are "fetched only once its tab is open"; with the
-   * gate on the live tab, "once" meant once per visit.
-   *
-   * Sticky rather than eager: nothing is fetched for a tab nobody opens, which
-   * is the whole point of gating, and nothing is re-fetched for one they
-   * return to.
-   */
   const [visited, setVisited] = useState<ReadonlySet<BimModelTab>>(() => new Set())
   useEffect(() => {
     if (!open) return
@@ -167,28 +102,13 @@ export function ModelAdvancedSheet({
   )
   const profile = useBimProfileSuggestions(opened('overview') ? modelId : null)
 
-  // The rule catalogue reads the project brief. A fact the brief does not
-  // carry arrives as null and the rules that need it stand down, visibly.
   const ruleFacts = useProjectRuleFacts(projectId)
 
-  /**
-   * The revision series this model belongs to, read from the file names of the
-   * models already loaded — no extra request, and no lineage column anyone
-   * would have to maintain.
-   */
   const series = useMemo(
     () => findRevisionSeries(groupModelRevisions([...models]), model.id),
     [models, model.id]
   )
 
-  /**
-   * The ids of those revisions, for scoping a human confirmation.
-   *
-   * A signature belongs to the building it was made about. Without this the
-   * Prüfbuch showed one building's confirmation on another's, labelled
-   * "Älterer Stand" — which says it is an earlier version of the same
-   * building, and it is not.
-   */
   const seriesModelIds = useMemo(
     () => (series ?? { revisions: [] }).revisions.map((entry) => entry.model.id),
     [series]
@@ -196,16 +116,11 @@ export function ModelAdvancedSheet({
 
   const compliance = useBimCompliance(
     projectId,
-    // Held shut without a project: the catalogue would run against facts
-    // nobody supplied. `useProjectRuleFacts(null)` never becomes ready, so the
-    // panel would sit on a spinner forever otherwise.
     projectId && opened('compliance') ? modelId : null,
     ruleFacts,
     seriesModelIds
   )
 
-  // The revision immediately before the one on screen — the only base a
-  // "what did this change break" question has a natural answer for.
   const previousRevision = useMemo(() => {
     if (!series) return null
     const index = series.revisions.findIndex((entry) => entry.model.id === model.id)
@@ -217,13 +132,6 @@ export function ModelAdvancedSheet({
     null
   )
 
-  /**
-   * The BCF download, as a URL rather than a fetch.
-   *
-   * Carries the same facts the panel ran the catalogue with, so the archive
-   * cannot be built against a different Gebäudeklasse than the verdicts the
-   * architect just read.
-   */
   const bcfHref = useMemo(() => {
     if (!modelId || !projectId) return null
     const query = new URLSearchParams({ modelId })
@@ -234,17 +142,7 @@ export function ModelAdvancedSheet({
     return `/api/projects/${projectId}/bim/checks/export?${query.toString()}`
   }, [modelId, projectId, ruleFacts.buildingClass, ruleFacts.mainUse])
 
-  /**
-   * "Apply what the model says to the project brief."
-   *
-   * Deliberately a question in the chat rather than a write from this panel:
-   * the facts are inferences from an export, `storeys_above_ground` decides a
-   * Gebäudeklasse, and the confirm-the-patch card is where a change to the
-   * brief belongs (ADR-0030).
-   */
   const profileQuestionHref = useMemo(() => {
-    // The question is asked IN a project's conversation, and there is none in
-    // the Archiv. Null rather than a link to nowhere.
     if (!projectId) return null
     const question = `Übernimm die aus dem Modell ${model.filename} ableitbaren Projektangaben in die Projektdaten.`
     return `/app/projects/${projectId}/chat?${new URLSearchParams({ ask: question }).toString()}`
@@ -257,8 +155,6 @@ export function ModelAdvancedSheet({
       role="complementary"
       aria-label={t('stage.advanced')}
       className={cn(
-        // Starts BELOW the close pill rather than at the corner: covering the
-        // way out of the stage would leave Escape as the only exit.
         'absolute top-16 right-3 bottom-3 z-30 flex w-[min(26rem,calc(100%-1.5rem))] flex-col overflow-hidden sm:top-[4.5rem] sm:right-4 sm:bottom-4',
         'animate-in fade-in-0 slide-in-from-right-2 duration-base ease-entrance motion-reduce:animate-none'
       )}
@@ -369,14 +265,6 @@ export function ModelAdvancedSheet({
             rules={compliance.data?.rules ?? null}
             summary={compliance.data?.summary ?? null}
             shoppingList={compliance.data?.shoppingList ?? null}
-            // `|| !ruleFacts.ready`, the same rule the chat card applies.
-            // `useBimCompliance` holds the query back until the brief has been
-            // read — it must not run the catalogue against a Gebäudeklasse it
-            // has not seen yet — and a held query is `isLoading: false`. So for
-            // the length of the profile round trip this panel rendered as a
-            // catalogue that had RUN and found nothing: no spinner, no badges,
-            // no rows, no error. On the surface whose whole job is to say what
-            // the building still owes.
             isLoading={compliance.isLoading || !ruleFacts.ready}
             error={compliance.error}
             truncated={compliance.data?.truncated ?? false}
@@ -433,8 +321,6 @@ export function ModelAdvancedSheet({
             }
           />
           <IfcQuantityTakeoff
-            // The model's own declared symbols, so the value column can name
-            // what it is counting — see `BIM_TAKEOFF_DIMENSION`.
             units={
               schedule.data?.schedule.units ?? { area: '', volume: '', length: '' }
             }
@@ -459,9 +345,6 @@ export function ModelAdvancedSheet({
             series={series}
             currentModelId={model.id}
             onOpen={(next) => onOpenModel(next.filename)}
-            // Comparing a step means looking at the newer side of it, so the
-            // stage switches to that revision and then asks the compare panel
-            // to run against its predecessor.
             onCompareWithPrevious={(revision, previous) => {
               onOpenModel(revision.model.filename)
               setCompareRequest({ baseModelId: previous.id, at: compareToken() })

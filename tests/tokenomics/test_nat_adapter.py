@@ -1,8 +1,3 @@
-"""Tests for agent-runtime trace parsing and phase inference.
-
-Module under test: packages/agent/src/agent/tokenomics/nat_adapter.py
-"""
-
 import json
 from pathlib import Path
 
@@ -137,7 +132,6 @@ def _llm_end(ts: float, uuid: str, span_ts: float | None = None) -> dict:
 
 
 def test_parse_trace_end_to_end(tmp_path: Path):
-    """Orchestrator LLM outside task; planner LLM inside task window; one tool call."""
     steps = [
         _payload("WORKFLOW_START", 100.0, uuid="w0", data={"input": "my question?"}),
         _llm_end(101.0, "l0", span_ts=100.5),

@@ -16,11 +16,6 @@ import {
 } from './service'
 import type { MissingSourceCandidate } from './missing-sources'
 
-/**
- * The findings engine IS the actionable half of the feature — an operator acts
- * on what it says. These tests pin the rules, the thresholds, and the ordering.
- */
-
 const kind = (k: string, turns: number, items = turns): CitationKindTotal =>
   ({ kind: k, turns, items, share: 0 }) as CitationKindTotal
 
@@ -69,15 +64,12 @@ const ids = (findings: { id: string }[]): string[] => findings.map((finding) => 
 
 describe('buildFindings', () => {
   it('returns nothing at all when no turns were observed', () => {
-    // An empty window has no diagnosis — not even "all clear", which would
-    // claim a health verdict the data cannot support.
     expect(buildFindings({ ...base, turns: 0 })).toEqual([])
   })
 
   it('reports an explicit all-clear when turns ran and nothing tripped', () => {
     const findings = buildFindings(base)
     expect(ids(findings)).toEqual(['all_clear'])
-    // Shares are fractions; the client formats them in the reader's locale.
     expect(findings[0].metrics).toEqual({ turns: 1000, share: 1 })
   })
 
@@ -113,9 +105,6 @@ describe('buildFindings', () => {
     const ungrounded = findings.find((f) => f.id === 'answers_ungrounded')
     expect(ungrounded?.severity).toBe('error')
     expect(ungrounded?.metrics.share).toBeCloseTo(0.02)
-    // Must NOT borrow the worst org from the overall defect rollup: that org's
-    // 18 defects may be removals with zero ungrounded answers among them, and
-    // naming it would send an operator to audit the wrong tenant's corpus.
     expect(ungrounded?.subject).toBeNull()
   })
 
@@ -137,7 +126,6 @@ describe('buildFindings', () => {
     })
     expect(ids(frequentAndInvented)).toContain('citations_invented')
 
-    // Same volume, but the removals are duplicates — cosmetic, not invention.
     const frequentButCosmetic = buildFindings({
       ...base,
       defectTurns: 80,
@@ -147,7 +135,6 @@ describe('buildFindings', () => {
     expect(ids(frequentButCosmetic)).not.toContain('citations_invented')
     expect(ids(frequentButCosmetic)).toContain('duplicates_only')
 
-    // Invention-shaped, but far too rare to act on.
     const rare = buildFindings({
       ...base,
       defectTurns: 10,
@@ -158,10 +145,6 @@ describe('buildFindings', () => {
   })
 
   it('does not accuse the model of inventing sources the platform actually holds', () => {
-    // The regression this guards: `citation_key_not_in_registry` means "not
-    // among the sources RETRIEVED on that turn", not "unknown to the platform".
-    // Reading it as invention produced two contradictory diagnoses for the same
-    // removals — "tighten the prompt" next to "check your indexing".
     const findings = buildFindings({
       ...base,
       turns: 1,
@@ -180,9 +163,6 @@ describe('buildFindings', () => {
   })
 
   it('counts a cited web page as invention even though it cannot be added', () => {
-    // `action: 'none'` means "no remedy", not "the platform has it" — a web URL
-    // retrieval never returned is the clearest case of a source written from
-    // memory, and gating on addability would have hidden it.
     const findings = buildFindings({
       ...base,
       defectTurns: 80,
@@ -223,8 +203,6 @@ describe('buildFindings', () => {
   })
 
   it('never reports more affected turns than the window flagged', () => {
-    // Three sources rejected on ONE turn are three candidate rows, each with
-    // turns: 1. Summing them claimed three turns in a window that had one.
     const findings = buildFindings({
       ...base,
       turns: 1,
@@ -291,8 +269,6 @@ describe('buildFindings', () => {
   })
 
   it('never names the unattributed bucket as the outlier', () => {
-    // organizationId null is "events we could not attribute", not a tenant an
-    // operator can go look at — and it would render an empty subject label.
     const findings = buildFindings({
       ...base,
       defectTurns: 100,
@@ -304,8 +280,6 @@ describe('buildFindings', () => {
   })
 
   it('ignores a low-volume organization however bad its rate looks', () => {
-    // 2 turns, both flagged, is noise — calling it out would send an operator
-    // chasing a statistical artefact.
     const findings = buildFindings({
       ...base,
       defectTurns: 100,
@@ -315,9 +289,6 @@ describe('buildFindings', () => {
   })
 
   it('passes every share as a fraction, never a pre-rounded percentage', () => {
-    // Regression: shares were sent as `5.2` and spliced into "{share}%", so
-    // German read "5.2%" instead of "5,2 %". The client formats; this layer
-    // must not.
     const findings = buildFindings({
       ...base,
       defectTurns: 200,
@@ -340,8 +311,6 @@ describe('buildFindings', () => {
   })
 
   it('reads removal shares from citations_removed reasons only', () => {
-    // Regression: a confidence_capped reason row in the same list was summed
-    // into the "of removed citations" share.
     const findings = buildFindings({
       ...base,
       defectTurns: 80,
@@ -362,9 +331,6 @@ describe('buildFindings', () => {
   })
 
   it('treats a source of unknown presence as neither missing nor held', () => {
-    // With the inventory unavailable the candidate carries present: null. It
-    // must not be offered as an add, nor blamed on indexing — and, being no
-    // evidence either way, it must not clear the model of invention.
     const unknown = candidate({ present: null, action: 'inventory_unknown' })
     const findings = buildFindings({
       ...base,

@@ -1,5 +1,3 @@
-"""Tests for the per-turn memory digest fetch client (fetch_memory_digest)."""
-
 import contextlib
 import io
 import json
@@ -78,25 +76,15 @@ def test_transport_error_propagates(monkeypatch):
 
 
 def test_digest_uses_tight_timeout(monkeypatch):
-    """The per-turn digest read must use the tight critical-path timeout, not
-    the longer timeout the write calls allow, so a slow BFF never stalls the
-    turn before intent classification."""
     monkeypatch.setenv("INTERNAL_API_TOKEN", "t")
     with _patched_opener(monkeypatch, body={"digest": "d"}) as captured:
         pm.fetch_memory_digest(project_id="p1", organization_id=None)
     assert captured["timeout"] == pm._DIGEST_TIMEOUT_SECONDS
-    # 2.5s, was 1.5: the digest build now embeds the turn's question for
-    # relevance-ranked recall (the BFF caps that embed at ~1s of this budget).
-    # Still a critical-path ceiling — raising it further needs the same
-    # TTFT argument this comment carries, not just a bigger number.
     assert pm._DIGEST_TIMEOUT_SECONDS <= 2.5
-    # And it must be tighter than the timeout the (off-critical-path) writes use.
     assert pm._DIGEST_TIMEOUT_SECONDS < pm._REQUEST_TIMEOUT_SECONDS
 
 
 def test_timeout_error_propagates_for_failopen(monkeypatch):
-    """On timeout the fetch raises so the caller can fall back to the frozen
-    connection-time digest (fail-open) instead of dropping memory."""
     monkeypatch.setenv("INTERNAL_API_TOKEN", "t")
     with _patched_opener(monkeypatch, error=TimeoutError("timed out")):
         with pytest.raises(bff_http.BffUnreachableError):
@@ -104,7 +92,6 @@ def test_timeout_error_propagates_for_failopen(monkeypatch):
 
 
 def test_the_turns_restricted_collections_ride_the_query(monkeypatch):
-    """ADR-0087: restricted memory is served only for these."""
     monkeypatch.setenv("INTERNAL_API_TOKEN", "t")
     with _patched_opener(monkeypatch, body={"digest": "d"}) as captured:
         pm.fetch_memory_digest(
@@ -124,7 +111,6 @@ def test_no_restricted_collections_no_param(monkeypatch):
 
 
 def test_the_asker_travels_and_served_restricted_notes_confine_the_turn(monkeypatch):
-    """ADR-0088: restricted notes in the digest are use of their folders, recorded by the BFF."""
     from agent.knowledge.restricted_use import RestrictedUse
     from agent.knowledge.restricted_use import bind_restricted_use
     from agent.knowledge.restricted_use import reset_restricted_use
@@ -148,7 +134,6 @@ def test_the_asker_travels_and_served_restricted_notes_confine_the_turn(monkeypa
         reset_restricted_use(token)
     assert "userId=u1" in captured["url"]
     assert "restrictedCollections=proj_p1_r0123456789ab" in captured["url"]  # pragma: allowlist secret
-    # ADR-0093: the answer the turn writes is marked when a restricted note is admitted.
     assert "answerMessageId=answer-1" in captured["url"]
     assert use.confined is True
 

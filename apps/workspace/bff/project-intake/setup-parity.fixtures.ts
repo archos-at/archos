@@ -16,6 +16,9 @@ import { deriveAll, withDerivedClass } from './derivation-view'
 import { locationRegisterFor } from './location-register'
 import { computeNeeds } from './needs'
 import type { IntakeMode } from './types'
+import { AT_SETUP_RECORDS } from './at-setup.fixtures'
+import { withShippedFallback } from '@/lib/base-knowledge/rulesets/shipped'
+import type { StoredRuleset } from '@/lib/base-knowledge/rulesets/select'
 
 const AT = '2026-11-10T00:00:00.000Z'
 
@@ -106,16 +109,22 @@ export function parityCases(): ParityCase[] {
   })
 }
 
-/** What the setup reads off one case: the views a person sees and the profile a derivation writes. */
-export function setupReadings(parityCase: ParityCase) {
+/** What an office reads with nothing published: the build's records (`readSetupRecords` on an empty read). */
+export const NOTHING_RELEASED: readonly StoredRuleset[] = withShippedFallback([])
+
+/** What an office reads once Austria's pack is released: the released records, no seed. */
+export const AUSTRIA_RELEASED: readonly StoredRuleset[] = withShippedFallback(AT_SETUP_RECORDS)
+
+/** What the setup reads off one case from `records`: the views a person sees and the profile a derivation writes. */
+export function setupReadings(parityCase: ParityCase, records: readonly StoredRuleset[] = NOTHING_RELEASED) {
   const { profile, location, mode } = parityCase
   const definition = projectIntakeDefinitionV1
-  const needs = computeNeeds(profile, definition, { mode, dismissed: [] })
+  const needs = computeNeeds(profile, definition, { mode, dismissed: [], records })
   return {
     needs,
-    derivations: deriveAll(profile, definition),
-    register: locationRegisterFor({ profile, location, mode, needs }),
-    derived: withDerivedClass(profile, definition, 'bldg1', AT),
+    derivations: deriveAll(profile, definition, { records }),
+    register: locationRegisterFor({ profile, location, mode, needs, records }),
+    derived: withDerivedClass(profile, definition, 'bldg1', AT, { records }),
   }
 }
 
@@ -132,8 +141,8 @@ function canonical(value: unknown): string {
 }
 
 /** One case as the fixture holds it: each reading as a short hash of its canonical JSON. */
-export function parityRow(parityCase: ParityCase) {
-  const readings = setupReadings(parityCase)
+export function parityRow(parityCase: ParityCase, records: readonly StoredRuleset[] = NOTHING_RELEASED) {
+  const readings = setupReadings(parityCase, records)
   const hash = (value: unknown) => createHash('sha256').update(canonical(value)).digest('hex').slice(0, 16)
   return {
     name: parityCase.name,

@@ -13,6 +13,11 @@ Richtlinien PDFs on disk, and the corpus is licensed material that belongs to
 whoever operates the platform, so this directory ships **empty**: 71 MB of
 binaries in git made every clone pay for documents that change once a year.
 Put the PDFs here yourself; those tests skip when there are none.
+Every URL is the publisher's own, under `https://www.oib.or.at/wp-content/uploads/`: the 2019 and 2015
+editions, RL 6 2025 and RL 1 2019 at its root, and the Mai 2023 editions in `richtlinien/richtlinie_2023/`
+(RL 1 2023 and RL 5 2023 also sit at the root, RL 1 as `oib-rl_1_ausgabe_mai_2023_0.pdf`). The platform's
+released source record `at-oib` (`access.documents`) lists them; check each file's sha256 against the platform's text of that
+manifestation before you measure with it.
 
 `*.pdf` here is gitignored. Do not commit the corpus back.
 

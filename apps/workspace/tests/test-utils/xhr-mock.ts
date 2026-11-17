@@ -1,14 +1,3 @@
-/**
- * A driveable `XMLHttpRequest` double.
- *
- * Uploads are the one transport that cannot run on `fetch` (only XHR reports
- * request-upload progress), and the test environment has no XHR at all — so
- * anything exercising an upload needs this. It is a DRIVER, not a canned
- * response: a test advances the request through progress events, a response, a
- * network error or an abort, which is the only way to assert on a progress
- * surface's behaviour over time.
- */
-
 type Listener = (event: unknown) => void
 
 export class FakeXhrRequest {
@@ -60,14 +49,10 @@ export class FakeXhrRequest {
     this.dispatch(this.listeners, 'abort', {})
   }
 
-  // ---- test drivers -------------------------------------------------------
-
-  /** Fire an upload progress event. */
   emitProgress(loaded: number, total: number): void {
     this.dispatch(this.uploadListeners, 'progress', { lengthComputable: true, loaded, total })
   }
 
-  /** Complete the request with a status, body and response headers. */
   respond(status: number, responseText = '', headers: Record<string, string> = {}): void {
     this.status = status
     this.responseText = responseText
@@ -75,12 +60,10 @@ export class FakeXhrRequest {
     this.dispatch(this.listeners, 'load', {})
   }
 
-  /** Fail at the transport layer (no response at all). */
   failNetwork(): void {
     this.dispatch(this.listeners, 'error', {})
   }
 
-  /** Exceed the configured timeout. */
   timeOut(): void {
     this.dispatch(this.listeners, 'timeout', {})
   }
@@ -97,21 +80,11 @@ export class FakeXhrRequest {
 }
 
 export interface FakeXhrHandle {
-  /** Every request opened since installation, in order. */
   requests: FakeXhrRequest[]
-  /** The most recent request. Throws if none was made — a clearer failure. */
   last(): FakeXhrRequest
   restore(): void
 }
 
-/**
- * Replace `globalThis.XMLHttpRequest` for the duration of a test.
- *
- * `defineProperty`, not assignment: jsdom installs `XMLHttpRequest` as a
- * non-writable accessor, so a plain `globalThis.XMLHttpRequest = …` throws in
- * the browser-like environment and silently works in the node one — the sort of
- * difference that makes a helper pass in one suite and fail in the next.
- */
 export function installFakeXhr(): FakeXhrHandle {
   const requests: FakeXhrRequest[] = []
   const original = Object.getOwnPropertyDescriptor(globalThis, 'XMLHttpRequest')

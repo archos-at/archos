@@ -1,13 +1,5 @@
 'use client'
 
-/**
- * The ratings filters in the page's own words — „Grund: Ungenau oder Falsche
- * Quelle", „Mit Kommentar" — for every place that has to say what a set of
- * votes was filtered by (the export dialog's summary). The workbook says the
- * same on its overview sheet, server-side, from the same dictionary
- * (`describeRatingsFilters` in `lib/feedback/export-workbook.ts`).
- */
-
 import { useTranslations } from '@/i18n'
 import { platformCopy } from '@/i18n/namespaces/platform'
 import type { RatingsFilters } from '@/lib/feedback/filters'

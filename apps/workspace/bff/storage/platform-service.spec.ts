@@ -35,7 +35,6 @@ describe('getPlatformStorageOverview', () => {
       ['org_local', 'Büro Nord'],
       ['org_prod', 'feld72 Architekten'],
     ])
-    // The local name stands; only the organizations without one are resolved.
     expect(getOrganizationDisplayNames).toHaveBeenCalledWith(['org_prod'])
   })
 

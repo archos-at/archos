@@ -20,12 +20,6 @@ const transfer = (types: string[], data: Record<string, string> = {}) =>
   }) as unknown as DataTransfer
 
 describe('telling an internal drag from an upload', () => {
-  /**
-   * The workspace already listens for drags — dropping files from the desktop
-   * is how you upload — so a file dragged INSIDE the page must not raise the
-   * upload overlay. The test is a fact the browser guarantees rather than a
-   * flag we set: `types` contains `Files` only for a drag carrying real files.
-   */
   it('recognises a desktop file drag', () => {
     expect(isExternalFileDrag(transfer(['Files']))).toBe(true)
   })
@@ -41,8 +35,6 @@ describe('telling an internal drag from an upload', () => {
 
 describe('documentDragProps', () => {
   it('carries the document id under our own MIME type', () => {
-    // A custom type, not `text/plain`: a paragraph dragged from another tab
-    // must not be able to look like a document.
     const props = documentDragProps('doc-1')
     const dt = transfer([])
     props.onDragStart({ dataTransfer: dt } as unknown as React.DragEvent)
@@ -58,10 +50,7 @@ describe('folderDragProps', () => {
     const dt = transfer([])
     props.onDragStart({ dataTransfer: dt, stopPropagation: vi.fn() } as unknown as React.DragEvent)
 
-    // Read on drop, where `getData` is allowed.
     expect(dt.setData).toHaveBeenCalledWith(FOLDER_DRAG_TYPE, 'folder-1')
-    // Read DURING the drag, where it is not: a type is visible, its data is
-    // not, and a folder has to refuse itself before it highlights.
     expect(dt.setData).toHaveBeenCalledWith(`${FOLDER_DRAG_TYPE}:folder-1`, '')
   })
 
@@ -73,12 +62,6 @@ describe('folderDragProps', () => {
   })
 })
 
-/**
- * The drop target, which is where the two gestures meet: it must take a
- * document from anywhere, take a folder only when the caller allows it, and
- * take nothing at all from the desktop — that last one is the upload, and the
- * workspace answers for it.
- */
 describe('useFolderDropTarget', () => {
   const dragEvent = (dt: DataTransfer, currentTarget?: unknown) =>
     ({
@@ -118,14 +101,10 @@ describe('useFolderDropTarget', () => {
     expect(result.current.isOver).toBe(false)
     act(() => result.current.dropProps.onDrop(event))
     expect(onDropDocument).not.toHaveBeenCalled()
-    // Not claimed: the overlay above needs this event to reach it.
     expect(event.preventDefault).not.toHaveBeenCalled()
   })
 
   it('lets an upload drag leave the tile — the workspace counted its entry', () => {
-    // The workspace pairs every enter with a leave to know when the upload
-    // overlay goes away. The enter over a tile bubbles to it; a leave stopped
-    // here never did, so the count stayed above zero and the overlay stuck.
     const { result } = setup()
     const event = dragEvent(transfer(['Files']))
 
@@ -134,8 +113,6 @@ describe('useFolderDropTarget', () => {
   })
 
   it('does not take folders at all when the surface cannot move them', () => {
-    // A read-only viewer: a folder drag has nowhere to go and must not even
-    // highlight.
     const { result } = setup()
     act(() =>
       result.current.dropProps.onDragOver(
@@ -182,8 +159,6 @@ describe('useFolderDropTarget', () => {
   })
 
   it('refuses a folder drag whose id it cannot read', () => {
-    // Without the id it cannot rule out a folder being dropped into itself, and
-    // offering that move is worse than not offering the gesture.
     const { result } = renderHook(() =>
       useFolderDropTarget({
         folderId: 'target',
@@ -196,16 +171,11 @@ describe('useFolderDropTarget', () => {
   })
 
   it('keeps the highlight when the pointer crosses the tile’s own children', () => {
-    // `dragleave` fires on every internal boundary — the button, the label, the
-    // count — and each one used to switch the highlight off and back on, so a
-    // folder under the finger flickered for the whole drag.
     const { result } = setup()
     const dt = transfer([DOCUMENT_DRAG_TYPE])
     act(() => result.current.dropProps.onDragOver(dragEvent(dt)))
     expect(result.current.isOver).toBe(true)
 
-    // Real nodes, because the guard asks a real question of them: is where the
-    // pointer went still inside the element it left?
     const tile = document.createElement('div')
     const label = document.createElement('span')
     tile.append(label)
@@ -311,7 +281,6 @@ describe('useFolderDropTarget — desktop files onto a folder', () => {
       result.current.dropProps.onDrop(drop)
       await new Promise((resolve) => setTimeout(resolve, 0))
     })
-    // Claimed, so the level around it does not take the files in its stead.
     expect(drop.preventDefault).toHaveBeenCalled()
     expect(onDropFiles).not.toHaveBeenCalled()
   })
@@ -330,8 +299,6 @@ describe('useFolderDropTarget — desktop files onto a folder', () => {
 })
 
 describe('an internal drag in progress', () => {
-  // The live shelf holds its re-reads while a document is in the air: a re-read
-  // then re-renders the card under the pointer and the browser cancels the drag.
   const start = () =>
     documentDragProps('doc-1').onDragStart({
       dataTransfer: { setData: vi.fn(), effectAllowed: 'all' },
@@ -378,13 +345,11 @@ describe('useFolderDropTarget — carrying a move', () => {
       currentTarget: { contains: () => false },
       relatedTarget: null,
     }) as unknown as React.DragEvent
-  /** A document picked up in `from`, as a card's drag start records it. */
   const pickUp = (from: string | null) =>
     documentDragProps('doc-1', from).onDragStart({
       dataTransfer: { setData: vi.fn(), effectAllowed: 'all' },
     } as unknown as React.DragEvent)
 
-  // The drag ends a task after the window hears it (see `endAfterThisEvent`).
   afterEach(async () => {
     vi.useRealTimers()
     window.dispatchEvent(new Event('dragend'))
@@ -405,7 +370,6 @@ describe('useFolderDropTarget — carrying a move', () => {
     expect(onSpringOpen).not.toHaveBeenCalled()
 
     act(() => result.current.dropProps.onDragOver(event(docTransfer())))
-    // Every dragover of a held drag: the clock is not restarted by them.
     act(() => vi.advanceTimersByTime(SPRING_OPEN_MS / 2))
     act(() => result.current.dropProps.onDragOver(event(docTransfer())))
     act(() => vi.advanceTimersByTime(SPRING_OPEN_MS / 2))
@@ -437,7 +401,6 @@ describe('useFolderDropTarget — carrying a move', () => {
     )
     const over = event(docTransfer())
     act(() => result.current.dropProps.onDragOver(over))
-    // Claimed, so the cursor says „no drop" here and the level around does not take it.
     expect(over.preventDefault).toHaveBeenCalled()
     expect(over.dataTransfer.dropEffect).toBe('none')
     expect(result.current.refuses).toBe(true)

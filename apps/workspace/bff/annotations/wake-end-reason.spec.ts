@@ -1,16 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Every reason a wake can store, classed as the inbox words it. The strings are
- * the ones the writers produce on this branch: the wake job
- * (`./wake-job.ts`), the BFF's budget refusal (`TurnBudgetExhaustedError`),
- * the headless socket's `unavailable` reasons (`lib/turns/headless-turn.ts`),
- * the turn's outcome (`lib/turns/outcome.ts`, `DEFAULT_FAILURE_REASON`), and
- * the agent's refusals and `RUN_ERROR` messages (`common/turn_admission.py`,
- * `common/cost_tracking.py`, `agent_host/chat_socket.py` `_error_for` and its turn
- * fence, `agent_host/jobs/submit.py`). A new writer adds its string here.
- */
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_FAILURE_REASON } from '@/lib/turns/outcome'
 import { TurnBudgetExhaustedError } from '@/lib/turns/turn-context'
@@ -18,7 +8,6 @@ import { WAKE_END_REASON_KINDS, wakeEndReasonKind } from './wake-end-reason'
 
 describe('wakeEndReasonKind', () => {
   it.each([
-    // The wake job.
     ['refused', `budget: ${new TurnBudgetExhaustedError('user').message}`, 'budget'],
     ['refused', `budget: ${new TurnBudgetExhaustedError(null).message}`, 'budget'],
     ['failed', 'gave up waiting: another turn of the thread ran', 'busy'],
@@ -32,7 +21,6 @@ describe('wakeEndReasonKind', () => {
     ['failed', 'rejected: conversation_mismatch (The envelope names another thread.)', 'access'],
     ['failed', 'rejected: invalid_message', 'error'],
     ['failed', 'rejected: invalid_message (Unknown message type.)', 'error'],
-    // The refusal's own words, from the job (refused) or the turn's outcome (failed).
     ['refused', "The organization's LLM budget is exhausted (limit scope: organization). An org admin can raise limits under Organization → Usage & budgets.", 'budget'],
     ['failed', "The organization's LLM budget is exhausted (limit scope: user). An org admin can raise limits under Organization → Usage & budgets.", 'budget'],
     ['refused', 'The assistant is busy right now. Please send your message again in a moment.', 'busy'],
@@ -41,7 +29,6 @@ describe('wakeEndReasonKind', () => {
     ['failed', 'The assistant cannot start a new answer right now. Please send your message again in a moment.', 'busy'],
     ['failed', 'Your organization already has 12 research jobs waiting. Please let some of them start before adding more.', 'busy'],
     ['refused', 'refused', 'error'],
-    // `RUN_ERROR` messages (the chat socket's `_error_for`), and the outcome's fallbacks.
     ['failed', 'auth_error', 'access'],
     ['failed', 'token_expired', 'access'],
     ['failed', 'token_invalid', 'access'],

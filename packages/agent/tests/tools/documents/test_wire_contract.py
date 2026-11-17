@@ -1,19 +1,3 @@
-"""The filing wire, validated against the schema the BFF generated from its own zod.
-
-ADR-0055's rule read from this side: there is **no hand-written Pydantic twin**
-of the request body. The contract is
-``apps/workspace/tests/fixtures/document-lifecycle.schema.json``, serialised from
-``lib/documents/lifecycle-types.ts`` and refreshed by
-``lifecycle-schema.spec.ts``, and what this file asserts is that the payloads
-``tools/documents/register.py`` actually builds validate against it — so a field
-renamed on the TS side fails here rather than at runtime with a 400 the reader
-sees as „Piloti konnte nicht ablegen".
-
-The three ops are exercised through the tool itself rather than through a
-literal dict, because a literal would be the second description of the contract
-this file exists to prevent.
-"""
-
 from __future__ import annotations
 
 import json
@@ -44,15 +28,11 @@ def schema() -> dict[str, Any]:
 
 
 def _validator(schema: dict[str, Any], name: str) -> Draft202012Validator:
-    """A validator for one named definition, resolving ``$ref`` against the whole file."""
     return Draft202012Validator({**schema["$defs"][name], "$defs": schema["$defs"]})
 
 
 class TestTheRequestBodies:
-    """Every payload the tool posts is one the route's own schema accepts."""
-
     async def test_the_fixture_is_where_the_contract_lives(self, schema: dict[str, Any]) -> None:
-        """A guard on the guard: a moved fixture must fail loudly, not silently pass."""
         assert "internalDocumentVersionRequest" in schema["$defs"]
 
     async def test_create_validates(self, schema, _one_store, monkeypatch, calls) -> None:
@@ -106,7 +86,6 @@ class TestTheRequestBodies:
         _validator(schema, "internalDocumentVersionRequest").validate(calls[1][0])
 
     async def test_filing_and_submitting_in_one_call_validates(self, schema, _one_store, monkeypatch, calls) -> None:
-        """``submit=True`` on an unfiled draft posts two bodies; both are the route's."""
         await _write(_one_store)
         monkeypatch.setattr(
             filing_tools,
@@ -126,13 +105,6 @@ class TestTheRequestBodies:
             _validator(schema, "internalDocumentVersionRequest").validate(payload)
 
     async def test_submit_with_a_named_reviewer_validates(self, schema, _one_store, monkeypatch, calls) -> None:
-        """The reviewer NAME is a wire field like any other, so the fixture pins it.
-
-        The submit branch is ``additionalProperties: false``, so this is the one
-        test that would catch the tool sending a field the route drops on the
-        floor — which is exactly what a submit „an Anna" that silently went to
-        the project's editors would look like from the reader's side.
-        """
         await _write(_one_store)
         monkeypatch.setattr(
             filing_tools,
@@ -156,27 +128,18 @@ class TestTheRequestBodies:
 
 
 def _submit_branch_has_reviewer(schema: dict[str, Any]) -> bool:
-    """Whether the fixture's submit branch already declares ``reviewer``."""
     branches = schema["$defs"]["internalDocumentVersionRequest"]["oneOf"]
     submit = next(b for b in branches if b["properties"]["op"].get("const") == "submit")
     return "reviewer" in submit["properties"]
 
 
 class TestTheResponseShape:
-    """What the tool reads back out of the answer is what the schema promises."""
-
     def test_every_field_the_tool_reads_is_in_the_version_view(self, schema: dict[str, Any]) -> None:
         properties = schema["$defs"]["documentVersionView"]["properties"]
         for field in ("id", "documentId", "state", "contentHash"):
             assert field in properties, field
 
     def test_the_card_knows_exactly_the_states_the_schema_does(self, schema: dict[str, Any]) -> None:
-        """`DocumentVersionState` is mirrored, not imported; the fixture is the pin.
-
-        A state added on the TS side and not here would arrive on a card that
-        refuses to validate, so the reader would lose the whole card rather than
-        one badge.
-        """
         from typing import get_args
 
         wire = schema["$defs"]["documentVersionView"]["properties"]["state"]["enum"]

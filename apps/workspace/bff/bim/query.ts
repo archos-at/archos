@@ -41,7 +41,7 @@ import {
   type BimElementQueryPlan,
   type BimPropertyCatalogEntry,
 } from './repository'
-import { complianceRun, siteOfModel } from './compliance-run'
+import { complianceRun, contextOfModel } from './compliance-run'
 import { compareModels, renderComparison, type BimComparison } from './compare'
 import { deriveProfileSuggestions, renderProfileSuggestions, type BimProfileSuggestion } from './profile'
 import {
@@ -1135,10 +1135,10 @@ export async function runBimQuery(
         buildingClass: request.buildingClass ?? null,
         mainUse: request.mainUse ?? null,
       }
-      const site = await siteOfModel(model, context.organizationId)
+      const siteContext = await contextOfModel(model, context.organizationId)
       const [before, after] = await Promise.all([
-        complianceRun(base, context.organizationId, facts, site),
-        complianceRun(model, context.organizationId, facts, site),
+        complianceRun(base, context.organizationId, facts, siteContext),
+        complianceRun(model, context.organizationId, facts, siteContext),
       ])
       return finish({
         ...modelBase,

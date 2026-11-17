@@ -1,20 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Gateway WS-upgrade admission + scope memoisation.
- *
- * `server.js` had no test harness in this repo (see the note at the top of that
- * file). It is plain CommonJS with no exports, so it is covered the only way it
- * can be: spawn the real process, point it at a fake upstream that counts
- * `/api/auth/websocket-scope` resolutions, and drive real upgrade requests
- * through it.
- *
- * What this pins: a fleet-wide reconnect (rolling deploy, node drain) must not
- * amplify one-to-one into session resolution + FGA + budget reads — ADR-0020.
- * The per-IP rate limiter does not cover that case, because the herd arrives
- * from thousands of distinct IPs.
- */
 import { type ChildProcess, spawn, spawnSync } from 'node:child_process'
 import http from 'node:http'
 import path from 'node:path'
@@ -36,7 +22,6 @@ const running: ChildProcess[] = []
 const openSockets = new Set<import('node:stream').Duplex>()
 
 function handleExpectedTeardown(error: NodeJS.ErrnoException): void {
-  // The harness deliberately destroys sockets and gateway processes.
   if (error.code !== 'ECONNRESET' && error.code !== 'EPIPE') throw error
 }
 
@@ -74,7 +59,6 @@ beforeAll(async () => {
     sock.write(
       'HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n'
     )
-    // A backend that vanishes mid-socket: RST, so the gateway sees ECONNRESET.
     if (resetAfterUpgrade) {
       setTimeout(() => (sock as import('node:net').Socket).resetAndDestroy(), 150)
     }
@@ -84,8 +68,6 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  // The gateway holds keep-alive and upgraded sockets to the upstream;
-  // `close()` alone waits for them and would hang the hook.
   for (const sock of openSockets) sock.destroy()
   openSockets.clear()
   await new Promise<void>((resolve) => upstream.close(() => resolve()))
@@ -100,7 +82,6 @@ afterEach(() => {
   anonymousScope = false
 })
 
-/** Let the OS pick a free port, then hand it to the gateway. */
 async function reservePort(): Promise<number> {
   const probe = http.createServer()
   await new Promise<void>((resolve) => probe.listen(0, '127.0.0.1', resolve))
@@ -109,14 +90,8 @@ async function reservePort(): Promise<number> {
   return port
 }
 
-/**
- * Everything the most recently started gateway wrote to stdout+stderr. Reset by
- * `startGateway`, and the only way to observe the process's own logging — each
- * test boots at most one gateway, so a single buffer is enough.
- */
 let gatewayOutput = ''
 
-/** Boot a real gateway on a free port; resolves once it is listening. */
 async function startGateway(env: Record<string, string> = {}): Promise<number> {
   gatewayOutput = ''
   const port = await reservePort()
@@ -128,8 +103,6 @@ async function startGateway(env: Record<string, string> = {}): Promise<number> {
       PORT: String(port),
       NEXT_INTERNAL_URL: `http://127.0.0.1:${upstreamPort}`,
       BACKEND_CHAT_URL: `http://127.0.0.1:${upstreamPort}`,
-      // Isolate the behaviour under test from the per-IP limiter: every request
-      // here comes from 127.0.0.1, which is exactly the case it does cover.
       WS_UPGRADE_RATE_LIMIT: '0',
       INTERNAL_API_TOKEN: SECRET,
       ...env,
@@ -137,9 +110,6 @@ async function startGateway(env: Record<string, string> = {}): Promise<number> {
     stdio: ['ignore', 'pipe', 'pipe'],
   })
   running.push(child)
-  // console.warn and console.error both land on stderr, so severity is not
-  // recoverable from the stream — the two paths are told apart by their
-  // wording instead, which is why they read differently in server.js.
   child.stderr?.on('data', (chunk: Buffer) => {
     gatewayOutput += chunk.toString()
   })
@@ -156,7 +126,6 @@ async function startGateway(env: Record<string, string> = {}): Promise<number> {
   return port
 }
 
-/** Poll until the gateway has logged `needle`, or fail the test. */
 async function waitForLog(needle: string, timeoutMs = 5000): Promise<void> {
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
@@ -166,7 +135,6 @@ async function waitForLog(needle: string, timeoutMs = 5000): Promise<void> {
   throw new Error(`gateway never logged ${JSON.stringify(needle)}; saw:\n${gatewayOutput}`)
 }
 
-/** Drive one WS upgrade; resolves with the HTTP status (101 on success). */
 function upgrade(port: number, cookie: string): Promise<number> {
   return new Promise((resolve) => {
     const req = http.request({
@@ -310,16 +278,12 @@ describe('gateway WS-upgrade admission gate', () => {
       Array.from({ length: 12 }, (_, i) => upgrade(port, `session=load-${i}`))
     )
 
-    // The ceiling bounds what reaches the BFF; everything else is shed fast so
-    // the pod keeps serving the sockets it already holds.
     expect(scopeHits).toBe(2)
     expect(codes.filter((c) => c === 503)).toHaveLength(10)
     expect(codes.filter((c) => c === 101)).toHaveLength(2)
   })
 
   it('still sheds when the memo is disabled', async () => {
-    // The memo and the ceiling are independent bounds: turning the memo off
-    // (e.g. to force fresh auth) must not remove the admission gate too.
     const port = await startGateway({
       WS_UPGRADE_MAX_INFLIGHT: '2',
       WS_SCOPE_CACHE_TTL_MS: '0',
@@ -361,27 +325,17 @@ describe('gateway chat backend address', () => {
 
 describe('gateway WS-upgrade upstream failures', () => {
   it('reports an unreachable backend as a warning, not an error', async () => {
-    // Issues #270/#272: during a rollout or pod restart the backend Service has
-    // no ready endpoint for a few seconds, so every reconnecting chat client
-    // gets ECONNREFUSED. Logged at ERROR that filed one GitHub issue per
-    // reconnect, for an outcome the gateway already handles correctly.
     const deadPort = await reservePort() // reserved, then released — nothing listens
     const port = await startGateway({ BACKEND_CHAT_URL: `http://127.0.0.1:${deadPort}` })
 
-    // Downgrading the severity must not change the outcome: the upgrade is
-    // still refused with a 502 so the client reconnects.
     expect(await upgrade(port, 'session=dead-backend')).toBe(502)
 
     await waitForLog('[WS Proxy] Backend unreachable')
     expect(gatewayOutput).toContain('ECONNREFUSED')
-    // The ERROR-severity wording is what err2issue turns into an issue.
     expect(gatewayOutput).not.toContain('[WS Proxy] Error:')
   })
 
   it('treats a reset after the upgrade as teardown and never writes a 502 into the socket', async () => {
-    // Issues #588/#775/#784: a peer leaving a live socket logged
-    // `[WebSocket] upstream socket error` at ERROR, and the same error reached
-    // the ws() callback, which wrote `HTTP/1.1 502` after the 101.
     resetAfterUpgrade = true
     const port = await startGateway()
 

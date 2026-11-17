@@ -1,15 +1,3 @@
-"""``file_draft``, with and without ``submit``: what goes on the wire, and what is refused.
-
-The HTTP call is the only thing mocked. Everything else — the working directory,
-the draft store's filing record, the card registry, the request context — is the
-real thing, because the properties under test are properties of the seam: that
-the SIGNED bytes leave unchanged, that a second filing of one path updates one
-document instead of creating two, and that a run with no acting person files
-nothing at all.
-
-The doubles live in ``conftest.py``; so does every helper below the fixtures.
-"""
-
 from __future__ import annotations
 
 import re
@@ -48,7 +36,6 @@ from .conftest import envelope
 
 
 def _conflict(monkeypatch, calls: list) -> None:  # noqa: ANN001
-    """The BFF refusing the operation on the version's LIVE state (409)."""
 
     def _refuse(payload, signed):  # noqa: ANN001
         calls.append((payload, signed))
@@ -58,8 +45,6 @@ def _conflict(monkeypatch, calls: list) -> None:  # noqa: ANN001
 
 
 class TestFilingANewDraft:
-    """The first ``file_draft`` for a path: one ``create``, and what it leaves behind."""
-
     async def test_it_posts_a_create_with_the_draft_bytes(self, _one_store, monkeypatch, calls) -> None:
         await _write(_one_store)
         await _file(monkeypatch, [{"documentId": "doc-1", "version": _version("ver-1", "draft", "h1")}], calls)
@@ -68,8 +53,6 @@ class TestFilingANewDraft:
         assert payload["op"] == "create"
         assert payload["projectId"] == PROJECT
         assert payload["content"] == BODY
-        # The idempotency key is the CONVERSATION's, so a second turn writing the
-        # same document lands on the same row rather than on a second one.
         assert payload["ref"] == f"{CONVERSATION}-aktenvermerk"
 
     async def test_the_title_is_the_documents_own_first_heading(self, _one_store, monkeypatch, calls) -> None:
@@ -108,8 +91,6 @@ class TestFilingANewDraft:
 
 
 class TestTheEnvelopeIsEchoed:
-    """The identity rule of ADR-0054 §4, as a test rather than as a comment."""
-
     async def test_the_signed_bytes_leave_unchanged(self, _one_store, monkeypatch, calls) -> None:
         await _write(_one_store)
         await _file(monkeypatch, [{"documentId": "doc-1", "version": _version("ver-1", "draft", "h1")}], calls)
@@ -119,7 +100,6 @@ class TestTheEnvelopeIsEchoed:
         assert signed.signature == ENVELOPE_SIG
 
     async def test_the_acting_identity_is_never_in_the_body(self, _one_store, monkeypatch, calls) -> None:
-        """A userId in the body would be a user this tier chose."""
         await _write(_one_store)
         await _file(monkeypatch, [{"documentId": "doc-1", "version": _version("ver-1", "draft", "h1")}], calls)
 
@@ -137,7 +117,6 @@ class TestTheEnvelopeIsEchoed:
         assert FILED_DOCUMENT_KEY not in _stored(_one_store)
 
     async def test_an_envelope_for_another_conversation_files_nothing(self, _one_store, monkeypatch, calls) -> None:
-        """Two sources for one identity that disagree is not a case to guess through."""
         await _write(_one_store)
         header, sig = envelope({"organizationId": "org_1", "userId": "user_1", "conversationId": "conv-9"})
         _bind_context(
@@ -156,8 +135,6 @@ class TestTheEnvelopeIsEchoed:
 
 
 class TestFilingTheSameDraftTwice:
-    """A second ``file_draft`` updates the open version — it never forks a document."""
-
     async def test_the_second_call_is_an_update_with_the_servers_hash(self, _one_store, monkeypatch, calls) -> None:
         await _write(_one_store)
         await _file(monkeypatch, [{"documentId": "doc-1", "version": _version("ver-1", "draft", "h1")}], calls)
@@ -170,13 +147,10 @@ class TestFilingTheSameDraftTwice:
         assert payload["op"] == "update"
         assert payload["documentId"] == "doc-1"
         assert payload["versionId"] == "ver-1"
-        # The hash the SERVER last reported, not one computed from our copy: a
-        # local hash would agree with itself and overwrite a reviewer's edit.
         assert payload["ifMatch"] == "h1"
         assert "42 m (ergänzt)" in payload["content"]
 
     async def test_an_edit_does_not_lose_the_filing(self, _one_store, monkeypatch, calls) -> None:
-        """DeepAgents rebuilds the stored value on every edit; the record is re-stamped."""
         await _write(_one_store)
         await _file(monkeypatch, [{"documentId": "doc-1", "version": _version("ver-1", "draft", "h1")}], calls)
 
@@ -188,7 +162,6 @@ class TestFilingTheSameDraftTwice:
     async def test_a_lost_mapping_replaces_the_bytes_rather_than_claiming_them(
         self, _one_store, monkeypatch, calls
     ) -> None:
-        """`alreadyFiled` means no version was written, so the project still holds the OLD bytes."""
         await _write(_one_store)
         await _file(
             monkeypatch,
@@ -204,14 +177,6 @@ class TestFilingTheSameDraftTwice:
     async def test_a_lost_mapping_onto_a_SUBMITTED_version_is_refused_not_announced(
         self, _one_store, monkeypatch, calls
     ) -> None:
-        """`alreadyFiled` plus a state nobody may replace: nothing was written.
-
-        The working directory lost its mapping (a restart, a retried turn), so
-        the tool takes the `create` branch — and the reference resolves onto a
-        version already `in_review`, which no machine may replace. Reporting
-        „Im Projekt abgelegt" here would tell the reader their revision is in
-        the project while the reviewer still holds the old bytes.
-        """
         await _write(_one_store)
         message = await _file(
             monkeypatch,
@@ -221,13 +186,10 @@ class TestFilingTheSameDraftTwice:
 
         assert "for approval" in message
         assert "filed" not in message.split("Error:")[-1].split(".")[0]
-        # One call, and it was the create that came back already filed. No
-        # update was attempted, and nothing claims a version was written.
         assert [payload["op"] for payload, _ in calls] == ["create"]
         assert FILED_DOCUMENT_KEY not in _stored(_one_store)
 
     async def test_a_draft_still_in_review_is_refused_by_the_bff(self, _one_store, monkeypatch, calls) -> None:
-        """The tool asks; the lifecycle API holds the live state and refuses."""
         await _write(_one_store)
         await _file(monkeypatch, [{"documentId": "doc-1", "version": _version("ver-1", "in_review", "h1")}], calls)
 
@@ -239,12 +201,6 @@ class TestFilingTheSameDraftTwice:
         assert _stored(_one_store)[FILED_STATE_KEY] == "in_review"
 
     async def test_a_revision_after_changes_were_requested_is_filed(self, _one_store, monkeypatch, calls) -> None:
-        """The remembered state says ``in_review``; a reviewer has since sent it back.
-
-        „Änderungen anfordern" never reaches the working directory, so refusing
-        on the remembered state refused exactly the revision the reviewer asked
-        for. The update goes to the BFF, which knows the version is open again.
-        """
         await _write(_one_store)
         await _file(monkeypatch, [{"documentId": "doc-1", "version": _version("ver-1", "in_review", "h1")}], calls)
         await _edit(_one_store, "42 m", "38 m")
@@ -263,8 +219,6 @@ class TestFilingTheSameDraftTwice:
 
 
 class TestSubmitting:
-    """The second door: a filed draft goes to a person."""
-
     async def test_it_posts_a_submit_for_the_open_version(self, _one_store, monkeypatch, calls) -> None:
         await _write(_one_store)
         await _file(monkeypatch, [{"documentId": "doc-1", "version": _version("ver-1", "draft", "h1")}], calls)
@@ -283,19 +237,11 @@ class TestSubmitting:
         }
         assert signed.header == ENVELOPE_HEADER
         assert "approval" in message
-        # Nobody was named, so the route submits to the project's editors — and
-        # the sentence says so, because „wartet auf eine Person" leaves the
-        # reader wondering which one.
         assert "to the project's editors" in message
         assert "DRAFT" in message
         assert _stored(_one_store)[FILED_STATE_KEY] == "in_review"
 
     async def test_a_named_reviewer_travels_as_a_NAME(self, _one_store, monkeypatch, calls) -> None:
-        """This tier has no member roster; the BFF resolves the name.
-
-        The same shape `assign_document` uses, and for the same reason: a
-        reviewer resolved here would be a person this process guessed.
-        """
         await _write(_one_store)
         await _file(monkeypatch, [{"documentId": "doc-1", "version": _version("ver-1", "draft", "h1")}], calls)
 
@@ -324,9 +270,6 @@ class TestSubmitting:
     async def test_a_person_the_project_does_not_have_is_a_refusal_in_those_words(
         self, _one_store, monkeypatch, calls
     ) -> None:
-        """The BFF resolves the name and answers 400. The generic filing error
-        would send the model hunting for a filing problem instead of asking the
-        reader who they meant."""
         await _write(_one_store)
         await _file(monkeypatch, [{"documentId": "doc-1", "version": _version("ver-1", "draft", "h1")}], calls)
 
@@ -344,7 +287,6 @@ class TestSubmitting:
     async def test_a_400_without_a_named_reviewer_keeps_the_submit_wording(
         self, _one_store, monkeypatch, calls
     ) -> None:
-        """The reviewer refusal is scoped to the argument that can produce it."""
         await _write(_one_store)
         await _file(monkeypatch, [{"documentId": "doc-1", "version": _version("ver-1", "draft", "h1")}], calls)
 
@@ -355,12 +297,9 @@ class TestSubmitting:
         message = await filing_tools.run_file_draft(DRAFT, submit=True)
 
         assert "Ich kenne keine Person" not in message
-        # The draft was filed in the call before, so the failure says it lies in
-        # the project; the old „nur im Arbeitsordner" wording was false here.
         assert "as a DRAFT" in message
 
     async def test_a_filed_unchanged_draft_is_only_submitted(self, _one_store, monkeypatch, calls) -> None:
-        """Nothing to file: an ``update`` of the same bytes would only trip If-Match."""
         await _write(_one_store)
         await _file(monkeypatch, [{"documentId": "doc-1", "version": _version("ver-1", "draft", "h1")}], calls)
 
@@ -381,7 +320,6 @@ class TestSubmitting:
         assert [payload["op"] for payload, _ in calls] == ["submit"]
 
     async def test_a_version_sent_back_unedited_can_be_submitted_again(self, _one_store, monkeypatch, calls) -> None:
-        """Remembered ``in_review``, live ``changes_requested``: the submit goes through."""
         await _write(_one_store)
         await _file(monkeypatch, [{"documentId": "doc-1", "version": _version("ver-1", "draft", "h1")}], calls)
         calls.clear()
@@ -396,8 +334,6 @@ class TestSubmitting:
 
 
 class TestRefusals:
-    """Every path that must leave the project untouched."""
-
     async def test_without_a_project_nothing_is_filed(self, _one_store, monkeypatch, calls) -> None:
         await _write(_one_store)
         _bind_context(
@@ -408,8 +344,6 @@ class TestRefusals:
             },
             conversation_id=CONVERSATION,
         )
-        # The envelope names a project; the tool reads the header, and this run
-        # has none — the phrase the design of record asks for, verbatim.
         monkeypatch.setattr(filing_tools.project_context, "get_project_id_from_context", lambda: None)
 
         message = await _file(monkeypatch, [], calls)
@@ -442,8 +376,6 @@ class TestRefusals:
 
 
 class TestTheCard:
-    """What the reader sees after a filing."""
-
     async def test_the_card_carries_the_document_and_its_state(self, _one_store, monkeypatch, calls, registry) -> None:
         await _write(_one_store)
         await _file(monkeypatch, [{"documentId": "doc-1", "version": _version("ver-1", "draft", "h1")}], calls)
@@ -470,14 +402,6 @@ class TestTheCard:
 
 
 class TestTheReadRouteIsScopedToTheConversation:
-    """``GET .../content`` carries BOTH predicates, and the transport is the real one.
-
-    A version id is the only thing a client picks. The organization alone would
-    let one reach any version in the tenant, so the BFF additionally requires the
-    conversation and refuses unless the version is that conversation's subject —
-    which is worth nothing if the parameter never leaves this side.
-    """
-
     def test_both_scopes_reach_the_url(self, monkeypatch) -> None:
         monkeypatch.setenv("INTERNAL_API_TOKEN", "internal-token")
         seen: list[str] = []
@@ -508,7 +432,6 @@ class TestTheReadRouteIsScopedToTheConversation:
         assert "answerMessageId" not in query
         assert "/document-versions/ver%209/content" in seen[0]
 
-        # The answer the turn writes: marked by the BFF when the read admits a restricted folder (ADR-0093).
         filing.get_document_version_content("ver 9", "org_1", "conv-1", "user_1", "answer-1")
         query = parse_qs(urlsplit(seen[1]).query)
         assert query["userId"] == ["user_1"]
@@ -516,13 +439,6 @@ class TestTheReadRouteIsScopedToTheConversation:
 
 
 class TestTheFilingReferenceMirrorsTheBrowser:
-    """The idempotency key is paired with ``draft-filing.ts``, byte for byte.
-
-    A long key that truncated differently on the two tiers would file the
-    browser's copy beside the agent's as a duplicate document, which is exactly
-    what the reference exists to prevent.
-    """
-
     def test_the_readable_form_is_unchanged(self) -> None:
         assert (
             filing_tools.filing_reference("conv-1", "/drafts/Aktenvermerk Fluchtweg.md")
@@ -549,13 +465,6 @@ class TestTheFilingReferenceMirrorsTheBrowser:
 
 
 class TestFilingAndSubmittingInOneCall:
-    """``submit=True`` files what the working directory holds, then submits that version.
-
-    The case ``submit_draft`` used to refuse („zuerst `file_draft`") is the one
-    this merge exists for; every other refusal it gave is asserted in
-    :class:`TestSubmitting` through the same argument.
-    """
-
     async def test_an_unfiled_draft_is_filed_then_submitted(self, _one_store, monkeypatch, calls, registry) -> None:
         await _write(_one_store)
         message = await _submit(
@@ -573,7 +482,6 @@ class TestFilingAndSubmittingInOneCall:
         assert "Aktenvermerk – Fluchtweg" in message
         assert "DRAFT" in message
         assert _stored(_one_store)[FILED_STATE_KEY] == "in_review"
-        # ONE card for one call, in the state the call ended in.
         cards = [card for card in _draft_cards(registry) if card.get("document_id")]
         assert len(cards) == 1
         assert cards[0]["version_state"] == "in_review"
@@ -581,7 +489,6 @@ class TestFilingAndSubmittingInOneCall:
     async def test_an_edit_since_filing_is_filed_again_before_it_is_submitted(
         self, _one_store, monkeypatch, calls
     ) -> None:
-        """The reviewer must get the bytes the reader just asked for, not the ones filed last turn."""
         await _write(_one_store)
         await _file(monkeypatch, [{"documentId": "doc-1", "version": _version("ver-1", "draft", "h1")}], calls)
         await _edit(_one_store, "42 m", "38 m")
@@ -603,7 +510,6 @@ class TestFilingAndSubmittingInOneCall:
         assert calls[1][0]["reviewer"] == "Anna Berger"
 
     async def test_a_record_filed_before_the_stamp_existed_is_filed_again(self, _one_store, monkeypatch, calls) -> None:
-        """No stamp means "not known to be unchanged": refile, which is safe, rather than guess."""
         await _write(_one_store)
         await _file(monkeypatch, [{"documentId": "doc-1", "version": _version("ver-1", "draft", "h1")}], calls)
         namespace = draft_namespace(CONVERSATION)
@@ -624,7 +530,6 @@ class TestFilingAndSubmittingInOneCall:
     async def test_an_edited_draft_already_in_review_is_refused_as_unreplaceable(
         self, _one_store, monkeypatch, calls
     ) -> None:
-        """The edit cannot reach the project, so the submit must not pretend it did."""
         await _write(_one_store)
         await _file(monkeypatch, [{"documentId": "doc-1", "version": _version("ver-1", "in_review", "h1")}], calls)
         await _edit(_one_store, "42 m", "38 m")
@@ -633,13 +538,11 @@ class TestFilingAndSubmittingInOneCall:
         _conflict(monkeypatch, calls)
         message = await filing_tools.run_file_draft(DRAFT, submit=True)
         assert "cannot be replaced" in message
-        # The update was refused, so no submit followed it.
         assert [payload["op"] for payload, _ in calls] == ["update"]
 
     async def test_a_failed_submit_after_filing_says_the_filing_stands(
         self, _one_store, monkeypatch, calls, registry
     ) -> None:
-        """„Es wurde nichts abgelegt" would be false here: the create went through."""
         await _write(_one_store)
         answers = iter([{"documentId": "doc-1", "version": _version("ver-1", "draft", "h1")}])
 
@@ -663,9 +566,6 @@ class TestFilingAndSubmittingInOneCall:
     async def test_a_failed_submit_of_an_already_filed_draft_says_it_is_filed(
         self, _one_store, monkeypatch, calls
     ) -> None:
-        """The submit-only path: the draft was filed in an EARLIER call, so a
-        failed submit must say it lies in the project as a draft, never that
-        nothing was filed and it is only in the working directory."""
         await _write(_one_store)
         await _file(monkeypatch, [{"documentId": "doc-1", "version": _version("ver-1", "draft", "h1")}], calls)
         calls.clear()
@@ -700,7 +600,6 @@ class TestFilingAndSubmittingInOneCall:
     async def test_a_reviewer_without_submit_is_refused_before_anything_is_filed(
         self, _one_store, monkeypatch, calls
     ) -> None:
-        """A name is the strongest hint a model has; it is not read as a request to submit."""
         await _write(_one_store)
         message = await filing_tools.run_file_draft(DRAFT, reviewer="Anna Berger")
 
@@ -721,8 +620,6 @@ class TestFilingAndSubmittingInOneCall:
 
 
 class TestTheLiveLine:
-    """One tool, two promises: the reader's line tells a filing from a handover."""
-
     def test_filing_and_submitting_read_differently(self) -> None:
         def key(args: dict) -> str | None:
             return retrieval_status._describe_calls([{"name": "file_draft", "args": args}])["key"]

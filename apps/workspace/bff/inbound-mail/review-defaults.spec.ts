@@ -1,10 +1,3 @@
-/**
- * What a held mail offers checked, and whether it is complete (DECISION §9,
- * the case table, RT-X10): the server's rules, which the E-Mail-Eingang
- * derived in the browser before they were on the wire. The tables below are
- * the ones its specs pinned there, now against these functions.
- */
-
 import { describe, expect, it } from 'vitest'
 import { DETAIL_VARIANTS, mail, messagePart, part, thread } from '@/app/dev/inbound-mail/fixtures'
 import type { InboundMailSenderView } from './inbound-mail-wire'
@@ -14,7 +7,6 @@ import type { SenderFacts } from './sender-risk'
 const confirmed: SenderFacts = { trust: 'external_verified', reason: 'dkim_pass', flags: [] }
 const open = { projectClosed: false, rawScan: 'clean' as const, sender: confirmed }
 
-/** Miriam Huber's address, its signature failed: „Dringend: Kontoänderung Honorarnote“. */
 const forgedMember: InboundMailSenderView = {
   name: 'Miriam Huber',
   address: 'm.huber@huber-architektur.at',
@@ -25,7 +17,6 @@ const forgedMember: InboundMailSenderView = {
   flags: [],
 }
 
-/** Her name on an outsider's address whose own domain signed. */
 const memberName: InboundMailSenderView = {
   name: 'Miriam Huber',
   address: 'miriam.huber@mail.example',
@@ -130,9 +121,7 @@ describe('incompleteReason (RT-X10)', () => {
   })
 
   it('counts a member’s own Bcc copy with nothing attached as complete once its sender is no question, and asks its writer first', () => {
-    // A writer's own Bcc copy is no direct filing's evidence: it waits for their „Ja, gesendet“ (`unverified_writer`).
     expect(reason('bcc-own')).toBe('sender')
-    // A member who may only read the project: their Bcc copy waits for the writers, and starts its own thread.
     const readOnly = mail({ key: 'bcc-read-only', sender: DETAIL_VARIANTS['bcc-own'].view.sender, reading: { writes: false, viewer: 'colleague' }, threadCandidates: [] })
     expect(readOnly.senderClass).toBe('office_member')
     expect(incompleteReason(readOnly)).toBeNull()

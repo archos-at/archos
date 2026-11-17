@@ -1,11 +1,3 @@
-"""Tests for the URL-based ingest endpoint.
-
-The request downloads nothing: it gates the URLs, looks the dispatch up, and
-submits a job whose original is a ``DeferredObjectDownload``. The job's side
-(running the download, failing the file when it cannot) is
-``tests/knowledge_layer_tests/test_deferred_original.py``.
-"""
-
 import asyncio
 import logging
 import os
@@ -30,7 +22,6 @@ _SIGNED_REF = "http://seaweedfs.test/bucket/doc/plan.pdf?X-Amz-Signature=secret-
 
 @pytest.fixture
 def mock_ingestor():
-    """Create a mock ingestor for testing."""
     ingestor = MagicMock()
     ingestor.backend_name = "test"
     ingestor.submit_job.return_value = "job_test_123"
@@ -41,13 +32,6 @@ def mock_ingestor():
 
 @pytest.fixture
 def app(mock_ingestor, monkeypatch):
-    """Create a FastAPI app with ingest routes registered.
-
-    ``SEAWEED_PUBLIC_ENDPOINT`` is set to the test object-store host so the
-    SSRF allowlist in ``ingest._object_store_hosts`` accepts the file_refs
-    the tests hand the route — that allowlist is env-driven and would
-    otherwise be empty here.
-    """
     monkeypatch.setenv("SEAWEED_PUBLIC_ENDPOINT", "http://seaweedfs.test")
     monkeypatch.setenv("SEAWEED_ENDPOINT", "http://seaweedfs.test")
     app = FastAPI()
@@ -59,7 +43,6 @@ def app(mock_ingestor, monkeypatch):
 
 @pytest.fixture
 def no_network():
-    """Every way the route could fetch or upload, each failing the test when used."""
     with (
         patch("httpx.get", side_effect=AssertionError("GET inside the request")) as get,
         patch("httpx.Client.get", side_effect=AssertionError("GET inside the request")),
@@ -80,7 +63,6 @@ async def _post(app, file_ref: str, collection: str = "proj_test123"):
 
 
 def _refused_for(response: httpx.Response, field: str) -> str:
-    """Assert the body was refused at validation for ``field`` (an ``ObjectStoreUrl``); its message."""
     assert response.status_code == 422
     [error] = response.json()["detail"]
     assert error["loc"] == ["body", field]
@@ -105,15 +87,8 @@ def _failed_download(status: int) -> MagicMock:
     return response
 
 
-# --- The request: validate, look up, submit; download nothing ---
-
-
 @pytest.mark.asyncio
 async def test_ingest_answers_202_without_downloading(app, mock_ingestor, no_network, caplog):
-    """The BFF gives this request ten seconds and retries once: a download here
-    turned any file slower than that into a false "failed". The original is
-    handed to the job as a deferred download whose URL is in no repr and no
-    log."""
     caplog.set_level(logging.DEBUG)
     response = await _post_json(
         app, {"file_ref": _SIGNED_REF, "collection": "proj_test123", "document_id": "doc-550e8400"}
@@ -137,11 +112,6 @@ async def test_ingest_answers_202_without_downloading(app, mock_ingestor, no_net
 
 @pytest.mark.asyncio
 async def test_ingest_from_url_decodes_percent_encoded_filename(app, mock_ingestor, no_network):
-    """The S3 presigner percent-encodes the storage key into the URL path, so a
-    filename with a space or umlaut arrives encoded. The persisted chunk
-    ``file_name`` metadata must be the DECODED name — deletion later matches
-    chunks against the raw DB filename, and an encoded metadata name would
-    orphan the vectors forever."""
     response = await _post(app, "http://seaweedfs.test/bucket/doc/abc/Z%C3%BCrich%20Plan.pdf?X-Amz-Signature=abc")
 
     assert response.status_code == 202
@@ -158,7 +128,6 @@ async def test_a_failed_submit_is_a_500_that_names_nothing(app, mock_ingestor, n
 
 @pytest.mark.asyncio
 async def test_ingest_missing_fields(app, mock_ingestor):
-    """Test ingest with missing required fields."""
     response = await _post_json(app, {"file_ref": "", "collection": "proj_test123"})
     assert response.status_code in (400, 422)
     mock_ingestor.submit_job.assert_not_called()
@@ -166,7 +135,6 @@ async def test_ingest_missing_fields(app, mock_ingestor):
 
 @pytest.mark.asyncio
 async def test_ingest_no_ingestor(app, mock_ingestor, no_network):
-    """Test ingest when no ingestor is configured (503)."""
     clear_active_ingestor()
     response = await _post(app, "http://seaweedfs.test/bucket/doc.txt")
     assert response.status_code == 503
@@ -175,10 +143,6 @@ async def test_ingest_no_ingestor(app, mock_ingestor, no_network):
 
 @pytest.mark.asyncio
 async def test_ingest_rejects_foreign_host(app, mock_ingestor):
-    """A file_ref aimed at anything but the configured object store is a
-    server-side request forgery — the route must refuse it with 400 before
-    anything is submitted. The job would fetch it without asking again, so this
-    gate is the only one the URL meets."""
     response = await _post(app, "http://metadata.internal/latest/meta-data")
     assert "object store" in _refused_for(response, "file_ref")
     mock_ingestor.submit_job.assert_not_called()
@@ -186,8 +150,6 @@ async def test_ingest_rejects_foreign_host(app, mock_ingestor):
 
 @pytest.mark.asyncio
 async def test_ingest_rejects_non_http_scheme(app, mock_ingestor):
-    """Only http(s) URLs are fetchable at all; anything else (file:, gopher:)
-    is rejected before a job could even attempt it."""
     response = await _post(app, "file:///etc/passwd")
     _refused_for(response, "file_ref")
     mock_ingestor.submit_job.assert_not_called()
@@ -195,20 +157,12 @@ async def test_ingest_rejects_non_http_scheme(app, mock_ingestor):
 
 @pytest.mark.asyncio
 async def test_ingest_host_match_is_case_insensitive(app, mock_ingestor, no_network):
-    """Hostnames are case-insensitive; a presigner must not break a valid
-    file_ref just because it uppercased the host."""
     response = await _post(app, "http://SEAWEEDFS.TEST/bucket/key?X-Amz-Signature=abc")
     assert response.status_code == 202
 
 
 @pytest.mark.asyncio
 async def test_ingest_rejects_non_object_store_thumbnail_url(app, mock_ingestor, no_network):
-    """The thumbnail upload URL feeds httpx.put — an arbitrary-URL PUT is the
-    same SSRF primitive as an arbitrary GET, so it passes the same two gates
-    as file_ref BEFORE anything is stored. The check is fail-closed (a 422),
-    not swallowed by the fail-open thumbnail path: a request naming a foreign
-    upload target is malformed, and letting it into the job config would only
-    move the unvalidated PUT into the detached ingest thread."""
     response = await _post_json(
         app,
         {
@@ -224,10 +178,6 @@ async def test_ingest_rejects_non_object_store_thumbnail_url(app, mock_ingestor,
 
 @pytest.mark.asyncio
 async def test_ingest_accepts_object_store_host_resolving_private(app, mock_ingestor, no_network):
-    """Regression: the object store lives INSIDE the network in compose and
-    Kubernetes — its configured name resolves to a private address by design.
-    Demanding public resolution for it rejected every legitimate presigned
-    upload; allowlisted hosts must pass despite resolving private."""
     response = await _post(app, "http://seaweedfs.test/bucket/key?X-Amz-Signature=abc")
     assert response.status_code == 202
     mock_ingestor.submit_job.assert_called_once()
@@ -235,23 +185,17 @@ async def test_ingest_accepts_object_store_host_resolving_private(app, mock_inge
 
 @pytest.mark.asyncio
 async def test_ingest_accepts_thumbnail_on_object_store_resolving_private(app, mock_ingestor, no_network):
-    """Thumbnails are uploaded to the same store the download comes from, so a
-    private resolution for the allowlisted host must not fail the request
-    either — the URL is accepted and carried into the job config."""
     thumbnail_url = "http://seaweedfs.test/bucket/doc/thumb.jpg?X-Amz-Signature=abc"
     response = await _post_json(
         app, {"file_ref": _SIGNED_REF, "collection": "proj_test123", "thumbnail_upload_url": thumbnail_url}
     )
     assert response.status_code == 202
     assert mock_ingestor.submit_job.call_args[1]["config"]["thumbnail_upload_url"] == thumbnail_url
-    # A PDF's thumbnail is the job's, drawn from the bytes it downloads.
     no_network["put"].assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_ingest_stores_the_thumbnail_slot_on_the_configured_origin(app, mock_ingestor, no_network):
-    """The job uploads to what the config holds: the store's own origin, the
-    slot's path and presigned query only, whatever spelling the caller used."""
     spelled = "HTTP://SEAWEEDFS.TEST:80/bucket/doc/thumb.jpg?X-Amz-Signature=abc"
     response = await _post_json(app, {"file_ref": _SIGNED_REF, "collection": "proj_t", "thumbnail_upload_url": spelled})
     assert response.status_code == 202
@@ -263,10 +207,6 @@ async def test_ingest_stores_the_thumbnail_slot_on_the_configured_origin(app, mo
 
 @pytest.mark.asyncio
 async def test_ingest_carries_document_id_into_job_config(app, mock_ingestor, no_network):
-    """The pipeline stores extracted rasters under the document's prefix by
-    asking the BFF for a slot per image; that call needs the document id, so
-    it travels in the job config. A caller without one (the corpus sync) gets
-    no key, and the pipeline keeps the captions only."""
     with_id = await _post_json(
         app,
         {
@@ -285,9 +225,6 @@ async def test_ingest_carries_document_id_into_job_config(app, mock_ingestor, no
 
 @pytest.mark.asyncio
 async def test_ingest_books_its_spend_to_the_documents_project_and_uploader(app, mock_ingestor, no_network):
-    """Project and uploader ride into the job config, where the job's cost tracker
-    reads them (`_ingest_cost_scope`); without an organization nothing is booked,
-    so neither is carried."""
     body = {
         "file_ref": "http://seaweedfs.test/bucket/plan.pdf",
         "collection": "proj_1",
@@ -308,7 +245,6 @@ async def test_ingest_books_its_spend_to_the_documents_project_and_uploader(app,
 
 @pytest.mark.asyncio
 async def test_ingest_carries_the_projects_facts_for_the_chunks(app, mock_ingestor, no_network):
-    """A new document's chunks carry the project's facts from their first search (`qdrant.writes.enrichment`)."""
     body = {
         "file_ref": "http://seaweedfs.test/bucket/plan.pdf",
         "collection": "proj_1",
@@ -318,7 +254,6 @@ async def test_ingest_carries_the_projects_facts_for_the_chunks(app, mock_ingest
     assert sent.status_code == 202
     config = mock_ingestor.submit_job.call_args[1]["config"]
     assert config["project_status"] == "closed"
-    # The vector store holds the wire names and English tokens: the job config carries them as sent.
     assert config["project_facts"]["federal_state"] == "vienna" and config["project_facts"]["building_class"] == [4]
 
     without = await _post(app, "http://seaweedfs.test/bucket/plan.pdf", collection="oib")
@@ -341,11 +276,6 @@ async def test_ingest_carries_the_projects_facts_for_the_chunks(app, mock_ingest
 async def test_ingest_drops_project_facts_it_cannot_read_and_keeps_the_upload(
     app, mock_ingestor, no_network, caplog, facts
 ):
-    """A malformed fact on the project must not fail every upload into it: the facts are a copy, the upload is not.
-
-    The job runs without them (its chunks carry none until the next facts push or the weekly
-    sweep), and the drop is a warning naming the collection, never a 422.
-    """
     body = {
         "file_ref": "http://seaweedfs.test/bucket/plan.pdf",
         "collection": "proj_1",
@@ -362,7 +292,6 @@ async def test_ingest_drops_project_facts_it_cannot_read_and_keeps_the_upload(
 
 @pytest.mark.asyncio
 async def test_ingest_priority_defaults_to_interactive_and_accepts_bulk(app, mock_ingestor, no_network):
-    """A person's upload is interactive; a reindex or rescan states `bulk`. The job config carries it."""
     base = {"file_ref": "http://seaweedfs.test/bucket/plan.pdf", "collection": "proj_1"}
 
     assert (await _post_json(app, base)).status_code == 202
@@ -382,19 +311,13 @@ async def test_ingest_refuses_a_priority_it_does_not_know(app, mock_ingestor, no
     mock_ingestor.submit_job.assert_not_called()
 
 
-# --- DeferredObjectDownload: what the job runs ---
-
-
 @pytest.fixture(autouse=True)
 def object_store(monkeypatch):
-    """The store every download here names; a download is requested only there."""
     monkeypatch.setenv("SEAWEED_ENDPOINT", "http://seaweedfs.test")
     monkeypatch.setenv("SEAWEED_PUBLIC_ENDPOINT", "http://seaweedfs.test")
 
 
 def test_deferred_download_requests_the_configured_origin_whatever_the_spelling():
-    """Same origin in another spelling: the GET goes to the store as configured,
-    with only the object's path and presigned query from the URL handed in."""
     spelled = "HTTP://SeaweedFS.Test:80/bucket/doc/plan.pdf?X-Amz-Signature=secret-original"
     with patch("httpx.Client.get", return_value=_download(b"%PDF-1.4", "application/pdf")) as get:
         path = DeferredObjectDownload(spelled)()
@@ -403,7 +326,6 @@ def test_deferred_download_requests_the_configured_origin_whatever_the_spelling(
 
 
 def test_deferred_download_refuses_a_url_off_the_store_before_any_request():
-    """A forged queue row or a direct caller cannot point the GET anywhere else."""
     from agent_host.object_store_url import ObjectStoreUrlError
 
     with patch("httpx.Client.get") as get, pytest.raises(ObjectStoreUrlError):
@@ -412,8 +334,6 @@ def test_deferred_download_refuses_a_url_off_the_store_before_any_request():
 
 
 def test_deferred_download_writes_a_temp_file_and_hides_its_url():
-    """One GET without redirects, the bytes in a new temp file the caller owns;
-    the URL appears in no repr."""
     deferred = DeferredObjectDownload(_SIGNED_REF)
     assert "secret-original" not in repr(deferred)
     assert "secret-original" not in repr({"extraction_paths": [deferred]})
@@ -430,9 +350,6 @@ def test_deferred_download_writes_a_temp_file_and_hides_its_url():
 
 
 def test_deferred_download_takes_the_suffix_from_the_response():
-    """The parser dispatches by the temp file's extension, and only the
-    response knows the content type: an office original whose object path has
-    no extension still lands as what it is."""
     docx = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     with patch("httpx.Client.get", return_value=_download(b"PK", docx)):
         path = DeferredObjectDownload("http://seaweedfs.test/bucket/doc/object")()
@@ -441,7 +358,6 @@ def test_deferred_download_takes_the_suffix_from_the_response():
 
 
 def test_deferred_download_keeps_a_stated_suffix():
-    """The rendition is a PDF whatever the store calls it."""
     with patch("httpx.Client.get", return_value=_download(b"%PDF", "application/octet-stream")):
         path = DeferredObjectDownload("http://seaweedfs.test/bucket/doc/_render", suffix=".pdf")()
     os.unlink(path)
@@ -449,9 +365,6 @@ def test_deferred_download_keeps_a_stated_suffix():
 
 
 def test_deferred_download_scrubs_a_hostile_url_suffix():
-    """The URL-path extension is the fallback, and it lands in the temp
-    filename: separators, traversal and length bombs are scrubbed to a plain
-    short extension."""
     with patch("httpx.Client.get", return_value=_download(b"bytes", "application/octet-stream")):
         path = DeferredObjectDownload("http://seaweedfs.test/bucket/a.pdf/../../etc/passwd")()
     os.unlink(path)
@@ -462,8 +375,6 @@ def test_deferred_download_scrubs_a_hostile_url_suffix():
 
 @pytest.mark.parametrize("status", [403, 404, 302])
 def test_deferred_download_raises_on_a_failed_get(status):
-    """An expired signature, a missing object, and a redirect are all failed
-    downloads; the job turns the raise into a failed file."""
     with patch("httpx.Client.get", return_value=_failed_download(status)), pytest.raises(httpx.HTTPStatusError):
         DeferredObjectDownload(_SIGNED_REF)()
 
@@ -478,9 +389,6 @@ def test_deferred_download_logs_the_size_and_never_the_url(caplog):
 
 
 def test_deferred_download_retries_a_refused_connect():
-    """An object-store restart costs a few seconds, not the file: the download
-    goes through a transport that retries a refused CONNECT (httpcore's own
-    retry, which repeats nothing that reached the store)."""
     from agent_host.routes.ingest import _DOWNLOAD_CONNECT_RETRIES
 
     with (
@@ -494,8 +402,6 @@ def test_deferred_download_retries_a_refused_connect():
 
 
 def test_deferred_download_bounds_each_connect_attempt():
-    """Seven attempts at the 60 s read timeout would hold a worker for minutes
-    against a store that drops SYNs: each CONNECT has its own short bound."""
     from agent_host.routes.ingest import _DOWNLOAD_CONNECT_TIMEOUT_SECONDS
 
     with patch("httpx.Client.get", return_value=_download(b"%PDF", "application/pdf")) as get:
@@ -507,8 +413,6 @@ def test_deferred_download_bounds_each_connect_attempt():
 
 
 def test_deferred_download_repeats_a_get_the_store_cut_short(monkeypatch):
-    """A reset mid-response (PostHog Logs, 2026-11-02 14:44 to 14:47) reached the
-    store, but a GET repeats the same bytes: the second GET saves the file."""
     import time
 
     monkeypatch.setattr(time, "sleep", lambda seconds: None)
@@ -529,7 +433,6 @@ def test_deferred_download_repeats_a_get_the_store_cut_short(monkeypatch):
 
 
 def test_deferred_download_gives_up_after_its_response_attempts(monkeypatch):
-    """Three cut responses in a row fail the download, which the job turns into a failed file."""
     import time
 
     from agent_host.routes.ingest import _DOWNLOAD_RESPONSE_ATTEMPTS
@@ -547,8 +450,6 @@ def test_deferred_download_gives_up_after_its_response_attempts(monkeypatch):
 
 
 def test_infer_suffix_office_types():
-    """An office original whose presigned path has no extension keeps its
-    type's extension rather than landing as `.bin`."""
     from agent_host.routes.ingest import _infer_suffix
 
     url = "http://seaweedfs.test/bucket/doc/object"
@@ -556,9 +457,6 @@ def test_infer_suffix_office_types():
     assert _infer_suffix("application/vnd.ms-excel.sheet.macroEnabled.12", url) == ".xlsm"
     assert _infer_suffix("application/vnd.oasis.opendocument.text; charset=binary", url) == ".odt"
     assert _infer_suffix("text/rtf", url) == ".rtf"
-
-
-# --- Renditions and thumbnails (ADR-0070/0071) ---
 
 
 _THUMB_URL = "http://seaweedfs.test/bucket/doc/_thumb.jpg?X-Amz-Signature=put"
@@ -573,9 +471,6 @@ def _office_body(**extra) -> dict:
 
 @pytest.mark.asyncio
 async def test_ingest_rejects_non_object_store_preview_ref(app, mock_ingestor):
-    """preview_ref is downloaded by the job, so a URL off the object store is
-    the same SSRF primitive as a foreign file_ref: 422, before anything is
-    submitted."""
     response = await _post_json(app, _office_body(preview_ref="http://169.254.169.254/latest/meta-data"))
     _refused_for(response, "preview_ref")
     mock_ingestor.submit_job.assert_not_called()
@@ -583,13 +478,6 @@ async def test_ingest_rejects_non_object_store_preview_ref(app, mock_ingestor):
 
 @pytest.mark.asyncio
 async def test_a_spreadsheet_preview_is_left_to_the_job_which_draws_it_after_the_screen(app, mock_ingestor, no_network):
-    """An office original indexed from its own bytes (a workbook) has a
-    thumbnail only through its rendition. The route used to draw it in a
-    background task, before the job had read a word of the file, so a workbook
-    the content gate quarantined already had a thumbnail (ADR-0086). Now the
-    route fetches and PUTs nothing: the rendition is the job's deferred
-    download (``preview_paths``), drawn only once the screen passes. The URL
-    stays out of the config's repr."""
     response = await _post_json(
         app,
         {
@@ -612,8 +500,6 @@ async def test_a_spreadsheet_preview_is_left_to_the_job_which_draws_it_after_the
 
 @pytest.mark.asyncio
 async def test_ingest_rejects_non_object_store_extraction_ref(app, mock_ingestor):
-    """extraction_ref is downloaded by the job, so it is gated like file_ref
-    here: 422 before anything is submitted."""
     response = await _post_json(app, _office_body(extraction_ref="http://169.254.169.254/latest/meta-data"))
     _refused_for(response, "extraction_ref")
     mock_ingestor.submit_job.assert_not_called()
@@ -621,10 +507,6 @@ async def test_ingest_rejects_non_object_store_extraction_ref(app, mock_ingestor
 
 @pytest.mark.asyncio
 async def test_ingest_defers_both_downloads_and_keeps_the_original_identity(app, mock_ingestor, no_network, caplog):
-    """The original and its rendition are both the job's downloads; the name is
-    still the original's. Neither URL is in a config repr or a log, and the
-    job draws the thumbnail from the rendition it downloads anyway, so the
-    request neither fetches preview_ref nor PUTs."""
     caplog.set_level(logging.DEBUG)
     response = await _post_json(
         app,
@@ -647,23 +529,12 @@ async def test_ingest_defers_both_downloads_and_keeps_the_original_identity(app,
 
 @pytest.mark.asyncio
 async def test_ingest_without_extraction_ref_has_no_rendition_key(app, mock_ingestor, no_network):
-    """Absent, no rendition key: extraction reads the original."""
     response = await _post_json(app, _office_body())
     assert response.status_code == 202
     assert "extraction_paths" not in mock_ingestor.submit_job.call_args[1]["config"]
 
 
-# --- Idempotent dispatch: a retry joins the job the first attempt started ---
-
-
 class _KeyedIngestor:
-    """An ingestor whose jobs stay live, remembering what it submitted per key.
-
-    Its jobs never run, so a deferred download it was handed is never called:
-    a retry that joins one is what a retry landing during the job's download
-    sees.
-    """
-
     backend_name = "test"
 
     def __init__(self, submit_delay: threading.Event | None = None) -> None:
@@ -697,9 +568,6 @@ def _doc_body(file_ref: str = "http://seaweedfs.test/bucket/doc/plan.pdf?X-Amz-S
 
 @pytest.mark.asyncio
 async def test_a_retry_during_the_jobs_download_joins_the_same_job(app, keyed_ingestor, no_network):
-    """The retry the BFF sends (signed again, so the signature differs) while
-    the first job is still downloading its original: the same job id, no
-    second job, and nothing downloaded by either request."""
     first = await _post_json(app, _doc_body())
     retry = await _post_json(app, _doc_body("http://seaweedfs.test/bucket/doc/plan.pdf?X-Amz-Signature=two"))
     assert first.status_code == retry.status_code == 202
@@ -711,8 +579,6 @@ async def test_a_retry_during_the_jobs_download_joins_the_same_job(app, keyed_in
 
 @pytest.mark.asyncio
 async def test_a_new_version_of_the_same_document_is_submitted(app, keyed_ingestor, no_network):
-    """A re-upload keeps the document id and writes a new object (ADR-0054):
-    it must be indexed even while the old version's job is still live."""
     first = await _post_json(app, _doc_body())
     second = await _post_json(app, _doc_body("http://seaweedfs.test/bucket/doc/v2/w1/plan.pdf?X-Amz-Signature=x"))
     assert (first.json()["job_id"], second.json()["job_id"]) == ("job-1", "job-2")
@@ -722,10 +588,6 @@ async def test_a_new_version_of_the_same_document_is_submitted(app, keyed_ingest
 async def test_a_move_into_a_restricted_collection_does_not_join_the_open_collections_job(
     app, keyed_ingestor, no_network
 ):
-    """A document moved across a folder restriction (ADR-0087) keeps its id and
-    object and is dispatched again into the folder's collection. Joining the
-    job still writing into the open collection would index nothing where the
-    document now belongs."""
     first = await _post_json(app, _doc_body())
     moved = await _post_json(app, _doc_body(collection="proj_test123_r0123456789ab"))
     assert (first.json()["job_id"], moved.json()["job_id"]) == ("job-1", "job-2")
@@ -734,8 +596,6 @@ async def test_a_move_into_a_restricted_collection_does_not_join_the_open_collec
 
 @pytest.mark.asyncio
 async def test_concurrent_dispatches_of_one_document_submit_once(app, keyed_ingestor, no_network):
-    """Two dispatches of one key arriving together on this replica: the second
-    waits for the first's lookup and submit, then finds its job."""
     release = threading.Event()
     keyed_ingestor.submit_delay = release
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -754,7 +614,6 @@ async def test_concurrent_dispatches_of_one_document_submit_once(app, keyed_inge
 
 @pytest.mark.asyncio
 async def test_without_a_document_id_every_dispatch_submits(app, keyed_ingestor, no_network):
-    """The OIB corpus sync sends no document id; it keeps its behaviour."""
     body = {"file_ref": "http://seaweedfs.test/bucket/oib/rl1.pdf", "collection": "oib_knowledge"}
     await _post_json(app, body)
     await _post_json(app, body)
@@ -776,7 +635,6 @@ def test_the_dispatch_key_is_a_digest_of_document_object_path_and_collection(mon
     assert key(base) != key(base.replace("Plan", "Plan2"))
     assert key(base) != key(base, collection="c_r0123456789ab")
     assert key(base, document_id=None) is None
-    # Nothing of the tenant path is stored in the clear.
     assert "org" not in key(base) and len(key(base)) == 64
 
 

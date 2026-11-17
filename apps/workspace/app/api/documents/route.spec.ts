@@ -1,16 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * `GET /api/documents` — the two narrowings the listing takes, and the one that
- * WIDENS.
- *
- * `authoredBy` is validated against the column's own tuple so an unknown value
- * is a 400 rather than a silently empty list somebody reads as „Piloti hat
- * nichts geschrieben". `includeArchived` is the other direction, and it exists
- * because archiving used to change nothing a reader could see: the chunks were
- * purged, `documents.lifecycle` was written, and no listing read the column.
- */
 
 import { describe, expect, it, vi } from 'vitest'
 
@@ -59,9 +49,6 @@ describe('GET /api/documents', () => {
   })
 
   it('refuses a value the flag cannot hold, rather than reading it as false', async () => {
-    // `'false'`, `'1'` and a typo would all silently mean „the working set" if
-    // this were a truthiness check, and the reader would be told there are no
-    // archived documents.
     const response = await call('?projectId=proj_1&includeArchived=yes')
     expect(response.status).toBe(400)
   })
@@ -70,8 +57,6 @@ describe('GET /api/documents', () => {
     expect((await call('?projectId=proj_1&authoredBy=nobody')).status).toBe(400)
   })
 
-  // Paged, not capped: the oldest plans of a large project used to be absent
-  // from a listing that never said it had stopped.
   it('passes a decoded cursor to the service and returns the next one', async () => {
     const cursor = { sort: 'added', dir: 'desc', value: '2026-01-01T00:00:00.123456', id: '00000000-0000-4000-8000-000000000001' } as const
     vi.mocked(listDocumentsPage).mockResolvedValueOnce({ documents: [], nextCursor: 'next-page' })
@@ -92,8 +77,6 @@ describe('GET /api/documents', () => {
     expect((await call('?projectId=proj_1&cursor=not-a-cursor')).status).toBe(400)
   })
 
-  // Every read is a bounded page (ADR-0102, ADR-0131): one folder level, or the
-  // whole shelf when no folder is named. There is no unbounded drain any more.
   describe('a level read', () => {
     const FOLDER = '00000000-0000-4000-8000-0000000000f1'
 

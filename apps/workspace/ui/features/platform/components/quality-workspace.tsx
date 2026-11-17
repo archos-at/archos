@@ -1,24 +1,5 @@
 'use client'
 
-/**
- * Platform → Answer quality, as one workspace with three views.
- *
- * The page used to stack three whole dashboards (citation health, answer
- * feedback, agent profiler) in one column, each with its own window switch, so
- * "the last 30 days" could mean three different windows on one screen and the
- * feedback the page is named for started two screen-heights down. Now:
- *
- * - **Ratings first.** What the people who read the answers thought is the
- *   question the page is opened with; it is the default view.
- * - **One scope** for every view: a date range, organizations and projects,
- *   in the bar under the header (`QualityScopeBar`), handed to each view as
- *   `scope`. The ratings view adds filters of its own on top, which only votes
- *   have (verdict, reason, topic …), and its export is exactly what it shows.
- * - **The URL is the state.** `?view=`, the scope (`from`, `to`, `org`,
- *   `project`) and the ratings filters round-trip, so a view a colleague should
- *   look at is a link, and Back walks the changes you made.
- */
-
 import type { JSX } from 'react'
 import { useCallback, useMemo } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
@@ -38,7 +19,6 @@ import { QualityScopeBar, useQualityScopeOptions } from './quality-scope-bar'
 export const QUALITY_VIEWS = ['ratings', 'citations', 'timing'] as const
 export type QualityView = (typeof QUALITY_VIEWS)[number]
 
-/** Read a `?view=` value, falling back to the ratings view for anything else. */
 export function parseQualityView(value: string | null | undefined): QualityView {
   return (QUALITY_VIEWS as readonly string[]).includes(value ?? '')
     ? (value as QualityView)
@@ -59,8 +39,6 @@ export function QualityWorkspace(): JSX.Element {
   const current = searchParams.toString()
 
   const view = parseQualityView(searchParams.get('view'))
-  // Memoised on the query string: the readers build a new object per call, and
-  // the views fetch when the scope they are handed changes.
   const scope = useMemo(() => readQualityScope(new URLSearchParams(current)), [current])
   const ratings = useMemo(() => readRatingsFilters(new URLSearchParams(current)), [current])
   const scopeOptions = useQualityScopeOptions(scope)

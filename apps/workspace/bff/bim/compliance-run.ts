@@ -1,13 +1,12 @@
 /**
  * The rule catalogue over one model (`complianceRun`), and the project facts it
- * reads beside the elements: where the project is, and the model's storeys.
- * Split from `query.ts`, which calls it for `compliance` and `compliance-diff`.
+ * reads beside the elements: the knowledge context of its site, and the model's
+ * storeys. Split from `query.ts`, which calls it for `compliance` and `compliance-diff`.
  */
 
 import 'server-only'
-import { findProjectIntake } from '@/lib/project-intake/repository'
-import { siteOfProfile } from '@/lib/project-intake/setup-scope'
-import { findProjectProfileInOrg } from '@/lib/projects/repository'
+import { contextForPage } from '@/lib/base-knowledge/context/service'
+import type { KnowledgeContext } from '@/lib/base-knowledge/context/wire'
 import { readComplianceCache, writeComplianceCache, type CachedCompliance } from './compliance-cache'
 import {
   loadBimElementsForSchedule,
@@ -16,31 +15,17 @@ import {
   type BimModelHeader,
 } from './repository'
 import { buildStoredRuleInputs, readStoredRuleInputs } from './rule-inputs'
-import {
-  missingPropertyShoppingList,
-  runBimRules,
-  summarizeBimRules,
-  type BimSite,
-} from './rules'
+import { basisKey, ruleBases } from './rule-basis'
+import { BIM_RULES, missingPropertyShoppingList, runBimRules, summarizeBimRules } from './rules'
 
 /**
- * Where the model's project is (ADR-0169): the chain its profile gives. A model
- * in no project, or a project nothing places, has no site, and every rule's
- * elements are then undecidable rather than judged by Austrian law by default.
+ * The knowledge context of the model's project, as the project's page and the
+ * turn read it: which editions bind at its site. A model in no project has none,
+ * and every rule is then a hint rather than judged by one country's law by default.
  */
-export async function siteOfModel(header: BimModelHeader, organizationId: string): Promise<BimSite> {
-  if (!header.projectId) return null
-  const [state, intake] = await Promise.all([
-    findProjectProfileInOrg(header.projectId, organizationId),
-    findProjectIntake(organizationId, header.projectId),
-  ])
-  if (!state) return null
-  // The geocoder's Land, where the profile states none: what the intake places the project by.
-  return siteOfProfile(state.profile, intake?.location)
+export async function contextOfModel(header: BimModelHeader, organizationId: string): Promise<KnowledgeContext | null> {
+  return header.projectId ? contextForPage(organizationId, header.projectId) : null
 }
-
-/** The cache's spelling of a site. */
-export const siteKey = (site: BimSite) => (site ? site.chain.join('>') || 'nowhere' : 'unplaced')
 
 /**
  * Storey names and elevations for the rule catalogue.
@@ -77,10 +62,11 @@ export async function complianceRun(
   organizationId: string,
   facts: { buildingClass: number | null; mainUse: string | null },
   // A base revision is judged at the site of the model whose project asks, never at its own.
-  given?: BimSite
+  given?: KnowledgeContext | null
 ): Promise<CachedCompliance> {
-  const site = given === undefined ? await siteOfModel(header, organizationId) : given
-  const cached = readComplianceCache(header, facts.buildingClass, facts.mainUse, siteKey(site))
+  const bases = ruleBases(BIM_RULES, given === undefined ? await contextOfModel(header, organizationId) : given)
+  const basis = basisKey(bases)
+  const cached = readComplianceCache(header, facts.buildingClass, facts.mainUse, basis)
   if (cached) return cached
 
   // The fast path: a single column of a single row, ~120 bytes per element
@@ -116,7 +102,7 @@ export async function complianceRun(
 
   const compliance = runBimRules(loaded.elements, {
     ...facts,
-    site,
+    bases,
     // The model declares its length unit; a rule that guessed could be wrong
     // by a factor of a thousand. Each revision is judged with ITS OWN, so a
     // re-export from millimetres to metres does not register as every
@@ -133,6 +119,6 @@ export async function complianceRun(
     complianceSummary: summarizeBimRules(compliance),
     complianceShoppingList: missingPropertyShoppingList(compliance),
   }
-  writeComplianceCache(header, facts.buildingClass, facts.mainUse, siteKey(site), computed)
+  writeComplianceCache(header, facts.buildingClass, facts.mainUse, basis, computed)
   return computed
 }

@@ -43,10 +43,20 @@ Likeness only re-ranks a channel's own candidates and never pulls a passage
 in on its project's facts alone. The weights arrive in the request, from the
 BFF's ``SIMILARITY_WEIGHTS``, so they are set in one place. Only this module
 turns them into Qdrant terms.
+
+## The binding edition, the same way
+
+A passage of an edition that binds at the turn's site (``knowledge_context.binding_editions``,
+by the ``knowledge_edition_id`` every corpus point carries) gains ``EDITION_PREFERENCE`` in the
+same factor. It is a preference, never a filter: a passage of another edition stays a candidate and
+wins where it is clearly the better answer, so a question about the 2019 edition still finds it.
+Without it, the same rule in two editions ranks by chance, the answer may cite the one that does
+not bind, and the citation check removes that citation after the answer is written.
 """
 
 from __future__ import annotations
 
+from collections.abc import Collection
 from collections.abc import Mapping
 from dataclasses import dataclass
 from dataclasses import fields
@@ -58,6 +68,7 @@ from qdrant_client import models
 from agent.profile_names import legacy_profile_token
 
 from .payload import project_payload
+from .schema import KNOWLEDGE_EDITION_FIELD
 from .schema import LEGACY_FIELDS
 from .schema import PROJECT_FACTS_FIELD
 from .schema import fact_field
@@ -68,6 +79,12 @@ from .schema import fact_field
 #: projects that share nothing, not enough to beat a clearly better passage.
 #: Hand-set like the weights. The answer suite (gate G1) is where it is tuned.
 LIKENESS = 0.05
+
+#: The share of its own score a passage of a binding edition gains in each channel. The same passage in
+#: another edition (the same words, another Ausgabe) scores alike, so any share puts the binding one first;
+#: 0.05 also orders a near twin that changed a word or a number, and does not beat a clearly better passage.
+#: Hand-set like LIKENESS; the answer suite is where it is tuned.
+EDITION_PREFERENCE = 0.05
 
 #: Uses compared for "at least n shared". The combinations grow as n choose
 #: k, and the intake records a handful of uses per project.
@@ -190,14 +207,19 @@ def boost_terms(boost: Boost) -> list[tuple[float, Any]]:
     return [(weight, condition) for weight, condition in terms if weight > 0]
 
 
-def likeness_formula(boost: Boost | None) -> models.FormulaQuery | None:
-    """``$score * (1 + LIKENESS * likeness / most)``, or None when the current project can share nothing."""
-    terms = boost_terms(boost) if boost else []
-    if not terms or not boost:
+def ranking_formula(boost: Boost | None, editions: Collection[str] = ()) -> models.FormulaQuery | None:
+    """``$score * (1 + LIKENESS * likeness / most + EDITION_PREFERENCE * binding)``; None when no term applies.
+
+    ``editions`` are the record ids of the editions that bind at the turn's site.
+    """
+    terms = [(LIKENESS / boost.weights.most * weight, term) for weight, term in boost_terms(boost)] if boost else []
+    if editions:
+        binding = models.FieldCondition(key=KNOWLEDGE_EDITION_FIELD, match=models.MatchAny(any=sorted(editions)))
+        terms.append((EDITION_PREFERENCE, binding))
+    if not terms:
         return None
-    scale = LIKENESS / boost.weights.most
     factor = models.SumExpression(
-        sum=[1.0] + [models.MultExpression(mult=[scale * weight, condition]) for weight, condition in terms]
+        sum=[1.0] + [models.MultExpression(mult=[weight, condition]) for weight, condition in terms]
     )
     return models.FormulaQuery(formula=models.MultExpression(mult=["$score", factor]))
 

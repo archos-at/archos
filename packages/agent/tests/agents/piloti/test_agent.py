@@ -3655,7 +3655,7 @@ class TestAFailedCallIsNotASource:
         from langchain_core.messages import ToolMessage
 
         message = ToolMessage(
-            content="Treffer: https://www.oib.or.at/richtlinie-2",
+            content='<Document href="https://www.oib.or.at/richtlinie-2">\n<title>\nTreffer\n</title>\n…\n</Document>',
             tool_call_id="call_2",
             name="web_search_tool",
         )

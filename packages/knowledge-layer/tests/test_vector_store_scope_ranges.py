@@ -1,9 +1,3 @@
-"""Range operators in the filter grammar, and the tenancy boundary a ranged read keeps.
-
-No server needed: the filters are compiled and inspected, and ``reads.fetch_from`` runs against a
-stand-in store that applies the scope condition the way Qdrant does.
-"""
-
 from __future__ import annotations
 
 from typing import Any
@@ -17,7 +11,6 @@ from knowledge_layer.vector_store import scope_filter
 from knowledge_layer.vector_store import translate
 from qdrant_client import models
 
-# The structural reads carry the office they read as (``reading_office.office_read``).
 pytestmark = pytest.mark.usefixtures("reads_as_an_office")
 
 
@@ -95,8 +88,6 @@ class _Record:
 
 
 class _Store:
-    """Stands in for the Qdrant store: ``scroll`` applies the scope and the one bound ``fetch_from`` adds."""
-
     def __init__(self, records: list[_Record]):
         self.records = records
         self.calls: list[tuple[str, Any]] = []
@@ -137,7 +128,6 @@ def _payload(chunk_id: str, page: int, ordinal: int | None, text: str = "t") -> 
 
 
 def _at(page: int, ordinal: int, chunk_id: str) -> tuple:
-    """The ``document_position`` of a numbered chunk with no section structure."""
     return (page, 0, 0, 0, 0, ordinal, chunk_id)
 
 
@@ -160,7 +150,6 @@ def test_fetch_from_continues_after_the_start_in_document_order(monkeypatch):
 
 
 def test_fetch_from_reads_only_the_scope_it_is_asked_for(monkeypatch):
-    """The start position narrows within a scope; it cannot reach the same file name in another one."""
     records = [
         _Record("proj_a", _payload("mine", 4, 0, "mine")),
         _Record("proj_b", _payload("theirs", 4, 1, "theirs")),
@@ -179,7 +168,6 @@ def _place(payload: dict[str, Any], **structure: int) -> dict[str, Any]:
 
 
 def test_fetch_from_compares_the_key_it_sorts_by_so_a_table_part_out_of_ordinal_order_is_kept(monkeypatch):
-    """Page 5 sorts [text 4, text 5, table part 3]: a cursor after text 4 must still reach table part 3."""
     records = [
         _Record("proj_a", _payload("t4", 5, 4)),
         _Record("proj_a", _payload("t5", 5, 5)),
@@ -195,7 +183,6 @@ def test_fetch_from_compares_the_key_it_sorts_by_so_a_table_part_out_of_ordinal_
 
 
 def test_fetch_from_does_not_end_a_read_at_an_unnumbered_chunk_of_an_earlier_section(monkeypatch):
-    """Unnumbered (section 1), numbered 7 (section 2), unnumbered (section 3): a cut after the first loses neither."""
     records = [
         _Record("proj_a", _place(_payload("u1", 5, None), section_order=1)),
         _Record("proj_a", _place(_payload("n7", 5, 7), section_order=2)),

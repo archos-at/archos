@@ -1,9 +1,3 @@
-/**
- * A workspace kept current over its shelf's live channel, against a scripted
- * link: a burst of hints is one re-read, the folder flag survives the burst,
- * and the channel coming up (first, or after a drop) reads everything again.
- */
-
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ChannelFrame, ChannelLink } from './use-channel'

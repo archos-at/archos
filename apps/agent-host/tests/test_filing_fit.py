@@ -1,5 +1,3 @@
-"""Where an upload belongs (`/v1/filing-fit`): metadata in, checked moves out, silence by default."""
-
 import json
 from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
@@ -186,8 +184,6 @@ SORT_ANSWER = json.dumps(
 
 
 class _Answer:
-    """What ``decide_many`` hands back per state: ``choice("folder")`` gives the distribution."""
-
     def __init__(self, distribution: dict[str, float]):
         self._distribution = distribution
 
@@ -197,7 +193,6 @@ class _Answer:
 
 @pytest.fixture
 def decided(monkeypatch):
-    """A decide_many that answers every state with one distribution and records what it was asked."""
     calls: list[dict] = []
     distribution = {"f0": 0.9, "f2": 0.4, "none": 0.1}
 
@@ -238,7 +233,6 @@ async def test_sort_attaches_the_probability_of_each_moves_folder(app, decided):
 @pytest.mark.asyncio
 async def test_a_failed_score_keeps_every_move_unscored(app, monkeypatch):
     async def broken(states, *_args, **_kwargs):
-        # How `decide_many` fails: one None per call it could not make, never a raise.
         return [None] * len(states)
 
     monkeypatch.setattr("agent.common.decisions.decide_many", broken)
@@ -270,8 +264,6 @@ async def test_too_many_folders_to_offer_are_not_scored(monkeypatch):
     assert scores == [None]
     spy.assert_not_awaited()
 
-
-# ── basis: mail (ADR-0137, D21): a held mail's attachments, placed from metadata only ──
 
 MAIL_BODY = {
     "basis": "mail",
@@ -326,7 +318,6 @@ def test_the_model_reads_the_mail_the_types_and_the_text_to_place():
     assert '"subject": "AW: Einreichung Stellplatznachweis ███"' in content
     assert '"sender_domain": "wien.gv.at"' in content
     types = content.split("TYPES", 1)[1].split("TEXT", 1)[0]
-    # Each type with its criterion: a bare list read a Nachweis as „Sonstiges“ (D14's run of 20 mails).
     assert '"Bescheid"' in types
     assert "Nachweis" in types
     assert '{"id": "t1", "type": "correspondence"}' in content

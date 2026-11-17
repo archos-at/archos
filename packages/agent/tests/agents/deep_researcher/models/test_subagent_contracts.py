@@ -1,5 +1,3 @@
-"""Tests for deep researcher structured response contracts."""
-
 import pytest
 from pydantic import ValidationError
 
@@ -184,13 +182,6 @@ def test_research_notes_contract_accepts_evidence_judgment():
 
 
 def test_evidence_judgment_contract_clamps_out_of_range_score():
-    """Out-of-range scores degrade to the nearest bound instead of failing the worker.
-
-    relevance_score dropped its Field(ge=0, le=100) constraint because strict
-    json_schema structured-output mode does not support JSON-Schema
-    minimum/maximum, so the range is now enforced by a field_validator that
-    clamps instead of raising.
-    """
     high = EvidenceJudgment.model_validate(
         {
             "relevance_score": 150,
@@ -220,12 +211,6 @@ def test_evidence_judgment_contract_clamps_out_of_range_score():
 
 
 def test_research_query_contract_rejects_empty_preferred_tools():
-    """preferred_tools lost its Field(min_length=1) for the same strict-mode reason.
-
-    Unlike relevance_score, an empty tool list cannot be clamped to something
-    valid, so the field_validator still raises -- matching the previous
-    Field(min_length=1) failure semantics.
-    """
     with pytest.raises(ValidationError):
         ResearchQuery.model_validate(
             {
@@ -240,7 +225,6 @@ def test_research_query_contract_rejects_empty_preferred_tools():
 
 
 def _walk_strict_mode_unsupported_keys(node: object, path: str = "$") -> list[str]:
-    """Recursively collect JSON-Schema keys that strict json_schema mode rejects."""
     unsupported = {"minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "minLength", "maxLength", "pattern"}
     hits: list[str] = []
     if isinstance(node, dict):
@@ -255,23 +239,12 @@ def _walk_strict_mode_unsupported_keys(node: object, path: str = "$") -> list[st
 
 
 def test_research_notes_schema_has_no_strict_mode_unsupported_constraints():
-    """ResearchNotes.model_json_schema() must not emit minimum/maximum/etc anywhere in its tree.
-
-    Field(ge=..., le=...) and friends compile to JSON-Schema keywords that
-    strict json_schema structured-output mode does not support; langchain's
-    ProviderStrategy ships the schema verbatim without sanitizing them, which
-    can 400 or otherwise misbehave for researcher-worker structured
-    responses (ResearchNotes nests EvidenceJudgment). field_validator-based
-    enforcement (see EvidenceJudgment.relevance_score) does not appear in
-    model_json_schema(), so this should find nothing.
-    """
     schema = ResearchNotes.model_json_schema()
     hits = _walk_strict_mode_unsupported_keys(schema)
     assert hits == [], f"strict-mode-unsupported schema constraints found: {hits}"
 
 
 def test_research_plan_schema_has_no_strict_mode_unsupported_constraints():
-    """Re-verify ResearchPlan is clean now that ResearchQuery.preferred_tools lost its min_length."""
     schema = ResearchPlan.model_json_schema()
     hits = _walk_strict_mode_unsupported_keys(schema)
     assert hits == [], f"strict-mode-unsupported schema constraints found: {hits}"

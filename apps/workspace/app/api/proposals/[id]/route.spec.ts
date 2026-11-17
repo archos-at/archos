@@ -1,20 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The proposed-change routes and their service, driven through the TYPED
- * CLIENT (ADR-0055): the card uses the same functions, so a path or a field the
- * two disagreed on would fail here.
- *
- * The repository is an in-memory fake that keeps the compare-and-swap honest
- * (a transition from anything but `proposed`, or past a live claim, finds no
- * row) and checks every row against the CHECKs of migration 0140. The
- * document, folder, assignment, memory and profile services are mocked at
- * their seams; what is under test is that applying calls THEM, with the
- * deciding person's session, in order, resolving names and paths the way the
- * browser did, and records each item's outcome; and that each kind is decided
- * with the right its own service writes with.
- */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -65,8 +51,11 @@ vi.mock('@/lib/projects/service', () => ({
 vi.mock('@/lib/project-profile/profile-service', () => ({ patchProjectProfile: vi.fn() }))
 vi.mock('@/lib/conversations/cross-project-use', () => ({ requireMayRememberFrom: vi.fn(async () => undefined) }))
 vi.mock('@/lib/conversations/restricted-egress', () => ({ requireMayLeaveConversation: vi.fn(async () => undefined) }))
+vi.mock('@/lib/conversations/temporary-repository', () => ({
+  readConversationTemporary: vi.fn(async () => false),
+  updateConversationTemporaryInOrg: vi.fn(),
+}))
 vi.mock('@/i18n/server', () => ({ getLocale: vi.fn(async () => 'de') }))
-// Every spec here clicks as the same person; the mutation budget is not under test.
 vi.mock('@/lib/limits/enforce', async (original) => ({
   ...(await original<typeof import('@/lib/limits/enforce')>()),
   enforceLimit: vi.fn(async () => undefined),
@@ -96,6 +85,7 @@ import { requireMayRememberFrom } from '@/lib/conversations/cross-project-use'
 import { findConversationInOrg } from '@/lib/conversations/repository'
 import type { Conversation } from '@/lib/db/schema/conversations'
 import { requireMayLeaveConversation } from '@/lib/conversations/restricted-egress'
+import { readConversationTemporary } from '@/lib/conversations/temporary-repository'
 import type { ProjectMemoryItem } from '@/lib/db/schema/project-memory'
 import type { ProposedChangeRow } from '@/lib/db/schema/proposed-changes'
 import { patchProjectProfile, type PatchedProjectProfile } from '@/lib/project-profile/profile-service'
@@ -181,7 +171,6 @@ const row = (extra: Partial<ProposedChangeRow> = {}): ProposedChangeRow => ({
   ...extra,
 })
 
-/** The migration's CHECKs, held against every row the fake stores. */
 function assertChecks(stored: ProposedChangeRow): void {
   const decided = stored.status !== 'proposed'
   expect(decided, 'proposed_changes_decision_complete').toBe(stored.decidedBy !== null)
@@ -194,7 +183,6 @@ function assertChecks(stored: ProposedChangeRow): void {
   if (stored.applyingBy !== null) expect(stored.status, 'proposed_changes_claim_while_proposed').toBe('proposed')
 }
 
-/** An in-memory `proposed_changes` with the repository's compare-and-swap. */
 let store: Map<string, ProposedChangeRow>
 const put = (next: ProposedChangeRow) => {
   assertChecks(next)
@@ -261,7 +249,6 @@ beforeEach(() => {
   vi.mocked(resolveProjectDocumentsByName).mockImplementation(async (_session, _project, names) =>
     names.flatMap((name) => {
       if (name.toLowerCase() === 'grundriss eg.pdf') {
-        // A re-upload under the same name: the newer row is the one meant.
         return [listed('doc_old', 'Grundriss EG.pdf', '2026-01-01T08:00:00Z'), listed('doc_eg', 'grundriss eg.PDF')]
       }
       if (name === 'Schnitt A-A.pdf') return [listed('doc_aa', 'Schnitt A-A.pdf')]
@@ -275,7 +262,6 @@ beforeEach(() => {
   }))
 })
 
-/** The decider may read the project but not write it. */
 const readOnly = () =>
   vi.mocked(requireProjectAccess).mockImplementation(async (_session, _project, permission) => {
     if (permission === 'project:view') return { role: 'project-viewer', closed: false, readsBecauseClosed: false }
@@ -565,7 +551,6 @@ describe('POST /api/proposals/[id]/dismiss', () => {
   })
 })
 
-/** The side effects run unawaited after the commit; let them settle. */
 const afterCommit = () => vi.waitFor(() => expect(publishProposalDecided).toHaveBeenCalled())
 
 describe('what follows a decision (live card, inbox, Langfuse)', () => {
@@ -673,7 +658,6 @@ describe('createProposal — the inbox is told', () => {
       originConversationId: CONVERSATION,
       onBehalfOf: 'user_2',
       summary: 'Grundriss EG.pdf, Schnitt A-A.pdf +1',
-      // Which change it proposes, so the inbox titles it („Piloti schlägt einen neuen Ablageort vor").
       variant: 'move',
     })
   })
@@ -718,7 +702,6 @@ const profileRow = (extra: Partial<ProposedChangeRow> = {}) => row({ kind: 'proj
 const memoryItem = (id: string) => ({ id }) as Partial<ProjectMemoryItem> as ProjectMemoryItem
 const patched = (extra: Partial<PatchedProjectProfile> = {}) => ({ ...extra }) as PatchedProjectProfile
 
-/** The reader holds `project:view` and exactly these rights; any-of lists pass on one of them. */
 const holding = (...held: string[]) =>
   vi.mocked(requireProjectAccess).mockImplementation(async (_session, _project, permission) => {
     const wanted: readonly string[] = Array.isArray(permission) ? permission : [permission]
@@ -825,7 +808,6 @@ describe('applying a memory note', () => {
       supersedesContent: NOTE.supersedes,
     })
     expect(createOrganizationMemoryItem).not.toHaveBeenCalled()
-    // The scope recorded is the one the decider chose, not the one Piloti asked for.
     expect(proposal.results).toEqual([expect.objectContaining({ ok: true, itemId: 'mem_project', scope: 'project' })])
   })
 
@@ -864,6 +846,20 @@ describe('applying a memory note', () => {
     )
     expect(addProjectMemoryItem).not.toHaveBeenCalled()
     expect(store.get(ID)).toMatchObject({ status: 'proposed', applyingBy: null, applyingSince: null })
+  })
+
+  it('refuses a note from a temporary conversation with the named 403, writes nothing, and leaves the proposal open', async () => {
+    store.set(ID, memoryRow({ scope: 'organization' }))
+    vi.mocked(readConversationTemporary).mockResolvedValueOnce(true)
+
+    await expect(applyProposal(ID, run)).rejects.toMatchObject({ status: 403, code: 'TEMPORARY_CONVERSATION' })
+    expect(readConversationTemporary).toHaveBeenCalledWith(CONVERSATION, 'org_1')
+    expect(addProjectMemoryItem).not.toHaveBeenCalled()
+    expect(createOrganizationMemoryItem).not.toHaveBeenCalled()
+    expect(store.get(ID)).toMatchObject({ status: 'proposed', applyingBy: null, applyingSince: null })
+
+    const { proposal } = await applyProposal(ID, run)
+    expect(proposal.status).toBe('applied')
   })
 
   it('gives the claim back when the memory service refuses the decider', async () => {
@@ -1032,7 +1028,6 @@ describe('createProposal — every kind, once per card', () => {
 describe('the audit trail of a proposal', () => {
   const MESSAGE = '9a0b1c2d-3e4f-4a5b-8c6d-7e8f9a0b1c2d'
   const audited = (): AuditEventInput[] => vi.mocked(recordAuditEvent).mock.calls.map(([input]) => input)
-  // Whatever was emitted, WorkOS would accept: every target type and key is registered.
   afterEach(() => {
     for (const [input] of vi.mocked(recordAuditEvent).mock.calls) expectRegistered(input)
   })
@@ -1074,7 +1069,6 @@ describe('the audit trail of a proposal', () => {
         },
       },
     ])
-    // Names and paths of the payload stay out.
     expect(JSON.stringify(audited())).not.toMatch(/Grundriss|Schnitt|Einreichung/)
   })
 

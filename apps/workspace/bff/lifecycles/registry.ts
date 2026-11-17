@@ -19,6 +19,7 @@ import { ROOT_SORT_LIFECYCLE } from '@/lib/filing/root-sort-types'
 import { RUN_LEDGER_LIFECYCLE } from '@/lib/runs/run-ledger-types'
 import { TASK_RUN_LIFECYCLE } from '@/lib/tasks/task-vocabulary'
 import { PROJECT_LIFECYCLE } from '@/lib/projects/project-status'
+import { PROJECT_MEMORY_LIFECYCLE } from '@/lib/projects/memory-vocabulary'
 import type { Lifecycle } from '@/shared/lifecycle/define-lifecycle'
 
 export interface RegisteredLifecycle {
@@ -103,5 +104,11 @@ export const LIFECYCLES: readonly RegisteredLifecycle[] = [
     what: 'The extraction of one IFC model. A newer run takes the row over, and only the run that started an extraction may finish or fail it.',
     where: 'bff/bim/types.ts',
     column: 'bim_models.status',
+  },
+  {
+    lifecycle: PROJECT_MEMORY_LIFECYCLE,
+    what: 'A note of a project’s or the office’s memory: active until a newer note supersedes it or a person dismisses it, and back to active when a person restores it.',
+    where: 'bff/projects/memory-vocabulary.ts',
+    column: 'project_memory.status',
   },
 ]

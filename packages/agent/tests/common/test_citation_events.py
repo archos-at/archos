@@ -1,5 +1,3 @@
-"""Tests for the citation-health ledger emitter (``common.citation_events``)."""
-
 from __future__ import annotations
 
 from typing import Any
@@ -24,14 +22,11 @@ def _kinds(events: list[CitationEvent]) -> list[str]:
 
 
 class TestRemovalReasons:
-    """Reason keys are bucketed so the dashboard's breakdown stays bounded."""
-
     def test_known_reasons_pass_through(self) -> None:
         assert normalize_removal_reason("url_not_in_registry") == "url_not_in_registry"
         assert normalize_removal_reason("citation_key_not_in_registry") == "citation_key_not_in_registry"
 
     def test_duplicate_reasons_collapse_to_one_bucket(self) -> None:
-        """Without this, every citation NUMBER would become its own bucket."""
         assert normalize_removal_reason("duplicate_of_citation_3") == "duplicate"
         assert normalize_removal_reason("duplicate_of_citation_17") == "duplicate"
 
@@ -58,8 +53,6 @@ class TestRemovalReasons:
 
 
 class TestCitationTargets:
-    """WHICH source failed — the payload that makes the export diagnosable."""
-
     def test_url_target_is_extracted_and_trimmed(self) -> None:
         assert extract_citation_target("[3] [Web] Some Title: https://example.test/a/b).") == "https://example.test/a/b"
 
@@ -72,7 +65,6 @@ class TestCitationTargets:
         assert target == "https://example.test/guide"
 
     def test_a_line_with_no_identifiable_target_records_nothing(self) -> None:
-        """No target means no record — answer prose must never leak into the ledger."""
         assert extract_citation_target("[1] Bauordnung für Wien, ein Kommentar") is None
         assert extract_citation_target("") is None
         assert extract_citation_target(None) is None  # type: ignore[arg-type]
@@ -106,8 +98,6 @@ class TestCitationTargets:
         assert by_kind["citations_removed"].detail["targets"] == [
             {"target": "OIB-RL6.pdf, p.4", "reason": "citation_key_not_in_registry"}
         ]
-        # The ungrounded row also records what retrieval DID return, so a
-        # diagnosis can tell "nothing relevant found" from "model ignored it".
         assert by_kind["answer_ungrounded"].detail["retrieved_sources"] == ["OIB-RL2.pdf, p.1"]
 
     def test_quote_event_records_cited_documents_but_never_the_quote(self) -> None:
@@ -123,10 +113,7 @@ class TestCitationTargets:
 
 
 class TestBuildTurnEvents:
-    """The per-turn event set, which is the ledger's entire vocabulary."""
-
     def test_clean_turn_emits_only_the_baseline_row(self) -> None:
-        """The baseline row is the clean-rate DENOMINATOR — it must always exist."""
         events = build_turn_events(source_count=4, cited_count=3)
         assert _kinds(events) == ["turn_verified"]
         assert events[0].detail["source_count"] == 4
@@ -187,7 +174,6 @@ class TestBuildTurnEvents:
         ]
 
     def test_source_mix_is_counted_not_listed(self) -> None:
-        """Coarse labels only — no user prose, no per-source rows."""
         events = build_turn_events(
             source_count=3,
             cited_count=2,
@@ -217,16 +203,12 @@ class TestPayload:
 
 
 class TestEmission:
-    """Transport: identity resolution, opt-out, and the never-raise contract."""
-
     @pytest.fixture(autouse=True)
     def _no_context(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("INTERNAL_API_TOKEN", "test-token")
         monkeypatch.delenv("CITATION_EVENTS_ENABLED", raising=False)
 
     def test_record_turn_posts_one_batch_with_every_event(self) -> None:
-        # Dispatch goes through the daemon executor so the answer path is never
-        # blocked on the ledger; patch `submit` to observe it deterministically.
         with patch.object(citation_events._post_executor, "submit") as submit:
             payload = record_turn(
                 agent="shallow",
@@ -243,7 +225,6 @@ class TestEmission:
         submit.assert_called_once_with(citation_events._post_batch, payload)
 
     def test_turn_id_is_borrowed_from_the_active_profiler(self) -> None:
-        """A defect must link back to that turn's execution timeline."""
 
         class _FakeProfiler:
             organization_id = "org_from_profiler"
@@ -303,13 +284,11 @@ class TestEmission:
         assert event["detail"] == {"available_tools": 0, "unavailable_tools": ["ris_search_tool"]}
 
     def test_a_broken_event_build_never_reaches_the_answer_path(self) -> None:
-        """Telemetry failure must be invisible to the user."""
         with patch.object(citation_events, "build_turn_events", side_effect=RuntimeError("boom")):
             assert record_turn(agent="shallow", source_count=1, cited_count=1, identity={}) is None
 
     def test_a_failing_post_never_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("INTERNAL_API_TOKEN", raising=False)
-        # No token configured: the batch is dropped with a warning, not an error.
         citation_events._post_batch({"events": [{"kind": "turn_verified"}]})
 
     def test_post_batch_targets_the_internal_endpoint(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -338,8 +317,6 @@ class TestEmission:
 
 
 class TestTransportHardening:
-    """The emitter must never be the thing that breaks — or leaks — a turn."""
-
     @pytest.fixture(autouse=True)
     def _token(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("INTERNAL_API_TOKEN", "test-token")
@@ -348,7 +325,6 @@ class TestTransportHardening:
     def test_a_non_http_frontend_url_is_dropped_not_raised(
         self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
     ) -> None:
-        """A misconfigured base URL reaches no file:// handler (the seam has none) and costs the turn nothing."""
         monkeypatch.setenv("FRONTEND_INTERNAL_URL", "file:///etc")
         with caplog.at_level("WARNING"):
             citation_events._post_batch({"events": [], "turnId": "t"})
@@ -362,16 +338,13 @@ class TestTransportHardening:
         assert urlopen.call_count == 1
 
     def test_an_unserializable_payload_is_logged_not_raised(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Serialization sits inside the guard, so a bad payload cannot escape."""
         monkeypatch.setenv("FRONTEND_INTERNAL_URL", "http://frontend:3000")
         citation_events._post_batch({"events": [], "turnId": object()})  # type: ignore[dict-item]
 
     def test_the_dispatch_backlog_is_bounded(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """A hung BFF must not let queued batches grow without limit."""
         monkeypatch.setattr(citation_events, "_MAX_PENDING_BATCHES", 2)
         monkeypatch.setattr(citation_events, "_pending_batches", 0)
         monkeypatch.setattr(citation_events, "_dropped_batches", 0)
-        # submit() never completes, so nothing frees a slot — the stuck-BFF case.
         with patch.object(citation_events._post_executor, "submit"):
             assert citation_events._submit_batch({"events": []}) is True
             assert citation_events._submit_batch({"events": []}) is True
@@ -383,12 +356,10 @@ class TestTransportHardening:
         monkeypatch.setattr(citation_events, "_pending_batches", 0)
         with patch.object(citation_events._post_executor, "submit") as submit:
             citation_events._submit_batch({"events": []})
-            # Run the done-callback the executor would have run.
             submit.return_value.add_done_callback.call_args[0][0](None)
             assert citation_events._submit_batch({"events": []}) is True
 
     def test_record_empty_registry_survives_a_non_sliceable_tool_list(self) -> None:
-        """`unavailable_tools` is caller-supplied; a set is not sliceable."""
         payload = record_empty_registry(
             agent="shallow",
             unavailable_tools={"ris_search_tool"},  # type: ignore[arg-type]

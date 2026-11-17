@@ -1,10 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Which read the Files workspace makes (ADR-0102): a folder level page by page
- * unless something only the whole shelf in the browser can answer is asked.
- */
 
 import { describe, expect, it } from 'vitest'
 import { NO_FILE_FILTERS, type FileFilters } from './file-filters'

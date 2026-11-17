@@ -1,9 +1,3 @@
-/**
- * The document room over its live channel, against a scripted room: pointer
- * motion nobody else would see is never sent, a dragged region and a cursor chat
- * ride along with the pointer, and Piloti is a peer of its own.
- */
-
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { RoomFrame, RoomPost } from '@/lib/annotations/room-types'
@@ -46,7 +40,6 @@ describe('useDocumentRoom', () => {
     expect(result.current.self).toEqual({ userId: 'user_me', name: 'Miriam Hofer', kind: 'person' })
     expect(room.posts.filter((post) => post.presence === 'here')).toHaveLength(1)
 
-    // Piloti in the room is not company for the pointer: it reads the server's snapshot.
     room.send({ kind: 'event', event: { kind: 'presence', peer: AGENT, state: 'here', ttlMs: 25_000 } })
     await waitFor(() => expect(result.current.peers.get()).toHaveLength(1))
 
@@ -83,7 +76,6 @@ describe('useDocumentRoom', () => {
     act(() => result.current.sendCursor({ page: 1, x: 0.5, y: 0.5 }, 'region'))
     act(() => result.current.sendChat('  Hier fehlt die Kote  '))
 
-    // The last pointer post: the answer to Anna's claim may land after it, a random moment later.
     await waitFor(() =>
       expect(pointerPosts(room.posts).filter((post) => post.cursor !== undefined).at(-1)).toEqual({
         peerId: result.current.peerId,
@@ -144,7 +136,6 @@ describe('useDocumentRoom', () => {
         }),
       ])
     )
-    // Piloti is not a stranger to answer: it does not listen.
     expect(room.posts.filter((post) => post.presence === 'here')).toHaveLength(1)
 
     room.send({ kind: 'event', event: { kind: 'activity', peer: AGENT, state: 'idle' } })
@@ -201,7 +192,6 @@ describe('useDocumentRoom after it closed', () => {
     expect(room.posts.at(-1)).toMatchObject({ presence: 'gone' })
     const said = room.posts.length
 
-    // `CursorChat`'s linger clears the line after the review closed.
     sendChat(null)
     expect(room.posts).toHaveLength(said)
   })
@@ -254,7 +244,6 @@ describe('createHighlightTracker', () => {
     tracker.update(read)
     const shown = tracker.store.get()
     expect(shown).toHaveLength(1)
-    // Every pointer frame reads the room again: nothing new, nothing redrawn, no second timer.
     for (let frame = 0; frame < 50; frame += 1) tracker.update(read)
     expect(tracker.store.get()).toBe(shown)
     expect(vi.getTimerCount()).toBe(1)

@@ -55,7 +55,6 @@ describe('the register’s headers and the search’s order', () => {
       pages: 'desc',
       status: 'asc',
     }
-    // Ordered by relevance, so no column is active yet.
     const byRelevance = { ...register, text: 'Fluchtweg' }
     for (const column of REGISTER_COLUMNS) {
       const sorted = sortByColumn(byRelevance, column)
@@ -79,7 +78,6 @@ describe('the register’s headers and the search’s order', () => {
     const twice = sortByColumn(once, 'planNumber')
     expect(twice).toMatchObject({ sort: 'plan_number', dir: 'desc' })
     expect(sortByColumn(twice, 'planNumber')).toMatchObject({ dir: 'asc' })
-    // The register already reads by Plannummer: the first click turns it round.
     expect(sortByColumn(register, 'planNumber')).toMatchObject({ sort: 'plan_number', dir: 'desc' })
   })
 })

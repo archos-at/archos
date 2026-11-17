@@ -41,7 +41,6 @@ const post = (body: unknown) =>
 
 beforeEach(() => {
   vi.unstubAllEnvs()
-  // A deployment that signs people in: the session's claim decides.
   vi.stubEnv('REQUIRE_AUTH', 'true')
   vi.mocked(commissionResearchRun).mockReset()
   vi.mocked(requireResourceAccess).mockReset().mockResolvedValue({} as never)
@@ -80,7 +79,6 @@ describe('POST /api/projects/[id]/runs', () => {
         question: 'Fluchtweg klären',
         context: 'Befund offen',
         documents: null,
-        // The refusal of a confined thread is read by whoever pressed the button.
         locale: expect.stringMatching(/^(en|de)$/),
       }
     )

@@ -1,24 +1,5 @@
 'use client'
 
-/**
- * One task's run history, newest first: a trigger badge (manual, scheduled,
- * delegated), the run's status, a timestamp and a link into the thread the run
- * wrote itself into.
- *
- * The status is the run's own (`TaskRunView.status`, the run lifecycle the
- * Tasks timeline shows), read from `GET /api/projects/[id]/runs?taskId=`.
- * This list used to read a submission-only word (`submitted`) that every run
- * the worker took carried whatever became of it, and joined the backend's job
- * list to find out; a failed run read „Übermittelt" whenever that join missed.
- * The run row has known how a run ended since the definitions/runs collapse
- * (migration 0086), so the row is now the one source, and the list polls
- * itself while a run is still going.
- *
- * There is one destination, the run's message in the thread that
- * commissioned it (ADR-0062). A run whose conversation this list cannot name
- * gets no link at all: the badge still says what became of it.
- */
-
 import type { JSX } from 'react'
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
@@ -38,7 +19,6 @@ import { listJobRuns, type JobRun } from '@/adapters/api/jobs-client'
 import { taskThreadHref } from '@/features/tasks/lib/task-view'
 
 interface JobRunHistoryProps {
-  /** The project the task belongs to. */
   projectId: string
   jobId: string
 }
@@ -55,13 +35,10 @@ const STATUS_VARIANT: Record<TaskRunStatus, NonNullable<BadgeProps['variant']>> 
 
 const TRIGGER_ICON = { schedule: CalendarClock, manual: Hand, delegated: MessageSquare } as const
 
-/** How often the list re-reads while a run is still going. */
 const ACTIVE_POLL_MS = 10000
 
-/** Runs older than this show their date, not "vor 12 Tagen": a date is what a person cross-checks. */
 const ABSOLUTE_AFTER_MS = 7 * 24 * 60 * 60 * 1000
 
-/** Relative for the recent past, the exact date once it stops being "just now". */
 export function runTimeLabel(iso: string, locale: string, now: number = Date.now()): string {
   const at = new Date(iso).getTime()
   if (Number.isNaN(at) || now - at <= ABSOLUTE_AFTER_MS) return formatRelativeTime(iso, locale, now)
@@ -87,8 +64,6 @@ export function JobRunHistory({ projectId, jobId }: JobRunHistoryProps): JSX.Ele
     load()
   }, [load])
 
-  // While a run is going, re-read quietly until none is: the row's own status
-  // is what changes, and it is the only thing this list shows.
   const anyActive = runs?.some((run) => isActiveTaskRunStatus(run.status)) ?? false
   useEffect(() => {
     if (!anyActive) return

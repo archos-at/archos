@@ -787,6 +787,18 @@
           ],
           "title": "Status",
           "type": "string"
+        },
+        "unavailable_reason": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ConfidenceUnavailable"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "x-unknown-as-null": true
         }
       },
       "required": [
@@ -830,6 +842,98 @@
         "source"
       ],
       "title": "ConfidenceFinding",
+      "type": "object"
+    },
+    "ConfidenceUnavailable": {
+      "additionalProperties": false,
+      "description": "Why the answer check gave no level (``claim_judge.Unavailable``), and what its call looked like.",
+      "properties": {
+        "answer_chars": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Answer Chars"
+        },
+        "cause": {
+          "enum": [
+            "no_judge",
+            "timeout",
+            "error",
+            "unparseable",
+            "no_reply"
+          ],
+          "title": "Cause",
+          "type": "string"
+        },
+        "elapsed_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Elapsed Ms"
+        },
+        "error_type": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Type"
+        },
+        "evidence_chars": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evidence Chars"
+        },
+        "finish_reason": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Finish Reason"
+        },
+        "truncated": {
+          "default": false,
+          "title": "Truncated",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "cause"
+      ],
+      "title": "ConfidenceUnavailable",
       "type": "object"
     },
     "EmptyValue": {
@@ -3618,7 +3722,8 @@
               "enum": [
                 "ungrounded",
                 "quote_unverified",
-                "law_unsettled"
+                "law_unsettled",
+                "open_point"
               ],
               "type": "string"
             },
@@ -3627,7 +3732,8 @@
             }
           ],
           "default": null,
-          "title": "Answer Confidence Capped Reason"
+          "title": "Answer Confidence Capped Reason",
+          "x-unknown-as-null": true
         },
         "answer_confidence_reason": {
           "anyOf": [

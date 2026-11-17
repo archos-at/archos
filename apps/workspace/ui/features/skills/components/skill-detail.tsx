@@ -1,21 +1,5 @@
 'use client'
 
-/**
- * The skill drawer — one skill, opened up.
- *
- * Cards answer "what is here"; the drawer answers "what is THIS": the full
- * description, the category it stands in, whether the agent reaches it, and the
- * verbatim instruction. Two authors, one drawer: an org skill offers edit and
- * delete, a curated one offers only its switch — the same actions its card
- * offers, because a drawer that could do more than the card would teach two
- * different products.
- *
- * Opened from a card or from a `?skill=` deep link (an org id, or a curated
- * name — curated skills have no id to link). The toolbox resolves the value
- * against its loaded lists; an unmatched value reads as not-found, never as
- * a drawer that never settles.
- */
-
 import type { JSX } from 'react'
 import { BookOpen, Pencil, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
@@ -38,20 +22,12 @@ import { agentScopeLabelKey } from '../lib/agent-scope'
 
 interface SkillDetailProps {
   skill: SkillListItem | null
-  /** The category's display name, or null when unsorted. */
   categoryName: string | null
   open: boolean
-  /**
-   * The deep link has not been checked against a loaded list yet. Neither the
-   * skill nor the gone claim is earned while the first load is pending, so the
-   * drawer waits instead of flashing "not found" at a row that is still
-   * arriving — the same rule the task drawers follow.
-   */
   resolving?: boolean
   canManage: boolean
   onEdit: (skill: SkillListItem) => void
   onToggle: (skill: SkillListItem, enabled: boolean) => void
-  /** Opens the delete confirmation; the toolbox owns the dialog. */
   onDelete: (skill: SkillListItem) => void
   toggling: boolean
   onClose: () => void
@@ -148,7 +124,7 @@ export function SkillDetail({
                 />
                 {isOrg && (
                   <>
-                    <Button size="sm" variant="outline" onClick={() => onEdit(skill)}>
+                    <Button size="sm" variant="secondary" onClick={() => onEdit(skill)}>
                       <Pencil className="size-3.5" aria-hidden />
                       {t('toolbox.actions.edit')}
                     </Button>

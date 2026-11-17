@@ -82,7 +82,7 @@ async function manifestationInDraft(
 
 /** Re-propose the manifestation with the stored file as its text; the kit runs on it as on any proposal. */
 async function nameTheText(
-  session: UserSession,
+  session: { userId: string },
   requestId: string,
   record: Manifestation,
   text: KnowledgeTextProvenance,
@@ -97,9 +97,16 @@ async function nameTheText(
     if (request?.status !== 'draft') throw new ConflictError('The change request left draft while the text was stored.')
     // The fetch or the upload ran outside the lock. A proposal of this manifestation made meanwhile is not written
     // over with the snapshot taken before it: the attach is refused, and attaching again names the stored bytes.
-    const latest = proposedRecordSchema.safeParse((await draftManifestation(tx, requestId, recordIdOfKey(record.key)))?.proposal)
+    const current = await draftManifestation(tx, requestId, recordIdOfKey(record.key))
+    const latest = proposedRecordSchema.safeParse(current?.proposal)
     if (!latest.success || JSON.stringify(latest.data) !== JSON.stringify(record)) {
       throw new ConflictError('The manifestation was proposed again while its text was stored; nothing was named. Attach the text again.')
+    }
+    // An imported release names the bytes it was reviewed with (`./release-transfer.ts`): only those are attached to it.
+    if (current?.releasedSha256 && current.releasedSha256 !== text.sha256) {
+      throw new ApiError(409, 'TEXT_NOT_RELEASED', `The imported release has sha256 ${current.releasedSha256} for this text; these bytes have ${text.sha256}, so nothing was named.`, {
+        hint: 'Attach the PDF whose sha256 the import answered for this manifestation, fetched from its URL or uploaded.',
+      })
     }
     const problems = await runKit(tx, request, [next], checks)
     if (problems.length > 0) {
@@ -137,6 +144,16 @@ export async function importPlatformText(
   proposedBy: ProposedBy = 'person',
 ): Promise<AttachTextResult> {
   const person = await requirePlatform(session, PLATFORM_PERMISSIONS.knowledgeWrite)
+  return attachTextFromUrl(person.userId, requestId, body, proposedBy)
+}
+
+/**
+ * The attach from a URL as `attacher` (a person the caller has checked, or the promotion's carry, `./carry.ts`),
+ * with no session. The same fetcher, the same name of the bytes, the same refusal of bytes other than an imported
+ * release's ({@link nameTheText}).
+ */
+export async function attachTextFromUrl(attacher: string, requestId: string, body: ImportTextBody, proposedBy: ProposedBy): Promise<AttachTextResult> {
+  const person = { userId: attacher }
   const { record, configured, through } = await manifestationInDraft(requestId, body.manifestationKey, body.sourceId)
   // Fetched outside any transaction: a slow source must not hold the request's lock. The api tier names the file
   // after the key and the bytes' hash, so a fetch that outlives the draft leaves a file no record names, not other

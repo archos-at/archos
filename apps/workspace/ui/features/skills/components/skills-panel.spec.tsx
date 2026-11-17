@@ -2,7 +2,6 @@ import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@/test-utils'
 
-// Mock the API client — preserve the real SkillApiError/types, stub the fns.
 vi.mock('@/adapters/api/skills-client', async (importActual) => {
   const actual = await importActual<typeof import('@/adapters/api/skills-client')>()
   return {
@@ -15,12 +14,10 @@ vi.mock('@/adapters/api/skills-client', async (importActual) => {
   }
 })
 
-// Toasts are asserted through the mock (no <Toaster /> in these renders).
 vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() },
 }))
 
-// The real portal lands in the layout header; unit tests have no slot.
 vi.mock('@/components/shell/project-section-frame', () => ({
   ProjectSectionActions: ({ children }: { children: ReactNode }) => children,
 }))
@@ -58,11 +55,6 @@ const secondOrgSkill: client.SkillListItem = {
   body: 'Verify every escape route against OIB Richtlinie 2.3.',
 }
 
-/**
- * A skill Piloti offers the org. No DB row of its own (`id` null) — the switch
- * addresses it by NAME. This fixture is a dashboard-style offer, off until
- * somebody turns it on. Chat-usable FILE offers start on.
- */
 const curatedSkill: client.SkillListItem = {
   id: null,
   name: 'oib-fire-check',
@@ -77,7 +69,6 @@ const curatedSkill: client.SkillListItem = {
   updatedAt: null,
 }
 
-/** The one shape that earns a scope badge: an explicit `grid-agents`. */
 const deepOnlyCurated: client.SkillListItem = {
   ...curatedSkill,
   name: 'long-form-report-writer',
@@ -87,7 +78,6 @@ const deepOnlyCurated: client.SkillListItem = {
 
 const noop = () => {}
 
-/** listSkills answers the envelope; tests pass the rows, categories default to none. */
 const toolbox = (
   skills: client.SkillListItem[],
   categories: client.SkillCategoryListItem[] = [],
@@ -103,22 +93,15 @@ describe('SkillToolbox', () => {
     toolbox([curatedSkill, orgSkill, secondOrgSkill, deepOnlyCurated])
     render(<SkillToolbox canManage onEdit={noop} />)
 
-    // Both halves are visible: what Piloti curates is the point of the page,
-    // not an appendix folded behind a chevron.
     expect(await screen.findByRole('heading', { name: 'Featured skills' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Your skills' })).toBeInTheDocument()
     expect(screen.getByText('oib-fire-check')).toBeInTheDocument()
     expect(screen.getByText('acoustic-report')).toBeInTheDocument()
     expect(screen.getByText('escape-routes')).toBeInTheDocument()
-    // The count that carries information is how many are ON, not how many exist.
     expect(screen.getByText('1 of 2 on')).toBeInTheDocument()
-    // Featured, and only featured, names who maintains it.
     expect(screen.getAllByText(`Curated by ${PRODUCT_NAME}`)).toHaveLength(2)
-    // Nothing on a skill card says anything about time or output any more:
-    // a skill does not know when it runs, and a job decides what a run makes.
     expect(screen.queryByText(/schedulable/i)).not.toBeInTheDocument()
     expect(screen.queryByText('Chat mode')).not.toBeInTheDocument()
-    // Clone is gone from the product, not just from the built-ins.
     expect(screen.queryByRole('button', { name: /clone|copy/i })).not.toBeInTheDocument()
   })
 
@@ -128,8 +111,6 @@ describe('SkillToolbox', () => {
 
     expect(await screen.findByText('oib-fire-check')).toBeInTheDocument()
     expect(screen.getByText('long-form-report-writer')).toBeInTheDocument()
-    // One of the two declares `grid-agents`; the other reaches both agents,
-    // which is the default and therefore says nothing worth a badge.
     expect(screen.getAllByText('Deep research only')).toHaveLength(1)
     expect(screen.queryByText('Chat agent only')).not.toBeInTheDocument()
   })
@@ -145,7 +126,6 @@ describe('SkillToolbox', () => {
     expect(toggle).not.toBeChecked()
     fireEvent.click(toggle)
 
-    // Optimistic: the switch moves before the request settles.
     expect(toggle).toBeChecked()
     await waitFor(() =>
       expect(setCuratedSkillEnabledMock).toHaveBeenCalledWith('oib-fire-check', true),
@@ -161,8 +141,6 @@ describe('SkillToolbox', () => {
       name: new RegExp(String.raw`Use the ${PRODUCT_NAME} skill .oib-fire-check.`),
     })
     fireEvent.click(toggle)
-    // Optimistic FIRST, so the assertion below is a real state change rather
-    // than a switch that never moved.
     expect(toggle).toBeChecked()
 
     await waitFor(() => expect(toggle).not.toBeChecked())
@@ -181,8 +159,6 @@ describe('SkillToolbox', () => {
     fireEvent.click(toggle)
 
     await waitFor(() => expect(updateSkillMock).toHaveBeenCalledWith('skill-1', { enabled: false }))
-    // A switched-off card says so in words too — a toggle's position alone is
-    // not a great place to learn the agent will never reach this skill.
     expect(await screen.findByText('Switched off')).toBeInTheDocument()
   })
 
@@ -230,8 +206,6 @@ describe('SkillToolbox', () => {
     render(<SkillToolbox canManage onEdit={noop} />)
 
     expect(await screen.findByText('acoustic-report')).toBeInTheDocument()
-    // "Your skills" over the only list on the page is a label for the page,
-    // which the page already has.
     expect(screen.queryByRole('heading', { name: 'Featured skills' })).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Your skills' })).not.toBeInTheDocument()
   })
@@ -251,7 +225,6 @@ describe('SkillToolbox', () => {
 
     expect(await screen.findByText('acoustic-report')).toBeInTheDocument()
     expect(screen.getByText('oib-fire-check')).toBeInTheDocument()
-    // Reading stays available; deciding does not — neither half has a switch.
     expect(screen.getAllByRole('button', { name: /View instruction/ })).toHaveLength(2)
     expect(screen.queryByRole('switch')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Edit|Delete/ })).not.toBeInTheDocument()
@@ -286,7 +259,6 @@ describe('SkillToolbox', () => {
     render(<SkillToolbox canManage onEdit={noop} />)
 
     expect(await screen.findByText('oib-fire-check')).toBeInTheDocument()
-    // Both halves show the shelf subheading; the unsorted org skill closes.
     expect(screen.getAllByText('Recherche')).toHaveLength(2)
     expect(screen.getByText('Unsorted')).toBeInTheDocument()
   })
@@ -336,11 +308,9 @@ describe('SkillsPanel', () => {
     toolbox([orgSkill])
     render(<SkillsPanel canManageOrgSkills />)
 
-    // Title lives in the shared layout chrome — this panel must not ship a second h1.
     expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument()
     expect(screen.queryByText('Skill toolbox')).not.toBeInTheDocument()
     expect(await screen.findByText('acoustic-report')).toBeInTheDocument()
-    // Jobs live on their own tab; this one must not grow a second copy.
     expect(screen.queryByRole('button', { name: /New job|New schedule/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Run now/ })).not.toBeInTheDocument()
   })
@@ -355,8 +325,6 @@ describe('SkillsPanel', () => {
     expect(await screen.findByLabelText(/^Name/)).toHaveValue('acoustic-report')
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
 
-    // The second open must not still be the first. It was: every field of this
-    // dialog is seeded in a state INITIALISER, and the dialog stayed mounted.
     fireEvent.click(second)
     await waitFor(() => expect(screen.getByLabelText(/^Name/)).toHaveValue('escape-routes'))
   })

@@ -2,24 +2,6 @@
  * @vitest-environment node
  */
 
-/**
- * The guard that keeps the inbox telling people what Piloti did in their words.
- *
- * The inbox is where a person learns what Piloti did for them, so its Piloti
- * notices are read as a colleague's sentence: which mark in which document,
- * why it did not work, what to do now. Two ways that broke before:
- *
- * - A failure read „Piloti konnte Anmerkung 4 nicht abschließen“: no cause,
- *   no document, no next step. The cause is now a class of the stored reason
- *   (`lib/annotations/wake-end-reason.ts`) and a proposal's notice is worded by
- *   what it changes (`PROPOSAL_NOTICE_VARIANTS`); a class without words would
- *   fall back to the general sentence silently, so every class must have its
- *   own, in every locale.
- * - System words reach copy: the code says wake, turn, proposal and
- *   delegation, the Prüfansicht says Anmerkung, Verlauf, Vorschlag and
- *   „an Piloti delegieren“.
- */
-
 import { describe, expect, it } from 'vitest'
 import { WAKE_END_REASON_KINDS } from '@/lib/annotations/wake-end-reason'
 import { PROPOSAL_NOTICE_VARIANTS } from '@/lib/proposals/types'
@@ -30,7 +12,6 @@ const TYPES = 'collaboration.inbox.types'
 const AGENT_TYPES = ['agentWorkDone', 'agentWorkFailed', 'agentAsksYou', 'agentProposalWaiting'] as const
 const MARK_TYPES = ['agentWorkDone', 'agentWorkFailed', 'agentAsksYou'] as const
 
-/** The words of the code, never of the copy. „Plan“ too: a file is never called one. */
 const JARGON: Record<'de' | 'en', RegExp> = {
   de: /\b(Wake|geweckt|Turn|Proposal|Delegation|Plan|Pläne)\b/iu,
   en: /\b(wake|woken|turn|delegation|plans?)\b/i,

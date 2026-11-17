@@ -27,7 +27,7 @@ directly would bypass all three in one call — and would do it on behalf of a
 user who never saw what was about to happen.
 
 The descriptions and the results are ENGLISH, like everything an agent reads
-(AGENTS.md, "Industry standard first"). The arguments stay as the user typed
+(working-style.md, "Industry standard first"). The arguments stay as the user typed
 them in German — a file, a folder, a colleague — and the refusals are written
 to be turned straight into the sentence the model says back, in the user's
 language („welche der beiden Dateien meinst du?").

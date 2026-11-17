@@ -119,7 +119,6 @@ export function FilePreviewChrome({ controller }: { controller: FilePreviewContr
           />
         )}
         {!peeking && !reader && (
-          // The name on the rail's 16px edge, with no format box before it: the facts line under the name says „PDF“. Tools 12px apart, the tonal ones as every bar's.
           <div className="flex shrink-0 items-start gap-x-3 px-4 pb-3.5 pt-[max(0.875rem,env(safe-area-inset-top))] sm:pt-3.5">
             {/* The name the document was GIVEN, if it was given one. `title`
               carries it in full for the truncated case — and the file's own name
@@ -165,7 +164,6 @@ export function FilePreviewChrome({ controller }: { controller: FilePreviewContr
                 {fileFacts && (
                   <span
                     className="text-muted-foreground min-w-0 shrink truncate text-xs tabular-nums"
-                    // The MIME type a reader cannot parse, for whoever needs it.
                     title={file.contentType ?? undefined}
                     data-testid="file-preview-facts"
                   >
@@ -380,18 +378,8 @@ export function FilePreviewChrome({ controller }: { controller: FilePreviewContr
             open={isLargePreviewOpen}
             onOpenChange={setIsLargePreviewOpen}
             fileName={actions.name}
-            // The enlarged view is the other place a full-size original used to
-            // cross the wire whole, so it gets the optimizable path too when there
-            // is one. A PDF goes to the same-origin stream instead of the
-            // presigned URL: the enlarged viewer renders the document with pdf.js,
-            // which FETCHES it, and a cross-origin fetch has no CORS policy to
-            // land on. See `documentFileUrl`.
             src={isImage ? (previewImageUrl ?? previewUrl) : documentFileUrl(file.id)}
             isImage={isImage}
-            // Only ever consulted in image mode, so it is asked of the IMAGE src:
-            // the PDF branch renders through pdf.js on the same-origin stream and
-            // never reaches the optimizer at all. `isOptimizerEligible` is checked
-            // against the optimizer's real allow-list (see `optimizable.ts`).
             imageUnoptimized={!isOptimizerEligible(previewImageUrl ?? previewUrl)}
           />
         )}

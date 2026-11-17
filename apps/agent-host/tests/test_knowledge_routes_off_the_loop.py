@@ -1,18 +1,3 @@
-"""The document and collection routes call the ingestor in a THREAD, not on the loop.
-
-Every ingestor and metadata-store call is synchronous: a Qdrant read, a SQL
-statement on a sync engine, the ingest-status store. The route handlers are
-coroutines on the API's one event loop, so a call made inline does not only
-make its own request slow; it stalls every other request the worker is serving,
-chat streams included.
-
-What is asserted is WHERE each call ran: the fakes record
-``threading.current_thread()`` and the test compares it with the thread the
-event loop is on — the shape of ``test_prompt_render_off_the_loop.py``. The
-response shapes are asserted too, because moving a call into a thread must not
-change what the BFF reads back.
-"""
-
 from __future__ import annotations
 
 import threading
@@ -37,8 +22,6 @@ from agent_host.routes.documents import add_document_routes
 
 
 class _RecordingIngestor:
-    """An ingestor whose every method records the thread it ran on."""
-
     backend_name = "test"
 
     def __init__(self) -> None:
@@ -108,7 +91,6 @@ def client(ingestor):
 
 @pytest.fixture
 def store_threads(monkeypatch):
-    """Record the thread each metadata-store seam the routes call ran on."""
     threads: list[tuple[str, threading.Thread]] = []
 
     def recorder(name, result):

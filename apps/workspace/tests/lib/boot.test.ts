@@ -22,7 +22,6 @@ import { describe, expect, it } from 'vitest'
 
 import { bootLine, deployedSha, flagSource, formatBootLine, UNKNOWN_SHA } from '@/lib/boot'
 
-/** Env cases both implementations must agree on, byte for byte. */
 const CASES: Array<{ name: string; env: Record<string, string>; expected: string }> = [
   {
     name: 'an unstamped image with nothing configured — the compose defaults',
@@ -72,7 +71,6 @@ describe('the boot line', () => {
   })
 
   it('names an unstamped image `unknown` rather than leaving the field empty', () => {
-    // An empty value would read as "sha=" in a log and look like a truncation.
     expect(deployedSha({} as NodeJS.ProcessEnv)).toBe(UNKNOWN_SHA)
     expect(bootLine({} as NodeJS.ProcessEnv)).toContain(`sha=${UNKNOWN_SHA}`)
   })
@@ -88,13 +86,10 @@ describe('the boot line', () => {
 describe("server.js's CommonJS copy of the boot line", () => {
   const source = readFileSync(new URL('../../server.js', import.meta.url), 'utf8')
 
-  /** Pull `bootLogLine` out of the gateway's source and make it callable. */
   const extracted = (): ((env: Record<string, string>) => string) => {
     const start = source.indexOf('function bootLogLine(env) {')
     expect(start, 'server.js no longer has the bootLogLine this spec pins').toBeGreaterThan(-1)
     const bodyStart = source.indexOf('{', start)
-    // Balanced-brace scan: the function contains braces of its own (the
-    // template literal), so indexOf('}') would cut it in the middle.
     let depth = 0
     let end = -1
     for (let i = bodyStart; i < source.length; i += 1) {

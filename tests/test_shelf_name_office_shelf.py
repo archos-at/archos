@@ -1,22 +1,3 @@
-"""The office shelf is called „Büroablage", everywhere a person or the model reads it.
-
-Product decision of 6 Oct 2026 (docs/audit/upload-and-filing-retriage-2026-10-06.md,
-Q-0): the org-wide shelf `scope = 'office_shelf'` is „Büroablage" in German copy and
-„Office filing" in English copy. Before that it went by three names at once —
-„Archiv" in the navigation, „Büroarchiv" on chips and in the prompt, „Büroablage"
-in the upload code — and a fourth meaning was arriving with the Bibliothek.
-
-The code keeps its identifiers (`office_shelf`, `archiv_<org>`, `/app/office-shelf`, the
-`office` kind). This file is the ratchet on the COPY: it scans what a reader or
-the model reads and fails on the old names, so a string copied from an old
-branch or an old doc cannot bring them back. The document action „Archivieren"
-/ „archiviert" is a different concept and is not matched.
-
-The second half pins the label in both runtimes, which share no schema: the
-Python `office` kind and shelf qualifier, and the German dictionary the
-frontend renders the same kind and shelf with.
-"""
-
 from __future__ import annotations
 
 import ast
@@ -38,12 +19,8 @@ BUILTIN_SKILLS = sorted((REPO_ROOT / "packages" / "agent" / "src" / "agent" / "s
 NAME_DE = "Büroablage"
 NAME_EN = "Office filing"
 
-#: The retired compound, in any spelling a person or a model would write.
 _OFFICE_ARCHIVE_TERM = re.compile(r"B(?:ü|ue|u)ro-?\s?[Aa]rchiv", re.IGNORECASE)
-#: The bare shelf word. Not „Archivieren", „archiviert", „Archive" (a letter
-#: follows) and not a compound like „IFC-Archiv" (a hyphen or letter precedes).
 _BARE_OFFICE_SHELF = re.compile(r"(?<![\w-])Archiv(?![\wäöü])")
-#: The English names the shelf had before it got one.
 _EN_OLD = re.compile(r"(?i:office[- ]archive|office-wide archive)|(?<![\w/-])Archiv(?![\w])")
 
 _BLOCK_COMMENT = re.compile(r"/\*.*?\*/", re.DOTALL)
@@ -52,13 +29,11 @@ _STRING = re.compile(r"'(?:[^'\\\n]|\\.)*'|\"(?:[^\"\\\n]|\\.)*\"|`(?:[^`\\]|\\.
 
 
 def _strings(source: str) -> list[str]:
-    """The string literals of a dictionary module, comments removed: the copy."""
     code = _LINE_COMMENT.sub("", _BLOCK_COMMENT.sub("", source))
     return [literal[1:-1] for literal in _STRING.findall(code)]
 
 
 def _dictionary_files(language: str) -> list[Path]:
-    # `index.ts` only imports the modules; its strings are paths.
     files = sorted(path for path in (DICTIONARIES / language).glob("*.ts") if path.name != "index.ts")
     if not files:
         pytest.skip("frontend not present in this checkout")
@@ -96,11 +71,6 @@ class TestTheOldNamesStayOut:
         assert _hits(BUILTIN_SKILLS, _OFFICE_ARCHIVE_TERM, copy_only=False) == []
 
     def test_no_knowledge_tool_tells_the_model_the_old_name(self):
-        """The knowledge layer's tool descriptions and refusals are read by the model.
-
-        Every string literal that is not a docstring: what a tool says, not
-        what its code says about itself.
-        """
         offenders: list[str] = []
         for path in sorted((REPO_ROOT / "packages" / "knowledge-layer" / "src").rglob("*.py")):
             tree = ast.parse(path.read_text(encoding="utf-8"))
@@ -119,8 +89,6 @@ class TestTheOldNamesStayOut:
         assert offenders == []
 
     def test_the_document_action_is_not_caught(self):
-        # „Archivieren" (purge a document's index entries) is another concept
-        # with its own word; the ratchet must not push anyone to rename it.
         for word in ("Archivieren", "archiviert", "Archiviert", "IFC-Archiv", "Archive"):
             assert not _BARE_OFFICE_SHELF.search(word), word
         for phrase in ("im Archiv", "Archiv öffnen", "„Archiv“", "Archiv:"):
@@ -139,11 +107,8 @@ class TestOneNameInBothRuntimes:
     @pytest.mark.parametrize(
         "path",
         [
-            # The coarse kind in the source popover (ADR-0026).
             r"kinds:\s*\{[^}]*?office:\s*'([^']+)'",
-            # The shelf tab of a source card (ADR-0047).
             r"shelves:\s*\{\s*office_shelf:\s*'([^']+)'",
-            # The shelf in the reasoning view's file chips.
             r"shelf:\s*\{[^}]*?office:\s*'([^']+)'",
         ],
     )

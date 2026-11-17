@@ -54,7 +54,6 @@ describe('giving back the rows of a stopping pod', () => {
 
     expect(await releaseInFlightJobs()).toBe(1)
     expect(releaseJobs).toHaveBeenCalledWith([{ jobId: 'job-1', holder: 'run-1/0@w-1' }])
-    // A second stop step, or a stop with nothing running, sends nothing.
     expect(await releaseInFlightJobs()).toBe(0)
     expect(releaseJobs).toHaveBeenCalledTimes(1)
 
@@ -72,7 +71,6 @@ describe('giving back the rows of a stopping pod', () => {
 
     slice.finish?.()
     await run
-    // The slice ended: its row is no longer this process's to give back.
     releaseJobs.mockResolvedValue(0)
     expect(await releaseInFlightJobs()).toBe(0)
     expect(releaseJobs).toHaveBeenCalledTimes(1)

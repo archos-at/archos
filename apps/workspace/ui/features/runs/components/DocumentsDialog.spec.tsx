@@ -1,10 +1,3 @@
-/**
- * The Unterlagen picker: one list, two uses. What is pinned is the contract
- * the callers rely on — a row's role is exclusive (Read beats Exclude and
- * vice versa), the search matches name and title alike, and an add closes the
- * dialog with the document the run is told about.
- */
-
 import { fireEvent, render, screen, within } from '@/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 import type { PlanDocument } from '@/lib/runs/plan-documents'
@@ -36,7 +29,6 @@ describe('DocumentsDialog', () => {
       expect(rows()).toHaveLength(3)
       expect(rows()[0]).toHaveAttribute('data-role', 'basis')
       expect(rows()[0]).toHaveTextContent('Einreichplan')
-      // The role match folds case: the plan's edit and the inventory may spell the name apart.
       expect(rows()[1]).toHaveAttribute('data-role', 'excluded')
       expect(rows()[2]).not.toHaveAttribute('data-role')
     })

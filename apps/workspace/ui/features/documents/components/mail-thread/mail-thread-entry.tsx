@@ -1,30 +1,5 @@
 'use client'
 
-/**
- * One filed mail in the „E-Mails“ tab: one row per section of the thread
- * document, newest first.
- *
- * - **The heading**, exactly as the document prints it and a citation names
- *   it („14.10.2026, 09:12 · Mag. Huber (ma37.wien.gv.at)“), then „ab
- *   Fassung 4 · eingegangen …“: the Fassung the mail first appeared in.
- * - **How far its sender was confirmed**, in the three words a filed mail can
- *   carry; an unconfirmed domain wears the warning glyph, its words stay ink.
- *   A confirmed domain is said once per run of its mails (`entriesSayingTrust`).
- *   How it was filed is said only where no person decided it in the app (a
- *   follow, the archive import, an agent, an agent's card).
- * - **What came with it** (D36): every attachment, as a link to the document
- *   it became, „lag schon im Projekt“, or „nicht abgelegt“ with its reason
- *   (its bytes are then only in the original); one in a folder the reader may
- *   not see is counted, never named.
- * - **Its actions:** „Original (.eml)“, „Vergleichen“ (this mail's Fassung
- *   against the one before, the version comparison the Fassung timeline
- *   uses), and „Herauslösen …“ behind ⋯ for whoever may file mail here.
- *
- * A link or a citation that names this entry scrolls it into view and marks
- * it (`focused`): an ink bar on the leading edge, never a tint under muted
- * text (`design-language.md`).
- */
-
 import type { JSX } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
@@ -45,28 +20,22 @@ import { EntryOriginal } from './entry-original'
 import { attachmentLines, comparedVersions, filedSenderTrust, headingParts, type AttachmentLine } from './mail-thread-model'
 import { mailThreadCopy } from '@/i18n/namespaces/mail-thread'
 
-/** The ways of filing worth a line: every other mail was decided by a person in the app. */
 const FILED_VIA_ICON: Partial<Record<MailThreadFiledVia, typeof Bot>> = {
   agent: Bot,
   agent_proposal: Sparkles,
   follow: Repeat2,
   archive_import: Archive,
-  // Filed by the sender's own verified mail, with nobody deciding in the app: the one filing a reader would not guess.
   sender: MailCheck,
 }
 
 export interface MailThreadEntryItemProps {
   projectId: string
-  /** The thread document, whose Fassungen „Vergleichen“ reads. */
   documentId: string
   threadId: string
   entry: MailThreadEntryView
-  /** The thread document's Fassungen, once read; null while they are not. */
   versions: readonly DocumentVersionView[] | null
   focused: boolean
-  /** Whether this entry says its sender's trust: the newer mail of the same confirmed domain may have said it already. */
   showTrust?: boolean
-  /** „Herauslösen …“ is offered: the reader may file mail here, and the thread has another mail. */
   onDetach?: (entry: MailThreadEntryView) => void
   client: MailThreadClient
 }
@@ -75,7 +44,6 @@ export function MailThreadEntryItem({ projectId, documentId, threadId, entry, ve
   const t = useTranslations(mailThreadCopy)
   const { locale } = useLocale()
   const ref = useRef<HTMLLIElement>(null)
-  // The revision timeline's own comparison, so a Fassung compared here reads as it does there.
   const [comparison, setComparison] = useState<TextComparison | null>(null)
   const reduceMotion = usePrefersReducedMotion()
   const trust = filedSenderTrust(entry.senderTrust)
@@ -86,7 +54,6 @@ export function MailThreadEntryItem({ projectId, documentId, threadId, entry, ve
 
   useEffect(() => {
     if (!focused || !ref.current) return
-    // Instant when the reader asked for less motion; the focus moves with it, so a screen reader lands here too.
     ref.current.scrollIntoView?.({ block: 'center', behavior: reduceMotion ? 'auto' : 'smooth' })
     ref.current.focus({ preventScroll: true })
   }, [focused, reduceMotion])
@@ -124,8 +91,6 @@ export function MailThreadEntryItem({ projectId, documentId, threadId, entry, ve
   })()
 
   return (
-    // The linked entry is the list's current row (`Item`'s `data-current`): lifted, the selected hairline all round,
-    // never a bar down its edge.
     <Item
       as="li"
       ref={ref}
@@ -255,7 +220,6 @@ function AttachmentItem({ projectId, line }: { projectId: string; line: Attachme
     line.kind !== 'not_filed' && line.documentId ? (
       <Link
         href={documentFilesHref(projectId, line.documentId)}
-        // The kit's inline underline (at rest, firming on hover); a file name wraps, so not the inline Button.
         className="text-foreground decoration-foreground/40 hover:decoration-foreground rounded-inline inline-flex min-h-6 min-w-0 items-center gap-1 underline underline-offset-[3px] outline-none transition-colors duration-quick ease-out focus-visible:ring-2 focus-visible:ring-ring/60 motion-reduce:transition-none"
         data-testid="mail-thread-attachment-link"
       >

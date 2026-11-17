@@ -1,7 +1,6 @@
 /**
  * @vitest-environment node
  */
-/** `roundKind` (ADR-0132): a round that only listed folders is no „Kein Treffer“. */
 import { describe, expect, test } from 'vitest'
 import { translatorFor } from '@/i18n/namespace'
 import { chatCopy } from '@/i18n/namespaces/chat'

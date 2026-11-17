@@ -1,10 +1,3 @@
-/**
- * The compact line — the same word, glyph and tallies as the block's header,
- * in one row, plus the one link into the thread.
- *
- * Renders without an `I18nProvider`, so the words are the English ones.
- */
-
 import { describe, expect, it } from 'vitest'
 import { render, screen } from '@/test-utils'
 import { appendStep, emptyRunLedger, openPhase, setRunStatus } from '@/lib/runs/run-ledger'
@@ -75,7 +68,6 @@ describe('RunBlockLine', () => {
   it('takes tallies it is given, and reads without a title inside a surface that names the run', () => {
     render(<RunBlockLine ledger={null} status="done" tallies={{ rounds: 3, docs: 9 }} />)
     const line = screen.getByTestId('run-block-line')
-    // No ledger, no title: the word, then the tallies straight after it.
     expect(line).toHaveTextContent(/^Done · 3 rounds · 9 documents$/)
   })
 

@@ -4,20 +4,10 @@ import { PgDialect } from 'drizzle-orm/pg-core'
 
 vi.mock('server-only', () => ({}))
 
-/**
- * A drizzle-shaped transaction handle that records what it was asked to do.
- *
- * The point of these tests is the ORDER and the SCOPE of the statements — the
- * lock has to be taken before the sum is read, and the insert has to happen
- * inside the same transaction — because that ordering is the entire guarantee.
- * A mock that only checked "an insert happened" would pass on a version of this
- * function with no lock at all, which is the version that was already shipped.
- */
 function fakeDb(usedBytes: number, versionBytes = 0, rowExists = true) {
   const statements: string[] = []
   const inserted: unknown[] = []
   const updated: unknown[] = []
-  /** The usage read's WHERE, rendered as the SQL Postgres would receive. */
   const whereArgs: string[] = []
 
   const tx = {
@@ -30,8 +20,6 @@ function fakeDb(usedBytes: number, versionBytes = 0, rowExists = true) {
         where: vi.fn(async (condition: SQL) => {
           whereArgs.push(new PgDialect().sqlToQuery(condition).sql)
           statements.push('SELECT sum')
-          // `versionBytes` rides in the SAME select (a correlated subquery), so
-          // the whole usage read stays one round trip inside the lock.
           return [{ bytes: String(usedBytes), versionBytes: String(versionBytes) }]
         }),
       })),
@@ -46,7 +34,6 @@ function fakeDb(usedBytes: number, versionBytes = 0, rowExists = true) {
     update: vi.fn(() => ({
       set: vi.fn((values: unknown) => ({
         where: vi.fn(() => ({
-          // The update names what it matched, so a deleted row is visible.
           returning: vi.fn(async () => {
             statements.push('UPDATE')
             if (!rowExists) return []
@@ -91,16 +78,6 @@ const next = (fileSize: number) => ({
   createdBy: 'user-1',
 })
 
-/**
- * The other half of the ledger (ADR-0054, correction 3).
- *
- * Migration 0082's header says superseded versions stay charged against the
- * organization's quota. For a while that was a claim the code did not honour:
- * usage summed `documents.file_size`, which is the LIVE bytes, so every
- * superseded version and every written-to draft was invisible to the ceiling it
- * was supposed to be measured against. An office that re-uploads a plan set
- * weekly accumulated bytes nothing counted.
- */
 describe('the version overhead is part of the ceiling', () => {
   beforeEach(() => vi.clearAllMocks())
 
@@ -108,7 +85,6 @@ describe('the version overhead is part of the ceiling', () => {
     const fake = fakeDb(5_000, 4_500)
     getDb.mockReturnValue(fake.db)
 
-    // 5_000 live + 4_500 superseded = 9_500; a 1_000-byte upload crosses 10_000.
     await expect(insertDocumentWithinQuota(row(1_000), 10_000)).resolves.toEqual({
       ok: false,
       usedBytes: 9_500,
@@ -141,9 +117,6 @@ describe('insertDocumentWithinQuota', () => {
 
     await insertDocumentWithinQuota(row(1_000), 10_000)
 
-    // Lock, then sum, then insert. Reading the sum first would be the same
-    // check-then-act this function exists to replace: two transactions could
-    // both read the pre-state and both admit.
     expect(fake.statements).toHaveLength(3)
     expect(fake.statements[0]).toContain('pg_advisory_xact_lock')
     expect(fake.statements[1]).toBe('SELECT sum')
@@ -161,8 +134,6 @@ describe('insertDocumentWithinQuota', () => {
     const fake = fakeDb(0)
     getDb.mockReturnValue(fake.db)
     await insertDocumentWithinQuota(row(1), 10)
-    // An insert on `db` rather than `tx` would commit independently of the lock,
-    // which puts the admission back where it started.
     expect(fake.tx.insert).toHaveBeenCalled()
     expect(fake.db.transaction).toHaveBeenCalledTimes(1)
   })
@@ -182,8 +153,6 @@ describe('insertDocumentWithinQuota', () => {
       ok: false,
       usedBytes: 9_000,
     })
-    // Reported, not thrown: the caller has an object to clean up and a refusal
-    // is an expected outcome, not an error condition.
     expect(fake.inserted).toHaveLength(0)
   })
 
@@ -192,9 +161,6 @@ describe('insertDocumentWithinQuota', () => {
     getDb.mockReturnValue(fake.db)
 
     await expect(insertDocumentWithinQuota(row(1_000), null)).resolves.toEqual({ ok: true })
-    // Still locked — the lock is what makes the sequence serializable for the
-    // organizations that DO have a quota, and taking it unconditionally keeps
-    // this function's behaviour independent of the caller's configuration.
     expect(fake.statements).toEqual([
       expect.stringContaining('pg_advisory_xact_lock'),
       'INSERT',
@@ -204,26 +170,12 @@ describe('insertDocumentWithinQuota', () => {
   it('treats a row with no recorded size as zero rather than NaN', async () => {
     const fake = fakeDb(10_000)
     getDb.mockReturnValue(fake.db)
-    // `file_size` is nullable in the schema. `null + 10_000 > 10_000` is false
-    // in JS only by accident; reading it as 0 is the deliberate version.
     const nullSize = { id: 'doc-1', organizationId: 'org-1' } as unknown as NewDocument
     await expect(insertDocumentWithinQuota(nullSize, 10_000)).resolves.toEqual({ ok: true })
   })
 })
 
 
-/**
- * The re-upload path's quota arithmetic, which is the half that can be wrong in
- * a way nobody notices.
- *
- * A replace points an EXISTING row at new bytes. Before ADR-0054 the old bytes
- * were deleted, so the row was excluded from the sum and the new size charged
- * in its place. Since then the old bytes STAY, as the superseded version, and
- * excluding the row counted them nowhere during the admission: the item was
- * left out, and the version overhead compares against the item's key, which is
- * still the old one until this update. Every re-upload was admitted as if it
- * left nothing behind.
- */
 describe('replaceDocumentWithinQuota', () => {
   beforeEach(() => vi.clearAllMocks())
 
@@ -240,9 +192,6 @@ describe('replaceDocumentWithinQuota', () => {
   })
 
   it('shares the lock key with the insert path, so the two serialize against each other', async () => {
-    // A replace and an insert racing for the last megabyte must queue behind
-    // one lock. Two different keys would let both read the same pre-state and
-    // both admit — exactly the check-then-act this lock exists to remove.
     const fake = fakeDb(0)
     getDb.mockReturnValue(fake.db)
 
@@ -257,9 +206,6 @@ describe('replaceDocumentWithinQuota', () => {
   })
 
   it('charges the FULL new size, because the replaced bytes stay as the superseded version', async () => {
-    // 9_000 bytes stored, all of them the file being replaced. After the commit
-    // the org holds the old 9_000 (now the superseded version) AND the new
-    // 9_500. The old arithmetic called this a 500-byte increase and admitted it.
     const fake = fakeDb(9_000)
     getDb.mockReturnValue(fake.db)
 
@@ -273,7 +219,6 @@ describe('replaceDocumentWithinQuota', () => {
     const fake = fakeDb(0)
     getDb.mockReturnValue(fake.db)
     await replaceDocumentWithinQuota('org-1', 'doc-1', next(1), 10)
-    // The only filter is the tenant: no `id <> $doc` exclusion any more.
     expect(fake.whereArgs).toHaveLength(1)
     expect(fake.whereArgs[0]).not.toMatch(/"id" <>/)
     expect(fake.whereArgs[0]).toMatch(/"organization_id" = \$1/)
@@ -286,7 +231,6 @@ describe('replaceDocumentWithinQuota', () => {
     await expect(
       replaceDocumentWithinQuota('org-1', 'doc-1', next(2_000), 10_000)
     ).resolves.toEqual({ ok: false, usedBytes: 9_000 })
-    // Refused means UNCHANGED: the row must still point at the old bytes.
     expect(fake.updated).toHaveLength(0)
   })
 
@@ -300,8 +244,6 @@ describe('replaceDocumentWithinQuota', () => {
   })
 
   it('reports a row deleted since the caller probed it, instead of admitting nothing', async () => {
-    // Zero rows matched: the document was deleted between the upload's name
-    // probe and this update. "ok" here left the new object named by no row.
     const fake = fakeDb(0, 0, false)
     getDb.mockReturnValue(fake.db)
 

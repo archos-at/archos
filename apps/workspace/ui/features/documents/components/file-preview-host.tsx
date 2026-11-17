@@ -1,13 +1,5 @@
 'use client'
 
-/**
- * Persistent file preview in the project shell.
- *
- * Files: a modal. Chat: a second pane in a Resizable split — the file you
- * are asking about, not an overlay covering the conversation. Expand and
- * the Files modal still use the same pane as a dialog.
- */
-
 import type { JSX } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { usePathname } from 'next/navigation'
@@ -39,13 +31,6 @@ import {
   useFilePreviewStore,
 } from '../stores/file-preview-store'
 
-/**
- * Extra status reads a just-finished document gets for its summary to arrive.
- * Three at the settling cadence is twelve seconds on top of the read that
- * turned it terminal — most of the BFF's 15 s collection-listing cache, which
- * is what a late summary is waiting out. A belt: the BFF refreshes that
- * listing on the terminal transition itself.
- */
 export const METADATA_GRACE_POLLS = 3
 
 type StatusBody = Parameters<typeof fileItemFromStatus>[0]
@@ -73,12 +58,6 @@ export function FilePreviewHost({
   const fileId = file?.id ?? null
   const fileStatus = file?.status ?? null
   const fileSummary = file?.summary ?? null
-  /**
-   * How many more polls a document that just finished may take to deliver its
-   * summary. Set by the poll that watched it turn terminal without one, keyed
-   * by id so a different document never inherits it; a document OPENED
-   * already finished never enters this (nothing was watched settling).
-   */
   const [metadataGrace, setMetadataGrace] = useState<{ id: string; left: number } | null>(null)
   const awaitingMetadata =
     fileId !== null &&
@@ -86,59 +65,26 @@ export function FilePreviewHost({
     metadataGrace.left > 0 &&
     isCitableStatus(fileStatus) &&
     fileSummary === null
-  // A list of one, for the shared settling poll below. Memoised so the poll's
-  // effect is not re-armed on every render of the pane.
   const settlingItems = useMemo(
     () => (fileId ? [{ status: fileStatus, pending: awaitingMetadata }] : []),
     [fileId, fileStatus, awaitingMetadata],
   )
   const panelRef = useRef<HTMLDivElement>(null)
   const openerRef = useRef<HTMLElement | null>(null)
-  /**
-   * True for one animation, when the pane BECOMES the peek.
-   *
-   * It cannot be a plain entrance class. This element deliberately survives
-   * parked → peek (it is what keeps an IFC camera from resetting), and a CSS
-   * animation only runs when it is newly APPLIED — so a class sitting on a
-   * mounted element fires once in the life of the project shell and never
-   * again. Applying it on the transition is what makes every arrival animate,
-   * and `onAnimationEnd` takes it off so the next one can. Under reduced motion
-   * the global rule collapses the duration to 0.01ms, so the end event still
-   * lands and this still clears itself.
-   */
   const [arriving, setArriving] = useState(false)
   const onChat = Boolean(pathname?.includes('/chat'))
   const inSplit = presentation === 'split'
-  /**
-   * Mid-flight: Ask Piloti has set `peek` and the router has not landed yet.
-   *
-   * The pane holds exactly what it was showing — the modal, on the page it was
-   * opened from — until the conversation exists to hand it to. Nothing about
-   * the destination is rendered early and nothing is torn down: the reader's
-   * document simply stays where they left it while the route catches up.
-   */
   const carrying = handoff && !onChat
   const overlay = mode === 'modal' || (mode === 'expanded' && onChat && !hidden) || carrying
   const peeking =
     inSplit || (mode === 'peek' && peekHasRoom(pathname, isMobile) && !hidden)
   const chromeVisible = file !== null && (overlay || peeking)
-  // Keep the pane mounted across Files → Chat so an IFC viewport is not remounted
-  // (and its camera reset) when Ask flips mode to peek while still on /files.
   const parked = file !== null && !chromeVisible
 
-  // The handoff ends when the destination exists. Not on a timer and not on
-  // the navigation "finishing": the conversation being on screen IS the
-  // condition, and if the route never arrives the reader is left with the
-  // dialog they opened, which is exactly where they were before they clicked.
   useEffect(() => {
     if (handoff && onChat) endHandoff()
   }, [handoff, onChat, endHandoff])
 
-  // Arrivals AND swaps. A citation opening a second document into a pane that
-  // is already there changes the toolbar's name and reloads the well with no
-  // other signal — the same entrance says "this is a different document now",
-  // which is the question the reader would otherwise have to answer by reading
-  // the filename.
   const lastArrival = useRef<string | null>(null)
   useEffect(() => {
     const arrival = peeking && fileId ? fileId : null
@@ -152,9 +98,6 @@ export function FilePreviewHost({
     openerRef.current = active instanceof HTMLElement && active !== document.body ? active : null
     panelRef.current?.focus()
     const onKey = (event: KeyboardEvent) => {
-      // A layer opened FROM the pane (the reader's details sheet, a confirm,
-      // the review) lives in a portal outside it and answers its own keys:
-      // Escape there closes that layer, not the document under it.
       const layer = event.target instanceof Element ? event.target.closest('[role="dialog"], [role="alertdialog"]') : null
       if (layer && layer !== panelRef.current) return
       if (event.key === 'Escape') {
@@ -162,15 +105,6 @@ export function FilePreviewHost({
         else close()
         return
       }
-      // KEEP THE PROMISE `aria-modal` MAKES.
-      //
-      // This surface says `aria-modal` and dims the page behind a scrim, and
-      // then let Tab walk straight out of it into the chat, the composer and
-      // the nav rail — every one of them behind the dim, none of them reachable
-      // by pointer, all of them reachable by keyboard. Every other modal in
-      // this app is a Radix `Dialog`, which traps; this one is hand-rolled
-      // because the pane inside it must survive being re-presented, and the
-      // trap was what the hand-rolling dropped.
       if (event.key !== 'Tab') return
       const panel = panelRef.current
       if (!panel) return
@@ -179,8 +113,6 @@ export function FilePreviewHost({
           'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
         ),
       ).filter((el) => el.offsetParent !== null || el === document.activeElement)
-      // Nothing to cycle between: hold focus on the panel itself rather than
-      // letting the page behind take it.
       if (focusable.length === 0) {
         event.preventDefault()
         panel.focus()
@@ -207,8 +139,6 @@ export function FilePreviewHost({
     if (opener?.isConnected) opener.focus()
   }, [chromeVisible])
 
-  // Parked pane stays mounted (IFC camera) but must not take focus or sit in
-  // the a11y tree. React 18 has no typing for `inert`, so set it on the node.
   useEffect(() => {
     const el = panelRef.current
     if (!el) return
@@ -216,22 +146,6 @@ export function FilePreviewHost({
     else el.removeAttribute('inert')
   }, [parked])
 
-  /**
-   * A document that is still being read settles ON SCREEN.
-   *
-   * The store holds a snapshot taken when the file was opened, and nothing
-   * refreshed it, so a peek opened seconds after an upload wore "Wird
-   * gelesen…" until the reader closed and reopened it — and now that the peek
-   * SHOWS that status, a stale badge would be a new way to be wrong rather
-   * than the missing answer it is meant to be. Same hook the document lists
-   * use, over a list of one: it polls only while the status can still change
-   * and stops the moment it is terminal.
-   *
-   * Everything the status read carries lands, not only the status. Patching
-   * the status alone turned the badge green over an empty summary, no page
-   * count and no tags, and then stopped asking — the reader had to close and
-   * reopen the file to see what indexing had produced.
-   */
   const refreshStatus = useCallback(async () => {
     const id = fileId
     if (!id) return
@@ -242,27 +156,14 @@ export function FilePreviewHost({
       if (!data || typeof data !== 'object') return
       const body = data as Record<string, unknown>
       if (typeof body.status !== 'string') return
-      // Guard the id: a slow answer for the PREVIOUS document must not land on
-      // the one the reader has since opened.
       const current = useFilePreviewStore.getState().file
       if (current?.id !== id) return
-      // Only what this payload is the authority for, and only what it
-      // actually carried: an older body without `versionCount` is silence,
-      // not a reset. The count matters because a re-upload is exactly what
-      // puts a peek back into this poll, and the failure that follows is only
-      // explained correctly ("still citing the previous version") with it.
       const fresh = fileItemFromStatus({ ...(body as StatusBody), id, filename: current.filename })
       const fields = STATUS_FIELDS.filter((field) => field in body)
       const patch = refreshedFileFields(current, fresh, fields)
       if (patch) patchFile(patch)
       const summary = patch && 'summary' in patch ? patch.summary : current.summary
-      // The BFF enriches a read that turns a row terminal from a fresh
-      // listing, so this should be the exception; when it is not, a few more
-      // polls rather than a finished document shown without its summary until
-      // it is reopened. Bounded: some documents never get one.
       if (isSettlingStatus(body.status)) {
-        // Being read (again, after a re-upload): whatever grace an earlier
-        // run used up does not apply to this one.
         setMetadataGrace(null)
       } else if (isCitableStatus(body.status) && summary == null) {
         setMetadataGrace((prev) =>
@@ -278,11 +179,6 @@ export function FilePreviewHost({
   if (!file) return null
 
   const name = documentDisplayName(file)
-  // `modal` while carrying, whatever the mode says. The mode is already the
-  // DESTINATION's ("peek"), and rendering the destination's chrome on the
-  // origin's route produced the one thing worse than the pane disappearing: a
-  // dialog with the peek's headerless body in it, for the length of a
-  // navigation.
   const panePresentation = carrying
     ? 'modal'
     : mode === 'peek'
@@ -295,11 +191,6 @@ export function FilePreviewHost({
     <>
       {chromeVisible && overlay && (
         <div
-          // Fades. The scrim used to appear in a single frame, which reads as
-          // the page being replaced rather than as something opening ON it —
-          // and the pane behind it did the same, so enlarging a document was
-          // two hard cuts. `duration-quick`/`ease-out` is the vocabulary's
-          // entry for an opacity change.
           className="bg-overlay animate-in fade-in-0 fixed inset-0 top-[var(--page-inset-top,0px)] left-[var(--page-inset-start,0px)] z-50 backdrop-blur-sm duration-quick ease-out motion-reduce:animate-none"
           onClick={mode === 'expanded' ? peek : close}
           aria-hidden
@@ -319,12 +210,6 @@ export function FilePreviewHost({
           peeking
             ? (event) => {
                 if (event.key !== 'Escape') return
-                // Scoped to focus INSIDE the pane, by being a React handler on
-                // it: the peek is not modal, so a global listener would close
-                // the reader's document out from under a composer they were
-                // typing Escape into for another reason. The app's other
-                // panels answer Escape the same way; this one used to be the
-                // only panel that did not.
                 event.stopPropagation()
                 dismissPeek(hide)
               }
@@ -335,36 +220,17 @@ export function FilePreviewHost({
           parked &&
             'invisible pointer-events-none fixed top-0 left-[-120vw] z-[-1] h-[80dvh]',
           peeking && 'group h-full min-h-0 min-w-0 bg-card',
-          // The seam is ONE hairline. This pane carried a `border-l` and the
-          // resize handle beside it is itself a 1px line in the same colour —
-          // so the join between the conversation and the document was drawn
-          // twice, 2px of chrome where every other divider in the app is 1.
-          // The handle wins: it is the one that can respond to a pointer. Off
-          // the split (no handle to lean on) the pane draws its own edge.
           peeking && !inSplit && 'border-l border-border',
-          // The pane's WIDTH is set in one pass by the panel around it — the
-          // design language's binding constraint, and the reason nothing here
-          // tweens a layout property. What arrives is the CONTENT: a fade and a
-          // 16px settle from the edge it came in on, so the reader sees where
-          // the document came from instead of finding it already there.
           peeking &&
             arriving &&
             'animate-in fade-in-0 slide-in-from-right-4 duration-deliberate ease-entrance motion-reduce:animate-none',
           !parked && !peeking && 'group z-40',
           !parked &&
             !peeking &&
-            'bg-popover text-popover-foreground fixed left-[calc(50%+var(--page-inset-start,0px)/2)] top-[calc(50%+var(--page-inset-top,0px)/2)] z-50 h-[min(85dvh,calc(100dvh-var(--page-inset-top,0px)-2rem))] w-[min(960px,calc(100%-var(--page-inset-start,0px)-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-overlay border shadow-lg',
-          // On a phone, portrait or on its side, the document is the screen:
-          // one presentation however it was opened (Dateien, the chat's file
-          // pill, a citation), not a card with the page dimmed around it.
+            'bg-popover text-popover-foreground fixed left-[calc(50%+var(--page-inset-start,0px)/2)] top-[calc(50%+var(--page-inset-top,0px)/2)] z-50 h-[min(85dvh,calc(100dvh-var(--page-inset-top,0px)-2rem))] w-[min(960px,calc(100%-var(--page-inset-start,0px)-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-overlay shadow-lg',
           !parked &&
             !peeking &&
             'phone:inset-0 phone:h-dvh phone:w-full phone:translate-x-0 phone:translate-y-0 phone:rounded-none phone:border-0 phone:shadow-none',
-          // The enlarged view arrives on the page it covers: fade plus a small
-          // scale, `duration-base`/`ease-entrance` — the vocabulary's content
-          // entrance. `zoom-in-95` is 5% of a 960px dialog, a settle rather
-          // than a pounce, and `!parked` keeps the off-screen copy from
-          // animating itself every time it is parked.
           !parked && !peeking && 'animate-in fade-in-0 zoom-in-95 duration-base ease-entrance motion-reduce:animate-none',
         )}
         style={{
@@ -428,17 +294,6 @@ export function FilePreviewHost({
   )
 }
 
-/**
- * Where the file peek stands relative to the conversation.
- *
- * `beside`     — on screen, in the split.
- * `dismissed`  — it WOULD be on screen; the reader put it away. Everything that
- *                offers to bring it back keys off this, and something always
- *                must: a dismissal that cannot be undone from where it happened
- *                is a door that only opens one way.
- * `away`       — no file, or the reader is somewhere the peek does not belong
- *                (Files, a phone, the enlarged view already covering the page).
- */
 export type FilePeekPlacement = 'beside' | 'dismissed' | 'away'
 
 export function useFilePeekPlacement(): FilePeekPlacement {
@@ -453,29 +308,10 @@ export function useFilePeekPlacement(): FilePeekPlacement {
   return hidden ? 'dismissed' : 'beside'
 }
 
-/**
- * Whether the peek is ON SCREEN beside the conversation right now.
- *
- * Five conditions, and the point of exporting it is that they are five: a file
- * can be open in the store, unhidden, in `peek` mode — and still invisible,
- * because the reader is on Files or on a phone (`peekHasRoom`). Everything that
- * offers to bring the file BACK has to ask this question, and the copy of it that the composer bar was
- * asking (mode and `hidden`, nothing else) answered "it is visible" for three
- * states in which nothing was on screen — so the one control that could have
- * restored the file was the control being hidden.
- */
 export function useFilePeekBesideChat(): boolean {
   return useFilePeekPlacement() === 'beside'
 }
 
-/**
- * Keep FilePreviewHost as the end panel's child whenever a file is open, so
- * parked → peek (Files → Chat) is a size change rather than a remount. The
- * split's mechanics (same tree, expand then resize, constant bounds, a width
- * committed once per gesture, the restore tab) are `DockedSplit`'s; this says
- * only what is the document's: its width store, and that putting it away keeps
- * the question (`hide()`, so the composer's "Asking about …" bar stays).
- */
 function FilePreviewSplit({
   split,
   children,
@@ -514,24 +350,9 @@ function FilePreviewSplit({
 
 export function FilePreviewBridge({ children }: { children: ReactNode }): JSX.Element {
   const split = useFilePeekBesideChat()
-  // Always the same tree. Switching a wrapping <div> for the split remounts
-  // the project page (chat draft, files selection, upload tray).
   return <FilePreviewSplit split={split}>{children}</FilePreviewSplit>
 }
 
-/**
- * Put the viewer away, and put focus somewhere that means something.
- *
- * Whatever dismissed the peek — the ✕ or Escape — the element that had focus is
- * inside the pane that is about to stop existing, and left alone the browser
- * drops focus on `<body>`: a keyboard reader restarts from the top of the page,
- * several tab stops from the conversation they were in the middle of. It goes
- * instead to the control that UNDOES the move, "Show file" in the composer,
- * which appears in the same commit. Queried rather than threaded through: the
- * composer belongs to another feature, and a ref across that seam would be a
- * prop chain three components deep for one focus call. If the bar is not there
- * (a peek with no composer subject), nothing moves — better than a guess.
- */
 function dismissPeek(hide: () => void): void {
   hide()
   requestAnimationFrame(() => {
@@ -539,16 +360,6 @@ function dismissPeek(hide: () => void): void {
   })
 }
 
-/**
- * The peek's header: the document's identity on the left, its actions in a
- * pill on the right.
- *
- * Identity is the extension tile, the name, and the facts line — the same
- * tile the modal header carries, so a file looks like itself on both. The
- * actions sit in the pill material the chat toolbar uses across the seam,
- * which makes the two halves of the row one family instead of a toolbar
- * facing three loose icons.
- */
 function PeekToolbar({
   file,
   scope,
@@ -575,7 +386,6 @@ function PeekToolbar({
       <div className="min-w-0 flex-1">
         <p
           className="text-foreground truncate text-sm font-medium leading-tight"
-          // The pane is 280px at its narrowest and a plan's filename is not.
           title={name}
         >
           {name}
@@ -609,20 +419,7 @@ function PeekToolbar({
       <div
         role="status"
         className={cn(
-          // `items-start`, not centre: the sentence wraps to two lines in the
-          // narrow pane, and a badge floating against the middle of a paragraph
-          // reads as unrelated to it. Aligned to the first line it reads as the
-          // sentence's subject, which is what it is.
-          // Inset, at the stage's margins and on the radius ladder's inner-panel
-          // step, so it reads as a note ABOUT the document below it rather
-          // than as a band across the pane.
           'mx-3 mb-2.5 flex shrink-0 items-start gap-2 rounded-control border px-3 py-2 text-xs',
-          // TWO REGISTERS, because they are two different pieces of news.
-          // "Still being read" is the ordinary state of a document somebody
-          // just uploaded: it resolves itself, so it sits on the quiet ground
-          // and lets the badge carry the only colour. A failure will not
-          // resolve itself, so it takes the destructive tint and the reader's
-          // attention — the same register `project-danger-zone` uses.
           isFailedStatus(file.status)
             ? 'border-destructive/25 bg-destructive/[0.05]'
             : 'border-base bg-surface-sunken',
@@ -665,10 +462,7 @@ function PeekToolbar({
             type="button"
             onClick={() => showDetails(true)}
             className={cn(
-              // A real hit area, not a text run: this is the only way out of
-              // the one state on this surface that does not resolve itself,
-              // and it was six pixels tall plus its line-height.
-              'text-foreground hover:bg-accent flex h-7 shrink-0 items-center rounded-full px-2 font-medium underline-offset-2 hover:underline',
+              'text-foreground hover:bg-hover flex h-7 shrink-0 items-center rounded-full px-2 font-medium underline-offset-2 hover:underline',
               FOCUS_RING,
             )}
           >

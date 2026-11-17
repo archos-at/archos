@@ -1,9 +1,3 @@
-"""The ``canvas_activity`` card: what Piloti did on a document, as the BFF confirmed it.
-
-Its shape is checked here; how the canvas tools fill and extend it is checked in
-``packages/agent/tests/tools/canvas``. Built the way ``tools/canvas/cards.py`` builds it.
-"""
-
 from __future__ import annotations
 
 import pytest
@@ -79,7 +73,6 @@ class TestTheShape:
         card = answer_card_adapter.validate_python(_card(CREATED, CHANGED, DELETED)).model_dump(exclude_none=True)
 
         assert [item["action"] for item in card["items"]] == ["created", "changed", "deleted"]
-        # An assignee nobody had before is absent, not null: the card is dumped without Nones.
         assigned = {"field": "assignee", "after": "user_anna", "after_label": "Anna Berger"}
         assert card["items"][1]["changes"][1] == assigned
 

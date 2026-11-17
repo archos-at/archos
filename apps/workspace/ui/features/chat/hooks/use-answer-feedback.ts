@@ -4,32 +4,17 @@ import { useCallback, useEffect, useState } from 'react'
 import type { AnswerFeedbackReason, AnswerFeedbackVerdict } from '@/lib/db/schema/answer-feedback'
 import { capturePosthog } from '@/lib/analytics/posthog'
 
-/** The client-side view of the caller's vote on one answer. */
 export interface AnswerFeedbackState {
   verdict: AnswerFeedbackVerdict
   reason: AnswerFeedbackReason | null
   comment: string | null
-  /** What the voter says a good answer would have contained. */
   expectedAnswer: string | null
 }
 
 type ConversationFeedbackMap = Map<string, AnswerFeedbackState>
 
-/**
- * Per-conversation hydration cache: many AnswerFeedback rows mount per chat,
- * but the GET hydration endpoint is per-conversation — dedupe to ONE fetch
- * per conversation (module-level, in-flight-promise keyed). Successful writes
- * mutate the resolved map so remounts (e.g. re-opening a session) keep the
- * latest local state without refetching.
- */
 const conversationCache = new Map<string, Promise<ConversationFeedbackMap>>()
 
-/**
- * Confirmed writes, announced to every other reader of the same answer. Each
- * `useAnswerFeedback` keeps its own optimistic state, so a second component
- * that follows the verdict (the retry action under a down-vote) would
- * otherwise see only what was hydrated, never the vote cast beside it.
- */
 type VerdictListener = (next: AnswerFeedbackState | null) => void
 const listeners = new Map<string, Set<VerdictListener>>()
 
@@ -43,7 +28,6 @@ function subscribeToVerdict(messageId: string, listener: VerdictListener): () =>
   }
 }
 
-/** How long a down-vote without a reason waits for one before it is reported as it stands. */
 export const REASON_GRACE_MS = 20_000
 
 type Properties = Record<string, string | number | boolean | null>
@@ -61,14 +45,6 @@ if (typeof window !== 'undefined') {
   window.addEventListener('pagehide', () => [...pendingDown.keys()].forEach(flushPendingDown))
 }
 
-/**
- * `answer_feedback_submitted`: the vote, its reason chip and whether a note came
- * with it (its length, never its words: they may quote a restricted folder, and
- * the Langfuse mirror keeps them out for the same reason). A down-vote is asked
- * for its reason in the same interaction, so it is held for REASON_GRACE_MS and
- * sent once, with the reason the voter gave, instead of as a reasonless event
- * followed by a second one. A note saved on top of the same vote is not another.
- */
 function recordVote(
   messageId: string,
   previous: AnswerFeedbackState | null,
@@ -103,7 +79,6 @@ function recordVote(
   capturePosthog('answer_feedback_submitted', properties)
 }
 
-/** Test hook: reset the module-level hydration cache between specs. */
 export function __clearAnswerFeedbackCache(): void {
   conversationCache.clear()
   pendingDown.forEach((held) => clearTimeout(held.timer))
@@ -138,12 +113,10 @@ async function loadConversationFeedback(conversationId: string): Promise<Convers
       ]),
     )
   } catch {
-    // Silent: feedback is a progressive enhancement, never a blocking error.
     return new Map()
   }
 }
 
-/** Keep the shared hydration map in sync with a confirmed server write. */
 function updateCache(conversationId: string | null | undefined, messageId: string, next: AnswerFeedbackState | null): void {
   listeners.get(messageId)?.forEach((listener) => listener(next))
   if (!conversationId) return
@@ -154,20 +127,10 @@ function updateCache(conversationId: string | null | undefined, messageId: strin
 }
 
 export interface UseAnswerFeedbackResult {
-  /** The caller's current vote (null = no vote). */
   state: AnswerFeedbackState | null
-  /**
-   * Optimistically apply `next` (null = retract) and persist it via the
-   * feedback API; reverts to the previous state when the request fails.
-   */
   setFeedback: (next: AnswerFeedbackState | null) => void
 }
 
-/**
- * State + persistence for one answer's thumbs feedback (WS-7).
- * Hydrates from GET /api/feedback/answers (once per conversation), then
- * POSTs upserts / DELETEs retractions with optimistic revert-on-error.
- */
 export function useAnswerFeedback(
   messageId: string,
   conversationId: string | null | undefined,

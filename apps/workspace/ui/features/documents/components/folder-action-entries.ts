@@ -1,9 +1,3 @@
-/**
- * Operations on a folder, as the same entry list the ⋯ and the right-click
- * both render. Open and "new folder inside" first; rename and move in the
- * middle; delete set apart.
- */
-
 import { Check, Folder, FolderInput, FolderPlus, Lock, Pencil, Trash2, Eye, Text } from 'lucide-react'
 import type { ActionMenuEntry } from '@/components/ui/action-menu'
 import { sortedFolderDestinations, type PathFolder } from '../lib/folder-path-label'
@@ -15,11 +9,8 @@ export interface FolderActionLabels {
   move: string
   delete: string
   allFiles: string
-  /** „Zugriff…" — needed only when `onAccess` is given. */
   access?: string
-  /** „Beschreibung …" — needed only when `onDescribe` is given. */
   describe?: string
-  /** „Nur lesen" — the note a read-only folder's menu carries instead of its write entries. */
   readOnly?: string
 }
 
@@ -32,22 +23,11 @@ export interface FolderActionEntriesInput {
   onOpen: () => void
   onNewInside?: () => void
   onRename: () => void
-  /** Say what belongs in it (migration 0145). Absent for a reader who may not write the shelf. */
   onDescribe?: () => void
   onMove?: (parentId: string | null, parentName: string) => void
-  /**
-   * Choose the destination in a sheet of its own (`FolderPickerSheet`) instead
-   * of a submenu, which opens beside its item and has no beside on a phone.
-   */
   onPickMoveTarget?: () => void
-  /** Who may read and write the folder (ADR-0088). Absent for a reader who may not manage the project. */
   onAccess?: () => void
   onDelete: () => void
-  /**
-   * The reader may only read this folder (ADR-0088): new folder, rename, move
-   * and delete are left out and a disabled „Nur lesen" says why. The server
-   * refuses them anyway; this keeps the menu from offering what it will refuse.
-   */
   readOnly?: boolean
 }
 
@@ -88,8 +68,6 @@ export function folderActionEntries({
       onSelect: () => undefined,
       testId: `folder-action-read-only-${folder.id}`,
     })
-    // No „Zugriff …" here either: changing a folder's list needs write on the
-    // folder, so the server would refuse it (ADR-0088).
     return entries
   }
 

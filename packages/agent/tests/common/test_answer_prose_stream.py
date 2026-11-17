@@ -1,5 +1,3 @@
-"""The prose the reader sees while the final call is still writing."""
-
 from __future__ import annotations
 
 import json
@@ -19,8 +17,6 @@ PROSE = (
     "**Quellen:**\n- [1] oib-rl_2_ausgabe_mai_2023.pdf, p.12\n- [2] oib-rl_2_ausgabe_mai_2023.pdf, p.13"
 )
 ENVELOPE = "```answer_json\n" + json.dumps({"answer": PROSE, "kind": "ruling", "cards": [{"type": "x"}]}) + "\n```"
-# What may be shown: the prose with its citation and card markers, nothing
-# from the sources heading on; the sources are collected instead.
 SHOWN = expand_grouped_citations(PROSE.split("**Quellen:**", maxsplit=1)[0])
 SOURCES = "**Quellen:**" + PROSE.split("**Quellen:**", maxsplit=1)[1]
 
@@ -44,8 +40,6 @@ def test_every_chunking_shows_the_prose_and_nothing_it_must_withhold(size):
     assert reader.closed
     for delta in reader.deltas:
         assert "Quellen:" not in delta
-        # A marker is shown whole or not at all: a card marker too, since the
-        # reader holds its card's place from the moment it is written.
         assert not re.search(r"\[\d+(?:,\s*\d*)?$", delta)
         assert not re.search(r"\[\[(?:c(?:a(?:r(?:d(?::\d*\]?)?)?)?)?)?$", delta)
         assert delta.count("[[card:") == len(re.findall(r"\[\[card:\d+\]\]", delta))
@@ -57,7 +51,6 @@ def test_a_bare_json_envelope_streams_too():
 
 
 def test_prose_outside_an_envelope_streams_nothing():
-    # A tool round may open with a line of preamble; it is not the answer.
     shown, _ = _stream("Ich suche zuerst in der OIB-RL 2 nach der Fluchtweglänge.", 3)
     assert shown == ""
 
@@ -69,7 +62,6 @@ def test_an_envelope_that_puts_more_than_the_masthead_before_the_answer_streams_
 
 def test_a_bracket_that_is_not_a_marker_is_shown_once_it_cannot_be_one():
     reader = AnswerProseStream()
-    # Past the first 30 characters of the line, so only the bracket waits.
     line = "Die Anforderungen stehen im Bericht, siehe"
     assert reader.feed('{"answer": "' + line + " [") == line + " "
     assert reader.feed("Anhang A]") == "[Anhang A]"
@@ -83,8 +75,6 @@ def test_a_heading_like_line_that_is_not_the_sources_heading_is_shown():
 @pytest.mark.parametrize("heading", ["### Quellen:" + " " * 25, "  ###" + " " * 30 + "Quellen:", "\t**Quellen:**  "])
 @pytest.mark.parametrize("size", [1, 3, 10_000])
 def test_a_sources_heading_padded_past_the_line_hold_is_still_withheld(heading, size):
-    # The verifier's heading allows any run of whitespace around and inside the
-    # label, so only the visible characters say whether a line may be one.
     reader = _reader(json.dumps({"answer": "Text [1].\n" + heading + "\n[1] OIB-RL 2, 3.1\n"}), size)
     assert reader.emitted == "Text [1].\n"
     assert reader.sources_text == heading + "\n[1] OIB-RL 2, 3.1\n"
@@ -136,7 +126,6 @@ def test_each_card_is_read_as_soon_as_its_object_closes(size):
         reader.feed(reply[i : i + size])
         seen.extend((i, card["type"]) for card in reader.take_cards())
     assert [kind for _, kind in seen] == ["table", "surface"]
-    # The first card went out before the second was written.
     assert seen[0][0] < reply.index('"surface"')
 
 
@@ -144,11 +133,8 @@ def test_each_card_is_read_as_soon_as_its_object_closes(size):
 @pytest.mark.parametrize(
     ("raw_answer", "shown"),
     [
-        # Not JSON mode: a path the model forgot to escape.
         ("Pfad C:\\user\\daten und weiter.", "Pfad C:\\user\\daten und weiter."),
-        # A lone high surrogate, then text.
         ("Fluchtweg \\ud83d frei.", "Fluchtweg \\ud83d frei."),
-        # A high surrogate whose next escape is not its partner: the ä survives.
         ("A\\ud83d\\u00e4B", "A\\ud83däB"),
         ("A\\ude00B", "A\\ude00B"),
         ("Rest \\u", "Rest \\u"),

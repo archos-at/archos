@@ -1,6 +1,3 @@
-"""Per-turn context: gathered, fail-open where the callee says so, and the stage
-facts captured whatever else failed."""
-
 from __future__ import annotations
 
 import asyncio
@@ -26,6 +23,8 @@ from agent.turn.context import user_info_for
 from agent.turn.context_client import ContextBlocks
 from agent.turn.context_client import TurnContextError
 
+_NO_PERSONAL_FACTS = {"personal_memory_lines": 0, "temporary_conversation": False}
+
 
 def _request(**fields) -> RequestContext:
     return RequestContext(**fields)
@@ -33,7 +32,6 @@ def _request(**fields) -> RequestContext:
 
 @contextlib.contextmanager
 def bound_use(drawable=(), confined=False) -> Iterator[RestrictedUse]:
-    """A turn's restricted use (ADR-0088), bound in the test's own context and reset after."""
     use = RestrictedUse(
         organization_id="org",
         user_id="user_asker",
@@ -51,7 +49,6 @@ def bound_use(drawable=(), confined=False) -> Iterator[RestrictedUse]:
 
 @pytest.fixture
 def stubs(monkeypatch):
-    """The three round-trips, replaced by stubs a test can shape."""
     calls: dict[str, object] = {
         "lessons": "LESSONS",
         "digest": "LIVE",
@@ -97,7 +94,6 @@ class TestLoadTurnContext:
         assert context.project_context == "PROFILE\n\nLIVE"
         assert context.platform_lessons == "LESSONS"
         assert stubs["digest_args"] == ("p1", "org", "Wie hoch?")
-        # The project rides along, so a closed one withdraws research (ADR-0090).
         assert stubs["flags_project"] == "p1"
         facts = context.stage_facts
         assert (facts.conversation_id, facts.ws_parent_id, facts.organization_id, facts.project_id) == (
@@ -110,8 +106,6 @@ class TestLoadTurnContext:
         assert facts.enabled_stages == frozenset({"follow_ups"})
 
     async def test_a_failed_digest_fetch_keeps_the_header_digest_and_still_captures_the_stage_facts(self, stubs):
-        """The old code wrapped the digest AND the stage facts in one try:
-        one failure dropped both. The facts are the stages' only input."""
         stubs["digest"] = RuntimeError("INTERNAL_API_TOKEN is not configured")
         request = _request(project_id="p1", organization_id="org", project_memory="FROZEN", federal_state="vienna")
 
@@ -124,15 +118,6 @@ class TestLoadTurnContext:
         assert context.stage_facts.enabled_stages == frozenset({"follow_ups"})
 
     async def test_a_bug_in_the_digest_fetch_drops_the_context_instead_of_faking_it(self, stubs, caplog):
-        """Two rules meet here and both hold.
-
-        ``_live_memory_digest`` catches only the transport failures it names,
-        so a BUG is never quietly degraded to the frozen header digest — an
-        answer written against a digest that silently was not fetched is wrong
-        in the way nobody can see. And the turn is one member of the setup
-        gather, so the bug costs the LIVE CONTEXT, not the reader's answer: it
-        surfaces as an empty context plus the traceback in the log.
-        """
         stubs["digest"] = TypeError("a bug, not a transport failure")
 
         context = await load_turn_context(
@@ -156,10 +141,6 @@ class TestLoadTurnContext:
         assert context.project_context == "FROZEN"
 
     async def test_no_stage_has_a_model_but_the_capability_half_is_still_resolved(self, stubs):
-        """The round-trip used to be skipped here, when its only answer was the
-        stage set. It now also carries whether deep research may be OFFERED,
-        which is per-org and decides something on every turn — so the call is
-        made and only the stage half is discarded."""
         stubs["deep_research_allowed"] = False
 
         context = await load_turn_context(
@@ -171,8 +152,6 @@ class TestLoadTurnContext:
         assert context.deep_research_allowed is False
 
     async def test_no_organization_resolves_nothing_and_keeps_the_permissive_defaults(self, stubs):
-        """Without a tenant there is nothing to evaluate against: the BFF would
-        answer with the same defaults, so the turn does not pay for the ask."""
         context = await load_turn_context(
             _request(project_id="p1"), conversation_id="c1", query_text="q", resolve_stages=True
         )
@@ -191,8 +170,6 @@ class TestLoadTurnContext:
         assert context.deep_research_allowed is False
 
     async def test_the_two_capabilities_are_withdrawn_independently(self, stubs):
-        """Skills stay in chat and tasks do not: the product asked for exactly
-        this split, so the two flags must not collapse into one."""
         stubs["tasks_allowed"] = False
 
         context = await load_turn_context(
@@ -203,8 +180,6 @@ class TestLoadTurnContext:
         assert context.deep_research_allowed is True
 
     async def test_a_failed_context_load_leaves_deep_research_allowed(self, stubs):
-        """The whole-context fail-open must not withdraw a capability: a dead
-        branch costs the live context, never the reader's deep research."""
         stubs["digest"] = TypeError("a bug, not a transport failure")
 
         context = await load_turn_context(
@@ -218,7 +193,6 @@ class TestLoadTurnContext:
         assert context.deep_research_allowed is True
 
     async def test_the_three_round_trips_overlap(self, monkeypatch):
-        """Gathered, not sequential: three 50 ms waits take ~50 ms, not ~150."""
 
         def slow_lessons(_cid):
             time.sleep(0.05)
@@ -236,8 +210,6 @@ class TestLoadTurnContext:
         monkeypatch.setattr(context_mod, "resolve_turn_flags", slow_flags)
 
         async def load() -> None:
-            # An organization, so the flag round-trip actually runs and there
-            # are three waits to overlap rather than two.
             await load_turn_context(
                 _request(project_id="p1", organization_id="org"),
                 conversation_id="c1",
@@ -245,9 +217,6 @@ class TestLoadTurnContext:
                 resolve_stages=True,
             )
 
-        # Untimed first: the first call imports what its body imports lazily
-        # (the agent runtime, ~0.7 s), which is no measure of overlap. The shared conftest
-        # used to hide that by importing the agent runtime before every test.
         await load()
         started = time.perf_counter()
         await load()
@@ -433,8 +402,6 @@ class TestBffTurnContext:
 
 
 class TestLessonsReachTheTrace:
-    """The arm and the lessons are recorded in the turn's own context, not the gather child's."""
-
     LESSON_A = "3f2504e0-4f89-11d3-9a0c-0305e82c3301"
 
     async def test_the_arm_and_the_lesson_ids_are_on_the_turns_trace_metadata(self, stubs, monkeypatch):
@@ -454,7 +421,11 @@ class TestLessonsReachTheTrace:
             resolve_stages=True,
         )
         assert context.platform_lessons == "LESSONS"
-        assert snapshot_contributions()["metadata"] == {"lessons_arm": "treated", "lesson_ids": self.LESSON_A}
+        assert snapshot_contributions()["metadata"] == {
+            "lessons_arm": "treated",
+            "lesson_ids": self.LESSON_A,
+            **_NO_PERSONAL_FACTS,
+        }
         reset_contributions()
 
     async def test_a_holdout_turn_records_the_arm_and_injects_nothing(self, stubs, monkeypatch):
@@ -472,7 +443,7 @@ class TestLessonsReachTheTrace:
             resolve_stages=True,
         )
         assert context.platform_lessons is None
-        assert snapshot_contributions()["metadata"] == {"lessons_arm": "holdout"}
+        assert snapshot_contributions()["metadata"] == {"lessons_arm": "holdout", **_NO_PERSONAL_FACTS}
         reset_contributions()
 
     async def test_a_failed_lookup_claims_no_arm(self, stubs, monkeypatch):
@@ -490,7 +461,7 @@ class TestLessonsReachTheTrace:
             query_text="q",
             resolve_stages=True,
         )
-        assert snapshot_contributions()["metadata"] == {"lessons_arm": "off"}
+        assert snapshot_contributions()["metadata"] == {"lessons_arm": "off", **_NO_PERSONAL_FACTS}
         reset_contributions()
 
 
@@ -505,10 +476,6 @@ def test_turn_identity_is_the_parsed_request_in_ledger_shape():
 
 
 class TestRestrictedMemoryInTheLiveDigest:
-    """ADR-0087, ADR-0088: the live digest serves restricted memory only for the
-    restricted collections the turn's VERIFIED envelope carries and the turn may
-    draw on, with the signed asker the BFF admits them for."""
-
     _SCOPE = ["oib_knowledge", "proj_p1", "proj_p1_r0123456789ab", "s_c1"]
 
     async def test_a_signed_scope_passes_its_restricted_collections(self, stubs):
@@ -524,7 +491,6 @@ class TestRestrictedMemoryInTheLiveDigest:
         assert stubs["digest_user"] == "user_asker"
 
     async def test_only_the_collections_the_turn_may_draw_on_pass(self, stubs):
-        """Shared since the socket was signed: the BFF said no to this folder, so its notes are not asked for."""
         request = _request(
             project_id="p1", organization_id="org", collection_scope=self._SCOPE, envelope_header="signed"
         )
@@ -533,7 +499,6 @@ class TestRestrictedMemoryInTheLiveDigest:
         assert stubs["digest_restricted"] == []
 
     async def test_an_unsigned_scope_passes_none(self, stubs):
-        """The raw-header fallback has nothing vouching for it."""
         request = _request(project_id="p1", organization_id="org", collection_scope=self._SCOPE)
         await load_turn_context(request, conversation_id="c1", query_text="q", resolve_stages=False)
         assert stubs["digest_restricted"] == []
@@ -547,10 +512,6 @@ class TestRestrictedMemoryInTheLiveDigest:
 
 
 class TestRestrictedMemoryOnTheCompactHandshake:
-    """ADR-0087, ADR-0088 on the BFF transport: ``fetch_turn_context`` serves open
-    memory only, so a turn that may draw on a restricted folder takes the live
-    digest, the one that admits the folders, in its place."""
-
     _SCOPE = ["oib_knowledge", "proj_p1", "proj_p1_r0123456789ab", "s_c1"]
 
     def _bff_request(self, **overrides):
@@ -603,12 +564,6 @@ class TestRestrictedMemoryOnTheCompactHandshake:
 
 
 class TestAConfinedTurnOffersNothingTheWholeProjectReads:
-    """ADR-0087, ADR-0088: a turn that may draw on a restricted folder, or whose
-    conversation already drew on one, may not commission a run or hand work
-    over, so it is never offered either. The BFF refuses both on its own; this
-    keeps the model from proposing them. Settled after the whole setup gather
-    (``settle_restriction``), because the digest and the subject can confine."""
-
     _SCOPE = ["oib_knowledge", "proj_p1", "proj_p1_r0123456789ab", "s_c1"]
 
     def _signed(self, scope=None) -> RequestContext:
@@ -628,7 +583,6 @@ class TestAConfinedTurnOffersNothingTheWholeProjectReads:
         assert (context.deep_research_allowed, context.tasks_allowed) == (False, False)
 
     async def test_a_conversation_that_drew_on_one_stays_confined_with_nothing_drawable(self, stubs):
-        """Everything narrowed away this turn, but the record stands: still no run, no task."""
         with bound_use(drawable=(), confined=True):
             context = await self._settled(self._signed())
         assert context.restricted_scope == ()
@@ -636,7 +590,6 @@ class TestAConfinedTurnOffersNothingTheWholeProjectReads:
         assert (context.deep_research_allowed, context.tasks_allowed) == (False, False)
 
     async def test_nothing_drawable_and_nothing_recorded_is_an_open_turn(self, stubs):
-        """The thread is shared with someone not cleared, and it never drew on the folder: nothing to protect."""
         with bound_use(drawable=(), confined=False):
             context = await self._settled(self._signed())
         assert context.confined is False

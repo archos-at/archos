@@ -1,22 +1,3 @@
-"""The rendered prompt, pinned: two files and a store, two messages.
-
-The system prompt is the static half alone, `chat_static.md`, so it can be
-managed in Langfuse and stays the same bytes on every turn of a conversation.
-`piloti.j2` is the turn context, its own message right before the newest human
-message (`prompt.request_messages`). A byte of drift in the system prompt
-between turns is a different prefix, which costs every tenant their provider
-prompt-cache hit on the system prompt AND the history behind it, and shows up
-as latency rather than as a failure. So the first test renders both with pinned
-inputs and compares the result, byte for byte, with the committed fixture.
-
-The fixture is a GOLDEN FILE, not a claim about any past version. A deliberate
-prompt edit changes it, and the diff is what review reads; an accidental one
-fails a test instead of shipping. Regenerate with:
-
-    PYTHONPATH=packages/agent/src .venv/bin/python -c "
-    import runpy; runpy.run_path('packages/agent/tests/agents/piloti/test_static_prompt_split.py')['regenerate']()"
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -44,12 +25,6 @@ from agent.observability import langfuse_trace_attributes as lta
 FIXTURE = Path(__file__).parent / "fixtures" / "chat_prompt_rendered.txt"
 
 
-#: The render inputs the fixture was produced with. `answer_envelope_schema`
-#: and `document_inventory` are pinned to placeholders on purpose: this test is
-#: about the TEMPLATE, and injecting the real envelope schema would make it fail
-#: whenever `cards/models.py` changes, which is somebody else's contract.
-#: `product_name` is pinned for the same reason: the name is copy from
-#: `packages/brand/identity.json`, and a rename is not a template change.
 PINNED = dict(
     product_name="<<PRODUCT NAME>>",
     answer_envelope_schema="<<ENVELOPE SCHEMA>>",
@@ -68,36 +43,27 @@ PINNED = dict(
     skills_block="<<SKILLS>>",
 )
 
-#: The line between the two messages in the fixture; it is in neither.
 MESSAGE_SEAM = "\n\n===== turn context message =====\n\n"
 
 
 def _forget_what_resolving_recorded() -> None:
-    """The prompt link and the fallback identity are PROCESS state; contributions are the turn's."""
     lta.reset_prompt_link()
     lta.reset_contributions()
 
 
 @pytest.fixture(autouse=True)
 def _clean_trace_state():
-    """Resolving writes both; neither may leak into the next test."""
     _forget_what_resolving_recorded()
     yield
     _forget_what_resolving_recorded()
 
 
 def _render(static_text: str) -> str:
-    """Both messages, with the pinned inputs instead of the injected ones, and the seam between them.
-
-    The fixture ends with a newline the turn context does not have, because
-    the repo's end-of-file hook gives every committed text file one.
-    """
     system = render_prompt_template(static_text, **PINNED).rstrip("\n")
     return system + MESSAGE_SEAM + render_prompt_template(system_prompt_template(), **PINNED) + "\n"
 
 
 def regenerate() -> None:
-    """Rewrite the golden file from the committed prompt files."""
     committed = (PROMPTS_DIR / STATIC_PROMPT_FILE).read_text(encoding="utf-8")
     FIXTURE.write_text(_render(committed), encoding="utf-8")
 
@@ -109,11 +75,6 @@ class TestByteIdentity:
         assert _render(committed) == FIXTURE.read_text(encoding="utf-8")
 
     def test_the_turn_context_is_one_tagged_block_and_no_system_prompt(self):
-        """
-        The turn context reaches the model as a human-role message, so it says
-        what it is: one `<turn_context>` block, and nothing of the static half
-        in it (the template no longer opens with `{{ static_block }}`).
-        """
         context = render_prompt_template(system_prompt_template(), **PINNED)
 
         assert context.startswith("<turn_context>\n")
@@ -121,13 +82,6 @@ class TestByteIdentity:
         assert "static_block" not in system_prompt_template()
 
     def test_the_static_half_is_where_the_cacheable_text_lives(self):
-        """
-        The split is only worth anything if the static file really is static:
-        two Jinja variables, both constant for the process (the envelope schema,
-        rendered from the models, and the product's name), and no conditionals.
-        A `{% if %}` that drifted up here would be re-rendered per turn inside a
-        block the whole design assumes is constant.
-        """
         committed = (PROMPTS_DIR / STATIC_PROMPT_FILE).read_text(encoding="utf-8")
 
         assert "{%" not in committed
@@ -136,27 +90,13 @@ class TestByteIdentity:
         assert "{{ product_name }}" in committed
 
     def test_the_static_prompt_stays_within_its_budget(self):
-        """
-        The system prompt is paid on every call of every turn. It was cut from
-        ~13.8k to under 5k tokens (characters / 4) in 2026-10 by a value test
-        per line (`docs/audit/prompt-value-audit-2026-10.md`); a line
-        that does not pass it is what grows the file back.
-        """
         committed = (PROMPTS_DIR / STATIC_PROMPT_FILE).read_text(encoding="utf-8")
-        # What a call pays for is the name, not the placeholder that spells it.
         paid = committed.replace("{{ product_name }}", PRODUCT_NAME)
 
         assert len(paid) // 4 <= 5_000
 
 
 class TestTheRulesThePolishMustNotInvert:
-    """Wordings whose meaning flips on one verb, asserted on the rendered text.
-
-    `angenommen` closes a point. A polish pass once turned "do not propose it
-    again" into "and propose something else", which reads as an instruction to
-    make a further proposal on the very point the user just settled.
-    """
-
     def test_an_accepted_proposal_reads_as_settled(self):
         rendered = FIXTURE.read_text(encoding="utf-8")
 
@@ -174,14 +114,6 @@ class TestStoreSeam:
         assert bundled.text == (PROMPTS_DIR / STATIC_PROMPT_FILE).read_text(encoding="utf-8")
 
     def test_the_render_uses_the_stores_text_rather_than_the_file(self, monkeypatch):
-        """
-        The seam itself: with a version being served, the bytes above the
-        boundary are Langfuse's and the bytes below are still the template's.
-        """
-        # Read the template before the store is swapped: its first call resolves
-        # the static half too (the boot fetch), so a worker that reaches this test
-        # with the cache cold would otherwise count that call as the render's.
-        # A disabled store keeps that first call off the network.
         monkeypatch.setattr(prompt_module, "prompt_store", lambda: PromptStore(enabled=False))
         template = system_prompt_template()
         served = _FakeStore(ResolvedPrompt(text="MANAGED STATIC HALF", name=STATIC_PROMPT_NAME, version="12"))
@@ -203,17 +135,11 @@ class TestStoreSeam:
         assert served.fallbacks[0].text == bundled_static_block().text
 
     def test_a_disabled_store_renders_the_bundled_prompt(self, monkeypatch):
-        """The default path, stated as a test: no flag, no network, same bytes."""
         monkeypatch.setattr(prompt_module, "prompt_store", lambda: PromptStore(enabled=False))
 
         assert resolve_static_block() == bundled_static_block()
 
     def test_the_rendered_static_block_is_cached_per_distinct_text(self):
-        """
-        Rendering 33 KB of Jinja on every turn to substitute one variable is
-        waste; re-rendering it when a new version arrives is not. The cache key
-        is the text, so both hold without anyone remembering to invalidate.
-        """
         render_static_block.cache_clear()
         first = render_static_block("A {{ answer_envelope_schema }}")
         again = render_static_block("A {{ answer_envelope_schema }}")
@@ -225,15 +151,6 @@ class TestStoreSeam:
 
 
 class TestPromptLink:
-    """
-    A prompt LINK names a prompt Langfuse holds, and nothing else may wear it.
-    Langfuse's ingestion declares `promptVersion` an int and rejects the whole
-    generation event that carries anything else, so the bundled fallback's
-    `git:` name and blob hash cost every GENERATION observation in the trace
-    while the rest of it arrives looking healthy. The fallback is named in the
-    trace METADATA instead, where free-form values are safe.
-    """
-
     def test_resolving_records_the_version_the_traces_will_name(self, monkeypatch):
         served = _FakeStore(ResolvedPrompt(text="MANAGED", name=STATIC_PROMPT_NAME, version="12"))
         monkeypatch.setattr(prompt_module, "prompt_store", lambda: served)
@@ -246,12 +163,6 @@ class TestPromptLink:
         }
 
     def test_a_fallback_render_is_no_link_and_is_named_in_the_trace_metadata(self, monkeypatch):
-        """
-        A fleet running on its bundled prompt must still be visible in the
-        trace list rather than indistinguishable from one serving the live
-        version — otherwise a Langfuse outage reads as "the new version did
-        nothing". The metadata is what carries that now.
-        """
         monkeypatch.setattr(prompt_module, "prompt_store", lambda: PromptStore(enabled=False))
 
         resolve_static_block()
@@ -264,11 +175,6 @@ class TestPromptLink:
         }
 
     async def test_the_stamp_returns_the_bytes_the_system_prompt_is(self, monkeypatch):
-        """
-        The stamp's return names the provider cache's stable prefix, so it
-        must be exactly the system prompt the turn sends: a byte of drift
-        between the two would key every turn on a prefix nobody sends.
-        """
         from agent.agents.piloti.models import ResearchAgentState
         from agent.agents.piloti.prompt import render_turn_prompt
 
@@ -280,12 +186,6 @@ class TestPromptLink:
         assert static and sent == static
 
     async def test_the_turn_stamp_names_what_this_turn_resolved(self, monkeypatch):
-        """
-        The identity is process state and the stamp is per turn, so the stamp
-        must follow a resolution made for this turn and not the one before:
-        a process that served a version and has since fallen back names the
-        fallback on this turn's trace, not nothing.
-        """
         served = _FakeStore(ResolvedPrompt(text="MANAGED", name=STATIC_PROMPT_NAME, version="12"))
         monkeypatch.setattr(prompt_module, "prompt_store", lambda: served)
         resolve_static_block()
@@ -297,11 +197,6 @@ class TestPromptLink:
         assert lta.snapshot_contributions()["metadata"]["prompt_name"] == "git:prompts/chat_static.md"
 
     async def test_another_turn_s_transition_does_not_rename_this_turn_s_fallback(self, monkeypatch):
-        """
-        The fallback identity rides the same per-turn record as the link, so
-        a served version resolved in another turn between this turn's resolve
-        and its stamp neither erases this turn's fallback nor replaces it.
-        """
         token = lta.begin_turn_prompt_link()
         try:
             monkeypatch.setattr(prompt_module, "prompt_store", lambda: PromptStore(enabled=False))
@@ -323,12 +218,6 @@ class TestPromptLink:
             lta.end_turn_prompt_link(token)
 
     def test_falling_back_stops_the_process_naming_the_version_it_served(self, monkeypatch):
-        """
-        Langfuse goes down mid-life and the store mutes it for the TTL window.
-        A link left behind from the version that was serving would name it on
-        generations it never produced, which is a wrong number rather than a
-        missing one.
-        """
         served = _FakeStore(ResolvedPrompt(text="MANAGED", name=STATIC_PROMPT_NAME, version="12"))
         monkeypatch.setattr(prompt_module, "prompt_store", lambda: served)
         resolve_static_block()
@@ -340,14 +229,6 @@ class TestPromptLink:
 
 
 class TestServedTextThatDoesNotRender:
-    """
-    The store promises never to raise into a turn, and keeps it for the FETCH.
-    The text it fetched is still a template one layer up: a prompt author who
-    pastes a JSON example with ``{{`` into Langfuse, or writes ``{{ project }}``
-    expecting substitution, must not take every turn on every replica down for
-    as long as that version is published. The bundled file is the floor here too.
-    """
-
     def _serve(self, monkeypatch, text: str) -> None:
         served = _FakeStore(ResolvedPrompt(text=text, name=STATIC_PROMPT_NAME, version="13"))
         monkeypatch.setattr(prompt_module, "prompt_store", lambda: served)
@@ -358,7 +239,6 @@ class TestServedTextThatDoesNotRender:
         assert resolve_static_block() == bundled_static_block()
 
     def test_a_version_holding_the_retired_building_law_block_serves_the_bundled_file(self, monkeypatch):
-        """ADR-0175: a version published before the cut-over gives every turn Austria's chain; it is not served."""
         self._serve(monkeypatch, "<role>x</role>\n<building_law>\nAustrian building law is a chain\n</building_law>")
 
         assert resolve_static_block() == bundled_static_block()
@@ -387,20 +267,12 @@ class TestServedTextThatDoesNotRender:
 
 
 class TestTheRoundCostIsStatedAsAFact:
-    """
-    The budget counts rounds, and a round costs one however many calls it holds.
-    Nothing but the prompt can tell the model that, and a rewrite once cut it as
-    procedure: the model then opened one document per round and ran the budget
-    out before the family was read.
-    """
-
     def test_the_prompt_says_a_round_costs_one_whatever_it_holds(self):
         rendered = FIXTURE.read_text(encoding="utf-8")
 
         assert "a round is one decision, however many calls it holds" in rendered
 
     def test_the_prompt_names_the_round_budget_the_config_sets(self):
-        """The model cannot see its budget, so the prompt states it: a number that drifts from the config lies."""
         import re
 
         config = (Path(__file__).resolve().parents[5] / "configs" / "config_oib_openrouter.yml").read_text(
@@ -413,13 +285,6 @@ class TestTheRoundCostIsStatedAsAFact:
         assert f"You have up to {configured.group(1)} tool rounds this turn" in rendered
 
     def test_the_family_search_is_stated_as_the_members_opened(self):
-        """
-        The family branch returns each member's scope passage AND its
-        Gliederung, which is what `read_passage(document=…)` returns for one of
-        them. Told only that an overview needs every member opened, the model
-        spent the round after the family result re-opening the same three
-        documents and read back what it was already holding.
-        """
         from knowledge_layer.register import _KNOWLEDGE_SEARCH_DESCRIPTION as description
 
         assert "every member is then open at the level a read of one document opens it" in description
@@ -427,8 +292,6 @@ class TestTheRoundCostIsStatedAsAFact:
 
 
 class _FakeStore:
-    """A store that serves one answer and records what it was asked for."""
-
     def __init__(self, answer: ResolvedPrompt | None):
         self.answer = answer
         self.asked: list[str] = []
@@ -441,28 +304,16 @@ class _FakeStore:
 
 
 def test_project_record_names_the_three_file_blocks_and_says_look_before_missing():
-    """The agent must not call a file missing because no list shows it, nor read an unreadable one as absent.
-
-    Contract tokens only: the block keys, and the two tools the context sends the agent to look with. The
-    legend moved from the static prompt into the turn context, beside the project context that carries the
-    blocks, and renders only when one of them is there.
-    """
     record = render_prompt_template(system_prompt_template(), **PINNED)
 
     for key in ("documents:", "documents_missing:", "documents_unreadable:"):
         assert key in record
-    # `glob` and `grep` since ADR-0133 slice 6.
     assert "`glob`" in record and "`grep`" in record
     without = render_prompt_template(system_prompt_template(), **{**PINNED, "project_context": "name: X"})
     assert "documents_missing:" not in without
 
 
 def test_the_static_prompt_names_no_country_s_law():
-    """ADR-0175: the chain text in the turn context is the only building law a turn reads.
-
-    The static prompt carries the method (``<legal_method>``), never a ``<building_law>`` block: that
-    block held Austria's chain for every turn, a German or an unplaced project included (S8, defect 6).
-    """
     static = (PROMPTS_DIR / STATIC_PROMPT_FILE).read_text(encoding="utf-8")
 
     assert "<building_law>" not in static and "building_law>" not in static

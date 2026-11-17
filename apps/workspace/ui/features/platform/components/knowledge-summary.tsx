@@ -1,7 +1,5 @@
 'use client'
 
-/** The base corpus in four numbers, above its table: documents, indexed, sections, and what needs attention. */
-
 import type { JSX } from 'react'
 import { AlertTriangle, CheckCircle2, FileText, Layers } from 'lucide-react'
 import { StatCard, StatCardSkeleton } from '@/components/ui/stat-card'

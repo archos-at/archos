@@ -1,16 +1,7 @@
-/**
- * Fixtures for the answer-feedback export: one fully populated vote row, one
- * that rated a turn nobody stored, a week, and the export around them.
- *
- * Shared by the column, renderer and route specs and by the script that writes
- * a sample workbook, so all of them describe the same rows.
- */
-
 import type { FeedbackExportRecord, FeedbackWeeklyRecord } from '@/lib/feedback/export-columns'
 import type { FeedbackExport } from '@/lib/feedback/export-service'
 import { NO_RATINGS_FILTERS, type FeedbackQuery } from '@/lib/feedback/filters'
 
-/** A down-vote on a stored, researched answer, with everything the joins can reach. */
 export function feedbackExportRecord(overrides: Partial<FeedbackExportRecord> = {}): FeedbackExportRecord {
   return {
     feedbackId: '7c1e0d52-5a51-4bb6-9d3b-1b2f0c6a9e01',
@@ -58,7 +49,6 @@ export function feedbackExportRecord(overrides: Partial<FeedbackExportRecord> = 
   }
 }
 
-/** An up-vote on a turn that was never stored: no answer, no cost, no link. */
 export function unstoredFeedbackExportRecord(overrides: Partial<FeedbackExportRecord> = {}): FeedbackExportRecord {
   return feedbackExportRecord({
     feedbackId: '7c1e0d52-5a51-4bb6-9d3b-1b2f0c6a9e02',
@@ -116,7 +106,6 @@ export function feedbackWeeklyRecord(overrides: Partial<FeedbackWeeklyRecord> = 
   }
 }
 
-/** The scope a fixture export was read in: every vote, 2026-09-10 to 2026-10-09. */
 export const FIXTURE_FEEDBACK_QUERY: FeedbackQuery = {
   scope: { from: '2026-09-10', to: '2026-10-09', organizationIds: [], projectIds: [] },
   ratings: NO_RATINGS_FILTERS,

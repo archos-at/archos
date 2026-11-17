@@ -1,5 +1,3 @@
-"""The OTel collector exporter the Langfuse trace suites configure."""
-
 from __future__ import annotations
 
 from agent.observability.otel_header_redaction_exporter import OtelCollectorRedactionTelemetryExporter

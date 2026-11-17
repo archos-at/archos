@@ -34,6 +34,7 @@ import logging
 import os
 import uuid
 from collections.abc import Iterable
+from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from dataclasses import field
@@ -147,6 +148,22 @@ SCORE_DEFINITIONS: tuple[ScoreDefinition, ...] = (
         max_value=1,
     ),
     ScoreDefinition(
+        "citation-role-resolved",
+        "NUMERIC",
+        "Share of the building-law sources an answer cited that carry a role from the records, on a turn whose "
+        "gate may bind. Below 1, a cited passage found no edition: its chip states no status.",
+        min_value=0,
+        max_value=1,
+    ),
+    ScoreDefinition(
+        "edition-named",
+        "NUMERIC",
+        "Share of the building-law sources an answer cited whose citation names its edition: the record's "
+        "edition label, or the Fassung day its source stated. The design's edition_named; target 0.95 at core.",
+        min_value=0,
+        max_value=1,
+    ),
+    ScoreDefinition(
         "citation-fallback",
         "BOOLEAN",
         "Retired with the single-source fallback (ADR-0125); no longer written. Kept so older traces chart.",
@@ -167,7 +184,7 @@ SCORE_DEFINITIONS: tuple[ScoreDefinition, ...] = (
         "CATEGORICAL",
         "Which guard lowered the surfaced confidence, or none.",
         categories=(
-            *("none", "ungrounded", "quote_unverified", "law_unsettled"),
+            *("none", "ungrounded", "quote_unverified", "law_unsettled", "open_point"),
             *("normative_claim_uncited", "measurement_only", "citation_fallback"),  # retired; stored turns carry them
         ),
     ),
@@ -208,6 +225,13 @@ SCORE_DEFINITIONS: tuple[ScoreDefinition, ...] = (
         "steer-count",
         "NUMERIC",
         "How many notes the asker typed into this turn while it ran; written only on a steered turn.",
+        min_value=0,
+    ),
+    ScoreDefinition(
+        "turn-slots-stranded",
+        "NUMERIC",
+        "Admission slots the turn's workflow still held when the turn ended (its teardown outran its bound), "
+        "given back then rather than renewed for as long as the teardown ran; written only when one was.",
         min_value=0,
     ),
     ScoreDefinition(
@@ -269,10 +293,29 @@ SCORE_DEFINITIONS: tuple[ScoreDefinition, ...] = (
         categories=("low", "medium", "high"),
     ),
     ScoreDefinition(
+        "confidence-open-points",
+        "NUMERIC",
+        "How many open points the answer check read in the answer itself (its prose or its confidence reason): "
+        "something it states is open, unchecked or unresolved and its main point depends on. Above zero caps the "
+        "surfaced level at medium (confidence-capped open_point); the comment names them. Written with "
+        "confidence-judged-level.",
+        min_value=0,
+    ),
+    ScoreDefinition(
         "confidence-judge-unavailable",
         "BOOLEAN",
         "On a turn whose answer was to be graded: true when the answer check could not run (no model, a "
         "timeout, an error, an unreadable reply) and the turn surfaced no level.",
+    ),
+    ScoreDefinition(
+        "confidence-judge-unavailable-reason",
+        "CATEGORICAL",
+        "Written with confidence-judge-unavailable true: why the answer check gave no level. no_judge (no "
+        "model resolved), timeout (past its time limit), error (the call raised; the comment names the "
+        "exception class), unparseable (a reply that is no check; the comment says whether it stopped at the "
+        "output budget), no_reply (an empty reply). The comment and metadata carry the elapsed ms and the "
+        "characters of evidence and answer the prompt held.",
+        categories=("no_judge", "timeout", "error", "unparseable", "no_reply"),
     ),
     ScoreDefinition(
         "claims-by-class",
@@ -391,41 +434,6 @@ def _boolean(name: str, value: bool, comment: str | None = None) -> RuntimeScore
 # ---------------------------------------------------------------------------
 
 
-def _count(by_kind: dict[str, Any], kind: str) -> float:
-    event = by_kind.get(kind)
-    return float(event.count) if event is not None else 0.0
-
-
-def citation_scores(events: Iterable[Any]) -> list[RuntimeScore]:
-    """Scores for one turn's ``common.citation_events``.
-
-    ``events`` are ``CitationEvent`` objects. A batch with no ``turn_verified``
-    row and no ``registry_empty`` row is not a turn's verification outcome and
-    yields nothing.
-    """
-    by_kind = {event.kind: event for event in events}
-    if "registry_empty" in by_kind:
-        return [_boolean("sources-empty", True), _boolean("citation-health", False, "registry_empty")]
-    if "turn_verified" not in by_kind:
-        return []
-    from agent.common.citation_events import SEVERITY_BY_KIND
-
-    unhealthy = sorted(kind for kind in by_kind if SEVERITY_BY_KIND.get(kind) in _UNHEALTHY_SEVERITIES)
-    scores = [
-        _boolean("citation-health", not unhealthy, ", ".join(unhealthy) or None),
-        _boolean("answer-grounded", "answer_ungrounded" not in by_kind),
-        _boolean("sources-empty", False),
-        RuntimeScore("citations-removed", _count(by_kind, "citations_removed")),
-        RuntimeScore("quotes-unverified", _count(by_kind, "quote_unverified")),
-    ]
-    precision = by_kind.get("retrieval_precision")
-    retrieved = int((precision.detail or {}).get("retrieved_count") or 0) if precision is not None else 0
-    if retrieved > 0:
-        cited = int(precision.detail.get("cited_count") or 0)
-        scores.append(RuntimeScore("retrieval-precision", round(cited / retrieved, 4)))
-    return scores
-
-
 def turn_outcome_scores(result: Any) -> list[RuntimeScore]:
     """Scores from a finished turn's ``TurnResult``: what the reader was shown."""
     scores: list[RuntimeScore] = []
@@ -467,11 +475,29 @@ def work_unfiled_scores(dropped: int) -> list[RuntimeScore]:
     return [RuntimeScore("work-proposals-unfiled", float(max(0, dropped)))]
 
 
-def answer_check_scores(level: str | None) -> list[RuntimeScore]:
-    """The answer check's level, or that it was unavailable (``common/claim_judge.py``, ADR-0139)."""
+def answer_check_scores(level: str | None, open_points: Sequence[str] = ()) -> list[RuntimeScore]:
+    """The answer check's level and the open points it read, or that it was unavailable (ADR-0139)."""
     if level is None:
         return [_boolean("confidence-judge-unavailable", True)]
-    return [_boolean("confidence-judge-unavailable", False), RuntimeScore("confidence-judged-level", level)]
+    named = RuntimeScore(
+        "confidence-open-points", float(len(open_points)), comment="; ".join(open_points)[:500] or None
+    )
+    return [_boolean("confidence-judge-unavailable", False), RuntimeScore("confidence-judged-level", level), named]
+
+
+def answer_check_unavailable_scores(reason: dict[str, Any]) -> list[RuntimeScore]:
+    """Why the answer check gave no level (``claim_judge.Unavailable.to_wire``), with the call's facts."""
+    facts = [
+        reason.get("error_type"),
+        f"finish_reason {reason['finish_reason']}" if reason.get("finish_reason") else None,
+        "truncated at the output budget" if reason.get("truncated") else None,
+        f"{reason['elapsed_ms']} ms" if reason.get("elapsed_ms") is not None else None,
+        f"evidence {reason['evidence_chars']} chars" if reason.get("evidence_chars") is not None else None,
+        f"answer {reason['answer_chars']} chars" if reason.get("answer_chars") is not None else None,
+    ]
+    comment = "; ".join(fact for fact in facts if fact) or None
+    metadata = {key: value for key, value in reason.items() if key != "cause"}
+    return [RuntimeScore("confidence-judge-unavailable-reason", reason["cause"], comment=comment, metadata=metadata)]
 
 
 def dropped_citation_scores(dropped: int) -> list[RuntimeScore]:

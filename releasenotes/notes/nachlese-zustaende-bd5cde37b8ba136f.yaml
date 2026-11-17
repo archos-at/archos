@@ -1,0 +1,17 @@
+---
+# area: general
+fixes:
+  - >
+    Opening a file whose preview cannot be loaded now says so and offers to
+    try again, instead of showing the picture of the file opened before.
+  - >
+    A suggested change that could not be loaded recovers by itself when the
+    connection returns or you come back to the tab, and no longer offers
+    Apply and Discard beside the message that it could not be loaded.
+  - >
+    A shared conversation you have left is no longer marked as read
+    afterwards.
+  - >
+    When a chat was deleted, the stored record of how its answers were
+    produced could stay behind if removing it kept failing. It is now removed
+    automatically and the deletion is recorded as complete.

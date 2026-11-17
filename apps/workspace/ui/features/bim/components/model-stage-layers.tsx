@@ -121,17 +121,10 @@ export function ModelStageChromeLayer({ controller }: { controller: ModelStageCo
                     filename: model.filename,
                     displayName: model.displayName,
                   }}
-                  // The rail lists the project's models AND the org-wide
-                  // Archiv's (`listAccessibleModels` includes both, because
-                  // retrieval does). An Archiv model has no project, and its
-                  // delete goes to the org-scoped route — the project one
-                  // answers 404 for it on purpose.
                   scope={model.projectId === null ? 'officeShelf' : 'files'}
                   onRenamed={onModelRenamed}
                   onDeleted={(documentId) => {
                     onModelDeleted?.(documentId)
-                    // The building on screen no longer exists. Staying open on
-                    // a viewport of nothing is not a state worth offering.
                     onClose()
                   }}
                   align="end"
@@ -165,12 +158,6 @@ export function ModelStageChromeLayer({ controller }: { controller: ModelStageCo
             <div
               className={cn(
                 'absolute top-3 right-3 z-20 flex max-h-[calc(100%-1.5rem)] pt-12 sm:top-4 sm:right-4',
-                // Steps aside for the advanced drawer rather than hiding under
-                // it: clicking a wall while the Prüfbuch is open is exactly
-                // when you want both. Below `sm` there is nowhere to step —
-                // the drawer is `calc(100% - 1.5rem)` wide — so the card
-                // yields instead of rendering invisibly behind it. That is
-                // the state the drawer's own "show elements" action produces.
                 advancedOpen && 'max-sm:hidden sm:right-[28rem]'
               )}
             >
@@ -237,15 +224,6 @@ export function ModelStageChromeLayer({ controller }: { controller: ModelStageCo
             <ViewerLegend
               className={cn(
                 'absolute left-3 z-20 sm:left-4',
-                /*
-                  Pinned above the dock — including whatever the dock has stacked
-                  on top of itself. At a fixed `bottom-20` the legend sat exactly
-                  where the section slider lands: same `z-20`, legend painted
-                  first, so the slider covered it. That is not an exotic state,
-                  it is what a compliance deep link produces — highlights (so a
-                  legend) plus a cut. Widths do not save it either; the slider is
-                  `max-w-full` on a phone.
-                */
                 DOCK_ABOVE_OFFSET[dockAboveRows]
               )}
               entries={legendEntries}

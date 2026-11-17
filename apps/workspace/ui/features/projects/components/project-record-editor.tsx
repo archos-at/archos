@@ -1,16 +1,5 @@
 'use client'
 
-/**
- * The Steckbrief's editing parts (ADR-0091), shared by the overview's dialog
- * and the close dialog's „Wer war dabei": the period, and the people.
- *
- * Members are listed by the server without anyone typing them in, so a row is
- * added here only for someone without a Piloti account, and a member's row
- * only adds their Funktion, Firma and months. The server decides what may
- * change (`canEdit`, `canErase`); these parts never offer what it refuses.
- * Every write is one request and then `onChanged`, which reloads the view.
- */
-
 import { useState, type FormEvent, type JSX } from 'react'
 import { Pencil, Trash2, UserPlus } from 'lucide-react'
 import { toast } from 'sonner'
@@ -33,10 +22,8 @@ import { projectsCopy } from '@/i18n/namespaces/projects'
 import { isMonth, isOrderedPeriod, type Month } from '@/lib/projects/month'
 import type { ProjectPersonView, ProjectRecordView } from '@/lib/projects/project-record-types'
 
-/** Formats the Steckbrief's months and periods in the reader's language. */
 export function useProjectRecordFormat(): {
   month: (month: Month) => string
-  /** A person's months: „März 2026 – Juni 2027", „seit März 2026", „bis Juni 2027", or empty. */
   span: (from: Month | null, to: Month | null) => string
 } {
   const t = useTranslations(projectsCopy)
@@ -52,7 +39,6 @@ export function useProjectRecordFormat(): {
   return { month, span }
 }
 
-/** The project's period as one line: „seit März 2026", „März 2026 – Sept. 2027", or „Beginn offen". */
 export function useProjectPeriodText(projectRecord: Pick<ProjectRecordView, 'startedOn' | 'endedOn'>): string {
   const t = useTranslations(projectsCopy)
   const { span } = useProjectRecordFormat()
@@ -60,12 +46,10 @@ export function useProjectPeriodText(projectRecord: Pick<ProjectRecordView, 'sta
   return span(projectRecord.startedOn, projectRecord.endedOn)
 }
 
-/** Whether a save went through: a refused or unreachable one is `false`, and the editor says so. */
 const settled = (request: Promise<void>): Promise<boolean> => request.then(() => true, () => false)
 
 const monthOrNull = (value: string): Month | null => (isMonth(value) ? value : null)
 
-/** The Beginn, saved when it is chosen, and the Abschluss closing sets. */
 export function ProjectRecordPeriod({
   projectId,
   projectRecord,
@@ -131,7 +115,6 @@ interface PersonDraft {
   endedOn: string
 }
 
-/** Which row a draft writes: a new one, a member's first, or an existing one. */
 type Editing = { kind: 'new' } | { kind: 'person'; person: ProjectPersonView }
 
 const draftOf = (person?: ProjectPersonView): PersonDraft => ({
@@ -145,7 +128,6 @@ const draftOf = (person?: ProjectPersonView): PersonDraft => ({
 const editKey = (editing: Editing | null): string | null =>
   !editing ? null : editing.kind === 'new' ? 'new' : (editing.person.id ?? editing.person.userId)
 
-/** The people: listed, described, added, and erased. */
 export function ProjectRecordPeople({
   projectId,
   projectRecord,
@@ -155,7 +137,6 @@ export function ProjectRecordPeople({
   projectId: string
   projectRecord: ProjectRecordView
   onChanged: () => void
-  /** Says who is listed on their own; off where the surface already says it. */
   hint?: boolean
 }): JSX.Element {
   const t = useTranslations(projectsCopy)
@@ -281,7 +262,7 @@ export function ProjectRecordPeople({
       )}
 
       {projectRecord.canEdit && !editing && (
-        <Button variant="outline" size="sm" onClick={() => setEditing({ kind: 'new' })}>
+        <Button variant="secondary" size="sm" onClick={() => setEditing({ kind: 'new' })}>
           <UserPlus className="size-4" aria-hidden />
           {t('projectRecord.add')}
         </Button>
@@ -309,7 +290,6 @@ function PersonForm({
   onCancel,
 }: {
   initial: PersonDraft
-  /** A member's name comes from their account and is not edited here. */
   fixedName: string | null
   pending: boolean
   onSubmit: (draft: PersonDraft) => Promise<void>

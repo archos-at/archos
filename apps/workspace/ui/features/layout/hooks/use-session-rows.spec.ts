@@ -1,8 +1,3 @@
-/**
- * The sessions panel's rows survive a streamed delta unchanged, so the layout
- * that renders them does not re-render with every one.
- */
-
 import { act, renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, test } from 'vitest'
 import { useChatStore } from '@/features/chat/store'
@@ -52,7 +47,6 @@ describe('useSessionRows', () => {
     const { conversations } = useChatStore.getState()
     useChatStore.setState({ conversations: [...conversations, { ...conversation('elsewhere', new Date(2026, 8, 28)), projectId: 'p2' }] })
     const { result } = renderHook(() => useSessionRows('p1'))
-    // Unscoped legacy chats stay visible everywhere (fail-open); another project's do not.
     expect(result.current.map((row) => row.id)).toEqual(['open', 'older'])
   })
 
@@ -86,6 +80,21 @@ describe('useSessionRows', () => {
 
     expect(result.current[0]).not.toBe(openBefore)
     expect(result.current[0]!.title).toBe('Umbenannt')
+    expect(result.current[1]).toBe(olderBefore)
+  })
+
+  test('a chat switched to temporary yields a new row that says so (ADR-0180)', () => {
+    const { result } = renderHook(() => useSessionRows())
+    const [openBefore, olderBefore] = result.current
+    expect(openBefore!.temporary).toBe(false)
+
+    act(() => {
+      const { conversations } = useChatStore.getState()
+      useChatStore.setState({ conversations: [conversations[0]!, { ...conversations[1]!, temporary: true }] })
+    })
+
+    expect(result.current[0]).not.toBe(openBefore)
+    expect(result.current[0]!.temporary).toBe(true)
     expect(result.current[1]).toBe(olderBefore)
   })
 })

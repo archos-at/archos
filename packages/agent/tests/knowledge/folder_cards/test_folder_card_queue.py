@@ -1,5 +1,3 @@
-"""The dirty set: ancestors in one mark, the debounce, deepest first, what a build leaves behind, the budget."""
-
 from __future__ import annotations
 
 import os
@@ -12,7 +10,6 @@ T0 = 1_800_000_000.0
 
 
 def test_the_postgres_branch_ran_where_it_is_required():
-    """CI's ``task be:test:postgres`` sets the guard: there a missing database fails instead of skipping green."""
     if os.environ.get("TEST_POSTGRES_REQUIRED"):
         assert os.environ.get("TEST_POSTGRES_URL"), "TEST_POSTGRES_URL is unset while REQUIRED is set"
 
@@ -89,11 +86,6 @@ class TestDue:
         assert sorted(folder.collection for folder in queue.due(now=later, url=url)) == ["other", "proj"]
 
     def test_reading_what_is_due_takes_nothing_however_long_the_build_runs(self, url):
-        """No claim, so nothing to go stale: a folder is due until its build says it is built.
-
-        The claim queue handed a folder out again 900 s after a claim, built or not. Who
-        builds is the engine's business now (one live run per collection, ``workflow``).
-        """
         queue.mark("proj", ["A"], now=T0, url=url)
         later = T0 + queue.QUIET_SECONDS + 1
 
@@ -148,7 +140,6 @@ class TestDue:
         assert queue.defer("proj", now=T0, url=url) == (1, 0)
 
     def test_a_table_of_the_release_before_still_takes_marks(self, url):
-        """It has the claim loop's ``claimed_at``, which nothing writes or reads any more."""
         from sqlalchemy import text
 
         with queue._engine(url).begin() as conn:

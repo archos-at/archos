@@ -17,6 +17,10 @@ export const createConversationSchema = z.object({
   projectId: z.guid().nullable().optional(),
   subjectResourceType: z.literal('document').nullable().optional(),
   subjectResourceId: z.string().min(1).max(128).nullable().optional(),
+  temporary: z
+    .boolean()
+    .optional()
+    .describe('True starts a temporary conversation: nothing from it is kept in project, organization or personal memory.'),
 })
 
 /** Most conversations one page answers; the browser asks for this many. */
@@ -68,17 +72,25 @@ export const listMessagesQuerySchema = z.object({
 })
 
 /**
- * Either a rename or a change to when the agent answers (ADR-0036) — one PATCH,
- * because both are edits to the same resource. At least one field is required, so
- * an empty body is a 400 rather than a silent no-op that looks like success.
+ * A rename, a change to when the agent answers (ADR-0036), or the switch that
+ * makes the conversation temporary (ADR-0180) — one PATCH, because all are edits
+ * to the same resource. At least one field is required, so an empty body is a
+ * 400 rather than a silent no-op that looks like success.
  */
 export const updateConversationSchema = z
   .object({
     title: z.string().min(1).optional(),
     engagement: z.enum(CONVERSATION_ENGAGEMENTS).optional(),
+    temporary: z
+      .boolean()
+      .optional()
+      .describe(
+        'True makes the conversation temporary: from now on nothing from it is kept in project, organization or personal memory. ' +
+          'False keeps memory again from the next turn; nothing from the turns before is kept.',
+      ),
   })
-  .refine((body) => body.title !== undefined || body.engagement !== undefined, {
-    message: 'Provide title or engagement',
+  .refine((body) => body.title !== undefined || body.engagement !== undefined || body.temporary !== undefined, {
+    message: 'Provide title, engagement or temporary',
   })
 
 export const generateTitleSchema = z.object({

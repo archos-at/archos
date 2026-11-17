@@ -1,13 +1,3 @@
-"""A failed file says why on the job, and the job says which reader read it.
-
-The BFF decides whether reading a failed document again is worth anything from
-``FileProgress.failure_category`` / ``retryable`` and the job's
-``reader_version`` (``apps/workspace/bff/documents/retry-policy.ts``). These
-run real jobs through the adapter, with the embedder faked and a real Qdrant
-(the shared ``qdrant_store`` fixture), and read what the job reports: what the
-BFF's reconcile reads.
-"""
-
 import time
 
 import pytest
@@ -100,7 +90,6 @@ def test_a_file_whose_bytes_cannot_be_read_is_deterministic(tmp_path, ingestor, 
 
 
 def test_an_empty_file_is_deterministic(tmp_path, ingestor, monkeypatch):
-    # Nothing on any page, and nothing to transcribe: the adapter's own "no content" verdict.
     monkeypatch.setattr(adapter, "_extract_text_from_pdf", lambda _path: [])
     pdf = tmp_path / "leer.pdf"
     pdf.write_bytes(b"%PDF-1.4\n%%EOF\n")

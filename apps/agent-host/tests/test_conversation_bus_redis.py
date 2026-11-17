@@ -1,12 +1,3 @@
-"""The conversation bus over REAL Redis semantics (fakeredis), not the in-memory
-double. Validates the RedisTransport wrapper — pub/sub and XADD/XRANGE replay —
-the exact redis.asyncio calls the stateless chat tier makes in production. Two
-RedisTransports over one shared FakeServer stand in for two replicas on one
-Dragonfly.
-
-fakeredis is a test-only dep; skipped where it is not installed.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -26,6 +17,22 @@ from agent_host.conversation_bus import RedisTransport  # noqa: E402
 CONV = "conv-redis"
 
 
+class _ServerClock:
+    def __init__(self) -> None:
+        self.now = 1_000_000.0
+
+    def time(self) -> float:
+        return self.now
+
+
+def _server_clock(monkeypatch) -> _ServerClock:
+    from fakeredis._socket import _base
+
+    clock = _ServerClock()
+    monkeypatch.setattr(_base, "time", clock)
+    return clock
+
+
 def _redis_replicas() -> tuple[ConversationBus, ConversationBus]:
     server = FakeServer()
     owner = RedisTransport(client=fa.FakeRedis(server=server, decode_responses=True))
@@ -34,16 +41,10 @@ def _redis_replicas() -> tuple[ConversationBus, ConversationBus]:
 
 
 def test_url_transport_uses_separate_subscribe_client_without_read_timeout():
-    """Pub/sub reads BLOCK waiting for the next message, so the subscribe client
-    must NOT carry the command client's 1s socket_timeout — that raised
-    'Timeout reading from <host>' every second and tore down the relay loop.
-    Regression for the Dragonfly relay-loop timeout. Redis.from_url is lazy, so
-    this constructs the clients without needing a server."""
     t = RedisTransport(url="redis://localhost:6379/0")
     assert t._redis is not t._sub_redis
     cmd_kwargs = t._redis.connection_pool.connection_kwargs
     sub_kwargs = t._sub_redis.connection_pool.connection_kwargs
-    # Commands fail fast; the subscribe read has no timeout (blocks for messages).
     assert cmd_kwargs.get("socket_timeout") == 1.0
     assert sub_kwargs.get("socket_timeout") is None
 
@@ -165,14 +166,15 @@ async def test_a_renewal_over_real_redis_restarts_the_expiry_and_a_late_one_does
     from agent_host import conversation_bus
 
     monkeypatch.setattr(conversation_bus, "RUNNING_TTL_SECONDS", 0.2)
+    clock = _server_clock(monkeypatch)
     owner, relay = _redis_replicas()
     await owner.acquire_running(CONV, "t1")
     for _ in range(3):
-        await asyncio.sleep(0.1)
+        clock.now += 0.1
         assert await owner.renew_running(CONV, "t1")  # alive well past one TTL, only because it is renewed
     assert not await relay.acquire_running(CONV, "t2")
 
-    await asyncio.sleep(0.3)
+    clock.now += 0.3
 
     assert not await owner.renew_running(CONV, "t1")  # expired: a late renewal says so, it does not bring it back
     assert await relay.acquire_running(CONV, "t2")

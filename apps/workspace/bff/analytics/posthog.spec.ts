@@ -48,12 +48,6 @@ const sdk = vi.hoisted(() => ({
 
 vi.mock('posthog-js', () => ({ default: sdk }))
 
-/**
- * Fail-open contract: without a configured host/token the client never
- * initializes and every emit is a silent no-op. Analytics must never take
- * the app down with it — this is the ratchet for the dev-time throw the
- * PostHog wizard originally shipped.
- */
 describe('posthog analytics facade', () => {
   test('stays disabled when initialized without configuration', () => {
     initPosthogClient(DISABLED_POSTHOG_CONFIG)
@@ -287,8 +281,6 @@ describe('posthog init options', () => {
   })
 
   test('sends the tracing headers to the app itself and to nobody else', () => {
-    // The BFF puts the session on its request span (bff/api/trace-session.ts);
-    // a third-party host must never receive the session or distinct id.
     expect(buildPosthogInitOptions(enabledConfig, identity, 'app.example').tracing_headers).toEqual(['app.example'])
     expect('tracing_headers' in buildPosthogInitOptions(enabledConfig, identity)).toBe(false)
   })
@@ -356,8 +348,6 @@ describe('adoptServerIdentity', () => {
     expect(sdkClient.identify).not.toHaveBeenCalled()
   })
 
-  // posthog-js keeps a DIFFERENT persisted, identified person and only logs a
-  // warning: the new person's visit would be filed under the old one.
   test('resets before identifying when the browser still holds another person', () => {
     const sdkClient = client('user_00')
     adoptServerIdentity(sdkClient, 'user_01')
@@ -427,8 +417,6 @@ describe('scrubEvent (before_send)', () => {
       $set_once: { $initial_current_url: 'https://app.example/cb?code=c' },
     } as NonNullable<Parameters<typeof scrubEvent>[0]>)
     expect(scrubbed?.$set_once).toEqual({ $initial_current_url: 'https://app.example/cb' })
-    // posthog-js no longer types the argument as nullable; the guard stays for a
-    // before_send chain that hands on an earlier hook's dropped event.
     expect(scrubEvent(null as unknown as Parameters<typeof scrubEvent>[0])).toBeNull()
   })
 
@@ -440,10 +428,6 @@ describe('scrubEvent (before_send)', () => {
   })
 })
 
-/**
- * Enabled path against a mocked posthog-js. The module keeps `initialized` in a
- * closure, so each test re-imports it fresh.
- */
 describe('posthog enabled path', () => {
   const load = async (): Promise<typeof import('./posthog')> => {
     vi.resetModules()
@@ -549,11 +533,6 @@ describe('posthog enabled path', () => {
   })
 })
 
-/**
- * The session id travels with each chat turn so Langfuse's PostHog export can
- * link a trace to its recording. It is read from the SDK, per call, and only
- * ever a UUID-shaped string; anything else is `null`.
- */
 describe('posthog session id', () => {
   const load = async (sessionId: unknown) => {
     vi.resetModules()

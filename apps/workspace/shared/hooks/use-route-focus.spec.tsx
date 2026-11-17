@@ -55,19 +55,16 @@ describe('useRouteFocus', () => {
 
     const { rerender } = renderHook(() => useRouteFocus())
 
-    // Simulate an intentional in-content autofocus (e.g. the chat composer).
     input.focus()
     expect(document.activeElement).toBe(input)
 
     mockPathname = '/app/projects/p1/chat'
     rerender()
 
-    // Focus must not be yanked to the landmark.
     expect(document.activeElement).toBe(input)
   })
 
   test('is a no-op when the target landmark is absent', () => {
-    // No #main-content in the DOM.
     const { rerender } = renderHook(() => useRouteFocus())
 
     mockPathname = '/app/projects/p1/members'

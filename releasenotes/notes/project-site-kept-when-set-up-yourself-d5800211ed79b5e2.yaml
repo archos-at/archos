@@ -1,0 +1,8 @@
+---
+# area: projects
+fixes:
+  - >
+    A project you set up yourself now keeps the country and Bundesland it was
+    created with. Before, they were dropped and the first question asked for
+    the Land again; an agent creating a project through the agent door hit the
+    same gap.

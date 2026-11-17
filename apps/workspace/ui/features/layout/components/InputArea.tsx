@@ -1,16 +1,3 @@
-/**
- * InputArea Component
- *
- * Chat input area at the bottom of the chat view.
- * Includes text input, tool buttons, and send action.
- * Uses WebSocket (useWebSocketChat) for full HITL support.
- *
- * When there's a pending interaction (HITL prompt), the input switches
- * to response mode and uses respondToInteraction instead of sendMessage.
- *
- * Disabled state when user is not authenticated.
- */
-
 'use client'
 
 import { type FC, memo } from 'react'
@@ -34,18 +21,6 @@ import { ComposerControls } from './input-area/composer-controls'
 
 export type { ConnectionMode } from './input-area/use-input-area-controller'
 
-/**
- * Chat input component with text area and action buttons.
- * Positioned at the bottom of the chat area.
- *
- * Uses WebSocket connection for full HITL (human-in-the-loop) support.
- * Set connectionMode='sse' to disable auto-connect (useful for testing).
- *
- * When pendingInteraction exists, input switches to response mode:
- * - Different placeholder text
- * - Uses respondToInteraction instead of sendMessage
- * - Shows visual indicator
- */
 export const InputArea: FC<InputAreaProps> = memo(function InputArea(props) {
   const controller = useInputAreaController(props)
 
@@ -65,8 +40,6 @@ export const InputArea: FC<InputAreaProps> = memo(function InputArea(props) {
         open={controller.mentionPickerOpen || controller.slash.open || controller.reference.open}
         onOpenChange={(open) => {
           if (open) return
-          // Dismiss whichever panel was showing. All can be told to close: only
-          // one of them is open, and the others' flags are already false.
           controller.setMentionDismissed(true)
           controller.slash.dismiss()
           controller.reference.dismiss()
@@ -76,37 +49,7 @@ export const InputArea: FC<InputAreaProps> = memo(function InputArea(props) {
           <div
             ref={controller.composerRef}
             className={cn(
-              // Composer card: a glass surface, not an opaque card — `bg-card/90`
-              // + `backdrop-blur-md` so it reads as floating OVER the transcript
-              // (the same language the toolbar pills and the bottom fade scrim
-              // use) rather than as one more opaque block stacked under the last
-              // message. The `supports-` step is the no-blur fallback. A single
-              // hairline `border-input` — the same alpha-ink grey every text
-              // field in the kit carries, one step up from the generic
-              // `border` — draws the edge of the card so it reads as a field to
-              // type into rather than as a floating patch of glass. Focus is
-              // that edge turning to `--ring` (`FIELD_FOCUS_WITHIN_RING`, the
-              // focus every field in the app takes), never a ring around it:
-              // the 2px ring it had was the "too thick" mark of Notion #38.
-              // `@container`: the control row folds by the CARD's width, not the
-              // window's (a split view narrows it on a wide screen).
-              // Textarea on top, control row below with no rule
-              // between them: a hairline there read as a stray line across the
-              // card, and the card's own edge already groups the two.
-              // The focus is neutral ink. It was `accent-pop` — a green glow
-              // meant to read as "live" — and the accent was withdrawn: on the
-              // one surface where a colour is on screen for the whole time
-              // somebody is composing, green did not read as liveness so much as
-              // as a status, competing with the provenance greens the answer
-              // below it uses to mean something. See the design doc §"Accent
-              // pop" for what the accent was for and why it is gone.
-              // NOT `active:scale-95`: the press response belongs on the controls a
-              // reader actually presses (the chips and buttons in the row below), and
-              // this div is the card that HOLDS them. With it here, putting the caret
-              // in the textarea shrank the whole composer — text, chips and all — on
-              // every mousedown, which reads as the surface flinching away from the
-              // click rather than as a control acknowledging a press.
-              '@container bg-card/90 supports-[backdrop-filter]:bg-card/85 border-input relative flex flex-col rounded-xl border px-3 py-2.5 shadow-md backdrop-blur-md sm:px-4',
+              '@container bg-card/90 supports-[backdrop-filter]:bg-card/85 relative flex flex-col rounded-xl px-3 py-2.5 shadow-md backdrop-blur-md sm:px-4',
               FIELD_FOCUS_WITHIN_RING,
               controller.isDisabledByAuth && 'opacity-60'
             )}
@@ -133,18 +76,9 @@ export const InputArea: FC<InputAreaProps> = memo(function InputArea(props) {
           onOpenAutoFocus={(event) => event.preventDefault()}
           onCloseAutoFocus={(event) => event.preventDefault()}
           onFocusOutside={(event) => event.preventDefault()}
-          // A tap on a row must not take the focus from the textarea. Focus
-          // moves on the press, before the row's click; once the field has
-          // blurred, iOS drops the keyboard, and the caret restored after the
-          // insertion (an effect, not a gesture) cannot raise it again. The
-          // reader picked a name and lost the keyboard they were typing on.
-          // Cancelling the press keeps the focus where it is; the click still
-          // arrives, and scrolling the list is a touch-action, not a press.
           onPointerDown={(event) => event.preventDefault()}
           onMouseDown={(event) => event.preventDefault()}
           onInteractOutside={(event) => {
-            // Clicking inside the composer (e.g. moving the caret) is not
-            // "clicking away" — only a click outside it dismisses the picker.
             const target = event.target as Node | null
             if (target && controller.composerRef.current?.contains(target)) event.preventDefault()
           }}

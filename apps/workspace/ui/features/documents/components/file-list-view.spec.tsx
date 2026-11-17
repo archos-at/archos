@@ -34,7 +34,6 @@ const renderList = (files = FILES, overrides: Partial<Parameters<typeof FileList
   render(<FileListView files={files} selectedFileId={null} onSelectFile={vi.fn()} {...overrides} />)
 
 const rowNames = (): string[] =>
-  // The name as it is read (`FittedName`'s screen-reader copy, or its whole text before it is measured).
   screen.getAllByTestId('file-list-row').map((row) => row.querySelector('[data-row-text] .sr-only, [data-row-text] .truncate')?.textContent ?? '')
 
 describe('FileListView', () => {
@@ -132,8 +131,6 @@ describe('FileListView', () => {
     rows[0].focus()
     await user.keyboard('{ArrowDown}{ArrowDown}')
 
-    // The stop ROVES. Pinned to row 0, tabbing away and back dropped a reader
-    // at the top of the list every time.
     expect(rows[2]).toHaveAttribute('tabindex', '0')
     expect(rows[0]).toHaveAttribute('tabindex', '-1')
   })
@@ -159,9 +156,7 @@ describe('FileListView', () => {
 
     it('keeps the ranking instead of re-sorting by upload date', () => {
       renderList(HITS, { semantic: true })
-      // Newest-first would put Statik on top; the ranking puts Flucht there.
       expect(rowNames()).toEqual(['Flucht.pdf', 'Statik.pdf'])
-      // Ranked by relevance, the order is the rank: no „1, 2“ beside it.
       expect(screen.queryByTestId('file-list-relevance')).toBeNull()
     })
 
@@ -182,7 +177,6 @@ describe('FileListView', () => {
     it('brings the ranking back from its column once another column orders the rows', async () => {
       const user = userEvent.setup()
       renderList(HITS, { semantic: true })
-      // Ranked, there is no Relevance column: the order is the rank.
       expect(screen.queryByRole('button', { name: /relevance/i })).not.toBeInTheDocument()
       await user.click(screen.getByRole('button', { name: /^name/i }))
       await user.click(screen.getByRole('button', { name: /relevance/i }))
@@ -272,7 +266,6 @@ describe('FileListView — Fassungen', () => {
     const rows = screen.getAllByTestId('file-list-row')
     const withHistory = rows.find((row) => within(row).queryByText('Gutachten_v3.pdf'))!
     const plain = rows.find((row) => within(row).queryByText('Lageplan.pdf'))!
-    // Beside the name, not in the approval column: the row stays one line tall.
     const count = within(withHistory).getByTestId('revision-count')
     expect(count).toHaveTextContent('2 revisions')
     expect(count.parentElement).toHaveTextContent('Gutachten_v3.pdf')

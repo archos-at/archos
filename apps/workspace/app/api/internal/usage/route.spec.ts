@@ -3,8 +3,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-// The route factory (`@/lib/api/handler`) statically imports the session
-// guard, which pulls in authkit; internal routes never call it.
 vi.mock('@/lib/auth/require-auth', () => ({
   requireAuthorizedSession: vi.fn(),
 }))
@@ -133,7 +131,6 @@ describe('POST /api/internal/usage', () => {
   })
 
   it('refuses an activity the ledger does not know, rather than storing it', async () => {
-    // The CHECK on the column would refuse it anyway, and with it the whole batch.
     const res = await POST(request({ organizationId: 'org_1', activity: 'chat', events: [VALID_EVENT] }))
     expect(res.status).toBe(400)
     expect(recordUsageEvents).not.toHaveBeenCalled()

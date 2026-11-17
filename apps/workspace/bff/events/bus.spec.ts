@@ -1,12 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The per-user bus rides on the realtime hub (ADR-0110 phase 2): an event is
- * heard once on the replica that published it although Dragonfly echoes it
- * back, another replica's event arrives, and a closed stream leaves no
- * subscription behind.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -22,7 +16,6 @@ import {
   type EventTransport,
 } from './bus'
 
-/** A shared transport that echoes every publish to its own subscribers, as Redis does. */
 function echoingTransport() {
   const handlers = new Map<string, Set<(payload: string) => void>>()
   const transport: EventTransport = {

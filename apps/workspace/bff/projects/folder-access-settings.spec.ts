@@ -14,7 +14,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-/** Every write, in the order it happened: what the ordering tests read. */
 const events = vi.hoisted(() => [] as string[])
 const state = vi.hoisted(() => ({
   folder: { name: 'Pläne', accessMode: 'inherit', everyoneReads: false } as {
@@ -24,7 +23,6 @@ const state = vi.hoisted(() => ({
   } | null,
   updatedRows: [{ id: 'plaene' }] as Array<{ id: string }>,
   updates: [] as Array<Record<string, unknown>>,
-  /** The params of each grants delete's condition. */
   grantDeletes: [] as string[][],
   grantsTable: null as unknown,
 }))
@@ -50,7 +48,6 @@ vi.mock('@/lib/authz/folder-roles', () => ({
   }),
   listFolderRoleHolders: vi.fn(async () => []),
 }))
-/** The organization's members: `user-<x>` is membership `om-<x>`; `user-ghost` is nobody. */
 vi.mock('@/lib/authz/project-membership', () => ({
   resolveSubjectMembership: vi.fn(async (_org: string, userId: string) =>
     userId === 'user-ghost' ? null : { organizationMembershipId: userId.replace(/^user-/, 'om-'), role: 'member' }
@@ -58,7 +55,6 @@ vi.mock('@/lib/authz/project-membership', () => ({
 }))
 vi.mock('./ifc-folder-guard', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./ifc-folder-guard')>()
-  // The real guard, observed: it runs the decision's pure core over the would-be tree.
   return { ...actual, assertRestrictionKeepsIfcOpen: vi.fn(actual.assertRestrictionKeepsIfcOpen) }
 })
 vi.mock('@/lib/authz/projects', () => ({ requireProjectAccess: vi.fn(async () => undefined) }))
@@ -76,11 +72,6 @@ vi.mock('@/lib/audit/service', () => ({
     events.push('audit')
   }),
 }))
-/**
- * The database: the folder read outside the transaction, and inside it the
- * advisory lock (a real mutex per key, held until the transaction ends), the
- * row update and the grants delete, each recorded in `events`.
- */
 vi.mock('@/lib/db', async () => {
   const { PgDialect } = await import('drizzle-orm/pg-core')
   const dialect = new PgDialect()
@@ -202,7 +193,6 @@ beforeEach(() => {
   state.grantsTable = projectFolderGrants
 })
 
-/** Nothing was written anywhere: not WorkOS, not the row, not the audit trail. */
 function writesNothing() {
   expect(events).toEqual([])
   expect(ensureFolderResource).not.toHaveBeenCalled()
@@ -214,7 +204,6 @@ function writesNothing() {
   expect(placeProjectDocuments).not.toHaveBeenCalled()
 }
 
-/** Plaene has a list of its own, on which the manager holds `level` (or nothing). */
 function asManager(level: FolderGrantLevel | null, seesEverything = false) {
   const tree: AccessFolder[] = [
     { id: 'plaene', parentId: null, accessMode: 'custom', everyoneReads: false },
@@ -452,13 +441,11 @@ describe('setFolderAccess: one change of a folder’s list at a time', () => {
     const first = setFolderAccess(SESSION, custom([{ userId: 'user-a', level: 'write' }]), request())
     const second = setFolderAccess(SESSION, custom([{ userId: 'user-b', level: 'read' }]), request())
     await new Promise((resolve) => setTimeout(resolve, 10))
-    // The first holds the lock in its WorkOS write; the second waits for the lock, not in WorkOS.
     expect(trace).toEqual(['replace:om-a:start'])
     release()
     await Promise.all([first, second])
 
     expect(trace).toEqual(['replace:om-a:start', 'replace:om-a:end', 'replace:om-b:start'])
-    // The second's lock comes after the first transaction ended.
     const firstEnd = events.indexOf('tx:end')
     expect(events.indexOf(LOCK, 1)).toBeGreaterThan(firstEnd)
   })
@@ -498,7 +485,6 @@ describe('setFolderAccess: the IFC guard', () => {
   })
 
   it('lets a folder with models narrow who WRITES while every member still reads', async () => {
-    // Three models in whatever folders the guard asks about; it asks about none.
     vi.mocked(countIfcDocumentsInFolders).mockImplementation(async (_org, _project, folderIds) =>
       folderIds.length > 0 ? 3 : 0
     )

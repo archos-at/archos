@@ -66,11 +66,6 @@ describe('FeedbackDigest', () => {
     expect(screen.queryByTestId('feedback-digest-causes')).not.toBeInTheDocument()
   })
 
-  /**
-   * The good column is never dropped when it is empty. A layout that collapses to
-   * one column the moment there is nothing positive to say quietly re-privileges
-   * the bad half — which is the exact failure this whole card was built to fix.
-   */
   it('keeps the "what is working" column even when the model found nothing', async () => {
     stubFetch(digest({ strengths: [] }))
     render(<FeedbackDigest search="days=30" />)
@@ -81,10 +76,6 @@ describe('FeedbackDigest', () => {
     ).toBeInTheDocument()
   })
 
-  /**
-   * These sentences are a model's reading of self-selected votes and they are the
-   * most quotable thing on the page. The caveat travels with the quote.
-   */
   it('says how it was written, when, and on what', async () => {
     stubFetch(digest())
     render(<FeedbackDigest search="days=30" />)
@@ -113,11 +104,6 @@ describe('FeedbackDigest', () => {
     await waitFor(() => expect(lastUrl()).toContain('locale=en'))
   })
 
-  /**
-   * Filters change faster than a model answers. Without a guard, the slower of
-   * two in-flight digests wins simply by finishing last, and the card ends up
-   * describing a window nobody is looking at any more.
-   */
   it('ignores a stale response that a newer request has already replaced', async () => {
     const answer: Array<(body: unknown) => void> = []
     vi.stubGlobal(
@@ -136,7 +122,6 @@ describe('FeedbackDigest', () => {
     rerender(<FeedbackDigest search="days=7" />)
     await waitFor(() => expect(answer).toHaveLength(2))
 
-    // The newer request answers first; the abandoned one lands afterwards.
     answer[1](digest({ headline: 'The last seven days went well.' }))
     expect(await screen.findByText('The last seven days went well.')).toBeInTheDocument()
 
@@ -148,11 +133,6 @@ describe('FeedbackDigest', () => {
   })
 })
 
-/**
- * "No summary" has three causes and they mean different things to the reader:
- * come back tomorrow, come back when there is more data, or go look at the logs.
- * One shared message would flatten all three into "something is broken".
- */
 describe('FeedbackDigest — when there are no sentences', () => {
   it('says a young window is young, not broken', async () => {
     stubFetch({ digest: null, error: 'too_few_votes' })

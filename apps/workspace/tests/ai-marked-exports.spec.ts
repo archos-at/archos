@@ -1,23 +1,10 @@
 // @disk-inputs: app/**, bff/**
-/**
- * Every file the product writes as a PDF or a Word document is marked as
- * AI-generated, or says here why it is not (Art. 50(2) AI Act).
- *
- * The marking is applied where each file is rendered, so a new place that
- * renders one is a place that can forget it. This spec finds every caller of
- * the two writers in the tree, react-pdf (`renderToBuffer`, `renderToStream`,
- * `renderToFile`) and the `.docx` writer (`renderDocx`), and holds the list to
- * {@link WRITERS}: an unlisted caller fails, and so does a listed one that is
- * gone. Each entry names the spec that proves its output is marked, read back
- * from the bytes.
- */
 import { readdirSync, readFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const ROOT = join(__dirname, '..')
 
-/** Each place that renders a PDF or a `.docx`, and how its output is marked. */
 const WRITERS: Readonly<Record<string, string>> = {
   'bff/pdf/markdown-pdf.ts':
     'research report: Keywords + XMP trainedAlgorithmicMedia, marking required by type (markdown-pdf.spec.ts)',
@@ -37,7 +24,6 @@ function sources(dir: string): string[] {
   })
 }
 
-/** Files that call a writer, the writer's own definition aside. */
 function callers(): string[] {
   return ['app', 'bff']
     .flatMap((dir) => sources(join(ROOT, dir)))

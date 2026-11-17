@@ -1,13 +1,3 @@
-"""A conversation that was mid-flight when the deploy landed keeps working.
-
-The checkpointer is the one piece of this graph that outlives a release: it
-holds the message history and the reader's standing refusal of a research plan,
-written by whatever version of the graph ran last. This turn's graph dropped a
-channel (``shallow_result``, a custom pydantic type that carried one boolean)
-and added two plain ones. These tests run the old graph against a real SQLite
-checkpointer, then run the NEW graph on the same thread, and pin what survives.
-"""
-
 import os
 import tempfile
 from typing import Any
@@ -31,21 +21,16 @@ THREAD = "conversation-across-the-deploy"
 
 
 class _RetiredShallowResult(BaseModel):
-    """``ShallowResult`` as the old graph wrote it into the checkpoint."""
-
     answer: str
     escalate_to_deep: bool
     escalation_reason: str | None = None
 
 
 class _LegacyState(ConversationState):
-    """The old conversation state: today's, plus the channel that was retired."""
-
     shallow_result: _RetiredShallowResult | None = None
 
 
 def _legacy_graph(checkpointer):
-    """The old graph, reduced to what it wrote: an answer and a shallow_result."""
 
     async def shallow_research(state: _LegacyState) -> dict[str, Any]:
         return {
@@ -90,7 +75,6 @@ async def checkpointer():
 
 @pytest.mark.asyncio
 async def test_the_next_turn_after_the_deploy_answers_on_the_old_history(checkpointer):
-    """The history is the point of the checkpoint, and it crosses intact."""
     await _legacy_graph(checkpointer).ainvoke(
         {"messages": [HumanMessage(content="Was gilt für Brüstungen?")]},
         config={"configurable": {"thread_id": THREAD}},
@@ -112,9 +96,6 @@ async def test_the_next_turn_after_the_deploy_answers_on_the_old_history(checkpo
 
 @pytest.mark.asyncio
 async def test_a_refusal_recorded_by_the_old_graph_is_still_honoured(checkpointer):
-    """``deep_research_declined`` is the conversation's memory of a "no", and it
-    is a plain bool on both sides: a reader who declined a plan before the
-    deploy is not asked again after it."""
     await _legacy_graph(checkpointer).ainvoke(
         {"messages": [HumanMessage(content="Vergleich über drei Bundesländer?")]},
         config={"configurable": {"thread_id": THREAD}},

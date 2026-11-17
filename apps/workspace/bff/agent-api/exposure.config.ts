@@ -50,6 +50,7 @@ import {
   CANVAS,
   DECISION,
   MEMORY,
+  PERSONAL_MEMORY,
   NATIVE_READ,
   OFFERED,
   SENSITIVE,
@@ -138,6 +139,7 @@ export const EXPOSURE = {
   'project-memory-create': { external: true, agent: 'native:remember', reason: MEMORY },
   'project-memory-delete': OFFERED,
   'project-memory-list': OFFERED,
+  'project-memory-topic-rename': OFFERED,
   'project-memory-update': OFFERED,
   'project-overview-get': OFFERED,
   'project-period-set': OFFERED,
@@ -283,6 +285,7 @@ export const EXPOSURE = {
   'answer-feedback-retract': OFFERED,
   'answer-feedback-submit': OFFERED,
   'citation-format': withheld('model-compute', 'formats the sources it is sent as APA, BibTeX or RIS; any agent can do that itself'),
+  'citation-style-get': OFFERED,
   'conversation-create': OFFERED,
   'conversation-delete': OFFERED,
   'conversation-draft-file': OFFERED,
@@ -340,6 +343,14 @@ export const EXPOSURE = {
   'sharing-grant-revoke': SENSITIVE,
   'sharing-grant-update': SENSITIVE,
   'sharing-visibility-set': SENSITIVE,
+  // personal memory (ADR-0180): the person's own notes, acted on as the person
+  'personal-memory-clear': OFFERED,
+  'personal-memory-create': { external: true, agent: 'native:remember', reason: PERSONAL_MEMORY },
+  'personal-memory-delete': OFFERED,
+  'personal-memory-list': OFFERED,
+  'personal-memory-topic-delete': OFFERED,
+  'personal-memory-topic-rename': OFFERED,
+  'personal-memory-update': OFFERED,
   'user-preference-get': withheld('ui-state', 'the person’s interface preferences (language, active project); screen state'),
   'user-preference-update': withheld('ui-state', 'the person’s interface preferences (language, active project); screen state'),
 
@@ -461,7 +472,7 @@ export const EXPOSURE = {
   'document-look': { external: true, agent: 'native:look', reason: NATIVE_READ },
   'ifc-measure': { external: true, agent: 'native:ifc_measure', reason: NATIVE_READ },
   'dxf-measure': { external: true, agent: 'native:dxf_measure', reason: NATIVE_READ },
-  'law-lookup': { external: true, agent: 'native:ris_lookup_tool', reason: NATIVE_READ },
+  'law-lookup': { external: true, agent: 'native:law_lookup', reason: NATIVE_READ },
 
   // the app-only tools of the door's MCP Apps views (`catalog/app-views.ts`)
   'proposal-card-apply': APP_ONLY,

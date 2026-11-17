@@ -1,12 +1,3 @@
-/**
- * A listing row's menu, built on the first ask.
- *
- * A folder of a thousand documents mounts a thousand of these. What is pinned
- * here is that a row nobody opened carries no menu of its own yet, and that the
- * one press, key or right-click that asks for it opens it: nothing waits for a
- * second attempt, and the tile under the pointer is not remounted.
- */
-
 import { describe, expect, it } from 'vitest'
 import { fireEvent, render, screen } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
@@ -36,7 +27,6 @@ describe('DocumentObjectMenu — built on the first ask', () => {
     const trigger = screen.getByTestId('document-actions-trigger')
     expect(trigger).toHaveAttribute('aria-haspopup', 'menu')
     expect(trigger).toHaveAttribute('aria-expanded', 'false')
-    // A mounted dropdown trigger carries its state; the stand-in carries none.
     expect(trigger).not.toHaveAttribute('data-state')
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
   })

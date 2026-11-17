@@ -1,25 +1,5 @@
 'use client'
 
-/**
- * „Herauslösen …“ (D34): a mail filed into the wrong E-Mail-Verlauf moves into
- * another one, or into a new one in the same folder.
- *
- * The confirmation says what the move does before it does it, because it is
- * the one recorded exception to „Fassung N+1 holds every section of N“: the
- * earlier Fassungen that keep the mail are named by number („Fassung 4 bis 6
- * behalten diese E-Mail“), and the Fassung this thread gets without it. Every
- * follow of this thread ends, and it says so.
- *
- * One call (`mail-thread-entry-detach`). A refusal (`MAIL_THREAD_REFUSALS`:
- * the thread's only mail, a thread being written, a target gone or full, a
- * name stopped or taken) is said inside the dialog, which stays open so the
- * person can choose again.
- *
- * A name typed for a new Verlauf is an edit: Escape, the X, a scrim click and
- * „Abbrechen“ ask before they leave it behind (`useUnsavedEditGuard`). The
- * detach itself closes without asking.
- */
-
 import type { JSX } from 'react'
 import { useEffect, useId, useRef, useState } from 'react'
 import { AlertTriangle } from 'lucide-react'
@@ -44,7 +24,6 @@ import { detachKeeps } from './mail-thread-model'
 import { refusalKey, type MailThreadRefusalKey } from './refusal'
 import { mailThreadCopy } from '@/i18n/namespaces/mail-thread'
 
-/** The longest name a new thread takes (`mailThreadEntryDetachBodySchema`). */
 const NEW_THREAD_NAME_MAX = 240
 
 type Targets = { kind: 'loading' } | { kind: 'ready'; threads: MailThreadSummaryView[] } | { kind: 'failed' }
@@ -55,9 +34,7 @@ export interface DetachDialogProps {
   projectId: string
   thread: MailThreadView
   entry: MailThreadEntryView
-  /** The thread document's current Fassung, for the confirmation's numbers. */
   currentVersion: number | null
-  /** The thread document's folder: a new thread goes beside it (null is the project's root). */
   folderId: string | null
   client: MailThreadClient
   onDetached: (result: MailThreadEntryDetachResultView, targetName: string | null) => void
@@ -71,7 +48,6 @@ export function DetachDialog({ open, onOpenChange, projectId, thread, entry, cur
   const [threadId, setThreadId] = useState<string>('')
   const [name, setName] = useState('')
   const [refusal, setRefusal] = useState<MailThreadRefusalKey | null>(null)
-  // The detach landed: the dialog's own close after it is no edit left behind.
   const landed = useRef(false)
 
   useEffect(() => {
@@ -118,7 +94,6 @@ export function DetachDialog({ open, onOpenChange, projectId, thread, entry, cur
       onDetached(result, mode === 'existing' ? (threads.find((candidate) => candidate.id === threadId)?.name ?? null) : trimmed)
     } catch (error) {
       setRefusal(refusalKey(error))
-      // Rethrown so the dialog stays open with the refusal in it.
       throw error
     }
   }

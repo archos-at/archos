@@ -1,11 +1,3 @@
-"""The WORKSPACE block: turn context → state → prompt (ADR-0123).
-
-The BFF names who asks, where, and what is open now, this conversation's
-proposals with every status among it. It renders below the KV-cache boundary,
-and only when the turn can act on it through the workspace tools: without them
-the block would describe a door the model does not have.
-"""
-
 from __future__ import annotations
 
 import json
@@ -18,7 +10,6 @@ from agent.agents.piloti.prompt import render_turn_context
 from agent.agents.piloti.prompt import system_prompt_template
 
 ROOT = Path(__file__).resolve().parents[5]
-#: The block the production renderer writes (`workspace-block.fixture.spec.ts`).
 BLOCK = json.loads((ROOT / "apps/workspace/tests/fixtures/workspace/rendered.json").read_text(encoding="utf-8"))[
     "workspace"
 ].replace("{conversation}", "conv-1")
@@ -62,18 +53,10 @@ def test_the_conversation_state_hands_the_block_to_the_research_state():
 
 
 def test_the_static_prompt_teaches_the_workspace_facts_and_the_work_kind():
-    """The contract, not the prose: English operation discovery, records not cited, the work kind.
-
-    That a proposal is not done is said where it matters, by the tool that
-    proposes: `workspace__call`'s description and its "Proposed" result. The
-    server enforces it (a write never runs), so the static prompt no longer
-    repeats it.
-    """
     from agent.tools.workspace.register import DESCRIPTIONS
 
     static = (ROOT / "packages/agent/src/agent/agents/piloti/prompts/chat_static.md").read_text(encoding="utf-8")
     rules = static.split("<rules>")[1].split("</rules>")[0]
-    # English is for finding an operation; a document search runs over German documents.
     assert "look one up (`workspace__search`) in English" in rules
     assert "search documents in their language" in rules
     assert "never with `[N]`" in static.split("CITATIONS.")[1]

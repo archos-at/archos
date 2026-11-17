@@ -1,5 +1,3 @@
-"""New folders for the shelf root's documents (`/v1/folder-proposals`): map, reduce, verify, and checked answers."""
-
 import asyncio
 import json
 from unittest.mock import AsyncMock
@@ -164,9 +162,6 @@ def test_more_documents_than_the_limit_are_refused():
         _request(documents=_documents(MAX_DOCUMENTS + 1))
 
 
-# ----------------------------------------------------------------- the endpoint
-
-
 @pytest.fixture
 def app():
     app = FastAPI()
@@ -182,8 +177,6 @@ def _configured_llm_key(monkeypatch):
 
 
 class _Answer:
-    """What ``decide_many`` hands back per state: ``choice("folder")`` gives the distribution."""
-
     def __init__(self, distribution: dict[str, float]):
         self._distribution = distribution
 
@@ -193,7 +186,6 @@ class _Answer:
 
 @pytest.fixture
 def decided(monkeypatch):
-    """A decide_many that gives every state the same distribution: f0 most likely, then f1."""
     calls: list[dict] = []
 
     async def fake_decide_many(states, questions, **kwargs):
@@ -212,11 +204,6 @@ def _reply(content: str | None) -> MagicMock:
 
 
 def _route(answers: list[tuple[str, str | Exception]], reduce: str | Exception | None = None):
-    """Answer each call by the document id it names: the first marker found in the user content wins.
-
-    A marker is a document id as the prompt writes it, so ``"d1"`` never matches ``"d10"``. The reduce
-    call is recognised by its system prompt.
-    """
 
     def respond(payload: dict):
         system = payload["messages"][0]["content"]
@@ -385,7 +372,6 @@ async def test_a_verification_over_its_budget_keeps_the_proposals_without_confid
 @pytest.mark.asyncio
 async def test_a_jev_failure_keeps_the_proposals_with_empty_confidences(app, monkeypatch):
     async def broken(states, *_args, **_kwargs):
-        # How `decide_many` fails: one None per call it could not make, never a raise.
         return [None] * len(states)
 
     monkeypatch.setattr("agent.common.decisions.decide_many", broken)

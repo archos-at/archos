@@ -22,7 +22,6 @@ describe('signedInCookieScope', () => {
 
   test('does not exist when the website cannot see a cookie of the app', () => {
     expect(signedInCookieScope({ ...PROD, landingUrl: 'https://other.org' })).toBeNull()
-    // A host that merely ends like the website is not its subdomain.
     expect(signedInCookieScope({ ...PROD, redirectUri: 'https://appexample.com/api/auth/callback' })).toBeNull()
     expect(signedInCookieScope({ ...PROD, landingUrl: undefined })).toBeNull()
     expect(signedInCookieScope({ ...PROD, redirectUri: 'not a url' })).toBeNull()
@@ -43,8 +42,6 @@ describe('serializeSignedInCookie', () => {
     expect(cookie).not.toContain('HttpOnly')
   })
 
-  // A deletion that names another Domain or Path than the cookie was set with
-  // leaves the original in the browser.
   test('clears with the same Domain and Path it was set with', () => {
     expect(serializeSignedInCookie(scope, false)).toBe(
       'signed_in=; Path=/; Max-Age=0; SameSite=Lax; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Domain=example.com; Secure'

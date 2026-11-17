@@ -1,27 +1,5 @@
 'use client'
 
-/**
- * The model stage's chrome on a phone: what goes in the tool bar, and what
- * goes behind "Mehr".
- *
- * ## Why this is not the desktop dock made smaller
- *
- * The desktop dock holds ten controls and was ~480 px wide in a 369 px row, so
- * on a phone the trailing ones sat off-screen behind a hidden scrollbar with
- * nothing to say they existed. Shrinking ten glyphs does not make them
- * findable by a thumb in a glove, and a tooltip is not available to explain
- * them. The phone gets the opposite trade: FEWER, LABELLED controls.
- *
- * Six tools are on the bar because they are what someone on site does to a
- * building, in order of how often: put it back in frame, turn it, cut it,
- * measure it, narrow it to a floor. Everything else — undo, a picture, the
- * see-through, the reset, the analytical drawer — is one tap behind "Mehr",
- * where each can be written out in full.
- *
- * Every control here is a `viewer` atom. This file composes; it styles
- * nothing.
- */
-
 import type { JSX } from 'react'
 import {
   Camera,
@@ -42,13 +20,10 @@ import type { BimCameraView } from '../lib/viewer-camera'
 import { StageViewMenu } from './stage-view-menu'
 import { ViewerRailItem, ViewerToolButton } from './viewer'
 
-/** Which sheet the bar's two sheet-opening tools control. */
 export type PhoneSheet = 'levels' | 'more'
 
 export interface PhoneToolsProps {
-  /** `side` is the landscape column; the view menu then opens beside it. */
   placement: 'bar' | 'side'
-  /** The renderer can act — every tool except Mehr and Ebenen waits for it. */
   ready: boolean
   onFit: () => void
   cameraView: BimCameraView
@@ -59,11 +34,9 @@ export interface PhoneToolsProps {
   onToggleSection: () => void
   measuring: boolean
   onToggleMeasure: () => void
-  /** Whether there is anything to pick: a second model, or named levels. */
   hasLevels: boolean
   sheet: PhoneSheet | null
   onToggleSheet: (sheet: PhoneSheet) => void
-  /** Something has been hidden or isolated — the reset waits behind Mehr. */
   edited: boolean
 }
 
@@ -85,7 +58,6 @@ export function PhoneTools({
   edited,
 }: PhoneToolsProps): JSX.Element {
   const t = useTranslations(bimCopy)
-  // A column has the height to spare for none of the bar's 56 px.
   const dense = placement === 'side' ? 'h-12 pointer-coarse:h-12' : undefined
 
   return (
@@ -135,9 +107,6 @@ export function PhoneTools({
         label={t('stage.tool.more')}
         icon={MoreHorizontal}
         active={sheet === 'more'}
-        // A dot rather than a count: it says "something here is not as it was"
-        // — a hidden wall, an isolated floor — and the reset it points to is
-        // inside.
         marked={edited && sheet !== 'more'}
         onClick={() => onToggleSheet('more')}
         className={dense}
@@ -153,7 +122,6 @@ export interface PhoneMoreRowsProps {
   onCapture: () => void
   captureFailed: boolean
   xray: boolean
-  /** Why see-through cannot act yet, when it cannot — written out, not hovered. */
   xrayHint: string | null
   xrayDisabled: boolean
   onToggleXray: () => void
@@ -163,7 +131,6 @@ export interface PhoneMoreRowsProps {
   onOpenAdvanced: () => void
 }
 
-/** What "Mehr" lists: each tool written out, one 44 px row apiece. */
 export function PhoneMoreRows({
   ready,
   canUndo,

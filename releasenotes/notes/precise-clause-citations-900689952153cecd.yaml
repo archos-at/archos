@@ -1,0 +1,15 @@
+---
+fixes:
+  - >
+    Citations of the published OIB-Richtlinien name the Punkt the quoted text
+    stands in again, such as "Pkt. 5.1.1, S. 13" for the escape route length
+    in OIB-Richtlinie 2, instead of only the heading above it ("Pkt. 5.1").
+    The cover page's document number is no longer cited as a Punkt, and the
+    forms in the annex of OIB-Richtlinie 6 no longer as its last Punkt.
+operators:
+  - >
+    The base corpus is rebuilt once after this deploy, on every environment:
+    the chunk format moves to 5, so the next sync re-ingests each file from
+    the same bytes and keeps its stored country and edition. No manual
+    re-ingest is needed. Until a file's rebuild finishes it answers from its
+    old chunks.

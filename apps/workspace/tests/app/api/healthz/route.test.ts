@@ -19,7 +19,6 @@ afterEach(() => {
   else process.env.GIT_SHA = ORIGINAL
 })
 
-/** The route is a `publicApiRoute`, so it takes a Request and nothing else. */
 const probe = async (): Promise<Response> =>
   (await GET(new Request('http://localhost:3000/api/healthz'), {
     params: Promise.resolve({}),
@@ -27,8 +26,6 @@ const probe = async (): Promise<Response> =>
 
 describe('GET /api/healthz', () => {
   it('reports the deployed sha alongside the liveness status', async () => {
-    // A real 40-hex commit, so the assertion is on the shape a deployment
-    // actually carries.
     process.env.GIT_SHA = '0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c' // pragma: allowlist secret
 
     const response = await probe()
@@ -40,8 +37,6 @@ describe('GET /api/healthz', () => {
   })
 
   it('answers `unknown` for an image nothing stamped, never an empty field', async () => {
-    // `sha=` in a health payload reads as a truncation; `unknown` reads as an
-    // image that was not built by CI's image build, which is the fact.
     delete process.env.GIT_SHA
 
     await expect((await probe()).json()).resolves.toMatchObject({ sha: 'unknown' })

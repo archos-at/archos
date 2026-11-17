@@ -1,11 +1,3 @@
-"""The model's two steps over Fassungen: the judge and the change summary.
-
-The model is the reader, so these tests pin the contract around it: which
-candidates a prompt carries and how many, that an answer naming a file the
-prompt never offered is dropped, where the threshold sits, that every failure is
-a plain ``None``. Nothing asserts the model's prose.
-"""
-
 from __future__ import annotations
 
 import json

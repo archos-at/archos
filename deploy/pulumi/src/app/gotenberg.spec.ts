@@ -17,7 +17,7 @@ import { baseStackConfig } from "../test-support/stack-config";
  *     perfectly — while an office file's linked image fetches whatever URL it
  *     names from inside the cluster.
  *   - Compose and Pulumi disagreeing on the image or the flags is found in
- *     production (deploy/AGENTS.md).
+ *     production (deploy/README.md, "Rules for changes").
  */
 
 const RESOURCES: Array<{ type: string; name: string; inputs: Record<string, any> }> = [];

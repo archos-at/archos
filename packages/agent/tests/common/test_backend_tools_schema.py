@@ -1,12 +1,3 @@
-"""The contract of the read tools other agents reach over MCP is the one the tools generate (ADR-0122).
-
-``apps/workspace/tests/fixtures/backend-tools.schema.json`` is what the BFF's MCP
-server shows an outside agent: each tool's name, the description the chat model
-reads, its input JSON Schema and its annotations. It is written from the
-functions themselves, so a changed description or argument that leaves it
-unregenerated would show the outside agent a tool that no longer exists.
-"""
-
 from __future__ import annotations
 
 import json
@@ -21,15 +12,6 @@ ROOT = Path(__file__).resolve().parents[4]
 
 
 def _render_in_a_clean_interpreter() -> str:
-    """The fixture as the generator writes it, from a process of its own.
-
-    The agent runtime's function registry is process-global. Tests elsewhere in a shard used to
-    import the knowledge layer by its source path (`sources.knowledge_layer.src…`,
-    until ADR-0145 row 5), which registered each tool a second time under another
-    module name, and the config then refused the short type as ambiguous. Which tests share a process depends
-    on how pytest-split groups them, so in-process rendering passed locally and
-    failed in CI. A fresh interpreter is how the generator itself runs.
-    """
     return subprocess.run(
         [sys.executable, "-c", "from scripts.generate_backend_tools_schema import render; print(render(), end='')"],
         cwd=ROOT,

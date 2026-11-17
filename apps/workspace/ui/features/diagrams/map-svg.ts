@@ -1,48 +1,21 @@
-/**
- * A map (mindmap) drawn as a file: the tree the answer shows, left to right,
- * on paper.
- *
- * A filed diagram used to be mermaid's render of the source, whatever view the
- * answer showed. For a mindmap that was a different picture from the one on
- * screen, and a worse one: mermaid draws a bare quoted branch WITH its quotes,
- * clips a circle root's label to the circle ("OIB-Rich"), and colours every
- * branch from its own rainbow. The model the view draws (`MapModel`) already
- * has the labels unquoted and the tree in order, so the file is drawn from it.
- *
- * The layout is a tidy tree, which needs no library: leaves are stacked top to
- * bottom in the order the answer wrote them, every parent sits at the middle of
- * its children, and a column per level is as wide as its widest label. The
- * connectors are brackets — out of the parent, down a spine, into each child —
- * so no line crosses a box.
- *
- * Only what `lib/diagrams/svg.ts` keeps is written (`svg`, `g`, `rect`, `path`,
- * `text`, `tspan`, presentation attributes), because the server re-serialises
- * the file through that allow-list and anything else would be refused or lost.
- */
-
 import type { MapModel, MapNode } from './model'
 
-/** The colours a filed drawing is inked in: the paper roles of `diagram-palette.ts`. */
 export interface MapInk {
   ink: string
   line: string
   fill: string
 }
 
-/** Width of `text` at `size` px and `weight`, in px. */
 export type MeasureText = (text: string, size: number, weight: number) => number
 
 const FONT_FAMILY = 'Helvetica, Arial, sans-serif'
 const PAD = 16
 const COLUMN_GAP = 36
 const ROW_GAP = 8
-/** Extra room between the root's branches, so each reads as a group. */
 const GROUP_GAP = 10
-/** Where a connector stops short of a label that has no box. */
 const TEXT_GAP = 5
 const LINE_HEIGHT = 1.3
 
-/** How each level is set: root, parts, and everything a part covers. */
 const LEVELS = [
   { size: 15, weight: 700, maxWidth: 200, boxed: true, padX: 12, padY: 9 },
   { size: 13, weight: 600, maxWidth: 220, boxed: true, padX: 10, padY: 7 },
@@ -51,11 +24,9 @@ const LEVELS = [
 
 const levelStyle = (depth: number) => LEVELS[Math.min(depth, LEVELS.length - 1)]!
 
-/** A rough Helvetica width, for where there is no canvas to ask (specs, a server). */
 export const estimateTextWidth: MeasureText = (text, size, weight) =>
   text.length * size * (weight >= 600 ? 0.58 : 0.53)
 
-/** The browser's own measurement, through a canvas; the estimate where there is none. */
 export function canvasTextMeasure(): MeasureText {
   if (typeof document === 'undefined') return estimateTextWidth
   const context = document.createElement('canvas').getContext('2d')
@@ -66,11 +37,6 @@ export function canvasTextMeasure(): MeasureText {
   }
 }
 
-/**
- * `text` broken into lines no wider than `maxWidth`, at word boundaries. A
- * line break the label already has (`<br>`, read as `\n` by `plainLabel`) is
- * kept, and each of its lines is wrapped on its own.
- */
 function wrap(text: string, maxWidth: number, width: (s: string) => number): string[] {
   const lines = text.split('\n').flatMap((line) => wrapLine(line, maxWidth, width))
   return lines.length > 0 ? lines : ['']
@@ -98,7 +64,6 @@ interface Placed {
   lines: string[]
   width: number
   height: number
-  /** Top edge and left edge of the node's box. */
   x: number
   y: number
   children: Placed[]
@@ -114,7 +79,6 @@ function measureTree(node: MapNode, depth: number, measure: MeasureText): Placed
   return { node, depth, lines, width, height, x: 0, y: 0, children }
 }
 
-/** Stack the leaves top to bottom and centre each parent on its children; returns the next free y. */
 function placeRows(placed: Placed, top: number): number {
   if (placed.children.length === 0) {
     placed.y = top
@@ -129,7 +93,6 @@ function placeRows(placed: Placed, top: number): number {
   const last = placed.children[placed.children.length - 1]!
   const middle = (first.y + first.height / 2 + last.y + last.height / 2) / 2
   placed.y = middle - placed.height / 2
-  // A parent taller than the span of its children pushes what follows down.
   return Math.max(next, placed.y + placed.height + ROW_GAP)
 }
 
@@ -143,10 +106,6 @@ const escapeXml = (text: string): string =>
 
 const n = (value: number): string => String(Math.round(value * 10) / 10)
 
-/**
- * The map as a self-contained SVG on paper. Pure: the same model, ink and
- * measurement give the same bytes.
- */
 export function mapSvg(
   model: MapModel,
   ink: MapInk,
@@ -154,7 +113,6 @@ export function mapSvg(
 ): string {
   const tree = measureTree(model.root, 0, measure)
 
-  // One column per level, as wide as the widest node in it.
   const columnWidths: number[] = []
   walk(tree, (p) => {
     columnWidths[p.depth] = Math.max(columnWidths[p.depth] ?? 0, p.width)
@@ -173,7 +131,6 @@ export function mapSvg(
   walk(tree, (p) => {
     top = Math.min(top, p.y)
   })
-  // A root taller than its subtree can start above the padding; shift all down.
   const shift = top < PAD ? PAD - top : 0
   let bottom = 0
   walk(tree, (p) => {
@@ -190,7 +147,6 @@ export function mapSvg(
     const style = levelStyle(p.depth)
     const centreY = p.y + p.height / 2
     if (p.children.length > 0) {
-      // Out of the parent, to a spine halfway across the gap, into each child.
       const startX = p.x + p.width
       const spineX = columnX[p.depth + 1]! - COLUMN_GAP / 2
       const d = [`M${n(startX)} ${n(centreY)}H${n(spineX)}`]

@@ -9,6 +9,7 @@
  */
 
 import 'server-only'
+import { endLostAsks } from '@/lib/agent-asks/service'
 import { exportUsageToPosthog } from '@/lib/analytics/usage-export'
 import { enqueueDueReminders } from '@/lib/annotations/due-reminders'
 import { sweepOrphanedCollaborationRows } from '@/lib/collaboration/cleanup'
@@ -31,6 +32,7 @@ import {
   readTraceRetentionDays,
 } from '../../workers/langfuse-traces.js'
 import {
+  conversationExists,
   conversationIsHeld,
   findConversationsAwaitingTraceErasure,
   markConversationTracesErased,
@@ -96,6 +98,12 @@ export function projectMailLines(result: InboundMailSweepResult): string[] {
   return lines
 }
 
+/** End the asks of every organization whose turn never reported its end, by the rule a read applies (`endLostAsks`). */
+export async function sweepLostAsks(): Promise<void> {
+  const ended = await endLostAsks()
+  if (ended > 0) report(`agent asks: ended ${ended} ask(s) whose turn never reported its end`)
+}
+
 export async function reconcileRuns(): Promise<void> {
   const counts = await reconcileStaleRuns()
   if (counts.closed > 0 || counts.healed > 0 || counts.failed > 0) report(`run reconcile: ${JSON.stringify(counts)}`)
@@ -152,11 +160,15 @@ const CONVERSATION_TRACES_PER_RUN = 100
 const CONVERSATION_TRACES_BUDGET_MS = 120_000
 
 /**
- * Erase the Langfuse traces of the chats the BFF erased in the delete request,
- * which the purger never sees (`findConversationsAwaitingTraceErasure`: erased
- * within 35 days, at least 15 minutes ago, not stamped, not under a legal
- * hold). The hold is asked again right before each deletion, and each erased
- * chat is stamped so it is done once. Not configured is a no-op.
+ * Erase the Langfuse traces of the chats that are erased and still have them
+ * (`findConversationsAwaitingTraceErasure`: erased within 35 days, at least 15
+ * minutes ago, not stamped, not under a legal hold). That is a chat the BFF
+ * erased in the delete request, which the purger never sees, and a chat whose
+ * queue row ended `failed` after the chat itself was erased: the purger's trace
+ * step failed on every attempt, and nothing else would go back for them. The
+ * hold is asked again right before each deletion, and for a `failed` row so is
+ * whether the chat is really gone; each erased chat is stamped so it is done
+ * once, and such a `failed` row is closed `purged`. Not configured is a no-op.
  */
 export async function sweepConversationTraces(env: NodeJS.ProcessEnv = process.env): Promise<void> {
   const { config } = readLangfuseConfig(env)
@@ -168,6 +180,7 @@ export async function sweepConversationTraces(env: NodeJS.ProcessEnv = process.e
   for (const row of await findConversationsAwaitingTraceErasure(db, CONVERSATION_TRACES_PER_RUN)) {
     if (Date.now() - started >= CONVERSATION_TRACES_BUDGET_MS) break
     if (await conversationIsHeld(db, row)) continue
+    if (row.status === 'failed' && (await conversationExists(db, row))) continue
     await eraseSessionTraces(client, row.entity_id)
     await markConversationTracesErased(db, row.id)
     erased += 1

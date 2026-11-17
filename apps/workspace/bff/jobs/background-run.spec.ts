@@ -11,12 +11,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
-const { knowledgeContextForTurn, submitJob } = vi.hoisted(() => ({
+const { knowledgeContextForTurn, submitJob, isTemporaryConversation } = vi.hoisted(() => ({
   knowledgeContextForTurn: vi.fn(),
+  isTemporaryConversation: vi.fn(async () => false),
   submitJob: vi.fn(async () => ({ jobId: 'job_1', queued: true })),
 }))
 vi.mock('@/lib/base-knowledge/context/service', () => ({ knowledgeContextForTurn }))
 vi.mock('./backend-client', () => ({ submitJob }))
+vi.mock('@/lib/conversations/temporary', () => ({ isTemporaryConversation }))
 vi.mock('@/lib/request-context', () => ({ buildRequestContextWireHeaders: () => ({}), encodeBudgetHeader: () => null }))
 vi.mock('./run-context', () => ({ runRequestContextInput: () => ({}), warnIfRunEnvelopeLarge: () => undefined }))
 
@@ -51,14 +53,14 @@ const STYRIA_CONTEXT = {
   retrieval: { countries: ['AT', 'EU'] },
 }
 
-const submit = () =>
+const submit = (conversationId: string | null = null) =>
   submitBackgroundRun({
     subject: { organizationId: 'org_at', projectId: 'project_graz', userId: 'user_1' },
     ownerEmail: null,
     prompt: 'Welche Brandschutzanforderungen gelten?',
     skills: [],
     output: 'deep-research',
-    conversationId: null,
+    conversationId,
     dataSources: null,
     priority: 'bulk',
     context: { collectionScope: null, projectContext: null, projectMemory: null, memoryReflectionEnabled: false, modelOverrides: null, budget: null } as unknown as RunContext,
@@ -70,6 +72,25 @@ describe('submitBackgroundRun', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     knowledgeContextForTurn.mockResolvedValue(STYRIA_CONTEXT)
+    isTemporaryConversation.mockResolvedValue(false)
+  })
+
+  it('tells the worker when the run’s conversation is temporary, and says nothing otherwise', async () => {
+    await submit('conv_1')
+    expect(isTemporaryConversation).toHaveBeenCalledWith('conv_1', 'org_at')
+    expect(payload()).not.toHaveProperty('temporary_conversation')
+
+    submitJob.mockClear()
+    isTemporaryConversation.mockResolvedValue(true)
+    await submit('conv_1')
+    expect(payload()).toMatchObject({ temporary_conversation: true })
+  })
+
+  it('still submits the run when the flag cannot be read', async () => {
+    isTemporaryConversation.mockRejectedValue(new Error('database away'))
+    await submit('conv_1')
+    expect(submitJob).toHaveBeenCalledTimes(1)
+    expect(payload()).not.toHaveProperty('temporary_conversation')
   })
 
   it('carries the knowledge context of an entitled Austrian project, chain text included, read for its office and project', async () => {

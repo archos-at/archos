@@ -1,10 +1,3 @@
-"""The provider limiter: class order, FIFO inside a class, AIMD, fail-open, and the 429 path.
-
-The Lua runs for real: ``fakeredis`` with ``lupa`` executes the very scripts
-Dragonfly will, so an ordering bug in them cannot hide behind a Python
-re-implementation of what they were meant to do.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -21,8 +14,6 @@ from agent.common import provider_limiter as pl
 
 
 class Clock:
-    """Time the limiter reads, moved by hand."""
-
     def __init__(self) -> None:
         self.now = 1_000_000.0
 
@@ -35,7 +26,6 @@ class Clock:
 
 @pytest.fixture
 def store(monkeypatch):
-    """A Redis with Lua, standing in for Dragonfly, behind the cache's one script primitive."""
     client = fakeredis.FakeRedis(server=fakeredis.FakeServer(), decode_responses=True)
 
     def eval_script(script, keys, args):
@@ -60,19 +50,14 @@ def leases(store) -> dict[str, float]:
 
 
 def limit_of(store, model: str | None = None) -> int:
-    """The stored limit of the key's scope, or of ``model``'s."""
     keys = pl._keys(pl.POOL, model)
     return int(store.hget(keys["model_state" if model else "state"], "limit"))
 
 
 def poll(member: str, cls: str, model: str | None = None) -> bool:
-    """One poll of one waiter: did it get the slot."""
     attempt = pl._attempt(member, cls, model)
     assert attempt is not None
     return attempt.taken
-
-
-# ---------------------------------------------------------------- class order
 
 
 def test_a_free_pool_takes_a_caller_at_once(store, clock):
@@ -160,9 +145,6 @@ def test_a_holder_that_died_loses_its_slot_when_its_lease_ages_out(store, clock)
     assert set(leases(store)) == {"next"}
 
 
-# ----------------------------------------------------------------------- AIMD
-
-
 def test_a_429_halves_the_limit_down_to_the_floor(store, clock, monkeypatch):
     monkeypatch.setenv(pl._CEILING_ENV, "32")
     monkeypatch.setenv(pl._FLOOR_ENV, "5")
@@ -231,9 +213,6 @@ def test_the_ceiling_can_be_lowered_under_a_stored_limit(store, clock, monkeypat
     assert pl._attempt("fresh", pl.CHAT).limit == 10
 
 
-# ------------------------------------------------------------------ fail open
-
-
 def test_without_a_store_every_call_proceeds(monkeypatch):
     monkeypatch.setattr(pl.cache, "eval_script", lambda *_: None)
     with pl.slot(cls=pl.BULK) as lease:
@@ -270,9 +249,6 @@ def test_it_fails_open_the_moment_the_store_goes_while_a_caller_waits(store, clo
     monkeypatch.setattr(pl.cache, "eval_script", store_dies)
     with pl.slot(cls=pl.BULK) as lease:
         assert not lease.held
-
-
-# --------------------------------------------------------- waiting for real
 
 
 def test_a_bulk_waiter_yields_to_a_chat_waiter_that_came_later(store):
@@ -379,9 +355,6 @@ def test_a_slot_nobody_gave_back_is_not_renewed_forever(store, clock, monkeypatc
     assert lease.member not in pl._held
 
 
-# ------------------------------------------------------------------------ 429
-
-
 class RateLimited(Exception):
     def __init__(self, headers: dict[str, str] | None = None, status: int = 429) -> None:
         super().__init__("Too many requests")
@@ -411,10 +384,6 @@ def test_retry_after_is_read_in_seconds_or_milliseconds_and_capped():
 def test_a_429_gives_the_slot_back_before_it_waits_out_the_retry_after(store, monkeypatch):
     monkeypatch.setenv(pl._CEILING_ENV, "16")
     slept: list[tuple[float, dict[str, float]]] = []
-    # `pl.time` is the `time` module, so this patch is process-wide. Record only
-    # the sleep of the call under test; any other thread (the limiter's own lease
-    # renewer, an SDK's flush thread) keeps sleeping for real, and its sleeps are
-    # not this test's business. Recording them made the count depend on timing.
     caller = threading.get_ident()
     real_sleep = time.sleep
 
@@ -470,9 +439,6 @@ def test_other_errors_give_the_slot_back_without_touching_the_limit(store):
     assert store.exists(keys["state"], keys["model_state"]) == 0
 
 
-# ---------------------------------------------------------------------- class
-
-
 def test_the_default_class_is_interactive():
     assert pl.current_class() == pl.INTERACTIVE
 
@@ -523,9 +489,6 @@ def test_acquire_without_a_class_reads_the_tasks_class(store):
     lease.release()
 
 
-# --------------------------------------------------------------------- meters
-
-
 @pytest.fixture
 def metrics(monkeypatch):
     reader = InMemoryMetricReader()
@@ -565,11 +528,7 @@ def test_the_limiter_emits_its_meters(store, metrics, monkeypatch):
     second.release()
 
 
-# ------------------------------------------------------- the scope of a 429
-
-
 def keyed(store, model: str | None = None) -> bool:
-    """Whether the limit state of the key's scope, or of ``model``'s, exists."""
     keys = pl._keys(pl.POOL, model)
     return bool(store.exists(keys["model_state" if model else "state"]))
 
@@ -692,8 +651,6 @@ def test_a_freed_model_slot_goes_to_the_highest_class_waiting_for_that_model(sto
 
 
 class UpstreamRateLimited(Exception):
-    """What the OpenAI SDK raises for OpenRouter's 429: the body's ``error`` object is ``.body``."""
-
     def __init__(self, error: dict | None) -> None:
         super().__init__("Error code: 429")
         self.status_code = 429

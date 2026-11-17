@@ -40,14 +40,6 @@ const call = (query: string): Promise<Response> =>
     params: Promise.resolve({ id: 'proj-1' }),
   })
 
-/*
-  A fresh limit store per test.
-
-  This route declares `bim-export`, which is deliberately tight — twelve a
-  minute, three in five seconds — because one GET here runs the whole rule
-  catalogue and builds a ZIP. Sharing one store across the file would make each
-  test's result depend on how many ran before it.
-*/
 beforeEach(() => setLimitStore(createInProcessStore()))
 afterEach(() => setLimitStore(null))
 
@@ -80,9 +72,6 @@ describe('GET /api/projects/[id]/bim/checks/export', () => {
   })
 
   it('drops a fact it cannot read rather than guessing one', async () => {
-    // The rules that need a Gebäudeklasse then stand down with their reason,
-    // which is the whole design. Substituting a default would put thresholds
-    // in the file that nobody chose.
     await call(`?modelId=${MODEL_ID}&buildingClass=7`)
 
     expect(exportAccessibleComplianceBcf).toHaveBeenCalledWith(expect.anything(), 'proj-1', {
@@ -94,9 +83,6 @@ describe('GET /api/projects/[id]/bim/checks/export', () => {
   })
 
   it('accepts a model addressed by file name, the way a chat answer links one', async () => {
-    // A UUID carried through a conversation is a reliable source of
-    // hallucinated identifiers; the file name is how the rest of the app
-    // addresses a model.
     await call('?model=Haus-A_V3.ifc&buildingClass=4')
 
     expect(exportAccessibleComplianceBcf).toHaveBeenCalledWith(expect.anything(), 'proj-1', {
@@ -113,12 +99,6 @@ describe('GET /api/projects/[id]/bim/checks/export', () => {
   })
 
   it('is bounded, because one GET here runs the whole catalogue', async () => {
-    // Reads are not rate-limited by default and this one is the heaviest thing
-    // the product does for a GET: a full `compliance` run plus a ZIP, on the
-    // event loop. Its memo is keyed on the two facts in the URL, so an
-    // unbounded caller could walk every combination and miss the cache every
-    // time. The assertion is that a budget is charged at all — the numbers
-    // themselves belong to the catalog.
     const first = await Promise.all([
       call(`?modelId=${MODEL_ID}`),
       call(`?modelId=${MODEL_ID}`),

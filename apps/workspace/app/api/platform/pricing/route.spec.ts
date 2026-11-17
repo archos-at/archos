@@ -1,12 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The platform pricing endpoint (ADR-0053). Pinned here: only a platform owner
- * may read or write it, a slipped decimal is refused with per-field errors
- * before anything is written, and a successful save invalidates the seeded
- * allowance cache and lands in the platform audit trail.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { UnprocessableError } from '@/lib/api/errors'
 

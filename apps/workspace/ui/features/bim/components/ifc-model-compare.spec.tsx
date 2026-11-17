@@ -1,13 +1,3 @@
-/**
- * "What changed since the version the authority already has."
- *
- * Four counts and three short lists — and every one of them is meaningless
- * without the pair of files it is the difference between. The base is a
- * control the reader can move after a run, and the request is the slowest in
- * the product, so both of the ways this panel can end up describing the wrong
- * comparison are ordinary use rather than edge cases.
- */
-
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -34,7 +24,6 @@ function candidate(id: string, filename: string): BimModelHeaderView {
 
 const CANDIDATES = [candidate('m-v2', 'Haus-A_v2.ifc'), candidate('m-v1', 'Haus-A_v1.ifc')]
 
-/** A comparison body with distinguishable counts. */
 const comparison = (added: number) => ({
   comparison: {
     counts: { added, removed: 0, changed: 0 },
@@ -87,10 +76,6 @@ describe('IfcModelCompare', () => {
   })
 
   it('keeps naming the revision it actually ran against after the select moves', async () => {
-    // The select is a control, not a caption. Reading the label off it would
-    // relabel a finished comparison the moment the reader browses the list —
-    // "+17 Bauteile" measured against v2, presented as the difference to v1,
-    // with nothing on screen to catch it.
     fetchMock.mockResolvedValue(ok(comparison(17)))
     const user = userEvent.setup()
     render(<IfcModelCompare modelId="m-v3" candidates={CANDIDATES} />)
@@ -106,9 +91,6 @@ describe('IfcModelCompare', () => {
   })
 
   it('lets the last comparison asked for win, whatever order the answers arrive in', async () => {
-    // Both entry points can fire while a request is out — the timeline asks
-    // for one at any moment, and this request routinely takes seconds — so an
-    // earlier answer landing last is ordinary rather than exotic.
     const first = deferred()
     const second = deferred()
     fetchMock.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise)

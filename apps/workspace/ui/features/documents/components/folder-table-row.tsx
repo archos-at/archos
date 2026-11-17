@@ -18,16 +18,6 @@ import { FolderAccessMark, FolderReadOnlyBadge } from './folder-access-mark'
 import { FolderActionsMenu, FolderNameEditor, dropRing, useFolderLabels, type FolderTileProps } from './folder-navigation'
 import { FolderReadState } from './folder-read-state'
 
-/**
- * A folder as a row of the detail view's table — the list view's counterpart
- * to `FolderCard`. It is a row of the file table itself (`FileListView`'s
- * `folderRows`), under the one column head: its name in the name column past
- * the 32px glyph column, what it holds under Größe, when it changed under
- * Hinzugefügt, its ⋯ in the actions column, a 40px row like a file's. Round 3
- * drew the folders as a block above the table, so the head stood mid-table,
- * the counts ended 10px left of Größe and the rows were 36px against the
- * files' 40. A folder does not sort with the files: it stays at the top.
- */
 export function FolderRow({
   folder,
   itemCount,
@@ -68,7 +58,6 @@ export function FolderRow({
   const changedAt = lastModified ?? folder.createdAt ?? null
   const count = t('folders.items', { count: itemCount })
 
-  // The cells the head draws, empty where a folder has nothing to say (Freigabe, Seiten, Relevanz).
   const empty = (className: string) => <TableCell className={cn('hidden', className, FILE_LIST_CELL)} />
 
   return (
@@ -77,8 +66,7 @@ export function FolderRow({
       data-row
       data-testid={`folder-row-${folder.id}`}
       data-drop-over={drop.isOver ? '' : undefined}
-      // The table's inset hairline (`TABLE_ROW_HAIRLINE`), from the name; the hover the desk, as a file row's.
-      className={cn('group group/row border-b-0 [--row-end:8px] [--row-lead:50px] hover:bg-desk', TABLE_ROW_HAIRLINE, dropRing(drop, true), rowProps.className)}
+      className={cn('group group/row border-b-0 [--row-end:8px] [--row-lead:50px] hover:bg-hover', TABLE_ROW_HAIRLINE, dropRing(drop, true), rowProps.className)}
       {...(onDropFolder && !readOnly && !editing ? folderDragProps(folder.id, folder.parentId ?? null) : {})}
       {...drop.dropProps}
     >

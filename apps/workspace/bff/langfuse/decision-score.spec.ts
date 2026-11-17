@@ -157,7 +157,6 @@ describe('recordDecisionScore — finding the turn', () => {
       subjectId: 'part-1',
       decision: 'dismissed',
       traceId: TRACE,
-      // A detail cannot rename the subject.
       detail: { folder: 'other', type: 'same', subject: 'proposal' },
     })
 
