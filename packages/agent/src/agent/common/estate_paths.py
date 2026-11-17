@@ -41,6 +41,8 @@ from dataclasses import dataclass
 from typing import Any
 from typing import Literal
 
+from agent.common.legacy_document_namespace import LEGACY_AGENT_FILED_PREFIX
+
 Mount = Literal["drafts", "skills", "project", "office", "chat", "law"]
 
 ESTATE_MOUNTS: tuple[Mount, ...] = ("project", "office", "chat", "law")
@@ -67,7 +69,9 @@ MOUNT_SHELVES: dict[Mount, str] = {mount: shelf for shelf, mount in SHELF_MOUNTS
 
 TEXT_EXTENSIONS = (".txt", ".md", ".csv")
 
-AGENT_FILED_PREFIX = "piloti/"
+AGENT_FILED_PREFIX = "generated/"
+
+AGENT_FILED_PREFIXES: tuple[str, ...] = (AGENT_FILED_PREFIX, LEGACY_AGENT_FILED_PREFIX)
 
 PATH_ARGUMENTS: dict[str, str] = {"ls": "path", "glob": "path", "grep": "path", "read_file": "file_path"}
 
@@ -85,13 +89,15 @@ def leaf_for(file_name: str) -> str:
     """The path leaf a stored file name is served under.
 
     ``Plan.pdf`` -> ``Plan.pdf.md``; ``Notiz.txt`` stays ``Notiz.txt``;
-    ``piloti/Aktenvermerk.pdf`` -> ``Aktenvermerk.pdf.md``. Appending rather
+    ``generated/Aktenvermerk.pdf`` -> ``Aktenvermerk.pdf.md``. Appending rather
     than replacing keeps the original name whole, so dropping ``.md`` gives the
     citation key's stem.
     """
     name = nfc(file_name).strip()
-    if name.startswith(AGENT_FILED_PREFIX):
-        name = name[len(AGENT_FILED_PREFIX) :]
+    for prefix in AGENT_FILED_PREFIXES:
+        if name.startswith(prefix):
+            name = name[len(prefix) :]
+            break
     name = name.rsplit("/", 1)[-1]
     if not name:
         return ""

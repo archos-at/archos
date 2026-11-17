@@ -23,7 +23,7 @@ import {
   resolveRequestsOnReply,
   threadIsAwaitingHuman,
 } from '@/lib/mentions/service'
-import { AGENT_MENTION_ID } from '@/lib/mentions/types'
+import { isAgentMentionId } from '@/lib/mentions/types'
 import type { AddresseeSet, MentionInput, PersistedMessageResult } from '@/lib/mentions/types'
 import { isShared, requireResourceAccess } from '@/lib/sharing/access'
 import { countGrantsForResource } from '@/lib/sharing/repository'
@@ -663,7 +663,7 @@ export async function createConversationMessages(
   const mentionsAgent = inputs.some(
     (input) =>
       input.role === 'user' &&
-      (input.mentions ?? []).some((mention) => mention.targetId === AGENT_MENTION_ID)
+      (input.mentions ?? []).some((mention) => isAgentMentionId(mention.targetId))
   )
   if (mentionsAgent) await assertMayRunAgent()
 

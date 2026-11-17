@@ -5,6 +5,7 @@ import type { AgentWorkView } from './types'
 import { wakeEndReasonKind } from './wake-end-reason'
 import { listLatestWakes } from './wake-repository'
 import { PRODUCT_NAME } from '@/lib/brand'
+import { LEGACY_AGENT_KIND } from '@/lib/legacy-agent-kind'
 
 export const FAILED_SHOWN_MS = 6 * 60 * 60 * 1000
 export const HELD_SHOWN_MS = 10 * 60 * 1000
@@ -67,6 +68,6 @@ export async function announceAgentWork(
     kind: 'annotations.changed',
     annotationIds: [wake.annotationId],
     change: 'updated',
-    actor: { peerId: null, userId: wake.actorUserId, name: PRODUCT_NAME, kind: 'piloti' },
+    actor: { peerId: null, userId: wake.actorUserId, name: PRODUCT_NAME, kind: LEGACY_AGENT_KIND },
   }).catch(() => undefined)
 }

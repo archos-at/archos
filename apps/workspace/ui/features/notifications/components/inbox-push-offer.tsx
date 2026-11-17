@@ -7,6 +7,7 @@ import { useTranslations } from '@/i18n'
 import { notificationsCopy } from '@/i18n/namespaces/notifications'
 import { inboxClient, type InboxClient } from '@/lib/inbox/client'
 import { useInboxBadge } from '@/features/collaboration/hooks/use-inbox'
+import { canonicalInboxType } from '@/lib/inbox/types'
 import { usePushNotifications } from '../hooks/use-push-notifications'
 import { promptIsDue, usePromptOnScreen, usePushPromptDismissal } from './notification-prompt'
 
@@ -36,7 +37,7 @@ async function newestAsker(client: InboxClient): Promise<Asker> {
   try {
     const page = await client.list({ filter: 'requests' })
     const newest = page.items[0]
-    if (newest?.type === 'piloti.asks_you') return { kind: 'piloti' }
+    if (newest && canonicalInboxType(newest.type) === 'agent.asks_you') return { kind: 'piloti' }
     return { kind: 'person', actor: newest?.actorName ?? null, mentioned: newest?.type === 'mention.requested' }
   } catch {
     return { kind: 'person', actor: null, mentioned: false }

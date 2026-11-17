@@ -22,9 +22,12 @@ describe('agentDocumentFilename', () => {
     expect(first).not.toBe(second)
   })
 
-  it('produces a name the SQL predicate matches', () => {
+  it('still files under the old namespace until the backfill has run', () => {
     expect(agentDocumentFilename('doc_1', 'x.md').startsWith('piloti/')).toBe(true)
-    expect(AGENT_DOCUMENT_NAMESPACE).toBe('piloti/')
+  })
+
+  it('names the new namespace the readers accept beside the old', () => {
+    expect(AGENT_DOCUMENT_NAMESPACE).toBe('generated/')
   })
 })
 
@@ -33,8 +36,22 @@ describe('isAgentDocumentFilename', () => {
     expect(isAgentDocumentFilename(agentDocumentFilename('doc_1', 'a.md'))).toBe(true)
   })
 
-  it('rejects a name that merely mentions the namespace', () => {
-    for (const name of ['piloti-bericht.md', 'x/piloti/doc_1/a.md', 'Piloti/doc_1/a.md', 'apiloti/a.md']) {
+  it('accepts a document under the new namespace exactly as under the old', () => {
+    expect(isAgentDocumentFilename('generated/doc_1/a.md')).toBe(true)
+    expect(isAgentDocumentFilename('piloti/doc_1/a.md')).toBe(true)
+  })
+
+  it('rejects a name that merely mentions a namespace', () => {
+    for (const name of [
+      'piloti-bericht.md',
+      'x/piloti/doc_1/a.md',
+      'Piloti/doc_1/a.md',
+      'apiloti/a.md',
+      'generated-bericht.md',
+      'x/generated/doc_1/a.md',
+      'Generated/doc_1/a.md',
+      'apigenerated/a.md',
+    ]) {
       expect(isAgentDocumentFilename(name), name).toBe(false)
     }
   })

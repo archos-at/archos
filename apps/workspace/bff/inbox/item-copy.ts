@@ -5,7 +5,7 @@ import {
   INBOUND_MAIL_RESTORE_DAYS,
   MAIL_THREAD_FOLLOW_EXPIRING_NOTICE_DAYS,
 } from '@/lib/inbound-mail/inbound-mail-vocabulary'
-import { INBOX_TYPE_PRESENTATION, UNKNOWN_TYPE_PRESENTATION, type InboxItemView } from './types'
+import { inboxTypePresentation, UNKNOWN_TYPE_PRESENTATION, type InboxItemView } from './types'
 
 const TYPES_PATH = 'collaboration.inbox.types'
 
@@ -33,7 +33,7 @@ export interface InboxItemCopy {
 }
 
 export function inboxItemCopy(item: InboxItemView, t: Translator, dictionary: unknown, locale?: string): InboxItemCopy {
-  const presentation = INBOX_TYPE_PRESENTATION[item.type] ?? UNKNOWN_TYPE_PRESENTATION
+  const presentation = inboxTypePresentation(item.type) ?? UNKNOWN_TYPE_PRESENTATION
   const redacted = !item.href
 
   const vars = {

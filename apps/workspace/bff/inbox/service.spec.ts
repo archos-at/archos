@@ -119,12 +119,12 @@ const ALL_TYPES = [
   'mail_import.completed',
   'mail_import.failed',
   'document.new_revision',
-  'piloti.work_done',
-  'piloti.work_failed',
-  'piloti.asks_you',
-  'piloti.proposal_waiting',
-  'piloti.intake_ready',
-  'piloti.revision_checked',
+  'agent.work_done',
+  'agent.work_failed',
+  'agent.asks_you',
+  'agent.proposal_waiting',
+  'agent.intake_ready',
+  'agent.revision_checked',
   'annotation.assigned_to_you',
   'annotation.activity',
   'annotation.mentioned',
@@ -156,12 +156,12 @@ const OPERATIONAL_TYPES = [
   'mail_import.completed',
   'mail_import.failed',
   'document.new_revision',
-  'piloti.work_done',
-  'piloti.work_failed',
-  'piloti.asks_you',
-  'piloti.proposal_waiting',
-  'piloti.intake_ready',
-  'piloti.revision_checked',
+  'agent.work_done',
+  'agent.work_failed',
+  'agent.asks_you',
+  'agent.proposal_waiting',
+  'agent.intake_ready',
+  'agent.revision_checked',
   'annotation.assigned_to_you',
   'annotation.activity',
   'annotation.mentioned',
@@ -1113,7 +1113,7 @@ describe('resolveInboxItemsAnchoredOn', () => {
     vi.mocked(repository.resolveOpenItemsAnchoredOn).mockResolvedValue(['user_a', 'user_b'])
     vi.mocked(publishToUser).mockClear()
 
-    const input = { organizationId: 'org_1', types: ['piloti.asks_you'] as InboxItemType[], anchorId: 'ann_1' }
+    const input = { organizationId: 'org_1', types: ['agent.asks_you'] as InboxItemType[], anchorId: 'ann_1' }
     expect(await resolveInboxItemsAnchoredOn(input)).toBe(2)
 
     expect(repository.resolveOpenItemsAnchoredOn).toHaveBeenCalledWith(input)
@@ -1126,7 +1126,7 @@ describe('resolveInboxItemsAnchoredOn', () => {
     vi.mocked(publishToUser).mockClear()
 
     expect(
-      await resolveInboxItemsAnchoredOn({ organizationId: 'org_1', types: ['piloti.asks_you'], anchorId: 'ann_1' }),
+      await resolveInboxItemsAnchoredOn({ organizationId: 'org_1', types: ['agent.asks_you'], anchorId: 'ann_1' }),
     ).toBe(0)
     expect(publishToUser).not.toHaveBeenCalled()
   })

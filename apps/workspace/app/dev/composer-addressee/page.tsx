@@ -8,13 +8,13 @@ import { AddresseeIndicator } from '@/features/collaboration/components/Addresse
 import type { DraftMention } from '@/lib/mentions/mention-text'
 import { I18nProvider, useTranslations } from '@/i18n'
 import { collaborationCopy } from '@/i18n/namespaces/collaboration'
-import { AGENT_MENTION_ID } from '@/lib/mentions/types'
+import { LEGACY_AGENT_MENTION_ID } from '@/lib/mentions/legacy-mention-ids'
 import { PRODUCT_NAME } from '@/lib/brand'
 import { SectionLabel } from '@/components/ui/section-label'
 
 const ANNA: DraftMention = { targetId: 'user_anna', display: 'Anna Berger' }
 const TOBIAS: DraftMention = { targetId: 'user_tobias', display: 'Tobias Kern' }
-const AGENT: DraftMention = { targetId: AGENT_MENTION_ID, display: PRODUCT_NAME }
+const AGENT: DraftMention = { targetId: LEGACY_AGENT_MENTION_ID, display: PRODUCT_NAME }
 
 function MockComposer({
   text,

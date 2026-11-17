@@ -1,5 +1,5 @@
 import 'server-only'
-import { INBOX_TYPE_DEFINITIONS } from '@/lib/inbox/registry'
+import { INBOX_TYPE_DEFINITIONS, inboxTypeDefinition } from '@/lib/inbox/registry'
 import { pruneInboxItemsOlderThan } from '@/lib/inbox/repository'
 import type { InboxItemType } from '@/lib/db/schema/inbox'
 
@@ -20,5 +20,5 @@ export async function pruneExpiredInboxItems(now = new Date()): Promise<Retentio
 }
 
 export function retentionDaysFor(type: InboxItemType): number {
-  return INBOX_TYPE_DEFINITIONS[type].retentionDays
+  return inboxTypeDefinition(type).retentionDays
 }

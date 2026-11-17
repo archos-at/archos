@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm'
 import { foreignKey, index, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
+import { LEGACY_ORGANIZATION_SETTING } from '../legacy-tenant-settings'
 import { conversations } from './conversations'
 
 export const messages = pgTable(
@@ -9,7 +10,11 @@ export const messages = pgTable(
     conversationId: text('conversation_id').notNull(),
     organizationId: text('organization_id')
       .notNull()
-      .default(sql`nullif(current_setting('grid.organization_id', true), '')`),
+      .default(
+        sql.raw(
+          `coalesce(nullif(current_setting('app.organization_id', true), ''), nullif(current_setting('${LEGACY_ORGANIZATION_SETTING}', true), ''))`
+        )
+      ),
     role: text('role').notNull(),
     authorUserId: text('author_user_id'),
     content: text('content').notNull(),
