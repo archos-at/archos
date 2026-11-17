@@ -28,7 +28,6 @@ def _raster_metadata(record: dict[str, Any]) -> dict[str, Any]:
         "image_format": record["format"],
         "image_width": record["width"],
         "image_height": record["height"],
-        # Present only when the raster was stored.
         **{key: record[key] for key in ("image_key", "stored_image_index") if key in record},
     }
 

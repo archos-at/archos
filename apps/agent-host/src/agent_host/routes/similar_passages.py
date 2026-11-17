@@ -35,13 +35,9 @@ from .document_search import request_office
 
 logger = logging.getLogger(__name__)
 
-#: The trace this search files under, and the observation inside it.
 TRACE_FEATURE = "similar-passages"
 TRACE_STEP = "retrieve.similar_passages"
-#: Picks recorded on the trace, at most.
 TRACE_PICK_LIMIT = 50
-#: The payload fields the query filters on (never their values): the scope, the
-#: current Fassung, and the source document's exclusion.
 FILTER_FIELDS = ["scope", "superseded", "file_name", "grid_document_id"]
 
 

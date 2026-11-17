@@ -1,28 +1,3 @@
-/**
- * Re-grant the office-shelf permission to every role that holds its old slug —
- * or show what it would do.
- *
- * `org:archiv:manage` became `org:office_shelf:manage`. The catalog keeps the old
- * slug (marked deprecated) and every check accepts either for one release, so a
- * custom role built in WorkOS keeps working untouched. This script is the step
- * after the deploy that makes the new slug the one the roles hold: for each
- * role that holds the old slug and not the new, it ADDS the new one. It never
- * removes the old slug (that is a later release's step, see the runbook), so
- * running it twice, or half way, changes nothing that was already right.
- *
- *   Usage (from apps/workspace):
- *     WORKOS_API_KEY=sk_… bun run regrant:office-shelf             # list the roles, change nothing
- *     WORKOS_API_KEY=sk_… bun run regrant:office-shelf -- --apply  # add the new slug to each
- *
- * Run it AFTER the deploy: the authz-catalog Job (`grid-app-authz-catalog`)
- * creates `org:office_shelf:manage` in WorkOS, and a role cannot be given a
- * permission that does not exist yet. The script checks that first and stops.
- *
- * It covers the environment roles and, organization by organization, the roles
- * only that organization has (the custom roles an office builds for itself).
- * `docs/deployment/office-shelf-rename-runbook.md` is the whole sequence.
- */
-
 import { WorkOS, type Role } from '@workos-inc/node'
 
 const OLD_SLUG = 'org:archiv:manage'
@@ -41,7 +16,6 @@ const note = (message: string) => console.log(`  ${message}`)
 const holdsOldOnly = (role: Pick<Role, 'permissions'>): boolean =>
   role.permissions.includes(OLD_SLUG) && !role.permissions.includes(NEW_SLUG)
 
-/** Roles that need the new slug, as `[where, role]`. */
 interface Pending {
   readonly where: string
   readonly slug: string

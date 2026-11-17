@@ -1,9 +1,3 @@
-/**
- * A country's released works with their editions' labels: what "Add a
- * document" offers to file a PDF under, and how it tells an edition that
- * already exists. Platform staff with `platform:settings:view`.
- */
-
 import { platformApiRoute } from '@/lib/api/platform-handler'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
 import { parseQuery } from '@/lib/api/handler'

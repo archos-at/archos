@@ -48,16 +48,9 @@ from agent.common.page_text import running_furniture
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from llama_index.core import Document
 
-#: Body tokens per chunk, breadcrumb excluded. Well inside the 1024-token splitter
-#: budget after the metadata header (file name, Punkt path, page, Dokumentart: ~80-120
-#: tokens), so the splitter downstream never re-cuts a chunk and strands its breadcrumb
-#: on the first piece. Measured on German prose with the splitter's own tokenizer:
-#: ~2.7 characters per token, so this is ~1700 characters -- two to four paragraphs.
 CHUNK_TOKENS = 640
-#: Tokens of the previous chunk repeated at the head of the next, inside a section only.
 OVERLAP_TOKENS = 96
 
-#: Metadata that orders, ranges or diagnoses a chunk and carries no retrieval signal.
 SECTION_EMBED_EXCLUDED_METADATA_KEYS = (
     "page_end",
     "clause_depth",
@@ -76,55 +69,34 @@ BREADCRUMB_SEP = " › "
 
 logger = logging.getLogger(__name__)
 
-# --- Heading recognition ---------------------------------------------------------------
 
-#: ``3``, ``3.2``, ``3.2.1.`` then a title. Segments of at most two digits: ``1.200 m²``
-#: is a number, never a heading (the same guard ``clause_chunking`` measured).
 _NUMBERED_RE = re.compile(r"^(?P<num>\d{1,2}(?:\.\d{1,2}){0,4})\.?\s+(?P<title>\S.*)$")
-#: Legal and annex numbering. The title may sit on the next line (``§ 3`` / ``Begriffe``).
 _WORD_NUMBERED_RE = re.compile(
     r"^(?P<num>§\s*\d+[a-z]?|(?:Artikel\s+|Art\.\s*)\d+[a-z]?|(?:Anhang|Anlage|Beilage)\s+[A-Z0-9]{1,3}"
     r"|(?:Kapitel|Abschnitt|Teil)\s+[0-9IVX]{1,4})\.?(?:\s*[:\-–]\s*|\s+|$)(?P<title>.*)$"
 )
-#: Wrappers that make a word-numbered heading the TOP level when a document uses them.
 _CHAPTER_WORDS = ("Kapitel", "Abschnitt", "Teil", "Anhang", "Anlage", "Beilage")
 _DOT_LEADER_RE = re.compile(r"\.{4,}")
 _MAX_HEADING_CHARS = 120
 _MAX_HEADING_WORDS = 14
-#: A heading wraps over three lines at most, and joined it stays within two lines' worth.
-#: A longer run in heading type is a block set large, not a heading (``find_headings``).
 _MAX_WRAPPED_HEADING_LINES = 3
 _MAX_WRAPPED_HEADING_CHARS = 2 * _MAX_HEADING_CHARS
 _MAX_WRAPPED_HEADING_WORDS = 2 * _MAX_HEADING_WORDS
-#: Bold-only (body size, no number) headings are shorter still: a bold lead-in sentence
-#: is emphasis, not structure.
 _MAX_BOLD_HEADING_CHARS = 90
-#: A line set this much larger than the body is display type.
 _LARGER_RATIO = 1.15
-#: Below this it is a footnote or a caption, never a heading.
 _SMALLER_RATIO = 0.95
 _BOLD_FRACTION = 0.8
 _BOLD_FONT_RE = re.compile(r"bold|black|heavy|semibold|demi", re.IGNORECASE)
-#: A Markdown ATX heading (``## 1 Befund``), as the transcription prompt asks for them.
 ATX_HEADING_RE = re.compile(r"^(?P<hashes>#{1,6})\s+(?P<title>.+?)\s*#*\s*$")
-#: A numbered line in body type is a heading only when its title reads as one: at most
-#: this many words, no finite verb, not ending mid-sentence.
 _MAX_PLAIN_TITLE_WORDS = 8
 _FINITE_VERBS = frozenset(
     "ist sind war waren wird werden wurde wurden hat haben hatte muss müssen darf dürfen "
     "kann können soll sollen gilt gelten bleibt bleiben erfolgt erfolgen".split()
 )
 
-# --- Fallback gates ---------------------------------------------------------------------
 
-#: At least this many headings. Two headings make a letter with a subject line and a
-#: signature block look structured; three is the smallest real outline.
 MIN_HEADINGS = 3
-#: Share of the body text that must sit under a heading. Below it the headings are a
-#: cover page or a few bold labels on a document that is mostly something else.
 MIN_SECTION_COVERAGE = 0.5
-#: Above this share of lines being headings the "structure" is a form, a slide list or
-#: a table of short rows, and cutting on it yields one-line chunks.
 MAX_HEADING_LINE_SHARE = 0.3
 
 _HYPHEN_BREAK_RE = re.compile(r"(\w)-\n([a-zäöüß])")
@@ -139,9 +111,7 @@ class Line:
     text: str
     size: float | None = None
     bold: bool = False
-    #: The last position a multi-line unit (a paragraph) covers; ``None`` for one line.
     end: int | None = None
-    #: The hash count of a Markdown ATX heading line (its markers stripped from ``text``).
     atx: int = 0
 
     @property
@@ -157,7 +127,6 @@ class Heading:
     title: str
     level: int
     size: float | None = None
-    #: Lines the heading occupies: 2 when a bare "§ 3" took its title from the next line.
     span: int = 1
 
     @property
@@ -273,11 +242,8 @@ def _shape_ok(text: str) -> bool:
         return False
     if _DOT_LEADER_RE.search(text):
         return False
-    # A bare "§ 3" has no letter and is still a heading; a bare number is not.
     if not re.search(r"[A-Za-zÄÖÜäöüß]", text) and not _WORD_NUMBERED_RE.match(text):
         return False
-    # A contents-page entry without leader dots: "1.1 Gebäudebeschreibung 4". Numbered
-    # lines only -- "Brandschutz nach OIB-Richtlinie 2" is a heading.
     if _NUMBERED_RE.match(text) and re.search(r"[A-Za-zÄÖÜäöüß]\S*\s+\d{1,3}$", text):
         return False
     return not re.search(r"[.,;]$", text)
@@ -504,9 +470,6 @@ def find_headings(lines: list[Line]) -> dict[int, Heading]:
     return headings
 
 
-# --- Sections ---------------------------------------------------------------------------
-
-
 def _breadcrumb(stack: list[Heading], heading: Heading) -> list[Heading]:
     """The ancestors still open at ``heading``'s level, then ``heading`` itself."""
     while stack and stack[-1].level >= heading.level:
@@ -561,9 +524,6 @@ def structure_is_usable(lines: list[Line], sections: list[Section]) -> bool:
     if not total or covered / total < MIN_SECTION_COVERAGE:
         return False
     return len(headed) / len(lines) <= MAX_HEADING_LINE_SHARE
-
-
-# --- Packing ------------------------------------------------------------------------------
 
 
 def _token_counter() -> Callable[[str], int]:
@@ -671,9 +631,6 @@ def chunk_text(section: Section, lines: list[Line]) -> str:
     heading = section.heading_lines
     body = join_lines([line for line in lines if not any(line is own for own in heading)])
     return f"{BREADCRUMB_SEP.join(section.path)}\n\n{body}".rstrip()
-
-
-# --- PDF entry point -------------------------------------------------------------------
 
 
 def _pdf_section_documents(

@@ -1,18 +1,3 @@
-/**
- * Tasks with timing — a request, optionally on a timer, and the week it makes.
- *
- * A task fires its prompt into a fresh run the way a person opening a new
- * chat and typing would — once, or on the rhythm from step 2. A skill is
- * reached the same way it is in a chat: by typing `/name` into the request,
- * which the model then chooses to use. Nothing here attaches one, and the
- * skill toolbox itself lives in the `skills` namespace.
- *
- * Two things this namespace now owns that it did not: the TIMETABLE's copy,
- * and a three-step WIZARD's. Both exist because a rhythm is the one thing in
- * the product a person cannot check by looking at it — so the surface spends
- * its words on making the commitment legible ("Every Monday at 06:00", the next
- * three real dates) rather than on naming cron fields.
- */
 export const jobs = {
   title: 'Tasks',
   backToList: 'Back to list',
@@ -30,8 +15,6 @@ export const jobs = {
     manualOnly: 'Manual only',
     onceOn: 'Once on {time}',
     onceDone: 'Done',
-    // Terse on purpose: both sit on ONE footer line of a card, and the German
-    // equivalents overflow it at grid width.
     nextRun: 'Next {time}',
     lastRun: 'Last {time}',
     neverRun: 'Never run',
@@ -57,7 +40,6 @@ export const jobs = {
     delete: 'Delete',
   },
 
-  /** The week grid. See `schedule-timetable.tsx` for why it exists at all. */
   timetable: {
     title: 'The week',
     legend: 'Tasks on this grid',
@@ -65,13 +47,10 @@ export const jobs = {
     today: 'Today',
     previousWeek: 'Previous week',
     nextWeek: 'Next week',
-    /** The band is cropped to the hours that carry something. */
     showFullDay: 'Show all 24 hours',
     showActiveHours: 'Show active hours only',
     nothing: 'Nothing',
-    /** The marked break standing in for a long empty stretch of the day. */
     gap: '{hours} h',
-    /** A cron the parser could not read — named, never silently left off. */
     unplaceable: 'Not shown on the grid: {names}',
     emptyNoSchedules: 'Nothing scheduled yet',
     emptyNoSchedulesHint: 'Create a task with a rhythm and this week fills in.',
@@ -79,21 +58,17 @@ export const jobs = {
   },
 
   schedule: {
-    /** How often — the four answers the wizard offers. */
     frequency: {
       hourly: 'Hourly',
       daily: 'Daily',
       weekly: 'Weekly',
       monthly: 'Monthly',
     },
-    // The humanized sentence on a card and in the drawer, built from the cron.
     summaryHourly: 'Hourly at :{minute}',
     summaryDaily: 'Daily at {time}',
     summaryWeekly: 'Every {weekday} at {time}',
-    /** Monday–Friday is a phrase people use; five names in a row is not. */
     summaryWeekdays: 'Weekdays at {time}',
     summaryMonthly: 'Monthly on the {day}. at {time}',
-    /** A cron the composer cannot express, shown verbatim rather than guessed at. */
     summaryCustom: 'Custom ({cron})',
     inTimezone: '{summary} · {timezone}',
   },
@@ -115,7 +90,6 @@ export const jobs = {
   },
 
   builder: {
-    /** The rail. Three steps, one required decision each — see the wizard's docstring. */
     stepsLabel: 'Steps',
     stepProgress: 'Step {current} of {total}',
     steps: {
@@ -151,7 +125,6 @@ export const jobs = {
     promptRequired: 'A request is required.',
     promptTooLong: 'The request is too long (max 8000 characters).',
 
-    /** Everything behind the one disclosure per step. */
     advancedSources: 'Data sources',
     advancedSchedule: 'Timezone and cron',
 
@@ -186,13 +159,6 @@ export const jobs = {
     weekdayHint: 'Pick as many days as you need — Mon to Fri reads as “weekdays”.',
     monthDayLabel: 'On the',
     monthDayValue: '{day}.',
-    /**
-     * The next real fire times — the claim, made checkable.
-     *
-     * "Times", not "runs": a run that has not happened is not a run, and the
-     * word for the ones that HAVE is Tasks. Future and past need different
-     * nouns or the surface says the same word about two different things.
-     */
     upcomingLabel: 'Next times',
     upcomingNone: 'This never fires — it only runs when started by hand.',
 
@@ -208,11 +174,6 @@ export const jobs = {
     enabledLabel: 'Active',
     enabledHint: 'A paused task never fires and cannot be run by hand.',
 
-    /**
-     * The review step's one sentence. A task always produces the same thing —
-     * a researched report, filed in the project — so the noun is part of the
-     * sentence rather than a slot the wizard once filled from a choice.
-     */
     reviewSentence: '{productName} researches a report {cadence} and files it in the project.',
     reviewSentenceOnce: '{productName} researches a report and files it in the project — once, on {dueAt}.',
     reviewSentenceManual:
@@ -238,12 +199,6 @@ export const jobs = {
     loading: 'Loading tasks…',
     loadError: 'The history could not be loaded.',
     empty: 'This task has not run yet.',
-    /**
-     * Both doors lead to the same place, the thread the run narrates itself in
-     * (ADR-0062) — the words differ because a live run is watched and a
-     * finished one is read. „View report" and „View thinking" went with the
-     * side panel that held them apart.
-     */
     openChat: 'Open chat',
     viewProgress: 'View progress',
     scheduler: 'Scheduler',

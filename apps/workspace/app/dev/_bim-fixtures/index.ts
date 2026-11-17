@@ -1,11 +1,3 @@
-/**
- * Fixture data for the `/dev/bim-*` previews, matching
- * `tests/fixtures/ifc/sample-building.ifc`.
- *
- * One copy, because the model page and the stage preview showed the same
- * building and two literals of it drift on the first field the contract grows.
- */
-
 import type { BimModelSummary } from '@/lib/bim/types'
 import type { BimViewerElement } from '@/features/bim/lib/model-index'
 import type { BimElementDetail } from '@/features/bim/hooks/use-bim-model'

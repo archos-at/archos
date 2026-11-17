@@ -1,17 +1,3 @@
-/**
- * The organization's standing instruction block.
- *
- * GET — any member may read it. The block shapes every answer they get, so it
- *       is not a secret from them; the read is keyed by `session.organizationId`
- *       and reaches nothing else.
- * PUT — `org:settings:manage`, the permission ADR-0016's registry defines for
- *       settings that shape how the organization behaves for everyone in it
- *       (the same gate as `/api/organization/settings`). An empty body clears
- *       the block.
- *
- * Thin handlers; all logic lives in `@/lib/org-instructions/service`.
- */
-
 import { orgInstructionsSchema } from '@/lib/organizations/organization-wire'
 import { apiRoute, parseJsonBody } from '@/lib/api/handler'
 import { ORG_PERMISSIONS } from '@/lib/authz/permissions'

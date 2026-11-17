@@ -28,9 +28,6 @@ from agent.stages.spec import StageSpec
 from agent.stages.spec import StageStatus
 from agent.stages.spec import TurnFacts
 
-# Import for the registration side effect: the declarations must exist before
-# the call site iterates them. Kept last so the primitive is fully importable
-# even if a stage module grows a heavier import.
 from agent.stages import memory_reflection as _memory_reflection  # noqa: E402  isort:skip
 from agent.stages import follow_ups as _follow_ups  # noqa: E402  isort:skip
 

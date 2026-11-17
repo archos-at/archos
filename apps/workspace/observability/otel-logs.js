@@ -21,13 +21,11 @@
  */
 
 const util = require('node:util')
-// The same code set `lib/db/errors.ts` and the workers classify an outage by.
 const { UNAVAILABLE_CODE_PATTERN } = require('../workers/database-unavailable')
 const { collectorEndpoint, resourceAttributes, signalUrl } = require('./otlp')
 
 let initialized = false
 
-// severityNumber/severityText per the OTel logs data model.
 const SEVERITY = {
   debug: { severityNumber: 5, severityText: 'DEBUG' },
   log: { severityNumber: 9, severityText: 'INFO' },
@@ -53,64 +51,18 @@ const SEVERITY = {
  */
 const NOT_AN_ERROR = [
   {
-    // Node prints its process warnings through `console.error` — the default
-    // 'warning' handler in `lib/internal/process/warning.js` does exactly that
-    // — so what reaches this bridge is a WARNING that merely chose the error
-    // stream. Issue #230 was DEP0060 (`util._extend`, raised by http-proxy
-    // 1.18.1 on the first request each pod proxies) filed nine times. Matching
-    // Node's own prefix, anchored at the start of the record, means an
-    // application error would have to open with a literal "(node:<pid>)
-    // …Warning: " to be caught by this.
     reason: 'node-process-warning',
     match: /^\(\w+:\d+\) (\[[A-Z0-9_]+\] )?\w*Warning: /,
   },
   {
-    // A 404 the application raised on purpose. `NotFoundError`
-    // (`@/lib/api/errors`) is how every service answers "missing, or you may
-    // not see it" — tenancy and permission denials included, so a response
-    // never leaks whether a resource exists — and `errorResponse` in
-    // `@/lib/api/handler` deliberately logs no `ApiError` at all: an expected
-    // outcome is not a failure. A page render has no such wrapper, so the same
-    // error escaping a server component is reported by Next's own error logger
-    // and reached this bridge as ERROR (issue #262). The 404 the visitor got
-    // was the correct answer; only the severity was wrong.
-    //
-    // Deliberately narrow: it matches the `ApiError` field envelope Node's
-    // inspect output prints (status before code, the order the constructor
-    // assigns them) and only for NOT_FOUND, so a 5xx, an upstream failure, or
-    // any other code is untouched. A 404 that IS a bug — a server-side read of
-    // something that should exist — is still recorded here in full, it just no
-    // longer files an issue on its own; the signal that distinguishes it from a
-    // visitor following a stale link is volume, which the dashboard shows and
-    // a per-occurrence severity cannot.
     reason: 'expected-404',
     match: /status: 404,\s+code: 'NOT_FOUND'/,
   },
   {
-    // The browser left while a page or RSC payload was still streaming: it
-    // navigated away, or a prefetch was cancelled. React's server renderer
-    // aborts the render with exactly this reason when the response it writes
-    // to closes (`destination.on("close", …)` in react-server-dom-*), and Next
-    // logs it with ⨯ because its `isAbortError` knows only the names
-    // AbortError and ResponseAborted. It has no stack and no route because
-    // React made the error itself. #578 filed it 28 times. The render stopped
-    // because nobody was reading it, which is not an application error.
-    // Anchored to the whole sentence Next prints, so an application error
-    // would have to reuse React's wording to be caught.
     reason: 'client-disconnect',
     match: /^⨯ Error: The destination stream closed early\.(\s|$)/,
   },
   {
-    // A page render that failed because the database was unreachable. The
-    // outage itself is an ERROR, filed once by the API wrapper's fixed
-    // `[db] database unavailable (<code>)` line (`lib/api/handler.ts`); this is
-    // the same outage reported again by Next's own logger for every page that
-    // rendered during it, each with its own query text, which is how one
-    // restart became #734 and #737-#739 beside the API's own. Matched on the
-    // driver's cause code as Node's inspect prints it, and only under a
-    // `Failed query` that Next logged, so a bad query stays an ERROR. The code
-    // set is `workers/database-unavailable.js`, never a copy: the copy this
-    // regex used to carry had already lost `EPIPE`.
     reason: 'database-unavailable-render',
     match: new RegExp(
       `^⨯ Error: Failed query:[\\s\\S]*\\[cause\\]:[\\s\\S]*code: '(${UNAVAILABLE_CODE_PATTERN})'`,
@@ -146,9 +98,6 @@ function initOtelLogs() {
   const resource = defaultResource().merge(resourceFromAttributes(resourceAttributes(process.env)))
   const provider = new LoggerProvider({
     resource,
-    // SDK 2.x: the exporter goes in an options object — positional
-    // construction leaves _exporter undefined and every flush throws inside
-    // the processor (swallowed by diag), silently dropping all records.
     processors: [new BatchLogRecordProcessor({ exporter: new OTLPLogExporter({ url: signalUrl(endpoint, 'logs') }) })],
   })
   logs.setGlobalLoggerProvider(provider)

@@ -68,8 +68,6 @@ logger = logging.getLogger(__name__)
 
 _PT_PER_MM = 72.0 / 25.4
 
-#: matplotlib's rc state and ezdxf's font cache are process-global; one page is
-#: drawn at a time. The BFF sends two conversions at once per replica at most.
 _RENDER_LOCK = threading.Lock()
 _fonts_ready = False
 
@@ -128,7 +126,6 @@ def _ensure_fonts() -> None:
 
 def _model_extents(source: DxfSource) -> bbox.BoundingBox:
     msp = source.doc.modelspace()
-    # A Katastralmappe's sheet markers sit at the sheet's corner, outside what it draws.
     entities = [entity for entity in msp if not (source.cadastre and entity.dxf.layer.upper() == "RL")]
     extents = bbox.extents(entities, fast=True)
     if not extents.has_data or extents.size.x <= 0 or extents.size.y <= 0:
@@ -203,11 +200,8 @@ def _draw_model(source: DxfSource, axes: Axes) -> None:
     settings = config.Configuration(
         background_policy=config.BackgroundPolicy.WHITE,
         color_policy=config.ColorPolicy.COLOR if source.cadastre else config.ColorPolicy.BLACK,
-        # ezdxf hands matplotlib a line weight in millimetres as if it were points,
-        # which draws 0.35 mm as 0.12 mm. Scaled here, so a weight plots as it says.
         lineweight_scaling=_PT_PER_MM,
         min_lineweight=0.13 * _PT_PER_MM,
-        # A Katastralmappe's labels are set as PDF text (``text_layer``); anything else keeps ezdxf's outlines.
         text_policy=config.TextPolicy.IGNORE if source.cadastre else config.TextPolicy.FILLING,
     )
     xlim, ylim = axes.get_xlim(), axes.get_ylim()
@@ -217,7 +211,6 @@ def _draw_model(source: DxfSource, axes: Axes) -> None:
     axes.set_ylim(*ylim)
 
 
-#: How each kind of point mark is drawn: matplotlib marker and face, then a second marker on top, if any.
 _MARK_STYLE = {
     "cross": ("x", "none", None),
     "triangle": ("^", "white", None),

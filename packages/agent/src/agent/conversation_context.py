@@ -32,14 +32,10 @@ from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 
-#: Char cap on a single ingested message, mirroring ``normalize_project_context``.
-#: A pathological paste must not bloat the checkpoint that every later turn reads.
 MAX_CONTEXT_MESSAGE_CHARS = 4000
 
-#: Char cap on the author's display name. Attribution, not a payload.
 MAX_CONTEXT_AUTHOR_CHARS = 120
 
-#: ``(thread_id, text) -> None``. Registered by the chat agent at build time.
 ContextAppender = Callable[[str, str], Awaitable[None]]
 
 _appender: ContextAppender | None = None

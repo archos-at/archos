@@ -31,17 +31,7 @@ class _AddedDocuments:
 
 
 _WRITE_NOW: ContextVar[asyncio.Event | None] = ContextVar("deep_research_write_now", default=None)
-#: Whether the research tool refused a batch because the reader asked for the
-#: report. Only that makes the report cut short: a request that lands after the
-#: last batch finds a run already writing everything it researched. A mutable
-#: record bound at the top of the run, because the tool runs in a copied
-#: context and a ``ContextVar.set`` there would not reach ``_finalize``.
 _WRITE_NOW_HONOURED: ContextVar[list[bool] | None] = ContextVar("deep_research_write_now_honoured", default=None)
-#: Documents the reader added to the Grundlage while the run goes, in arrival
-#: order. The job runner's monitor appends (``job.document_added`` events) and
-#: never drains, so the list is also the run's whole account of its additions;
-#: the research tool reads past a cursor before a batch and tells the
-#: orchestrator.
 _ADDED_DOCUMENTS: ContextVar[_AddedDocuments | None] = ContextVar("deep_research_added_documents", default=None)
 
 

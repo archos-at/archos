@@ -24,62 +24,20 @@ from typing import Literal
 from pydantic import BaseModel
 from pydantic_core import PydanticUndefined
 
-# Card types the MODEL MAY NOT EMIT because a TOOL owns them. They remain valid
-# union members for validation/serialization/rendering, and only their
-# description in the model-facing catalog is suppressed. Every emission path
-# reads this set: the envelope's `cards` and `emit_card` (`validate_model_card`
-# in `cards/envelope.py`), post-hoc batch generation (`validate_cards` in
-# `cards/models.py`) and the DSML salvage (`piloti/dsml.py`).
-#
-# A tool on a sanctioned path owns each card and the model must not be able to
-# fabricate it (`memory_proposal` from `remember`, `document_grid` from
-# `surface_documents`, `document_draft` from the working directory's
-# `write_file`/`edit_file`, whose card names a file that has to exist,
-# `task_created` from `create_task`, whose card names a task row the BFF has
-# already written, `file_operation_proposal` from the four write-side workspace
-# tools, whose card names files the reader actually has).
 SYSTEM_CARD_TYPES = frozenset(
     {
         "memory_proposal",
-        # `operation_proposal` from the product's own MCP server: the card names
-        # a stored `operation` proposal a person decides (ADR-0122).
         "operation_proposal",
         "document_grid",
         "document_draft",
-        # `task_created` from `create_task`: the card is proof that a task ROW
-        # exists, and a model that could fabricate one could announce delegated
-        # work nobody queued — which is exactly the sentence the tool was added
-        # to stop the model writing on its own.
         "task_created",
         "file_operation_proposal",
-        # `canvas_activity` from the canvas tools: the card names marks and
-        # replies the BFF has already written, by their ids and numbers.
         "canvas_activity",
-        # `look` from `look`, `highlight` and `point` (ADR-0128): the card names
-        # places Piloti actually rendered or showed the room, built once the
-        # answer is final from the looks it relies on (`tools/look/cards.py`).
         "look",
-        # `revision_compare` from `workspace__call` of `document-revision-compare`
-        # (ADR-0128, V10): the card shows the result of a comparison that ran, by
-        # the two documents' ids, so a model that could emit it could present a
-        # comparison nobody made.
         "revision_compare",
     }
 )
 
-#: Card types that no longer exist, each with what carries its content now. They
-#: were deleted from the `AnswerCard` union (an answer is Markdown prose; a card
-#: must carry an interaction, geometry drawn to scale, a computed number or a
-#: live model binding that Markdown cannot), so no channel can register one.
-#: This map only makes the refusal useful: a model that reaches for one by name
-#: is told the Markdown (or the card) that replaced it, instead of a validator's
-#: "unknown discriminator" that would send it to the repair model.
-#:
-#: Plain GFM, no `:::` block: these refusals reach deep research (`emit_card`)
-#: and the repair model, and the deep writer's PDF prints a `:::` line as text
-#: until Phase B. The chat envelope never shows them: a retired card there is
-#: turned into its Markdown instead (:func:`retired_card_markdown`), and the
-#: chat's own prompt maps each shape to its block.
 RETIRED_CARD_REPLACEMENTS: dict[str, str] = {
     "summary": "the answer's first sentence, or the `summary` field of your ```answer_json envelope",
     "verdict_header": "the `verdict` field of your ```answer_json envelope",
@@ -118,13 +76,9 @@ def retired_refusal(card_type: str) -> str:
     return f"card type '{card_type}' no longer exists: write {RETIRED_CARD_REPLACEMENTS[card_type]} instead."
 
 
-#: Keys of a retired payload whose text is a verbatim passage: a quote line.
 _QUOTE_KEYS = ("original_text", "quote", "excerpt")
-#: Keys whose text heads the Markdown: a bold line.
 _TITLE_KEYS = ("title", "law", "subject")
-#: Nothing a reader lost with the card: the discriminator and styling hints.
 _SKIPPED_KEYS = frozenset({"type", "lane", "highlight_index", "current_step", "v"})
-#: Up to this long a text field is a label on the title line, past it a paragraph.
 _LABEL_CHARS = 40
 
 
@@ -165,7 +119,6 @@ def retired_card_markdown(payload: object) -> str | None:
     title = next(
         (payload[key] for key in _TITLE_KEYS if isinstance(payload.get(key), str) and payload[key].strip()), None
     )
-    # Short labels (an edition, a Punkt) ride on the title line; a sentence is its own paragraph.
     labels = [
         value.strip()
         for key, value in payload.items()
@@ -198,51 +151,6 @@ def retired_card_markdown(payload: object) -> str | None:
     return "\n\n".join(parts) if parts else None
 
 
-# Card types that ASK THE USER TO DECIDE something and act on the answer. They
-# are a different kind of object from the rest of the catalog: a presentational
-# card can be re-rendered from its payload forever, but an interactive card's
-# ANSWER is state that exists nowhere else, so the frontend must persist it on
-# the message (see
-# docs/adr/0030-interactive-card-decisions-persist-on-the-message.md).
-#
-# Adding a card type here is a contract with the frontend, not a label:
-#   - `apps/workspace/ui/features/cards/card-decision.ts` must classify it
-#     `'interactive'` in CARD_INTERACTIVITY (that map is exhaustive, so `tsc`
-#     fails until you do);
-#   - its renderer must drive its lifecycle from `useCardDecision`, never from
-#     component-local `useState`;
-#   - every terminal outcome it can reach must be a member of `CARD_DECISIONS`;
-#   - it must also be in SURFACE_EXCLUDED_LEAVES: a leaf inside a surface has
-#     no message position for its decision to be keyed by. `cards/models.py`
-#     derives that set from this one (and from SYSTEM_CARD_TYPES), so Python
-#     needs no edit; the frontend's copy in
-#     `apps/workspace/ui/features/a2ui/catalog.tsx` is kept by hand, and
-#     `packages/agent/tests/cards/test_surface_excluded_parity.py` holds it to the
-#     derived set.
-#
-# Emit an interactive card ONLY for an action that is not safely repeatable
-# (a memory write, a profile patch). If the action is idempotent and cheap,
-# prefer a presentational card — there is then nothing to remember.
-#
-# `diagram` was briefly a member for a filing button the release review cut; the
-# card is gone now (RETIRED_CARD_TYPES), and a ```mermaid fence in the prose
-# carries what it drew. There is no second set here (a `CONSENT_CARD_TYPES`
-# briefly existed and left with the button): two constants equal by
-# construction are two things to keep in sync.
-#
-# `document_draft` joined when `file_draft` gave it something to act on. It is a
-# borderline case worth stating: the card is emitted by a WRITE that already
-# happened (the draft exists), so emitting it costs the reader no decision — but
-# a FILED card offers „Zur Freigabe einreichen", and that is a non-idempotent
-# write which opens an inbox item on a colleague. The rule above is about the
-# answer, not about the emission, so it is a member. Its OTHER control, on an
-# unfiled card, writes nothing at all: it prefills the composer.
-#
-# `canvas_activity` carries Piloti's PROPOSED marks, which a person takes over or
-# dismisses from the card as well as on the document: a non-idempotent write
-# per mark, so its decisions are stored per mark. (On the frontend it is classified
-# `'live'`: the mark is the record, not the message. "Interactive" here means
-# "asks the user", which a live card still does.)
 INTERACTIVE_CARD_TYPES = frozenset(
     {
         "project_profile_patch",
@@ -254,55 +162,10 @@ INTERACTIVE_CARD_TYPES = frozenset(
     }
 )
 
-# Card types offered on the chat envelope only. A `surface` is taught by the
-# envelope's COMPOSE rule (its field line alone says nothing a model could fill
-# it from), and its `Text` leaves carry `[N]` that only the chat pipeline holds
-# to the answer's verified citations (`cards/surface_citations.py`). The
-# `emit_card` index and the post-hoc prompt have neither, so they withhold it,
-# and the `emit_card` tool, `describe_card` and the post-hoc validator
-# (`models.validate_cards`) refuse it.
 CHAT_ONLY_CARD_TYPES = frozenset({"surface"})
 
-# Card types whose fields must be COPIED from a tool result and cannot be
-# derived from prose: every one of them is addressed by IFC GlobalId, rule id
-# or file name, and an id that was not returned by ``ifc_query`` in the same
-# turn does not identify anything.
-#
-# They stay in the catalog for the ``emit_card`` tool, whose caller has the tool
-# rows in context. They are withheld from POST-HOC generation
-# (:func:`agent.cards.prompt.build_card_generation_prompt`), which sees only
-# the question and the finished answer text — no tool output at all. From that
-# context the only ids available are whatever survived into the prose, so a
-# model card generated there is built from leftovers or invented outright, and
-# an unresolvable GlobalId renders as a missing element, which tells the user
-# their model is broken when it is not.
 MODEL_BACKED_CARD_TYPES = frozenset({"ifc_viewer", "ifc_element", "ifc_compliance", "ifc_schedule", "ifc_diff"})
 
-# The shared card DOCTRINE: what Markdown carries, which trigger takes which card, and when to emit
-# none.
-#
-# It lives here, with the shapes, because every surface that asks a model for a card needs it and
-# none may hold its own copy: the chat envelope (`cards/envelope.py`), `emit_card` for deep research
-# (`cards/register.py`) and the post-hoc batch pass (`cards/prompt.py`). A rule kept twice disagrees
-# with itself.
-#
-# The CRAFT rides WITH the triggers, one indented block per row, because the trigger and how the
-# card is filled well are one decision. `include_craft=False` renders the rows alone, for the
-# post-hoc surface, which has its own short craft in `prompt.py`.
-#
-# What stays OUT of this module is what only the answering PROMPT can say: the `[[card:N]]`
-# placement contract, and the envelope's own fields (verdict, takeaways, callout).
-#
-# MARKDOWN FIRST leads, on every surface. An answer is Markdown prose; a table, a list, a flowchart
-# fence and a verified blockquote carry what the retired cards (RETIRED_CARD_TYPES) carried, and a
-# card is left for what Markdown cannot hold: an interaction, geometry drawn to scale, a number the
-# card computes, a live binding to the building model, variants in tabs. So the table below is
-# short, and a match is a REASON, not an obligation: the clause about carrying more than the
-# sentence beside it puts the restatement test (anti-goal D.8) in the invitation itself.
-#
-# The NAMING clause closes the one gap the table cannot reach: field transcripts showed the model
-# recognising the right card and then writing prose anyway. Not "you must", but "you have already
-# decided".
 _MARKDOWN_FIRST = """\
 MARKDOWN FIRST. The answer's own Markdown carries rows of values, cases and options (a table; a
 Status column renders its words as marks, and `trifft zu` marks the row that holds for this
@@ -311,9 +174,6 @@ forks), and the wording an answer turns on (a cited blockquote > „…“ [N]).
 Markdown cannot carry: an interaction, geometry drawn to scale from measurements, a number the card
 computes (calculation), or a live binding to the building model."""
 
-#: The chat's MARKDOWN FIRST: the same rule in the blocks the chat prompt teaches
-#: (`chat_static.md` <formatting> RICH BLOCKS), so the envelope's contract and
-#: the prompt read one way. Only the chat draws the blocks and a `surface`.
 _MARKDOWN_FIRST_CHAT = """\
 MARKDOWN FIRST. The answer's own Markdown carries what the retired cards carried, in the blocks
 RICH BLOCKS teaches: criteria each with a status (`:::check`), the cases of one project factor
@@ -331,23 +191,12 @@ drawing the card would have shown them. Emit it where the match is clear and the
 carries more than the sentence beside it. Naming the card IS the decision: once you can say which
 card this answer is, emitting it is the step that follows, not a second judgement."""
 
-# The picker's CRAFT, indented under its trigger row like every other card's. The row and this note
-# travel together and are withheld together: the shape stays in the catalog on every surface — the
-# card carries a heading and nothing else, so there is no id to invent (which is why it is not, and
-# must not become, a member of MODEL_BACKED_CARD_TYPES). What does not transfer is the instruction.
-# It fires on a live intent in the turn being answered, and it tells the model to emit the card
-# INSTEAD of writing the file names in prose. On the post-hoc path the prose is already written and
-# cannot be unwritten, so that trade is not on offer.
 _MODEL_PICKER_NOTE = """\
 The ifc_model_picker is the answer to "zeig mir das Modell" / "welches Modell soll ich öffnen":
 emit it INSTEAD of writing the file names as a prose bullet list. It renders the project's models
 as tiles the user clicks to open the viewer directly — you supply only the heading, never the file
 names, so there is nothing to get wrong. You do not need to call ifc_query first to list them."""
 
-#: ``(trigger, card, craft)``. The trigger says WHICH card; the craft, indented under it, says how
-#: that card is filled well. A card type with no craft entry is one the renderer already constrains:
-#: the schematic cards draw to scale from `DimensionCheck` rows, so getting the fields in is the
-#: whole of getting the card right.
 _CARD_TRIGGERS: tuple[tuple[str, str, str], ...] = (
     ("a riser, tread or stair width", "stair_diagram", ""),
     ("a clear width, ramp or turning circle", "dimension_diagram", ""),
@@ -390,38 +239,25 @@ _CARD_TRIGGERS: tuple[tuple[str, str, str], ...] = (
     ),
 )
 
-#: Withheld from the post-hoc surface, row and craft together (`include_ifc_triggers=False`).
 _MODEL_PICKER_ROW = (
     "the user wants to SEE or OPEN the building and the project may hold several models",
     "ifc_model_picker",
     _MODEL_PICKER_NOTE,
 )
 
-# The anti-fabrication rule: the reason a card can be worse than no card at all, and the ONE
-# instruction here that outranks a trigger. Stated on its own, away from the volume rule, so a
-# model that discounts "two is plenty" as tone does not discount "never fabricate" with it. The
-# post-hoc path states it a second time, in stronger terms (see `prompt.py`).
 _CARD_HONESTY = """\
 WHAT MAY GO ON ONE. Never fabricate a field, a reference or a number to fill a card out — a card
 with an invented limit in it is worse than the prose alone, because it is the part that gets
 screenshotted into a submission. A value you do not have is left out or marked "needs_input", never
 estimated to make the card look finished. This rule outranks every trigger above."""
 
-# The volume rule, and only that — a CEILING, said as a ceiling (anti-goal D.8: no card that
-# restates the prose beside it).
 _CARD_RESTRAINT = """\
 WHEN NOT TO. One card is usually the right number, two the ceiling, none the normal case. A
 one-line factual answer earns none: the card would only repeat the sentence above it. A card that
 shows what a table or a sentence in the prose already shows is a restatement: keep the prose, cut
 the card."""
 
-# One worked example per hard-to-nest card, so the model sees the exact shape
-# instead of discovering it through repeated validation failures. Keys are the
-# card ``type`` values; values are validated in the card model tests.
 CARD_EXAMPLES: dict[str, dict] = {
-    # The one card whose shape is a GRAPH (ADR-0065): a container with id
-    # "root" and the cards it holds, each referenced by id. The example is the
-    # shape the COMPOSE rule in `cards/envelope.py` teaches, filled in.
     "surface": {
         "type": "surface",
         "title": "Zweiter Fluchtweg — zwei Varianten",
@@ -454,25 +290,13 @@ CARD_EXAMPLES: dict[str, dict] = {
             },
         ],
     },
-    # The one card whose element ids must be REAL: they come from ifc_query in
-    # the same turn, and an invented GlobalId highlights nothing. Worth an
-    # example so the model sees that `global_ids` is a list of opaque strings it
-    # copies, not a value it composes.
     "ifc_compliance": {
         "type": "ifc_compliance",
         "title": "Offene Anforderungen — Brandschutz",
         "model_file": "haus-a.ifc",
-        # Ids exactly as ifc_query operation='compliance' reported them. The
-        # card reports any that do not resolve rather than dropping them, so an
-        # invented id is visible instead of silently narrowing the list.
         "rule_ids": ["oib2-fire-resistance-load-bearing"],
         "note": "Orientierende Prüfung, kein Nachweis.",
     },
-    # Shows BOTH selectors, because the choice between them is the thing that
-    # is easy to get wrong. The first group is a SET — reusing the exact filter
-    # the count came from, so all of it highlights however large it is. The
-    # second names two walls the answer actually discussed, which is the only
-    # case where transcribing ids is the right move.
     "ifc_viewer": {
         "type": "ifc_viewer",
         "title": "Brandabschnitte – Erdgeschoss",
@@ -496,9 +320,6 @@ CARD_EXAMPLES: dict[str, dict] = {
         ],
         "note": "Die hervorgehobenen Wände stammen aus der Modellabfrage, nicht aus dem Plan.",
     },
-    # Carries no file names on purpose — the renderer lists the project's real
-    # models. The example exists to show that the payload is just a heading, so
-    # the model does not try to fill in a `models` array that does not exist.
     "ifc_model_picker": {
         "type": "ifc_model_picker",
         "title": "Welches Modell möchten Sie öffnen?",
@@ -549,12 +370,6 @@ CARD_EXAMPLES: dict[str, dict] = {
         "patch": [{"op": "add", "path": "/facts/fluchtniveau", "value": ">22m"}],
         "preview": [{"label": "Escape level", "before": "11–22m", "after": "> 22m"}],
     },
-    # The example the model copies has to make the one hard rule obvious: there
-    # is NO result field. It is a Brandabschnitt's Netto-Grundfläche from its
-    # rooms against OIB-RL 2 Pkt. 3.1.1 (1.600 m² for Büronutzung), because that
-    # is a derivation with a cited bound that is none of the four named rules a
-    # `formula` owns. One operand is our own measurement, with its band, so the
-    # example shows provenance and tolerance as well as the missing result.
     "calculation": {
         "type": "calculation",
         "title": "Netto-Grundfläche Brandabschnitt BA 2",
@@ -587,13 +402,6 @@ CARD_EXAMPLES: dict[str, dict] = {
 }
 
 
-# The formula card's example is the north-star question (ADR-0143): how much
-# insulation does the wall need. It shows what the model must get right and the
-# renderer cannot: the case (`component`), each input's `source`, and a
-# reader-adjustable range on the layer the question is about. It has no result
-# and no limit: 0,167 W/(m²K) is the card's, and so is the 0,35 of OIB-RL 6
-# Pkt. 4.4.1 row 1, which the card reads from its own table for a new build
-# (0,266 under Pkt. 4.5 b) for a renovation).
 CARD_EXAMPLES["formula"] = {
     "type": "formula",
     "title": "U-Wert Außenwand AW 01",
@@ -705,7 +513,6 @@ def _shape(model_cls: type, nested: list[type], *, with_desc: bool) -> str:
 
     parts: list[str] = []
     for field_name, field_info in model_cls.model_fields.items():
-        # A field only the server fills (`proposal_id`, `site_binding`) is not the model's to write.
         if _is_discriminator(field_name, field_info) or field_name in SERVER_SET_CARD_FIELDS:
             continue
         req = "*" if field_info.is_required() else ""
@@ -767,8 +574,6 @@ def describe_card_catalog() -> dict[str, Any]:
             {
                 "type": type_value,
                 "model": card_cls.__name__,
-                # First paragraph only: the rest of a card docstring is guidance
-                # for contributors, not a description of what the card shows.
                 "summary": " ".join(doc.split("\n\n")[0].split()),
                 "emittedBy": "system" if type_value in SYSTEM_CARD_TYPES else "agent",
                 "interaction": ("interactive" if type_value in INTERACTIVE_CARD_TYPES else "presentational"),
@@ -777,9 +582,6 @@ def describe_card_catalog() -> dict[str, Any]:
             }
         )
 
-    # Shapes the card bodies reference by name (NormReference, DimensionCheck,
-    # …), each defined once. `nested` grows while the cards above are described
-    # and again while the blocks themselves are, so walk it as a queue.
     seen: set[type] = set()
     building_blocks: dict[str, list[dict[str, Any]]] = {}
     i = 0
@@ -850,18 +652,12 @@ def render_card_catalog(*, include_model_backed: bool = True, exclude: frozenset
     card_lines: list[str] = []
     for card_cls in AnswerCard.__args__:
         type_value = _card_type_of(card_cls)
-        # System cards are emitted by tools on sanctioned paths, never by the
-        # model — omit them so the model can't fabricate them. Model-backed
-        # cards are omitted on the path that cannot supply their ids.
         if type_value in withheld:
             continue
         doc = (card_cls.__doc__ or "").strip().split("\n")[0]
         shape = _card_shape(card_cls, nested)
         card_lines.append(f'  - "{type_value}": {doc}\n      shape: {shape}')
 
-    # Define every shared building block ONCE (with field descriptions), so a
-    # card body can reference e.g. `DimensionCheck` by name without repetition.
-    # `nested` grows while rendering card shapes; expand transitively.
     seen: set[type] = set()
     block_lines: list[str] = []
     i = 0
@@ -873,9 +669,6 @@ def render_card_catalog(*, include_model_backed: bool = True, exclude: frozenset
         seen.add(model_cls)
         block_lines.append(f"  {model_cls.__name__} = {_shape(model_cls, nested, with_desc=True)}")
 
-    # An example is a card description too: leaving a worked `ifc_viewer` in
-    # place would advertise the exact shape of a card the surrounding text just
-    # withheld, which is the one thing more misleading than either alone.
     examples = "\n".join(
         f"  {type_value}:\n    {json.dumps(payload, ensure_ascii=False)}"
         for type_value, payload in CARD_EXAMPLES.items()
@@ -893,12 +686,6 @@ def render_card_catalog(*, include_model_backed: bool = True, exclude: frozenset
 
 
 def _interactive_note() -> str:
-    # Consent cards ASK THE USER TO AUTHORIZE A REAL WRITE, so they cost the
-    # user a decision rather than just screen space. Say so explicitly: without
-    # it the model treats them like any other presentational card and emits them
-    # speculatively, which turns the answer into a pile of consent prompts.
-    # System cards are excluded here for the same reason they are excluded above
-    # — the model must not learn they exist.
     interactive = sorted(INTERACTIVE_CARD_TYPES - SYSTEM_CARD_TYPES)
     return (
         "\n\nCards that ask the user to CONFIRM something (" + ", ".join(f'"{t}"' for t in interactive) + "):\n"
@@ -913,10 +700,6 @@ def _interactive_note() -> str:
 
 
 def _measured_note() -> str:
-    # A number on a card outlives the sentence next to it. The card is what gets
-    # screenshotted into a submission, so it is the surface most likely to be
-    # forwarded without the qualifier that made it true — which is why the rule
-    # is stated here rather than left to the field descriptions alone.
     return (
         "\n\nNumbers that came from a MEASUREMENT (`ifc_measure`):\n"
         "  Every ifc_measure answer says HOW it was obtained. When you put one of its numbers on a\n"
@@ -935,18 +718,6 @@ def _measured_note() -> str:
 
 
 def _plain_text_note() -> str:
-    # Rides with the SHAPES rather than with the doctrine, for the same reason
-    # the measured-numbers rule does: it is a rule about filling a field in, and
-    # the doctrine is paid on every turn whether or not a card is ever emitted
-    # (see `register._build_tool_description`). A model that has just been handed
-    # the shapes is the one about to write these strings.
-    #
-    # The validator in `cards.card_model.CardModel` strips these delimiters anyway,
-    # so nothing here is load-bearing for correctness — it is here so the field
-    # holds what the model meant instead of the wreckage of a link the model
-    # should never have written. A card once shipped
-    # „[OIB-Richtlinie ansehen](https://www.oib.or.at/de/oib-richtlinien)“ into a
-    # field beside the card's OWN working link to that same page.
     return (
         "\n\nEvery text field is PLAIN TEXT:\n"
         "  No card renders markdown. Write the words, not the markup — no [text](url) links, no\n"
@@ -967,8 +738,6 @@ def _render_trigger_table(*, include_ifc_triggers: bool, include_craft: bool) ->
 
     lines = [_CARD_TRIGGER_HEAD, lead]
     for trigger, card, craft in rows:
-        # ljust reproduces the aligned arrow column for the short triggers and
-        # gets out of the way for the long ones, which run past it anyway.
         lines.append(f"  {trigger.ljust(40)} -> {card}")
         if craft and include_craft:
             lines.append(textwrap.fill(craft, width=99, initial_indent=" " * 6, subsequent_indent=" " * 6))
@@ -1079,10 +848,6 @@ def render_card_details(card_types: Iterable[str]) -> str:
     by_type = {_card_type_of(c): c for c in AnswerCard.__args__}
     withheld = SYSTEM_CARD_TYPES
     wanted = [t for t in dict.fromkeys(card_types) if t in by_type and t not in withheld]
-    # A surface's entry is the rule the answer contract teaches it by, worked
-    # example included: its `components` renders as a list of objects nobody
-    # could fill in, and the generic rules below (plain text, no Markdown)
-    # contradict its `Text` leaves.
     compose = ""
     if "surface" in wanted:
         from agent.cards.envelope import compose_rule  # envelope imports this module
@@ -1114,12 +879,8 @@ def render_card_details(card_types: Iterable[str]) -> str:
     if block_lines:
         out += "Building blocks (reused object shapes):\n" + "\n".join(block_lines) + "\n\n"
     out += "Card types:\n" + "\n".join(card_lines)
-    # The provenance rule only applies where a DimensionCheck can carry one, so
-    # it rides with the shapes that have the field rather than with every card.
     if any("DimensionCheck" in line for line in block_lines + card_lines):
         out += _measured_note()
-    # Unconditional, unlike the provenance rule: every card type here has text
-    # fields, so there is no shape this one fails to apply to.
     out += _plain_text_note()
     if examples:
         out += "\n\nWorked examples (copy the nesting exactly):\n" + examples

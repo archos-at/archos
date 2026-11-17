@@ -2,21 +2,6 @@ import { describe, it, expect, beforeAll } from "vitest";
 import * as pulumi from "@pulumi/pulumi";
 import { baseStackConfig } from "./src/test-support/stack-config";
 
-/**
- * The same whole-program construction as `index.spec.ts`, in the OTHER
- * topology.
- *
- * A separate file rather than a second `describe`, because `index.ts` does its
- * work at module scope and Pulumi's runtime holds process-global state — so
- * one process can build the stack exactly once. Vitest isolates test files,
- * which is what makes two configurations testable at all.
- *
- * This is the branch every existing stack is pinned to, so its job is narrow
- * and important: prove that `seaweedfsTopology: single` still produces the
- * one-workload layout, that the split workloads are absent, and that the
- * ordering the split branch needs has not leaked into it.
- */
-
 const RESOURCES: Array<{ type: string; name: string }> = [];
 
 pulumi.runtime.setMocks(
@@ -69,8 +54,6 @@ describe("the program constructs in the single-node topology", () => {
   });
 
   it("still creates the nightly base backup", () => {
-    // Extracted from `installPostgres` for the split branch's sake; it must not
-    // have gone missing from the branch that was already working.
     expect(named("kubernetes:postgresql.cnpg.io/v1:ScheduledBackup")).toEqual([
       "pg-scheduled-backup",
     ]);

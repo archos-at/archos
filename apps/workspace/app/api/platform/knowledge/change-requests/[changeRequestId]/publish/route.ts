@@ -1,9 +1,3 @@
-/**
- * Publish an approved change request to preview, then to stable (ADR-0165):
- * stable moves what entitled offices read and queues each published text for
- * indexing. The person's own yes; 409 when a record was released since.
- */
-
 import { parseJsonBody } from '@/lib/api/handler'
 import { platformApiRoute } from '@/lib/api/platform-handler'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'

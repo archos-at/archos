@@ -1,17 +1,3 @@
-/**
- * Copy of the page for offices that search for AI, both locales. `{name}` is the brand
- * name, filled by `withName`. Text only: images, links and structure live in
- * `src/views/FirmsView.astro`.
- *
- * Evidence for each claim (Belegpflicht, packages/brand/docs/brand-basis.md):
- * - one place for plans, models, documents and office knowledge; the four abilities: VISION.md
- *   (its table of what the product does today), and owner decision D16 (model checks against building law, the
- *   drawing vs room schedule comparison, click-to-passage citations, the file formats are live);
- * - nothing changes until a person confirms: VISION.md principle 4;
- * - no designs: Markenbasis positioning; no training: the security page (src/i18n/pages/security.ts);
- * - file formats: docs/user-guides/documents.md (accepted types, Office previews, IFC, folders and ZIPs);
- * - legal texts cover Austria: VISION.md ("OIB-Richtlinien, Austrian law via RIS").
- */
 const de = {
   title: 'KI für Architekturbüros',
   description:

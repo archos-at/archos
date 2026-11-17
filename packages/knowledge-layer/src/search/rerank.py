@@ -56,23 +56,12 @@ _SYSTEM_PROMPT = (
     "No prose, no markdown."
 )
 
-# Per-candidate excerpt budget. The judge cannot rank text it was not shown, and
-# in OIB prose the operative sentence (the dimension, the threshold, the "muss")
-# routinely sits well past the Punkt heading and its preamble.
 _CHUNK_EXCERPT_CHARS = 1200
 
-# Whole-prompt excerpt budget. Candidate pools are meant to be large, so the
-# per-chunk budget above has to yield to a total bound rather than multiply by
-# it. ~60k chars is ~15k tokens of German at the ~4.0 chars/token this corpus
-# measures, which leaves headroom in every context window the judge may run on.
 _TOTAL_EXCERPT_BUDGET_CHARS = 60_000
 
-# Floor for the adaptive per-chunk budget: below this an excerpt is a heading and
-# nothing else, and reranking on it is worse than not reranking.
 _MIN_EXCERPT_CHARS = 300
 
-# The score range the system prompt asks for. Replies are clamped into it so a
-# model that ignores the contract cannot skew the imputation in `_ranked_order`.
 _MIN_SCORE = 0.0
 _MAX_SCORE = 10.0
 
@@ -107,7 +96,6 @@ def _build_user_prompt(query: str, chunks: list[Any], max_doc_chars: int = _CHUN
         content = getattr(chunk, "content", "")
         if len(content) > budget:
             content = content[:budget] + "…"
-        # A licensed excerpt is a reference, expanded only inside a zero-retention call (ADR-0164).
         content = licensed_body(content, licence_from_metadata(getattr(chunk, "metadata", None)))
         source = getattr(chunk, "file_name", "")
         lines.append(f"[{index}] {source}{_format_page(chunk)}: {content}")
@@ -192,10 +180,6 @@ def _validated_scores(parsed: list[tuple[int, float]], chunk_count: int) -> dict
         if index in scores:
             duplicates += 1
             continue
-        # Clamp to the 0-10 contract the prompt states. `_parse_scores` accepts any
-        # finite number, and an out-of-contract value poisons the mean the unscored
-        # candidates are imputed at: one score of -5 drags the mean below zero, so a
-        # chunk the judge scored 0 would outrank every candidate it never looked at.
         scores[index] = min(_MAX_SCORE, max(_MIN_SCORE, score))
 
     if out_of_range:
@@ -293,8 +277,6 @@ async def rerank_chunks(
             if ranked:
                 logger.info("Cross-encoder reranked %d candidate(s)", len(chunks))
                 return _trim(ranked, top_n)
-            # Info, not warning: cross_encoder already warned with the cause, throttled
-            # to one per cooldown window; a warning per search here undid the throttle.
             logger.info("Cross-encoder returned no ranking; falling back to the LLM judge")
         except Exception as e:
             logger.warning(
@@ -320,8 +302,5 @@ async def rerank_chunks(
         logger.info("LLM judge reranked %d candidate(s) (%d scored)", len(chunks), len(scores))
         return _trim(_ranked_order(chunks, scores), top_n)
     except Exception as e:
-        # `%s: %s` on the type and the message: the single most likely failure is
-        # `asyncio.TimeoutError`, whose str() is empty, so the old log line ended
-        # at the colon and named neither the cause nor the stage.
         logger.warning("LLM reranking failed (%s: %s), keeping original order", type(e).__name__, e)
         return _trim(chunks, top_n)

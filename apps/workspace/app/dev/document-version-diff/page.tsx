@@ -1,31 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the version diff — „was hat sich geändert" as the review pane
- * answers it.
- *
- * Four blocks, chosen so a reader can judge the two decisions this component
- * takes rather than admire one happy case:
- *
- *  1. **A revised Aktenvermerk.** The ordinary case: a corrected
- *     Gebäudeklasse, a tightened sentence, one paragraph added at the end.
- *     Judge whether an added line and a removed line are told apart WITHOUT
- *     colour — the left rule (solid vs dashed), the `+`/`−` gutter and the ink
- *     weight are all there is, on purpose, because chroma belongs to provenance.
- *  2. **An insert near the top of a long document.** The case the old
- *     side-by-side view refused to fake: every line after the insert shares no
- *     index with its counterpart, and the two line-number columns visibly drift
- *     apart. That drift is the evidence the alignment is real.
- *  3. **A long unchanged run.** Twelve pages with one correction is the diff
- *     nobody scrolls, so unchanged lines fold into a counted gap. Judge that
- *     the gap reads as "nothing happened here" rather than as a missing chunk.
- *  4. **Two identical versions.** A re-upload of the same bytes says so in a
- *     sentence instead of rendering an empty box the reader has to interpret.
- *
- * Pinned to German (`fixedLocale`) because the copy under review is the German
- * copy. 404s outside development.
- */
-
 import type { JSX } from 'react'
 import { notFound } from 'next/navigation'
 import { I18nProvider } from '@/i18n'

@@ -1,7 +1,21 @@
 lockfile_version: '1'
-generated_at: '2026-11-15T19:16:33.088735+00:00'
+generated_at: '2026-11-17T10:39:55.620679+00:00'
 apm_version: 0.28.0
 dependencies:
+- repo_url: _local/verify-on-dev
+  name: verify-on-dev
+  version: 0.0.0
+  package_type: claude_skill
+  deployed_files:
+  - .agents/skills/verify-on-dev
+  - .agents/skills/verify-on-dev/SKILL.md
+  - .claude/skills/verify-on-dev
+  - .claude/skills/verify-on-dev/SKILL.md
+  deployed_file_hashes:
+    .agents/skills/verify-on-dev/SKILL.md: sha256:57fdf7af732ad224901096aabac11a8c47dc6f62ba24313ae185457cc50075a6
+    .claude/skills/verify-on-dev/SKILL.md: sha256:57fdf7af732ad224901096aabac11a8c47dc6f62ba24313ae185457cc50075a6
+  source: local
+  local_path: ./skills/verify-on-dev
 - repo_url: anthropics/skills
   name: frontend-design
   host: github.com
@@ -3432,6 +3446,24 @@ deployments:
   content_hash: sha256:ccab208e315ce05e2fab8eeee2f7879f1289b5c6844840b2d307adf31c79144f
 - kind: project-relative
   target: agent-skills
+  value: .agents/skills/verify-on-dev
+  runtime: null
+  scope: project
+  owners:
+  - ./skills/verify-on-dev
+  active_owner: ./skills/verify-on-dev
+  content_hash: null
+- kind: project-relative
+  target: agent-skills
+  value: .agents/skills/verify-on-dev/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - ./skills/verify-on-dev
+  active_owner: ./skills/verify-on-dev
+  content_hash: sha256:57fdf7af732ad224901096aabac11a8c47dc6f62ba24313ae185457cc50075a6
+- kind: project-relative
+  target: agent-skills
   value: .agents/skills/writing-for-agents
   runtime: null
   scope: project
@@ -5716,6 +5748,24 @@ deployments:
   - cursor/plugins/pstack/skills/unslop
   active_owner: cursor/plugins/pstack/skills/unslop
   content_hash: sha256:ccab208e315ce05e2fab8eeee2f7879f1289b5c6844840b2d307adf31c79144f
+- kind: project-relative
+  target: claude
+  value: .claude/skills/verify-on-dev
+  runtime: null
+  scope: project
+  owners:
+  - ./skills/verify-on-dev
+  active_owner: ./skills/verify-on-dev
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/verify-on-dev/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - ./skills/verify-on-dev
+  active_owner: ./skills/verify-on-dev
+  content_hash: sha256:57fdf7af732ad224901096aabac11a8c47dc6f62ba24313ae185457cc50075a6
 - kind: project-relative
   target: claude
   value: .claude/skills/writing-for-agents

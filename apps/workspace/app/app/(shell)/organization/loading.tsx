@@ -3,18 +3,6 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { getTranslations } from '@/i18n/server'
 import { organizationCopy } from '@/i18n/namespaces/organization'
 
-/**
- * Content-column fallback for the organization segment. The layout already
- * owns the topbar, back link and section nav — this only mirrors the page
- * header + stacked-card geometry so the column does not jump when the
- * server page arrives.
- *
- * Both cards mirror `Card` (`rounded-lg border`, header/content `px-6`,
- * `py-6` rhythm): the overview card's `sm:grid-cols-2` fact grid, and the
- * settings card's field rows (`h-10 rounded-lg` controls, the `Input` /
- * `Select` box) with the save action. All heights are fixed — nothing sizes
- * to content, which is what keeps the fallback from collapsing and jumping.
- */
 export default async function OrganizationLoading(): Promise<JSX.Element> {
   const t = await getTranslations(organizationCopy)
   return (

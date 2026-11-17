@@ -23,7 +23,6 @@ from typing import Any
 from agent.citations.entries import SourceEntry
 from agent.common.knowledge_context import FRESHNESS
 
-#: What the office's answer role is as an edition role (``EDITION_ROLES``); a requirement source states none.
 _ROLES = {"interpretation": "interpretation", "authority_practice": "authority_practice"}
 
 _office_labels: contextvars.ContextVar[dict[str, dict[str, object]]] = contextvars.ContextVar(

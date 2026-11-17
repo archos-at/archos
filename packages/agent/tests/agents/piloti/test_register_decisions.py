@@ -74,13 +74,10 @@ class TestTheFacts:
         )
         facts = _turn_facts(state, _runtime())
         assert facts.question == "Wie hoch?" and facts.focus_file_name == "EG.pdf"
-        # Every resolved skill is an option of the choice, the long IFC one included.
         assert facts.skills == [("fire-safety", "Brandabschnitt, Fluchtweg."), (IFC, "Am Modell messen.")]
         assert facts.project_facts == {"building_class": "4"}
-        # Every content card is offered, the two whose shapes left the static prompt included.
         names = {t for t, _ in facts.card_types}
         assert {"fire_access_plan", "calculation", "formula"} <= names
-        # `surface`'s shape is the compose rule the envelope contract carries.
         assert "surface" not in names
 
 
@@ -119,7 +116,6 @@ class TestTheEffects:
         assert runtime.pinned == ("fire-safety",)
         block = state.card_shapes_block or ""
         assert "fire_access_plan" in block and "egress_diagram" in block
-        # The skill's `calculation` rides the turn too: the static prompt no longer teaches it.
         assert '"calculation"' in block
 
     def test_a_skill_preferring_a_surface_does_not_attach_its_compose_rule_twice(self):
@@ -228,8 +224,6 @@ class TestTheTurn:
         assert (record.id, record.detail) == ("status:decision:turn", {"skipped": "too_short"})
 
     async def test_the_level_the_answering_model_ran_at_is_reported(self):
-        # Read off the resolved provider's model, not the request: the level the
-        # turn actually sent, whichever layer chose it.
         provider = MagicMock()
         provider.get.return_value = MagicMock(reasoning_effort="high")
         with patch.object(register_module, "_active_provider", new_callable=AsyncMock, return_value=provider):
@@ -256,9 +250,7 @@ class TestTheTurn:
                 decided,
                 on_decide=lambda: started_before_the_decision.append(warm.called),
             )
-        # Beside the decision, not after it: the warm-up had started when the decider ran.
         assert started_before_the_decision == [True]
-        # The very string the prefetch will search, so the search finds it cached.
         warm.assert_awaited_once_with(turn.prefetch[0]["args"]["query"])
 
     async def test_a_two_word_family_question_is_warmed_for_its_undecided_prefetch(self):

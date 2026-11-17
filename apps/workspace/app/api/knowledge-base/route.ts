@@ -1,10 +1,3 @@
-/**
- * Knowledge-base API: what the base corpus holds for the session's office, the
- * files released in a country it is entitled to (ADR-0173). Thin handler; the
- * rule lives in `@/lib/knowledge/released-corpus`. Platform operators list the
- * whole corpus through `GET /api/platform/knowledge/documents`.
- */
-
 import { apiRoute } from '@/lib/api/handler'
 import { getKnowledgeBaseStatusFor } from '@/lib/knowledge/released-corpus'
 

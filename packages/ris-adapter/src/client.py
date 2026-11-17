@@ -33,9 +33,6 @@ from public_sources import access_for
 from public_sources import engine_for
 from public_sources import get_source
 from public_sources.egress import EgressRefused
-
-# The format is the ``ris_xml`` engine's; its names are re-exported here, where
-# the tools, the routes and the tests have always imported them from.
 from public_sources.engines import ris_xml
 from public_sources.engines.ris_xml import RisDocument
 from public_sources.engines.ris_xml import RisError
@@ -73,8 +70,6 @@ __all__ = [
     "search_terms",
 ]
 
-#: The source record this client is one configured instance of (ADR-0162):
-#: ``configs/sources/at/ris/source.yml``. Every Austrian value below is read from it.
 RIS_SOURCE_ID = "at-ris"
 _SOURCE = get_source(RIS_SOURCE_ID)
 _ACCESS = access_for(_SOURCE)
@@ -88,23 +83,14 @@ def source_record():
     return _SOURCE
 
 
-# Only documents hosted by RIS itself may be fetched through this adapter.
 ALLOWED_DOCUMENT_HOSTS = frozenset(_SOURCE.hosts)
 
-# Application code -> API controller (URL path segment of the search endpoint).
-# See "Umstrukturierung der API (Controller) Namen" in the handbook.
 CONTROLLER_FOR_APPLICATION: dict[str, str] = dict(_ACCESS.table("controller").values)
 
-# Documents-per-page values accepted by the API.
 PAGE_SIZES: dict[int, str] = {int(size): token for size, token in _ACCESS.table("page_size").values.items()}
 
-# Citizen-application path segment used in document content URLs
-# (https://www.ris.bka.gv.at/Dokumente/<segment>/<docnr>/<docnr>.html),
-# keyed by application code.
 DOCUMENT_PATH_SEGMENTS: dict[str, str] = dict(_ACCESS.table("document_segment").values)
 
-# Document-number prefix -> citizen-application path segment, used to infer
-# the fetch URL when the agent passes a bare document number.
 _DOC_PREFIX_SEGMENTS: tuple[tuple[str, str], ...] = tuple(_ACCESS.table("document_prefix").values.items())
 
 
@@ -142,11 +128,6 @@ def html_to_text(markup: str) -> tuple[str, str]:
     return _ENGINE.text(markup)
 
 
-# ---------------------------------------------------------------------------
-# Client
-# ---------------------------------------------------------------------------
-
-
 class RisClient:
     """Async client for OGD-RIS search and document fetching.
 
@@ -160,8 +141,6 @@ class RisClient:
         timeout: float = 30.0,
         max_document_bytes: int = 10 * 1024 * 1024,
         cache_ttl_seconds: float = 3600.0,
-        #: 0 disables the in-process cache entirely — for callers that already
-        #: read through a shared one (see ``cache.fetch_document_cached``).
         cache_max_entries: int = 64,
         max_retries: int = 3,
         transport: httpx.AsyncBaseTransport | None = None,
@@ -173,7 +152,6 @@ class RisClient:
         self.cache_max_entries = cache_max_entries
         self.max_retries = max(1, max_retries)
         self._transport = transport
-        #: The client, its requests made by the public-source fetcher (ADR-0162). Built on first use.
         self._client: httpx.AsyncClient | None = None
         self._doc_cache: dict[str, tuple[float, RisDocument]] = {}
 
@@ -201,26 +179,6 @@ class RisClient:
             follow_redirects=True,
             transport=transport,
             trust_env=False,
-            # EVERY HOP IS CHECKED, NOT THE FIRST ONE.
-            #
-            # `fetch_document_text` validates the URL it is given and then
-            # hands it to a client that follows up to twenty redirects. So
-            # the allow-list bound the REQUEST and not the FETCH: a RIS
-            # endpoint that reflects a query parameter into `Location` —
-            # and the citizen application is query-driven WebForms
-            # throughout — turned the check into a formality, and the
-            # response body came back to the caller from wherever the last
-            # hop pointed. Cloud metadata, the backend's own internal API,
-            # Dragonfly, the object store: all reachable from inside the
-            # cluster, all http, none of them RIS.
-            #
-            # That was survivable while the only caller was the agent
-            # passing URLs it had just received FROM RIS. It stopped being
-            # survivable when `GET /v1/ris/document` began taking the URL
-            # from a signed-in user, which is what made it worth closing
-            # here rather than at that route: a hook on the client covers
-            # `search()` and every future caller too, and it cannot be
-            # forgotten by one of them.
             event_hooks={"request": [self._reject_non_ris_hop]},
             headers={
                 "Accept": "application/json, text/html;q=0.9, */*;q=0.8",
@@ -300,7 +258,6 @@ class RisClient:
         if page_size not in PAGE_SIZES:
             page_size = 20
 
-        # The record's `search` operation: its `paging` parameters, then the caller's terms.
         query = _ACCESS.params(
             "search", {"application": application, "page_size": page_size, "page": max(1, page)}, group="paging"
         )
@@ -345,8 +302,6 @@ class RisClient:
                 "Use the document's Html content URL from ris_search instead."
             )
 
-        # Offload the CPU-bound BeautifulSoup parse to a thread so it doesn't
-        # block the event loop (freezing other in-flight turns) on large docs.
         title, text = await asyncio.to_thread(html_to_text, response.text)
         if not text:
             raise RisError(f"RIS document at {url} contained no extractable text")
@@ -356,11 +311,6 @@ class RisClient:
         return document
 
     def _cache_document(self, url: str, document: RisDocument) -> None:
-        # ``cache_max_entries=0`` means "do not cache in this process" — the
-        # caller has a shared one and does not want a second copy of the same
-        # megabyte per worker. Without this clause that argument evicted from an
-        # empty dict, and ``min(())`` raises: the way to turn the cache off
-        # crashed the first fetch that used it.
         if self.cache_max_entries <= 0:
             return
         if len(self._doc_cache) >= self.cache_max_entries:

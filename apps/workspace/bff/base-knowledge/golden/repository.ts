@@ -1,10 +1,3 @@
-/**
- * The SQL of golden cases and golden runs (migration 0228). Platform-private:
- * every read and write here runs as the platform role and says why; the one
- * tenant read is the turn's cost, from the usage ledger of the organization
- * the run asked in.
- */
-
 import 'server-only'
 import { randomUUID } from 'node:crypto'
 import { and, asc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm'
@@ -18,13 +11,11 @@ import type { GoldenCase, GoldenCaseResult } from '../wire/golden-case'
 
 const REASON = 'platform base knowledge: golden cases and runs'
 
-/** The most cases one run holds; a country's `full` set is 40 (design §4.6). */
 export const MAX_RUN_CASES = 200
 
 export type GoldenRunRow = typeof knowledgeGoldenRuns.$inferSelect
 export type GoldenRunCaseRow = typeof knowledgeGoldenRunCases.$inferSelect
 
-/** A golden case with the revision it was read at. */
 export interface StoredGoldenCase {
   recordId: string
   revisionId: string
@@ -41,7 +32,6 @@ function toStored(row: typeof knowledgeGoldenCaseRevisions.$inferSelect): Stored
   }
 }
 
-/** A country's released golden cases: each record's head, by key. */
 export async function releasedGoldenCases(countryId: string): Promise<StoredGoldenCase[]> {
   const rows = await withPlatformAccess(REASON, () =>
     getDb()
@@ -55,11 +45,6 @@ export async function releasedGoldenCases(countryId: string): Promise<StoredGold
   return rows.map((row) => toStored(row.body))
 }
 
-/**
- * The golden cases of one change request: the newest revision of each, by key.
- * `country` is the request's; `inPreview` whether it was published to preview.
- * Null when there is no such request.
- */
 export async function changeRequestGoldenCases(changeRequestId: string): Promise<{ countryId: string; inPreview: boolean; cases: StoredGoldenCase[] } | null> {
   return withPlatformAccess(REASON, async () => {
     const db = getDb()
@@ -81,7 +66,6 @@ export async function changeRequestGoldenCases(changeRequestId: string): Promise
   })
 }
 
-/** The country's newest stable release, or null when nothing of it is released. */
 export async function stableReleaseSeq(countryId: string): Promise<number | null> {
   const rows = await withPlatformAccess(REASON, () =>
     getDb().execute<{ seq: string | number | null }>(sql`
@@ -92,7 +76,6 @@ export async function stableReleaseSeq(countryId: string): Promise<number | null
   return seq === null || seq === undefined ? null : Number(seq)
 }
 
-/** Open a run with its cases, in the order given. */
 export async function insertGoldenRun(input: {
   countryId: string
   changeRequestId: string | null
@@ -116,7 +99,6 @@ export interface GoldenRunState {
   cases: (GoldenRunCaseRow & { golden: GoldenCase })[]
 }
 
-/** A run with every case and the case's body at the revision the run read. */
 export async function findGoldenRun(runId: string): Promise<GoldenRunState | null> {
   return withPlatformAccess(REASON, async () => {
     const db = getDb()
@@ -133,11 +115,6 @@ export async function findGoldenRun(runId: string): Promise<GoldenRunState | nul
   })
 }
 
-/**
- * Take a pending case for asking: it is given its conversation before the
- * question is sent, so the turn's context finds the case. False when another
- * call took it first.
- */
 export async function claimCaseForAsking(runId: string, recordId: string, ask: { askId: string; conversationId: string }): Promise<boolean> {
   const taken = await withPlatformAccess(REASON, () =>
     getDb()
@@ -149,7 +126,6 @@ export async function claimCaseForAsking(runId: string, recordId: string, ask: {
   return taken.length > 0
 }
 
-/** Record what became of a case; a case already settled keeps its verdict. */
 export async function settleCase(runId: string, recordId: string, outcome: { passed: boolean; result: GoldenCaseResult } | { failure: string }): Promise<void> {
   const values = 'failure' in outcome ? { failure: outcome.failure.slice(0, 500) } : { passed: outcome.passed, result: outcome.result }
   await withPlatformAccess(REASON, () =>
@@ -169,7 +145,6 @@ export async function finishGoldenRun(runId: string): Promise<void> {
   )
 }
 
-/** The golden case a conversation's turn answers, with the organization its run asked in; null for any other conversation. */
 export async function goldenCaseOfConversation(conversationId: string): Promise<{ askedIn: string; golden: GoldenCase } | null> {
   const [row] = await withPlatformAccess(REASON, () =>
     getDb()
@@ -183,7 +158,6 @@ export async function goldenCaseOfConversation(conversationId: string): Promise<
   return row ? { askedIn: row.askedIn, golden: toStored(row.body).golden } : null
 }
 
-/** What the conversations' turns cost, from the usage ledger of the organization they ran in, by conversation; absent where the ledger holds no row. */
 export async function ledgerCostUsd(organizationId: string, conversationIds: readonly string[]): Promise<Map<string, number>> {
   if (conversationIds.length === 0) return new Map()
   const rows = await withTenant({ organizationId }, () =>

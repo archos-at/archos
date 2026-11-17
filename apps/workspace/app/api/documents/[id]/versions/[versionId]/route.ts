@@ -1,5 +1,3 @@
-/** One version of a document. Read-only; every mutation has its own verb. */
-
 import { apiRoute } from '@/lib/api/handler'
 import { getDocumentVersionView } from '@/lib/documents/lifecycle'
 

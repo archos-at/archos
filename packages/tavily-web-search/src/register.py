@@ -49,7 +49,6 @@ except ImportError:
         return None
 
 
-# Track if we've already warned about missing API key to avoid duplicate warnings
 _missing_key_warned = False
 
 
@@ -103,8 +102,6 @@ def _screened(results: list) -> tuple[list, str, bool]:
     return kept, preamble(withheld), bool(withheld)
 
 
-#: The tags of a result record. A page's own text that spells one would forge a record (a second
-#: ``<Document href>``, a source the search never returned), so it is made inert before it is printed.
 _RECORD_TAG_RE = re.compile(r"<(/?(?:Document|title|source_note|Answer)\b)", re.IGNORECASE)
 
 
@@ -183,9 +180,7 @@ async def tavily_web_search(tool_config: TavilyWebSearchToolConfig, builder: Bui
     if not os.environ.get("TAVILY_API_KEY") and tool_config.api_key:
         os.environ["TAVILY_API_KEY"] = tool_config.api_key.get_secret_value()
 
-    # Check if API key is available
     if not os.environ.get("TAVILY_API_KEY"):
-        # Log warning only once to avoid duplicate warnings when multiple tools use Tavily
         global _missing_key_warned
         if not _missing_key_warned:
             logger.warning(
@@ -195,7 +190,6 @@ async def tavily_web_search(tool_config: TavilyWebSearchToolConfig, builder: Bui
             )
             _missing_key_warned = True
 
-        # Yield a stub function that returns an error message
         async def _tavily_web_search_stub(question: str) -> str:
             """Web search tool (unavailable - missing TAVILY_API_KEY)."""
             return (
@@ -212,17 +206,9 @@ async def tavily_web_search(tool_config: TavilyWebSearchToolConfig, builder: Bui
         )
         return
 
-    # Build the Tavily client once per registration rather than per call.
-    # tavily_kwargs depends only on tool_config (constant after registration),
-    # and TavilySearch.ainvoke takes the query per call, so a single reused
-    # client is byte-identical in behavior. Latency: avoids a fresh TCP+TLS
-    # handshake to api.tavily.com on every web search (connection keep-alive).
     tavily_kwargs = _client_kwargs(tool_config)
     tavily_search = TavilySearch(**tavily_kwargs)
 
-    # Platform-tunable result count (Platform → Retrieval), resolved per call.
-    # The shared client covers the build-time default; an admin override builds
-    # a one-off client so the shared one is never mutated under concurrency.
     settings_key = "web.advanced_max_results" if tool_config.advanced_search else "web.max_results"
 
     def _max_results() -> int:
@@ -259,7 +245,6 @@ async def tavily_web_search(tool_config: TavilyWebSearchToolConfig, builder: Bui
     async def _search(question: str, outcome: ActionOutcome) -> str:
         client = _client_for(_max_results())
 
-        # Tavily API requires queries under 400 characters
         if len(question) > 400:
             question = question[:397] + "..."
 
@@ -278,7 +263,6 @@ async def tavily_web_search(tool_config: TavilyWebSearchToolConfig, builder: Bui
                 if not isinstance(search_docs, dict):
                     raise ValueError(f"Search returned unexpected response type: {type(search_docs).__name__}")
 
-                # Handle error responses from TavilySearch
                 if "error" in search_docs:
                     raise ValueError(f"Search error: {search_docs['error']}")
 
@@ -296,7 +280,6 @@ async def tavily_web_search(tool_config: TavilyWebSearchToolConfig, builder: Bui
                 except ImportError:  # standalone dist without the Grid agent package
                     capture_lane_hit = None
                 if capture_lane_hit is not None:
-                    # The per-round ledger reads this, never the prose.
                     for doc in results:
                         if not isinstance(doc, dict):
                             continue
@@ -317,7 +300,6 @@ async def tavily_web_search(tool_config: TavilyWebSearchToolConfig, builder: Bui
             except Exception as e:
                 if attempt == tool_config.max_retries - 1:
                     outcome.failed = True
-                    # On final attempt, return a user-friendly error message
                     error_msg = str(e)
                     if isinstance(e, ValueError):
                         return error_msg
@@ -332,8 +314,6 @@ async def tavily_web_search(tool_config: TavilyWebSearchToolConfig, builder: Bui
                         return f"Error: Web search failed - {error_msg}"
                 await asyncio.sleep(2**attempt)
 
-        # Unreachable when max_retries >= 1 (enforced by config), but a tool
-        # must always hand the agent a string, never None.
         outcome.failed = True
         return "Error: Web search failed - no attempts were made"
 

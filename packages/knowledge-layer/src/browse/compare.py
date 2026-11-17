@@ -14,10 +14,8 @@ from .rows import USER_SHELVES
 from .rows import FileRow
 from .text import fold
 
-# Logs under the name browse always had, so a filter on that name still catches these records.
 logger = logging.getLogger("knowledge_layer.browse.tool")
 
-#: What ``compare_to`` may say to mean "the Fassung right before this one".
 _PREVIOUS_WORDS = frozenset({"", "vorige", "vorherige", "letzte", "previous", "prev"})
 
 
@@ -104,7 +102,6 @@ async def compare_revisions(older: FileRow, newer: FileRow) -> str:
         )
     except Exception:  # noqa: BLE001 - an outage is said as one, never as "not in the index"
         logger.warning("compare_revisions: the index did not answer", exc_info=True)
-        # Marked like read_passage's failed fetch, so a retry is not refused as a repeat.
         return (
             f'{FETCH_FAILED_MARKER} The index is not reachable right now; "{older.file_name}" and '
             f'"{newer.file_name}" were not compared. Try once more; if it fails again, say so and claim no '
@@ -117,8 +114,6 @@ async def compare_revisions(older: FileRow, newer: FileRow) -> str:
             f"The read content of {names} is not in the index, "
             "so nothing can be compared. If the file is still being read, try again later."
         )
-    # The report quotes both files' content: reported for the restricted-use
-    # admission (ADR-0088), as every read of a document's text is.
     note_collections_read({older.collection, newer.collection})
     diff = diff_revisions(
         older_chunks or [],

@@ -37,30 +37,14 @@ from contextvars import ContextVar
 
 logger = logging.getLogger(__name__)
 
-# In-process cache TTLs, matching retrieval_settings: positive entries outlive
-# a quick admin-edit check by at most a minute; failures are retried sooner so
-# a BFF blip does not pin the fleet to build-time values for long.
 _POSITIVE_TTL_SECONDS = 60.0
 _NEGATIVE_TTL_SECONDS = 30.0
 _REQUEST_TIMEOUT_SECONDS = 5.0
 
-# The accepted levels, mirrored from the BFF's single source of truth
-# (apps/workspace/bff/reasoning-settings/catalog.ts, parity-tested via
-# apps/workspace/tests/fixtures/reasoning_efforts_catalog.json). The vocabulary exists twice
-# deliberately: the BFF validates on write, this module validates on read, so a
-# stale or hand-edited row can never push a provider-native tier name (e.g.
-# DeepSeek's "max", which OpenRouter rejects) into a request.
 _EFFORTS: frozenset[str] = frozenset({"none", "minimal", "low", "medium", "high", "xhigh"})
 
-# The levels the composer's dial offers, a subset of `_EFFORTS` mirrored from
-# `CHAT_EFFORTS` in the BFF catalog. `none` is left out: the chat answer's
-# envelope is a contract the model has to reason its way into, and at `none`
-# it loses it. The wire schema (`UserMessage.reasoning_effort`) is the gate.
 CHAT_EFFORTS: tuple[str, ...] = ("minimal", "low", "medium", "high", "xhigh")
 
-# The asker's level for the turn in flight, set once per turn by
-# `turn.payload.extract_turn_inputs` (always, so a turn without one clears the
-# previous turn's) and read by `request_llm_context`.
 _turn_effort: ContextVar[str | None] = ContextVar("turn_reasoning_effort", default=None)
 
 
@@ -108,7 +92,6 @@ def _fetch_efforts() -> dict[str, str]:
     """One HTTP round-trip to the BFF's internal reasoning-efforts endpoint."""
     token = os.environ.get("INTERNAL_API_TOKEN")
     if not token:
-        # No internal-token trust channel — fall back to build-time values.
         return {}
 
     import httpx

@@ -98,9 +98,6 @@ def rewrite_payload(payload: Mapping[str, Any]) -> PayloadRewrite | None:
     return PayloadRewrite(set=to_set, delete=tuple(to_delete))
 
 
-# The operator side: scripts/qdrant_rename_payload_keys.py drives these. They live here because
-# only this package talks to qdrant_client (test_qdrant_import_boundary.py).
-
 logger = logging.getLogger(__name__)
 
 

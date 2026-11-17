@@ -19,5 +19,4 @@ def _job_token_fetcher() -> str | None:
     return job_auth_token.get()
 
 
-# Register once — the ContextVar ensures per-task isolation
 register_token_fetcher(_job_token_fetcher, priority=5)

@@ -1,19 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the model surfaces that turn a file into work products:
- * the Raumbuch, the Massenermittlung, the derived project facts, the revision
- * timeline, and an element chip as it appears inside a chat answer.
- *
- * Fixtures are shaped after `tests/fixtures/ifc/sample-building.ifc`, and they
- * deliberately include the awkward cases — a room with no published area, a
- * wall group with no material, a revision whose extraction failed — because
- * those are the states these components exist to render honestly. A screenshot
- * of only the happy path would prove nothing.
- *
- * Not linked from anywhere and 404s outside development.
- */
-
 import type { JSX } from 'react'
 import { useState } from 'react'
 import { notFound } from 'next/navigation'

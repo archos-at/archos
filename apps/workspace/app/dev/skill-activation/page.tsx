@@ -1,34 +1,5 @@
 'use client'
 
-/**
- * Dev preview for "Skills verwendet" — the REAL `SkillsUsedDisclosure` in BOTH
- * of its states on one page, because the collapsed line and the opened panel are
- * the two halves of a single claim: a skill being AVAILABLE is not news, a
- * skill's instructions having shaped this answer is.
- *
- * Why the fetch shim: the descriptions are fetched lazily from
- * `/api/skills/invocable` the first time the panel is opened (the names arrive
- * on the answer frame, the descriptions do not), so a backend-free capture would
- * otherwise show the degraded name-only rows for every entry.
- *
- * Why the auto-click: the disclosure is a Radix Collapsible driven by its own
- * `useState`, with no controlled `open` prop — there is no way to render it
- * expanded from the outside, and the harness cannot interact with the page. So
- * the second instance presses its own trigger on mount. This is precisely the
- * kind of thing a preview route is for: driving a component into a state that
- * only exists after a user gesture, without adding a prop to the component that
- * nothing in the product would use.
- *
- * The opened fixture activates three skills and the shim knows only two. The
- * third is a skill that has since been renamed, and the row must keep its name
- * rather than disappear — the answer really was written with it, and a missing
- * row would make the record less true than an incomplete one.
- *
- * Pinned to German, like the other preview routes. No `notFound()` of its own —
- * the `/dev` layout is a Server Component and gates every preview route out of
- * production on a server boundary.
- */
-
 import type { JSX } from 'react'
 import { useEffect, useRef } from 'react'
 
@@ -71,8 +42,6 @@ export default function SkillActivationPreviewPage(): JSX.Element {
     <I18nProvider initialLocale="de" fixedLocale>
       <main
         data-testid="skill-activation-preview"
-        // The thread column: the disclosure sits under an answer, and its whole
-        // design brief is to stay quiet there.
         className="text-foreground mx-auto flex w-full max-w-[680px] flex-col gap-8 p-6"
       >
         <section className="flex flex-col gap-3">
@@ -93,13 +62,6 @@ export default function SkillActivationPreviewPage(): JSX.Element {
   )
 }
 
-/**
- * Opens its own disclosure on mount (see the module note on why there is no
- * prop for this), found by test id rather than by label so the driver works in
- * either locale. The trigger TOGGLES, so this retries only while it is missing
- * and stops the moment it has pressed it — a second press would close the panel
- * the capture is waiting for.
- */
 function ExpandedDisclosure(): JSX.Element {
   const rootRef = useRef<HTMLDivElement | null>(null)
 

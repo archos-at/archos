@@ -79,25 +79,10 @@ logger = logging.getLogger(__name__)
 
 OPENROUTER_HOST = "openrouter.ai"
 
-#: OpenRouter provider preferences that make a request zero-data-retention.
-#: ``zdr`` routes only to endpoints with a ZDR policy; ``data_collection:
-#: deny`` additionally skips providers that store or train on inputs.
 ZDR_PROVIDER_ROUTING: Mapping[str, object] = {"zdr": True, "data_collection": "deny"}
 
-#: The substring OpenRouter's refusal carries when no endpoint satisfies the
-#: data policy. The UI matches on it to tell the asker what to do.
 DATA_POLICY_REFUSAL_MARKER = "data policy"
 
-# @environment_variable OPENROUTER_PREFERRED_PROVIDERS
-# @category Agent
-# @type str
-# @default azure/eu,google-vertex/europe,google-vertex/eu,amazon-bedrock/eu-west-1,mistral/eu,azure/swedencentral
-# @required false
-# Comma-separated OpenRouter endpoint slugs tried FIRST on every
-# zero-data-retention request (`provider.order`, fallbacks allowed): EU hosting
-# is preferred, never required. A model with none of them is served by its
-# other ZDR endpoints. Empty turns the preference off. A guarantee of EU
-# processing is the `eu.openrouter.ai` base URL instead (Business/Enterprise).
 PREFERRED_PROVIDERS_ENV = "OPENROUTER_PREFERRED_PROVIDERS"
 _DEFAULT_PREFERRED_PROVIDERS = (
     "azure/eu",
@@ -123,14 +108,10 @@ def targets_openrouter(url: object) -> bool:
         return False
     text = str(url)
     host = (urlsplit(text).hostname if "://" in text else text.split("/", 1)[0]) or ""
-    # The host itself or a subdomain of it (eu.openrouter.ai), never a host that merely contains the name:
-    # a BYOK base URL such as openrouter.ai.example.net is not OpenRouter, and licensed text never goes there.
     return host == OPENROUTER_HOST or host.endswith(f".{OPENROUTER_HOST}")
 
 
-#: Reading a page is transcription, not deliberation: a reasoning model left at its default spent
-#: 19% of ``ingest_vision`` output and 45k of 67k ``look_reading`` output tokens thinking (signals
-#: W5, 2026-11-02). A code default, not an admin group: page reading has no thinking-level dial.
+# Default reasoning spent 45k of 67k ``look_reading`` output tokens thinking (signals W5, 2026-11-02).
 VISION_REASONING = {"effort": "low"}
 
 
@@ -150,8 +131,6 @@ class DataPolicy:
     """What a model provider may keep of a request."""
 
     zdr: bool = False
-    #: EU-only routing (``provider.only``, no fallback) instead of the EU-first ``order``.
-    #: Set by :meth:`for_page_reads`; see there.
     eu_only: bool = False
 
     def for_page_reads(self) -> DataPolicy:
@@ -209,7 +188,6 @@ class DataPolicy:
 NO_RETENTION_LIMITS = DataPolicy(zdr=False)
 ZERO_DATA_RETENTION = DataPolicy(zdr=True)
 
-#: The policy of a model no organization can choose. See the module docstring.
 PLATFORM_FIXED = ZERO_DATA_RETENTION
 
 

@@ -54,10 +54,6 @@ def _rename_descendants(conn, collection: str, prefix: str, target: str) -> int:
     """Re-file the rows under the prefix, keeping their sub-paths; returns how many."""
     from sqlalchemy import text
 
-    # Descendants: swap the leading ``prefix/`` for ``target/`` (or
-    # strip it when the subtree lands at the root). ``substr`` is
-    # 1-indexed in both SQLite and Postgres, so the cut starts one
-    # past the separator; ``||`` concatenates in both.
     descendants = conn.execute(
         # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
         text(

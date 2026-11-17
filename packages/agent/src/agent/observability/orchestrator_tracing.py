@@ -42,7 +42,6 @@ from agent.observability import direct_trace
 
 logger = logging.getLogger(__name__)
 
-#: The instrumentor's attributes that can carry what a run is about: its input, its metadata.
 EXCLUDED_ATTRIBUTES = ("payload", "additional_metadata")
 TRACEPARENT = "traceparent"
 

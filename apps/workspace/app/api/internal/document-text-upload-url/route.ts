@@ -1,18 +1,3 @@
-/**
- * INTERNAL service endpoint — issues one presigned PUT for a part of a version's stored
- * page text (ADR-0134), so the backend (read-only on SeaweedFS) can write
- * `<version dir>/_text/pages.md` and `index.json` beside the file it read, called twice
- * per ingested PDF after its screen, and `parsed.json`, the parsed document an ingest
- * retry reads back (with the key and bucket in the answer); the read side is the agent's file reader
- * (ADR-0133), the delete side the `_text/` sweep in `lib/documents/object-cleanup.ts`.
- *
- * Service-to-service only, like `document-image-upload-url`: `INTERNAL_API_TOKEN`
- * via `internalApiRoute`, the row addressed by the dispatched `documentId` AND its
- * collection, and the key built from the row's own storage key and a part from a
- * closed list (`PAGE_TEXT_PARTS`), so nothing else can be minted under the prefix.
- * The answer carries the row's id, version and content hash, which `index.json` repeats.
- */
-
 import { z } from 'zod'
 import { internalApiRoute, parseJsonBody } from '@/lib/api/handler'
 import { withOptionalTenant } from '@/lib/db/tenant-context'

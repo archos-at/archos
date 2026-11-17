@@ -158,10 +158,6 @@ from .model import SpatialModel  # noqa: F401
 from .operators import _require  # noqa: F401
 from .operators import _wrong_kind  # noqa: F401
 
-# ════════════════════════════════════════════════════════════════════════════
-# steps_of
-# ════════════════════════════════════════════════════════════════════════════
-
 
 def steps_of(model: SpatialModel, global_id: str) -> Answer[dict[str, Any]]:
     """The flights and landings a stair (or ramp) is made of — ``IfcRelAggregates``.
@@ -228,14 +224,6 @@ def steps_of(model: SpatialModel, global_id: str) -> Answer[dict[str, Any]]:
     }
 
     if not flights:
-        # The empty list is not an answer, and this operator used to return one
-        # with `decidable=True` beside a caveat that said the statement could not
-        # be made. A caller reading `value["landings"] == []` concluded that the
-        # stair has no Podest; the Institute's „Treppe-EG" has two, and its parts
-        # list is empty only because ArchiCAD wrote no IfcRelAggregates at all.
-        # An empty list that would be false for every building ever built is an
-        # `undecidable` — the rule `relations.connects` states in its own module
-        # docstring, applied here to the same shape of absence.
         return undecidable(
             from_=[global_id],
             method=method,

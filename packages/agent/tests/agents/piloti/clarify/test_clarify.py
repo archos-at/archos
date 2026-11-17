@@ -121,7 +121,6 @@ class TestBuildDeps:
         deps_for(llm, tools=[web_search_tool])
 
         llm.bind_tools.assert_called_once()
-        # The planner still binds its own schema; the clarifier model does not.
         for call in llm.bind.call_args_list:
             assert call.kwargs["response_format"]["json_schema"]["name"] == "PlanResponse"
 
@@ -174,7 +173,6 @@ class TestPrompts:
         """Clarification prompt tells the model to write questions in the user's language."""
         assert "**Language**" in CLARIFICATION_PROMPT
         assert "same language as the user's most recent message" in CLARIFICATION_PROMPT.lower()
-        # The skip control keyword the backend matches must stay byte-stable.
         assert "byte-stable" in CLARIFICATION_PROMPT
         assert "SKIP_COMMANDS" in CLARIFICATION_PROMPT
 
@@ -191,9 +189,6 @@ class TestPrompts:
         """
         assert "2-5 concrete" in CLARIFICATION_PROMPT
         assert "do not silently pick one and proceed" in CLARIFICATION_PROMPT.lower()
-        # The old framing that told the model clarification was rare/costly
-        # must be gone, not just supplemented — a stray copy would keep
-        # pulling the model back toward silence.
         assert "(rare)" not in CLARIFICATION_PROMPT.lower()
         assert "minimal friction" not in CLARIFICATION_PROMPT.lower()
 
@@ -204,8 +199,6 @@ class TestPrompts:
     def test_plan_generation_prompt_localizes_content(self):
         """Plan-generation prompt localizes title/sections but not the approval envelope."""
         assert "same language as the user's request" in PLAN_GENERATION_PROMPT.lower()
-        # The byte-stable approval envelope contract is documented and must not
-        # be emitted by the model.
         assert "APPROVAL ENVELOPE" in PLAN_GENERATION_PROMPT
         assert "PLAN_REPLIES" in PLAN_GENERATION_PROMPT
 
@@ -227,10 +220,8 @@ class TestPrompts:
             feedback_history=None,
         )
 
-        # Human-facing documentation comments are stripped at render time.
         assert "SKIP_COMMANDS" not in rendered_clarification
         assert "APPROVAL ENVELOPE" not in rendered_plan
-        # ...but the localization instruction itself survives into the prompt.
         assert "**Language**" in rendered_clarification
         assert "same language as the user's request" in rendered_plan.lower()
 
@@ -526,8 +517,6 @@ class TestPlanApproval:
         result = await clarify(request_for(), self.deps(AsyncMock(return_value="approve"), planner))
 
         assert result.outcome == "approved"
-        # The approved plan is appended to the transcript as the one string
-        # deep research reads (`orchestrator.j2`), not as separate fields.
         assert "**Approved Research Plan**" in result.research_context
         assert "Title: Test Research Plan" in result.research_context
         assert "- Intro" in result.research_context
@@ -538,7 +527,6 @@ class TestPlanApproval:
         topic still sitting in history — guards against stale-plan carry-over
         (an aborted research bleeding into a new, unrelated request)."""
         planner = make_llm('{"title": "T", "sections": ["A", "B"]}')
-        # History carries an earlier, since-abandoned topic; the latest turn is new.
         request = ClarifyRequest(
             messages=[
                 HumanMessage(content="Research the 17-basement high-rise fire code"),
@@ -692,8 +680,6 @@ class TestOptions:
         assert len(seen) == 1
         asked, options = seen[0]
         assert options == ["Alpha", "Beta"]
-        # The prose question still carries the framing sentence and the numbered
-        # list; the options add the picker, they do not replace it.
         assert "**Focus**" in asked
 
     @pytest.mark.asyncio
@@ -922,7 +908,6 @@ class TestThePlanCard:
         ]
         docs = plan_documents(edited, inventory)
         assert docs is not None
-        # A title resolves to its file; an invented name falls out.
         assert [d.name for d in docs.basis] == ["Einreichplan.pdf"]
         assert docs.basis[0].title == "Einreichplan EG" and docs.basis[0].shelf == "project"
         assert [d.name for d in docs.excluded] == ["alt.pdf"]

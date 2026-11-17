@@ -73,15 +73,10 @@ def _load_norm_registry_module():
             stub = types.ModuleType(package)
             stub.__path__ = []  # package marker: no real __init__ is executed
             sys.modules[package] = stub
-    # source_kinds reads the product's name (stdlib only, beside it), so it loads first.
     _standalone_module("agent.common.brand", common_dir / "brand.py")
-    # norm_registry imports source_kinds, which is stdlib-only; loaded the same
-    # way, or the builder dies on import before it verifies anything.
     _standalone_module("agent.common.source_kinds", common_dir / "source_kinds.py")
     _standalone_module("agent.common.oib_file_names", common_dir / "oib_file_names.py")  # stdlib-only too
-    # So does profile_names (stdlib only), for the federal-state tokens.
     _standalone_module("agent.profile_names", common_dir.parent / "profile_names.py")
-    # family_query (stdlib only) holds the family-query detection norm_registry re-exports.
     _standalone_module("agent.common.family_query", common_dir / "family_query.py")
     return _standalone_module("agent.common.norm_registry", common_dir / "norm_registry.py")
 
@@ -133,7 +128,6 @@ async def verify_entry(client: RisClient, entry) -> dict:
         raise ValueError(f"entry '{entry.id}' has no verify seed")
     params: dict[str, str] = {"Titel": verify.title_query}
     if entry.federal_state:
-        # The table lives in the RIS source record (configs/sources/at/ris/source.yml).
         flag = federal_state_param(entry.federal_state)
         if not flag:
             raise ValueError(f"entry '{entry.id}' names an unknown Bundesland {entry.federal_state!r}")
@@ -228,7 +222,6 @@ async def _main(norms_root: Path, *, dry_run: bool, proxy_from_env: bool = False
     finally:
         await client.aclose()
 
-    # Sanity reload (fail-open loader): confirms the merged files still parse.
     if not dry_run:
         _nr.reset_registry_cache()
         registry = _nr.load_registry(str(norms_root))

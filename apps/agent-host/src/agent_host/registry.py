@@ -27,7 +27,6 @@ class AgentConfig:
     """Human-readable description of the agent."""
 
 
-# Global agent registry
 AGENT_REGISTRY: dict[str, AgentConfig] = {}
 
 
@@ -81,7 +80,6 @@ def get_agent_config(agent_type: str) -> AgentConfig:
     return AGENT_REGISTRY[agent_type]
 
 
-# Register default agents
 register_agent(
     agent_type="deep_researcher",
     class_path="agent.agents.deep_researcher.agent.DeepResearcherAgent",
@@ -89,11 +87,6 @@ register_agent(
     description="Performs comprehensive multi-loop deep research",
 )
 
-# ``config_name`` is the agent-runtime function NAME in the YAML, not its ``_type``
-# (``research_agent``). The name is what the agent runtime puts on the wire and what every
-# stored turn keeps as ``functionName``, so it is a persisted identifier and is
-# deliberately still ``shallow_research_agent`` — see the note on that block in
-# ``configs/config_oib_openrouter.yml``.
 register_agent(
     agent_type="researcher",
     class_path="agent.agents.piloti.agent.ChatAgent",
@@ -101,10 +94,6 @@ register_agent(
     description="Performs quick single-turn research",
 )
 
-# Reads a new project's documents and writes suggested profile values onto the
-# project, not a report. The class is loaded by path at job time (never imported
-# here) and declares ``produces_report = False``; ``config_name`` is the agent-runtime
-# function name in the YAML, whose ``_type`` is also ``project_intake_agent``.
 register_agent(
     agent_type="project_intake",
     class_path="agent.agents.intake.agent.ProjectIntakeAgent",

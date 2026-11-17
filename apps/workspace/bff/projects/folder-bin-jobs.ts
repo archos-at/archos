@@ -1,24 +1,3 @@
-/**
- * The Papierkorb's two walks on the `bff-jobs` pool (ADR-0088, ADR-0079).
- *
- * Both used to run inside the person's request on a user-facing frontend,
- * which a rollout drains in 30 s. Each now belongs to a job the request queues
- * in the same transaction as its own writes, so whatever the request did not
- * finish has an owner the moment it commits.
- *
- * - `restore_folder_bin` ({@link runRestoreFolderSlice}): reads a restored
- *   folder's documents into the index again, a page per slice, as the person
- *   who restored it. The restore marked them `processing` with this job's id,
- *   so a slice reads exactly the rows still waiting, and a row the job never
- *   reaches is one the stuck-processing sweep recovers.
- * - `purge_binned_chunks` ({@link runPurgeBinnedChunksSlice}): finishes the
- *   chunk purge of a delete whose request died after binning the folder.
- *   Held back `BIN_PURGE_TAKEOVER_MS` and withdrawn by a request that
- *   finished, so normally it never runs. It runs as the system: a folder in the
- *   bin must leave retrieval whether or not the person who deleted it is still
- *   a member.
- */
-
 import 'server-only'
 import { ForbiddenError, NotFoundError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
@@ -55,16 +34,12 @@ import {
 } from './folder-bin-repository'
 import { findProjectInOrg } from './repository'
 
-/** Documents one restore slice re-dispatches: seconds of work, the unit a draining worker waits for. */
 export const RESTORE_SLICE_DOCUMENTS = 25
-/** Re-dispatches one restore slice has in flight at once. */
 const RESTORE_CONCURRENCY = 4
-/** Documents one purge slice takes out of retrieval; a purge is one backend call each. */
 export const PURGE_SLICE_DOCUMENTS = 50
 
 type ProjectRow = NonNullable<Awaited<ReturnType<typeof findProjectInOrg>>>
 
-/** Where each restored document belongs now: its folder may come back under other lists than it left. */
 async function collectionPlacement(organizationId: string, project: ProjectRow): Promise<(doc: Document) => string> {
   const folders = await loadCustomFolderTree(organizationId, project.id)
   if (!folders) return () => project.collectionName
@@ -72,13 +47,6 @@ async function collectionPlacement(organizationId: string, project: ProjectRow):
   return (doc) => placement.collectionFor(doc.folderId)
 }
 
-/**
- * Read one restored document into the index again, in the collection it
- * belongs in now. Every outcome leaves the row able to say what happened: the
- * dispatch moves it on (`pending`, or `failed` with the backend's reason), and
- * a row there is nothing to read from is failed here, never left looking
- * indexed with its chunks gone.
- */
 async function reingestRestored(
   organizationId: string,
   project: ProjectRow,
@@ -92,8 +60,6 @@ async function reingestRestored(
     return 'failed'
   }
   try {
-    // A machine's document is indexed only as its published version, with the
-    // provenance that version carries; a person's as the bytes the row names.
     const { status } =
       doc.authoredBy === 'user'
         ? await dispatchDocument({
@@ -116,18 +82,6 @@ async function reingestRestored(
   }
 }
 
-/**
- * One slice of a `restore_folder_bin` job: the next page of the documents the
- * restore marked for this job, read into the index again at `bulk` priority,
- * and the position to resume from.
- *
- * The requester's rights are asked again every slice, as a reindex asks them:
- * a person who lost the project's document-write permission since they clicked
- * stops the walk. The rows it did not reach stay `processing` with this job
- * gone, and the stuck-processing sweep re-dispatches them as the system: the
- * folder IS restored, and its documents must not stay unsearchable because of
- * who restored it.
- */
 export async function runRestoreFolderSlice(
   session: AuthorizedSession,
   payload: RestoreFolderBinPayload
@@ -164,19 +118,6 @@ export async function runRestoreFolderSlice(
   return { done, payload: next }
 }
 
-/**
- * One slice of a `purge_binned_chunks` job: the next page of a binned folder's
- * documents taken out of retrieval, for a delete whose request did not confirm
- * it.
- *
- * Nothing to do (the job ends) once the bin entry is no longer pending (it was
- * restored, or a purge has claimed it and erases the documents itself), says
- * `chunksPurgedAt` (the request finished), or names a folder that is not in
- * the bin. A purge the index does not confirm is retried by the queue, with its
- * backoff; on the last attempt the delete is undone instead, as the request
- * would have undone it, so the folder is never left in the bin while part of it
- * is still searchable.
- */
 export async function runPurgeBinnedChunksSlice(
   organizationId: string,
   payload: PurgeBinnedChunksPayload,

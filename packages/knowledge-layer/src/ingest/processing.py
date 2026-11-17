@@ -55,22 +55,10 @@ from .pdfium_lock import pdfium_lock
 
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# Constants
-# ---------------------------------------------------------------------------
 
-# Content-hash cache TTL: 30 days. Long enough that re-ingesting a changed PDF
-# (but with many unchanged images) still hits the cache for the stable images.
 _VLM_CACHE_TTL_SECONDS = 30 * 86400
 
 
-# ---------------------------------------------------------------------------
-# Content-hash VLM cache
-# ---------------------------------------------------------------------------
-
-
-# Placeholder captions the adapter's VLM call sites return on failure
-# (provider error, missing key, empty response). Compared case-insensitively.
 _FAILURE_CAPTION_PREFIXES = ("[image -", "[drawing -", "[transcription -")
 
 
@@ -145,8 +133,6 @@ def _cached_vlm_call(
     reads = page_reads.current()
     if reads is None:
         return _cached_or_live(key, live_call, args, kwargs)
-    # One call per bytes and prompt for the file: the drawings read ahead of the
-    # vision batch (`page_reads`) are the batch's own calls, not a second one.
     return reads.single_flight(
         key, lambda: _cached_or_live(key, live_call, args, kwargs), _result_carries_failed_caption
     )
@@ -173,16 +159,6 @@ def _cached_or_live(key: str, live_call, args: tuple, kwargs: dict):
     return result
 
 
-# ---------------------------------------------------------------------------
-# Drawing-page renderer (VLM-free variant)
-#
-# Every PDFium call below runs under ``pdfium_lock`` (see that module): the
-# ingest pool has more than one worker, and the ingest route renders preview
-# thumbnails on its own thread. The lock covers one page's PDFium work at a
-# time; JPEG encoding happens after it is released.
-# ---------------------------------------------------------------------------
-
-
 @dataclass(frozen=True)
 class _PageRead:
     """One page's outcome in ``render_visual_pages_no_vlm``."""
@@ -190,7 +166,6 @@ class _PageRead:
     image: Any = None
     capped: bool = False
     failed: bool = False
-    #: ``(jpeg, width, height)`` of a page the file's page reads rendered already.
     jpeg: tuple[bytes, int, int] | None = None
 
 
@@ -303,11 +278,6 @@ def _read_visual_page(doc: Any, page_num: int, *, can_render: bool, max_dim: int
         jpeg = (rendered["image_bytes"], rendered["width"], rendered["height"])
         return _PageRead(jpeg=jpeg) if can_render else _PageRead(capped=True)
     with pdfium_lock():
-        # Guarded separately, and this is the defect the guard exists for:
-        # `doc[page_num]` raises on a damaged page and used to sit OUTSIDE the
-        # render's guard, so one unreadable page abandoned every page after it.
-        # A 40-page drawing set could lose 38 captions to page 2 and report
-        # nothing — the caller sees a short list, not an error.
         try:
             page = doc[page_num]
         except Exception as e:  # noqa: BLE001
@@ -365,9 +335,6 @@ def render_visual_pages_no_vlm(
       ``{"image_bytes": bytes, "page_number": int, "width": int, "height": int}``.
     Empty list when pypdfium2 is unavailable or the PDF has no visual pages.
     """
-    # Opening is its own step: a PDF pdfium cannot parse is NOT a failed ingestion
-    # (pdfplumber reads its text on a separate path), so it contributes no visual
-    # pages. Logged at ERROR it filed a GitHub issue for every unusual PDF.
     doc = _open_pdf(pdf_path, "Visual-page rendering (text ingestion is unaffected)")
     if doc is None:
         return []
@@ -391,10 +358,6 @@ def render_visual_pages_no_vlm(
             )
             skipped_pages += read.failed
             if read.capped:
-                # Said out loud rather than inferred from a short chunk list:
-                # capped pages still index their text layer, but their drawings
-                # are never described — a plan set whose later sheets show
-                # sparse facts lost them here.
                 logger.warning(
                     "Visual-page render cap (%d) reached for %s; remaining visual pages index as text only",
                     max_pages,
@@ -406,8 +369,6 @@ def render_visual_pages_no_vlm(
             image_bytes, width, height = read.jpeg or _encode_jpeg(read.image)
             results.append({"image_bytes": image_bytes, "page_number": page_num + 1, "width": width, "height": height})
     except Exception as e:
-        # Whatever is left: a failure of the document itself rather than of one
-        # page. Still not fatal to ingestion, for the reason given above.
         logger.warning("Visual-page rendering stopped for %s (%s: %s)", pdf_path, type(e).__name__, e)
     finally:
         _close_pdf(doc)
@@ -415,25 +376,11 @@ def render_visual_pages_no_vlm(
     if results:
         logger.info("Detected %d visual page(s) in %s", len(results), pdf_path)
     if skipped_pages:
-        # Said out loud rather than inferred from a short list: partial output that
-        # looks complete is the failure mode this whole function had.
         logger.warning("Skipped %d unreadable page(s) while rendering %s", skipped_pages, pdf_path)
 
     return results
 
 
-# ---------------------------------------------------------------------------
-# Concurrent VLM batch enrichment
-# ---------------------------------------------------------------------------
-
-
-# @environment_variable VLM_SECOND_PASS_DELAY_SECONDS
-# @category Knowledge Layer
-# @type float
-# @default 10
-# @required false
-# Seconds the vision batch waits before reading the pages and images that failed once more.
-# A negative value turns the second pass off.
 VLM_SECOND_PASS_DELAY_SECONDS = float(os.environ.get("VLM_SECOND_PASS_DELAY_SECONDS", "10"))
 
 
@@ -472,10 +419,6 @@ def enrich_vlm_batch(
 
     with page_reads.pool_for_this_call() as reads:
         done, failed = _vision_pass(reads, work, vision)
-        # One more pass for what failed, after a pause: a failed reply is never cached, so
-        # this asks the model again. Most failures are passing (a timeout, a provider
-        # hiccup the 429 waits do not cover), and a page dropped here is a page nobody
-        # can search; a second pass costs only the pages that failed.
         if failed and VLM_SECOND_PASS_DELAY_SECONDS >= 0:
             logger.info("VLM batch: %d item(s) failed; trying them once more", len(failed))
             time.sleep(VLM_SECOND_PASS_DELAY_SECONDS)
@@ -517,8 +460,6 @@ def _vision_pass(
             logger.warning("VLM enrichment failed for %s on page %s: %s", kind, obj.get("page_number"), e)
             failed.append((kind, obj))
             continue
-        # Fail-open placeholder captions (provider error, empty response) carry no
-        # retrievable content and would pollute the vector store as real chunks.
         caption = result[2] if kind == "image" else result.get("caption")
         if is_failed_caption(caption):
             logger.warning(

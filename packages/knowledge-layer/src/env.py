@@ -12,8 +12,6 @@ import os
 logger = logging.getLogger(__name__)
 
 
-#: Sentinel for "strictly positive", which is not expressible as a `minimum`
-#: float: 0 must be rejectable for a timeout and accepted for a count.
 _POSITIVE = float("-inf")
 
 
@@ -60,7 +58,6 @@ def env_int(name: str, fallback: int, *, minimum: float = _POSITIVE) -> int:
     return int(env_float(name, float(fallback), minimum=minimum))
 
 
-#: The values that switch an extraction capability off. Nothing else does.
 _OFF_VALUES = frozenset({"false", "0", "no", "off"})
 
 

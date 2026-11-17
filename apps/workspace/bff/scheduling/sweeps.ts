@@ -1,13 +1,3 @@
-/**
- * The maintenance sweeps, as functions the `bff-jobs` worker's Hatchet cron
- * tasks call in process (ADR-0150, `./tasks.ts`). Each runs a BFF function
- * under the platform scope the task wrapper opens, and logs only when it
- * changed something.
- *
- * A failure throws. Hatchet records it on the run, with its attempt and error
- * class; the next cron run tries again.
- */
-
 import 'server-only'
 import { endLostAsks } from '@/lib/agent-asks/service'
 import { exportUsageToPosthog } from '@/lib/analytics/usage-export'
@@ -43,14 +33,11 @@ import { report } from './log'
 import { runSourceMonitor } from '@/lib/base-knowledge/platform/monitor'
 
 const DAY_MS = 24 * 60 * 60 * 1000
-/** Most rounds one run of a sweep that drains a backlog takes; the next cron run continues. */
 const MAX_ROUNDS = 20
 
 let sql: ReturnType<typeof createSql> | null = null
-/** The worker's one postgres.js client for the cross-tenant SQL in `workers/maintenance-sql.js`. */
 const maintenanceSql = (): ReturnType<typeof createSql> => (sql ??= createSql())
 
-/** Close what the documents, filings and mail imports left half-done, and settle the stale pending documents (ADR-0079). */
 export async function reconcileBackgroundWork(): Promise<void> {
   const parts = await Promise.allSettled([
     recoverStuckProcessing(),
@@ -58,7 +45,6 @@ export async function reconcileBackgroundWork(): Promise<void> {
     sweepStaleMailImports(),
     reconcileStalePending(),
   ])
-  // Every part ran, so one that threw costs the others nothing; it fails the run only now.
   const failed = parts.find((part) => part.status === 'rejected')
   const [documents, filings] = parts
   if (documents.status === 'fulfilled' && (documents.value.requeued > 0 || documents.value.failed > 0)) {
@@ -70,13 +56,6 @@ export async function reconcileBackgroundWork(): Promise<void> {
   if (failed) throw failed.reason
 }
 
-/**
- * Project mail's sweeps (ADR-0137, `lib/inbound-mail/sweep.ts`), in their
- * order. One line per sweep that acted or saw an error, counts by name, never
- * an id or an address. A sweep that threw whole fails the run, after every
- * other sweep ran; a row that failed is only counted, and the next run tries it
- * again. What Hatchet is told is the class (`reportingOnlyTheClass`).
- */
 export async function sweepProjectMail(now: Date = new Date()): Promise<void> {
   const result = await sweepInboundMail(now)
   for (const line of projectMailLines(result)) report(line)
@@ -86,7 +65,6 @@ export async function sweepProjectMail(now: Date = new Date()): Promise<void> {
 
 const sweepEntries = (result: InboundMailSweepResult) => Object.entries(result) as Array<[string, SweepCounts]>
 
-/** The log lines of one run of project mail's sweeps: a sweep that only looked says nothing. */
 export function projectMailLines(result: InboundMailSweepResult): string[] {
   const lines: string[] = []
   for (const [sweep, counts] of sweepEntries(result)) {
@@ -98,7 +76,6 @@ export function projectMailLines(result: InboundMailSweepResult): string[] {
   return lines
 }
 
-/** End the asks of every organization whose turn never reported its end, by the rule a read applies (`endLostAsks`). */
 export async function sweepLostAsks(): Promise<void> {
   const ended = await endLostAsks()
   if (ended > 0) report(`agent asks: ended ${ended} ask(s) whose turn never reported its end`)
@@ -116,7 +93,6 @@ export async function sweepUploads(): Promise<void> {
   }
 }
 
-/** The public-source monitor (ADR-0174): opens a change request for a changed source; off behind `source-monitors`. */
 export async function sweepSourceMonitors(): Promise<void> {
   const outcome = await runSourceMonitor()
   if (outcome.run && (outcome.run.changed > 0 || outcome.run.failed > 0 || outcome.run.opened > 0)) {
@@ -130,7 +106,6 @@ export async function sweepPlacement(): Promise<void> {
   if (counts.moved > 0 || counts.pending > 0 || counts.failed > 0) report(`folder placement sweep: ${JSON.stringify(counts)}`)
 }
 
-/** Run-history retention: `task_runs` older than `SKILL_RUNS_RETENTION_DAYS` (default 90). */
 export async function pruneTaskRuns(env: NodeJS.ProcessEnv = process.env): Promise<void> {
   const parsed = Number.parseInt(env.SKILL_RUNS_RETENTION_DAYS ?? '', 10)
   const days = Number.isFinite(parsed) && parsed > 0 ? parsed : 90
@@ -138,11 +113,6 @@ export async function pruneTaskRuns(env: NodeJS.ProcessEnv = process.env): Promi
   if (pruned > 0) report(`pruned ${pruned} task_runs older than ${days} days`)
 }
 
-/**
- * Langfuse trace retention (ADR-0044): delete the traces older than
- * `TRACE_RETENTION_DAYS`, a bounded number of batches per run, so a backlog
- * drains over days. Not configured is a no-op.
- */
 export async function sweepTraceRetention(env: NodeJS.ProcessEnv = process.env, now: Date = new Date()): Promise<void> {
   const { config } = readLangfuseConfig(env)
   if (!config) return
@@ -155,21 +125,9 @@ export async function sweepTraceRetention(env: NodeJS.ProcessEnv = process.env, 
   )
 }
 
-/** The chats erased per run, and how long a run may take. */
 const CONVERSATION_TRACES_PER_RUN = 100
 const CONVERSATION_TRACES_BUDGET_MS = 120_000
 
-/**
- * Erase the Langfuse traces of the chats that are erased and still have them
- * (`findConversationsAwaitingTraceErasure`: erased within 35 days, at least 15
- * minutes ago, not stamped, not under a legal hold). That is a chat the BFF
- * erased in the delete request, which the purger never sees, and a chat whose
- * queue row ended `failed` after the chat itself was erased: the purger's trace
- * step failed on every attempt, and nothing else would go back for them. The
- * hold is asked again right before each deletion, and for a `failed` row so is
- * whether the chat is really gone; each erased chat is stamped so it is done
- * once, and such a `failed` row is closed `purged`. Not configured is a no-op.
- */
 export async function sweepConversationTraces(env: NodeJS.ProcessEnv = process.env): Promise<void> {
   const { config } = readLangfuseConfig(env)
   if (!config) return
@@ -188,7 +146,6 @@ export async function sweepConversationTraces(env: NodeJS.ProcessEnv = process.e
   if (erased > 0) report(`conversation trace erasure: asked Langfuse to delete the traces of ${erased} erased chat(s)`)
 }
 
-/** The download log's retention (migration 0114), in bounded rounds until nothing is left to cap on. */
 export async function sweepDownloadLogRetention(): Promise<void> {
   let deleted = 0
   for (let round = 0; round < MAX_ROUNDS; round += 1) {
@@ -199,14 +156,6 @@ export async function sweepDownloadLogRetention(): Promise<void> {
   if (deleted > 0) report(`download log retention: deleted ${deleted} entries past retention`)
 }
 
-/**
- * Collaboration retention: the inbox items past their type's keep (spec IB-15,
- * `lib/collaboration/retention.ts`) and the grants, mention requests and inbox
- * items whose conversation or document is gone (`sweepOrphanedCollaborationRows`:
- * no foreign key can cascade into a polymorphic target, and the purger's own
- * cascade is a second statement of it). Each call deletes one batch per table,
- * so this asks again until a round finds nothing, up to a bound.
- */
 export async function sweepCollaborationRetention(): Promise<void> {
   const deleted = { expired: 0, grants: 0, requests: 0, inboxItems: 0 }
   for (let round = 0; round < MAX_ROUNDS; round += 1) {
@@ -220,30 +169,16 @@ export async function sweepCollaborationRetention(): Promise<void> {
   if (Object.values(deleted).some((count) => count > 0)) report(`collaboration retention: ${JSON.stringify(deleted)}`)
 }
 
-/**
- * The platform lessons' clock (`lib/platform-lessons/service.ts`). A down-vote
- * kicks distillation from the request (`after()`), which a pod that dies loses,
- * and the register's upkeep (retiring a lesson that stayed quiet, expiring old
- * candidates, re-embedding) is due by date, not by vote. One bounded sweep.
- */
 export async function sweepPlatformLessons(): Promise<void> {
   const result = await runScheduledLessonSweep()
   if (result.processed > 0) report(`platform lessons: ${JSON.stringify(result)}`)
 }
 
-/**
- * The daily Frist reminder: queue one job per organization with marks due
- * (`enqueueDueReminders`). The task's cron is 06:45 on the office's clock
- * (`./tasks.ts`, `CRON_TZ`). A repeat the same day, a retry or a run somebody
- * triggers by hand, queues nothing new, because each job's id is the
- * organization and the office's day.
- */
 export async function sweepFristReminder(now: Date = new Date()): Promise<void> {
   const counts = await enqueueDueReminders(now)
   if (counts.queued > 0) report(`Frist reminder for ${counts.day}: ${JSON.stringify(counts)}`)
 }
 
-/** The PostHog usage export; while it is behind on history, it asks again at once, up to a bound. */
 export async function sweepUsageExport(): Promise<void> {
   for (let round = 0; round < MAX_ROUNDS; round += 1) {
     const counts = await exportUsageToPosthog()

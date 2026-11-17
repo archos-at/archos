@@ -37,33 +37,17 @@ from .config import shard_number
 
 logger = logging.getLogger(__name__)
 
-#: The dense named vector: the production embedder's vectors, copied unchanged.
 DENSE = "dense"
-#: The sparse named vector: BM25 computed by Qdrant itself from the chunk text.
 LEXICAL = "lexical"
 
-#: The server-side BM25 model, and the analysis it runs. German stemming and
-#: stopwords, umlauts folded. The SAME options go with every write and every
-#: query: a query analysed differently from the documents matches nothing.
 BM25_MODEL = "qdrant/bm25"
 BM25_OPTIONS: dict[str, Any] = {"language": "german", "ascii_folding": True}
 
-#: Collection metadata key holding the BM25 length normalisation (``k``, ``b``, ``avg_len``) every
-#: sparse vector of that collection was written with. Fixed per collection: changing it means
-#: rewriting every lexical vector, which is a ``_vN`` rebuild (``rebuild.copy_collection``), never
-#: an edit here. A collection without the key was written with Qdrant's defaults
-#: (:data:`BM25_DEFAULT_LENGTH`), which is every collection made before the key existed and every
-#: collection made by anything but a rebuild.
 BM25_LENGTH_KEY = "bm25_length"
-#: Qdrant's own BM25 length parameters (the ``qdrant/bm25`` model's defaults).
 BM25_DEFAULT_LENGTH: dict[str, float] = {"k": 1.2, "b": 0.75, "avg_len": 256.0}
 _BM25_LENGTH_KEYS = frozenset(BM25_DEFAULT_LENGTH)
 
 
-#: The collection metadata keys this code writes, unprefixed. Before ADR-0145
-#: (row 10d) each carried the prefix below; for one release a key is read under it
-#: where the bare one is missing and written under both, so a process of the
-#: previous release still finds its own. Then the prefix goes.
 METADATA_KEYS = frozenset({"embed_fingerprint", "embed_model", "bm25_length", "vector_import"})
 LEGACY_METADATA_PREFIX = "aiq:"
 
@@ -117,48 +101,19 @@ def effective_bm25_length(length: dict[str, float] | None) -> dict[str, float]:
     return {**BM25_DEFAULT_LENGTH, **(length or {})}
 
 
-#: Payload field holding the logical collection a point belongs to.
 SCOPE_FIELD = "scope"
-#: Payload field holding the organization whose office wrote the point; every tenant-scope search filters on it.
 OFFICE_FIELD = "office_id"
-#: Payload field holding how a point's source may be used: one of :data:`LICENCE_CLASSES`.
 LICENCE_CLASS_FIELD = "licence_class"
-#: The licence classes a point may carry: openly published, published with restrictions, or licensed.
 LICENCE_CLASSES = ("public_open", "public_restricted", "licensed")
-#: Payload field holding the id of the knowledge edition a point's source belongs to.
 KNOWLEDGE_EDITION_FIELD = "knowledge_edition_id"
-#: Payload field holding the country (ISO 3166-1) whose pack a base-corpus point belongs to (ADR-0173):
-#: a turn reads only the countries its office is entitled to. A point written before it lacks it and is Austrian.
 COUNTRY_FIELD = "country_id"
-#: Payload field holding whether a base-corpus point's text is released (a bool): a release writes true, a
-#: rollback and an ingest no release names write false, and a point marked false is read by nobody
-#: (``scope.corpus_country_condition``). A point written before it lacks it and is read by its country alone.
 RELEASED_FIELD = "released"
-#: Payload field holding whether the office stated its licence covers processing by the hosted AI services
-#: (a bool). The licensed seam (ADR-0159) lists a licensed point without its text until it is true.
 AI_PROCESSING_FIELD = "ai_processing_attested"
-#: Payload field holding the longest quote of a licensed point's text a model may see (a positive int).
 QUOTE_MAX_CHARS_FIELD = "quote_max_chars"
-#: Payload field holding the chunk text: what BM25 reads, what the full-text
-#: index serves phrase queries from, and what a hit's content is.
 TEXT_FIELD = "text"
-#: Payload field holding the chunk id every caller knows: the node id the
-#: chunker gave it, which citations and ``already_read`` digests name.
 CHUNK_ID_FIELD = "chunk_id"
-#: Payload field holding every ``§ n`` the chunk text cites, spelled as
-#: ``legal_terms.extract_exact_terms`` spells a query's (``§ 3``, ``§ 12.1``,
-#: ``§ 3a``). The full-text index cannot answer "§ 3": every tokenizer that
-#: keeps digits drops the ``§``, so the phrase is the bare token ``3`` and
-#: matches "Abs. 3" and "Seite 3" as well (``payload.paragraph_refs``).
 PARAGRAPH_FIELD = "paragraph_refs"
 
-#: The full-text index on :data:`TEXT_FIELD`. ``word`` splits on every
-#: non-alphanumeric character and KEEPS digits: "§ 3" is the token ``3``,
-#: "5.1.1" the phrase ``5 1 1``, "OIB-Richtlinie 2" the phrase ``oib
-#: richtlinie 2``. ``multilingual`` drops digits altogether, so a phrase on a
-#: number matched nothing (``docs/contributing/gotchas.md``). Lowercasing and
-#: ASCII folding keep "Größe", "GROESSE" and "grosse" one token. Fixed when the
-#: index is created; :func:`text_index_drift` reports an index built otherwise.
 TEXT_INDEX = models.TextIndexParams(
     type=models.TextIndexType.TEXT,
     tokenizer=models.TokenizerType.WORD,
@@ -167,26 +122,11 @@ TEXT_INDEX = models.TextIndexParams(
     phrase_matching=True,
 )
 
-#: Payload field naming what a point is, for the points that are not chunks. A chunk carries no
-#: ``kind`` (every point written before folder points existed is one, so nothing is backfilled);
-#: a folder card's point carries :data:`FOLDER_KIND` (ADR-0127). Every chunk read leaves folder
-#: points out in the one filter constructor (``scope.scope_filter``).
 KIND_FIELD = "kind"
-#: :data:`KIND_FIELD` of a folder card's point: one per card, in the folder's own scope.
 FOLDER_KIND = "folder"
 
-#: Payload field holding a second copy of the chunk text, indexed with a German stemmer
-#: (:data:`TEXT_STEM_INDEX`), so ``knowledge_search(match="exact", stemmed=true)`` finds the
-#: inflected forms of a word („Fluchtwegbreiten“ for „Fluchtwegbreite“). Qdrant keeps one index
-#: per key, and :data:`TEXT_FIELD`'s must stay unstemmed: a number, a code and a literal wording
-#: are matched as written. Written with every new point; a ``_vN`` rebuild fills it on the rest.
 TEXT_STEM_FIELD = "text_stem"
 
-#: The stemmed full-text index on :data:`TEXT_STEM_FIELD`: :data:`TEXT_INDEX`'s tokenizer and
-#: folding plus Snowball's German stemmer (the one ``qdrant/bm25`` with ``language=german`` uses).
-#: Measured on 1.19.2: „Fluchtwegbreite“ and „Fluchtwegbreiten“, „Brandabschnitt“ and
-#: „Brandabschnitte“, „Tür“ and „Türen“ match each other, a compound („Erdgeschoss“ for „Geschoss“)
-#: does not, and „5.1.1“ still matches as a phrase.
 TEXT_STEM_INDEX = models.TextIndexParams(
     type=models.TextIndexType.TEXT,
     tokenizer=models.TokenizerType.WORD,
@@ -196,22 +136,10 @@ TEXT_STEM_INDEX = models.TextIndexParams(
     stemmer=models.SnowballParams(type=models.Snowball.SNOWBALL, language=models.SnowballLanguage.GERMAN),
 )
 
-#: Payload object holding the owning project's fingerprint (the BFF's
-#: ``FINGERPRINT_KEYS``), mirrored from Postgres ``projects.profile`` by scope.
-#: Each key is indexed as ``project_facts.<key>``.
 PROJECT_FACTS_FIELD = "project_facts"
-#: Payload field holding the owning project's lifecycle state (ADR-0098).
 PROJECT_STATUS_FIELD = "project_status"
-#: The fingerprint, in the order the BFF's similarity weighs it.
 FACT_KEYS: tuple[str, ...] = ("federal_state", "building_class", "construction_method", "uses", "work_type")
 
-#: Payload fields written under a German name before the rename, keyed by the English name that
-#: replaced them. Points written before it keep the old key (and German tokens in the facts) until
-#: the operator rewrite (``scripts/qdrant_rename_payload_keys.py``,
-#: ``docs/deployment/qdrant-payload-rename-runbook.md``). New points carry only the English one; a
-#: filter matches either (``scope._field``) and a hit's metadata is read back under the English one
-#: (``payload.chunk_metadata``). Remove, with ``LEGACY_CHUNKING`` and the fallbacks that read them,
-#: once the rewrite is verified on every collection.
 LEGACY_FIELDS: dict[str, str] = {
     f"{PROJECT_FACTS_FIELD}.federal_state": f"{PROJECT_FACTS_FIELD}.bundesland",
     f"{PROJECT_FACTS_FIELD}.building_class": f"{PROJECT_FACTS_FIELD}.gebaeudeklasse",
@@ -225,14 +153,9 @@ LEGACY_FIELDS: dict[str, str] = {
     "clause_parent_id": "punkt_parent_id",
     "guideline": "richtlinie",
 }
-#: The ``chunking`` value of a chunk cut per numbered clause: ``new -> old``. The key is unchanged,
-#: so a filter on ``chunking`` accepts both values until the rewrite.
 LEGACY_CHUNKING: dict[str, str] = {"clause": "punkt"}
 
 
-#: The legacy names above that are indexed as keywords (``gebaeudeklasse`` is an integer, below).
-#: They stay indexed, on a fresh collection too, so a filter on either spelling is never refused by
-#: strict mode.
 LEGACY_KEYWORD_FIELDS: tuple[str, ...] = tuple(
     old for old in LEGACY_FIELDS.values() if old not in {f"{PROJECT_FACTS_FIELD}.gebaeudeklasse", "punkt_depth"}
 )
@@ -245,8 +168,6 @@ def fact_field(key: str) -> str:
     return f"{PROJECT_FACTS_FIELD}.{key}"
 
 
-#: Fields stored and filtered as strings. A writer that hands one an int (or a
-#: reader that asks with one) is coerced, so ``page_label`` 3 and "3" agree.
 KEYWORD_FIELDS: tuple[str, ...] = (
     SCOPE_FIELD,
     CHUNK_ID_FIELD,
@@ -260,13 +181,10 @@ KEYWORD_FIELDS: tuple[str, ...] = (
     OFFICE_FIELD,
     "project_id",
     "grid_document_id",
-    # The licence mark (``PUT /v1/collections/{c}/knowledge-mark``, ``writes.enrichment``).
     LICENCE_CLASS_FIELD,
     KNOWLEDGE_EDITION_FIELD,
     COUNTRY_FIELD,
     "folder_path",
-    # Every folder a document is filed in or beneath, case-folded: "this
-    # folder and below" is one exact match (``prefilter.folder_ancestors``).
     "folder_ancestors",
     "tags",
     "topics",
@@ -275,11 +193,6 @@ KEYWORD_FIELDS: tuple[str, ...] = (
     *(f"{PROJECT_FACTS_FIELD}.{key}" for key in FACT_KEYS if key != "building_class"),
     *LEGACY_KEYWORD_FIELDS,
     PARAGRAPH_FIELD,
-    # Locators and labels the chunkers write (``clause_chunking``,
-    # ``section_chunking``, the adapter's visual documents) and a model may
-    # name in ``knowledge_search``'s raw ``filters``. ``page_end`` is written
-    # as a string, like ``page_label``. Large or unbounded fields
-    # (``drawing_data``, ``description``) stay unindexed and unfilterable.
     "clause_path",
     "clause_parent_id",
     "clause_title",
@@ -291,34 +204,16 @@ KEYWORD_FIELDS: tuple[str, ...] = (
     "authored_by",
     "approved_by",
     "producer",
-    # The document's format when it states one (``mail``: a filed E-Mail-Verlauf), so
-    # "only the correspondence" is one exact filter.
     "source_format",
-    # What the ingest read of the whole document (``payload.reading_facts``), on every chunk:
-    # one condition finds the passages of a fire safety concept, of a document citing
-    # ÖNORM B 1600 (``norm:önorm b 1600``), stating Gebäudeklasse 4 (``building_class=4``),
-    # or naming a party.
     "document_type",
     "references",
     "dossier_facts",
     "parties",
 )
-#: Payload field holding a chunk's place in document order (the seam's
-#: ``READING_ORDER``): derived at write time from ``page_label``, never read
-#: from the chunk's metadata, and what a structural fetch orders by.
 READING_ORDER_FIELD = READING_ORDER
-#: Payload field holding when ingestion wrote the point, in seconds since the
-#: epoch. A collection's ``updated_at`` is its newest value (an ordered scroll),
-#: which is what the reaper of conversation uploads (``TTLCleanupMixin``) reads.
 INDEXED_AT_FIELD = "indexed_at"
-#: Payload field holding a chunk's place in its file, 0 for the first chunk the
-#: chunker cut: what orders the chunks of one page, whose point ids are random.
-#: Written at ingest and by the import from Chroma (in the export's order, which
-#: is Chroma's insertion order); a point written before it existed has none.
 CHUNK_ORDINAL_FIELD = "chunk_ordinal"
 
-#: Fields stored and filtered as integers. The clause chunker writes
-#: ``clause_depth`` as an int and some readers ask with "1"; both become 1.
 INTEGER_FIELDS: tuple[str, ...] = (
     "clause_depth",
     "punkt_depth",
@@ -334,30 +229,19 @@ INTEGER_FIELDS: tuple[str, ...] = (
     "image_index",
     "stored_image_index",
     "segment_index",
-    # Pages of the document not fully read (``coverage.not_read``); 0 for a document read whole.
     "pages_not_read",
 )
-#: Payload field holding the document's own date: the title block's ``revision_date``, else the
-#: photo's ``capture.captured_at``, else a mail thread's newest message (``mail_thread.latest_sent_at``),
-#: else absent. Copied from the metadata row (``payload.document_facts``).
 DOCUMENT_DATE_FIELD = "document_date"
-#: Payload field holding when the document was first indexed under its name (the row's ``added_at``).
 ADDED_AT_FIELD = "added_at"
-#: Fields stored as RFC 3339 datetimes and indexed as ``datetime`` (a range on one is a
-#: ``DatetimeRange``, ``scope._range``). Not :data:`INDEXED_AT_FIELD`, which is integer seconds.
 DATETIME_FIELDS: tuple[str, ...] = (DOCUMENT_DATE_FIELD, ADDED_AT_FIELD)
-#: Fields stored and filtered as booleans.
 BOOL_FIELDS: tuple[str, ...] = ("superseded", RELEASED_FIELD)
 
-#: The full-text fields: never a filter-grammar field, only the text conditions the search builds.
 TEXT_FIELDS: tuple[str, ...] = (TEXT_FIELD, TEXT_STEM_FIELD)
 
 INDEXED_FIELDS = frozenset(KEYWORD_FIELDS + INTEGER_FIELDS + DATETIME_FIELDS + BOOL_FIELDS + TEXT_FIELDS)
 
-#: Prefixes of collections an office owns. Anything else is shared corpus.
 TENANT_PREFIXES = (*OFFICE_SHELF_COLLECTION_PREFIXES, "proj_", "s_")
 
-#: Collection metadata keys naming the embedder every dense vector came from.
 EMBED_IDENTITY_KEYS = ("embed_fingerprint", "embed_model")
 
 
@@ -368,15 +252,9 @@ class Physical(StrEnum):
     OFFICE = "office"
 
 
-#: Alias each physical collection is addressed by, and the collection it
-#: points at when this code creates it.
 ALIASES = {Physical.CORPUS: "piloti_corpus", Physical.OFFICE: "piloti_office"}
 FIRST_VERSION = "_v1"
 
-#: Replicas that must acknowledge a write, whatever the replication factor.
-#: The other replica is durable once it has caught up; the snapshots to
-#: SeaweedFS are the net behind the window in which it has not
-#: (``docs/deployment/qdrant-runbook.md``).
 WRITE_CONSISTENCY_FACTOR = 1
 
 
@@ -428,16 +306,9 @@ def create_collection(
         name,
         vectors_config={DENSE: models.VectorParams(size=dense_size, distance=models.Distance.COSINE)},
         sparse_vectors_config={LEXICAL: models.SparseVectorParams(modifier=models.Modifier.IDF)},
-        # The corpus is small and read by every query: one shard, on every node.
         shard_number=(shards or shard_number()) if tenant else 1,
         replication_factor=rf,
-        # One replica acknowledges a write; Qdrant brings the other up to date
-        # from its WAL (``wal_delta``) when it is back. At RF 2 a write
-        # consistency of 2 failed every write to a shard whose second peer was
-        # down, which a rollout or a node drain does to most of the six.
         write_consistency_factor=WRITE_CONSISTENCY_FACTOR,
-        # Per-scope graph links beside the global graph: a project-filtered
-        # query walks its own scope's graph, a cross-project one the global.
         hnsw_config=models.HnswConfigDiff(payload_m=16) if tenant else None,
         quantization_config=models.TurboQuantization(
             turbo=models.TurboQuantQuantizationConfig(bits=models.TurboQuantBitSize.BITS4)

@@ -33,12 +33,8 @@ from agent.common.data_source_registry import reset_registry
 from agent.tools.bim.measure_register import _render
 
 FIXTURES = Path(__file__).resolve().parents[5] / "packages" / "ifc-spatial-py" / "tests" / "fixtures"
-#: Geometry everywhere — the fixture that actually measures.
 HOUSE = FIXTURES / "Ifc4_SampleHouse.ifc"
-#: Two named rooms and four walls, and not one body the geometry kernel accepts.
-#: Every measurement over it comes back ``decidable: false``.
 NO_GEOMETRY = FIXTURES / "house-with-rooms.ifc"
-#: No IfcBuildingStorey at all — the export `fire kind=escape_level` refuses on.
 NO_STOREYS = FIXTURES / "road-ifc4x3.ifc"
 
 
@@ -133,7 +129,6 @@ class TestMeasurementDetectionAgainstTheRealRenderer:
                 ),
             ),
         )
-        # The remedy uses the very verb the old detector searched for.
         assert "gemessen" in result
         assert tool_result_is_measurement("ifc_measure", result) is False
 
@@ -263,7 +258,6 @@ class TestMeasurementDetectionIsScopedToTheMeasuringTool:
         )
         assert tool_result_is_measurement("bim__ifc_measure", result) is True
         assert tool_result_is_measurement("mcp__piloti__ifc_measure", result) is True
-        # And the scoping still holds through a prefix.
         assert tool_result_is_measurement("bim__ifc_query", result) is False
 
 
@@ -273,10 +267,6 @@ def ifc_measure(operation: str) -> str:
     return _MEASURE_RESULT.pop(0) if _MEASURE_RESULT else _measured_line()
 
 
-#: ``ifc_measure``'s renderer output, queued per call so a test can script a
-#: sequence of results across the tool loop. Rendered from a real ``Answer``
-#: rather than copied as prose: the gate reads the trailer ``_render`` writes,
-#: and a hand-typed line proves nothing about what the tool returns.
 _MEASURE_RESULT: list[str] = []
 
 
@@ -354,7 +344,6 @@ class TestMeasurementSignalReachesTheState:
             [self._call(), AIMessage(content="Der Keller ist 2,70 m hoch (gemessen ±5 mm).")],
         )
         assert result.answer_measurement_grounded is True
-        # And the citation gate still says what it always said: nothing to cite.
         assert result.answer_citation_grounded is False
 
     @pytest.mark.asyncio
@@ -482,15 +471,12 @@ class TestTheBibliographyStripIsNotAnEscapeHatch:
     @pytest.mark.parametrize(
         "content",
         [
-            # A bullet under „**Quellen:**" that points at nothing.
             "Die Höhe beträgt 2,20 m.\n\n**Quellen:**\n"
             "- [1] Wiener Bauordnung — https://example.invalid/bo\n"
             "- Damit ist der Raum unzulässig und darf nicht als Aufenthaltsraum genutzt werden.",
-            # A numbered entry that is a sentence, not a source.
             "Die Höhe beträgt 2,20 m.\n\n## Quellen\n"
             "1. OIB-Richtlinie 3, https://example.invalid/oib3\n"
             "2. Der Raum erfüllt die Anforderung nicht.",
-            # A nested item under a real entry.
             "Die Höhe beträgt 2,20 m.\n\n**Quellen:**\n"
             "- [1] Wiener Bauordnung — https://example.invalid/bo\n"
             "  - Der Raum ist unzulässig.",

@@ -24,25 +24,20 @@ from .rows import revision_marks
 from .rows import title_block_marks
 from .text import fold
 
-#: Levels of folders below the asked one that get a card, by default and at most.
 DEFAULT_TREE_DEPTH = 2
 
 MAX_TREE_DEPTH = 4
 
-#: Cards one tree call renders before it counts the rest, and current Fassungen one card names.
 MAX_TREE_CARDS = 30
 
 MAX_CURRENT_LINES = 3
 
-#: Subfolders a card names, and older files one "replaces" clause names.
 MAX_CARD_SUBFOLDERS = 8
 
 MAX_REPLACED_NAMES = 3
 
-#: A folder holding at most this many documents directly names them on its card.
 MAX_CARD_FILES = 8
 
-#: The tree view, which a binding with ``ls(depth=…)`` leaves out (``chat_binding``).
 TREE_PARAGRAPH = (
     '`view="tree"` (`depth=` 1-4, default 2) returns a card per folder instead of file lines: counts, '
     "Dokumentart mix, pages, dates, the current Fassung; filters apply, no paging.\n"
@@ -54,29 +49,20 @@ class FolderCard:
     """What one folder holds, counted from the rows alone: tier 0, nothing stored, nothing stale."""
 
     path: str
-    #: Levels below the folder the call asked about (the asked folder is 0).
     depth: int
-    #: Documents directly in the folder, and in the whole subtree (the direct ones included).
     direct: int
     total: int
-    #: Child folders with their subtree counts.
     subfolders: tuple[tuple[str, int], ...]
-    #: Document types over the subtree, most frequent first, and how many documents carry none.
     types: tuple[tuple[str, int], ...]
     untyped: int
-    #: Pages summed over the documents that have a count, and how many have none.
     pages: int
     pages_unknown: int
     first_added: str | None
     last_added: str | None
-    #: ``"name (date)"`` of the most recently added document, or empty.
     newest: str
-    #: One line per series whose current Fassung is in the subtree, and how many older Fassungen it holds.
     current: tuple[str, ...]
     superseded: int
-    #: ``"name (date)"`` of the document with the latest date of its own (Plankopf Stand, photo), or empty.
     newest_document: str = ""
-    #: The names of the documents filed directly here when there are at most :data:`MAX_CARD_FILES`.
     files: tuple[str, ...] = ()
 
 
@@ -277,8 +263,6 @@ def _card_lines(card: FolderCard, about: Sequence[str] = ()) -> list[str]:
     lines.append(f"  Dokumentart: {' · '.join(types)}")
     if card.first_added:
         span = card.first_added if card.first_added == card.last_added else f"{card.first_added} to {card.last_added}"
-        # Two different dates: the upload day says when it reached the office, the document's own date
-        # (Plankopf Stand, photo) says how old the content is. "Newest" names which one it means.
         if card.newest_document:
             lines.append(f"  Added: {span}. Newest by document date (Plankopf Stand or photo): {card.newest_document}")
         else:

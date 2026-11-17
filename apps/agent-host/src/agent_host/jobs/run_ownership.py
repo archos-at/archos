@@ -53,9 +53,7 @@ from enum import Enum
 
 logger = logging.getLogger(__name__)
 
-#: Silent this long, the previous run is gone. The ghost reaper's window is this number.
 STALE_SECONDS = 300
-#: How long a copy that found the run alive keeps looking before it gives up.
 WAIT_SECONDS = STALE_SECONDS + 60
 _POLL_SECONDS = 10
 
@@ -97,7 +95,6 @@ async def try_take(store, job_id: str, now: datetime | None = None) -> Verdict:
 
     now = now or datetime.now(UTC)
     async with store.session() as session:
-        # The lock: a write that changes nothing, so the other copy waits here.
         await session.execute(update(JobInfo).where(JobInfo.job_id == job_id).values(updated_at=JobInfo.updated_at))
         row = (
             await session.execute(select(JobInfo.status, JobInfo.updated_at).where(JobInfo.job_id == job_id))

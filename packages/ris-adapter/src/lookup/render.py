@@ -26,7 +26,6 @@ from agent.common.wire_v2 import TraceLane
 
 from .as_of import parse_day
 
-#: The tool's basename, as the ``sources`` step names it.
 RIS_LOOKUP_TOOL = "ris_lookup"
 
 
@@ -125,15 +124,11 @@ def _hit(passage: Passage) -> GroundingHit:
         doc_class=DOC_CLASS,
         display_title=passage.title,
         folder_path=None,
-        # The locus as a lawyer reads it, ``§ 63 Abs 1``: the same string the
-        # citation key carries and the chip shows.
         clause=passage.clause_label or None,
         score=passage.score,
         content_type="text",
         provenance=None,
         stored_image_index=None,
-        # The Konsolidierte-Fassung disclaimer rides as its own header line and
-        # is never inside a body: a passage body is text the answer may quote.
         status_note=passage.status_note or None,
         body=body,
         body_truncated=truncated,

@@ -68,8 +68,6 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
-# The modules beside this file, importable however the script is started (by
-# path from the Taskfile, or loaded by path from the tests).
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from release_notes_build import build_customer_changelog  # noqa: E402
@@ -93,9 +91,7 @@ RELNOTES_DIR = REPO_ROOT / "releasenotes"
 NOTES_DIR = RELNOTES_DIR / "notes"
 TRANSLATIONS_FILE = RELNOTES_DIR / "translations" / "de.json"
 SUMMARIES_FILE = RELNOTES_DIR / "summaries.yaml"
-# The public tier, for the website.
 CHANGELOG_FILE = REPO_ROOT / "apps" / "website" / "src" / "data" / "changelog.json"
-# The customer tier, for the app.
 CUSTOMER_FILE = REPO_ROOT / "apps" / "workspace" / "bff" / "release-notes" / "release-notes.generated.json"
 
 

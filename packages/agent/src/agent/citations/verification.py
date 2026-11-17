@@ -73,9 +73,6 @@ def resolve_source_line(match_text: str, registry: SourceRegistry) -> _LineSourc
     passage a quote is patched from is the one its citation was verified
     against (ADR-0067).
     """
-    # A digest line cites the conversation's read-index, not a retrieved
-    # passage (see ``is_digest_shaped_line``): rejected before either the
-    # URL or the filename scan can accept it on a fragment it contains.
     if is_digest_shaped_line(match_text):
         return _LineSource(reason="digest_line_not_citable")
     url_match = URL_IN_LINE_RE.search(match_text)
@@ -83,17 +80,10 @@ def resolve_source_line(match_text: str, registry: SourceRegistry) -> _LineSourc
         url = url_match.group(0).rstrip(URL_TRIM_CHARS)
         if canonical := registry.resolve_url(url):
             return _LineSource(url=canonical, line_url=url)
-        # A source cited by its key can still arrive with a link: the prompt
-        # asks for ``Title - URL``, the model copies a link from a tool's
-        # source line (``ris_search`` prints ``Source: <url>``; the law lookup
-        # printed ``Source URL:`` beside ``Citation:`` until 2026-09-24), and
-        # the registry deliberately files RIS by key. The key decides; the
-        # link it cannot vouch for is dropped.
         is_kl, citation_key = is_knowledge_citation(drop_url(match_text, url), registry)
         if is_kl and citation_key and registry.has_citation_key(citation_key):
             return _LineSource(citation_key=citation_key, line_url=url)
         return _LineSource(reason="url_not_in_registry")
-    # Knowledge-layer citation key (lenient: the registry allows a fuzzy filename match).
     is_kl, citation_key = is_knowledge_citation(match_text, registry)
     if not (is_kl and citation_key):
         return _LineSource(reason="unverifiable")
@@ -165,10 +155,8 @@ def verify_citations(
     Returns:
         CitationVerificationResult with cleaned report and audit trail.
     """
-    # Normalize citation syntax variants before validation.
     report_text = normalize_citation_syntax(report_text)
 
-    # Early exit: nothing to validate against
     all_sources = registry.all_sources()
     if not all_sources:
         logger.debug("[CitationVerify] Skipping — registry is empty (no tool calls captured)")
@@ -195,8 +183,6 @@ def verify_citations(
     lines = _parse_source_lines(ref_section, registry)
     duplicate_rewrites = lines.dedupe()
 
-    # Duplicates are rewritten to the canonical number first, so the locus
-    # check below reads every marker under the number its source line keeps.
     body = _rewrite_numbers(body, duplicate_rewrites)
     removed_numbers_for_locus: set[int] = set()
     if check_locus:
@@ -204,27 +190,17 @@ def verify_citations(
 
     ref_section = _repair_urls(ref_section, lines.url_replacements)
 
-    # A locus record names an occurrence, not a line: only a number with no
-    # occurrence left loses its source line.
     removed_numbers = {
         c["number"] for c in lines.removed if c.get("reason") != LOCUS_MISMATCH_REASON
     } | removed_numbers_for_locus
     cleaned_ref_section = lines.clean_section(ref_section, removed_numbers)
     if drop_unresolved and not CITATION_LINE_RE.search(cleaned_ref_section):
-        # Every line went: a „## Quellen" with nothing under it reads as a rendering fault.
         cleaned_ref_section = ""
         body = body.rstrip()
 
-    # Body fixups:
-    #  * Duplicate citations get rewritten to the canonical number — the
-    #    cited source is real, only the [N] label is wrong.
-    #  * Genuinely invalid citations get stripped — the source is fabricated
-    #    or unverifiable.
     valid_numbers = {c["number"] for c in lines.valid}
     cleaned_body = drop_inline_citations_not_in(body, valid_numbers)
 
-    # Note: renumbering is deferred to sanitize_report() which always runs after
-    # this function and handles renumbering in a single pass.
     logger.debug("[CitationVerify] Result: kept %d, removed %d", len(lines.valid), len(lines.removed))
     return CitationVerificationResult(
         verified_report=cleaned_body + cleaned_ref_section,
@@ -285,14 +261,8 @@ class _SourceLines:
     valid: list[dict] = field(default_factory=list)
     removed: list[dict] = field(default_factory=list)
     url_replacements: dict[str, str] = field(default_factory=dict)  # garbled_url -> canonical_url
-    # Origin token per validated citation number, e.g. {1: "[Web]", 3: "[KB]"}.
-    # Applied AFTER the [N] marker in ``clean_section`` so the LLM-written
-    # source section gains the same deterministic labels the
-    # fallback-synthesized and chat paths already carry. Lines that
-    # already start with a token are left as-is (idempotent).
     origin_tokens: dict[int, str] = field(default_factory=dict)
     dropped_urls: dict[int, str] = field(default_factory=dict)  # key-verified line -> the link it carried
-    # key-verified line -> (the path it named, the file name)
     cited_paths: dict[int, tuple[str, str]] = field(default_factory=dict)
 
     def dedupe(self) -> dict[int, int]:
@@ -311,8 +281,6 @@ class _SourceLines:
         for c in self.valid:
             key = c["url"] or c["citation_key"]
             if key is None:
-                # Defensive: a valid citation must have one of url/citation_key.
-                # If neither is set we cannot dedup, so keep the entry.
                 deduped_valid.append(c)
                 continue
             canonical_num = seen_keys.get(key)
@@ -371,10 +339,6 @@ def _parse_source_lines(ref_section: str, registry: SourceRegistry) -> _SourceLi
         ref_text = line_match.group(2).strip()
         full_line = line_match.group(0)
 
-        # Strip any pre-existing origin token before identity matching so it
-        # never leaks into fuzzy filename comparison (``[KB] file.pdf`` must
-        # still resolve to ``file.pdf``). ``already_tokenized`` suppresses
-        # re-injection so replayed/synthesized lines are not double-prefixed.
         token_match = ORIGIN_TOKEN_RE.match(ref_text)
         already_tokenized = token_match is not None
         match_text = ref_text[token_match.end() :] if token_match else ref_text
@@ -392,7 +356,6 @@ def _parse_source_lines(ref_section: str, registry: SourceRegistry) -> _SourceLi
         if source.citation_key and source.line_url:
             lines.dropped_urls[num] = source.line_url
         if source.citation_key and (cited_path := path_in_citation(match_text)):
-            # The line shows the file's name, as its chip does, never the path the model copied.
             lines.cited_paths[num] = (cited_path, parse_citation_key(source.citation_key)[0])
         if not already_tokenized and (entry := source.entry(registry)):
             if token := source_origin_token(entry):
@@ -461,7 +424,6 @@ def cited_document_entries(text: str, registry: SourceRegistry) -> list[SourceEn
         ref_text = line.group(2).strip()
         token = ORIGIN_TOKEN_RE.match(ref_text)
         source = resolve_source_line(ref_text[token.end() :] if token else ref_text, registry)
-        # A line resolved by its link is the URL path's (``has_url``), not a document.
         if source.url or not source.citation_key:
             continue
         entry = registry.entry_for_citation_key(source.citation_key)

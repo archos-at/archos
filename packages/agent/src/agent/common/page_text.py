@@ -22,9 +22,7 @@ from collections import Counter
 from collections.abc import Iterable
 from collections.abc import Sequence
 
-#: An edge line repeating on this share of the pages is furniture…
 FURNITURE_PAGE_SHARE = 0.5
-#: …and on at least this many pages: fewer pages give no repetition to go by.
 FURNITURE_MIN_PAGES = 3
 
 _DIGITS = re.compile(r"\d+")

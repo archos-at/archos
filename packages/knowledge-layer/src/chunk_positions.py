@@ -41,24 +41,16 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
-#: The separator both chunkers join a breadcrumb with (``section_chunking.BREADCRUMB_SEP``).
 BREADCRUMB_SEP = " › "
 
-#: The longest repeated head :func:`repeated_head` will cut, in characters. The chunkers overlap
-#: neighbours by about 96 tokens; anything much longer is not an overlap but a coincidence.
 MAX_OVERLAP_CHARS = 1_200
 
-#: The shortest repeat worth cutting: a heading or a table header that a neighbouring chunk
-#: happens to repeat is the chunk's own text, not overlap.
 MIN_OVERLAP_WORDS = 8
 MIN_OVERLAP_CHARS = 40
 
-#: The most returned ordinal-less chunks of one page compared pairwise for their overlap.
 MAX_LEGACY_PAGE_CHUNKS = 32
 
-#: The marker a visual or uncaptioned-table chunk opens with: the pipeline's words, not the document's.
 _MARKER = re.compile(r"\[(?:TABLE|DRAWING) from page \d+\](?: \(Teil \d+ von \d+\))?\n\n")
-#: The part suffix a table caption carries from its second row group on.
 _PART_SUFFIX = re.compile(r" \(Teil \d+ von \d+\)$")
 
 

@@ -19,13 +19,7 @@ schema AND the same trigger doctrine to the model through the shared
 import json
 import logging
 
-# Importing this module runs its ``@register_function`` so the agent runtime discovers the
-# ``surface_documents`` tool through the same ``card_tools`` entry point that
-# imports this file — no extra plugin entry needed.
 from agent.cards import surface_documents as _surface_documents  # noqa: F401
-
-# Re-exported so the shape-hint retry loop and tests keep importing them from
-# here; the definitions live in the framing-free catalog module.
 from agent.cards.catalog import CARD_EXAMPLES as _CARD_EXAMPLES  # noqa: F401
 from agent.cards.catalog import CHAT_ONLY_CARD_TYPES
 from agent.cards.catalog import model_facing_card_types
@@ -44,11 +38,6 @@ from nat.plugin_api import register_function
 logger = logging.getLogger(__name__)
 
 
-# The WHOLE contract for calling this tool: Markdown first, which trigger takes which card, how
-# that card is filled well, what may go on one and when to emit none. One statement, in
-# `catalog.render_card_doctrine`, shared with the chat envelope and the post-hoc pass. What stays
-# out is what belongs to the answer rather than the tool: the `[[card:N]]` placement contract
-# (the success message repeats the marker per call) and the answer envelope's own fields.
 _CARD_DOCTRINE = render_card_doctrine()
 
 
@@ -97,8 +86,6 @@ _DESCRIBE_DESCRIPTION = (
 )
 
 
-#: What comes back when no conversation context is bound. The answer still
-#: stands; the cards simply have nowhere to be delivered.
 _NO_CHANNEL = "Noted, but no card channel is available in this context; continue with your written answer."
 
 
@@ -149,13 +136,7 @@ async def emit_card(tool_config: EmitCardConfig, builder: Builder):
         them apart picks by guess. Refusals are ``warning`` because each one is
         a card the reader was supposed to get and did not.
         """
-        # ONE validator for a card the model composes, shared with the answer
-        # envelope's `cards` field (``cards/envelope.py``): the shape check,
-        # the system-card channel and the retired-type channel. What this
-        # tool adds is its own advice — which call to make next.
         if isinstance(payload, dict) and payload.get("type") in CHAT_ONLY_CARD_TYPES:
-            # A surface's `Text` [N] are held to the answer's citations on the
-            # chat pipeline only; here they would reach the reader unrecited.
             logger.warning("emit_card rejected a '%s' card: chat envelope only", payload["type"])
             return None, (
                 f"Error: card type '{payload['type']}' cannot be emitted with emit_card. Emit the cards it "
@@ -165,24 +146,15 @@ async def emit_card(tool_config: EmitCardConfig, builder: Builder):
         if refusal is None:
             return validated, None
         if refusal.kind == REFUSED_SHAPE:
-            # The FULL shape, the building blocks, the field rules and the worked
-            # example — the whole of what `describe_card` used to be asked for in
-            # advance. The retry is the cheapest place to spend it: it is the one
-            # moment we know the model needs it and know which type it needs.
             return None, (
                 f"Error: {refusal.message} Fix the fields and call emit_card again, or skip the card."
                 + (f"\n\n{refusal.hint}" if refusal.hint else "")
             )
         if refusal.kind == REFUSED_SYSTEM_TYPE:
-            # System cards (e.g. memory_proposal) are emitted only by their
-            # owning tool on a sanctioned path — the model must never emit one.
             return None, (
                 f"Error: card type '{refusal.card_type}' is system-emitted and cannot be created with "
                 "emit_card. Do not emit this card type."
             )
-        # A retired type's refusal names the Markdown (or envelope field) that
-        # replaced it, so a model that recognised the content is redirected
-        # rather than merely refused; every other kind says what went wrong.
         return None, f"Error: {refusal.message}"
 
     def _register(validated: dict) -> int | None:
@@ -253,10 +225,6 @@ async def emit_card(tool_config: EmitCardConfig, builder: Builder):
     async def _emit(card_json: str) -> str:
         """Validate and register one Grid response card, or an array of them."""
         try:
-            # strict=False: a raw newline inside a JSON string is how a model
-            # writes the ONE card whose payload is a multi-line mermaid source.
-            # Refusing it as "not valid JSON" rejected every diagram the field
-            # produced while every short-fielded card sailed through.
             payload = json.loads(card_json, strict=False) if isinstance(card_json, str) else card_json
         except (json.JSONDecodeError, TypeError) as exc:
             logger.warning("emit_card rejected a card: card_json is not valid JSON (%s)", exc)
@@ -285,11 +253,7 @@ async def describe_card(tool_config: DescribeCardConfig, builder: Builder):
         if not requested:
             return "Error: pass at least one card type name, e.g. 'stair_diagram'."
 
-        # This tool serves `emit_card`, which refuses the chat-only types.
         known = model_facing_card_types() - CHAT_ONLY_CARD_TYPES
-        # Report the unknown names rather than rendering only what resolved: a
-        # silently shorter answer reads as "that card does not exist", and the
-        # model's next move would be to invent a shape for it.
         unknown = [t for t in requested if t not in known]
         detail = render_card_details([t for t in requested if t in known])
 

@@ -20,21 +20,14 @@ from .text import _pages_label
 from .text import _shorten
 from .text import fold
 
-#: How many chunks one exact search reads per collection. A bound
-#: against a phrase that is on every page, not a relevance budget: past it the
-#: count is stated as a floor.
 MAX_MATCH_CHUNKS = 500
 
-#: How many matching passages travel as citable evidence. The per-file table
-#: covers every match; these are the text to quote from.
 MAX_MATCH_PASSAGES = 8
 
-#: Distinct matched strings a regex search lists before it counts the rest, and the characters of one.
 MAX_DISTINCT_MATCHES = 20
 
 MAX_DISTINCT_CHARS = 60
 
-#: Files and pages named beside one distinct match, and distinct strings one file is tracked for.
 MAX_DISTINCT_FILES = 3
 
 MAX_DISTINCT_PAGES = 5
@@ -63,11 +56,8 @@ class FileMatches:
     collection: str
     chunks: list[Any] = field(default_factory=list)
     occurrences: int = 0
-    #: A regex search only: per distinct matched string (case-folded), ``[spelling, count, pages]``.
     strings: dict[str, list[Any]] = field(default_factory=dict)
-    #: True once the file had more distinct strings than :data:`MAX_TRACKED_STRINGS`.
     strings_cut: bool = False
-    #: Per chunk id, the text its matches were counted on (``chunk_positions.own_text``).
     own: dict[str, OwnText] = field(default_factory=dict)
 
     def note_strings(self, found: Sequence[str], page: int | None) -> None:
@@ -149,14 +139,10 @@ def group_matches(
         found: list[str] = _matched_strings(own, compiled, timeout) if collect_strings else []
         count = len(found) if collect_strings else sum(1 for _ in own_matches(own, compiled, timeout))
         if store_decides and not count and not _occurrences(getattr(chunk, "content", "") or "", compiled, timeout):
-            # The stemmed index matched a form the counting pattern does not know: once. A chunk whose
-            # match the pattern does find, but only in its breadcrumb or overlap, is not its own match.
             count = 1
         if not count:
             continue
         _add_match(groups, chunk, own, count, found)
-    # The reader's own files first: „wo steht EI 90" is about the project, and
-    # the OIB corpus says EI 90 on a hundred pages.
     ordered = sorted(
         groups.values(), key=lambda group: (group.shelf == "base", -group.occurrences, fold(group.file_name))
     )

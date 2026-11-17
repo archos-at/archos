@@ -18,20 +18,16 @@ const options = [
   { selector: "CallExpression[callee.property.name='getTextContent']", message: 'getTextContent' },
 ]
 
-// `RuleTester.run` declares its own suite, so it has to sit at the top level.
 ruleTester.run('no-restricted-syntax', rule, {
   valid: [
     { code: 'git.rollback(savepoint)', options },
     { code: "const code = '23506'", options },
     { code: 'readPageTextItems(page)', options },
-    // No options, no findings.
     { code: 'tx.rollback()', options: [] },
   ],
   invalid: [
     { code: 'tx.rollback()', options, errors: [{ message: 'rollback' }] },
     { code: "if (error.code === '23505') {}", options, errors: [{ message: 'sqlstate' }] },
-    // esquery compares attribute values as strings, so the numeric spelling is
-    // caught too — as it was under ESLint, which uses the same esquery.
     { code: 'if (error.code === 23505) {}', options, errors: [{ message: 'sqlstate' }] },
     { code: 'await page.getTextContent({})', options, errors: [{ message: 'getTextContent' }] },
   ],

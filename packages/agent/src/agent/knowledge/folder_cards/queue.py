@@ -71,11 +71,8 @@ COLLECTIONS_TABLE = "folder_card_collections"
 USAGE_TABLE = "folder_card_usage"
 MANIFEST_TABLE = "folder_card_manifests"
 
-#: A folder is built once nothing marked it for this long (an import of 200 files is one build).
 QUIET_SECONDS = 600
-#: ... or once it has been dirty this long, however busy it stays.
 MAX_DIRTY_SECONDS = 3600
-#: Runs that may fail for good over a dirty folder before it leaves the set until the nightly reconcile.
 GIVE_UP_ROUNDS = 3
 
 _lock = threading.Lock()
@@ -110,11 +107,6 @@ def _depth(folder_path: str) -> int:
 
 def month_of(now: float) -> str:
     return datetime.fromtimestamp(now, tz=UTC).strftime("%Y-%m")
-
-
-# ---------------------------------------------------------------------------
-# Engine and schema
-# ---------------------------------------------------------------------------
 
 
 def db_url() -> str:
@@ -179,7 +171,6 @@ def _create_tables(conn) -> None:
         Column("depth", Integer, nullable=False),
         Column("dirty_since", Float, nullable=False),
         Column("marked_at", Float, nullable=False),
-        # No database default (a table made before November 2026 has none either): ``mark`` writes the zero.
         Column("attempts", Integer, nullable=False),
         Index("ix_folder_card_queue_marked", "marked_at"),
     )
@@ -205,11 +196,6 @@ def _create_tables(conn) -> None:
         Column("manifest", Text, nullable=False),
     )
     metadata.create_all(conn, checkfirst=True)
-
-
-# ---------------------------------------------------------------------------
-# The dirty set
-# ---------------------------------------------------------------------------
 
 
 def mark(
@@ -292,7 +278,6 @@ def finish(collection: str, folder_path: str, started: float, *, url: str | None
     where = "WHERE collection = :collection AND folder_path = :path"
     with _begin(url) as conn:
         if not _execute(conn, f"DELETE FROM {QUEUE_TABLE} {where} AND marked_at <= :started", keys).rowcount:
-            # Marked during the build, which passed: a new quiet period starts from that mark, with no failed run.
             _execute(conn, f"UPDATE {QUEUE_TABLE} SET dirty_since = marked_at, attempts = 0 {where}", keys)
 
 
@@ -340,11 +325,6 @@ def queued(collection: str, *, url: str | None = None) -> list[tuple[str, float,
     return [(row[0], float(row[1]), float(row[2])) for row in rows]
 
 
-# ---------------------------------------------------------------------------
-# Which organization a collection belongs to
-# ---------------------------------------------------------------------------
-
-
 def remember_collection(collection: str, organization_id: str, *, url: str | None = None) -> None:
     _write(
         f"INSERT INTO {COLLECTIONS_TABLE} (collection, organization_id, reconciled_at) "
@@ -382,11 +362,6 @@ def set_reconciled(collection: str, *, now: float | None = None, url: str | None
     )
 
 
-# ---------------------------------------------------------------------------
-# The monthly budget
-# ---------------------------------------------------------------------------
-
-
 def tokens_used(organization_id: str, *, now: float | None = None, url: str | None = None) -> int:
     rows = _read(
         f"SELECT tokens FROM {USAGE_TABLE} WHERE organization_id = :organization_id AND month = :month",
@@ -407,10 +382,6 @@ def add_tokens(organization_id: str, tokens: int, *, now: float | None = None, u
         url,
     )
 
-
-# ---------------------------------------------------------------------------
-# What each card was written from
-# ---------------------------------------------------------------------------
 
 _MANIFEST_KEY = "WHERE collection = :collection AND folder_path = :path"
 

@@ -77,8 +77,6 @@ def generate_report(
             print(f"Loaded {len(predicted_osl_map)} NOVA-Predicted-OSL values from {Path(tp).name}.")
 
         rd = _build_report_data(profiles, pricing, config_path, predicted_osl_map)
-        # In multi-run mode use the trace's parent directory name as the run label
-        # so the comparison tab can distinguish "run_a" from "run_b".
         if len(trace_paths) > 1:
             rd["label"] = Path(tp).parent.name or Path(tp).stem
         run_datas.append(rd)

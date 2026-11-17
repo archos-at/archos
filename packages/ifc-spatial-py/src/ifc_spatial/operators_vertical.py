@@ -131,9 +131,6 @@ def sill_and_head(model: SpatialModel, global_id: str) -> Answer[dict[str, float
             ),
         )
 
-    # The storey datum is DECLARED and the box is MEASURED; nothing in IFC makes
-    # them share a reference, and a file where they do not produced sills 58 m
-    # below their own floor in the TS package. See `_storey_datum_drift`.
     drift = _storey_datum_drift(model)
     if drift > 0:
         return undecidable(
@@ -200,9 +197,6 @@ def azimuth(model: SpatialModel, global_id: str) -> Answer[dict[str, Any]]:
     method = f"azimuth({global_id})"
     subject = _require(model, global_id, method)
 
-    # Checked before the geometry, because it is a fact about the whole file: an
-    # answer that first complained about this element's mesh would send the
-    # architect to fix the wrong thing.
     if model.true_north is None:
         return undecidable(
             from_=[global_id],
@@ -268,14 +262,9 @@ def azimuth(model: SpatialModel, global_id: str) -> Answer[dict[str, Any]]:
     if float(n @ away) < 0:
         n = -n
 
-    # North in model coordinates: `true_north` is the angle from +Y toward +X, so
-    # north = (sin θ, cos θ), and east is north turned 90° clockwise.
     theta = model.true_north
     north = np.array([np.sin(theta), np.cos(theta)])
     east = np.array([north[1], -north[0]])
-    # ((x % 360) + 360) % 360 with a sign-preserving fmod, exactly as the TS
-    # `normaliseDegrees` does: a plain Python `%` maps −1e-14 onto 360.0 and a
-    # north-facing wall would be reported as bearing 360°.
     raw_degrees = float(np.degrees(np.arctan2(float(n @ east), float(n @ north))))
     degrees = math.fmod(math.fmod(raw_degrees, 360.0) + 360.0, 360.0)
 
@@ -422,17 +411,6 @@ def clear_height(model: SpatialModel, space_global_id: str, samples: int = 5) ->
     floor_z = float(low[2]) + 0.01
 
     tree = model.tree
-    # The plan outline from the room's own MESH, not from OCCT's solid
-    # classifier. `tree.select(point)` needs a closed, orientable solid, and
-    # ArchiCAD writes `IfcSpace` bodies as `Brep` shells that OCCT will take
-    # into the tree but not classify — so the point query returned nothing for
-    # 82 of 82 rooms in `AC20-Institute-Var-2.ifc`, every one of them
-    # undecidable, while the same rooms triangulate 82 of 82.
-    #
-    # The mesh needs no classification, and it still answers the question the
-    # tree query was standing in for: an L-shaped room's bounding box covers
-    # plan area the room does not, so only points really inside the outline may
-    # lower the answer.
     footprint = plan_footprint(geo.verts[geo.faces])
     tested = 0
     shortest = modelled
@@ -444,8 +422,6 @@ def clear_height(model: SpatialModel, space_global_id: str, samples: int = 5) ->
             if footprint is not None:
                 if not footprint.covers(ShapelyPoint(x, y)):
                     continue
-            # No usable horizontal face — fall back to the classifier, which
-            # is what this did before and is right when it works.
             elif space_global_id not in [e.GlobalId for e in tree.select((x, y, floor_z + 0.05))]:
                 continue
             tested += 1

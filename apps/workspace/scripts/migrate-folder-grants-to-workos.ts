@@ -1,48 +1,3 @@
-/**
- * Carry each folder's role grants over to WorkOS folder roles (ADR-0097) — or
- * show what it would do.
- *
- * Before ADR-0097 a folder with its own access list named organization ROLES
- * (`project_folder_grants`). Now the folder is a WorkOS `folder` resource and
- * the PEOPLE on its list hold a folder role on it. Migration 0128 carried the
- * `*` entries over in SQL; the role entries need WorkOS, so they are this
- * script: for every folder with its own list, every active member of the
- * organization who holds one of the roles it names gets the folder role for
- * the best level those roles granted.
- *
- * What changes for the office: a role grant followed the role, so someone given
- * the role later reached the folder. A folder role is given to a person, so
- * after this runs, the list is the people who held the role today.
- *
- *   Usage (from apps/workspace):
- *     WORKOS_API_KEY=sk_… APP_MIGRATION_DATABASE_URL=postgres://… \
- *       bun run migrate:folder-grants             # show the plan, change nothing
- *     … bun run migrate:folder-grants -- --apply  # register the folders and assign the roles
- *
- * Every deploy runs it with `--apply`, in this order: the `folder:*`
- * permissions and folder roles (`provision:authz`, Job
- * `grid-app-authz-catalog`), the frontend that reads folder roles, then this
- * (Job `grid-app-folder-grants`, compose service `workos-authz`). The
- * `folder` resource type itself is a dashboard step. Until it has run, a folder with
- * its own list is readable only by organization admins and, when everyone
- * reads it, by every project member: the narrow direction, not a leak. Run
- * before the deploy, it would carry a list over as it stood then, and a list
- * narrowed in the old dialog afterwards would come back wider.
- *
- * It converts only folders that are not yet registered in WorkOS. Once a folder
- * is registered, its list is WorkOS's: someone may have edited it in the new
- * dialog, and `project_folder_grants` is no longer written, so carrying the old
- * roles over again would put back people who were taken off. A registered
- * folder is therefore skipped, and running the script twice changes nothing.
- * A folder a failed run registered but did not finish is named on the command
- * line to finish it: `-- --apply --finish=<folder id>` (repeatable). It never
- * removes a folder role.
- *
- * It reads `project_folder_grants` across every organization, so it needs the
- * schema owner's connection (`APP_MIGRATION_DATABASE_URL`); the runtime
- * role is subject to row-level security and would see nothing.
- */
-
 import postgres from 'postgres'
 import { WorkOS } from '@workos-inc/node'
 
@@ -109,7 +64,6 @@ async function loadPlans(): Promise<FolderPlan[]> {
   return [...plans.values()]
 }
 
-/** Every active membership of the organization, with the role slugs it holds. */
 async function membersByRole(organizationId: string): Promise<Array<{ membershipId: string; roles: Set<string> }>> {
   const page = await workos.userManagement.listOrganizationMemberships({ organizationId, statuses: ['active'] })
   const memberships = await page.autoPagination()
@@ -144,7 +98,6 @@ async function register(plan: FolderPlan): Promise<void> {
   })
 }
 
-/** Role slugs already assigned on the folder, per membership. Empty when it is not registered. */
 async function assignedOn(plan: FolderPlan): Promise<Map<string, Set<string>>> {
   const held = new Map<string, Set<string>>()
   try {
@@ -193,7 +146,6 @@ async function main(): Promise<void> {
     if (rolesWithoutHolder.length > 0) console.log(`  no active member holds: ${rolesWithoutHolder.join(', ')}`)
     const registered = await isRegistered(plan)
     if (registered && !finish.has(plan.folderId)) {
-      // Already WorkOS's: converted before, or edited in the new dialog.
       skipped += 1
       console.log('  already registered in WorkOS: skipped (its list is WorkOS\'s now)')
       continue

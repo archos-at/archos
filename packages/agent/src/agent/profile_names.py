@@ -137,7 +137,6 @@ LEGACY_PROFILE_KEYS: dict[str, str] = {
     "zugang_drei_seiten": "access_three_sides",
 }
 
-#: NEW base key -> {old token -> new token}, for the select questions whose tokens were German.
 LEGACY_PROFILE_TOKENS: dict[str, dict[str, str]] = {
     "federal_state": {
         "wien": "vienna",
@@ -348,7 +347,6 @@ LEGACY_PROFILE_TOKENS: dict[str, dict[str, str]] = {
     },
 }
 
-#: The derivation rule names inside a fact's ``evidence``.
 LEGACY_DERIVATION_RULES: dict[str, str] = {"gebaeudeklasse": "building_class"}
 
 BUILDING_PREFIX = "bldg"

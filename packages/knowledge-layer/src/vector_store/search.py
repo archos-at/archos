@@ -49,8 +49,6 @@ from .scope import scope_filter
 from .store import QdrantStore
 from .store import bm25
 
-#: Reciprocal rank fusion constant (Cormack, Clarke & Buettcher, SIGIR 2009),
-#: the value the Python fusion in ``search/hybrid.py`` has always used.
 RRF_K = 60
 
 
@@ -64,27 +62,13 @@ class Ranking:
     measurement supports (``qdrant-gates-2026-10.md``, "Ranking sweep").
     """
 
-    #: ``rrf`` (rank only) or ``dbsf`` (scores normalised per channel by mean and spread, then summed).
     fusion: Literal["rrf", "dbsf"] = "rrf"
     rrf_k: int = RRF_K
-    #: Weight of the unrestricted dense channel in RRF. Qdrant scales the RANK
-    #: by it (``1 / (k - 1 + rank / w)``), not the vote; 1.0 sends no weights.
     dense_weight: float = 1.0
-    #: Re-score the quantized dense candidates against the original vectors.
     rescore: bool = False
-    #: How many more quantized candidates than ``limit`` to fetch before rescoring (None: Qdrant's default).
     oversampling: float | None = None
-    #: Maximal marginal relevance on the unrestricted dense channel: 0 is pure
-    #: relevance, 1 pure diversity; None runs a plain nearest query.
     mmr_diversity: float | None = None
-    #: Candidates MMR chooses from (None: the channel's own limit).
     mmr_candidates: int | None = None
-    #: Order passages whose fused scores tie by their cosine to the query.
-    #: Equal-weight RRF ties exactly whenever two passages hold the same ranks
-    #: in different channels, and Qdrant returns ties in no fixed order: 86 of
-    #: 105 parity queries came back in another top-60 order on four identical
-    #: calls, 0 with this on. The one setting the sweep adopted
-    #: (``qdrant-gates-2026-10.md``, "Ranking sweep").
     cosine_tie_break: bool = True
 
     def label(self) -> str:
@@ -103,7 +87,6 @@ class Ranking:
         return "+".join(parts)
 
 
-#: The ranking every search runs.
 RANKING = Ranking()
 
 
@@ -114,12 +97,8 @@ class Hit:
     chunk_id: str
     text: str
     payload: dict[str, Any]
-    #: The fused rank score: comparable within one result list only.
     fused: float
-    #: Cosine similarity between the query and the chunk's dense vector.
     cosine: float
-    #: A lexical channel ranked it (BM25, or an exact term): the chunk holds a word of the query.
-    #: Stated by :func:`grouped_search` only; False elsewhere.
     lexical: bool = False
 
 
@@ -128,8 +107,6 @@ def phrase(term: str) -> models.FieldCondition:
     return models.FieldCondition(key=TEXT_FIELD, match=models.MatchPhrase(phrase=term))
 
 
-#: An exact term that is one ``§`` reference and nothing else, as
-#: ``legal_terms.extract_exact_terms`` emits it (``§ 3``, ``§ 12.1``, ``§ 3a``).
 _PARAGRAPH_TERM = re.compile(r"^§\s*(\S+)$")
 
 
@@ -367,9 +344,6 @@ def grouped_search(
             scopes, query_filter, vector, lexical_text, exact_terms, candidates, RANKING, store.bm25_length(scopes[0])
         )
     ]
-    # One flat fused ranking, grouped here in its order. Qdrant's group query is no substitute: with a fusion as its
-    # query it fuses again for every round of groups it collects, so each round's best passage scores rank 0 and the
-    # groups interleave by round instead of by relevance (measured on 1.19.2; ``test_qdrant_boost.py`` pins it).
     result = store.client.query_points(
         alias,
         prefetch=prefetch,
@@ -380,7 +354,6 @@ def grouped_search(
     points = list(result.points)
     cosines: dict[str, float] | None = None
     if RANKING.cosine_tie_break:
-        # Ties are ordered before grouping: which project's passage comes first decides the group order.
         cosines = _cosines(store, alias, read, vector, [point.id for point in points])
         points.sort(key=lambda point: _tie_order(_hit(point, cosines)))
     collected = _group_in_order(points, group_by, groups, group_size)

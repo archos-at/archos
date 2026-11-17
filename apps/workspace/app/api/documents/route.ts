@@ -1,19 +1,3 @@
-/**
- * Documents API — list one shelf's documents, one keyset page at a time
- * (`?cursor=` from the previous page's `nextCursor`, `null` on the last page).
- * The shelf is `?projectId=` or `?scope=office_shelf` (`@/lib/documents/shelf-scope`);
- * the office shelf's page also says `collectionName` and `canManage`, and marks
- * the office's standards (`baseKnowledgeEntryId`) when it has the
- * `office-standards` entitlement.
- *
- * Every request is a bounded page: one folder level (`folderId`) or the whole
- * shelf, in the reader's order, `limit` a page (default 100, at most 500;
- * ADR-0102, ADR-0131, `@/lib/documents/list-query`).
- *
- * Thin handler; the logic lives in `@/lib/documents/document-listing` and
- * `@/lib/office-shelf/service`.
- */
-
 import { apiRoute, parseQuery } from '@/lib/api/handler'
 import { isOfficeStandardsEnabled } from '@/lib/authz/feature-flags'
 import { listDocumentsPage } from '@/lib/documents/document-listing'
@@ -31,7 +15,6 @@ export const GET = apiRoute(
       shelf.kind === 'project'
         ? await listDocumentsPage(session, shelf.projectId, options)
         : await listOfficeShelf(session, options)
-    // The „Grundlage" mark rides only where the office has its own standards (`office-standards`).
     const officeShelf = shelf.kind !== 'project' && isOfficeStandardsEnabled(session)
     return { ...page, documents: await toDocumentWireRows(session.organizationId, documents, { officeShelf }) }
   },

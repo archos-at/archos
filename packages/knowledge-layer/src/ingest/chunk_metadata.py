@@ -11,26 +11,6 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
-#: Metadata keys that exist for filtering, citation or diagnostics and must never be
-#: embedded or shown to the LLM.
-#:
-#: LlamaIndex prepends the whole metadata dict to a node's text before embedding
-#: (``MetadataMode.EMBED``) unless a key is excluded, and nothing here set any
-#: exclusions -- so every OIB chunk's vector was shifted by ``file_size: 1975942``, and
-#: table/image/drawing chunks additionally carried row counts and pixel dimensions.
-#: A byte count and a render's pixel width carry no retrieval signal; they are also
-#: charged against the chunk's token budget, because ``SentenceSplitter`` subtracts the
-#: metadata header from ``chunk_size`` before splitting.
-#:
-#: ``file_path`` is the sharpest one: ``SimpleDirectoryReader`` sets it to the ingest
-#: temp file, so non-PDF uploads embedded a random ``/tmp/tmpk3n8w1qz.docx`` -- different
-#: on every re-upload of the same document.
-#:
-#: ``drawing_type``/``drawing_scale`` are excluded because the VLM caption already states
-#: both verbatim in the chunk body; embedding them again only doubles their weight.
-#: ``file_name``, ``page_label``, ``content_type`` and ``doc_class`` stay: those are what
-#: users actually ask by, and they are the closest thing this corpus has to a context
-#: header.
 EMBED_EXCLUDED_METADATA_KEYS = (
     "file_size",
     "file_path",
@@ -41,38 +21,19 @@ EMBED_EXCLUDED_METADATA_KEYS = (
     "image_format",
     "image_width",
     "image_height",
-    # Where the stored raster lives (image_store.py): an object key and an
-    # ordinal, addressing for the view tool and not a word of what the image
-    # shows.
     "image_key",
     "stored_image_index",
     "drawing_type",
     "drawing_scale",
-    # A photo's camera facts (photo_facts.py): metadata to filter and show by,
-    # not words of what the photo depicts.
     "captured_at",
     "camera",
-    # The v2 structured payload: multi-KB JSON for the detail view / later
-    # re-mapping, plus per-sheet segment bookkeeping. Embedding any of it
-    # would double the segment text's weight (drawing_data restates the chunk
-    # body as JSON) and burn the chunk's token budget on braces.
     "drawing_data",
     "segment_index",
     "segment_count",
-    # Provenance (ADR-0054). Excluded from both renderings and STORED anyway:
-    # exclusion governs what the splitter renders into the embedded text and
-    # the LLM header, not what the vector store keeps, and retrieval reads
-    # these off `Chunk.metadata` directly. A release date and a producer id
-    # carry no retrieval signal, and embedding an approver's name would shift
-    # every chunk of the document toward whoever signed it — the German line
-    # the reader and the model see is built once, in the grounding block, from
-    # the stored fields.
     "authored_by",
     "approved_by",
     "approved_at",
     "producer",
-    # A filed mail thread's format (``mail``): a lane and a filter, not a word of
-    # any message. The grounding block states it as its own ``Format:`` line.
     "source_format",
 )
 
@@ -111,8 +72,6 @@ def apply_metadata_exclusions(document: Any) -> None:
             logger.debug("Could not set %s on %r", attribute, type(document).__name__)
 
 
-#: Keys rendered into the header whatever its length: what users ask by, short by
-#: construction, and ``file_name`` is how a file's chunks are found and deleted.
 _ALWAYS_RENDERED_METADATA_KEYS = frozenset({"file_name", "page_label", "content_type", "doc_class"})
 
 
@@ -155,10 +114,6 @@ def _fit_rendered_metadata(document: Any, limit: int) -> list[str]:
             if key not in _ALWAYS_RENDERED_METADATA_KEYS and _is_rendered(document, key)
         ]
         if not rendered:
-            # Only the always-rendered keys are left (typically a very long file
-            # name). Failing the file for a header is worse than a header without
-            # it: the keys stay STORED, which is what finds and deletes a file's
-            # chunks, and only leave the embedded text.
             rendered = [
                 key
                 for key in document.metadata
@@ -208,7 +163,6 @@ def stamp_chunk_metadata(
             "Metadata too long to embed in %s; left out of the header: %s", file_name, ", ".join(sorted(unrendered))
         )
     if longest > limit:
-        # "tokens" here are tokenizer counts; the line logs a file name and integers only.
         # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure
         logger.warning(
             "Metadata header of %s stays at %d tokens with every key left out, over its %d-token budget "

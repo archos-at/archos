@@ -184,23 +184,6 @@ def headroom(model: SpatialModel, global_id: str) -> Answer[dict[str, Any]]:
             ),
         )
 
-    # The subject only. The flight being measured excludes ITSELF below, because
-    # a body cannot stop a ray leaving its own surface; its SIBLINGS must stay
-    # candidates, because the other flight of the same stair is the commonest
-    # ceiling a staircase has. This set used to hold every body in `rakes`, which
-    # made the exclusion identical for all flights and blinded each one to the
-    # rest of its own assembly — on the two-flight „Treppe Turm" of
-    # tests/test_stairs.py, whose Lauf OG stands 1.280 m over the top nosing of
-    # Lauf UG, `headroom` on the assembly reported „kein Bauteil … begrenzt
-    # nichts die Durchgangshöhe" while the same question asked about Lauf UG
-    # alone answered 1.280 m. „Nichts darüber" is read as a gap in the export;
-    # here it was a stair, and the direction of the error is the dangerous one.
-    #
-    # The exclusion is still per BODY and not per flight, and it has to be: the
-    # ray tree knows elements, not the runs this module reads out of one. So on a
-    # dogleg written as a single IfcStair, the upper flight cannot limit the lower
-    # one — the caveat says as much where it applies. Where the export gives each
-    # flight its own IfcStairFlight, the sibling case above still works.
     excluded_self = {global_id}
 
     per_body = {element.GlobalId: len(rakes) for element, rakes, _ in readings}
@@ -286,14 +269,6 @@ def headroom(model: SpatialModel, global_id: str) -> Answer[dict[str, Any]]:
     if culprit_name:
         caveats.append(f"Die engste Stelle liegt unter: {culprit_name}.")
     if len(per_flight) > 1:
-        # The second sentence describes a limitation of reading SEVERAL flights
-        # out of ONE body: the ray tree keys on elements, so a flight cannot
-        # stop a ray cast from its neighbour when both came from the same solid.
-        # It is false for an export that writes an `IfcStairFlight` per flight —
-        # there the exclusion is per element and a sibling flight DOES limit the
-        # one beneath it, which `test_the_flight_above_belongs_to_the_same_stair
-        # _and_still_counts` pins at 1.280 m. Printing it anyway would tell a
-        # reader their file lacks something it has.
         split_body = any(count > 1 for count in per_body.values())
         caveats.append(
             f"Gemessen über {len(per_flight)} Läufen; ausgewiesen ist der engste."

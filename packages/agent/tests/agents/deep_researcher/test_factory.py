@@ -186,10 +186,8 @@ def test_writer_pruning_middleware_scales_with_research_volume():
     writer_pruning = _pruning_middleware(middleware_set.writer)
     researcher_pruning = _pruning_middleware(middleware_set.researcher)
     orchestrator_pruning = _pruning_middleware(middleware_set.orchestrator)
-    # 6 (max_research_concurrency) * assumed max batches + headroom.
     assert writer_pruning.keep_last_n >= 50
     assert writer_pruning.max_chars >= 20_000
-    # Non-writer stacks keep the tighter defaults.
     assert researcher_pruning.keep_last_n == 10
     assert researcher_pruning.max_chars == 2000
     assert orchestrator_pruning.keep_last_n == 10
@@ -339,8 +337,6 @@ def test_graph_passes_checkpointer_through_alongside_inmemory_store():
 
     kwargs = create.call_args.kwargs
     assert kwargs["checkpointer"] is fake_checkpointer
-    # The longterm-memory store stays an independent, always-in-memory instance
-    # regardless of whether a durable checkpointer is configured.
     from langgraph.store.memory import InMemoryStore
 
     assert isinstance(kwargs["store"], InMemoryStore)
@@ -432,8 +428,6 @@ def test_researcher_runnable_uses_rendered_prompt_and_runtime_middleware():
     assert kwargs["model"] is researcher_model
     assert kwargs["tools"] == [web_search_tool]
     assert kwargs["system_prompt"] == "rendered researcher prompt"
-    # No response_format on the tool loop: strict structured output is deferred
-    # to the researcher's exit turn via middleware (backlog T2-8).
     assert "response_format" not in kwargs
     assert _deferred_schemas(kwargs["middleware"]) == [ResearchNotes]
     assert middleware_names.index("DeferredStructuredOutputMiddleware") < middleware_names.index("MagicMock")
@@ -479,32 +473,25 @@ class TestToolResultPruningCacheStability:
         history = [_tool_msg(i, 500) for i in range(3)]
 
         first = await _sent_messages(middleware, list(history))
-        # msg_0 fell out of the window and was truncated; the last two stayed full.
         assert first[0].content.endswith("[... truncated ...]")
         assert len(first[1].content) == 500
         frozen = first[0].content
 
-        # History grows: with a naive sliding window msg_1 would now flip to
-        # truncated AND msg_0 already-truncated content must not change.
         history.append(_tool_msg(3, 500))
         second = await _sent_messages(middleware, list(history))
         assert second[0].content == frozen
         assert second[1].content.endswith("[... truncated ...]")
 
-        # And a third call sends both truncated messages byte-identically again.
         third = await _sent_messages(middleware, list(history))
         assert [m.content for m in third[:2]] == [m.content for m in second[:2]]
 
     @pytest.mark.asyncio
     async def test_small_results_do_not_occupy_window_slots(self):
         middleware = ToolResultPruningMiddleware(keep_last_n=2, max_chars=100)
-        # Two big results followed by many trivial ones (think: "Thought recorded.").
         messages = [_tool_msg(0, 500), _tool_msg(1, 500)] + [_tool_msg(i, 20) for i in range(2, 10)]
 
         sent = await _sent_messages(middleware, messages)
 
-        # The two oversized results are still within the last-2 OVERSIZED window:
-        # trivial results must not evict them.
         assert len(sent[0].content) == 500
         assert len(sent[1].content) == 500
         assert all(len(m.content) == 20 for m in sent[2:])
@@ -583,7 +570,6 @@ class TestToolResultPruningImages:
         long_text = _tool_msg(9, 250)
         sent = await _sent_messages(middleware, [_image_result(0, b64_size=1_000_000), long_text])
 
-        # The image's 1 MB of base64 did not blow the 300-char budget, so nothing was evicted.
         assert sent[0].content == _image_result(0, b64_size=1_000_000).content
         assert len(sent[1].content) == 250
 

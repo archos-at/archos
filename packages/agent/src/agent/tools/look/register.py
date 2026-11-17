@@ -55,7 +55,6 @@ from .resolve import resolve_document
 
 logger = logging.getLogger(__name__)
 
-#: The name the model calls, and the name every refusal carries.
 TOOL = "look"
 
 
@@ -170,8 +169,6 @@ async def _licensed_blocks(
 
     capture = current_capture()
     if place is None or capture is None or not capture.text_allowed:
-        # Nothing of the reading could reach the model (no place to cite, or a turn that may expand no
-        # licensed text), so no vision call is made either.
         return [{"type": "text", "text": "This page belongs to a licensed copy no look may read."}], "", ""
     with licensed_document_scope(licence):
         reading = await read_region(view.jpeg, question.strip() or DEFAULT_QUESTION, region=True)
@@ -295,7 +292,6 @@ async def _run_look(
                 resolved.file_name, page, resolved.collection, image_index, region, limits=limits, tool=TOOL
             )
             if _may_glow(resolved):
-                # Telling the room and reading are independent: the glow costs the look no round trip.
                 _, rendered = await asyncio.gather(
                     show_reading(resolved.target.body(), resolved.target.document_id, resolved.signed, page, region),
                     render,
@@ -308,7 +304,6 @@ async def _run_look(
                 refuse_unattested_look(licence)
                 sees = await turn_sees()
                 result, reading, read = await _blocks_for(rendered, question or "", sees, region, place, licence)
-                # The Herleitung row now, the card item once the answer is final (`cards.py`).
                 note_look(
                     resolved,
                     page,
@@ -317,7 +312,6 @@ async def _run_look(
                     question,
                     reading=reading,
                     read=read,
-                    # The Fassung read, so the card keeps showing these bytes after a newer one lands.
                     revision_id=rendered.version_id,
                 )
             else:

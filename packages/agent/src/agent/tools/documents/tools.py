@@ -64,19 +64,12 @@ from .filesystem import with_bare_schema
 
 logger = logging.getLogger(__name__)
 
-#: The verbs bound into Piloti's tool node, in the order the model
-#: meets them, and the middleware's allowlist: nothing else is built.
 DRAFT_TOOL_NAMES = ("ls", "read_file", "write_file", "edit_file")
 
-#: The estate's readers, bound whether or not the turn has a working directory.
 ESTATE_TOOL_NAMES = ("ls", "read_file", "glob", "grep")
 
-#: The tools only a working directory gives: the two that write.
 DRAFT_ONLY_TOOL_NAMES = ("write_file", "edit_file")
 
-#: The two writing verbs, one contract whichever namespace they sit in: a draft is written once, and
-#: ``edit_file`` copies its anchor from ``read_file``, whose ``@@ … @@`` header (DeepAgents 0.7) is not
-#: part of the file.
 _WRITE_DESCRIPTIONS = {
     "write_file": (
         f"Writes a draft as Markdown at `{DRAFT_ROOT}<name>.md` (short, lowercase, hyphens). For a commissioned "
@@ -92,7 +85,6 @@ _WRITE_DESCRIPTIONS = {
     ),
 }
 
-#: Model-facing text for the drafts alone, replacing DeepAgents' defaults.
 _TOOL_DESCRIPTIONS = {
     "ls": (
         "Lists the drafts of this conversation. The working directory is at "
@@ -111,13 +103,6 @@ _TOOL_DESCRIPTIONS = {
     **_WRITE_DESCRIPTIONS,
 }
 
-#: Read and write are confined to the one root. The permission is checked in the
-#: TOOL, before the backend is reached, so the model gets "permission denied" on
-#: a path it invented instead of a storage error; the backend refuses the same
-#: paths on its own (``draft_store.path_refusal``), because a second consumer
-#: of the backend must not have to remember this list. The root itself is
-#: allowed — ``ls`` lists it — in both spellings, because the middleware
-#: normalises the trailing slash away before matching.
 _PERMISSIONS = [
     FilesystemPermission(
         operations=["read", "write"],
@@ -128,12 +113,6 @@ _PERMISSIONS = [
 ]
 
 
-#: The verbs once they read the estate too: Piloti's chat binding (ADR-0133 slice 6). Each is a contract: what
-#: the tool does, its arguments, what comes back, its limits, and one clause on when a neighbouring tool fits
-#: instead. What a result can say at the moment it matters (caps reached, `incomplete:`, a miss, a drawing's
-#: caveat, an unknown path, restricted folders) is said by the result, not here; the schema fields are bare, so
-#: each argument's meaning is stated once. The texts and the sources behind them:
-#: ``docs/audit/prompt-value-audit-2026-10.md`` (slice 6).
 _ESTATE_DESCRIPTIONS = {
     "ls": (
         "Lists one folder: its subfolders with their document counts, and its files with pages, Dokumentart, "
@@ -178,7 +157,6 @@ _ESTATE_DESCRIPTIONS = {
 }
 
 
-#: The skills are read, never written, and only under their own root.
 _SKILL_PERMISSION = FilesystemPermission(operations=["read"], paths=[f"{SKILLS_ROOT}**"], mode="allow")
 
 _SKILL_READ = (

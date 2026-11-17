@@ -1,21 +1,5 @@
 'use client'
 
-/**
- * Dev preview — every block an answer can carry in its own Markdown, drawn by
- * the real `MarkdownRenderer`: tables with status marks, task lists, math, and
- * one ```mermaid fence per grammar the prompt teaches.
- *
- * Two questions this page answers that the unit tests cannot: does each mermaid
- * grammar DRAW in a real browser under our config (`securityLevel: 'strict'`,
- * `htmlLabels: false`, the SVG allow-list), and does the result read as part of
- * an answer. Each diagram's `data-state` is `drawn` or `failed`; a grammar that
- * fails here must not be in the prompt's list.
- *
- * `?grammars=all` adds the grammars we do NOT teach, so the reason they are
- * left out stays checkable. Fixture values show form, not the Richtlinie.
- * 404s outside development. Pinned to German.
- */
-
 import { useSearchParams } from 'next/navigation'
 import { notFound } from 'next/navigation'
 import { Suspense } from 'react'
@@ -25,7 +9,6 @@ import { SectionLabel } from '@/components/ui/section-label'
 
 const fence = (source: string) => '```mermaid\n' + source.trim() + '\n```'
 
-/** The grammars the prompt teaches, each with the use it is taught for. */
 const TAUGHT: { label: string; source: string }[] = [
   {
     label: 'flowchart — ein Verfahren, das sich verzweigt und wieder zusammenläuft',
@@ -137,11 +120,7 @@ xychart-beta
   },
 ]
 
-/** Grammars left out of the prompt; drawn only under `?grammars=all`. */
 const NOT_TAUGHT: { label: string; source: string }[] = [
-  // Draws and prints, but lays out sideways: five entries are 1 390 px, which
-  // the 680 px answer column can only show scrolled. A sequence of Fristen is
-  // a numbered list or a flowchart TD.
   {
     label: 'timeline',
     source: `

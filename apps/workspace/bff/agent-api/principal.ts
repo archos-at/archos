@@ -1,34 +1,4 @@
 import 'server-only'
-/**
- * Who is calling the agent door, and with what rights (ADR-0122).
- *
- * Two doors lead to the same server, and each ends in the same thing: an
- * {@link AgentPrincipal} whose `session` is a role-bearing, live-resolved
- * `AuthorizedSession`, which `dispatch.ts` then binds as the acting session of
- * the route it runs.
- *
- *  - An EXTERNAL agent (Claude, Cursor, ChatGPT) sends a WorkOS AuthKit access
- *    token (MCP Auth). It is verified here against the AuthKit JWKS, with the
- *    issuer and with THIS server's URL as audience (RFC 8707), so a token minted
- *    for another resource is worthless here. The token has no permissions
- *    claim; the person's membership, role and permissions are read from WorkOS
- *    as they are now (`resolvePinnedRequesterSession`). The token is never
- *    forwarded anywhere: the session carries an empty `accessToken` (the MCP
- *    specification forbids token passthrough).
- *  - AGENT in-product echoes the turn's signed request-context envelope next to
- *    the service token, exactly as it does for `/api/internal/*`. It never signs
- *    one; the envelope names the person, and its project and conversation.
- *
- *  - A PLATFORM OPERATOR's agent knocks on the platform door
- *    (`/api/platform/mcp`, ADR-0126) with an AuthKit token for that door's
- *    audience alone, issued in the GRID Platform organization, held by a person
- *    who is platform staff. Its principal carries `door: 'platform'`, which is
- *    all the policy needs to offer the operator console and nothing else.
- *    Piloti's credential never opens it.
- *
- * Failure is returned, not thrown: a {@link AuthChallenge} carries the response
- * the route sends (401 with the `WWW-Authenticate` challenge, 403, 503).
- */
 
 import {
   OAuthError,
@@ -63,56 +33,26 @@ import type { AgentDoor } from './exposure'
 import { hasHeader, readHeader } from '@/lib/http/legacy-header-names'
 import { PRODUCT_NAME } from '@/lib/brand'
 
-/**
- * Who acts, in the words of OAuth token exchange (RFC 8693): the SUBJECT is the
- * person the call is for (`session`), the ACTOR is the agent doing it, and the
- * CLIENT is the OAuth client that holds the token (`clientId`). `external_agent`:
- * an agent outside Piloti (Claude, Cursor, ChatGPT) on the person's OAuth token.
- * `piloti`: the in-product agent, echoing the turn's signed envelope.
- */
 export type AgentActor = 'external_agent' | 'piloti'
 
 export interface AgentPrincipal {
-  /** The agent that acts ({@link AgentActor}). Until October 2026 this was `kind: 'person' | 'piloti'`. */
   actor: AgentActor
-  /** The subject: the person the call acts for, as a live-resolved session with their rights. */
   session: AuthorizedSession
-  /** The OAuth client that holds the token; `null` for Piloti. */
   clientId: string | null
   scopes: string[]
-  /** The chat the call belongs to (Piloti only). */
   conversationId?: string | null
-  /** The project the turn runs in (Piloti only). */
   projectId?: string | null
-  /**
-   * The answer the turn is writing (Piloti only), from {@link ANSWER_MESSAGE_HEADER}: the id the
-   * agent mints for it (`turn_answer_message_id`), marked in `message_restricted_use` when a read
-   * runs in a conversation that drew on a restricted folder (ADR-0093). Unsigned, like the
-   * `answerMessageId` the internal routes take in their bodies: it only ever narrows.
-   */
   answerMessageId?: string | null
-  /**
-   * The sensitivity classes the organization switched on for its agents
-   * ({@link SENSITIVE_OPT_IN_FLAGS}), read when the token is verified. Absent or
-   * empty: no operation with a `sensitivity` is offered. Never set for Piloti.
-   */
   sensitiveOptIns?: readonly Sensitivity[]
-  /**
-   * The catalog door the principal was resolved on (`exposure.ts`, `AgentDoor`):
-   * `platform` on the platform door, absent on an office door. Set here from the
-   * endpoint the verified token's audience binds, never from anything a request says.
-   */
   door?: AgentDoor
 }
 
-/** The organization's opt-in per sensitivity class (ADR-0122, "Sensitive operations"). */
 export const SENSITIVE_OPT_IN_FLAGS: Readonly<Record<Sensitivity, KnownFeatureFlag>> = {
   access: FEATURE_FLAGS.agentMcpAccess,
   secret: FEATURE_FLAGS.agentMcpSecrets,
   control: FEATURE_FLAGS.agentMcpControls,
 }
 
-/** The classes whose opt-in flag is on for `organizationId`; a failed lookup reads as off. */
 async function sensitiveOptInsOf(organizationId: string): Promise<Sensitivity[]> {
   const on = await Promise.all(
     SENSITIVITIES.map((sensitivity) => isOrgFeatureEnabled(SENSITIVE_OPT_IN_FLAGS[sensitivity], organizationId)),
@@ -120,10 +60,8 @@ async function sensitiveOptInsOf(organizationId: string): Promise<Sensitivity[]>
   return SENSITIVITIES.filter((_, index) => on[index] === true)
 }
 
-/** The header Piloti names the turn's answer in; anything but a uuid is ignored. */
 export const ANSWER_MESSAGE_HEADER = 'x-answer-message-id'
 
-/** A request that did not authenticate, with the answer to send. */
 export interface AuthChallenge {
   kind: 'challenge'
   response: Response
@@ -133,7 +71,6 @@ export function isChallenge(value: AgentPrincipal | AuthChallenge): value is Aut
   return 'kind' in value && value.kind === 'challenge'
 }
 
-/** Test seam: replaces the remote AuthKit key set. */
 export interface PrincipalDeps {
   jwks?: JWTVerifyGetKey
 }
@@ -145,7 +82,6 @@ const refuse = (status: number, message: string): AuthChallenge =>
 
 const remoteKeys = new Map<string, JWTVerifyGetKey>()
 
-/** AuthKit's signing keys for `domain`, one remote key set per domain; `deps.jwks` in a spec. */
 export function authkitKeys(domain: string, deps: PrincipalDeps = {}): JWTVerifyGetKey {
   if (deps.jwks) return deps.jwks
   let keys = remoteKeys.get(domain)
@@ -160,22 +96,12 @@ function stringClaim(value: unknown): string | null {
   return typeof value === 'string' && value.length > 0 ? value : null
 }
 
-/** The audience of `aud` (a string or a list) that this server accepts, as a URL; null when none is. */
 function acceptedAudienceOf(aud: unknown, accepted: readonly string[]): URL | null {
   const named = (Array.isArray(aud) ? aud : [aud]).filter((value): value is string => typeof value === 'string')
   const match = named.find((value) => accepted.includes(value))
   return match ? new URL(match) : null
 }
 
-/**
- * Verifies an AuthKit access token as an MCP Auth token for `door`. On an office
- * door its `aud` may name either office door (`acceptedAudiences`): both are this
- * server's resources and act with the same rights. On the platform door it must
- * name the platform door, and a platform-door token is refused on an office door.
- * `jwtVerify`'s audience check is the binding (RFC 8707), and `AuthInfo.resource`
- * is the audience the token really names, not the door it was sent to. Exported
- * for the spec.
- */
 export function tokenVerifier(
   domain: string,
   issuer: string,
@@ -203,8 +129,6 @@ export function tokenVerifier(
           extra: { sub: payload.sub ?? null, orgId: stringClaim(payload.org_id) },
         }
       } catch (error) {
-        // jose's messages name the failed check (audience, expiry, signature),
-        // which helps an integrator and tells an attacker nothing new.
         const reason = error instanceof joseErrors.JOSEError ? error.message : 'token could not be verified'
         throw new OAuthError(OAuthErrorCode.InvalidToken, reason)
       }
@@ -216,8 +140,6 @@ async function externalPrincipal(request: Request, deps: PrincipalDeps): Promise
   const door = doorOf(request)
   const domain = authkitDomain()
   const issuer = authkitIssuer()
-  // The 401 points at the metadata under the host the client used: on a former
-  // host after a domain move, that host's (mcp-config.ts).
   const resource = doorResourceUrl(door, process.env, requestHost(request))
   if (!domain || !issuer || !resource) {
     return refuse(
@@ -230,7 +152,6 @@ async function externalPrincipal(request: Request, deps: PrincipalDeps): Promise
   let auth: AuthInfo
   try {
     auth = await verifyBearerToken(request.headers.get('authorization'), {
-      // No `expectedResource`: the door's audience group is accepted, and the verifier checks it.
       verifier: tokenVerifier(domain, issuer, deps, door),
       resourceMetadataUrl,
     })
@@ -266,33 +187,12 @@ async function externalPrincipal(request: Request, deps: PrincipalDeps): Promise
   }
 }
 
-/**
- * A token outlives the membership it was issued for; the membership lookup is at
- * most a minute old, so a removal or a role change bites within a minute here.
- */
 function freshSession(userId: string, organizationId: string): Promise<AuthorizedSession | null> {
   return resolvePinnedRequesterSession({ userId, email: null, organizationId })
 }
 
-/**
- * The platform door's caller (ADR-0126): a person who is platform staff in the
- * GRID Platform organization now, which has switched the door on
- * (`platform-agent-mcp`). Staff is the precondition only, as in the console:
- * every operation's route still asks for its own `platform:*` permission.
- *
- * The organization the person picked at sign-in does not decide it. A token
- * names one organization, and a member of an office and of the platform who
- * picked the office would otherwise be refused here and have to authorize the
- * client again. The session is resolved in the platform organization from live
- * membership, so it carries exactly the platform rights the person holds there.
- * What this gives up is the platform organization's own sign-in policy (SSO or
- * MFA required for it), which a sign-in through another organization never met:
- * keep that policy unset on the platform organization, or bring back the check
- * on `organizationId` (`docs/deployment/platform-mcp-gateway.md`).
- */
 async function platformPrincipal(auth: AuthInfo, userId: string): Promise<AgentPrincipal | AuthChallenge> {
   const platformOrganizationId = await getPlatformOrganizationId()
-  // Not provisioned, or WorkOS did not answer: the door cannot tell who is staff, so it is closed for now.
   if (!platformOrganizationId) return refuse(503, 'The platform organization could not be resolved. Try again shortly.')
   if (!(await isOrgFeatureEnabled(FEATURE_FLAGS.platformAgentMcp, platformOrganizationId))) {
     return refuse(403, 'Agent access to the platform console (MCP) is not enabled.')
@@ -339,12 +239,6 @@ async function agentPrincipal(request: Request): Promise<AgentPrincipal | AuthCh
   }
 }
 
-/**
- * The principal behind `request`, or the response that refuses it. The door is
- * chosen by the credential the request carries: the service-token header is
- * Piloti's, anything else is judged as a bearer token. Piloti's credential never
- * opens the platform door: in-product Piloti works for an office.
- */
 export async function resolvePrincipal(
   request: Request,
   deps: PrincipalDeps = {},

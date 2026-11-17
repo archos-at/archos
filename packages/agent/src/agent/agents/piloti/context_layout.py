@@ -38,27 +38,14 @@ from __future__ import annotations
 import os
 from typing import Any
 
-# @environment_variable CHAT_CONTEXT_LAYOUT
-# @category Agent
-# @type str
-# @default conversation
-# @required false
-# Where a chat turn's context sits in the request. `conversation` (the default):
-# what the project and the office set once after the system prompt, the same on
-# every turn, and only the turn's own note before the question, so the
-# provider's prompt cache holds the project context across turns and
-# conversations. `turn`: one turn-context message right before the newest
-# question, the layout before ADR-0177; the rollback.
 LAYOUT_ENV = "CHAT_CONTEXT_LAYOUT"
 TURN_LAYOUT = "turn"
 CONVERSATION_LAYOUT = "conversation"
 
-#: The template values a turn varies: they stay in the turn's note.
 TURN_VALUES = frozenset(
     {
         "current_datetime",
         "user_info",
-        # Bound per turn: the working directory may not be.
         "drafting_enabled",
         "skills_block",
         "card_shapes_block",
@@ -69,16 +56,11 @@ TURN_VALUES = frozenset(
         "trigger_block",
         "already_read_block",
         "workspace_block",
-        # Re-ordered for every question (``register._apply_reference_fit``).
         "reference_projects",
-        # The asker's own notes (ADR-0180): a shared conversation has more than
-        # one asker, and the head is the same bytes for all of them.
         "personal_memory",
     }
 )
 
-#: What the project and the office set, and what each is in the turn's note:
-#: absent, or the switch's quiet setting. The inventory is split (:func:`_inventories`).
 _QUIET_IN_NOTE: dict[str, Any] = {
     "deep_research_enabled": True,
     "confined": False,
@@ -88,22 +70,13 @@ _QUIET_IN_NOTE: dict[str, Any] = {
     "project_context": None,
     "platform_lessons": None,
     "org_instructions": None,
-    # The knowledge context's gate note: the project's country and coverage (ADR-0173).
     "jurisdiction_note": None,
     "parcel_note": None,
-    # The site's law from the platform's records (ADR-0168): a fact of the project.
     "building_law": None,
 }
 
-#: The template values that hold for the conversation: they make the conversation context.
 CONVERSATION_VALUES = frozenset(_QUIET_IN_NOTE)
 
-#: Where the head comes from. The static prompt describes the `<turn_context>`
-#: before the newest message as the platform's; this message, after the system
-#: prompt, holds the project's profile, the office's instructions and the file
-#: names, and says the same of itself rather than leave the model to guess
-#: whether a person wrote it. Said here, not in ``chat_static.md``, whose bytes
-#: key every cache shard and are published to Langfuse by hand.
 CONVERSATION_PROVENANCE = (
     "From the platform, not the person's words: what holds for this whole conversation (the project, "
     "the office, the files). What only this turn has comes in `<turn_context>` before the newest message."
@@ -161,10 +134,6 @@ def _inventories(values: dict[str, Any]) -> tuple[str, str]:
     return render_inventory_block(documents, in_scope_shelves=scope), in_flight_paragraph(in_flight) or ""
 
 
-#: The headers that open the parts of the project context after the profile
-#: (``compose_project_context`` + ``turn/context_client.with_base_knowledge``;
-#: the BFF's ``composeMemoryContext``). The memory digest among them is picked
-#: and ordered per question, by its recall score.
 _MEMORY_PART_HEADERS = (
     "PROJECT_MEMORY v1",
     "PROPOSAL_DECISIONS v1",

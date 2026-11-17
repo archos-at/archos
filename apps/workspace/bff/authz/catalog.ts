@@ -1,68 +1,15 @@
-/**
- * The authorization catalog — ONE source of truth for every resource type,
- * permission and role GRID's access model defines (ADR-0038).
- *
- * This file is deliberately pure data with no imports: it is consumed by
- *
- *   - the app, which derives its permission types and the bounded role
- *     implication table from it (`./permissions`), and
- *   - `scripts/provision-workos-authz.ts`, which applies it to a WorkOS
- *     environment (`--apply`) or fails CI on drift (`--check`).
- *
- * Because both read the SAME structure, "the code says X but WorkOS says Y"
- * stops being possible to ship. That drift was a real finding: `org:audit:view`
- * and `org:archiv:manage` (now `org:office_shelf:manage`) lived in the app's registry and in the runbook for
- * three weeks while existing in no WorkOS environment, so no custom role could
- * ever hold them and only the legacy `admin` implication made them work.
- *
- * ## Tiers
- *
- * A permission's tier is the WorkOS resource type it attaches to, which decides
- * HOW it is checked — not merely how it is named:
- *
- * | Tier       | Attaches to  | Checked via                                  |
- * |------------|--------------|----------------------------------------------|
- * | `org`      | Organization | AuthKit JWT `permissions` claim (no I/O)     |
- * | `platform` | Organization | platform-org membership (`./platform`)       |
- * | `project`  | Project      | WorkOS FGA `authorization.check` per project |
- * | `folder`   | Folder       | WorkOS FGA, per folder with its own list     |
- *
- * `platform` shares the Organization resource type because WorkOS has no tier
- * above it — verified against the live API, which rejects a parentless resource
- * type with "At least one parent type is required". Exclusivity is therefore
- * enforced by `./platform` (membership of the platform org is required), NOT by
- * the resource topology. See ADR-0016 and ADR-0038.
- */
-
-/** WorkOS resource type a permission or role attaches to. */
 export type PermissionTier = 'org' | 'platform' | 'project' | 'folder'
 
-/** Where a role may be assigned. */
 export type RoleScope =
-  /** Assignable in any organization (a WorkOS environment-wide role). */
   | 'environment'
-  /**
-   * Created inside the GRID Platform organization only. WorkOS refuses to
-   * assign an org-scoped role anywhere else, which is what makes platform
-   * access structurally unavailable to tenant admins.
-   */
   | 'platform-org'
 
 export interface PermissionSpec {
   readonly slug: string
-  /** Human label shown in the WorkOS dashboard. */
   readonly name: string
   readonly description: string
   readonly tier: PermissionTier
-  /**
-   * WorkOS-owned permission (every `widgets:*`). Roles may reference it; the
-   * provisioning script must never try to create or modify it.
-   */
   readonly system?: true
-  /**
-   * Retained so existing grants keep working, but no new check should use it.
-   * The replacement is named in the description.
-   */
   readonly deprecated?: true
 }
 
@@ -70,7 +17,6 @@ export interface RoleSpec {
   readonly slug: string
   readonly name: string
   readonly description: string
-  /** Resource type the role attaches to. */
   readonly tier: PermissionTier
   readonly scope: RoleScope
   readonly permissions: readonly string[]
@@ -79,24 +25,10 @@ export interface RoleSpec {
 export interface ResourceTypeSpec {
   readonly slug: string
   readonly name: string
-  /** WorkOS caps this at 150 characters. */
   readonly description: string
-  /** Parent type slug; `null` only for the system Organization root. */
   readonly parent: string | null
 }
 
-/**
- * The resource topology: Organization → Project → Skill schedule.
- *
- * `document` was deliberately REMOVED (it existed with zero roles and zero
- * permissions, so nothing ever checked it). Document access is pure inheritance
- * from the parent project and is enforced in the documents services (`lib/documents/`); giving
- * every uploaded file its own FGA resource would mean a WorkOS write per upload,
- * a delete per delete, a backfill and a reconciliation job — an unbounded
- * distributed-consistency problem bought for no access-control gain. If
- * per-document sharing ever ships, the ADR-0032 grant model already expresses it
- * transactionally in Postgres. See ADR-0038.
- */
 export const RESOURCE_TYPES: readonly ResourceTypeSpec[] = [
   {
     slug: 'organization',
@@ -120,7 +52,6 @@ export const RESOURCE_TYPES: readonly ResourceTypeSpec[] = [
   },
 ]
 
-/** Organization-tier permissions — delivered in the AuthKit JWT. */
 export const ORG_PERMISSION_SPECS: readonly PermissionSpec[] = [
   {
     slug: 'org:settings:manage',
@@ -167,10 +98,6 @@ export const ORG_PERMISSION_SPECS: readonly PermissionSpec[] = [
     tier: 'org',
   },
   {
-    // The slug before it had an English name. Every check accepts either
-    // (`acceptedPermissionSlugs`) for one release, so a custom role that still
-    // holds this keeps working until an operator re-grants it
-    // (`docs/deployment/office-shelf-rename-runbook.md`).
     slug: 'org:archiv:manage',
     name: 'Manage the office shelf (old name)',
     description:
@@ -195,7 +122,6 @@ export const ORG_PERMISSION_SPECS: readonly PermissionSpec[] = [
   {
     slug: 'org:projects:administer',
     name: 'Administer all projects',
-    // WorkOS caps this at 150 characters; the reasoning lives in ./permissions.
     description:
       'Reach and administer every project in the organization without a per-project role. The org-admin bypass, as a permission a custom role can hold.',
     tier: 'org',
@@ -209,14 +135,6 @@ export const ORG_PERMISSION_SPECS: readonly PermissionSpec[] = [
   },
 ]
 
-/**
- * Platform-tier permissions, only ever on `platform-org` roles. **Enforced by US, not by WorkOS**: on 2026-07-31
- * the live API accepted an `organization` role holding `project:view`, so a dedicated resource type would buy no
- * guarantee. The line is held by `./platform` (membership of the GRID Platform organization before any platform
- * surface answers; a claim alone is never enough) and by `catalog.spec.ts` (no environment-scoped role holds a
- * `platform:*` permission, the ONLY check between a careless provisioning edit and a tenant role carrying platform
- * access). `approve_as_<role>`: the role an approval records is one its approver holds (ADR-0165).
- */
 export const PLATFORM_PERMISSION_SPECS: readonly PermissionSpec[] = [
   {
     slug: 'platform:organizations:view',
@@ -267,7 +185,6 @@ export const PLATFORM_PERMISSION_SPECS: readonly PermissionSpec[] = [
   },
 ]
 
-/** Project-tier permissions — checked per project via WorkOS FGA. */
 export const PROJECT_PERMISSION_SPECS: readonly PermissionSpec[] = [
   {
     slug: 'project:view',
@@ -296,28 +213,6 @@ export const PROJECT_PERMISSION_SPECS: readonly PermissionSpec[] = [
     tier: 'project',
   },
   {
-    /**
-     * Machine authorship, as a capability of its own.
-     *
-     * `project:documents:write` gates the ORDINARY upload — a person choosing a
-     * file off their disk — and it is the same permission behind delete and a
-     * whole-project re-index (`lib/documents/reindex.ts`). An organization that
-     * wanted Piloti to answer but not to write into its file system therefore
-     * had exactly one lever, and pulling it also stopped its own architects
-     * uploading plans. That is not a choice, and a deploy runbook that offered
-     * it as a kill switch was wrong
-     * (`docs/deployment/agent-authored-documents-rollout.md` §4).
-     *
-     * This permission is required **in addition to** the write permission at
-     * every generated-document seam, never instead of it — the argument is at
-     * the seam itself, `lib/documents/generated.ts`.
-     *
-     * It is deliberately NOT joined by the `project:edit` umbrella in any
-     * any-of list. The umbrella exists to keep grants that predate ADR-0038 §3's
-     * SPLIT working; this is not a split of anything, it is a new capability,
-     * and a permission every legacy role already implicitly holds is exactly the
-     * un-withholdable lever this one exists to replace.
-     */
     slug: 'project:documents:generate',
     name: 'File agent-authored documents',
     description:
@@ -351,14 +246,6 @@ export const PROJECT_PERMISSION_SPECS: readonly PermissionSpec[] = [
   },
 ]
 
-/**
- * Folder-tier permissions (ADR-0097). Only a folder with its own access list is
- * a WorkOS resource, registered directly under its project, and no project role
- * holds these: being in the project grants nothing on such a folder, which is
- * how it is narrower than the project without an exclusion WorkOS does not
- * have. Who may read or change it is a folder role assigned on it, to a person.
- * The ancestors' lists still narrow it; that walk is `effectiveFolderLevel`.
- */
 export const FOLDER_PERMISSION_SPECS: readonly PermissionSpec[] = [
   {
     slug: 'folder:read',
@@ -374,11 +261,6 @@ export const FOLDER_PERMISSION_SPECS: readonly PermissionSpec[] = [
   },
 ]
 
-/**
- * WorkOS-owned widget permissions. Listed so roles can reference them and so the
- * provisioning script can verify a role's attachment set exactly, but never
- * created or modified by us — WorkOS ships them with `system: true`.
- */
 export const WIDGET_PERMISSION_SPECS: readonly PermissionSpec[] = [
   {
     slug: 'widgets:users-table:manage',
@@ -424,7 +306,6 @@ export const WIDGET_PERMISSION_SPECS: readonly PermissionSpec[] = [
   },
 ]
 
-/** Every permission GRID defines or references, in one list. */
 export const ALL_PERMISSION_SPECS: readonly PermissionSpec[] = [
   ...ORG_PERMISSION_SPECS,
   ...PLATFORM_PERMISSION_SPECS,
@@ -435,18 +316,7 @@ export const ALL_PERMISSION_SPECS: readonly PermissionSpec[] = [
 
 const ORG_WIDGET_SLUGS = WIDGET_PERMISSION_SPECS.map((permission) => permission.slug)
 
-/**
- * Every role GRID provisions.
- *
- * The fine-grained org roles below (`org-auditor`, `org-billing-admin`,
- * `org-compliance-officer`, `org-knowledge-manager`) are the personas enterprise
- * buyers actually ask for, and they exist to make the extensibility contract
- * TRUE rather than merely claimed: each one holds a strict subset of `org:*` and
- * works with no code change, because every gate checks a permission and never a
- * role name.
- */
 export const ROLES: readonly RoleSpec[] = [
-  // ---- Organization tier -------------------------------------------------
   {
     slug: 'member',
     name: 'Member',
@@ -502,8 +372,6 @@ export const ROLES: readonly RoleSpec[] = [
       'Curates the org-wide office shelf: upload, delete, re-ingest, retag. No other administrative access.',
     tier: 'org',
     scope: 'environment',
-    // Both slugs for the release in which the old one is accepted: a session
-    // minted from either claim still holds the shelf. Drop the old one with it.
     permissions: ['org:office_shelf:manage', 'org:archiv:manage'],
   },
   {
@@ -516,7 +384,6 @@ export const ROLES: readonly RoleSpec[] = [
     permissions: ['org:members:manage', 'widgets:users-table:manage'],
   },
 
-  // ---- Platform tier (GRID Platform organization only) -------------------
   {
     slug: 'org-platform-owner',
     name: 'Platform Owner',
@@ -548,8 +415,6 @@ export const ROLES: readonly RoleSpec[] = [
     ],
   },
   {
-    // WorkOS requires the `org-` prefix on organization-level roles. Without it
-    // the catalog Job fails every deploy (see catalog.spec.ts).
     slug: 'org-platform-observability-analyst',
     name: 'Observability Analyst',
     description:
@@ -559,7 +424,6 @@ export const ROLES: readonly RoleSpec[] = [
     permissions: ['platform:observability:view'],
   },
 
-  // ---- Project tier ------------------------------------------------------
   {
     slug: 'project-viewer',
     name: 'Project Viewer',
@@ -589,13 +453,6 @@ export const ROLES: readonly RoleSpec[] = [
       'project:chat',
       'project:edit',
       'project:documents:write',
-      // Held by the built-in editor so the shipped product works out of the box.
-      // An organization that does not want machine authorship withholds it the
-      // way ADR-0038 §4 says every capability is withheld — by putting people on
-      // a custom project role that omits it, which is drift-free because custom
-      // roles are not in this catalog. Editing THIS role in WorkOS instead would
-      // fail `provision:authz --check` in CI, which is why an operator-side kill
-      // switch has to be a flag and not a permission.
       'project:documents:generate',
       'project:memory:write',
     ],
@@ -620,7 +477,6 @@ export const ROLES: readonly RoleSpec[] = [
     ],
   },
 
-  // ---- Folder tier (ADR-0097) -------------------------------------------
   {
     slug: 'folder-reader',
     name: 'Folder Reader',
@@ -639,12 +495,10 @@ export const ROLES: readonly RoleSpec[] = [
   },
 ]
 
-/** Look up a permission spec by slug. */
 export function findPermissionSpec(slug: string): PermissionSpec | undefined {
   return ALL_PERMISSION_SPECS.find((permission) => permission.slug === slug)
 }
 
-/** Look up a role spec by slug. */
 export function findRoleSpec(slug: string): RoleSpec | undefined {
   return ROLES.find((role) => role.slug === slug)
 }

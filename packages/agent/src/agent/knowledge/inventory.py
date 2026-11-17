@@ -30,41 +30,12 @@ from agent.knowledge.inventory_notes import in_flight_paragraph
 
 _listing_shelf: ContextVar[Shelf | None] = ContextVar("listing_shelf", default=None)
 
-# How many files the cap dropped, per shelf, for the turn being rendered.
-#
-# A contextvar for the same reason ``_listing_shelf`` is one: the cap is applied
-# at AGGREGATION time (``agents.piloti.conversation_register``) and the block is rendered
-# much later, by ``render_prompt_template``, with no call path between them that
-# could carry an extra argument.
 _inventory_drops: ContextVar[dict[Shelf | None, int]] = ContextVar("inventory_drops", default={})
 
-# The turn's inventory ROWS, for the tools that have to resolve a file name the
-# reader typed against the files the reader actually has.
-#
-# The rendered block above is prose: it is what the MODEL reads, and a tool
-# cannot parse a shelf heading back into a document. The rows are what the
-# write-side workspace tools (`tools/files/`) resolve against, so a proposal
-# names a file that exists on a shelf the turn can see, and „verschieb den
-# Brandschutzplan" resolves or is refused rather than guessed.
-#
-# A ContextVar for the third time in this module and for the same reason: the
-# rows are aggregated in `turn/inventory.py` and read inside a tool call, with
-# a LangGraph run and a tool node between the two and no argument that could
-# travel. Set once per turn (`piloti/conversation_register.py`), so a turn
-# with no inventory reads the empty tuple rather than the previous turn's.
 _turn_documents: ContextVar[tuple[Any, ...]] = ContextVar("turn_documents", default=())
 
-# The Richtlinien-Familien the base shelf holds, for the turn being rendered.
-#
-# A contextvar for the same reason as the two above, plus one of its own: it is
-# derived from the base shelf BEFORE the cap runs. The cap drops base rows
-# first (user shelves are the priority), so a family list derived from what
-# survives would lose members on exactly the projects with the most files —
-# which is the same silent-incompleteness failure the cap notice exists to
-# prevent, one level down.
 _norm_families: ContextVar[tuple[Any, ...]] = ContextVar("norm_families", default=())
 
-# User-facing shelves first; base last so the OIB corpus cannot evict them.
 _USER_SHELF_ORDER: tuple[Shelf, ...] = (Shelf.OFFICE_SHELF, Shelf.PROJECT, Shelf.SESSION)
 
 
@@ -79,7 +50,6 @@ _SHELF_BLURBS: dict[Shelf, str] = {
     Shelf.SESSION: ("only this chat — attachments uploaded here. Not visible in other sessions."),
 }
 
-# Listing questions only. Content questions ("was sagt OIB-RL 2") must not match.
 _LISTING_CUES = (
     "welche datei",
     "welche unterlagen",
@@ -106,9 +76,6 @@ _LISTING_CUES = (
     "what have you",
 )
 
-# Short follow-ups that name a shelf and nothing else ("und im archiv?"). The
-# shelf is called „Büroablage" since 6 Oct 2026; people still say „Archiv" and
-# „Büroarchiv", so the old names keep matching beside the new one.
 _SHELF_ONLY_FOLLOWUPS = frozenset(
     {
         "bueroablage",
@@ -266,7 +233,6 @@ def _captured_on_of(doc: Any) -> str | None:
         return None
 
 
-#: Replaced file names one inventory row names before it counts the rest.
 _MAX_REPLACED_NAMED = 3
 
 
@@ -566,9 +532,6 @@ def _folded_base_lines(count: int) -> list[str]:
         f"If the user asks what is on this shelf: say that it is {n} of the "
         "OIB corpus and that you reach them through search. Do not invent "
         "file names.",
-        # The one thing the fold may NOT leave out. Everything above is a shape
-        # retrieval can recover; which parts a Richtlinie HAS is not — a search
-        # that never returns 2.3 looks exactly like a Richtlinie that has none.
         *_family_lines(get_norm_families()),
     ]
 
@@ -668,11 +631,6 @@ def render_inventory_block(
         lines.append(f"### {_heading(shelf)}")
         lines.append(_SHELF_BLURBS[shelf])
         base_total = len(rows) + dropped.get(Shelf.BASE, 0)
-        # `base_total`, not `rows`: when user shelves spend the whole cap, every
-        # base row is dropped and the old `rows` guard fell through to
-        # "(empty — no files on this shelf)" plus a bare omission notice. That
-        # tells the model the OIB corpus is GONE, on the one shelf that is a
-        # platform constant present on every single request.
         if shelf is Shelf.BASE and focused is not Shelf.BASE and base_total:
             lines.extend(_folded_base_lines(base_total))
             lines.append("")
@@ -696,10 +654,6 @@ def render_inventory_block(
                     f"- **{_file_name_of(doc)}**{folder_bit}{tag_bit}{topic_bit}{captured_bit}{revision_bit}"
                     f"{reading_bit}: {summary}"
                 )
-        # Never a silent cap. Without this line the model reads a truncated
-        # shelf as the whole shelf, and the listing instruction above ("answer
-        # ONLY from that shelf's group") turns that into a confident wrong
-        # answer with no way to hedge.
         missing = dropped.get(shelf, 0)
         if missing > 0:
             lines.append(
@@ -716,10 +670,6 @@ def render_inventory_block(
         for doc in unknown:
             summary = _summary_of(doc) or "No summary available"
             lines.append(f"- **{_file_name_of(doc)}**: {summary}")
-        # Shelf-less files are capped like any other, and their drops are
-        # recorded under `None` — a key no shelf in `show` ever looks up. Without
-        # this the section presents a truncated list as the whole of it, which is
-        # the exact defect the per-shelf notice exists to prevent.
         missing_unknown = dropped.get(None, 0)
         if missing_unknown > 0:
             lines.append(

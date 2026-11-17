@@ -33,7 +33,6 @@ logger = logging.getLogger(__name__)
 
 INK = "#0f0e0d"
 INK_MUTED = "#5e5b57"
-#: The warm white of the app icon's letter on its ink tile.
 ON_INK = "#fafaf9"
 
 _BRAND = Path(__file__).with_name("brand")
@@ -49,10 +48,8 @@ class HouseStyle:
     regular: FontProperties
     medium: FontProperties
     semibold: FontProperties
-    #: For the icon's initial.
     mark: FontProperties
     product_name: str
-    #: The regular weight as a file, for a drawing's own labels (ezdxf reads fonts by file); None on the fallback.
     label_face_file: Path | None = None
 
 

@@ -1,13 +1,3 @@
-/**
- * What the promotion carries (ADR-0181): the manifest beside the release bundles in `config/knowledge-releases/`,
- * and the check that a bundle file is the one the manifest names. Pure apart from the gunzip; `./carry.ts` runs it.
- *
- * The manifest names each bundle by the sha256 of its uncompressed JSON (what `platform-knowledge-release-export`
- * answered, gunzipped), its country, its release seq on the source deployment and its counts, and gives each
- * text's file name the document class and the display title it carries on the source. A text's bytes are not
- * committed: the carry fetches each one from its URL and holds it to the bundle's sha256.
- */
-
 import { createHash } from 'node:crypto'
 import { gunzipSync } from 'node:zlib'
 import { z } from 'zod'
@@ -39,12 +29,10 @@ export type CarriedBundle = z.infer<typeof carriedBundleSchema>
 export const carryManifestSchema = z.object({
   format: z.literal(CARRY_MANIFEST_FORMAT),
   sourceDeployment: z.string().regex(/^[a-z][a-z0-9-]{0,39}$/),
-  /** In carry order: a bundle that requires another country's records comes after that country's bundle. */
   bundles: z.array(carriedBundleSchema).max(20),
 })
 export type CarryManifest = z.infer<typeof carryManifestSchema>
 
-/** A refusal before anything is written: a manifest or a bundle that is not what the promotion reviewed. */
 export class CarryRefused extends Error {
   override name = 'CarryRefused'
 }
@@ -59,10 +47,6 @@ export function parseManifest(json: unknown): CarryManifest {
 
 export const sha256Hex = (bytes: Buffer): string => createHash('sha256').update(bytes).digest('hex')
 
-/**
- * The bundle a file holds, once its uncompressed bytes have the manifest's sha256 and say what the manifest says:
- * its country, seq and counts, and exactly the texts it labels. Anything else refuses the whole carry.
- */
 export function verifiedBundle(entry: CarriedBundle, file: Buffer): ReleaseBundle {
   let json: Buffer
   try {
@@ -85,7 +69,6 @@ export function verifiedBundle(entry: CarriedBundle, file: Buffer): ReleaseBundl
   return bundle
 }
 
-/** Every bundle's `requires` is met by a country carried before it, or by one the target already holds (checked at import). */
 export function checkCarryOrder(entries: readonly { countryId: string; requires: readonly string[] }[]): void {
   entries.forEach((entry, index) => {
     const later = entries.slice(index + 1).map((other) => other.countryId)

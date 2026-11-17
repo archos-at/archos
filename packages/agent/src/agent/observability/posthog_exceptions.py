@@ -80,21 +80,13 @@ from types import TracebackType
 from agent.common.log_redaction import scrub_presigned_urls
 from agent.observability import posthog_client
 
-#: Per fingerprint: a burst of 3, then one more every 5 minutes. A hot loop on
-#: one site therefore costs at most 3 + 288/day = ~9K a month, so ten distinct
-#: sites failing around the clock still sit under the free tier.
 FINGERPRINT_BURST = 3
 FINGERPRINT_REFILL_SECONDS = 300.0
-#: Across the process: a burst of 20, then one a minute (43K a month at the
-#: very worst, one replica). It is the backstop for many different fingerprints
-#: failing at once, which the per-fingerprint buckets cannot see.
 GLOBAL_BURST = 20
 GLOBAL_REFILL_SECONDS = 60.0
 _GLOBAL_KEY = "process"
 
 MESSAGE_MAX = 500
-#: Loggers that must never be reported: the SDK's own, and this package's
-#: PostHog modules (they log at DEBUG, but the rule should not depend on that).
 _SKIPPED_LOGGER_PREFIXES = ("posthog", "agent.observability.posthog")
 
 
@@ -144,8 +136,6 @@ def event_properties(record: logging.LogRecord) -> dict[str, str]:
         "log_message": _message(record),
         "log_origin": f"{record.pathname}:{record.lineno}",
     }
-    # Environment and service are the client's super properties, and the
-    # release is the SDK's ``$release_id``: neither is repeated here.
     trace_id = _current_trace_id()
     if trace_id:
         properties["$ai_trace_id"] = trace_id

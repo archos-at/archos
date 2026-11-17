@@ -44,34 +44,9 @@ logger = logging.getLogger(__name__)
 
 MODEL_OVERRIDES_HEADER = "x-grid-model-overrides"
 
-# Org-scoped fallback resolution (mirrors llm_credentials): endpoints the BFF
-# does not front carry no override header, and the WebSocket-scope injection is
-# best-effort — in both cases the backend can still resolve the org's active
-# overrides itself from the internal endpoint, keyed by the org id that already
-# flows on every request.
-# Two tiers. The in-process memo (L1) keeps the hot path free of any network;
-# the shared tier (L2, Dragonfly, ADR-0020) is what an admin save reaches: the
-# BFF deletes `modelconfig:{org}` when a tenant saves or rolls back a config,
-# toggles ZDR, or the platform owner moves the defaults. L1 is short so that
-# deletion is visible fleet-wide within seconds rather than the minute the
-# per-replica memo alone allowed; a positive L2 entry is invalidated by writes,
-# never by time alone, so its TTL only bounds the damage when a delete is
-# missed. Errors are negative-cached in L1 for ~1s only, never written to L2:
-# a longer negative TTL would pin a transient BFF outage across the fleet, while
-# no negative cache at all would retry-thunder a downed BFF on every turn. An
-# error answers "no overrides" (the YAML models) but "ZDR ON": the model choice
-# fails open, the privacy control fails closed (`common/openrouter.py`).
 _POSITIVE_TTL_SECONDS = 10.0
 _NEGATIVE_TTL_SECONDS = 1.0
 
-# One in-flight resolution per org per replica. The negative TTL above is
-# deliberately ~1s so a transient BFF outage never pins the fleet to the YAML
-# models and ZDR routing -- but a TTL that short is nearly no negative cache at
-# all under load: every concurrent turn for the org raced past the expired
-# entry and opened its own request, and each one costs the full request
-# timeout while the BFF is down. Coalescing them is what makes the fast
-# recovery affordable; the alternative, a longer TTL, buys it by pinning a
-# stale configuration, which is the wrong currency.
 _inflight_lock = threading.Lock()
 _inflight_fetches: dict[str, threading.Lock] = {}
 
@@ -91,12 +66,6 @@ def _org_fetch_lock(organization_id: str) -> threading.Lock:
 
 _REQUEST_TIMEOUT_SECONDS = 3.0
 
-# Model ids are OpenRouter's `author/slug` (optional `:variant` suffix, e.g.
-# `meta-llama/llama-4:free`) OR — for orgs on a BYOK credential (ADR-0022) —
-# a provider-native id without a slash (`gpt-4o`, `ft:gpt-4o:acme::abc`,
-# Azure deployment names). Anything else is dropped — defense in depth
-# behind the BFF's catalog validation. Mirrors MODEL_ID_PATTERN in
-# `apps/workspace/bff/model-config/agent-groups.ts`.
 _MODEL_ID_RE = re.compile(r"^[A-Za-z0-9_.:-]{1,64}(/[A-Za-z0-9_.:-]{1,128})?$")
 
 
@@ -115,31 +84,11 @@ class AgentGroup(StrEnum):
     """
 
     CLARIFIER = "clarifier"
-    # The member is RESEARCH because the agent is no longer "the shallow one";
-    # the VALUE stays "shallow_research" because it is a PERSISTED KEY. Every
-    # org that re-pointed this agent's model has that exact string in
-    # `platform_models.agent_group`, and the group already carries a separate
-    # display label (`agent-groups.ts`), so the rename costs the value nothing.
-    # Do not "finish" the rename by changing the string: it would orphan every
-    # live override silently, since an unknown group id is dropped by
-    # `sanitize_model_overrides` rather than reported.
     RESEARCH = "shallow_research"
     DEEP_RESEARCH = "deep_research"
     DEEP_RESEARCH_ROUTER = "deep_research_router"
     MEMORY_REFLECTION = "memory_reflection"
-    # The post-answer follow-up-questions stage. Its own group and not
-    # MEMORY_REFLECTION's, for two independent reasons: the two stages must have
-    # separate capability bits (unsetting reflection's model must not also
-    # silence follow-ups) and the `llms` map a stage runs on is keyed by group,
-    # so sharing a key would force them onto one model instance.
     FOLLOW_UPS = "follow_ups"
-    # Ingestion-plane VLM (image captioning + rendered-drawing description).
-    # Re-points the vision model used during document ingestion. Unlike the
-    # chat groups it is resolved by org id in a detached ingest thread (no
-    # request header) and applies to a bespoke vision call site, not an agent-runtime chat
-    # model. The frontend registry gates it to vision-capable models
-    # (`requiresImageInput` in agent-groups.ts); the picker save path validates
-    # against that same gate.
     INGEST_VLM = "ingest_vlm"
 
 
@@ -228,9 +177,6 @@ def _fetch_org_config(organization_id: str) -> tuple[dict[str, str], bool, Proce
     """
     token = os.environ.get("INTERNAL_API_TOKEN")
     if not token:
-        # Not an answer about the org: we never asked. The caller falls back to
-        # the YAML models with ZDR pinned and writes nothing to L2, so an
-        # unconfigured backend cannot shadow a real config fleet-wide.
         raise _NoTrustChannel()
 
     import httpx
@@ -274,9 +220,6 @@ def _resolve_org_config(organization_id: str | None) -> _OverridesCacheEntry | N
             annotate_current_span(cache_model_config="hit")
             return entry
 
-    # One resolution per org at a time (see `_org_fetch_lock`). Everything from
-    # here down either reads L2 or opens a BFF request, and N concurrent turns
-    # for one org need exactly one of those, not N.
     with _org_fetch_lock(organization_id):
         return _resolve_org_config_locked(organization_id)
 
@@ -285,8 +228,6 @@ def _resolve_org_config_locked(organization_id: str) -> _OverridesCacheEntry:
     from agent.common.profiler import annotate_current_span
 
     now = time.monotonic()
-    # Re-check L1: whoever held the lock before us has just populated it, which
-    # is the whole point of coalescing.
     with _overrides_cache_lock:
         entry = _overrides_cache.get(organization_id)
         if entry is not None and entry.expires_at > now:
@@ -303,11 +244,6 @@ def _resolve_org_config_locked(organization_id: str) -> _OverridesCacheEntry:
         try:
             overrides, zdr_only, processing = _fetch_org_config(organization_id)
             ttl = _POSITIVE_TTL_SECONDS
-            # The BFF answered, so even ({}, False) is authoritative: an
-            # unconfigured org is the DEFAULT state of most orgs, and refusing
-            # to cache it sent every replica back to the BFF every L1 TTL for
-            # the majority case. An unreadable processing policy is the one
-            # part that is no answer, and write_shared keeps it off L2.
             write_shared(organization_id, overrides, zdr_only, processing)
             annotate_current_span(cache_model_config="miss")
         except _NoTrustChannel:
@@ -460,10 +396,6 @@ def override_model(llm: object, model_id: str) -> object:
     if field is None or not hasattr(llm, "model_copy"):
         logger.warning("Cannot apply model override to %s: no model field/model_copy", type(llm).__name__)
         return llm
-    # reasoning_effort is not touched HERE — this function changes the model and
-    # nothing else. The platform owner's thinking level is a separate, separately
-    # resolved transform (`override_reasoning_effort`), applied alongside this one
-    # in `apply_model_override`.
     try:
         overridden = llm.model_copy(update={field: model_id})
     except Exception:

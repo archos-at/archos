@@ -55,14 +55,9 @@ import pr_selection  # noqa: E402 - a sibling script, loaded by path like reuse_
 ROOT = pr_selection.ROOT
 FILTERS = ROOT / ".github" / "filters.yml"
 DEFAULT_BASE = "origin/develop"
-#: How dorny/paths-filter (picomatch) reads a filter line; tests/test_ci_filter_coverage.py
-#: holds wcmatch with these flags to picomatch.
 FLAGS = glob.GLOBSTAR | glob.DOTGLOB
-#: One testmon database per suite, as `be:test:testmon` writes them (taskfiles/backend.yml).
 TESTMON_DATABASES = (".testmondata-core", ".testmondata-api", ".testmondata-sources")
 
-#: The tasks each tier of `.github/filters.yml` runs here. The UI tier's suite
-#: is decided separately (`_ui_tasks`).
 TIER_TASKS: dict[str, tuple[str, ...]] = {
     "backend": ("be:verify:fast",),
     "workspace": ("workspace:lint", "workspace:types"),
@@ -71,8 +66,6 @@ TIER_TASKS: dict[str, tuple[str, ...]] = {
     "infra": ("infra:types", "infra:test"),
 }
 
-#: Required checks outside `task verify` (they need PostgreSQL server binaries
-#: or minutes of IfcOpenShell), named when the change touches what they guard.
 ALSO_RUN: dict[str, str] = {
     "migrations": "task db:test:rls",
     "packages": "task pkg:test",
@@ -85,9 +78,7 @@ class Plan:
     """What `verify:fast` runs for one set of changed paths."""
 
     tasks: tuple[str, ...]
-    #: Paths for `vitest related`, relative to apps/workspace; empty unless selected.
     ui_files: tuple[str, ...] = ()
-    #: Test files that name a changed non-Python file, for `be:verify:affected`.
     py_extra: tuple[str, ...] = ()
     notes: tuple[str, ...] = field(default=())
 
@@ -164,8 +155,6 @@ def plan(
         tasks += ui
         notes.append(note)
     if "backend" not in hit:
-        # CI's Repo checks job runs these on every pull request: `ci/`, the
-        # workflows and the release notes are in no tier's filter.
         tasks.append("be:test:harness")
     notes += [f"not in verify, and this change touches it: {ALSO_RUN[tier]}" for tier in ALSO_RUN if tier in hit]
     return Plan(tasks=tuple(tasks), ui_files=tuple(ui_files), py_extra=tuple(py_extra), notes=tuple(notes))
@@ -204,8 +193,6 @@ def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
     parser.add_argument("--all", action="store_true", help="run every tier whole")
     parser.add_argument("--dry-run", action="store_true", help="print the plan and stop")
-    # A flag, not an environment variable: Semgrep's tainted-env-args rule
-    # blocks a subprocess whose arguments descend from os.environ.
     parser.add_argument("--base", default=DEFAULT_BASE, help="the ref to diff against (its merge base with HEAD)")
     parser.add_argument("--task", default="task", help="the go-task executable")
     args = parser.parse_args(argv[1:])

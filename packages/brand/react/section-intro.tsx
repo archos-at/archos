@@ -3,16 +3,12 @@ import { joinClasses } from './join-classes';
 
 export interface SectionIntroProps {
   title: ReactNode;
-  /** One statement sentence in ink (lead) */
   lead?: ReactNode;
-  /** Grey explanation in body */
   text?: ReactNode;
-  /** display (statement, may be centered) · heading = heading-1 */
   size?: 'display' | 'heading';
   align?: 'left' | 'center';
   as?: 'h1' | 'h2' | 'h3';
   className?: string;
-  /** Buttons below */
   children?: ReactNode;
 }
 

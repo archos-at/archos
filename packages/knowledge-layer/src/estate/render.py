@@ -41,14 +41,10 @@ def _settle_listing(row: Any, listing: Listing) -> None:
 class ReadRowFacts:
     """What a ``read_file`` row may say about the read, beside the blocks it served (ADR-0132, ADR-0088)."""
 
-    #: The document by name: the resolved one only when ``may_name``; on a miss, the leaf the model asked for.
     target: str | None = None
     shelf: str | None = None
-    #: The path resolved to nothing (or to a restricted file, which answers the same).
     missing: bool = False
-    #: The ``pages`` value was refused: the model's mistake, never printed on the row.
     refused_pages: bool = False
-    #: A folder card (``<folder>/README.md``): the folder, and the listing it answered with.
     card_folder: str | None = None
     card: Listing | None = None
 
@@ -62,7 +58,6 @@ def _settle_read(row: Any, output: ToolOutput, facts: ReadRowFacts, *, asked: st
     the model's mistake, never printed. A miss is ``empty`` („nicht gefunden“).
     """
     if facts.card is not None:
-        # A folder card is the folder's listing, and its row says so.
         counts = {"files": facts.card.files, "folders": facts.card.folders}
         row.finish("ok", counts=counts, verb="list", **action_place(facts.card_folder))
         return
@@ -200,8 +195,6 @@ def document_licence(collection: str, file_name: str, *, unindexed: Any = None) 
         records = list(get_store().scroll(collection, {"file_name": file_name}, limit=1, fields=fields))
     except Exception:  # noqa: BLE001 - fails closed, see the docstring
         return LicenceTerms(licence_class=LICENSED)
-    # No point at all is `unindexed`: the office layer indexes no unconfirmed or unattested copy, so a caller
-    # whose document may be one (an office shelf file) passes the licence that fails closed.
     return licence_from_metadata(records[0].payload or {}) if records else unindexed
 
 
@@ -219,7 +212,6 @@ def file_licence(row: Any) -> Any:
     return stated or document_licence(row.collection, row.file_name)
 
 
-#: How many points of one page a recall reads, at most.
 _RECALL_POINTS = 4000
 
 

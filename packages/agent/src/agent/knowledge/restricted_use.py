@@ -63,10 +63,8 @@ from agent.knowledge.restricted_collections import restricted_collections_in
 
 logger = logging.getLogger(__name__)
 
-#: One short attempt: the check sits in front of the turn and in a tool round.
 _TIMEOUT_SECONDS = 5.0
 
-#: What a tool result carrying refused restricted content is replaced with.
 WITHHELD_NOTICE = (
     "This result was withheld: it comes from a folder with restricted access "
     "that may not be used in this conversation. Answer without this content."
@@ -81,19 +79,9 @@ class RestrictedUse:
     user_id: str
     conversation_id: str
     project_id: str | None
-    #: The restricted collections this turn may search. Narrowed when an
-    #: admission is refused; never widened.
     drawable: set[str] = field(default_factory=set)
-    #: The conversation recorded a restricted folder (or that could not be
-    #: established): nothing it writes may reach the whole project.
     confined: bool = False
-    #: The restricted collections admitted for the conversation this turn: what
-    #: may be named to the model from here on (:func:`may_name`).
     admitted: set[str] = field(default_factory=set)
-    #: The id of the answer this turn writes (``turn.response.answer_message_id``).
-    #: Sent with every question, so the BFF marks that answer when the
-    #: conversation drew on a restricted folder, before the model reads anything
-    #: (ADR-0093). ``None`` when the caller has no turn to name.
     answer_message_id: str | None = None
 
     def allows(self, collection: str) -> bool:
@@ -136,20 +124,8 @@ class CrossProjectTurn:
     not.
     """
 
-    #: The conversation drew on another project in a way that narrows its
-    #: readers (an active project, or a restricted folder of ANY other project,
-    #: a closed one included): an earlier turn did (the BFF says so at turn
-    #: start, from the conversation's record, ``drewOnOtherProjects``) or a
-    #: lookup of this turn did. Every door a whole project reads is shut, memory
-    #: included. A closed project's open folders never set it.
     drew_on_others: bool = False
-    #: The collections of other projects whose content the BFF recorded and
-    #: handed to this turn: what the admission lets through, and what may be
-    #: named.
     admitted: set[str] = field(default_factory=set)
-    #: The reference projects in the order the turn's reference fit put them
-    #: (ADR-0064 use 10): every ``similar`` or ``closed`` lookup of this turn
-    #: walks them first. Empty when no fit ran; the BFF's likeness order holds.
     reference_order: list[str] = field(default_factory=list)
 
 
@@ -304,22 +280,6 @@ async def begin_restricted_use(
     return await asyncio.to_thread(check_restricted_use, use, candidates)
 
 
-# ---------------------------------------------------------------------------
-# What a tool call read: the side channel admission works on
-# ---------------------------------------------------------------------------
-#
-# A tool cannot hand structured data to the tools node on its return value: the
-# agent runtime rebuilds the ToolMessage from the text and drops the artifact
-# (docs/contributing/gotchas.md). So a tool REPORTS the collections it returns
-# content from into a per-call set bound around the call by
-# :func:`report_collections_read` (the ToolNode's ``awrap_tool_call``), and the
-# wrapper stamps that set onto the message it got back, where
-# :func:`admit_tool_results` reads it. The set is bound inside the call's own
-# task and only ever mutated, so the tool's child contexts (``asyncio.to_thread``
-# included) write into the same object.
-
-#: Where the wrapper stamps the collections a call read: ``ToolMessage.response_metadata``,
-#: which no provider is sent.
 COLLECTIONS_READ_KEY = "grid_collections_read"
 
 _call_reads: contextvars.ContextVar[set[str] | None] = contextvars.ContextVar("grid_collections_read", default=None)
@@ -372,13 +332,6 @@ def collections_read(message: Any) -> set[str]:
     return set(_names(value))
 
 
-# ---------------------------------------------------------------------------
-# Admission
-# ---------------------------------------------------------------------------
-
-#: A restricted collection named in a result's text. Project collections are
-#: ``proj_<uuid>`` (``lib/projects/service.ts``) and a restricted one appends
-#: ``_r<12 hex>``; every hit is confirmed by :func:`is_restricted_collection`.
 _RESTRICTED_IN_TEXT = re.compile(r"(?<![\w-])proj_[\w-]+?_r[0-9a-f]{12}(?![\w-])", re.IGNORECASE)
 
 
@@ -422,8 +375,6 @@ async def admit_tool_results(messages: list[Any]) -> list[Any]:
         return messages
     use = current_restricted_use()
     cross = current_cross_project_turn()
-    # Another project's collection the BFF recorded and handed to this turn
-    # (ADR-0094): admitted already; nothing to ask.
     handed = {name for name in wanted if cross is not None and name in cross.admitted}
     admissible = [name for name in wanted if name not in handed and use is not None and use.allows(name)]
     admitted = await asyncio.to_thread(admit, use, admissible) if use is not None and admissible else set()

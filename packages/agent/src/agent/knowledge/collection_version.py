@@ -91,32 +91,14 @@ from agent.common import cache
 
 logger = logging.getLogger(__name__)
 
-# Same variable ``agent.common.cache`` keys off. Read here (rather than
-# importing its private name) purely to tell "no shared store configured" apart
-# from "shared store configured but not answering" — those two demand opposite
-# answers from ``current``.
 _REDIS_URL_ENV = "REDIS_URL"
 
 _KEY_PREFIX = "knowledge:collection-version:"
 
-# @environment_variable COLLECTION_VERSION_MEMO_SECONDS
-# @category Knowledge Layer
-# @type float
-# @default 3.0
-# @required false
-# How long a resolved collection write-version is reused in-process before it is
-# re-read from the shared cache. This IS the cross-replica staleness window of
-# the retrieval result cache: raising it saves round trips and lengthens the
-# window in which one replica can still serve results a write on another replica
-# has already superseded.
 MEMO_TTL_SECONDS = float(os.environ.get("COLLECTION_VERSION_MEMO_SECONDS", "3.0"))
 
-# Don't repeat "cannot resolve the version" once per query while the store is
-# down; once a minute per collection is enough to see it in the logs.
 _UNKNOWN_LOG_INTERVAL_SECONDS = 60.0
 
-# INCR is atomic on the server; the floor clause repairs a counter that was
-# evicted (or a bump that never reached the store) without a second round trip.
 _BUMP_LUA = """
 local key = KEYS[1]
 local floor = tonumber(ARGV[1])
@@ -128,8 +110,6 @@ end
 return value
 """
 
-# Same shape without the increment: read, and lift to the floor if the shared
-# counter has fallen behind what this process already served.
 _READ_LUA = """
 local key = KEYS[1]
 local floor = tonumber(ARGV[1])
@@ -142,11 +122,7 @@ return value
 """
 
 _lock = threading.Lock()
-# Highest version this process has ever served for a collection. Raised by every
-# local bump and by every value read from the shared store, so the two numbering
-# spaces stay one space.
 _floors: dict[str, int] = {}
-# collection -> (monotonic time of resolution, version)
 _memo: dict[str, tuple[float, int]] = {}
 _unknown_logged_at: dict[str, float] = {}
 
@@ -228,11 +204,8 @@ def bump(collection: str) -> None:
     configured = _shared_store_configured()
     with _lock:
         next_version = _floors.get(collection, 0) + 1
-        # Drop the memo before the round trip: until the new version is
-        # confirmed, this process must not keep serving the old one.
         _memo.pop(collection, None)
         if not configured:
-            # No shared store: the local counter is the authority (module docs).
             _floors[collection] = next_version
             _memo[collection] = (time.monotonic(), next_version)
     if not configured:
@@ -241,9 +214,6 @@ def bump(collection: str) -> None:
     shared = _eval(_BUMP_LUA, collection, next_version)
     if shared is None:
         with _lock:
-            # Advance locally anyway, so this replica stops matching its own
-            # entries at the old version, and so the floor clause re-applies the
-            # lost bump to the shared counter once the store answers again.
             _floors[collection] = _floors.get(collection, 0) + 1
         logger.warning(
             "Could not publish the write-version bump for %s to the shared cache; "

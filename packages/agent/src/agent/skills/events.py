@@ -58,23 +58,12 @@ from .models import skill_title
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from .runtime import SkillRuntime
 
-#: Step id for the catalog-level ``offered`` event. One per turn, and
-#: technical-only (see the module docstring).
 SELECTION_STEP_ID = "skill_selection"
 
-#: Prefix for the per-skill steps. ``skill:oib-brandschutznachweis``: one step
-#: per skill, so N skills produce N rows.
 SKILL_STEP_PREFIX = "skill:"
 
-#: The stable dotted id of the one skill event a reader actually sees. ONE key,
-#: because there is now one way a skill runs: the model read its description in
-#: the catalog and chose to open it. The frontend derives it from an
-#: ``activated``, live, titled step and resolves it under ``chat.thinking.skill.*``.
 KEY_SKILL_ACTIVATED = "skill.activated"
 
-#: EVERY key a skill step can put on the live line: the counterpart of
-#: :data:`~agent.common.status_keys.ALL_STATUS_KEYS`, and read by the same
-#: two tests.
 ALL_SKILL_KEYS: tuple[str, ...] = ("skill.activated",)
 
 

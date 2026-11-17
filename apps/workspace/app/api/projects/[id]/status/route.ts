@@ -1,10 +1,3 @@
-/**
- * Move a project through its lifecycle (ADR-0098): pause, resume, close,
- * reopen. Thin handler; which moves exist, who may, and the audit trail live in
- * `setProjectStatus` (`@/lib/projects/service`). Closing names how the project
- * ended and its Abschluss month.
- */
-
 import { apiRoute, parseJsonBody } from '@/lib/api/handler'
 import { setProjectStatus } from '@/lib/projects/service'
 import { dateToMonth } from '@/lib/projects/month'

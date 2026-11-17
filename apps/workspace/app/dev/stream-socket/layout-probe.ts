@@ -1,35 +1,5 @@
-/**
- * What the reader of `/dev/stream-socket` sees move, for the probe on
- * `window.__streamSocket`.
- *
- * The page's first probe summed layout shift until the answer settled, and
- * that hid the worst jump a turn had: the Herleitung collapsing at the settle
- * moved the answer 1,400 px (desktop) to 3,600 px (phone) a few hundred
- * milliseconds after the probe had stopped looking (stream audit, 2026-10).
- * So this keeps looking for `AFTER_SETTLE_MS` and splits everything it
- * records at the settle. The four things it adds:
- *
- * - Layout shift with its sources split in two. A source whose rect before or
- *   after is empty ENTERED or LEFT the viewport: the browser reports only the
- *   visible part of a rect, so an answer that rises from below the fold reads
- *   as `dy +228, dh +391` when it actually travelled 1,400 px up. Those go in
- *   `edge`, the real moves in `moved` (docs/contributing/gotchas.md).
- * - The reading line: how far the answer's first prose block and the last
- *   line the reader can see jump between two frames while on screen, the
- *   reader's own scrolling excluded. A reader loses their place when either
- *   one jumps, and layout shift scores neither by distance.
- * - Every scroll the app makes on the thread's scroller by itself
- *   (`scrollTo`, `scrollBy`, `scroll`, `scrollIntoView` of something inside
- *   it, the `scrollTop` setter). A premium chat scrolls under the reader once
- *   per turn: to top-anchor the question on send.
- * - Long animation frames (LoAF): the frames, not the tasks, so a settle that
- *   blocks the collapse animation shows up with the scripts that held it.
- */
-
-/** How long the probe keeps observing after the answer settled. */
 export const AFTER_SETTLE_MS = 2_500
 
-/** Input within this window makes a frame's movement the reader's own. */
 const READER_INPUT_MS = 500
 
 export interface ShiftSource {
@@ -39,13 +9,10 @@ export interface ShiftSource {
 }
 
 export interface ShiftRecord {
-  /** Milliseconds after the question was sent. */
   t: number
   afterSettle: boolean
   value: number
-  /** Sources on screen before and after: what actually moved in view. */
   moved: ShiftSource[]
-  /** Sources that entered or left the viewport; their dy/dh are of the visible part only. */
   edge: ShiftSource[]
 }
 
@@ -63,13 +30,9 @@ export interface ScrollCall {
 }
 
 export interface ReadingLine {
-  /** Whether the answer card's top was inside the scroller when its first word showed. Null before that. */
   answerInViewAtFirstWord: boolean | null
-  /** Largest frame-to-frame jump of the first prose block's top while on screen, px. */
   firstProseMaxDelta: number
-  /** Largest frame-to-frame jump of the last visible line (the same element) while on screen, px. */
   lastLineMaxDelta: number
-  /** The worst of both, with when it happened. */
   worst: { t: number; which: 'firstProse' | 'lastLine'; delta: number } | null
 }
 
@@ -77,19 +40,16 @@ export interface LayoutProbe {
   shifts: ShiftRecord[]
   clsBeforeSettle: number
   clsAfterSettle: number
-  /** Shifts made only by the caret and its veil following the prose: not counted above. */
   caretShift: number
   loaf: LoafRecord[]
   scrollCalls: ScrollCall[]
   reading: ReadingLine
 }
 
-/** What the probe needs to read off the page's own timeline. */
 export interface TurnClock {
   sentAt: number
   settledAt: number
   done: boolean
-  /** The answer the reading line follows: the latest turn's (`#message-<id>`). */
   answerId: string
 }
 
@@ -110,11 +70,9 @@ const describe = (node: Node | null | undefined): string => {
   return `${node.tagName.toLowerCase()}${id}${cls ? `.${cls}` : ''}`
 }
 
-/** Whether a shift source is the streaming caret or its veil (`MarkdownCaret`'s wrapper). */
 const isInsideCaret = (node: Node | null | undefined): boolean =>
   node instanceof Element && node.closest('[data-caret-after]') !== null
 
-/** The element the thread scrolls in: the nearest scrolling ancestor of a message. */
 const findScroller = (): HTMLElement | null => {
   let element = document.querySelector('[id^="message-"]')?.parentElement ?? null
   while (element && !/(auto|scroll)/.test(getComputedStyle(element).overflowY)) element = element.parentElement
@@ -151,7 +109,6 @@ const scriptName = (script: LoafScript): string => {
   return file ? `${fn}@${file}` : fn
 }
 
-/** Starts every observer; returns the teardown. Records only while a turn is in flight (`sentAt` set, not `done`). */
 export const observeLayout = (probe: LayoutProbe, clock: TurnClock): (() => void) => {
   const live = () => clock.sentAt > 0 && !clock.done
   const since = (at: number) => Math.round(at - clock.sentAt)
@@ -173,10 +130,6 @@ export const observeLayout = (probe: LayoutProbe, clock: TurnClock): (() => void
         const enteredOrLeft = source.previousRect.height === 0 || source.currentRect.height === 0
         ;(enteredOrLeft ? edge : moved).push(record)
       }
-      // The caret and its veil step to the next line each time the prose
-      // wraps. The browser counts that as a shift; the reader sees a caret
-      // following its text. Kept out of the totals so it cannot hide a real
-      // move behind a dozen of its own (each ~0.001 on desktop).
       const caretOnly =
         (entry.sources ?? []).length > 0 &&
         (entry.sources ?? []).every((source) => isInsideCaret(source.node))
@@ -192,7 +145,6 @@ export const observeLayout = (probe: LayoutProbe, clock: TurnClock): (() => void
   shifts.observe({ type: 'layout-shift', buffered: false })
   teardown.push(() => shifts.disconnect())
 
-  // Chromium 123+. Elsewhere the probe simply has no frames to report.
   try {
     const loaf = new PerformanceObserver((list) => {
       for (const entry of list.getEntries() as LoafEntry[]) {
@@ -216,11 +168,6 @@ export const observeLayout = (probe: LayoutProbe, clock: TurnClock): (() => void
   return () => teardown.forEach((stop) => stop())
 }
 
-/**
- * Wraps the scroll entry points on `Element.prototype` and counts the calls
- * that move the thread's scroller. Prototype-level because the scroller and
- * the anchored turn mount after this starts; restored on teardown.
- */
 const watchScrollCalls = (
   probe: LayoutProbe,
   live: () => boolean,
@@ -263,12 +210,6 @@ const watchScrollCalls = (
   return () => restore.forEach((undo) => undo())
 }
 
-/**
- * Samples the answer's reading line once per animation frame. A jump counts
- * when the element was on screen in either frame (so one that leaves or
- * arrives counts too) and the reader did not scroll, wheel, touch or type in
- * the last `READER_INPUT_MS`.
- */
 const watchReadingLine = (
   reading: ReadingLine,
   clock: TurnClock,
@@ -295,7 +236,6 @@ const watchReadingLine = (
     raf = requestAnimationFrame(frame)
     if (!live()) return
     scroller = scroller?.isConnected ? scroller : findScroller()
-    // A second turn's answer is a new line to follow, not a jump of the first.
     if (followed !== clock.answerId) {
       followed = clock.answerId
       firstProse = null
@@ -323,8 +263,6 @@ const watchReadingLine = (
       firstProse = { top: rect.top, visible }
     }
 
-    // The last block whose top is above the scroller's bottom edge: the line
-    // the reader's eye is on while the answer grows into view.
     let last: Element | null = null
     for (const block of blocks) {
       const rect = block.getBoundingClientRect()
@@ -337,7 +275,6 @@ const watchReadingLine = (
       }
       lastLine = { element: last, top, visible: true }
     } else if (lastLine?.element.isConnected) {
-      // The line the reader was on left the screen: how far it went counts.
       const top = lastLine.element.getBoundingClientRect().top
       if (lastLine.visible && !readerMoved) note('lastLine', Math.abs(Math.round(top - lastLine.top)), now)
       lastLine = { element: lastLine.element, top, visible: false }

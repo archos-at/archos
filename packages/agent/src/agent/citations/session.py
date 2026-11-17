@@ -36,8 +36,6 @@ _session_registries: OrderedDict[str, SourceRegistry] = OrderedDict()
 _session_registries_lock = threading.Lock()
 
 
-# Cross-turn citation state survives process restarts and replica moves via
-# the shared cache (ADR-0020); the in-process LRU stays the fast path.
 _REGISTRY_CACHE_PREFIX = "citations:"
 
 
@@ -138,8 +136,6 @@ def get_or_create_session_registry(session_id: str | None) -> SourceRegistry:
             annotate_current_span(cache_citation_registry="hit")
             return _session_registries[session_id]
 
-    # Shared-cache hydration outside the lock (network I/O must not serialize
-    # unrelated sessions); the double-checked insert below resolves races.
     from agent.common import cache
 
     hydrated: SourceRegistry | None = None

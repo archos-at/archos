@@ -44,31 +44,16 @@ from agent.common.message_utils import response_text
 
 logger = logging.getLogger(__name__)
 
-#: Cap on the draft, in characters. ~200 tokens of German at the ~4.0
-#: chars/token this corpus measures — chunk-shaped, not answer-shaped.
 HYDE_MAX_DRAFT_CHARS = 800
 
-#: Upper bound on the draft call. It runs beside the first retrieval fan-out,
-#: so it costs nothing while it is faster than that; past this it costs the
-#: turn. Fail-open: a slow draft reads as no draft.
 DEFAULT_TIMEOUT_SECONDS = 8.0
 
-#: A digit run is identifier SHAPE: Richtlinie numbers, Punkt numbers,
-#: dimensions, years ("oib 2", "5.1.1", "40 m"). The query names its target
-#: by number and needs no hypothetical rendering of it.
 _DIGIT_RE = re.compile(r"\d")
 
-#: A filename-shaped token ("….pdf", "….docx"). The query names a document
-#: and needs no hypothetical rendering of its content. Suffix classes only —
-#: no filename vocabulary.
 _FILENAME_SUFFIX_RE = re.compile(r"\.[A-Za-z0-9]{2,5}\b")
 
-#: Quote characters that mark an explicitly quoted span (straight + German
-#: low/high pairs + guillemets — punctuation shape, not vocabulary).
 _QUOTE_CHARS = frozenset("\"'„“‚‘«»‹›")
 
-#: The paragraph glyph. A §-reference with a number is already an exact term;
-#: a bare glyph still marks identifier intent by shape.
 _PARAGRAPH = "§"
 
 _SYSTEM_PROMPT = (

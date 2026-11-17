@@ -1,22 +1,3 @@
-/**
- * INTERNAL — the project intake's reading talks to the BFF (ADR-0111): what
- * the project still needs (`needs`), the values it found (`record`), a
- * suggestion of its own it takes back (`withdraw`), the files it has opened so
- * far (`progress`, the setup page's live count), and that it has finished
- * (`finish`). The Erfassungs-Agent's tools are the callers.
- *
- * The acting person is the one the run's signed envelope names, as a pinned
- * session (ADR-0054 §4, ADR-0108): whoever's upload or click started the
- * reading. The project is the ENVELOPE's, never named in the body (each branch
- * is strict), so a captured envelope cannot write into another project. Every
- * op names the reading's `jobId`; one that is not the intake's current reading
- * answers 409 `stale-reading`.
- *
- * `POST` `InternalIntakeRequest` → the op's response
- * (`lib/project-intake/types.ts`; JSON Schema in
- * `tests/fixtures/project-intake.schema.json`).
- */
-
 import { UnprocessableError } from '@/lib/api/errors'
 import { internalApiRoute, parseJsonBody } from '@/lib/api/handler'
 import { requirePinnedSession, requireVerifiedContext } from '@/lib/api/internal-envelope'

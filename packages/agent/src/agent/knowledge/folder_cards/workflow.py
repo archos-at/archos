@@ -95,21 +95,15 @@ BUILD_STEP = "build"
 GIVE_UP_STEP = "give-up"
 ORG_LIMIT = "folder-cards-org"
 
-#: Durable slots a standard ingest worker offers these tasks: the one builder per pod the old loop was, and the sweep.
 WORKER_SLOTS = 2
 SWEEP_CRON = "* * * * *"
-#: Nightly, UTC, off the hour.
 RECONCILE_CRON = "23 2 * * *"
 
 RETRIES = 2
-#: Waits of 25 s, then ``BACKOFF_MAX_SECONDS``, between attempts (Hatchet: factor ** retry count).
 BACKOFF_FACTOR = 25.0
 BACKOFF_MAX_SECONDS = 600
-#: The builder's own budget plus the slowest single folder.
 BUILD_TIMEOUT = timedelta(seconds=worker.RUN_BUDGET_SECONDS + 600)
-#: How long a build may wait for a slot. Past it the run is gone and the folders, still dirty, are swept again.
 BUILD_SCHEDULE_TIMEOUT = timedelta(hours=1)
-#: A sweep that found no worker within its minute is dropped: the next one is as good.
 SWEEP_SCHEDULE_TIMEOUT = timedelta(seconds=50)
 SWEEP_TIMEOUT = timedelta(minutes=2)
 RECONCILE_TIMEOUT = timedelta(hours=1)

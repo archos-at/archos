@@ -40,19 +40,13 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-#: OpenRouter's public catalog. A GET with no body and no credential: it sends no
-#: tenant content, so it is not a model call and does not go through the seam.
 CATALOG_URL = "https://openrouter.ai/api/v1/models"
 
-#: The catalog changes when a provider adds a model, not per turn.
 _CATALOG_TTL_SECONDS = 6 * 3600
-#: A failed read is not retried on every image of every turn.
 _FAILURE_TTL_SECONDS = 300
 _TIMEOUT_SECONDS = 5.0
 
 _lock = threading.Lock()
-#: Model id (without a ``:variant`` suffix) -> takes image input. Process-lifetime,
-#: keyed by model id, holds no tenant data (``packages/agent/src/agent/AGENTS.md``).
 _catalog: dict[str, bool] = {}
 _catalog_read_at = 0.0
 _catalog_failed_at: float | None = None
@@ -120,8 +114,6 @@ def _refreshed_catalog() -> dict[str, bool]:
     now = time.monotonic()
     with _lock:
         fresh = _catalog and now - _catalog_read_at < _CATALOG_TTL_SECONDS
-        # None: never failed. Zero would read as "failed at boot" on a host
-        # whose monotonic clock is younger than the back-off (a fresh pod).
         backing_off = _catalog_failed_at is not None and now - _catalog_failed_at < _FAILURE_TTL_SECONDS
         if fresh or backing_off:
             return _catalog

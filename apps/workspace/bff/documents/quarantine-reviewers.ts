@@ -1,13 +1,4 @@
 import 'server-only'
-/**
- * Whether one member of the organization may review a held document's
- * quarantine (ADR-0086): an organization admin, a project admin the document's
- * folder is not hidden from (ADR-0087), or for the Büroablage its curators.
- * The rule `mayReviewQuarantine` applies to a session, asked about a person
- * there is no session for: the reviewers told about a quarantine
- * (`quarantineReviewersOf`) and who may open a held document
- * (`mayOpenDocument`) read this one definition.
- */
 
 import { isFolderVisibleToMember } from '@/lib/authz/folder-access'
 import { rolesHoldPermission } from '@/lib/authz/org-role-permissions'

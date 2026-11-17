@@ -11,7 +11,6 @@ from typing import Any
 from .models import PassageTarget
 from .revisions import _current_revision
 
-# Logs under the name read_passage always had, so a filter on that name still catches these records.
 logger = logging.getLogger("knowledge_layer.read_passage.tool")
 
 
@@ -37,15 +36,10 @@ def _document_names(document: Any) -> list[str]:
         member = None
     if derived:
         names.append(derived)
-        # The title without its edition: the head a conclusion names when the
-        # edition is not what it is talking about ("OIB-Richtlinie 2.1").
         head = derived.split(",", 1)[0].strip()
         if head and head != derived:
             names.append(head)
     if member:
-        # The three spellings the prompt's own family line and the office use
-        # for a part of a Richtlinie. Exact names, each — `_matches` still
-        # refuses "OIB 2" for OIB 2.1, because the member number is the name.
         names += [f"OIB {member}", f"OIB-RL {member}", f"OIB-Richtlinie {member}"]
     seen: set[str] = set()
     unique: list[str] = []

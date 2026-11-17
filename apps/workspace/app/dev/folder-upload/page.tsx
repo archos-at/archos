@@ -1,59 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the folder-upload plan — the dialog a dropped directory tree
- * opens before anything moves. 404s outside development.
- *
- * The default fixture is the case the feature exists for: a büro re-syncing an
- * Einreichung a fortnight later. Most of it is unchanged and is skipped, a
- * handful of drawings have been corrected and are offered as an update, two
- * files are new, and the folders it needs were all matched to folders that
- * already exist rather than created beside them. What the shot has to prove is
- * that the four counts read as one sentence, and that the checkbox is visibly
- * the only decision on the surface.
- *
- * `?variant=first` is the OTHER half of the story: the first time this project
- * sees the folder. Nothing matches, every folder is created, and there is no
- * update question to ask — so the checkbox is absent rather than present and
- * unticked, which is the difference between "nothing to decide" and "decided
- * for you".
- *
- * `?variant=collisions` is the state that used to lose work silently. Two files
- * in one drop share a filename; a project holds one document per name
- * (migration 0074), so before the plan existed both uploaded and one overwrote
- * the other with nothing said. Neither is sent now, the pair is named, and the
- * upload button is disabled because the reader has something to fix first.
- *
- * `?variant=known` is the half the plan used to get wrong: the same folder,
- * against a corpus somebody has since worked on. One document was renamed here,
- * so the plan names it — approving a replacement you cannot find in your own
- * file list is not approval. One file matches a document under a name the
- * SERVER would not treat as the same (case), so it is reported as already here
- * rather than uploaded into a second copy. And one unchanged document has been
- * re-filed in Piloti, so it is moved rather than left where it is under a
- * dialog that promises to reproduce the tree.
- *
- * `?variant=revisions` is an ArchiCAD publisher export of the same project: the
- * files continue documents already on the shelf (ADR-0099). The clear matches
- * are ONE list under a sticky master box, ticked and grouped by folder; the ones
- * that need the reader (two current documents, or not newer than the one there)
- * sit apart and unticked with the documents to choose from. The boxes work, so
- * the shot can show the master half-filled and the confirm label moving.
- * `?variant=revisions-40` is the same at the size it arrives in: forty rows in
- * four folders, two same-name updates in the same block (one concept, ADR-0099),
- * long names whose index and date must survive the cut.
- *
- * `?variant=single-revision`, `single-unclear` and `single-older` are ONE loose
- * file that continues a document under another name: a clear match, a file that
- * could continue two documents, and one that is not newer than the document it
- * would continue. Each is the light layout with two named outcomes.
- *
- * `?variant=planning` is the seconds a large folder spends being read and
- * hashed before any of the above can be shown. It is a real state on a
- * 500-file drop and it says what it is doing, rather than leaving a bare
- * spinner over an empty dialog.
- */
-
 import type { JSX } from 'react'
 import { useMemo, useState } from 'react'
 import { notFound, useSearchParams } from 'next/navigation'
@@ -67,7 +13,6 @@ import type { RevisionChange } from '@/features/documents/lib/revision-proposals
 import type { RevisionCandidateMatch } from '@/lib/documents/name-probe-types'
 import type { FileItem, FolderItem } from '@/features/documents/components/project-file-workspace'
 
-/** A `File` carrying the path a folder input would report. */
 function pathed(relativePath: string, size: number): File {
   const name = relativePath.split('/').pop()!
   const file = new File(['x'], name, { type: 'application/pdf' })
@@ -110,7 +55,6 @@ const FOLDERS: FolderItem[] = [
   { id: 'f-statik', parentId: 'f-root', name: 'Statik', path: 'Wohnbau Nord/Statik' },
 ]
 
-/** The re-sync: mostly unchanged, a few corrections, two genuinely new files. */
 function resyncPlan(): FolderUploadPlan {
   const unchanged = [
     pathed('Wohnbau Nord/Pläne/EG.pdf', 1_000),
@@ -131,16 +75,10 @@ function resyncPlan(): FolderUploadPlan {
     folders: FOLDERS,
     currentFolderId: null,
     documents: [
-      // Filed where the first sync put them, which is where this one puts them
-      // too — a re-sync does not move anything it does not have to.
       doc('EG.pdf', { fileSize: 1_000, contentHash: IDENTICAL, folderId: 'f-plaene' }),
       doc('OG.pdf', { fileSize: 1_000, contentHash: IDENTICAL, folderId: 'f-plaene' }),
       doc('Bewehrung.pdf', { fileSize: 1_000, contentHash: IDENTICAL, folderId: 'f-statik' }),
-      // Same name, same size, different bytes — the case only a digest can tell
-      // apart, and the reason the column exists.
       doc('Schnitt_A.pdf', { fileSize: 2_400, contentHash: IDENTICAL, folderId: 'f-plaene' }),
-      // Somebody re-filed this one in Piloti after the first sync. The tree
-      // puts it back, and the dialog says so before it moves.
       doc('Nachweis.pdf', { fileSize: 2_400, contentHash: IDENTICAL, folderId: null }),
     ],
     digests: new Map([
@@ -150,7 +88,6 @@ function resyncPlan(): FolderUploadPlan {
   })
 }
 
-/** The first sync: nothing here yet, so every folder is a creation. */
 function firstPlan(): FolderUploadPlan {
   return buildFolderUploadPlan({
     files: [
@@ -164,7 +101,6 @@ function firstPlan(): FolderUploadPlan {
   })
 }
 
-/** Two files, one name — the loss the plan reports instead of committing. */
 function collisionPlan(): FolderUploadPlan {
   return buildFolderUploadPlan({
     files: [
@@ -178,10 +114,6 @@ function collisionPlan(): FolderUploadPlan {
   })
 }
 
-/**
- * The corpus somebody has worked on since the last sync: a rename, a re-filing,
- * and a file whose name matches a document only in the loose sense.
- */
 function knownPlan(): FolderUploadPlan {
   const unchanged = pathed('Wohnbau Nord/Pläne/EG.pdf', 1_000)
   const renamed = pathed('Wohnbau Nord/Statik/Nachweis.pdf', 2_400)
@@ -192,18 +124,13 @@ function knownPlan(): FolderUploadPlan {
     folders: FOLDERS,
     currentFolderId: null,
     documents: [
-      // Byte-identical, and filed at the root since the last sync. Nothing to
-      // upload, and still something to do.
       doc('EG.pdf', { fileSize: 1_000, contentHash: IDENTICAL, folderId: null }),
-      // Renamed here. The drop still says `Nachweis.pdf`; the file list says
-      // something else, and the dialog has to bridge the two.
       doc('Nachweis.pdf', {
         fileSize: 2_400,
         contentHash: IDENTICAL,
         folderId: 'f-statik',
         displayName: 'Statischer Nachweis — Freigabe 08/26',
       }),
-      // Same document to a person, a second row to Postgres.
       doc('Deckblatt.pdf', { fileSize: 900, folderId: 'f-plaene' }),
     ],
     digests: new Map([
@@ -213,7 +140,6 @@ function knownPlan(): FolderUploadPlan {
   })
 }
 
-/** What the Fassung probe answered for the export's files, built from the dropped names. */
 function exportOffers(files: readonly File[]): Map<string, RevisionCandidateMatch> {
   const one = (name: string, held: string, label: string): RevisionCandidateMatch => ({
     name,
@@ -244,7 +170,6 @@ function exportOffers(files: readonly File[]): Map<string, RevisionCandidateMatc
   return offers
 }
 
-/** A drop with offers, and the documents and digests it is planned against. */
 interface OfferedDrop {
   files: File[]
   offers: Map<string, RevisionCandidateMatch>
@@ -252,7 +177,6 @@ interface OfferedDrop {
   digests?: Map<File, string>
 }
 
-/** The publisher export: twelve sheets, two that need the reader. */
 function exportDrop(): OfferedDrop {
   const files = [
     ...Array.from({ length: 12 }, (_, i) =>
@@ -264,7 +188,6 @@ function exportDrop(): OfferedDrop {
   return { files, offers: exportOffers(files) }
 }
 
-/** Forty files of an Einreichung, the size a publisher export arrives in. */
 function fortyDrop(): OfferedDrop {
   const root = 'Einreichung_2026-10'
   const folders = [
@@ -303,7 +226,6 @@ function fortyDrop(): OfferedDrop {
     unambiguous: false,
   })
   for (const [name, offer] of exportOffers(unclear)) offers.set(name, offer)
-  // Same name as a document here, different bytes: a new Fassung too, in the same block.
   const sameName = [pathed(`${root}/Baubeschreibung.pdf`, 3_000), pathed(`${root}/Deckblatt.pdf`, 3_000)]
   return {
     files: [...sheets, ...unclear, ...sameName, pathed(`${root}/Lageplan_Notiz.pdf`, 500)],
@@ -316,7 +238,6 @@ function fortyDrop(): OfferedDrop {
   }
 }
 
-/** One loose file that continues a document: clear, between two documents, or older than the one there. */
 function soleDrop(variant: 'single-revision' | 'single-unclear' | 'single-older'): OfferedDrop {
   const name =
     variant === 'single-older' ? 'EG_Grundriss_Index_A_2026-05-02.pdf' : 'EG_Grundriss_Index_C_2026-10-02.pdf'
@@ -335,9 +256,7 @@ function soleDrop(variant: 'single-revision' | 'single-unclear' | 'single-older'
   }
 }
 
-/** A drop with offers and working boxes: the answers re-plan, as `useUploadDecision` does. */
 function OfferedPreview({ drop, kind }: { drop: () => OfferedDrop; kind: 'folder' | 'files' }): JSX.Element {
-  // Built once per mount (the variant is the key): the answers are kept by File, so the files must stay the same objects.
   const [built] = useState(drop)
   const [choices, setChoices] = useState<Map<File, RevisionChoice>>(new Map())
   const [confirmed, setConfirmed] = useState<string | null>(null)
@@ -360,7 +279,6 @@ function OfferedPreview({ drop, kind }: { drop: () => OfferedDrop; kind: 'folder
       for (const file of changed) next.set(file, { ...next.get(file), ...(targetId ? { targetId, chosen: chosen ?? true } : { chosen }) })
       return next
     })
-  // What the confirm would send, so the preview shows the answer reached the plan.
   const confirm = () =>
     setConfirmed(
       plan.files.map((file) => `${file.file.name} → ${file.revisionOf?.chosen ? file.revisionOf.of.name : 'eigenes Dokument'}`).join('\n')

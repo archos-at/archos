@@ -1,8 +1,3 @@
-/**
- * Entitle an office to a country's platform knowledge, or withdraw it
- * (ADR-0165): the person's own yes, audited in the office's trail.
- */
-
 import { parseJsonBody } from '@/lib/api/handler'
 import { platformApiRoute } from '@/lib/api/platform-handler'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'

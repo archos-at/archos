@@ -1,15 +1,3 @@
-/**
- * Minimal JWT decoding helpers for client-side use.
- *
- * These helpers do NOT verify signatures; they only read the payload of a
- * token that has already been issued and validated by WorkOS AuthKit.
- */
-
-/**
- * Extract the `exp` claim from a JWT access token.
- *
- * Returns `undefined` if the token is malformed or has no expiration.
- */
 export const getTokenExpiration = (token: string): number | undefined => {
   try {
     const payload = token.split('.')[1]

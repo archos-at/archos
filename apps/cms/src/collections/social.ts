@@ -1,9 +1,3 @@
-/**
- * The company's social posts (ADR-0155): drafted here (by a person, an agent,
- * the publish job or social/release-summaries.mjs), approved by a publisher,
- * handed to Buffer by social/handoff.mjs. One post is one text for one account
- * in one language. `access/social.ts` holds who may move a post where.
- */
 import type { CollectionConfig } from 'payload';
 import { canDraft, canPublish, roleOf } from '../access/roles';
 import {
@@ -41,7 +35,6 @@ export const SocialAccounts: CollectionConfig = {
   ],
 };
 
-/** Locked once the post is handed over: Buffer holds a copy that an edit here would not reach. */
 const untilHandedOver = { update: contentWritable };
 const handoffMayNot = { update: notByHandoff };
 

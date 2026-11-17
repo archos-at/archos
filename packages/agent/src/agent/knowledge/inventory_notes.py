@@ -15,15 +15,8 @@ from agent.common.source_kinds import SHELF_QUALIFIERS
 from agent.common.source_kinds import Shelf
 from agent.common.source_kinds import parse_shelf
 
-#: The inventory's shelf order: user-facing shelves first, base last so the OIB corpus cannot evict them.
 INVENTORY_ORDER: tuple[Shelf, ...] = (Shelf.OFFICE_SHELF, Shelf.PROJECT, Shelf.SESSION, Shelf.BASE)
 
-#: How many in-flight filenames the prompt names before it counts the rest.
-#:
-#: Same rule as every other block here: carry the shape, not the list. A bulk
-#: upload can have hundreds of files in flight, and the model needs to know
-#: THAT rather than WHICH — past a handful the names stop informing the answer
-#: and start being paid for on every turn.
 _IN_FLIGHT_MAX_NAMED = 5
 
 

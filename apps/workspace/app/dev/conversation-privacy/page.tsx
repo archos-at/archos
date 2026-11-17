@@ -1,29 +1,5 @@
 'use client'
 
-/**
- * Dev preview for what a chat says about itself (ADR-0180): the temporary
- * switch of the composer, the line under the composer, and the „noted“ chip
- * with who reads each note and the action that takes a note back. The real
- * components, driven by props, no store and no backend. The chip is shown
- * three times: to the asker who may write the project's memory (every row
- * kind; „Entfernen“ works on the page's own state), to a colleague who may
- * only read (no personal row, no remove action on project notes), and with
- * every outcome of taking a note back. Pick a composer state with the toggles
- * or open it by address:
- *
- *   ?state=private              only the reader sees the chat
- *   ?state=temporary            temporary, and private
- *   ?state=temporary-shared     temporary in a shared chat (no private line)
- *   ?state=shared               neither statement holds: the line is absent
- *   ?state=switching            the switch is on its way to the server
- *
- * „Phone row“ stands the switch in the composer's row as a phone has it: 294px
- * for five controls, the other four as boxes of their phone size. At a phone
- * width the switch shows its word without the glyph; the row must not overflow.
- *
- * Not linked from anywhere and 404s outside development (see ../layout.tsx).
- */
-
 import { useState, type JSX } from 'react'
 import { RaisedCard, RaisedCardBody } from '@/components/ui/raised-card'
 import { SectionLabel } from '@/components/ui/section-label'
@@ -37,7 +13,6 @@ import { PreviewStatePicker, usePreviewState } from '../_fixtures/preview-state'
 const STATES = ['private', 'temporary', 'temporary-shared', 'shared', 'switching'] as const
 type PreviewState = (typeof STATES)[number]
 
-/** Every kind of row one turn can leave: the shelf, when it was written, what it replaced. */
 const SHARED: TurnMemoryItem[] = [
   {
     id: 'n-office',
@@ -73,7 +48,6 @@ const SHARED: TurnMemoryItem[] = [
     supersedes: 'OIB-RL 2.1 ist nicht anwendbar.',
   },
   {
-    // A card the browser decided before proposals recorded what they created: no row to name.
     id: 'memory_proposal-0',
     kind: 'open_question',
     content: 'Ist die Zufahrt für die Feuerwehr im Bebauungsplan gesichert?',
@@ -82,7 +56,6 @@ const SHARED: TurnMemoryItem[] = [
   },
 ]
 
-/** The asker's own notes of this answer. Only their browser holds these rows. */
 const MINE: TurnMemoryItem[] = [
   {
     id: 'p-preference',
@@ -109,7 +82,6 @@ const OUTCOMES: Record<string, NoteRemoval> = {
   'p-profile': 'gone',
 }
 
-/** The chip with the page's own state behind „Entfernen“: each click removes on the next tick. */
 function RemovableChip({ items, canWrite }: { items: TurnMemoryItem[]; canWrite: boolean }): JSX.Element {
   const [removals, setRemovals] = useState<Record<string, NoteRemoval>>({})
   return (
@@ -142,7 +114,6 @@ function Composer({ state }: { state: PreviewState }): JSX.Element {
         </RaisedCardBody>
       </RaisedCard>
       <ConversationPrivacyLineView
-        // While switching, the line says so and never claims what the server has not confirmed.
         temporary={state === 'switching' ? (pressed ? 'turningOff' : 'turningOn') : pressed}
         privateToReader={state === 'private' || state === 'temporary' || state === 'switching'}
       />
@@ -150,7 +121,6 @@ function Composer({ state }: { state: PreviewState }): JSX.Element {
   )
 }
 
-/** The composer's action row at a phone's width, the switch's four neighbours as boxes of their size there. */
 function PhoneRow({ state }: { state: PreviewState }): JSX.Element {
   const [pressed, setPressed] = useState(state === 'temporary' || state === 'temporary-shared')
   const neighbour = 'bg-muted text-muted-foreground flex h-11 shrink-0 items-center justify-center rounded-control text-xs'

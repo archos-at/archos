@@ -30,7 +30,7 @@ ALLOWED: dict[str, dict[str, int]] = {
         "packages/knowledge-layer/src/ingest/image_store.py": 3,
         "packages/knowledge-layer/src/ingest/document_presence.py": 3,
         "packages/knowledge-layer/src/ingest/page_text_store.py": 3,
-        "packages/knowledge-layer/src/view_image.py": 4,
+        "packages/knowledge-layer/src/view_image.py": 3,
         "apps/agent-host/src/agent_host/internal_api.py": 2,
     },
     "token_header": {

@@ -29,13 +29,6 @@ def retrieval_dependency_faults() -> list[tuple[str, BaseException]]:
         try:
             load()
         except ModuleNotFoundError as exc:
-            # A ModuleNotFoundError does NOT automatically mean this
-            # distribution is absent: it also fires when the module imports
-            # fine but one of ITS dependencies is missing. Only a failure
-            # naming this module (or a parent of it) means "not installed";
-            # anything else is a present-but-unusable install, which is the
-            # case that has to stay distinguishable because it is the one the
-            # old message got wrong.
             missing = exc.name or ""
             if missing and (module == missing or module.startswith(f"{missing}.")):
                 faults.append((f"{distribution}: not installed ({exc})", exc))
@@ -51,8 +44,6 @@ def retrieval_dependency_faults() -> list[tuple[str, BaseException]]:
         from llama_index.embeddings.nvidia import NVIDIAEmbedding  # noqa: F401
 
     def _vector_store() -> None:
-        # A presence probe only: every read and write goes through ``..qdrant``,
-        # the one package that imports the client (ADR-0115).
         __import__("qdrant_client")
 
     _probe("llama-index-core", "llama_index.core", _core)
@@ -79,11 +70,6 @@ def ensure_retrieval_dependencies() -> None:
     faults = retrieval_dependency_faults()
     if not faults:
         return
-    # Chained from the FIRST probe failure. Running before the try/except that
-    # `retrieval_dependency_error` serves means this is now the raise most
-    # operators will actually see, so it has to carry the original traceback
-    # too -- a summary string alone would drop the one frame that says where
-    # the import broke.
     raise RuntimeError(
         "LlamaIndex retrieval stack is unusable in this environment.\nModule status:\n  "
         + "\n  ".join(finding for finding, _ in faults)

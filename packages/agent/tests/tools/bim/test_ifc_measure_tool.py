@@ -65,7 +65,6 @@ class TestBuildCall:
         result = build(operation="measure_room")
         assert isinstance(result, str)
         assert "unknown operation" in result
-        # The valid set is spelled out so the model can correct itself in one turn.
         assert "storey_heights" in result
 
     @pytest.mark.parametrize("operation", ["element", "relations", "measure", "distance"])
@@ -73,8 +72,6 @@ class TestBuildCall:
         answer = build(operation=operation)
         assert isinstance(answer, str)
         assert "needs a global_id" in answer
-        # And it says where a real one comes from, because the failure mode
-        # this prevents is the model inventing a plausible-looking id.
         assert "find_elements" in answer
 
     def test_an_unknown_relation_is_refused_with_the_list(self):
@@ -127,12 +124,8 @@ class TestBuildCall:
             assert "what a lichte Breite check needs" not in text, name
         assert "NOT a lichte Breite" in DISTANCE_MODES["horizontal"]
         assert "NOT a lichte Höhe" in DISTANCE_MODES["vertical"]
-        # And each one points at the operator that DOES answer it. This said
-        # `extent` until `clearWidth` existed — pointing at the least wrong
-        # operator available, which measured a door's THICKNESS as its width.
         assert "clearWidth" in DISTANCE_MODES["horizontal"]
         assert "clearHeight" in DISTANCE_MODES["vertical"]
-        # `min` is a box gap, and 0 does not mean the solids touch.
         assert "BOUNDING BOXES" in DISTANCE_MODES["min"]
 
     def test_the_mode_error_does_not_repeat_the_wrong_advice(self):
@@ -181,16 +174,12 @@ class TestBuildCall:
         )
 
     def test_an_unknown_distance_mode_is_refused_and_says_which_to_use(self):
-        # A lichte Breite measured on the slant is a wrong number that reads
-        # perfectly, so the correction names the two directional modes.
         answer = build(operation="distance", global_id="a", other_global_id="b", mode="diagonal")
         assert isinstance(answer, str)
         assert "mode 'diagonal' does not exist" in answer
         assert "horizontal" in answer and "vertical" in answer
 
     def test_an_unknown_kind_is_refused_and_distinguished_from_an_ifc_type(self):
-        # `kind` is the spatial ROLE. A model that puts "IfcSpace" here gets
-        # zero matches, which reads as "the building has no rooms".
         answer = build(operation="find_elements", kind="IfcSpace")
         assert isinstance(answer, str)
         assert "kind 'IfcSpace' does not exist" in answer
@@ -215,12 +204,6 @@ class TestBuildCall:
             },
         )
 
-    # `limit` is passed THROUGH, not pre-defaulted by the caller. Writing
-    # `limit or 50` here meant `_build_call` never saw a 0 and the row asserted
-    # the test's own arithmetic; the floor was never reached at all. The
-    # ceiling is the engine's page size, and the floor is what keeps a model
-    # that computed a limit from a subtraction from asking for 0 or -3 rows and
-    # reading the empty answer as "the building has none".
     @pytest.mark.parametrize("limit,expected", [(0, 50), (-3, 1), (1, 1), (5, 5), (10_000, 500)])
     def test_the_element_limit_is_clamped(self, limit, expected):
         name, args = build(operation="find_elements", limit=limit)
@@ -331,8 +314,6 @@ class TestTheEnumsMatchTheEngine:
         assert set(RELATIONS) == set(self._engine().RELATIONS)
 
     def test_the_geometric_relations_are_the_engine_s(self):
-        # The ones the description warns cost ~7 s on a cold model. A relation
-        # that quietly joined that set would be called speculatively.
         from agent.tools.bim.measure_register import GEOMETRIC_RELATIONS
 
         assert set(GEOMETRIC_RELATIONS) == set(self._engine().GEOMETRIC_RELATIONS)
@@ -358,10 +339,6 @@ class TestTheEnumsMatchTheEngine:
         assert set(ENVELOPE_ASPECTS) == set(self._engine().ENVELOPE_ASPECTS)
 
     def test_the_batch_ceiling_is_the_engine_s(self):
-        # The input model refuses a `measure` over more ids than this BEFORE the
-        # file is fetched. A ceiling higher than the engine's would let the
-        # expensive refusal through again; a lower one would refuse a call the
-        # engine would have answered.
         from agent.tools.bim.measure_register import MAX_BATCH
 
         assert MAX_BATCH == self._engine().MAX_BATCH
@@ -378,7 +355,6 @@ class TestTheEnumsMatchTheEngine:
         from agent.tools.bim.measure_register import VALID_OPERATIONS
 
         engine_tools = {tool.name for tool in self._engine().create_tools()}
-        # `open_model` is the host's job, not an operation the model picks.
         assert VALID_OPERATIONS <= engine_tools, VALID_OPERATIONS - engine_tools
 
     def test_no_engine_tool_is_unreachable_from_the_agent(self):
@@ -450,7 +426,6 @@ class TestProvenanceIsThreeDifferentSentences:
         assert line.startswith("gemessen")
         assert "±0.005" in line
         assert "not declared" in line
-        # And it must NOT read as something the model states.
         assert "deklariert:" not in line
 
     def test_an_inferred_value_is_a_proposal_with_its_confidence(self):
@@ -468,7 +443,6 @@ class TestProvenanceIsThreeDifferentSentences:
         assert "not a finding" in line
 
     def test_a_number_with_no_tolerance_is_passed_through_untouched(self):
-        # Nothing says how precise this is, so nothing may be dropped from it.
         line = _provenance_line(
             {"value": 15.41678125, "unit": "m²", "tolerance": None, "provenance": "computed", "decidable": True}
         )
@@ -499,21 +473,14 @@ class TestProvenanceIsThreeDifferentSentences:
         assert "gemessen (±0.15 m²): 15.4 m²" in line
         assert "15.41678125" not in line
         assert "0.15416781" not in line
-        # And not 15.42 either: a 15-centimetre band does not support a
-        # centimetre digit. `ceil` used to round the tolerance up to the next
-        # decade before counting, which authorised one digit too many on every
-        # band that was not an exact power of ten.
         assert "15.42" not in line
 
     @pytest.mark.parametrize(
         ("value", "tolerance", "shown"),
         [
-            # One digit finer than the band, so nothing resolved is discarded.
             (0.17913908774709064, 0.01, "0.179"),
             (0.6466378093377606, 0.005, "0.647"),
             (2.1099999999999999, 0.01, "2.110"),
-            # A whole-number band leaves no decimal at all: ±3° cannot carry a
-            # tenth of a degree, and printing one claimed it could.
             (0.0, 3, "0"),
         ],
     )
@@ -567,9 +534,6 @@ class TestUndecidableIsAFindingAboutTheExport:
         rendered = _render("measure", dict(self.UNDECIDABLE))
 
         assert "UNDECIDABLE" in rendered
-        # The word the agent must not reach for. An "Error:" prefix is how this
-        # tool reports that nothing was looked at, and this is the opposite —
-        # the file was read and it does not say.
         assert not rendered.startswith("Error")
         assert "Error:" not in rendered
 
@@ -577,12 +541,9 @@ class TestUndecidableIsAFindingAboutTheExport:
         rendered = _render("measure", dict(self.UNDECIDABLE))
 
         assert "Pset_WindowCommon.SillHeight" in rendered
-        # The remedy is the actionable half and must survive verbatim.
         assert "Brüstungshöhe im CAD am Fenstertyp hinterlegen" in rendered
 
     def test_it_says_the_finding_is_about_the_export_not_the_building(self):
-        # The sentence that stops "the model does not publish a sill height"
-        # becoming "the window has no sill".
         assert "finding about the EXPORT, not about the building" in _render("measure", dict(self.UNDECIDABLE))
 
     def test_the_method_is_still_reported_so_the_refusal_can_be_checked(self):
@@ -631,7 +592,6 @@ class TestRendering:
             "measure",
             {"value": 2.5, "unit": "m", "provenance": "computed", "tolerance": 0.005, "decidable": True},
             source={"model": {"filename": "Haus-A_V3.ifc", "schemaVersion": "IFC4", "elements": 74}},
-            # A content hash, not a credential — detect-secrets sees 16 hex chars.
             handle="3f2a1b0c9d8e7f6a",  # pragma: allowlist secret
         )
         assert "Model: Haus-A_V3.ifc (IFC4, 74 elements)" in rendered
@@ -660,9 +620,6 @@ class TestRendering:
         assert "IfcSpace „Living room“ · GlobalId 3cUkl32yn9qRSPvBJVyWcE (via Kontaktkarte)" in rendered
 
     def test_a_caveat_is_never_dropped(self):
-        # The storey-pitch caveat is the difference between a Rohbauhöhe and a
-        # Raumhöhennachweis. An answer that loses it publishes a different
-        # claim than the operator made.
         rendered = _render(
             "storey_heights",
             {
@@ -677,8 +634,6 @@ class TestRendering:
         assert "Ground Floor" in rendered and "2.85" in rendered
 
     def test_a_contradiction_between_two_routes_is_surfaced_as_one(self):
-        # Agreement is a fact; DISAGREEMENT is a finding about the export, and
-        # one an architect wants before submission.
         rendered = _render(
             "measure",
             {
@@ -696,13 +651,10 @@ class TestRendering:
     def test_the_briefing_is_handed_over_whole_with_its_instruction(self):
         rendered = _render("briefing", {"briefing": "GEBÄUDE  Haus-A.ifc · IFC4\nBLIND  keine …"})
         assert "GEBÄUDE  Haus-A.ifc" in rendered
-        # The briefing is only useful if the agent copies names OUT of it.
         assert "verbatim" in rendered
         assert "BLIND" in rendered
 
     def test_find_elements_reports_the_total_separately_from_the_page(self):
-        # A page presented as a total is the failure this whole surface is
-        # built to avoid.
         rendered = _render(
             "find_elements",
             {
@@ -720,8 +672,6 @@ class TestRendering:
         assert "Do NOT read dimensions off the image" in rendered
 
     def test_a_unit_goes_after_a_number_and_beside_a_set_of_them(self):
-        # "sill=0.9, head=2.11 m" reads as though only the last figure carried
-        # the unit, and "2 Einträge m" is not German at all.
         named = _provenance_line(
             {
                 "value": {"sill": 0.9, "head": 2.11},
@@ -732,7 +682,6 @@ class TestRendering:
             }
         )
         assert "sill=0.900, head=2.110 (m)" in named
-        # The tolerance is a scalar in that unit whatever shape the value has.
         assert "±0.01 m" in named
 
     def test_a_list_of_one_is_reported_in_the_singular(self):
@@ -745,8 +694,6 @@ class TestRendering:
             }
         )
         assert "1 entry" in line and "1 Einträge" not in line
-
-    # ── light_incidence, the flagship operator's own rendering ──────────────
 
     BLOCKED = {
         "value": [
@@ -789,8 +736,6 @@ class TestRendering:
         assert "1 element protrudes into the prism, deepest intrusion 1.056 m" in blocked
 
     def test_an_empty_list_is_the_answer_and_must_not_render_as_nothing(self):
-        # `free: true` carries no entries at all, so without its own line the
-        # renderer produced a provenance header and silence.
         free = {**self.BLOCKED, "value": [], "free": True}
         rendered = "\n".join(_render_answer(free))
         assert "FREI (prism 45°, lateral 30°): no element protrudes into the prism." in rendered
@@ -812,13 +757,10 @@ class TestRendering:
         assert "2 elements protrude" in "\n".join(_render_answer(two))
 
     def test_the_angles_are_echoed_as_written_not_as_floats(self):
-        # 45.0° suggests a measurement to a tenth of a degree. It is the number
-        # the clause states, round-tripped through a float.
         rendered = "\n".join(_render_answer(dict(self.BLOCKED)))
         assert "45°" in rendered and "45.0°" not in rendered
 
     def test_the_verdict_never_becomes_a_compliance_finding(self):
-        # A cut prism ENLARGES the required Lichteintrittsfläche under OIB 3.
         rendered = "\n".join(_render_answer(dict(self.BLOCKED))).lower()
         for word in ("compliant", "erfüllt", "verstoß", "unzulässig"):
             assert word not in rendered
@@ -880,7 +822,6 @@ class TestRendering:
         )
         assert "This one call is the answer for this turn" in rendered
         assert "not ready to be queried yet" in rendered
-        # And never the sentence for a project that has no model at all.
         assert NO_MODEL_TEXT not in rendered
 
     def test_a_project_with_no_model_is_told_that_this_call_is_the_answer(self):
@@ -937,8 +878,6 @@ class TestOnlyAQuantityCountsAsAMeasurement:
     """
 
     RELATIONS = {
-        # Verbatim shape of `relations(relation="bounds")`: a decidable answer
-        # whose value is a list of GlobalIds, declared, with no unit at all.
         "value": [
             {"globalId": "3cUkl32yn9qRSPvBJVyWcE", "ifcType": "IfcWall", "name": "Wand 01", "kind": "element"},
             {"globalId": "3cUkl32yn9qRSPvBJVyWh4", "ifcType": "IfcWall", "name": "Wand 02", "kind": "element"},
@@ -960,17 +899,9 @@ class TestOnlyAQuantityCountsAsAMeasurement:
     @pytest.mark.parametrize(
         ("label", "answer"),
         [
-            # Every shape of REAL measurement the engine actually returns. The
-            # gate is `unit` OR `tolerance`, and each of these is here because
-            # a narrower gate would have excluded it:
             ("scalar with both", {"value": 2.48, "unit": "m", "tolerance": 0.005}),
-            # `envelope` reports areas in m² and carries no tolerance…
             ("area without tolerance", {"value": 184.2, "unit": "m²"}),
-            # …and `storey_heights` measures every storey, so a real
-            # measurement's value is legitimately a LIST. Gating on
-            # scalar-ness would have thrown it away.
             ("list of storeys", {"value": [{"storey": "EG", "height": 2.85}], "unit": "m"}),
-            # A ratio carries a tolerance and no unit.
             ("ratio with tolerance", {"value": 0.118, "unit": None, "tolerance": 0.001}),
         ],
     )
@@ -1098,8 +1029,6 @@ class TestAConversationWithoutAProjectIsRefusedBeforeTheNetwork:
         from agent.tools.bim.measure_register import NO_PROJECT_TEXT as measure_text
         from agent.tools.bim.register import NO_PROJECT_TEXT as query_text
 
-        # Literally the same string: an agent that learns it from one tool has
-        # to read it correctly from the other.
         assert measure_text is query_text
 
     def test_it_forbids_the_retry_that_used_to_burn_the_turn(self):
@@ -1113,8 +1042,6 @@ class TestAConversationWithoutAProjectIsRefusedBeforeTheNetwork:
 
         assert "not attached to a project" in NO_PROJECT_TEXT
         assert "inside the project" in NO_PROJECT_TEXT
-        # And forbids the failure mode that made this worth finding: filling the
-        # silence with something plausible about the building.
         assert "Do not state anything about the building" in NO_PROJECT_TEXT
 
     def test_it_is_not_the_same_message_as_a_real_rejection(self):
@@ -1143,11 +1070,9 @@ class TestAModelTooBigToMeasureIsNotAnOutage:
 
         monkeypatch.delenv("BIM_SPATIAL_MAX_MODEL_BYTES", raising=False)
         monkeypatch.setattr(client, "_container_memory_bytes", lambda: 4 * 1024**3)
-        # Half the container, divided by the measured 20x parse footprint.
         assert client._derive_max_model_bytes() == (2 * 1024**3) // 20
 
         monkeypatch.setattr(client, "_container_memory_bytes", lambda: 512 * 1024**2)
-        # Never below the floor: under it the tool is not worth having.
         assert client._derive_max_model_bytes() == client._MIN_MODEL_BYTES
 
         monkeypatch.setattr(client, "_container_memory_bytes", lambda: 1024 * 1024**3)
@@ -1215,12 +1140,9 @@ class TestAModelTooBigToMeasureIsNotAnOutage:
 
         text = _too_large_text(310 * 1024 * 1024, 100 * 1024 * 1024)
         assert "310 MB" in text and "100 MB" in text
-        # Not an outage, and it says so — waiting is the wrong action.
         assert "not an outage" in text and "waiting does not help" in text
         assert text != UNAVAILABLE_TEXT
-        # Not "a larger server": no server lifts the engine's own fixed limit.
         assert "ask for the limit to be raised" in text
-        # And the half that still works is offered by name.
         assert "ifc_query" in text
         assert "Do not estimate dimensions" in text
 
@@ -1328,7 +1250,6 @@ class TestAnEngineRefusalKeepsItsReason:
         [
             "Diese Datei ist leer (0 Bytes) — der Upload ist fehlgeschlagen.",
             "Das ist keine IFC-SPF-Datei — sie beginnt nicht mit ISO-10303-21.",
-            # The engine's longest, in full, so a cap below it goes red here.
             "Diese Datei ist unvollständig: der Abschluss END-ISO-10303-21; fehlt. Sie wurde "
             "abgeschnitten — der Upload oder der Export ist abgebrochen. Eine abgeschnittene IFC-Datei "
             "bringt den Parser zum Absturz und wird deshalb gar nicht erst geöffnet; die Datei bitte "
@@ -1343,7 +1264,6 @@ class TestAnEngineRefusalKeepsItsReason:
         assert reason in answer
         assert "not an outage" in answer
         assert not result_carries_measurement(answer)
-        # The reason is for the reader, and this worker's scratch path is not.
         assert self.SPILLED not in answer
 
     def test_a_reason_that_runs_on_does_not_reach_the_agent_whole(self, monkeypatch):
@@ -1479,13 +1399,10 @@ class TestUnavailableIsNotRejected:
             assert "Do NOT" in text
 
     def test_a_missing_engine_is_not_reported_as_a_broken_model(self):
-        # Nothing is wrong with the building or the request: this deployment
-        # has no geometry engine. It also names what still works.
         assert "not installed" in ENGINE_UNAVAILABLE_TEXT
         assert "ifc_query" in ENGINE_UNAVAILABLE_TEXT
 
     def test_an_id_that_is_not_in_the_model_is_a_correctable_mistake(self):
-        # And NOT a `decidable: false` — the call could not be made at all.
         text = _unrunnable_text("Bauteil 0xyz ist in diesem Modell nicht enthalten")
         assert "not with the building" in text
         assert "find_elements" in text
@@ -1529,8 +1446,6 @@ class TestTheSourceClientDrawsTheSameDistinction:
 
     @pytest.mark.parametrize("status", [401, 403, 429, 500, 503])
     def test_everything_else_is_unavailable(self, monkeypatch, status):
-        # A revoked `ifc-models` flag arrives as a 403 and is NOT something the
-        # agent can fix by rewriting its arguments.
         from agent.knowledge.bim_query import BimQueryUnavailableError
         from agent.knowledge.ifc_spatial_client import resolve_model_source
 
@@ -1547,9 +1462,6 @@ class TestTheSourceClientDrawsTheSameDistinction:
             resolve_model_source(organization_id="org", project_id="p")
 
     def test_a_model_is_addressed_by_project_and_file_name_never_by_uuid(self, monkeypatch):
-        # ADR-0045: a UUID carried through a conversation is a reliable source
-        # of hallucinated identifiers, so the tool names the model the way a
-        # person does and the BFF resolves it.
         from agent.knowledge.ifc_spatial_client import resolve_model_source
 
         sent: dict = {}
@@ -1580,9 +1492,7 @@ class TestTheSourceClientDrawsTheSameDistinction:
         assert sent["url"].endswith("/api/internal/bim/source")
         assert sent["body"] == {"organizationId": "org-1", "projectId": "p-1", "modelName": "V3"}
         assert "modelId" not in sent["body"]
-        # The service token is the whole authentication of this call.
         assert sent["headers"]["X-internal-token"] == "test-token"
-        # A `resolved: false` body is an ANSWER, returned rather than raised.
         assert result["reason"] == "no_models"
 
 
@@ -1606,9 +1516,6 @@ class TestTheSourceIdentityDecidesWhatIsReused:
         assert identity == "model:m1:2026-05-04T09:30:15.400Z"
 
     def test_a_re_export_is_never_served_out_of_the_cache(self):
-        # Re-exporting under the same file name is the ordinary way an
-        # architect works. Keying on the name would answer questions about a
-        # building that no longer exists.
         from agent.knowledge.ifc_spatial_client import source_identity
 
         name = "Haus-A.ifc"
@@ -1625,11 +1532,6 @@ class TestTheSameModelIsParsedOncePerProcess:
     shape `ifc_measure` refuses in words rather than pretending to answer.
     """
 
-    #: Anchored to THIS FILE, not to the working directory. The fixture is
-    #: committed, so the `pytest.skip` below is meant for a checkout without
-    #: the engine — resolving it relatively made it fire on a `pytest` run
-    #: started from anywhere but the repository root instead, and a suite that
-    #: skips silently proves nothing about the cache it is here to prove.
     FIXTURE = (
         pathlib.Path(__file__).resolve().parents[5] / "packages/ifc-spatial-py/tests/fixtures/Ifc4_SampleHouse.ifc"
     )
@@ -1676,8 +1578,6 @@ class TestTheSameModelIsParsedOncePerProcess:
         }
 
     def test_a_file_url_is_never_read(self, engine, served):
-        # The guard that keeps "resolve a model" from becoming "read any path
-        # this process can reach".
         from agent.knowledge.bim_query import BimQueryUnavailableError
 
         fixture, _ = served
@@ -1690,15 +1590,10 @@ class TestTheSameModelIsParsedOncePerProcess:
         source = self._source(served)
         first = engine.open_model(source)
 
-        # Anything that reaches the network on the second call fails the test:
-        # a 150 MB download per tool call is what the source identity exists to
-        # prevent.
         monkeypatch.setattr(engine, "_download", lambda *a, **k: pytest.fail("the model was downloaded twice"))
         assert engine.open_model(source) == first
 
     def test_a_re_export_under_the_same_name_is_a_different_model(self, engine, served):
-        # Same file name, same model id, new bytes in the store: the ETag moves
-        # and the second call must not be served from the first one's parse.
         source = self._source(served, etag="abc123")
         engine.open_model(source)
 
@@ -1719,7 +1614,6 @@ class TestTheSameModelIsParsedOncePerProcess:
         assert area["provenance"] == "computed"
 
     def test_an_id_that_is_not_in_the_model_could_not_be_looked_up(self, engine, served):
-        # And is therefore an ERROR, not a `decidable: false` answer.
         handle = engine.open_model(self._source(served))
         with pytest.raises(engine.SpatialToolError):
             engine.call_spatial_tool(handle, "element", {"globalId": "0nichtvorhanden00000"})
@@ -1752,13 +1646,9 @@ class TestWhatTheTraceRecords:
             "ifc_outcome": "resolved",
             "ifc_measure_detail": "clearHeight",
         }
-        # The same tag `ifc_query` writes: "which turns read a building model"
-        # is a trace-list filter, and metadata is the slower path.
         assert self._recorded()["tags"] == ["feature:ifc"]
 
     def test_free_text_from_the_model_is_not_echoed_onto_the_trace(self):
-        # An operation the model invented is not a fact about this call, and an
-        # external observability service is not the place to discover it.
         from agent.tools.bim.measure_register import _trace
 
         _trace("measure the Wohnzimmer of Familie Mayr", "Brandabschnitt Nord", outcome="rejected")
@@ -1769,9 +1659,6 @@ class TestWhatTheTraceRecords:
         assert "Mayr" not in str(recorded)
 
     def test_an_undecidable_answer_is_distinguishable_from_a_failure(self):
-        # The two mean opposite things — the file was read and cannot say,
-        # versus nothing was read at all — and an operator auditing a wrong
-        # answer needs to tell them apart after the fact.
         from agent.tools.bim.measure_register import _trace
 
         _trace("measure", "sillAndHead", outcome="undecidable")
@@ -1859,8 +1746,6 @@ class TestTheDescriptionDescribesTheRealTool:
         source = inspect.getsource(measure_register)
         builders = source[source.index("def _selection_args") : source.index("def _refusal")]
         read = set(re.findall(r"\b(?:a|arguments)\.([a-z_]+)", builders))
-        # `model_name` chooses WHICH file to open and never reaches the engine
-        # call, so it is the one field with no counterpart.
         assert set(IfcMeasureInput.model_fields) - read == {"model_name"}
 
     def test_every_operation_it_names_is_one_the_tool_accepts(self):
@@ -1875,10 +1760,6 @@ class TestTheDescriptionDescribesTheRealTool:
         assert named <= VALID_OPERATIONS
 
     def test_it_tells_the_agent_to_call_the_briefing_first(self):
-        # Storey and property names come from THIS file. A name the agent
-        # invented matches nothing, and an empty result reads like "the
-        # building has none" — the single most expensive failure on this
-        # surface.
         description, _ = self._description_and_parameters()
 
         assert "CALL 'briefing' FIRST" in description
@@ -1891,8 +1772,6 @@ class TestTheDescriptionDescribesTheRealTool:
         assert "declared" in description
         assert "gemessen" in description
         assert "vermutlich" in description
-        # And forbids the one substitution that turns our number into the
-        # architect's own statement.
         assert "NEVER write a computed number as something the model states" in description
 
     def test_it_explains_that_undecidable_is_about_the_export(self):
@@ -1909,8 +1788,6 @@ class TestTheDescriptionDescribesTheRealTool:
         assert "NEVER read a measurement off a" in description
 
     def test_it_states_what_the_expensive_calls_cost_before_they_are_made(self):
-        # An agent told a call costs seven seconds can decide it is worth it;
-        # one that finds out afterwards cannot.
         description, _ = self._description_and_parameters()
 
         assert "COST" in description
@@ -1918,8 +1795,6 @@ class TestTheDescriptionDescribesTheRealTool:
         assert "speculatively" in description
 
     def test_it_says_which_tool_the_metadata_questions_belong_to(self):
-        # `ifc_query` stays the fast path. A tool description that did not say
-        # so would make every count cost a download and a geometry pass.
         description, _ = self._description_and_parameters()
 
         assert "NOT a replacement for ifc_query" in description
@@ -1994,7 +1869,6 @@ class TestAWrongOperatorIsNotAWrongId:
         for reason in (self.WRONG_KIND, "Unbekannte GlobalId 0abcdefg"):
             text = _unrunnable_text(reason)
             assert text.startswith("Error:")
-            # Never a finding about the export: nothing here is the file's fault.
             assert "finding about the EXPORT" not in text
 
 
@@ -2157,10 +2031,6 @@ class TestTheDoorGraphRendersAsDoorsAndNotAsCounts:
         return "\n".join(_render_answer(json.loads(json.dumps(self.GRAPH))))
 
     def test_the_headline_counts_rooms_doors_and_exits(self):
-        # The OUTSIDE node is not a room and must not be counted as one — a
-        # building with two rooms and an outside would otherwise report three.
-        # Singular where the count is one — German agrees in number, and this
-        # assertion pinned „1 Türverbindungen" until it was fixed.
         assert "2 rooms, 1 door connection, of which 1 to the outside" in self._text()
 
     def test_a_room_with_no_door_edge_is_named(self):
@@ -2428,7 +2298,6 @@ class TestTheSchemaIsWhatTheModelActuallySees:
         assert self._enum(properties["measure"]) == list(MEASURES)
         assert self._enum(properties["relation"]) == list(RELATIONS)
         assert self._enum(properties["room_kind"]) == list(ROOM_KINDS)
-        # `kind` is three vocabularies plus the profile opt-in, in that order.
         assert self._enum(properties["kind"]) == [
             *KINDS,
             *FIRE_ASPECTS,
@@ -2523,23 +2392,17 @@ class TestTheSchemaIsWhatTheModelActuallySees:
         properties = self._wire_schema()["properties"]
         schema = json.dumps(properties, ensure_ascii=False)
 
-        # No VALUE the model can pick is a judgement. Every enum here names a
-        # quantity, a relation or a subject — never an outcome.
         for name, field in properties.items():
             for value in self._enum(field) or []:
                 assert not any(
                     word in value.lower() for word in ("erfuellt", "erfüllt", "compliant", "zulaessig", "conform")
                 ), f"{name} offers the model a verdict: {value!r}"
 
-        # And no description states what a number has to BE.
         for word in ("erfüllt", "compliant", "zulässig", "Grenzwert", "mindestens", "höchstens zulässig"):
             assert word not in schema, f"the input schema applies a clause: {word!r}"
 
-        # `Gebäudeklasse` may appear ONLY where it is being refused: the height
-        # is geometry, the class that follows from it is law.
         assert "Gebäudeklasse" in schema, "the sentence that refuses the class went missing"
         assert "Returns a HEIGHT and never a class" in schema
-        # The two operators most likely to be read as a check say so themselves.
         assert schema.count("Applies no threshold") == 2
 
 
@@ -2573,7 +2436,6 @@ class TestAMalformedCallIsRefusedBeforeTheToolRuns:
         with pytest.raises(pydantic.ValidationError) as refused:
             self._model()(operation="measure_room", global_id="1kTv")
 
-        # And the permitted set travels with the refusal, so the retry is informed.
         assert "storey_heights" in str(refused.value)
 
     def test_a_measure_that_does_not_exist_never_reaches_the_tool(self):
@@ -2620,7 +2482,6 @@ class TestAMalformedCallIsRefusedBeforeTheToolRuns:
             self._model()(operation="measure", measure="floorArea", global_id=ids)
 
         assert str(MAX_BATCH) in str(refused.value)
-        # And it says what to do instead, in one sentence.
         assert "survey" in str(refused.value)
 
     def test_the_batch_ceiling_is_not_invented_for_the_other_list_operations(self):
@@ -2813,11 +2674,6 @@ class TestEveryWellFormedCallStillDispatchesIdentically:
             kind=parsed.kind or "",
             room_kind=parsed.room_kind or "",
             limit=parsed.limit if parsed.limit and parsed.limit > 0 else 50,
-            # Passed THROUGH, exactly as `_ifc_measure` passes them. An
-            # `or None` here would launder `swivel_deg=0.0` back into „absent"
-            # — the defect the typed schema removed — and this parity table
-            # would then assert a mapping the tool no longer has, staying green
-            # over a real regression.
             angle_deg=parsed.angle_deg,
             swivel_deg=parsed.swivel_deg,
             when=parsed.when,
@@ -2843,8 +2699,6 @@ class TestEveryWellFormedCallStillDispatchesIdentically:
 
         assert args["swivel"] == 0.0, "0° is a measurement, not a question never asked"
         assert args["angle"] == 45.0
-        # And a genuinely absent swivel stays ABSENT — the key is not written at
-        # all, so the engine's own default applies rather than a fabricated 0.
         _, without = self._dispatch(**base)
         assert "swivel" not in without
 

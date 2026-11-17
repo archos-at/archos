@@ -107,28 +107,6 @@ from .auth.middleware import resolve_request_user
 
 logger = logging.getLogger(__name__)
 
-# The paths a WorkOS-authenticated caller may reach WITHOUT the envelope.
-# Everything else needs one (deny by default — see the module docstring). A
-# path matches a prefix on an exact match or a "/"-bounded sub-path, so
-# "/v1/jobs/async/job" covers "/v1/jobs/async/job/<id>/stream" and does NOT
-# cover "/v1/jobs/async/submit".
-#
-# Each entry is here because a BFF proxy forwards it with the member's bearer
-# and no envelope, and none of them runs a workflow:
-#   - /health                          liveness probe;
-#   - /v1/collections, /v1/documents   the v1 proxy's collection, upload,
-#                                      listing and ingestion-status routes;
-#   - /v1/data_sources                 the source picker;
-#   - /v1/jobs/async/agents            the agent-type listing;
-#   - /v1/drafts                       the draft preview (`draft-preview.ts`).
-#
-# The job reads and controls (`/v1/jobs/async/job/...`) and the run listing
-# (`/v1/jobs/async/jobs`) are here for a different reason: they authorize by
-# themselves (ADR-0084). Without an envelope a caller reaches only the jobs it
-# owns; the envelope can only widen that to a signed project or conversation.
-# So the presence check adds nothing on them, and requiring it would break a
-# frontend from before ADR-0084, which signs POST only, for as long as a
-# rollout runs the two side by side.
 ENVELOPE_EXEMPT_HTTP_PATH_PREFIXES: tuple[str, ...] = (
     "/health",
     "/v1/collections",
@@ -139,11 +117,8 @@ ENVELOPE_EXEMPT_HTTP_PATH_PREFIXES: tuple[str, ...] = (
     "/v1/jobs/async/jobs",
     "/v1/drafts",
 )
-# The chat socket is the only WebSocket, and it runs agent turns: no exemption.
 ENVELOPE_EXEMPT_WEBSOCKET_PATH_PREFIXES: tuple[str, ...] = ()
 
-# Same status code agent_host.chat_socket uses for a rejected handshake
-# (WS_POLICY_VIOLATION), as a literal so this middleware never imports the socket.
 _WS_POLICY_VIOLATION = 1008
 
 _INTERNAL_TOKEN_HEADER_NAMES: tuple[bytes, ...] = (b"x-internal-token", b"x-grid-internal-token")
@@ -234,9 +209,6 @@ class RequestContextEnvelopeMiddleware:
             return
 
         if not self._require_auth:
-            # Anonymous-mode deployments never have a WorkOS-authenticated
-            # caller to enforce against — same gate AuthMiddleware itself
-            # uses to decide whether token validation applies at all.
             await self.app(scope, receive, send)
             return
 
@@ -252,10 +224,6 @@ class RequestContextEnvelopeMiddleware:
             state = scope.get("state") or {}
             user: dict[str, Any] = state.get("user") or {}
         else:
-            # AuthMiddleware never sees websocket scopes; reclassify
-            # independently here (see module docstring) purely to decide
-            # whether enforcement applies. This never accepts or rejects the
-            # connection on auth grounds itself — only on envelope presence.
             user, _status, _is_external, _err = await resolve_request_user(
                 headers,
                 validators=self._validators,
@@ -265,9 +233,6 @@ class RequestContextEnvelopeMiddleware:
             user = user or {}
 
         if user.get("type") != "jwt":
-            # Not a WorkOS-authenticated caller (anonymous / internal /
-            # unverified bearer) — exempt regardless of internal-token
-            # presence.
             await self.app(scope, receive, send)
             return
 
@@ -308,9 +273,6 @@ class RequestContextEnvelopeMiddleware:
             await send({"type": "http.response.body", "body": payload})
             return
 
-        # WebSocket: the ASGI spec requires consuming the 'websocket.connect'
-        # event before responding; some servers reject an immediate close
-        # otherwise. The handshake is never accepted.
         message = await receive()
         if message.get("type") == "websocket.connect":
             await send({"type": "websocket.close", "code": _WS_POLICY_VIOLATION})

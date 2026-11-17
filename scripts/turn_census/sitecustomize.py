@@ -1,11 +1,3 @@
-"""Record every model call a turn makes: the request as sent, the usage as billed.
-
-Loaded by ``scripts/turn_census/census.py`` through ``PYTHONPATH`` (Python
-imports ``sitecustomize`` at start-up), so the agent runs unmodified. It
-wraps ``httpx``'s ``send`` for the model hosts only and appends one JSON line
-per call to ``$REC_OUT``. Never loaded by the application itself.
-"""
-
 import itertools
 import json
 import os
@@ -13,8 +5,6 @@ import time
 
 import httpx
 
-#: Eval-only. The file holds every request body in full, base64 page images included: point it at
-#: scratch space for a census over test fixtures, never at a run over a customer's documents.
 _OUT = os.environ.get("REC_OUT", "")
 _SEQ = itertools.count(1)
 _HOSTS = ("openrouter.ai", "api.typesafe.ai", "api.openai.com")
@@ -26,19 +16,12 @@ def _write(entry):
 
 
 def _failed(entry, exc):
-    """Record an attempt that raised (a timeout the SDK then retries): its seconds were spent all the same."""
     entry["err"] = repr(exc)
     entry["t_end"] = time.time()
     _write(entry)
 
 
 def _completed_response(text):
-    """The full response a streamed Responses call closes with, or None.
-
-    A streamed call (ADR-0066) has no JSON body: its ``response.completed``
-    event carries the same object a buffered call returns, and the suite reads
-    the answer out of it. Without this every streamed answer recorded as none.
-    """
     for line in text.splitlines():
         line = line.strip()
         if not line.startswith("data:"):
@@ -78,7 +61,6 @@ class _Tee(httpx.AsyncByteStream):
     async def __aiter__(self):
         async for chunk in self._inner:
             self._buf.extend(chunk)
-            # When the first visible text left the model: what streaming changes.
             if "t_first_text" not in self._entry and b"response.output_text.delta" in chunk:
                 self._entry["t_first_text"] = time.time()
             yield chunk
@@ -177,15 +159,6 @@ if _OUT:  # only when the census asked for a record
 
 
 def _eval_envelope():
-    """The precedent eval's signed envelope, handed to the agent as the BFF would hand it.
-
-    Only when the suite sets ``EVAL_ENVELOPE`` (``suite.py --set
-    precedent``): the agent then reads the two request headers a chat turn
-    carries (``X-Grid-Request-Context`` and its signature) from these
-    variables, and every other header as before. The envelope is signed with
-    the run's ``INTERNAL_API_TOKEN``, so the agent verifies it like a
-    real one; nothing else about the turn is faked here.
-    """
     header = os.environ.get("EVAL_ENVELOPE")
     if not header:
         return
@@ -208,10 +181,6 @@ _eval_envelope()
 
 
 def _eval_user_message():
-    """A row's drawn box, handed to the turn as the chat socket would (``turn_input.py``).
-
-    Only when the suite sets ``EVAL_USER_MESSAGE`` (a north-star row with ``box: given``).
-    """
     if os.environ.get("EVAL_USER_MESSAGE"):
         import turn_input
 

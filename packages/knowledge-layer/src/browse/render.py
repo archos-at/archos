@@ -18,10 +18,8 @@ from .rows import FileRow
 from .rows import Listing
 from .text import fold
 
-#: What a row says of a file's change: a glance, so the model reads the files themselves for more.
 MAX_CHANGE_CHARS = 160
 
-#: The same line when the question IS the change (``revisions_of``): what „was hat sich geändert“ is answered from.
 MAX_CHAIN_CHANGE_CHARS = 700
 
 
@@ -77,8 +75,6 @@ def _row_line(row: FileRow, *, show_shelf: bool, mark: str | None = None) -> str
     title_block = title_block_label(row.revision_facts)
     if title_block:
         bits.append(f"Plankopf: {title_block}")
-    # A filed mail, in the words of the Verlauf's own headings: the sender's domain only when a
-    # signature confirmed it, „Domain nicht bestätigt“ otherwise (ADR-0137, RT-S2).
     for mail_line in (mail_thread_label(row.mail_thread), mail_origin_label(row.mail_origin)):
         if mail_line:
             bits.append(mail_line)
@@ -126,7 +122,6 @@ def _profile_lines(listing: Listing) -> list[str]:
         untyped = f"; without Dokumentart: {listing.untyped}" if listing.untyped else ""
         lines.append(f"Dokumentart (assigned by {PRODUCT_NAME}): {profile}{untyped}.")
     elif listing.untyped:
-        # Said rather than left out: no line would read the same as "no profile".
         lines.append(f"Dokumentart: {PRODUCT_NAME} has assigned none of these files a Dokumentart.")
     if listing.topics:
         profile = " · ".join(f"{topic} {count}" for topic, count in listing.topics[:MAX_TOPIC_COUNTS])

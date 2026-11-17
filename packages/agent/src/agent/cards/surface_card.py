@@ -10,19 +10,14 @@ from pydantic import model_validator
 
 from agent.cards.card_model import CardModel
 from agent.cards.card_model import flatten_card_markup
-
-# The catalog imports this module only inside functions, so this is no cycle.
 from agent.cards.catalog import INTERACTIVE_CARD_TYPES
 from agent.cards.catalog import RETIRED_CARD_TYPES
 from agent.cards.catalog import SYSTEM_CARD_TYPES
 from agent.cards.catalog import retired_refusal
 
-#: The layout components a surface may use, named and shaped as in A2UI's
-#: basic catalog (v0.9): Row and Column take `children`, Tabs takes `tabs`.
 SURFACE_LAYOUTS: frozenset[str] = frozenset({"Row", "Column", "Tabs"})
 
 
-#: Retired types whose replacement is an envelope field or nothing, not Markdown a leaf could hold.
 _ENVELOPE_FIELD_TYPES: frozenset[str] = frozenset(
     {"summary", "verdict_header", "key_takeaways", "callout", "follow_ups"}
 )
@@ -42,28 +37,15 @@ def _basic_catalog() -> Any:
     return BasicCatalog("0.9")
 
 
-#: Card types that may not be a leaf. System cards are pushed by tools, and an
-#: interactive card's decision is
-#: keyed by its position in the message (`card-decision.ts`), which a card
-#: inside a surface does not have. A surface inside a surface is a Column.
-#: Derived from the catalog's sets, so a new member of any of them is excluded
-#: here without a second edit; the frontend's copy is held to this one by
-#: `packages/agent/tests/cards/test_surface_excluded_parity.py`.
 SURFACE_EXCLUDED_LEAVES: frozenset[str] = SYSTEM_CARD_TYPES | INTERACTIVE_CARD_TYPES | frozenset({"surface"})
 
 
-#: The one leaf that is not a card: a run of the answer's own Markdown, named
-#: and shaped as A2UI's basic catalog names its `Text`. It is what lets a tab
-#: hold what the answer writes in prose (a table, a list, a ```mermaid fence),
-#: because the Markdown-first doctrine keeps exactly that content OUT of cards.
 SURFACE_TEXT = "Text"
 
 
 SURFACE_TEXT_MAX = 4000
 
 
-#: A placement marker of the prose (`[[card:N]]`, `[[callout]]`). The prose
-#: resolves them; a `Text` leaf is drawn as Markdown and would show them as typed.
 _PROSE_MARKER = re.compile(r"\[\[\s*[a-z_]+(?:\s*:\s*\d+)?\s*\]\]", re.IGNORECASE)
 
 
@@ -76,10 +58,6 @@ SURFACE_MAX_CHILDREN = 4
 SURFACE_MAX_TABS = 6
 
 
-#: The values the frontend's `RowApi` takes for a Row's or Column's `justify`
-#: and `align` (`apps/workspace/ui/features/a2ui/catalog.tsx`). Any other value
-#: fails the renderer's preflight and the whole surface degrades, so it is
-#: refused here, where the repair can still fix it.
 SURFACE_JUSTIFY = frozenset({"start", "center", "end", "spaceBetween", "spaceAround", "spaceEvenly", "stretch"})
 
 
@@ -173,12 +151,10 @@ def _checked_leaf(component: dict[str, Any]) -> dict[str, Any]:
     if name == SURFACE_TEXT:
         return _checked_text(component)
     if name in RETIRED_CARD_TYPES:
-        # An envelope field (summary, verdict, …) is no leaf's content: the refusal alone says where it goes.
         leaf = "" if name in _ENVELOPE_FIELD_TYPES else " Use a `Text` leaf holding that Markdown."
         raise ValueError(f"'{component_id}': {retired_refusal(name)}{leaf}")
     if name in SURFACE_EXCLUDED_LEAVES:
         raise ValueError(f"'{component_id}': a '{name}' cannot sit inside a surface.")
-    # The union holds this card too, so it is read when a leaf is checked, never at import.
     from agent.cards.models import answer_card_adapter
 
     props = {key: value for key, value in component.items() if key not in ("id", "component")}
@@ -273,9 +249,6 @@ class SurfaceCard(CardModel):
         for index, component in enumerate(self.components):
             if not isinstance(component.get("id"), str) or not isinstance(component.get("component"), str):
                 raise ValueError(f"components.{index} needs a string `id` and a string `component`.")
-        # Before the root lookup: a second component called "root" would
-        # otherwise stand in for the first, and the refusal would name the
-        # wrong fault.
         ids = [component["id"] for component in self.components]
         if duplicates := sorted({component_id for component_id in ids if ids.count(component_id) > 1}):
             raise ValueError(
@@ -296,7 +269,6 @@ class SurfaceCard(CardModel):
                 checked.append(_check_layout(component))
             else:
                 checked.append(_checked_leaf(component))
-        # The structure is judged first: a cycle is a cycle, whatever the count.
         structural = _structural_models(checked)
         try:
             validate_component_integrity(structural)

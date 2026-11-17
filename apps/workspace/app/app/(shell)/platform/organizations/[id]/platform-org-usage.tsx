@@ -1,14 +1,5 @@
 'use client'
 
-/**
- * One organization's spend for the platform operator, drawn with the office's
- * own Budgets components (`features/budgets/components/usage-overview.tsx`), so
- * an operator on a call with an office sees what the office sees: the same
- * meters against the same limits, the same 30-day trend and the same model mix,
- * in the office's unit. Below them, the member table without its limit
- * editors; the allowance is changed from the overview's budget dialog.
- */
-
 import { type FC, useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'

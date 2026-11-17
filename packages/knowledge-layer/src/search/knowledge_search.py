@@ -21,7 +21,6 @@ from .document_groups import GROUP_BY_DOCUMENT
 
 logger = logging.getLogger(__name__)
 
-#: The answer to a call without a query.
 EMPTY_QUERY_REFUSAL = (
     "Provide a `query` that names the fact or passage you need "
     "(e.g. 'OIB-RL 2 Fluchtweglänge GK 4'). "
@@ -29,7 +28,6 @@ EMPTY_QUERY_REFUSAL = (
     "also pass `file_name=`."
 )
 
-#: The two literal modes: same scope, same narrowing, no ranking at all.
 LITERAL_MODES = frozenset({"exact", "regex"})
 
 
@@ -120,7 +118,6 @@ def parse_args(
         from agent.knowledge.document_classification import DOCUMENT_CLASSES
         from agent.knowledge.document_classification import canonical_doc_class
 
-        # A conversation holding a search by the German key invites the model to repeat it.
         current_doc_class = canonical_doc_class(doc_class)
         if current_doc_class is None:
             valid = ", ".join(DOCUMENT_CLASSES)
@@ -218,7 +215,6 @@ class KnowledgeSearch:
                     str(path), arguments["shelf"], arguments["folder"], arguments["file_name"]
                 )
             except ValueError as refusal:
-                # Refused before it searched, and still a call the reader sees: an error row that names no folder.
                 ActionRow("search", **search_row_fields(query, arguments["match"], None, None, None)).finish("error")
                 return str(refusal)
         outcome = ActionOutcome()
@@ -233,21 +229,13 @@ class KnowledgeSearch:
         except BaseException:
             row.finish("error")
             raise
-        # A call that returned without searching (a refusal, a bad argument) counted nothing: an error row.
         outcome.settle(row, default="error")
         return result
 
     async def _answer(self, outcome: ActionOutcome, **arguments: Any) -> str:
-        # `conclusion` never reaches here. It is a checkpoint channel, not a
-        # retrieval parameter: the agent node reads it off the tool CALL before
-        # this runs, and a sentence that changed the result would make the
-        # Herleitung a cause instead of a record of one.
         args = parse_args(**arguments)
         if isinstance(args, str):
             return args
-        # Platform-tunable counts (Platform → Retrieval), resolved per call so
-        # an admin save takes effect without a redeploy; fail-open to the YAML
-        # build-time values.
         from knowledge_layer.browse import entries_on_shelf
 
         from agent.common.retrieval_settings import get_retrieval_setting
@@ -295,7 +283,6 @@ class KnowledgeSearch:
 
         from agent.common.action_rows import emit_literal_search
 
-        # A literal search is a navigate move (ADR-0127); the tool step cannot say so, this record does.
         emit_literal_search(args.mode)
         return await exact_search(
             targets,

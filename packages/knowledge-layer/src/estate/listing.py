@@ -31,17 +31,13 @@ from agent.common.estate_paths import Mount
 from .backend import EstateFile
 from .backend import glob_files
 
-#: The folder card's leaf.
 README = "README.md"
 
-#: File rows one ``ls`` shows, and the most a ``glob`` returns.
 MAX_LS_FILES = 40
 MAX_GLOB_FILES = 100
 
-#: The deepest tree ``ls(depth=…)`` draws, ``list_files(view="tree")``'s limit.
 MAX_DEPTH = 4
 
-#: What each mount is, for the root listing.
 MOUNT_LABELS: dict[Mount, str] = {
     "project": "this project",
     "office": "the Büroablage, the office's shelf",
@@ -59,7 +55,6 @@ class Listing:
     text: str
     files: int | None = None
     folders: int | None = None
-    #: No such folder (a restricted one answers the same): an error for the model, „nicht gefunden“ on the row.
     error: bool = False
 
 
@@ -165,7 +160,6 @@ def render_root(files: Sequence[EstateFile], *, drafts: bool) -> Listing:
     if not shown:
         lines.append("No document of the office is readable in this conversation.")
     lines.append("Next: `ls` a mount, `glob` by name, `grep` for wording, `read_file` to read.")
-    # The row counts what the places hold (every document, every place), as a folder's row does.
     return Listing(text="\n".join(lines), files=len(files), folders=shown)
 
 
@@ -212,8 +206,6 @@ def render_folder(
         lines.append(f"Not listed here: files still being read ({len(in_flight)}).")
     lines.append("Restricted folders are not listed.")
     lines.append("Next: `ls` a folder, `glob` by name, `grep` for wording, `read_file` to read.")
-    # Everything the folder holds, its subfolders' documents too, as its head line, the tree and the folder card
-    # count it; not what the text had room for.
     return Listing(text="\n".join(lines), files=len(selected), folders=len(subfolders))
 
 
@@ -233,7 +225,6 @@ def _render_tree(
     if in_flight:
         lines.append(f"Not listed here: files still being read ({len(in_flight)}).")
     lines.append("Restricted folders are not listed. " + INDEX_NOTE)
-    # The folder's own subfolders, as `ls` at depth 1 and its README.md count them: not every card in the tree.
     own = next((card for card in cards if card.path == (folder or "")), None)
     return Listing(text="\n".join(lines), files=len(rows), folders=len(own.subfolders) if own else 0)
 

@@ -12,20 +12,8 @@
 /** @typedef {import('postgres').Sql} Sql */
 /** @typedef {Pick<QueueEntry, 'id' | 'claim_token'>} Claim  the row a holder claimed, and the claim it took */
 
-// Every statement below spans tenants (the queue covers all organizations),
-// so each runs under the platform step-up — see workers/platform-scope.js.
 const { withPlatformScope } = require('../workers/platform-scope')
 
-// The statuses and the attempt cap are declared in TypeScript
-// (`bff/db/schema/deletion-queue.ts`, `DELETION_LIFECYCLE`), which this process
-// cannot import: it runs unbuilt. `deletion-lifecycle.spec.mjs` holds every
-// status literal and every move in this file to that declaration.
-//
-// A `pending` row always has an attempt left: `markFailed` and the request
-// side's release leave a row at the cap `failed`, a hold's release refunds its
-// attempt, and the database refuses anything else
-// (`deletion_queue_pending_has_attempts`, migration 0227). So nothing here
-// looks for a `pending` row the claim below can never take.
 const MAX_ATTEMPTS = 10
 const STALE_CLAIM_MINUTES = 15
 

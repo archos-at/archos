@@ -1,10 +1,3 @@
-/**
- * Assignment service — who is professionally on the hook (ADR-0047).
- *
- * Independent of access grants. Assigning Anna does not change who can open
- * the file. Upload writes no row. Empty is valid.
- */
-
 import 'server-only'
 import { BadRequestError, NotFoundError } from '@/lib/api/errors'
 import { recordAuditEvent } from '@/lib/audit/service'
@@ -30,19 +23,6 @@ export interface AssignedPerson extends DirectoryPerson {
   assignedBy: string
 }
 
-/**
- * People a collaborator may put on the hook (ADR-0047).
- *
- * Requires `collaborator` — the same floor as assign/release. Distinct from
- * share-invite candidates (`listShareCandidates`), which require `owner`
- * because that list exists to change the access roster and includes people
- * who still need project access. Assignment never grants access, so this
- * list is only people who already reach the container (or the whole org
- * when there is no project), and for a document the folder it is filed in.
- * `access: 'write'` narrows a document's list to who may change it: whom an
- * Anmerkung may be handed to (`isAssignable` in `lib/annotations/service.ts`
- * re-checks it on every write).
- */
 export async function listAssignmentCandidates(
   session: AuthorizedSession,
   resourceType: ShareableResourceType,
@@ -72,20 +52,8 @@ export async function listAssignmentCandidates(
     .sort((a, b) => a.name.localeCompare(b.name))
 }
 
-/**
- * What the people listed must be able to do with the resource: open it (`read`,
- * a document's assignee, and whom a mark may mention), or change it (`write`,
- * a document only: an Anmerkung's Zuständige, who must answer and close it).
- */
 export type CandidateAccess = 'read' | 'write'
 
-/**
- * Which of `userIds` could open the resource, or for `write` change it: a
- * document by its shelf AND the folder it is filed in (`mayOpenDocument`,
- * `mayWriteDocument`), because a project member who may not read a restricted
- * folder would be on the hook for a file they cannot see; anything else by its
- * project, or everyone when it has none.
- */
 async function whoMay(
   session: AuthorizedSession,
   resourceType: ShareableResourceType,
@@ -104,15 +72,6 @@ async function whoMay(
   return filterUsersWithProjectAccess(session, projectId, userIds)
 }
 
-/**
- * Who is assigned to ONE resource. Requires `viewer` on it.
- *
- * The route used to call the batch helper below directly, which checks
- * nothing, while its `authz` declaration claimed it did: any member of the
- * organization could read who is on the hook for a private chat or a document
- * in a project they are not in, given its id. A 404 for "missing" and "not
- * yours" alike, as everywhere in `requireResourceAccess`.
- */
 export async function listResourceAssignments(
   session: AuthorizedSession,
   resourceType: ShareableResourceType,
@@ -126,14 +85,6 @@ export async function listResourceAssignments(
   return grouped[resourceId] ?? []
 }
 
-/**
- * Assignees for many resources at once, grouped by id. **Checks no access.**
- *
- * For callers that have already authorized every id they pass — a document
- * listing behind `project:view` on the project the ids were read from, and the
- * assign/release paths after their own `collaborator` check. Anything taking
- * ids from a request goes through {@link listResourceAssignments}.
- */
 export async function listAssignmentsWithoutAccessCheck(
   session: AuthorizedSession,
   resourceType: ShareableResourceType,
@@ -163,7 +114,6 @@ export async function addResourceAssignment(
     throw new NotFoundError()
   }
   const access = await requireResourceAccess(session, resourceType, resourceId, 'collaborator')
-  // Putting someone on the hook for a document is a change to it (ADR-0088).
   await requireResourceWriteAccess(session, resourceType, resourceId)
   if (!subjectUserId.trim()) {
     throw new BadRequestError('A person is required')
@@ -211,7 +161,6 @@ export async function addResourceAssignment(
     ])
   }
 
-  // Authorized above (`collaborator`).
   const grouped = await listAssignmentsWithoutAccessCheck(session, resourceType, [resourceId])
   return grouped[resourceId] ?? []
 }
@@ -240,7 +189,6 @@ export async function removeResourceAssignment(
     request,
   })
 
-  // Authorized above (`collaborator`).
   const grouped = await listAssignmentsWithoutAccessCheck(session, resourceType, [resourceId])
   return grouped[resourceId] ?? []
 }

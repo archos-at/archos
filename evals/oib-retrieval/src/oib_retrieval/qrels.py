@@ -130,10 +130,6 @@ class GoldenSet:
         by_need: dict[str, dict[str, GoldenEntry]] = {}
         for entry in self.primary():
             languages = by_need.setdefault(entry.need_id, {})
-            # "Exactly one primary entry in each" was asserted in this docstring and
-            # enforced nowhere: a second entry sharing a need and a language replaced the
-            # first, so the parity delta was computed over whichever happened to be read
-            # last. A labelling mistake must fail, not pick.
             if entry.language in languages:
                 raise ValueError(
                     f"Golden set has two primary {entry.language!r} entries for need {entry.need_id!r} "

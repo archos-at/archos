@@ -1,12 +1,3 @@
-/**
- * What a copy's text use changes outside the records (ADR-0163, design §4.7):
- * a held copy's passages and its search row (summary, facets) go and its row
- * reads `stored` (bytes kept, nothing reads them), and a copy whose text the
- * person released is read again. The guards (`base-knowledge/text-guard.ts`,
- * asked by the dispatch and the search projection) keep a held copy out of
- * every later re-read.
- */
-
 import 'server-only'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { getBackendUrl } from '@/lib/backend-url'
@@ -24,7 +15,6 @@ async function shelfDocument(session: AuthorizedSession, documentId: string) {
   return findOfficeShelfDocument(documentId, session.organizationId, reader)
 }
 
-/** Take a held copy's text out of the index and the search rows; the row keeps its bytes and reads `stored`. */
 export async function withholdText(session: AuthorizedSession, documentId: string): Promise<boolean> {
   const doc = await shelfDocument(session, documentId)
   if (!doc) return false
@@ -34,7 +24,6 @@ export async function withholdText(session: AuthorizedSession, documentId: strin
   return ref ? purgeIngestedChunks(getBackendUrl(), ref, BACKEND_FETCH_TIMEOUT_MS) : true
 }
 
-/** Read a copy whose text the office has now allowed, as an upload is read. */
 export async function releaseText(session: AuthorizedSession, documentId: string): Promise<void> {
   const doc = await shelfDocument(session, documentId)
   if (!doc?.storageKey) return

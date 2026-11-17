@@ -23,7 +23,6 @@ from .document_search import _authorize_collection
 
 logger = logging.getLogger(__name__)
 
-#: Every project collection, the project's own and each restricted folder's (``proj_<id>_r<12hex>``).
 PROJECT_COLLECTION_PREFIX = "proj_"
 
 
@@ -55,8 +54,6 @@ def add_project_facts_routes(router: APIRouter):
         except ImportError as e:  # the knowledge layer's store extra is not installed here
             raise HTTPException(status_code=409, detail="this deployment has no Qdrant store") from e
         try:
-            # One set_payload over the whole scope: off the event loop, as the
-            # store's other blocking calls are.
             applied = await asyncio.to_thread(
                 retrieval.set_project_facts, collection_name, request.facts.to_store(), request.status
             )

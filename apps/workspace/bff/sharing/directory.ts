@@ -1,29 +1,7 @@
-/**
- * Organization people directory — names, emails and avatars for the WorkOS users
- * in an organization.
- *
- * Three surfaces need it and none of them should each invent their own lookup:
- * the share roster ("who has access"), the mention picker ("who can I tag"), and
- * multi-author message rendering ("who wrote this"). WorkOS is authoritative for
- * identity and the app keeps no user table (ADR-0007), so this is a cached read
- * of WorkOS rather than a join.
- *
- * **Why cached:** a chat with ten authors would otherwise resolve ten identities
- * per render, and `listUsers` is paginated (10/page by default) so an
- * unpaginated call would silently truncate a larger organization. Precedent for
- * the TTL: membership resolution is cached 10 minutes, feature flags 30 seconds.
- * A name or avatar going 5 minutes stale is invisible; the alternative is a
- * WorkOS round-trip on every message bubble.
- *
- * This module deliberately exposes NO authorization. Being in the directory says
- * nothing about what you can reach — that is `@/lib/sharing/access`.
- */
-
 import 'server-only'
 import { getCached } from '@/lib/cache'
 import { getWorkOS } from '@/lib/workos/client'
 
-/** A person as the collaboration surfaces need to show them. */
 export interface DirectoryPerson {
   userId: string
   email: string | null
@@ -33,7 +11,6 @@ export interface DirectoryPerson {
 
 const DIRECTORY_TTL_MS = 5 * 60 * 1000
 
-/** Best display name available, falling back through the fields WorkOS may leave empty. */
 function displayName(user: {
   firstName?: string | null
   lastName?: string | null
@@ -43,22 +20,6 @@ function displayName(user: {
   return full || user.email || 'Unknown'
 }
 
-/**
- * Every user in an organization, keyed by WorkOS user id.
- *
- * Pages through the whole roster (`autoPagination`) so an organization with more
- * than one page is not silently cut off. Returns an empty map on failure — the
- * callers all degrade to showing ids/initials rather than breaking, because a
- * WorkOS hiccup must not take the chat down. A caller for whom "nobody" and
- * "WorkOS did not answer" lead to different decisions takes
- * {@link loadOrganizationDirectoryStrict} instead.
- *
- * The failure is caught OUTSIDE `getCached`, so the empty map is never stored.
- * Caught inside the loader, one failed `listUsers` was cached as the roster for
- * the whole TTL: for five minutes every `@` picker, share dialog and reviewer
- * picker in the organization listed nobody, and the next request could not
- * notice that WorkOS had recovered.
- */
 export async function loadOrganizationDirectory(
   organizationId: string,
 ): Promise<Map<string, DirectoryPerson>> {
@@ -70,12 +31,6 @@ export async function loadOrganizationDirectory(
   }
 }
 
-/**
- * The same roster, but a failed read THROWS instead of reading as an empty
- * organization: for a decision an empty directory would get wrong, such as
- * the receive job's "is this sender a member" (a member's mail read as a
- * stranger's is discarded sooner).
- */
 export async function loadOrganizationDirectoryStrict(
   organizationId: string,
 ): Promise<Map<string, DirectoryPerson>> {
@@ -94,10 +49,6 @@ export async function loadOrganizationDirectoryStrict(
   return new Map(people.map((person) => [person.userId, person]))
 }
 
-/**
- * Resolve a subset of ids to people. Unknown ids are simply absent from the
- * result — a deactivated or cross-org id must not fabricate a person.
- */
 export async function resolvePeople(
   organizationId: string,
   userIds: readonly string[],
@@ -108,7 +59,6 @@ export async function resolvePeople(
   return new Map([...directory].filter(([userId]) => wanted.has(userId)))
 }
 
-/** A placeholder for an id the directory cannot resolve, so the UI still renders. */
 export function unknownPerson(userId: string): DirectoryPerson {
   return { userId, email: null, name: userId, profilePictureUrl: null }
 }

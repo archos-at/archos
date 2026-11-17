@@ -1,38 +1,4 @@
 import 'server-only'
-/**
- * The agent's read tools, offered to other agents over MCP (ADR-0122).
- *
- * `catalog/` covers what the BFF's routes do. Piloti's best READ tools live
- * only in the Python agent: knowledge search, passage reading, the file
- * browser, page images, the IFC measure, the DXF site measure and RIS. The
- * IFC query is the route's own operation, `bim-model-query`, not a tool here. An outside agent must get
- * them too, so each is an operation here, and the MCP server lists them beside
- * the catalog's. A call goes to the backend's `POST /v1/internal/tools/{name}`
- * (`apps/agent-host/src/agent_host/routes/internal_tools.py`).
- *
- * The input schema is the one the chat model reads, generated from the Python
- * functions into `tests/fixtures/backend-tools.schema.json`
- * (`scripts/generate_backend_tools_schema.py`, held current by
- * `packages/agent/tests/common/test_backend_tools_schema.py`). The DESCRIPTION is
- * this file's own, in English: the fixture's are Piloti's native tool
- * descriptions, written for Piloti's prompt in a German office, with German
- * terms, German example queries and Piloti's other tools (`surface_documents`,
- * cards) that an outside agent does not have. Anything an agent reads is
- * English, one word per concept (working-style.md, "Industry standard first"), so the
- * agent surface layers its own words over the fixture instead of changing
- * Piloti's tools, which the core-agent wave owns. The schema's property
- * descriptions keep the fixture's text with {@link ENGLISH_GLOSSES} applied.
- * `english-only.spec.ts` holds both to English. This file also says the MCP
- * name, the domain, and whether the tool needs a project.
- *
- * Who is asking is decided here, and signed. The backend cannot decide project
- * access (ADR-0003, ADR-0084), so {@link callBackendOperation} builds the
- * request context and collection scope for this person and project exactly as a
- * chat turn does (`resolveTurnContext`, which authorizes the project), signs
- * the envelope with the shared secret, and sends it with the internal token.
- * The BFF is the signer here, and the right one: it holds the session. The
- * backend verifies and forwards; it never signs.
- */
 
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { ApiError } from '@/lib/api/errors'
@@ -51,7 +17,6 @@ import { PRODUCT_NAME } from '@/lib/brand'
 
 export type { OperationResult }
 
-/** A JSON Schema object, as the fixture carries it and the MCP `tools/list` shows it. */
 export interface JsonSchemaObject {
   readonly type: 'object'
   readonly properties?: Record<string, unknown>
@@ -59,28 +24,17 @@ export interface JsonSchemaObject {
   readonly [keyword: string]: unknown
 }
 
-/** {@link ToolAnnotations}, except that a tool may reach beyond the workspace (the RIS lookup does). */
 export type BackendAnnotations = Omit<ToolAnnotations, 'openWorldHint'> & { readonly openWorldHint: boolean }
 
 export interface BackendOperation {
-  /** `<entity>-<verb>`, kebab-case, unique across the catalog as well. */
   readonly name: string
   readonly domain: Extract<AgentDomain, 'knowledge' | 'bim' | 'documents'>
-  /** One line for `tools` and `search`. */
   readonly summary: string
-  /** What an outside agent reads: this file's English description, not the Python function's. */
   readonly description: string
-  /** The Python function's name: the path segment of the backend route. */
   readonly tool: string
-  /** The tool's input schema, with `projectId` added in front when the tool is project-scoped. */
   readonly inputSchema: JsonSchemaObject
   readonly annotations: BackendAnnotations
-  /** The call is scoped to a project, which the person must be able to chat in. */
   readonly needsProject: boolean
-  /**
-   * With `shelf: "base"` the call reads the platform's shared corpus, which belongs to no project:
-   * `projectId` may then be left out (the schema does not require it).
-   */
   readonly projectOptionalForBase?: true
 }
 
@@ -91,18 +45,14 @@ interface FixtureTool {
   readonly annotations: Omit<ToolAnnotations, 'title'>
 }
 
-/** What this file says about a tool the fixture describes. */
 interface Entry {
   readonly name: string
   readonly tool: string
   readonly domain: BackendOperation['domain']
   readonly summary: string
-  /** The English description an outside agent reads, written for this surface (see the module comment). */
   readonly description: string
   readonly needsProject: boolean
-  /** See {@link BackendOperation.projectOptionalForBase}. */
   readonly projectOptionalForBase?: true
-  /** The tool reaches a public service outside the workspace. */
   readonly openWorld?: boolean
 }
 
@@ -256,19 +206,12 @@ const ENTRIES = [
       'statute law. Returns numbered passages, each with its source, document type, clause, a citation key to quote verbatim ' +
       'and the provision’s text. A miss says what was searched and one concrete retry.',
     needsProject: false,
-    // Reaches a public legal database, not only the office's own workspace.
     openWorld: true,
   },
 ] as const satisfies readonly Entry[]
 
-/** The read tools' names, as a type (`exposure.config.ts` is keyed by it). */
 export type BackendOperationName = (typeof ENTRIES)[number]['name']
 
-/**
- * English for the German terms the fixture's input-schema descriptions carry, applied to every
- * `description` in a tool's schema (the property names, types and enums are the tool's and are not
- * touched). A new German term in a tool's schema fails `english-only.spec.ts`; add its gloss here.
- */
 export const ENGLISH_GLOSSES: readonly (readonly [RegExp, string])[] = [
   [/OIB 2 \(Brandschutz\)/g, 'OIB 2 (fire safety)'],
   [/OIB 6 \(Wärmeschutz\)/g, 'OIB 6 (thermal protection)'],
@@ -292,7 +235,6 @@ export const ENGLISH_GLOSSES: readonly (readonly [RegExp, string])[] = [
   [/the Bestimmung/g, 'the provision'],
 ]
 
-/** `schema` with {@link ENGLISH_GLOSSES} applied to every `description` in it. */
 function glossed<T>(schema: T): T {
   if (Array.isArray(schema)) return schema.map((item) => glossed(item)) as T
   if (typeof schema !== 'object' || schema === null) return schema
@@ -330,12 +272,6 @@ function withProjectId(schema: JsonSchemaObject, optional: boolean): JsonSchemaO
   }
 }
 
-/**
- * The Python tools take `conclusion`, a line Piloti's own turn shows the person
- * as its status ("looking for …"); it changes nothing the tool does. An outside
- * agent has no such status line, and a reasoning-shaped argument is one the
- * agent surface does not ask for, so the door's schema leaves it out.
- */
 const STATUS_ONLY_ARGUMENTS = new Set(['conclusion'])
 
 function withoutStatusArguments(schema: JsonSchemaObject): JsonSchemaObject {
@@ -351,7 +287,6 @@ function build(entry: Entry): BackendOperation {
   const tool = (backendTools.tools as readonly FixtureTool[]).find(
     (candidate) => candidate.name === entry.tool
   )
-  // Fails the import, not a call: the contract and this table disagree.
   if (!tool)
     throw new Error(`backend-tools.schema.json has no tool ${entry.tool} (operation ${entry.name})`)
   const inputSchema = withoutStatusArguments(glossed(tool.inputSchema))
@@ -370,23 +305,12 @@ function build(entry: Entry): BackendOperation {
   }
 }
 
-/** Every read tool of the Python agent offered over MCP, in the contract's order. */
 export const BACKEND_OPERATIONS: readonly BackendOperation[] = ENTRIES.map(build)
 
-/**
- * The tool Piloti's own chat does an operation's work with, where it is not the tool the door calls.
- * Piloti reads the estate with the filesystem verbs (ADR-0133 slice 6), while the door keeps calling
- * the older tools, which deep research and intake still bind.
- */
 export const AGENT_TOOL_FOR: Readonly<Record<string, string>> = { read_passage: 'read_file' }
 
-/** The operation each Python tool is over MCP, for the names its answers mention. */
 const OPERATION_NAMES: ToolNames = Object.fromEntries(ENTRIES.map((entry) => [entry.tool, entry.name]))
 
-/**
- * A tool's text as an outside agent reads it: its next-call hints name the
- * operations (not the Python functions), and a ranked search says what its order means.
- */
 export function doorText(
   op: Pick<BackendOperation, 'name'>,
   args: Record<string, unknown>,
@@ -398,7 +322,6 @@ export function doorText(
   return literal ? named : fittedHits(withRankedOrderNote(named, args.group_by === 'document'))
 }
 
-/** `body` (the backend's `{ tool, result }`) with its text results put through {@link doorText}. */
 function withDoorText(op: BackendOperation, args: Record<string, unknown>, body: unknown): unknown {
   if (typeof body !== 'object' || body === null || !('result' in body)) return body
   const result = (body as { result: unknown }).result
@@ -419,16 +342,10 @@ export function findBackendOperation(name: string): BackendOperation | undefined
   return BACKEND_OPERATIONS.find((op) => op.name === name)
 }
 
-/** The backend answers within this, or the call is a 504. The BIM tools are the slow ones. */
 const BACKEND_TOOL_TIMEOUT_MS = 120_000
 
 const ENVELOPE_HEADERS = ['x-request-context', 'x-request-context-sig'] as const
 
-/**
- * A refusal in the routes' error envelope (`{ error, code, details }`,
- * `errorResponse` in `lib/api/handler.ts`), so the agent surface words a
- * refusal from the backend exactly as one from a route.
- */
 function refusal(status: number, code: string, message: string, details?: unknown): OperationResult {
   return { status, ok: false, body: { error: message, code, ...(details === undefined ? {} : { details }) } }
 }
@@ -436,12 +353,6 @@ function refusal(status: number, code: string, message: string, details?: unknow
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
-/**
- * The backend's refusal (FastAPI: `{ detail: { error, issues?, tool? } }` or
- * `{ detail: "…" }`) in the routes' envelope, normalised once here. The code is
- * the backend's own (`invalid_arguments`, `tool_failed`); its `issues` become
- * `details`, which tell the agent which argument to fix.
- */
 export function backendRefusal(status: number, body: unknown): OperationResult {
   const detail = isRecord(body) ? body.detail : undefined
   if (typeof detail === 'string' && detail.trim()) return refusal(status, `http_${status}`, detail)
@@ -452,11 +363,6 @@ export function backendRefusal(status: number, body: unknown): OperationResult {
   return refusal(status, `http_${status}`, `The backend answered HTTP ${status}`)
 }
 
-/**
- * The context of a chat turn in `projectId` for `session`, signed: the two
- * envelope headers, and nothing else of a turn's headers. The backend takes the
- * person, the organization, the project and the scope from the envelope alone.
- */
 async function signedEnvelope(
   session: AuthorizedSession,
   projectId: string | undefined,
@@ -469,15 +375,6 @@ async function signedEnvelope(
   )
 }
 
-/**
- * Run one read tool as `session`, in `options.projectId`.
- *
- * Refusals come back as a result with a status, like {@link callOperation}'s:
- * 404 for a name that is not a backend operation, 400 for a project-scoped call
- * with no project, 403 when the person may not chat in the project, 429 when a
- * budget is spent, 503 when the BFF cannot sign or reach the backend, and the
- * backend's own status otherwise (422 for arguments the tool does not take).
- */
 export async function callBackendOperation(
   name: string,
   args: Record<string, unknown>,
@@ -498,7 +395,6 @@ export async function callBackendOperation(
     )
   }
 
-  // The token authenticates the call and is the key the envelope is signed with.
   const secret = process.env.INTERNAL_API_TOKEN
   const base = getBackendUrl()
   let tokenHeaders: Record<string, string>
@@ -510,27 +406,22 @@ export async function callBackendOperation(
   }
   if (!secret) return refusal(503, 'backend_not_configured', 'The BFF cannot sign a request to the backend')
 
-  // Reads tenant rows with a session and no route around it, so the tenant is stated.
   const tenant = { organizationId: session.organizationId, userId: session.userId }
   let envelope: Record<string, string>
   try {
     envelope = await withTenant(tenant, async () => {
-      // The gate first, so a refusal is a 403 and never a half-built context.
       if (projectId) await requireProjectAccess(session, projectId, CHAT_PERMISSIONS)
       return signedEnvelope(session, projectId, secret)
     })
   } catch (error) {
     if (error instanceof TurnBudgetExhaustedError)
       return refusal(429, 'budget_exhausted', error.message)
-    // Not found and not allowed are one answer: it must not confirm a project exists.
     if (error instanceof ApiError && (error.status === 403 || error.status === 404)) {
       return refusal(403, 'forbidden', 'You cannot use this project')
     }
     throw error
   }
 
-  // The project rides in the signed envelope. A copy among the arguments would
-  // be a second, unsigned claim about the same thing.
   const { projectId: _ignored, ...toolArguments } = args
 
   try {
@@ -539,11 +430,9 @@ export async function callBackendOperation(
       headers: { 'content-type': 'application/json', ...envelope, ...tokenHeaders },
       body: JSON.stringify({ arguments: toolArguments }),
       cache: 'no-store',
-      // A redirect would replay the internal token at whatever host the response names.
       redirect: 'error',
       signal: AbortSignal.timeout(BACKEND_TOOL_TIMEOUT_MS),
     })
-    // The routes' reader, with its 5 MiB cap: a tool's answer is read no further than a route's.
     const body = await readResponseBody(response)
     return response.ok
       ? { status: response.status, ok: true, body: withDoorText(op, toolArguments, body) }
@@ -557,18 +446,12 @@ export async function callBackendOperation(
   }
 }
 
-/** One block of a tool's result, as MCP `CallToolResult.content` carries it. */
 export type McpContentBlock =
   | { readonly type: 'text'; readonly text: string }
   | { readonly type: 'image'; readonly data: string; readonly mimeType: string }
 
 const DATA_URL = /^data:([^;,]+);base64,([\s\S]*)$/
 
-/**
- * A tool's `result` (text, or the content blocks the page-image tool answers
- * with) as MCP content blocks: text stays text, an `image_url` data URL becomes
- * an image block, anything else is shown as JSON.
- */
 export function toMcpContent(result: unknown): McpContentBlock[] {
   if (typeof result === 'string') return [{ type: 'text', text: result }]
   if (!Array.isArray(result)) return [{ type: 'text', text: JSON.stringify(result) }]

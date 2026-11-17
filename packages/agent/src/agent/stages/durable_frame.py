@@ -28,15 +28,11 @@ from agent.stages.spec import TurnFacts
 
 logger = logging.getLogger(__name__)
 
-#: Between attempts while the answer row is not there yet: about fifteen seconds
-#: in all, longer than the agent host's background persist takes in practice.
 RETRY_DELAYS_S: tuple[float, ...] = (1.0, 2.0, 4.0, 8.0)
 _REQUEST_TIMEOUT_S = 5.0
 
-#: Strong references, so a detached write is not collected mid-flight.
 _pending: set[asyncio.Task[str]] = set()
 
-#: Tests replace it to skip the wait.
 _sleep = asyncio.sleep
 
 
@@ -54,8 +50,6 @@ def schedule_durable_frame(facts: TurnFacts, stage_id: str, payload: dict[str, A
     try:
         missing = _missing_identity(facts)
         if missing:
-            # No span: a turn without an envelope or off the socket has no
-            # answer to address, which is the turn's fact, not this write's.
             logger.info("Durable frame of stage %s not written: %s", stage_id, missing)
             return None
         from agent.turn.response import answer_message_id
@@ -82,7 +76,6 @@ def _missing_identity(facts: TurnFacts) -> str | None:
 async def _write_and_record(facts: TurnFacts, stage_id: str, message_id: str, payload: dict[str, Any]) -> str:
     attempts, reason = await write_durable_frame(facts, stage_id, message_id, payload)
     outcome = "stored" if reason == "stored" else "gave_up"
-    # Off the loop: the span is posted to the BFF synchronously.
     await asyncio.to_thread(_record, facts, stage_id, outcome, reason, attempts=attempts)
     return reason
 
@@ -118,7 +111,6 @@ async def _attempt(stage_id: str, path: str, body: dict[str, Any], headers: dict
     except bff_http.BffNotConfiguredError:
         return "not_configured", True
     except bff_http.BffRefusedError as exc:
-        # A 404 is the answer row not written yet; any other refusal will not change.
         return ("answer_not_found", False) if exc.status == 404 else (f"refused_{exc.status}", True)
     except bff_http.BffError:
         return "unreachable", False

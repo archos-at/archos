@@ -60,14 +60,11 @@ test('the SDK comes from the assets host on Cloud and from the proxy otherwise',
 
 test('the init options match what the privacy policy says', () => {
   const options = webAnalyticsInitOptions({ host: 'https://eu.i.posthog.com', token: 'phc_test' })
-  // No person profile for a visitor, no survey; a recording masks every input and text.
   assert.equal(options.person_profiles, 'identified_only')
   assert.deepEqual(options.session_recording, { maskAllInputs: true, maskTextSelector: '*' })
   assert.equal('disable_session_recording' in options, false)
-  // The project turns console-log capture on for the app; the website's replays never carry it.
   assert.equal(options.enable_recording_console_log, false)
   assert.equal(options.disable_surveys, true)
-  // Pageviews, web vitals and heatmaps are measured.
   assert.equal(options.capture_pageview, 'history_change')
   assert.deepEqual(options.capture_performance, { web_vitals: true })
   assert.equal(options.enable_heatmaps, true)
@@ -76,10 +73,8 @@ test('the init options match what the privacy policy says', () => {
 
 test('cookieless until the visitor accepts: on_reject, and no choice counts as not yet accepted', () => {
   const options = webAnalyticsInitOptions({ host: 'https://eu.i.posthog.com', token: 'phc_test' })
-  // Pending consent is treated as rejected, and rejected means cookieless: the SDK's own wiring.
   assert.equal(options.cookieless_mode, 'on_reject')
   assert.equal(options.opt_out_capturing_by_default, true)
-  // Nothing that would store across subdomains or change what accepting stores.
   assert.equal('persistence' in options, false)
   assert.equal('cross_subdomain_cookie' in options, false)
 })

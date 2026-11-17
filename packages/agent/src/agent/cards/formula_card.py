@@ -30,7 +30,6 @@ FormulaRouteStart = Literal["room", "dwelling_entrance"]
 FormulaMeasure = Literal["new_build", "renovation", "major_renovation"]
 
 
-#: Citations: where a rule is written. Stripped before digits are counted.
 _CITATION = re.compile(
     r"\b(?:Pkt\.?|Punkt|Tabelle|Zeile|Abschnitt|Anhang|Abs\.?|Ziffer|Z\.)\s*\d+(?:\.\d+)*(?:\s*[a-z]\))?"
     r"|§\s*\d+[a-z]?"
@@ -39,34 +38,20 @@ _CITATION = re.compile(
 )
 
 
-#: Identifiers: names of places, components and variants, never quantities.
 _IDENTIFIER = re.compile(
-    # component codes of a Bauteilkatalog: Außenwand, Innenwand, Trennwand,
-    # Decke, Dach, Fußboden, Flachdach, Brandabschnitt, Bauteil, Bodenplatte
     r"\b(?:AW|IW|TW|DE|DA|FB|FD|BA|BT|BP)[ -]?\d{1,2}[a-z]?\b"
-    # storeys
     r"|\b\d{1,2}\.\s?(?:OG|UG|DG|KG|Obergescho(?:ß|ss)|Untergescho(?:ß|ss)|Dachgescho(?:ß|ss)|Stock)\b"
-    # a numbered dwelling, a numbered or dotted room
     r"|\bTop\s+\d{1,3}[a-z]?\b"
     r"|\b(?:Büro|Raum|Zimmer)\s+\d{1,2}(?:\.\d{2})?\b"
-    # a lettered or numbered building part or variant
     r"|\b(?:Haus|Stiege|Bauteil|Trakt|Achse|Variante)\s+(?:[A-Z]|\d{1,2})\b(?![.,]\d)"
-    # a plot
     r"|\bGst\.?-?Nr\.?\s+\d{1,5}(?:/\d{1,4})?\b"
 )
 
 
-#: Where a text names its documents: a plan code after a plan, section or
-#: elevation, an Index, a revision, a position of the structural analysis, a
-#: page, a date, a year. Allowed in a `source` and a note, never in a name.
 _NOT_A_DECIMAL = r"\b(?![.,]\d)"
 
 
 _DOCUMENT_REFERENCE = re.compile(
-    # a plan code after a NAMED plan word: a letter prefix (EP-01, A-101), or a
-    # bare integer, hyphen groups allowed (04-123); never a decimal, so
-    # „Lageplan 0.35" is a figure. The words are named, so „Durchschnitt" and
-    # „Abschnitt" (a citation word) do not open a plan code.
     r"\b(?:Einreichplan|Bestandsplan|Lageplan|Polierplan|Werkplan|Grundriss|Schnitt|Detailschnitt|Ansicht|Plan)"
     r"(?:-?Nr\.?)?\s+(?:[A-Z]{1,4}-?\d{1,4}(?:[-_/][A-Z0-9]{1,4})*|\d{1,4}(?:-\d{1,4})*)"
     + _NOT_A_DECIMAL
@@ -74,19 +59,16 @@ _DOCUMENT_REFERENCE = re.compile(
     + _NOT_A_DECIMAL
     + r"|\bRev\.?\s*\d{1,3}[a-z]?"
     + _NOT_A_DECIMAL
-    # a position of the structural analysis: an integer or integer.integer, no leading 0
     + r"|\bPos\.?\s*[1-9]\d{0,3}(?:\.[1-9]\d{0,2})?"
     + _NOT_A_DECIMAL
     + r"|\bSeite\s+\d{1,4}"
     + _NOT_A_DECIMAL
     + r"|\b\d{1,2}\.\s?\d{1,2}\.\s?(?:\d{4}|\d{2})\b"
     r"|\b\d{1,2}/\d{4}\b"
-    # a year, or a decade („Bestand 1960er")
     r"|\b(?:19|20)\d{2}(?:er)?" + _NOT_A_DECIMAL,
 )
 
 
-#: „OK" is a verdict, unless it is the Oberkante of a floor build-up.
 _TOP_EDGE = re.compile(r"\bOK\s*(?:FFB|RFB|FBOK|Rohdecke|Fertigfu(?:ß|ss)boden)\b")
 
 
@@ -96,7 +78,6 @@ _WORD_START = r"(?<![A-Za-zÄÖÜäöüß])"
 _WORD_END = r"(?![A-Za-zÄÖÜäöüß])"
 
 
-#: A verdict in words, in any of the spellings a model writes.
 _VERDICT = re.compile(
     _WORD_START + r"(?:nicht\s+)?(?:erf(?:ü|ue)llt|zul(?:ä|ae)ssig|unzul(?:ä|ae)ssig|eingehalten|(?:ü|ue)berschritten"
     r"|unterschritten|gen(?:ü|ue)gt|ausreichend|unzureichend|passt|in\s+Ordnung|i\.\s?O\.?|iO|NOK|okay|ok"
@@ -106,7 +87,6 @@ _VERDICT = re.compile(
     r"|pass(?:ed|es)?|fail(?:ed|s)?|(?:non-)?compliant)"
     + _WORD_END
     + r"|\bh(?:ä|ae)lt\b[^.;]{0,60}?\bein\b"
-    # a traffic-light colour as the verdict after an arrow or a dash („Stiege A – grün")
     + r"|[→\-–—]\s*(?:gr(?:ü|ue)n|rot|gelb)"
     + _WORD_END
     + r"|\b(?:unter|(?:ü|ue)ber|unterhalb|oberhalb|innerhalb|au(?:ß|ss)erhalb)\s+(?:dem\s+|des\s+|der\s+)?"
@@ -117,8 +97,6 @@ _VERDICT = re.compile(
 )
 
 
-#: A number with a unit, as a symbol or a word. Checked before any allow-list is
-#: stripped, so „Plan 17 Zentimeter" is not a plan code followed by a word.
 _MEASURE = re.compile(
     r"\d[\d.,]*\s*(?:mm|cm|dm|m²|m2|m³|m3|m|%|°|W\b|kWh|Millimeter|Zentimeter|Meter|Quadratmeter|Prozent|Grad)"
     + _WORD_END,
@@ -126,12 +104,9 @@ _MEASURE = re.compile(
 )
 
 
-#: A comparison in signs, which no text needs: a sign compares a figure.
 _COMPARISON_SIGN = re.compile(r"[≤≥<>⩽⩾=≈~±≠]")
 
 
-#: The alphabet of a name, once its citations and identifiers are stripped:
-#: letters, spaces and – · / , ( ) . - →. Anything else, a digit or a sign, is refused.
 _NAME_ALPHABET = re.compile(r"(?:[^\W\d_]|[\s–·/,().\-→])*")
 
 
@@ -360,15 +335,9 @@ FormulaSpec = Annotated[
 ]
 
 
-#: Most binding editions a card is stamped with. A site may bind hundreds of works; past the bound the stamp
-#: says it was cut (``truncated``), and a work it does not name then reads as unknown, not as not binding.
 MAX_SITE_EDITIONS = 64
 
-#: How far the turn's records settle what binds at the site: ``settled`` (core, full), ``unsettled`` (no
-#: reviewed base yet: none, open), ``site_unknown`` (no site, or no law of it this office holds) and
-#: ``unavailable`` (the context could not be read). Each is a different reason the card gives no verdict.
 SiteCoverage = Literal["settled", "unsettled", "site_unknown", "unavailable"]
-#: Every gate state but ``knowledge_unavailable``; one not listed fails closed as ``unavailable``.
 COVERAGE_OF_GATE: dict[str, SiteCoverage] = {
     "organization_unplaced": "site_unknown",
     "site_unknown": "site_unknown",
@@ -472,7 +441,6 @@ class FormulaCard(CardModel):
     @model_validator(mode="before")
     @classmethod
     def _site_binding_is_the_servers(cls, data: Any) -> Any:
-        # Whatever the model wrote is replaced: a stamp it could set would buy it a verdict.
         if not isinstance(data, dict):
             return data
         return {**data, "site_binding": site_binding()}
@@ -505,9 +473,6 @@ def formula_inputs(card: dict[str, Any]) -> list[dict[str, Any]]:
     return [formula[slot] for slot in _FORMULA_SLOTS.get(str(name), ()) if isinstance(formula.get(slot), dict)]
 
 
-#: Fields no computing card has: a model that writes one is stating what the
-#: renderer computes. They are dropped by validation like any unknown field,
-#: and counted (`card-validity`, outcome `stripped`) so the drop is seen.
 _STATED_RESULT_KEYS = frozenset({"result", "results", "limits"})
 
 

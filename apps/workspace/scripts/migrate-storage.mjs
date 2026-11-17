@@ -89,15 +89,6 @@ const makeClient = (cfg) =>
     region: 'us-east-1',
     forcePathStyle: true,
     credentials: { accessKeyId: cfg.accessKeyId, secretAccessKey: cfg.secretAccessKey },
-    // SeaweedFS 3.80 rejects the flexible-checksum headers AWS SDK v3.1077+
-    // sends by default — request checksums break DeleteObjects payload
-    // signing, and response validation adds `x-amz-checksum-mode` to GETs.
-    // `lib/s3.ts` and `purger/storage.js` have carried these two lines since
-    // that was found; this client was written before them and never got them,
-    // which was survivable while it only ever ran against MinIO on one side.
-    // It is not survivable now: the ADR-0043 migration runbook points operators
-    // at this script for a SeaweedFS-to-SeaweedFS copy, where both ends are
-    // 3.80.
     requestChecksumCalculation: 'WHEN_REQUIRED',
     responseChecksumValidation: 'WHEN_REQUIRED',
   })

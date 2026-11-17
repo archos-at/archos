@@ -34,9 +34,6 @@ def empty_search_message(
         "Retry once with a shorter topic query"
         + (", a different `file_name` from the inventory" if file_name else ", or `file_name=` an exact inventory name")
         + ", or `title_contains=` a fragment. "
-        # A name taken from the reader's open file filtered a norm question down
-        # to nothing (answer feedback, October 2026): say that the law is not in
-        # that file, so the retry can drop the filter instead of guessing names.
         + (
             "If the question is about the law (OIB, Bauordnung) rather than this file's own content, "
             "retry WITHOUT `file_name=`: the norms are not filed under the reader's documents. "
@@ -113,22 +110,12 @@ def format_results(
     nothing and ranked nothing, so its header says which passages were read, in
     reading order, instead of "Found N relevant document(s)".
     """
-    # The two answers below carry no block, so they carry no hash to protect
-    # either; there the trailer is simply appended, which keeps it stated
-    # whichever answer this call has.
     tail = f"\n{trailer}" if trailer else ""
 
-    # Check for retrieval errors and surface them to the agent
-    # getattr: callers pass duck-typed result-likes (e.g. SimpleNamespace in
-    # tests) that may not carry the optional error_message field.
     if not retrieval_result.success:
         error_msg = getattr(retrieval_result, "error_message", None) or "Unknown error"
         return f"Knowledge retrieval failed: {error_msg}\n\nQuery: '{query}'{tail}"
 
-    # Degraded partial retrieval (e.g. the base corpus dropped out on an
-    # embedding-fingerprint mismatch while other layers survived): the chunks
-    # below are real, but they are NOT the full corpus. Without this banner the
-    # LLM reads a partial answer as a complete one.
     degraded_detail = getattr(retrieval_result, "error_message", None)
     degraded_banner = notice + (f"WARNING: {degraded_detail}\n\n" if degraded_detail else "")
 
@@ -152,11 +139,7 @@ def format_results(
             preamble=f"{preamble}\n{preamble_note}" if preamble_note else preamble,
             degraded_banner=degraded_banner,
             hits=hits,
-            # Fan-out summary for the Herleitung UI, from the same records the
-            # header lines state.
             lanes=trace_lanes_for_hits(hits, opened_files),
-            # The scope the calling tool opened; the one caller that opens none
-            # is the search itself.
             tool=current_lane_tool() or KNOWLEDGE_SEARCH_TOOL,
             trailer=trailer,
             coverage_gap=coverage_gap,

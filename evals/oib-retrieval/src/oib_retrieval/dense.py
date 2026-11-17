@@ -44,12 +44,8 @@ from oib_retrieval.corpus import Chunk
 
 logger = logging.getLogger(__name__)
 
-#: The local model used for the real dense arm. Small on purpose: it downloads once and
-#: runs on CPU, so the measurement is reproducible on a laptop and in a container.
 E5_MODEL_ID = "intfloat/multilingual-e5-small"
 
-#: Where the model weights are cached. Overridable so a container can point at a warm cache
-#: instead of re-downloading.
 MODEL_CACHE_ENV = "OIB_RETRIEVAL_MODEL_CACHE"
 
 HASHED_DIMENSION = 512
@@ -94,9 +90,6 @@ class HashedEmbedder:
             for lexeme in analyze(text):
                 digest = hashlib.blake2b(lexeme.encode("utf-8"), digest_size=8).digest()
                 bucket = int.from_bytes(digest[:4], "big") % self.dimension
-                # The sign comes from a different byte of the same digest so two lexemes
-                # landing in one bucket cancel as often as they reinforce, which is what
-                # keeps a 512-dim projection from saturating on a 40k-lexeme corpus.
                 sign = 1.0 if digest[4] % 2 == 0 else -1.0
                 matrix[row, bucket] += sign
         return _normalise_rows(matrix)

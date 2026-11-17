@@ -24,12 +24,6 @@ from agent.citations.source_identity import source_origin_token
 logger = logging.getLogger(__name__)
 
 
-# A leading origin token on the post-``[N]`` text of a source line, e.g. the
-# ``[KB]`` in ``- [1] [KB] file.pdf, p.3``. Kept in sync with
-# ``source_origin_token`` and the frontend ``SOURCE_KIND_TOKEN_RE`` parser.
-# Used to (a) make token injection idempotent and (b) strip a pre-existing
-# token before registry identity-matching so it never pollutes the fuzzy
-# filename comparison in ``is_knowledge_citation`` / ``has_citation_key``.
 ORIGIN_TOKEN_RE = re.compile(r"^(\[(?:KB|RIS|Web)\])\s*", re.IGNORECASE)
 
 
@@ -130,13 +124,6 @@ def normalize_source_section_layout(ref_section: str) -> str:
     ref_section = _normalize_ordered_reference_lines(ref_section)
     lines = ref_section.split("\n")
     if lines and REFERENCE_HEADING_LINE_RE.match(lines[0]):
-        # Keep German reports German: a "Quellen"-style heading is normalized
-        # to "## Quellen" instead of being anglicized to "## Sources". This
-        # German-or-else binary mirrors the writer's contract, which allows the
-        # label exactly two forms: "**Quellen:**" for a German answer and
-        # "**References:**" for an answer in any other language, never a label
-        # translated into a third language (see chat_static.md, CITATIONS
-        # in <answer_envelope>). A translated label would land on "## Sources".
         lines[0] = "## Quellen" if GERMAN_REFERENCE_HEADING_LABEL_RE.search(lines[0]) else "## Sources"
         ref_section = "\n".join(lines)
     return "\n".join(_split_collapsed_source_line(line) for line in ref_section.split("\n"))
@@ -159,7 +146,6 @@ def drop_inline_citations_not_in(text: str, valid_numbers: set[int]) -> str:
     )
 
 
-#: An inline citation and the horizontal space before it, so a removal leaves no „2.3 ." behind.
 _CITATION_WITH_SPACE_RE = re.compile(r"[ \t]*" + INLINE_CITATION_RE.pattern)
 
 
@@ -215,11 +201,9 @@ def renumber_citations(body: str, ref_section: str) -> tuple[str, str, dict[int,
     remaining = sorted(int(m.group(1)) for m in CITATION_LINE_RE.finditer(ref_section))
     renumber_map: dict[int, int] = {old: new for new, old in enumerate(remaining, 1)}
 
-    # Nothing to do if already sequential
     if all(old == new for old, new in renumber_map.items()):
         return body, ref_section, renumber_map
 
-    # Apply renumbering via placeholders (descending order avoids [1] matching inside [10])
     for old_num in sorted(renumber_map, reverse=True):
         new_num = renumber_map[old_num]
         if old_num != new_num:

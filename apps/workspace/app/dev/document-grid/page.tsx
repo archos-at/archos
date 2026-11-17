@@ -1,14 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the DocumentAnswerCard (the chat `document_grid` surfacing card).
- * Renders the REAL component with fixture data so the layout can be reviewed and
- * screenshotted without a backend. A module-scope fetch shim (browser + dev only)
- * serves the project/Archiv document lists the resolution hook fetches and 404s
- * thumbnails so the deterministic SVG sketch fallback renders. Not linked from
- * anywhere and 404s outside development.
- */
-
 import type { JSX } from 'react'
 import { notFound } from 'next/navigation'
 import { DocumentAnswerCard } from '@/features/cards/components/DocumentAnswerCard'
@@ -64,8 +55,6 @@ const OFFICE_SHELF_ROWS = [
   }),
 ]
 
-// Install the fetch shim at module scope (before any component effect fires) so
-// the resolution hook always sees the fixtures. Idempotent + dev/browser-guarded.
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   const w = window as unknown as { __docAnswerShim?: boolean }
   if (!w.__docAnswerShim) {
@@ -171,7 +160,6 @@ export default function DocumentAnswerDevPage(): JSX.Element {
             score: 0.51,
             source: 'project',
           },
-          // Unresolvable (removed) file → lean "not available" fallback card.
           {
             file_name: 'Altes_Gutachten_2019.pdf',
             snippet: 'Historisches Brandschutzgutachten (nicht mehr im Projekt).',

@@ -1,13 +1,3 @@
-/**
- * Organisation → Sensible Daten → „Inhalte aus gelöschten Ordnern" (ADR-0088):
- * who sees chats, answers and notes drawn from a folder once it is purged.
- *
- * GET — any member: the settings page shows the choice to everyone, and the
- *       Papierkorb says what a purge will do.
- * PUT — `org:settings:manage`. The only writer of
- *       `settings.deletedFolderContent`; audited.
- */
-
 import { apiRoute, parseJsonBody } from '@/lib/api/handler'
 import { ORG_PERMISSIONS } from '@/lib/authz/permissions'
 import { getDeletedFolderContentPolicy } from '@/lib/organizations/deleted-folder-content'

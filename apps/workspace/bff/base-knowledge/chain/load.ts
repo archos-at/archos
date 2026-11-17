@@ -1,20 +1,3 @@
-/**
- * The knowledge graph an office reads for a site (ADR-0168): the released
- * platform records it may read, and the office's own relations with the works
- * and editions they name. Every query runs as the office (`withTenant`) and
- * names the owner condition itself, so the layered RLS (0205, 0209) is the
- * backstop, not the filter:
- *
- * - a platform row has a head and belongs to a country the office is entitled
- *   to, or a released relation reaches it from one (design §3.5);
- * - an office row is this office's own; another office's never is.
- *
- * Bounded by the walk, never by the tenant: the territories on the leaf's
- * chain, the works there and their editions, then the relations that touch
- * them and the works and editions those name, step by step (`walk`). What the
- * resolver reads is in it, whatever else the office can read.
- */
-
 import { appliesWhenTableSchema } from '../wire/applies-when'
 import { sourceRefsOf } from './source-refs'
 import 'server-only'
@@ -29,22 +12,10 @@ import { walkSeeds } from './territory-chain'
 import { MAX_ROUTE_DEPTH } from './resolve'
 import type { GraphEdition, GraphOwner, GraphRelation, GraphTerritory, GraphWork, KnowledgeGraph } from './graph'
 
-/**
- * Most rows one read returns: a guard against a runaway query, not a budget.
- * Nothing a site needs comes near it; a read that reaches it says so
- * (`truncated`), and the turn then uses none of the graph rather than a part.
- */
 export const MAX_ROWS = 20_000
 
-/**
- * How many relation steps the walk takes from the chain: a route's depth
- * (`MAX_ROUTE_DEPTH`), one more for what bears on the deepest binding
- * (`deviates_from`, a commentary on it), and one for that commentary's other
- * targets, which name the edition it interprets.
- */
 const MAX_WALK_DEPTH = MAX_ROUTE_DEPTH + 2
 
-/** Deepest territory chain followed. */
 const MAX_TERRITORY_DEPTH = 16
 
 export interface LoadedGraph {
@@ -113,7 +84,6 @@ const isTextStatus = (value: string | null): value is TextStatus => (TEXT_STATUS
 
 const dateText = (value: unknown): string | null => (value === null || value === undefined ? null : String(value).slice(0, 10))
 
-/** A platform row the office may read, or the office's own row: the owner condition every query below names. */
 const readable = (organizationId: string) => recordReadable('r', organizationId)
 
 async function territoriesOn(organizationId: string, leafId: string): Promise<TerritoryRow[]> {
@@ -137,10 +107,6 @@ async function territoriesOn(organizationId: string, leafId: string): Promise<Te
     LIMIT ${MAX_ROWS}`)
 }
 
-/**
- * The relations that touch `frontier`: every type from it, and a `supersedes`
- * or `interprets` onto it (what ends a law on the chain, what comments on it).
- */
 async function relationsTouching(organizationId: string, frontier: readonly string[]): Promise<RelationRow[]> {
   return getDb().execute<RelationRow>(sql`
     SELECT r.id, r.organization_id, x.relation_type, x.mode, x.from_id, x.from_type, x.to_id, x.to_type, x.anchors,
@@ -153,12 +119,6 @@ async function relationsTouching(organizationId: string, frontier: readonly stri
     LIMIT ${MAX_ROWS}`)
 }
 
-/**
- * Works on the chain (where they apply, or whose addressees decide there), and
- * the works a relation names (by itself or by one of its editions). The
- * office's own works only when a relation the walk reads names them: its
- * copies are its base-knowledge block's (`office/turn-block.ts`), not law.
- */
 async function worksFor(organizationId: string, chain: readonly string[], named: readonly string[]): Promise<WorkRow[]> {
   return getDb().execute<WorkRow>(sql`
     WITH named_works AS (
@@ -272,7 +232,6 @@ function toEdition(row: EditionRow): GraphEdition {
     corpusFiles: row.corpus_files ?? [],
     sourceUrl: row.source_url,
     text: row.text_language && isTextStatus(row.text_status) ? { language: row.text_language, status: row.text_status } : null,
-    // A stored scope the wire cannot read narrows nothing: too much law shows, never too little.
     appliesWhen: row.applies_when ? (appliesWhenTableSchema.safeParse(row.applies_when).data ?? null) : null,
     lastCheck: row.checked_at && row.check_result ? { checkedAt: new Date(row.checked_at).toISOString(), result: row.check_result } : null,
   }
@@ -285,7 +244,6 @@ interface Walked {
   truncated: boolean
 }
 
-/** Read `workRows` and their editions into `into`; the ids new to it, which the walk steps from next. */
 async function admit(organizationId: string, workRows: readonly WorkRow[], into: Walked): Promise<string[]> {
   into.truncated ||= workRows.length >= MAX_ROWS
   const fresh = workRows.filter((row) => !into.works.has(row.id))
@@ -297,18 +255,10 @@ async function admit(organizationId: string, workRows: readonly WorkRow[], into:
   return [...fresh.map((row) => row.id), ...editionRows.map((row) => row.id)]
 }
 
-/**
- * From the works on the chain, the relations that touch what was read and the
- * works and editions they name, up to `MAX_WALK_DEPTH` steps: every route the
- * resolver follows, every `deviates_from` from a binding, every `supersedes`
- * or `interprets` onto one, and every work a relation names.
- */
 async function walk(organizationId: string, chain: readonly string[]): Promise<Walked> {
   const walked: Walked = { relations: new Map(), works: new Map(), editions: new Map(), truncated: false }
   let frontier = await admit(organizationId, await worksFor(organizationId, chain, []), walked)
-  // A frontier left at the last step is past any route the resolver follows (`MAX_ROUTE_DEPTH`): not read, by design.
   for (let depth = 0; depth < MAX_WALK_DEPTH && frontier.length > 0; depth++) {
-    // A read that hit the bound is partial whatever of it was read before: counted before the known rows go.
     const read = await relationsTouching(organizationId, frontier)
     walked.truncated ||= read.length >= MAX_ROWS
     const relationRows = read.filter((row) => !walked.relations.has(row.id))
@@ -321,10 +271,8 @@ async function walk(organizationId: string, chain: readonly string[]): Promise<W
   return walked
 }
 
-/** Rows by id, as one ordered read returns them: the resolver's ties break the same however the walk met them. */
 const byId = <T extends { id: string }>(rows: Iterable<T>): T[] => [...rows].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
 
-/** The graph an office reads for a site whose leaf is `leafId`. */
 export async function loadGraph(organizationId: string, leafId: string): Promise<LoadedGraph> {
   return withTenant({ organizationId }, async () => {
     const territoryRows = await territoriesOn(organizationId, leafId)

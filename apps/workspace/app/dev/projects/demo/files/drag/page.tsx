@@ -1,21 +1,5 @@
 'use client'
 
-/**
- * Dev harness for drag and drop in Dateien, on a desktop, end to end: the real
- * `ProjectFileWorkspace` over an in-memory project that answers the moves and
- * records the uploads, so a drag in a real browser does what it does in the
- * app and the result is on screen.
- *
- * The project: four folders at the top (Planung with Statik inside it,
- * Behörde, which the reader may only read, ADR-0088, and a second Statik, so a
- * move out of Planung meets its namesake), four documents at the
- * top, one in Planung and one in Behörde. Every move and upload request is
- * appended to `window.__dndLog`, so a script can say what reached the server.
- *
- * The path ends in `/files/…` on purpose: the frame reads its section from the
- * fourth path segment. Nothing leaves the browser; 404s outside development.
- */
-
 import type { JSX } from 'react'
 import * as React from 'react'
 import { notFound } from 'next/navigation'
@@ -104,10 +88,7 @@ function useProjectFetch(store: React.RefObject<Store>): void {
         path === '/api/documents/revision-candidates' ||
         path === '/api/v1/collections/demo'
       if (!ours) return real(input, init)
-      // The collection the shelf ingests into, which an upload makes sure exists.
       if (path === '/api/v1/collections/demo') return json({ name: 'demo', file_count: 6, chunk_count: 24, backend: 'harness', metadata: {} })
-      // What an upload asks before it sends: the office's screening policy, the
-      // names it would collide with or continue, and the batch it opens.
       if (path === '/api/organization/upload-screening') {
         return json({ policy: { ...SUGGESTED_SCREENING_POLICY, enabled: false }, suggested: false, suggestion: SUGGESTED_SCREENING_POLICY })
       }
@@ -131,7 +112,6 @@ function useProjectFetch(store: React.RefObject<Store>): void {
         const body = JSON.parse(String(init?.body ?? '{}')) as { parentId?: string | null }
         const folder = state.folders.find((f) => f.id === moveFolder[1])
         const to = body.parentId ?? null
-        // As the server answers: a read-only end is a 403, a namesake where it would land a 400 with its reason.
         const status = !folder ? 404 : READ_ONLY.has(to ?? '') || READ_ONLY.has(folder.id) ? 403 : state.folders.some((f) => f.id !== folder.id && (f.parentId ?? null) === to && f.name === folder.name) ? 400 : 200
         log({ kind: 'move-folder', id: moveFolder[1], to, status })
         if (status === 404) return json({ error: 'Not found' }, 404)
@@ -172,8 +152,6 @@ function useProjectFetch(store: React.RefObject<Store>): void {
       }
       return real(input, init)
     }
-    // The bytes go up by XHR (for its progress events): record what was sent
-    // and where it was filed, then let the request fail on its own.
     const realOpen = XMLHttpRequest.prototype.open
     const realSend = XMLHttpRequest.prototype.send
     const opened = new WeakMap<XMLHttpRequest, string>()

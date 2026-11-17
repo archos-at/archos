@@ -83,10 +83,6 @@ after all. The second half is literally true: the cancellation sets
 routes straight to Piloti instead of producing plan number two.
 """
 
-# Reader-facing text, and therefore left verbatim by the rename: it is what
-# `escalation_reason` carries onto the wire when the model asked to escalate
-# without saying why, so it is already stored in turns from before this commit.
-# Changing the wording is a copy change with a release note, not a rename.
 LEGACY_ESCALATION_REASON = "Shallow agent emitted insufficiency marker"
 
 DEEP_RESEARCH_UNAVAILABLE_NOTE = (
@@ -116,21 +112,9 @@ CONFINED_DEEP_RESEARCH_NOTE = (
 (ADR-0087): the capability is there, this conversation may not use it, and the
 reader is told why rather than that the workspace lacks it."""
 
-#: State fields that survive the turn boundary. Everything else is reset on
-#: every ``run()`` so nothing from a previous turn's checkpoint — a stale job
-#: id, a prior self-assessment, last turn's routing — can leak onto this one.
-#: ``deep_research_declined`` is STICKY for the conversation on purpose: the
-#: user said no to a research plan once and should not have to say it again.
 CONVERSATION_SCOPED_FIELDS: frozenset[str] = frozenset({"messages", "deep_research_declined", "already_read_digest"})
 TURN_SCOPED_FIELDS: frozenset[str] = frozenset(ConversationState.model_fields) - CONVERSATION_SCOPED_FIELDS
 
-#: ``(Piloti state attribute, conversation state field)``: what a finished
-#: answer carries out of the research turn. Every one of these is already
-#: decided by the agent that produced the answer — the guarded confidence and
-#: the observed routing are derived properties of its state, next to the
-#: signals they read — so this node copies rather than re-derives. Both names
-#: are checked against both models by a test, so a rename on either side is a
-#: failure rather than a field that silently stops being lifted.
 ANSWER_LIFTS: tuple[tuple[str, str], ...] = (
     ("observed_routing", "routing_decision"),
     ("answer_confidence", "answer_confidence"),
@@ -182,10 +166,6 @@ def _escalation_update(message: BaseMessage, result: ResearchAgentState) -> dict
         "escalate_to_deep": True,
         "escalation_ask_reason": result.answer_escalation_reason or LEGACY_ESCALATION_REASON,
         "verified_sources": result.verified_sources,
-        # The turn still read: the deep report replaces the answer, not the
-        # digest the next turn re-opens from. Absent (never nulled) when the
-        # turn digested nothing, so a mocked result without the field cannot
-        # wipe the checkpointed lines either.
         **({"already_read_digest": list(result.already_read_digest)} if result.already_read_digest else {}),
     }
 
@@ -214,7 +194,6 @@ def _answer_update(
     kept = compact_tool_results([m for m in turn_messages if m is not message], cited)
     update["messages"] = [*kept, message]
     update["escalate_to_deep"] = False
-    # Presence is the fact: True or absent, never False.
     update["research_truncated"] = True if result.research_truncated else None
     return update
 
@@ -260,22 +239,10 @@ def _finalize_answer(
     if escalating and not deep_research_allowed:
         logger.info("Escalation refused: deep research is not enabled for this tenant")
         escalating = False
-        # The ask and the answer are the same message, and the envelope says
-        # which of the two shapes this one is. A `handoff` answer is one
-        # sentence naming what will be researched — appending the note to it
-        # would ship „Dafür starte ich eine Tiefenrecherche" and the
-        # contradiction underneath, so it is REPLACED. An insufficiency
-        # escalation carries the model's best partial answer, which the reader
-        # should keep, so there the note is appended.
-        #
-        # The envelope's own word, never the prose: the two shapes are not
-        # distinguishable by matching on text, and a matcher would decide a
-        # reader's answer by regex.
         handoff_only = result.answer_is_handoff or not clean_content.strip()
         note = CONFINED_DEEP_RESEARCH_NOTE if confined else DEEP_RESEARCH_UNAVAILABLE_NOTE
         clean_content = note if handoff_only else f"{clean_content.rstrip()}\n\n{note}"
     if not clean_content.strip() and not escalating:
-        # An empty answer is a generation failure, not an escalation signal.
         logger.error("Research produced an empty answer")
         return _error_update(GENERIC_ERROR_MESSAGE)
     updated = message.model_copy(update={"content": clean_content}) if clean_content != content else message
@@ -322,8 +289,6 @@ def _deep_handoff(
     }
     if clarifier_result is not None:
         update["clarifier_result"] = clarifier_result
-    # The Rahmen the reader approved the plan under replaces the turn's own
-    # sources: it IS the composer's Datengrundlage at the moment of approval.
     if data_sources is not None:
         update["data_sources"] = data_sources
     if plan_documents is not None:
@@ -343,7 +308,6 @@ def _plan_cancelled(original_query: str | None) -> Command:
             "messages": [AIMessage(content=PLAN_CANCELLED_MESSAGE)],
             "original_query": original_query,
             "deep_research_declined": True,
-            # A receipt, not an answer: neither path was taken.
             "routing_decision": "meta",
             "escalation_reason": None,
             "escalate_to_deep": False,
@@ -409,8 +373,6 @@ class ConversationGraph:
         self._graph = self._build_graph()
 
     def _trimmed(self, state: ConversationState) -> list[BaseMessage]:
-        # The previous turn's tool results stay while they fit (a follow-up
-        # answers from them); what was said always stays. Then the token budget.
         return history_window(state.messages, self.max_history_tokens)
 
     async def _clarifier_node(self, state: ConversationState) -> Command:
@@ -464,7 +426,6 @@ class ConversationGraph:
             focus_region=state.focus_region,
             reply_in_thread=state.reply_in_thread,
             trigger=state.trigger,
-            # Told to the model so it answers instead of handing off; `_finalize_answer` still refuses one that asks.
             deep_research_allowed=state.deep_research_allowed,
             tasks_allowed=state.tasks_allowed,
             licensed_text_allowed=state.licensed_text_allowed,
@@ -483,7 +444,6 @@ class ConversationGraph:
             return _error_update(str(exc))
         except Exception as exc:  # noqa: BLE001 - the turn answers with an error rather than dying
             if is_data_policy_refusal(exc):
-                # Retrying cannot help: the model has no ZDR endpoint (ADR-0074).
                 logger.warning("Research refused by the provider's data policy: %s", exc)
                 return _error_update(ZDR_MODEL_REFUSED_MESSAGE)
             logger.exception("Error in research: %s", exc)
@@ -494,9 +454,6 @@ class ConversationGraph:
             trimmed = self._trimmed(state)
             trim["kept"] = len(trimmed)
         logger.debug("research_node: available_documents = %s", state.available_documents)
-        # A shelf named in the question ("was hast du in der Büroablage") is the
-        # one the inventory prints in full this turn — a ContextVar read by
-        # the prompt renderer; the graph runs in this task.
         set_listing_shelf(shelf_hint_from_query(get_latest_user_query(state.messages) or ""))
         result = await self._run_research(self._research_input(state, trimmed))
         if isinstance(result, dict):
@@ -516,9 +473,6 @@ class ConversationGraph:
             confined=state.confined,
         )
         if isinstance(result, ResearchAgentState) and not update.get("already_read_digest"):
-            # A result that carries no digest (a mocked research_fn, an older
-            # caller) must not wipe the checkpointed lines: the digest only
-            # ever grows within a conversation, it is never cleared by a turn.
             if state.already_read_digest:
                 update["already_read_digest"] = list(state.already_read_digest)
         return update
@@ -550,8 +504,6 @@ class ConversationGraph:
         try:
             run = await self.commission_run_fn(state)
         except JobAdmissionError as exc:
-            # Queue full: answer with the friendly reason, marked as a
-            # rejection notice (not a research answer) with the retry hint.
             logger.info("Research run refused by admission control: %s", exc)
             return {
                 "messages": [AIMessage(content=str(exc))],
@@ -567,13 +519,9 @@ class ConversationGraph:
                     "retry_after_seconds": refusal.retry_after_seconds,
                 }
             if refusal.reason == "confined":
-                # The thread drew on a restricted folder (ADR-0087): a run would
-                # be listed to the whole project. Never run it in process either.
                 logger.info("Research run refused: the conversation drew on a restricted folder")
                 return _answer_only(CONFINED_DEEP_RESEARCH_NOTE)
             if refusal.reason == "forbidden":
-                # A capability denial, not a transport failure. Falling back
-                # would run the very thing the route refused.
                 logger.info("Research run refused as a capability the tenant does not have: %s", refusal)
                 return _answer_only(DEEP_RESEARCH_UNAVAILABLE_NOTE)
             logger.info("Question could not be commissioned as a run (%s); researching in process", refusal.reason)
@@ -619,33 +567,14 @@ class ConversationGraph:
 
     @staticmethod
     def _should_escalate(state: ConversationState) -> str:
-        # The tenant has no deep research. `_finalize_answer` has already turned
-        # this turn's ask into an answer, so nothing should arrive here with the
-        # bit set — which is exactly why the check is here as well. This edge is
-        # the only way into the clarifier, and the clarifier is what puts a plan
-        # in front of a reader whose approval the job queue would then refuse.
-        # A second writer of `escalate_to_deep` (a caller seeding state, a path
-        # added later) must not be able to reopen that door.
         if not state.deep_research_allowed:
             logger.info("Escalation suppressed: deep research is not enabled for this tenant")
             return "END"
-        # The user rejected a research plan in this conversation. Escalating
-        # would put a THIRD plan in front of them — and on the rejection turn
-        # itself it would be a cycle: clarifier -> shallow -> clarifier.
         if state.deep_research_declined:
             logger.info("Escalation suppressed: the user rejected a research plan in this conversation")
             return "END"
         if not state.escalate_to_deep:
             return "END"
-        # Deep research is minutes, not seconds, and this is the instant that
-        # becomes true. Told now, the reader is waiting; told on the terminal
-        # frame, they spent those minutes wondering whether the turn broke.
-        # Transparency must never take a turn down, and the stakes went UP when this
-        # moved into a conditional edge: a raise inside a routing function does not
-        # degrade the turn, it ends it with no answer at all. Nothing in
-        # ``emit_escalation`` can raise today (``turn_status.emit`` swallows, and
-        # ``clip``/``str.split`` are total on ``str | None``), which is exactly why the
-        # guard has to be here rather than trusted to stay true one refactor from now.
         try:
             emit_escalation(state.escalation_ask_reason)
         except Exception:  # noqa: BLE001 - a status line is never worth the answer
@@ -653,21 +582,10 @@ class ConversationGraph:
         return "deep_research"
 
     def _build_graph(self) -> CompiledStateGraph:
-        # The node is still NAMED ``shallow_research`` although the agent behind
-        # it is now just Piloti. A LangGraph checkpoint records node
-        # names in ``versions_seen``, so renaming one makes every conversation
-        # written before the deploy look like it has never run this node; the
-        # frontend also labels a step by this string
-        # (``intermediate-step-parser.ts::NODE_LABEL_KEYS``). It is a persisted
-        # key, and it is deliberately left alone — see the same note on the
-        # ``shallow_research_agent`` function block in the config.
         graph = StateGraph(ConversationState)
         graph.add_node("shallow_research", profiled_node("shallow_research", self._research_node))
         graph.add_node("clarifier", profiled_node("clarifier", self._clarifier_node))
         graph.add_node("deep_research", profiled_node("deep_research", self._deep_research_node))
-        # Every turn starts with the answering agent. Deep research is reached
-        # only through its escalation; the clarifier confirms the plan on the
-        # way (or is skipped for headless callers).
         graph.set_entry_point("shallow_research")
         graph.add_conditional_edges(
             "shallow_research", self._should_escalate, {"deep_research": "clarifier", "END": END}
@@ -728,8 +646,6 @@ class ConversationGraph:
             input_state["already_read_digest"] = merged_digest
         if state.messages:
             logger.info("Query: %s...", str(state.messages[-1].content)[:100])
-        # One tool-step callback per run: every tool call of the turn, inner
-        # graphs included, becomes a `tool` step on the same stream.
         run_config: RunnableConfig = {**graph_config, "callbacks": [ToolStepCallback()]}
         final: dict[str, Any] | None = None
         run = self._graph.astream(input_state, config=run_config, stream_mode=["custom", "values"], subgraphs=True)

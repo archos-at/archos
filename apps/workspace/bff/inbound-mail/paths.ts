@@ -1,22 +1,10 @@
-/**
- * Where the E-Mail-Eingang lives: the list with its filter, one mail, and
- * Dateien. The URL carries the open mail and the filter, so a link to a mail
- * opens it and Back closes it (DECISION §9, D23).
- *
- * Pure.
- */
-
 import type { InboundMailListStatus, InboundMailOutcome } from '@/lib/inbound-mail/inbound-mail-wire'
 
-/** The id of the list's „Bereit“ heading: the Postfach's „E-Mails warten“ row lands on it. */
 export const INBOUND_MAIL_READY_ANCHOR = 'ready'
 
 export interface InboundMailPaths {
-  /** The list, with its filter. */
   list: (filter: { status: InboundMailListStatus; outcome: InboundMailOutcome | null }) => string
-  /** One mail, keeping the filter. */
   mail: (mailId: string, filter: { status: InboundMailListStatus; outcome: InboundMailOutcome | null }) => string
-  /** Dateien. */
   files: string
 }
 
@@ -37,7 +25,6 @@ export function inboundMailPaths(projectId: string): InboundMailPaths {
   }
 }
 
-/** The waiting list at its „Bereit“ section: the Postfach row's way to one-press filing. */
 export function inboundMailReadyPath(projectId: string): string {
   return `${inboundMailPaths(projectId).list({ status: 'waiting', outcome: null })}#${INBOUND_MAIL_READY_ANCHOR}`
 }

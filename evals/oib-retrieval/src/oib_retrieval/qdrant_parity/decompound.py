@@ -29,12 +29,9 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
-#: The scope the decompounded copy of the parity corpus is written under.
 SPLIT_SCOPE = "oib_parity_split"
-#: Shorter words are left whole: a German compound worth splitting is longer.
 MIN_WORD = 8
 MIN_PART = 4
-#: CharSplit proposals tried per word, best first.
 PROPOSALS = 3
 _WORD = re.compile(r"[^\W\d_]+")
 _NAMESPACE = uuid.UUID("5f1d2c9e-7a43-4b0e-9d6a-3c2b1e0f8a77")

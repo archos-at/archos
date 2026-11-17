@@ -1,15 +1,3 @@
-/**
- * The office's base knowledge (ADR-0163): its licensed standards, commentaries,
- * authority directives, guidelines and laws as Archiv documents with edition,
- * territory, authority, licence and last check. See `projects.ts` for the shape
- * and `docs/architecture/agent-surface.md` for the rules.
- *
- * An agent that sorts an office's knowledge (an outside agent over MCP, or the
- * office's own colleague) reads the office shelf, proposes an entry per document
- * with the values it read, and the person confirms. Upload is the office shelf's
- * own operation; search is the knowledge search over the office shelf.
- */
-
 import { z } from 'zod'
 import {
   bulkEntriesBodySchema,
@@ -136,7 +124,6 @@ export const baseKnowledgeOperations = [
     method: 'POST',
     path: '/api/base-knowledge/bulk',
     body: bulkEntriesBodySchema,
-    // `remove` deletes documents: the person confirms it, as they confirm a single removal.
     destructive: true,
     load: () => import('@/app/api/base-knowledge/bulk/route'),
   },

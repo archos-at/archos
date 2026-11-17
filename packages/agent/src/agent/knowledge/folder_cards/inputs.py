@@ -27,16 +27,11 @@ from dataclasses import asdict
 from dataclasses import dataclass
 from typing import Any
 
-#: Bumping it marks every card stale: the hash covers it.
 PROMPT_VERSION = "folder-card-v1"
 
-#: A folder with fewer documents than this and no child folder gets no card: its listing is the card.
 MIN_DOCUMENTS = 3
-#: Documents one prompt lists in full. Past it the rest are named by type only (bounded input, one call).
 MAX_LISTED_DOCUMENTS = 60
-#: Summary characters per document in the prompt.
 MAX_SUMMARY_CHARS = 300
-#: Document names shown for a child folder that has no card of its own.
 MAX_CHILD_FOLDER_NAMES = 5
 
 
@@ -47,7 +42,6 @@ class ChildDocument:
     doc_class: str | None
     tags: tuple[str, ...]
     summary: str
-    #: ``Index B, 2026-02-03`` from the title block, when one was read.
     revision: str | None
     superseded_by: str | None
 
@@ -58,7 +52,6 @@ class ChildFolder:
     path: str
     abstract: str | None
     abstract_hash: str | None
-    #: A few document names, only when the child has no card to stand for it.
     documents: tuple[str, ...]
 
 
@@ -70,7 +63,6 @@ class FolderInputs:
     description: str | None
     documents: tuple[ChildDocument, ...]
     folders: tuple[ChildFolder, ...]
-    #: Tier-0 lines the prompt shows for orientation. Not hashed (see the module docstring).
     overview: tuple[str, ...] = ()
 
     @property

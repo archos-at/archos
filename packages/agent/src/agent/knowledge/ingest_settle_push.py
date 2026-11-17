@@ -29,13 +29,9 @@ from agent.common import bff_http
 logger = logging.getLogger(__name__)
 
 PATH = "/api/internal/ingest/settled"
-#: The BFF takes 1 to 200 ids per call.
 MAX_IDS = 200
 _TIMEOUT_SECONDS = 5.0
 
-#: One thread is enough: a push is one short request, and a backlog of them
-#: means the BFF is slow, which more threads would not make faster. It holds
-#: job ids only while they are in flight.
 _pusher = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ingest-settle-push")
 
 
@@ -60,7 +56,6 @@ def push_settled(job_ids: list[str]) -> int:
     try:
         return send_settled(job_ids)
     except bff_http.BffError as error:
-        # Ids are no secret, but the message stays the class and the status.
         logger.warning(
             "Settle push for %d ingest job(s) failed: %s (%s)", len(job_ids), type(error).__name__, error.status
         )

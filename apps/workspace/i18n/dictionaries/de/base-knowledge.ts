@@ -1,8 +1,3 @@
-/**
- * Grundlagen des Büros (ADR-0163): die Normen, Kommentare und Weisungen, die ein
- * Büro besitzt, als eigener Bereich mit Ordnern. „Ausgabe“ ist der Stand der
- * Grundlage, „Fassung“ der Stand der hochgeladenen Datei (CONTEXT.md).
- */
 export const baseKnowledge = {
   title: 'Grundlagen des Büros',
   subtitle: 'Normen, Kommentare und Weisungen, die Ihr Büro besitzt und auf die sich {productName} in Ihren Antworten stützt.',

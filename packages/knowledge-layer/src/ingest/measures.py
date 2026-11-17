@@ -24,10 +24,8 @@ from agent.knowledge.schema import FileStatus
 
 logger = logging.getLogger(__name__)
 
-#: The Langfuse trace one file's ingest is recorded under (:func:`file_trace`).
 INGEST_TRACE_NAME = "ingest-file"
 
-#: Every stage a file's seconds are reported in, in pipeline order.
 STAGES = (
     "text",
     "tables",
@@ -42,7 +40,6 @@ STAGES = (
     "write",
 )
 
-#: The job-status ``metadata`` keys this module writes.
 STAGE_SECONDS_KEY = "stage_seconds"
 COVERAGE_KEY = "coverage"
 

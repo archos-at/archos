@@ -24,38 +24,24 @@ import os
 import re
 from typing import Any
 
-#: Langfuse's trace-level OTel names (https://langfuse.com/integrations/native/opentelemetry).
 ENVIRONMENT_ATTRIBUTE = "langfuse.environment"
 RELEASE_ATTRIBUTE = "langfuse.release"
+# Langfuse's trace-level OTel names: https://langfuse.com/integrations/native/opentelemetry
 TRACE_NAME_ATTRIBUTE = "langfuse.trace.name"
 OBSERVATION_TYPE_ATTRIBUTE = "langfuse.observation.type"
 OBSERVATION_LEVEL_ATTRIBUTE = "langfuse.observation.level"
 OBSERVATION_STATUS_MESSAGE_ATTRIBUTE = "langfuse.observation.status_message"
 
-#: Where the environment and the commit come from. Both are already set on every
-#: backend pod: ``APP_ENV`` by Pulumi, ``GIT_SHA`` baked into the image.
 ENVIRONMENT_ENV = "APP_ENV"
 RELEASE_ENV = "GIT_SHA"
 
-#: Langfuse rejects an environment that does not match this, and one that
-#: starts with ``langfuse`` (reserved). Anything else is coerced, not dropped:
-#: a trace filed under a slightly renamed environment is findable, one with no
-#: environment is "default" and mixed with everything else.
 _ENVIRONMENT_INVALID = re.compile(r"[^a-z0-9_-]+")
 _ENVIRONMENT_MAX = 40
 
-#: The trace names an analyst filters on. An agent-runtime root span is named after the
-#: workflow's config type (``chat_deepresearcher_agent``), which says nothing to
-#: anyone outside this repo.
 CHAT_TURN_TRACE = "chat-turn"
 RESEARCH_JOB_TRACE = "research-job"
 ASYNC_JOB_PREFIX = "async_job:"
 
-#: Agent-runtime span kind -> Langfuse observation type. Langfuse knows ten types
-#: (span, event, generation, agent, tool, chain, retriever, evaluator,
-#: embedding, guardrail); a kind with no counterpart stays a plain span.
-#: FUNCTION is the agent runtime's wrapper around a registered function: a tool, a
-#: sub-agent, or a step of one, so "chain" is the one type that is never wrong.
 _TYPE_BY_KIND = {
     "LLM": "generation",
     "TOOL": "tool",
@@ -69,11 +55,7 @@ _TYPE_BY_KIND = {
     "EVALUATOR": "evaluator",
 }
 
-#: Grid's own retrieval steps (``observability.retrieval_trace``) are FUNCTION
-#: spans the agent runtime cannot tell from any other; their name says what they are.
 _RETRIEVAL_SPAN_PREFIX = "retrieve."
-#: The decision model's calls (``observability.decision_trace``): FUNCTION
-#: spans too, and model calls, so generations (ADR-0089).
 _DECISION_SPAN_PREFIX = "decide."
 
 

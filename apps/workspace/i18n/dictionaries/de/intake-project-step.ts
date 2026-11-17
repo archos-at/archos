@@ -1,6 +1,5 @@
 import type { en } from '../en'
 
-/** intakeProjectStep: step 1, Projekt: what the dialog took, and the people in the project. */
 export const intakeProjectStep: typeof en.intakeProjectStep = {
   title: 'Stimmt das, und wer arbeitet mit?',
   intro: 'Alles hier ist freiwillig und lässt sich später ändern.',

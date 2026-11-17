@@ -62,16 +62,10 @@ from .access import verified_envelope
 
 logger = logging.getLogger(__name__)
 
-#: Renew a carried envelope once it is this old. The BFF's
-#: ``RUN_ENVELOPE_RENEW_AFTER_MS`` (``apps/workspace/bff/runs/run-envelope-types.ts``);
-#: the envelope itself lives ``JOB_ENVELOPE_MAX_AGE_MS`` (six hours).
 RUN_ENVELOPE_RENEW_AFTER_MS = 60 * 60 * 1000
 
-#: The renewal is one small read on the BFF; a slow answer costs the run its
-#: envelope, not its start.
 RENEW_TIMEOUT_SECONDS = 5.0
 
-#: The refusals the route answers with (``RUN_ENVELOPE_REFUSALS``).
 RUN_ENVELOPE_REFUSALS = frozenset({"unknown-run", "run-not-active", "requester-may-not-act"})
 
 
@@ -168,10 +162,6 @@ async def envelope_headers_for_run(
     if fresh is REFUSED:
         return {}
     if fresh is None:
-        # The BFF could not be asked (unreachable, misconfigured, a malformed
-        # answer): that is no verdict on the requester, so a carried envelope
-        # still inside the BFF verifier's window keeps working. Every echoed
-        # call is judged again by the BFF on the requester's current rights.
         if abs(now - (context.issued_at or 0)) >= JOB_ENVELOPE_MAX_AGE_MS:
             logger.warning("Job %s: request envelope not renewed and past its window; running without one", job_id)
             return {}
@@ -211,7 +201,6 @@ class _Refused:
         return "REFUSED"
 
 
-#: ``renew_run_envelope``'s answer when the BFF refused: the run then acts as nobody.
 REFUSED = _Refused()
 
 

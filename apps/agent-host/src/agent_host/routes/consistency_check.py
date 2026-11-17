@@ -74,16 +74,7 @@ def _llm_settings(organization_id: str | None = None) -> ResolvedCredential:
     from agent.common.credential_resolution import read_api_key_env
     from agent.common.credential_resolution import resolve_llm_credential
 
-    # `read_api_key_env`, not `os.getenv`: docker compose `env_file` does not
-    # interpolate `${VAR}` references, so `OPENROUTER_API_KEY=${OPENROUTER_API_KEY}`
-    # arrives as a literal placeholder — truthy, but not a key. Reading it raw
-    # selected the OpenRouter endpoint below while the resolver (which normalizes
-    # the same way) treated the key as unset and fell back to `LLM_API_KEY`,
-    # sending another provider's key to openrouter.ai.
     openrouter_key = read_api_key_env("OPENROUTER_API_KEY")
-    # Mirrors the boot floor in config_oib_openrouter.yml. NOTE: this route is
-    # not an AgentGroup, so it resolves outside `platform_model_defaults` — the
-    # platform default set under Platform → Models does not reach it.
     default_model = "openai/gpt-6-luna" if openrouter_key else "gpt-4o-mini"
     default_base = "https://openrouter.ai/api/v1" if openrouter_key else "https://api.openai.com/v1"
 
@@ -128,7 +119,6 @@ def _parse_findings(content: str | None) -> list[ConsistencyFinding] | None:
 
     raw_findings = data.get("findings")
     if raw_findings is None:
-        # A well-formed object without a findings key means "consistent".
         return []
     if not isinstance(raw_findings, list):
         return None
@@ -165,18 +155,13 @@ def add_consistency_check_routes(router: APIRouter) -> None:
     )
     async def consistency_check(
         request: ConsistencyCheckRequest,
-        # Forwarded by the BFF (profile-service) so this route can reach the
-        # org's BYOK LLM credential; absent for anonymous/direct callers.
         x_grid_organization_id: str | None = Header(default=None),
     ) -> ConsistencyCheckResponse:
         if not request.free_text:
-            # No free text to scrutinise — nothing for the LLM to do. The client
-            # normally short-circuits before calling; this guards direct callers.
             return ConsistencyCheckResponse(findings=[])
 
         cred = await asyncio.to_thread(_llm_settings, x_grid_organization_id)
         if not cred.api_key:
-            # No credentials — surface a diagnosable code instead of a guaranteed 401.
             return ConsistencyCheckResponse(findings=None, error="llm_not_configured")
 
         language = "German" if request.locale.lower().startswith("de") else "English"

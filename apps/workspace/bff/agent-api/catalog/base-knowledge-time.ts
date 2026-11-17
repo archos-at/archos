@@ -1,9 +1,3 @@
-/**
- * Base knowledge in time (ADR-0171): which edition of a work applied on a date
- * or to a permit procedure. See `projects.ts` for the shape and
- * `docs/architecture/agent-surface.md` for the rules.
- */
-
 import { asOfQuerySchema } from '@/lib/base-knowledge/wire/time'
 import type { AgentOperation } from '../operation'
 

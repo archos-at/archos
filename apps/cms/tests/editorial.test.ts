@@ -1,7 +1,3 @@
-/**
- * The review rules as pure functions (src/access/). tests/int/editorial.int.test.ts
- * proves the same rules through Payload's operations on a real database.
- */
 import { expect, test } from 'vitest';
 import { livePosts, mayWrite } from '../src/access/editorial';
 import { canDraft, canPublish, canUseAdminPanel, ROLES } from '../src/access/roles';
@@ -36,7 +32,6 @@ test('a social post is approved by a publisher only, and the hand-off only moves
   expect(socialStatusAllowed(as('agent'), undefined, 'in_review')).toBe(true);
   expect(socialStatusAllowed(as('agent'), 'approved', 'draft')).toBe(false);
   expect(socialStatusAllowed(as('publisher'), 'in_review', 'approved')).toBe(true);
-  // The hand-off claims before it sends and records after: it cannot skip the claim.
   expect(socialStatusAllowed(as('social-handoff'), 'approved', 'sending')).toBe(true);
   expect(socialStatusAllowed(as('social-handoff'), 'sending', 'scheduled')).toBe(true);
   expect(socialStatusAllowed(as('social-handoff'), 'sending', 'failed')).toBe(true);
@@ -48,15 +43,12 @@ test('a social post is approved by a publisher only, and the hand-off only moves
 });
 
 test('a post that went to Buffer cannot be sent a second time by re-statusing it', () => {
-  // Buffer still holds the post: back to approved would hand it over again.
   for (const from of ['sending', 'scheduled', 'published'] as const) {
     for (const to of ['draft', 'in_review', 'approved'] as const) expect(socialStatusAllowed(as('publisher'), from, to)).toBe(false);
   }
-  // A person records what happened at Buffer, and failed is the one way back to an editable post.
   expect(socialStatusAllowed(as('publisher'), 'scheduled', 'published')).toBe(true);
   expect(socialStatusAllowed(as('publisher'), 'scheduled', 'failed')).toBe(true);
   expect(socialStatusAllowed(as('publisher'), 'failed', 'draft')).toBe(true);
-  // Nobody but the hand-off says a post is at Buffer.
   expect(socialStatusAllowed(as('admin'), 'approved', 'sending')).toBe(false);
   expect(socialStatusAllowed(as('admin'), 'approved', 'scheduled')).toBe(false);
   expect(socialStatusAllowed(as('publisher'), undefined, 'scheduled')).toBe(false);

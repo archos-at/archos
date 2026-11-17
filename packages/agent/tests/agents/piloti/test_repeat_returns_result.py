@@ -39,8 +39,6 @@ from agent.common.tool_calls import FETCH_FAILED_MARKER
 
 _PROMPT = "Du bist Piloti."
 
-#: The body the fake store returns, long enough that "the model got the result"
-#: is a claim about the whole passage and not about a label.
 _PASSAGE = (
     "OIB-Richtlinie 2, Punkt 3.5.2: Die Länge des Fluchtweges darf in Gebäuden der "
     "Gebäudeklasse 4 höchstens 40 m betragen, gemessen in Lauflinie."

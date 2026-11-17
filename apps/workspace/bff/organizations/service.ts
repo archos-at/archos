@@ -1,11 +1,3 @@
-/**
- * Organization data service.
- *
- * Bridges the two sources of org truth:
- *   - WorkOS  — identity, domains, members, invitations (fetched live).
- *   - Grid DB — the `organizations` row holding app-specific settings.
- */
-
 import 'server-only'
 import type { SwitchableOrganization } from './switchable'
 import { findOrganization, upsertOrganization } from './repository'
@@ -28,29 +20,20 @@ export interface OrganizationOverview {
   name: string
   domains: string[]
   createdAt: string
-  /** Active member count (first page; `memberCountCapped` marks a `+`). */
   memberCount: number
   memberCountCapped: boolean
   pendingInviteCount: number
 }
 
-/** app-side settings for an org, with defaults applied. */
 export interface OrgSettings {
   displayName: string | null
-  /** The language members who never picked one start in; null until an admin chooses (their browser's then). */
   defaultLocale: Locale | null
-  /**
-   * ISO 3166-1 alpha-2 country of the office's seat (migration 0200); null when
-   * nobody has said. Stated when the organization is created, or once after.
-   * Never a project's jurisdiction.
-   */
   homeCountry: string | null
   settings: Record<string, unknown>
 }
 
 const PAGE_LIMIT = 100
 
-/** Live org overview from WorkOS. Individual sub-calls fail soft to 0/empty. */
 export async function getOrganizationOverview(
   organizationId: string
 ): Promise<OrganizationOverview> {
@@ -95,24 +78,16 @@ export async function getOrganizationOverview(
 }
 
 export interface OrganizationMember {
-  /** WorkOS user id (`user_…`) — the budget-policy subject id. */
   id: string
   email: string
   name: string | null
 }
 
-/** A member plus the role they hold, for the Access tab's directory. */
 export interface OrganizationMemberWithRole extends OrganizationMember {
-  /** WorkOS role slug for this membership, or null when none is resolvable. */
   roleSlug: string | null
-  /** Membership status (`active`, `pending`, …) straight from WorkOS. */
   status: string
 }
 
-/**
- * Active members of an org (first page, admin pickers). WorkOS is the source
- * of truth; capped at PAGE_LIMIT like the overview counts.
- */
 export async function listOrganizationMembers(
   organizationId: string
 ): Promise<OrganizationMember[]> {
@@ -127,18 +102,6 @@ export async function listOrganizationMembers(
     .sort((a, b) => a.email.localeCompare(b.email))
 }
 
-/**
- * The member directory behind the Access tab: every membership in the
- * organization with the role it carries.
- *
- * Deliberately built from `listOrganizationMemberships` rather than
- * `listUsers` — the membership is what holds the role, and it is also what
- * WorkOS authorizes against. Identities are then resolved in ONE batched call
- * instead of per-member, so a 200-person org costs two round-trips.
- *
- * Best-effort on the identity half: if the user lookup fails, members still
- * appear with their id and role rather than the page failing outright.
- */
 export async function listOrganizationMembersWithRoles(
   organizationId: string
 ): Promise<OrganizationMemberWithRole[]> {
@@ -184,7 +147,6 @@ function toSettings(row: Organization | undefined): OrgSettings {
   }
 }
 
-/** Read Grid settings for an org (defaults when no row exists yet). */
 export async function getOrgSettings(organizationId: string): Promise<OrgSettings> {
   return toSettings((await findOrganization(organizationId)) ?? undefined)
 }
@@ -192,28 +154,10 @@ export async function getOrgSettings(organizationId: string): Promise<OrgSetting
 const ORG_NAME_CACHE_TTL_MS = 300_000
 const orgNameCacheKey = (organizationId: string): string => `orgname:${organizationId}`
 
-/**
- * The org's human name, for chrome that has to say which organization the
- * reader is acting in.
- *
- * Prefers the app-side `displayName` (a local row) and only falls back to
- * WorkOS, because this is called from a layout on a navigation path — a
- * WorkOS round-trip per render would put an identity API in front of every
- * page. The fallback is cached for five minutes: an org rename is rare and
- * five minutes of staleness on a label costs nothing, where an uncached miss
- * would be paid by every reader on every load.
- *
- * Fails soft to `null`. This resolves a LABEL; chrome must still render if the
- * identity service is down, so callers treat null as "omit the line" rather
- * than as an error.
- */
 export async function getOrganizationDisplayName(
   organizationId: string | null | undefined
 ): Promise<string | null> {
   if (!organizationId) return null
-  // Caught OUTSIDE `getCached`, as `lib/sharing/directory.ts` does: caught inside,
-  // one WorkOS timeout was cached as "no name" for five minutes and every
-  // platform surface labelled that organization by its id.
   try {
     return await getCached(orgNameCacheKey(organizationId), ORG_NAME_CACHE_TTL_MS, async () => {
       const { displayName } = await getOrgSettings(organizationId)
@@ -226,22 +170,10 @@ export async function getOrganizationDisplayName(
   }
 }
 
-/** Membership changes are rare; a joiner sees the switcher within this long. */
 const SWITCHER_CACHE_TTL_MS = 5 * 60_000
 
-/** More offices than one person works in; the menu lists them all on one page. */
 const SWITCHER_MEMBERSHIP_LIMIT = 50
 
-/**
- * The organizations the person can switch between, by name, the current one
- * marked: empty for someone in one organization, which is when the avatar menu
- * offers no switch. WorkOS's membership carries the organization's name, so one
- * call answers.
- *
- * Fails soft to empty, as the display name does: a menu without the switch
- * still renders, and caught outside `getCached` so an outage is not remembered
- * as "one organization".
- */
 export async function switchableOrganizations(
   organizationId: string | null | undefined,
   userId: string
@@ -269,25 +201,10 @@ export async function switchableOrganizations(
 
 export interface OrgSettingsPatch {
   displayName?: string | null
-  /** `null` takes the choice back: members then start in their browser's language. */
   defaultLocale?: Locale | null
   settings?: Record<string, unknown>
 }
 
-/**
- * Upsert Grid settings for an org, merging the `settings` bag.
- *
- * REFUSES platform-owned keys (see `PLATFORM_OWNED_SETTINGS`). Every tenant-facing
- * write reaches the bag through here, so this is the one place the refusal has to
- * live — putting it in the settings route would leave the next route to remember
- * it, and the reason this guard exists is that `PUT /api/organization/settings`
- * accepted `storageQuotaBytes` and let a tenant raise its own quota.
- *
- * Platform-tier writers call {@link updatePlatformOwnedOrgSettings} instead. That
- * is a distinct exported name rather than a boolean argument on this function
- * precisely so `grep` finds every platform write, and so nothing reaches the
- * bypass by passing `true`.
- */
 export async function updateOrgSettings(
   organizationId: string,
   patch: OrgSettingsPatch
@@ -300,7 +217,6 @@ export async function updateOrgSettings(
         'operator, not by the organization.'
     )
   }
-  // Own keys only: `in` would also match `constructor` and `toString`.
   const dedicated = keys.filter((key): key is keyof typeof DEDICATED_ROUTE_SETTINGS =>
     Object.prototype.hasOwnProperty.call(DEDICATED_ROUTE_SETTINGS, key)
   )
@@ -312,24 +228,6 @@ export async function updateOrgSettings(
   return writeOrgSettings(organizationId, patch)
 }
 
-/**
- * Upsert Grid settings INCLUDING platform-owned keys. PLATFORM TIER ONLY.
- *
- * Named for what it permits so that the audit question — "what can write the
- * quota?" — is answerable by searching for one identifier, and it now ENFORCES
- * what the name claims rather than describing a guard that lives elsewhere.
- *
- * It used to take no session and rely on the callers being routed through
- * `platformApiRoute`. That is true of today's one caller and is not a property of
- * this function: the bypass it opens is exactly the one `updateOrgSettings`
- * closed, so "reachable only from an authorized route" was a fact about the call
- * graph at a moment in time, defended by nothing. The session is required, the
- * check runs here, and `PLATFORM_OWNED_SETTINGS` therefore has no unguarded
- * writer anywhere.
- *
- * The route-level platform gate stays where it is. Checking twice costs a
- * cached predicate and means neither layer is load-bearing alone.
- */
 export async function updatePlatformOwnedOrgSettings(
   session: UserSession | null,
   organizationId: string,
@@ -339,12 +237,6 @@ export async function updatePlatformOwnedOrgSettings(
   return writeOrgSettings(organizationId, patch)
 }
 
-/**
- * Write ONE key the generic save refuses (`DEDICATED_ROUTE_SETTINGS`), for the
- * dedicated service that owns it. The key must be declared there: this is not
- * a second generic writer, it is the door each dedicated route walks through,
- * and a key nobody declared has no route that validates it.
- */
 export async function writeDedicatedOrgSetting(
   organizationId: string,
   key: keyof typeof DEDICATED_ROUTE_SETTINGS,
@@ -356,7 +248,6 @@ export async function writeDedicatedOrgSetting(
   return writeOrgSettings(organizationId, { settings: { [key]: value } })
 }
 
-/** The merge itself. Private: every caller goes through one of the exported writers above. */
 async function writeOrgSettings(
   organizationId: string,
   patch: OrgSettingsPatch
@@ -382,19 +273,6 @@ async function writeOrgSettings(
 const WEB_SEARCH_CACHE_TTL_MS = 30_000
 const webSearchCacheKey = (organizationId: string): string => `websearch:${organizationId}`
 
-/**
- * Effective web-search availability for an org (ADR-0022) — read on every
- * WS upgrade and by the `/api/v1/data_sources` proxy, so it is cached
- * briefly (write-invalidated by `setOrgWebSearchEnabled`). Two layers:
- *
- *  - Tenant layer: `settings.webSearchEnabled` (default TRUE — web search is
- *    a core capability until an org admin turns it off).
- *  - Platform layer: the WorkOS `web-search` flag (a rollout, ON for every
- *    organization; see docs/deployment/workos-provisioning.md).
- *
- * No org = enabled: an anonymous deployment, where web search is on as every
- * rollout is (`lib/authz/feature-flags.ts`).
- */
 export async function isWebSearchEnabledForOrg(
   organizationId: string | null | undefined
 ): Promise<boolean> {
@@ -407,26 +285,8 @@ export async function isWebSearchEnabledForOrg(
 }
 
 const ZDR_ONLY_CACHE_TTL_MS = 30_000
-/**
- * `:v2` because the meaning of an absent setting flipped from off to on. A
- * replica still running the old reader could have cached `false` for an org
- * that never chose; the new reader must not find that entry.
- */
 const zdrOnlyCacheKey = (organizationId: string): string => `zdronly:v2:${organizationId}`
 
-/**
- * Whether zero data retention is in force for the org (ADR-0014 privacy
- * control). **On unless the org explicitly opted out**: only a stored boolean
- * `false` in `settings.zdrOnly` turns it off, so an org that never touched the
- * switch, a malformed value, and no org at all are all ZDR. Independent of the
- * `model-configuration` feature flag, which gates the admin surface and never
- * the default.
- *
- * Read by the model-config picker/save path (to filter the OpenRouter catalog)
- * and by the Python backend via `/api/internal/model-overrides` (to add
- * `provider.zdr` to every OpenRouter request). Cached briefly, write-
- * invalidated by `setOrgZdrOnly`.
- */
 export async function isZdrOnlyForOrg(organizationId: string | null | undefined): Promise<boolean> {
   if (!organizationId || residencyCell() !== null) return true
   return getCached(zdrOnlyCacheKey(organizationId), ZDR_ONLY_CACHE_TTL_MS, async () => {
@@ -435,22 +295,10 @@ export async function isZdrOnlyForOrg(organizationId: string | null | undefined)
   })
 }
 
-/** The one reading of the stored value: anything but an explicit `false` is ZDR. */
 export function isZdrOnlySetting(value: unknown): boolean {
   return value !== false
 }
 
-/**
- * Toggle the org's zero-data-retention policy and record the audit trail with
- * the value before and after. The only writer of `zdrOnly`: the generic
- * settings save refuses the key (`DEDICATED_ROUTE_SETTINGS`), so the gate at
- * the dedicated route (`org:models:manage` + the model-configuration flag) is
- * the gate. Writes past `updateOrgSettings` for exactly that reason.
- *
- * Inside a residency cell (`RESIDENCY_CELL`, ADR-0167) zero retention is the
- * cell's promise, not the org's choice: switching it off is refused, and the
- * backend pins every request whatever is stored.
- */
 export async function setOrgZdrOnly(
   session: AuthorizedSession,
   enabled: boolean,
@@ -463,7 +311,6 @@ export async function setOrgZdrOnly(
   const previous = isZdrOnlySetting(before.settings.zdrOnly)
   await writeOrgSettings(session.organizationId, { settings: { zdrOnly: enabled } })
   await invalidateCached(zdrOnlyCacheKey(session.organizationId))
-  // The backend folds ZDR into the same cached record as the model overrides.
   await invalidateBackendModelConfig(session.organizationId)
   await recordAuditEvent({
     organizationId: session.organizationId,
@@ -477,13 +324,6 @@ export async function setOrgZdrOnly(
   return { zdrOnly: enabled, previous }
 }
 
-/**
- * Switch web search for the caller's organization (ADR-0022), audited as the
- * settings save is. The only writer of
- * `settings.webSearchEnabled`: the generic settings save refuses the key
- * (`DEDICATED_ROUTE_SETTINGS`), so the switch has one route, and the agent
- * catalog can mark that route a privacy control (`sensitivity: 'control'`).
- */
 export async function setOrgWebSearchEnabled(
   session: AuthorizedSession,
   enabled: boolean,
@@ -493,13 +333,10 @@ export async function setOrgWebSearchEnabled(
   const previous = before.settings.webSearchEnabled !== false
   await writeDedicatedOrgSetting(session.organizationId, 'webSearchEnabled', enabled)
   await invalidateCached(webSearchCacheKey(session.organizationId))
-  // The backend's shared record carries web search.
   if (previous !== enabled) await invalidateBackendModelConfig(session.organizationId)
   await recordAuditEvent({
     organizationId: session.organizationId,
     actor: { userId: session.userId, email: session.email },
-    // The settings save's own action and shape (`fields`), so no new audit schema is
-    // provisioned in WorkOS; the value is the switch, and an unmoved one lists nothing.
     action: 'org.settings.updated',
     targetType: 'organization',
     targetId: session.organizationId,
@@ -509,18 +346,11 @@ export async function setOrgWebSearchEnabled(
   return { webSearchEnabled: enabled, previous }
 }
 
-/**
- * Update the caller's org settings and record the audit trail. The coarse
- * gate (`org:settings:manage`) is enforced at the route via `apiRoute`'s
- * `options.permission`.
- */
 export async function saveOrgSettings(
   session: AuthorizedSession,
   patch: OrgSettingsPatch,
   request: Request
 ): Promise<OrgSettings> {
-  // Read before writing, so the audit names only what changed. (`zdrOnly` and
-  // `webSearchEnabled` cannot move here: the merge refuses them.)
   const before = await getOrgSettings(session.organizationId)
   const settings = await updateOrgSettings(session.organizationId, patch)
   await recordAuditEvent({
@@ -535,11 +365,6 @@ export async function saveOrgSettings(
   return settings
 }
 
-/**
- * What a save changed, as `displayName`, `defaultLocale` and `settings.<key>`.
- * The bag is listed per key: `settings` alone told the trail nothing about
- * which switch moved.
- */
 export function changedSettingsFields(before: OrgSettings, after: OrgSettings): string[] {
   const fields: string[] = []
   if (before.displayName !== after.displayName) fields.push('displayName')

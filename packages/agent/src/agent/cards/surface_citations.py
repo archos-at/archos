@@ -31,15 +31,10 @@ from agent.cards.surface_card import SurfaceCard
 from agent.citations.markdown_code import map_outside_code
 from agent.citations.references import expand_grouped_citations
 
-#: A bare ``[N]`` with the blanks before it: not a ``[[card:N]]`` marker, not
-#: the label of a Markdown link. The blanks are group 1 so a dropped marker
-#: takes them along and nothing else in the text is touched.
 _CITATION = re.compile(r"([ \t ]*)(?<!\[)\[(\d+)\](?![\](])")
 
 _NO_MERGES: Mapping[int, int] = {}
 
-#: What a recited ``Text`` leaf says when it cited nothing that survived and
-#: the surface cannot stand without it (:func:`recite_surface`).
 BLANK_TEXT = "—"
 
 
@@ -62,13 +57,9 @@ def recite_text(
     def replace(match: re.Match[str]) -> str:
         old = int(match.group(2))
         old = merged.get(old, old)
-        # The map lists every number that SURVIVED (sanitize's renumbering), so
-        # one missing from it was removed. Passing it through unchanged would
-        # land it on whichever survivor was renumbered onto that number.
         new = renumber.get(old) if renumber else old
         return f"{match.group(1)}[{new}]" if new is not None and new in cited else ""
 
-    # Outside code only: `x[1]` or a mermaid node `S[1]` is source, not a citation.
     return map_outside_code(
         text,
         lambda prose: _CITATION.sub(replace, expand_grouped_citations(prose)),

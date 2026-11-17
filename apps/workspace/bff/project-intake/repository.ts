@@ -1,20 +1,3 @@
-/**
- * Project intakes repository: the SQL over `project_intakes` (migration 0144,
- * ADR-0111). No authorization here; `./service` owns it. Every statement is
- * keyed by the organization as well as the project, and runs in its tenant
- * scope, except the insert, which runs in the caller's transaction (the create
- * flow writes the row with the project's profile, or not at all).
- *
- * The reading's lifecycle is carried by compare-and-swap updates: a reading is
- * claimed only from a status that is not `reading` (and not `completed`), and
- * every write a run makes names its `job_id` and finds no row once the intake
- * has moved on to another reading. The service turns "no row" into a 409.
- *
- * The jsonb columns are parsed on the way out (`toRow`): the CHECKs keep their
- * kinds, not their shapes, and a reading that stored something unexpected must
- * not take the review page down with it.
- */
-
 import 'server-only'
 import { and, eq, inArray, ne, notInArray, sql } from 'drizzle-orm'
 import { z } from 'zod'
@@ -35,10 +18,8 @@ import {
 
 export type { NewProjectIntakeRow, ProjectIntakeRow }
 
-/** Most projects one lookup of open intakes asks about: a settle completes a handful of batches. */
 export const MAX_OPEN_INTAKE_LOOKUP = 100
 
-/** Most dismissed values an intake keeps; the oldest go first. Each one is a key and a value. */
 export const MAX_DISMISSED_VALUES = 500
 
 const lenientArray = <T extends z.ZodType>(item: T) =>
@@ -56,11 +37,6 @@ const documentsReadColumn = lenientArray(documentReadSchema)
 const dismissedColumn = lenientArray(dismissedValueSchema)
 const readingFilesColumn = lenientArray(z.string().min(1).max(512))
 
-/**
- * The row with its jsonb columns parsed. An entry that does not parse is
- * dropped, the rest kept; a whole column that does not parse is null (or
- * empty), never a thrown read.
- */
 function toRow(row: ProjectIntakeRow): ProjectIntakeRow {
   return {
     ...row,
@@ -78,16 +54,11 @@ const first = (rows: ProjectIntakeRow[]): ProjectIntakeRow | null => (rows[0] ? 
 const ofProject = (organizationId: string, projectId: string) =>
   and(eq(projectIntakes.organizationId, organizationId), eq(projectIntakes.projectId, projectId))
 
-/**
- * Store a project's intake, in the caller's transaction (the create flow's,
- * which writes the profile with it). The tenant context is the caller's.
- */
 export async function insertProjectIntake(executor: DbExecutor, row: NewProjectIntakeRow): Promise<ProjectIntakeRow> {
   const [inserted] = await executor.insert(projectIntakes).values(row).returning()
   return toRow(inserted)
 }
 
-/** The project's intake, or null when it was set up without one. */
 export async function findProjectIntake(organizationId: string, projectId: string): Promise<ProjectIntakeRow | null> {
   const rows = await withTenant({ organizationId }, () =>
     getDb().select().from(projectIntakes).where(ofProject(organizationId, projectId)).limit(1)
@@ -95,7 +66,6 @@ export async function findProjectIntake(organizationId: string, projectId: strin
   return first(rows)
 }
 
-/** The intake whose current or last reading is this backend job, in this organization; null for any other job. */
 export async function findProjectIntakeByJobId(organizationId: string, jobId: string): Promise<ProjectIntakeRow | null> {
   const rows = await withTenant({ organizationId }, () =>
     getDb()
@@ -107,11 +77,6 @@ export async function findProjectIntakeByJobId(organizationId: string, jobId: st
   return first(rows)
 }
 
-/**
- * Of these projects, the ones with an intake a reading may still serve: not
- * `completed`. Bounded: at most {@link MAX_OPEN_INTAKE_LOOKUP} projects are
- * asked about, the rest are ignored.
- */
 export async function listOpenIntakeProjectIds(organizationId: string, projectIds: readonly string[]): Promise<string[]> {
   const asked = [...new Set(projectIds)].slice(0, MAX_OPEN_INTAKE_LOOKUP)
   if (asked.length === 0) return []
@@ -132,20 +97,12 @@ export async function listOpenIntakeProjectIds(organizationId: string, projectId
 }
 
 export interface IntakeReadingClaim {
-  /** The backend job id the reading will run as, minted before the submission. */
   jobId: string
-  /** The person whose upload or click starts it; the run acts as them (ADR-0108). */
   requestedBy: string
-  /** Forget what was read, so every document is read again (`scope: 'all'`). */
   forgetRead: boolean
   now: Date
 }
 
-/**
- * Claim a reading: `reading`, with its job, its requester and its start, from
- * any status but `reading` and `completed`. Null when a reading already runs
- * (the caller records a rerun instead) or the review was finished.
- */
 export async function claimIntakeReading(
   organizationId: string,
   projectId: string,
@@ -172,7 +129,6 @@ export async function claimIntakeReading(
   return first(rows)
 }
 
-/** Remember that a trigger arrived during a reading. Null when no reading runs any more. */
 export async function requestIntakeRerun(organizationId: string, projectId: string): Promise<ProjectIntakeRow | null> {
   const rows = await withTenant({ organizationId }, () =>
     getDb()
@@ -184,12 +140,6 @@ export async function requestIntakeRerun(organizationId: string, projectId: stri
   return first(rows)
 }
 
-/**
- * The files the reading `jobId` has opened so far (step 3's live progress),
- * replacing what it reported before: the run sends its whole list each time.
- * The same compare-and-swap as {@link endIntakeReading}: null when the intake
- * has moved on, so a stale run cannot write another reading's progress.
- */
 export async function setIntakeReadingFiles(
   organizationId: string,
   projectId: string,
@@ -211,19 +161,12 @@ export async function setIntakeReadingFiles(
 export interface IntakeReadingEnd {
   status: 'ready' | 'failed'
   now: Date
-  /** The whole list after this reading; absent leaves it as it is (a failed reading read nothing for sure). */
   documentsRead?: DocumentRead[]
   counts?: IntakeCounts
   summary?: string | null
   traceId?: string | null
 }
 
-/**
- * End the reading `jobId`: `ready` with what it read, or `failed`. A
- * compare-and-swap on the job and on `reading`: null when the intake has moved
- * on (another reading claimed it, a person finished the review, or this one
- * already ended).
- */
 export async function endIntakeReading(
   organizationId: string,
   projectId: string,
@@ -250,10 +193,6 @@ export async function endIntakeReading(
   return first(rows)
 }
 
-/**
- * Remember values a person dismissed, appended in SQL so two people
- * dismissing at once both land. Keeps the newest {@link MAX_DISMISSED_VALUES}.
- */
 export async function addIntakeDismissed(
   organizationId: string,
   projectId: string,
@@ -276,11 +215,6 @@ export async function addIntakeDismissed(
   return first(rows)
 }
 
-/**
- * Finish the review: `completed`, by whom and when, from any status but
- * `completed`. A reading still running is left to find its job no longer
- * current. Null when it was finished already.
- */
 export async function completeProjectIntake(
   organizationId: string,
   projectId: string,

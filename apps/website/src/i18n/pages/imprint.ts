@@ -1,8 +1,3 @@
-/**
- * Copy of the imprint, both locales. `{name}` is the brand name, filled by
- * `withName`; `{legalEntity}`, `{street}`, `{postalCode}`, `{city}` and
- * `{email}` are filled from identity by the view. Text and labels only.
- */
 const de = {
   meta: {
     title: 'Impressum',

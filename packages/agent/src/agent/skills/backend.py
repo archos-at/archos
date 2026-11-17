@@ -46,15 +46,12 @@ from deepagents.backends.utils import slice_read_response
 
 from .models import Skill
 
-#: Where every agent sees the skills: the ``CompositeBackend`` route.
 SKILLS_ROOT = "/skills/"
 
-#: The source of the skills the BFF serves for an organization.
 OFFICE_SOURCE = "office"
 
 _READ_ONLY = "the skills mount is read-only"
 
-#: A miss lists every skill when the run offers at most this many, else the closest few.
 _LIST_ALL_UNDER = 12
 _CLOSEST = 3
 

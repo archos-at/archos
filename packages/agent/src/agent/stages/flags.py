@@ -37,12 +37,8 @@ from agent.stages.registry import iter_stages
 
 logger = logging.getLogger(__name__)
 
-#: The flag slug the pre-stage `memoryReflectionEnabled` boolean stood for.
 MEMORY_REFLECTION_FLAG_SLUG = "memory-reflection"
 
-#: The flag slug gating deep research, mirrored from the BFF registry
-#: (``apps/workspace/bff/authz/feature-flags.ts``). Named here for the log
-#: line and the tests; nothing in this module branches on the string.
 DEEP_RESEARCH_FLAG_SLUG = "deep-research"
 
 
@@ -51,39 +47,12 @@ class TurnFlags:
     """The BFF's answer for one turn: which stages run, what may be offered."""
 
     enabled_stages: frozenset[str]
-    #: Whether this tenant may be OFFERED a deep-research run at all. The job
-    #: queue has its own gate on ``POST /api/jobs/async/submit``; this is the
-    #: one the answering agent reads, so a tenant without the capability is
-    #: never handed a plan whose approval button answers 403.
-    #:
-    #: Defaults to True, and the failure paths below keep it True on purpose:
-    #: an unreachable BFF or an older one that does not send ``features`` must
-    #: degrade to the behaviour that shipped before this field existed, not
-    #: withdraw deep research from every tenant for as long as the blip lasts.
-    #: Withdrawal is a decision somebody made in WorkOS; it is never the shape
-    #: of a timeout.
     deep_research_allowed: bool = True
-    #: Whether this tenant may have work HANDED OVER — the `create_task` tool
-    #: and the schedules behind it. Its own flag rather than a second reading of
-    #: the one above, because the two withdraw different things: an org may
-    #: still get a deep-research answer in the thread and not be allowed to
-    #: queue work that outlives the turn. Same True-on-every-failure-path
-    #: reasoning as :attr:`deep_research_allowed`.
     tasks_allowed: bool = True
-    #: Whether this tenant has written folder cards (the ``folder-cards`` WorkOS
-    #: flag, ADR-0127). Unlike the two above this is an entitlement, so it is OFF
-    #: unless the BFF says yes: an older BFF, a failed call or a missing field
-    #: all read as no.
     folder_cards_allowed: bool = False
-    #: Whether licensed text an office holds may reach the model inside the call (the ``licensed-seam``
-    #: flag, ``common/licensed_text.py``). An entitlement like the one above: off unless the BFF says yes,
-    #: and off means a licensed passage is listed without its text, never that it is sent unguarded.
     licensed_text_allowed: bool = False
 
 
-#: The evaluation runs on the per-turn critical path, in the same gather as the
-#: live memory-digest fetch, so a slow BFF must never stall the turn. On timeout
-#: the caller keeps the connection-time value.
 _TIMEOUT_SECONDS = 1.5
 
 
@@ -115,8 +84,6 @@ def fetch_turn_flags(*, organization_id: str | None, project_id: str | None = No
     read with a True default so a mixed deployment keeps the behaviour it had
     before deep research could be withdrawn at all.
     """
-    # The project, when the turn has one: a closed project withdraws deep
-    # research and tasks (ADR-0090), because both file into it.
     params = {"organizationId": organization_id} if organization_id else {}
     if project_id:
         params["projectId"] = project_id
@@ -129,8 +96,6 @@ def fetch_turn_flags(*, organization_id: str | None, project_id: str | None = No
     features = body.get("features") if isinstance(body.get("features"), dict) else {}
     return TurnFlags(
         enabled_stages=frozenset(item for item in enabled if isinstance(item, str) and item),
-        # Only an explicit False withdraws a capability. Anything else — absent,
-        # null, a string from a future schema — is the older-BFF case above.
         deep_research_allowed=features.get("deepResearch") is not False,
         tasks_allowed=features.get("tasks") is not False,
         folder_cards_allowed=features.get("folderCards") is True,

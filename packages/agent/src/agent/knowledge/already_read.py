@@ -39,19 +39,12 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-#: Heading of the rendered block, the anchor the prompt rule names.
 DIGEST_HEADING = "## Bereits gelesen (diese Unterhaltung)"
 
-#: How many documents the digest keeps. Past this the oldest entries drop out,
-#: most-recent-first retention, so the digest is the recent working set.
 MAX_DIGEST_DOCS = 20
 
-#: Approximate token budget for the whole digest (the entry lines only, not the
-#: explanation around them). Tokens are estimated as characters // 4; past this the oldest
-#: entries drop out exactly like past the document cap.
 MAX_DIGEST_TOKENS = 800
 
-#: The longest page run a digest line may hold as a range; a longer one is a hand-edited line, not a read.
 MAX_DIGEST_PAGE_RUN = 500
 
 

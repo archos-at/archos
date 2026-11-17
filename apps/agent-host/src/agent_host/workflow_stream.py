@@ -82,12 +82,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-#: Put on the hand-over queue when the producer task has finished, however it finished.
 _END = object()
 
-#: How long a stopped workflow may take over its teardown before the consumer
-#: stops waiting for it. A healthy teardown (ledger posts, a checkpoint write)
-#: takes well under a second.
 PRODUCER_TEARDOWN_SECONDS = 10.0
 
 
@@ -112,8 +108,6 @@ async def stream_workflow(payload: Any, *, session: Session) -> AsyncIterator[An
         try:
             await _stop(producer)
         finally:
-            # A second cancel (a Stop pressed again, a supersede republished every 2 s) ends the wait
-            # above with CancelledError; the slots go back all the same.
             await _return_slots(slots)
 
 

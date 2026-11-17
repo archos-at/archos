@@ -71,9 +71,6 @@ async def _fetch(
             filters=filters,
         )
         chunks = list(getattr(result, "chunks", None) or [])
-    # Same stamping the search's per-collection fan-out does: this is the
-    # last point at which the stratum is known for free, and nothing
-    # downstream may recover a shelf from a collection id (ADR-0047).
     for chunk in chunks:
         chunk.metadata.setdefault("collection", target.collection)
         if target.shelf:

@@ -1,12 +1,3 @@
-/**
- * The platform's skills on the platform door (ADR-0016, ADR-0170). A published
- * platform skill is offered to every office at once, and an edit reaches every
- * office running it immediately, so a publish, an edit and a delete are the
- * person's own decision (`personDecides`, held at the route by
- * `requirePersonDecision`): an operator's agent drafts, the person releases.
- * Creating a draft needs no yes, as a draft change request needs none.
- */
-
 import { z } from 'zod'
 import { createPlatformSkillSchema, patchPlatformSkillSchema } from '@/lib/skills/types'
 import type { AgentOperation, PersonConfirmation } from '../operation'
@@ -15,7 +6,6 @@ const skillParams = z.object({
   skillId: z.string().describe('The platform skill id, from platform-skill-list.'),
 })
 
-/** Where the person publishes, edits or deletes a platform skill themselves. */
 const IN_SKILLS_VIEW: PersonConfirmation = { decideAt: () => '/app/platform/skills' }
 
 export const platformSkillOperations = [

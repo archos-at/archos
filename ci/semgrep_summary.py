@@ -1,8 +1,4 @@
 #!/usr/bin/env python3
-"""Markdown summary of a Semgrep JSON report, for $GITHUB_STEP_SUMMARY.
-
-Usage: semgrep_summary.py <semgrep.json> <what the findings are>
-"""
 
 from __future__ import annotations
 

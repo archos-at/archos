@@ -7,11 +7,6 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
-#: The one line the model reads when the overview raised. Without it a family
-#: question answered by ranked passages is indistinguishable from an ordinary
-#: two-document search, in the result and in the Herleitung built from it. It
-#: names the way back rather than an instruction: the parts are still readable,
-#: one call each.
 FAMILY_OVERVIEW_FAILED_NOTICE = (
     "Note: the overview of the parts of OIB-Richtlinie {key} could not be built; only the ranked results "
     "follow, and each part opens on its own by its file name.\n\n"
@@ -31,16 +26,10 @@ class _FamilyBranch:
     failed: bool = False
 
 
-#: No family branch ran: an ordinary search, with nothing to say about one.
 NO_FAMILY_BRANCH = _FamilyBranch()
 
 
-#: Ranked passages kept BESIDE a family overview. The overview already opens
-#: every part at its Geltungsbereich and lists its Gliederung; the ranked
-#: search around it is context, not the answer. Measured on „Was weißt du über
-#: die OIB 2?" (2026-09-23, live): with the full sixteen, the block was 25.5k
-#: characters (~7.4k tokens), half of it Leitfaden and Erläuterungen excerpts
-#: that an overview answer never cites, re-sent on every later call of the turn.
+#: Measured 2026-09-23: the full sixteen made a 25.5k character block, half of it never cited.
 FAMILY_RANKED_HITS = 4
 
 

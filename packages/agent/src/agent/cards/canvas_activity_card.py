@@ -7,7 +7,6 @@ from pydantic import Field
 
 from agent.cards.card_model import CardModel
 
-#: How many entries one card carries: the `mark` tool proposes at most 20 per call.
 MAX_CANVAS_ACTIVITY_ITEMS = 20
 
 

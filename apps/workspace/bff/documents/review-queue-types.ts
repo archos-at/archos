@@ -1,10 +1,7 @@
-/** The review queue's wire (`GET /api/review/queue`), re-exported by `./lifecycle-types.ts`. */
-
 import { z } from 'zod'
 
 export const REVIEW_QUEUE_ROLES = ['reviewer', 'submitter'] as const
 
-/** `GET /api/review/queue`: the versions in review that wait on the person, or that the person sent to review. */
 export const reviewQueueQuerySchema = z.object({
   role: z
     .enum(REVIEW_QUEUE_ROLES)
@@ -25,7 +22,6 @@ export interface ReviewQueueResponse {
     projectName: string | null
     versionId: string
     versionNumber: number
-    /** The person who sent it to review. */
     submittedBy: string | null
     submittedByName: string | null
     submittedAt: string | null

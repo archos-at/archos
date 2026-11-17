@@ -1,27 +1,5 @@
 'use client'
 
-/**
- * Dev preview of the setup's step 2, Ablage (ticket 26), inside the setup's own
- * bar and footer, drawn from fixtures:
- *
- *   `?state=empty`      — a new project: the drop area, „Projektordner wählen".
- *   `?state=chosen`     — „Wohnbau Nord" as a tree before the upload: backup and
- *                         temp proposed out, the fee and contract folders held
- *                         back by the office's list, „15 Dateien hochladen".
- *   `?state=changed`    — the same, for a project that set „Vertrag" aside.
- *   `?state=readonly`   — the same, for a member who does not manage the project.
- *   `?state=listfailed` — the same, while the list cannot be read: the upload waits.
- *   `?state=uploading`  — the chosen files on their way.
- *   `?state=uploaded`   — documents in the project: its folders with their
- *                         access, Piloti's two open filing suggestions, and the
- *                         way on to the Erfassung.
- *
- * Nothing leaves the browser: a fake client answers the list and the folders,
- * the faked proposals API answers the suggestions, and „Hochladen" shows the
- * files it would hand to the upload instead of uploading them. Not linked from
- * anywhere; the `/dev` layout 404s it outside development.
- */
-
 import { use, useMemo, useState } from 'react'
 import { useFakeProposalClient } from '@/app/dev/_fixtures/fake-proposals'
 import { INTAKE_FILING, INTAKE_READY, INTAKE_WAITING } from '@/app/dev/_fixtures/project-intake'

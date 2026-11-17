@@ -125,10 +125,6 @@ def separating_elements(model: SpatialModel, space_a: str, space_b: str) -> Answ
     alongside: list[SeparatingElement] = []
     openings: list[dict[str, Any]] = []
     seen_openings: set[str] = set()
-    #: Fenestration the BOUNDARIES named directly, held back until the void
-    #: chains have been walked. Order matters: the chain knows which wall the
-    #: door sits in and a 2nd-level boundary does not, so processing the chain
-    #: first is what puts a host in `inBauteil` instead of a null.
     from_boundaries: list[Any] = []
 
     for ref in sorted(shared, key=lambda r: r.global_id):
@@ -146,11 +142,6 @@ def separating_elements(model: SpatialModel, space_a: str, space_b: str) -> Answ
             compartmentation=compartmentation if isinstance(compartmentation, bool) else None,
         )
         if element.is_a() in op.FENESTRATION and role == "separating":
-            # A door found through the boundaries is an OPENING in this answer,
-            # never a separating element in its own right: listing it in both
-            # places would let a reader count one door as two barriers. A
-            # fenestration element that is only `shared` still goes to
-            # `alongside` below — nothing leaves this loop unreported.
             from_boundaries.append(element)
             continue
         (walls if role == "separating" else alongside).append(entry)
@@ -408,11 +399,6 @@ def _separating_caveat(
             "Pset_DoorCommon.FireRating, Pset_SlabCommon.FireRating) und mitexportieren."
         )
         if blanks:
-            # Named separately because the file LOOKS like it declares something.
-            # In `AC20-FZK-Haus.ifc` four ArchiCAD placeholders carry FireRating
-            # as the empty string; counting those as declarations sent the whole
-            # answer down the „Lücke in genau diesen Bauteilen" branch below and
-            # blamed the architect for a defect that is the export's.
             parts.append(
                 f"{blanks} Bauteil(e) führen das Merkmal FireRating zwar mit, aber LEER — ein Platzhalter, "
                 "wie ihn manche CAD-Vorlagen mitexportieren. Ein leerer Wert ist keine Deklaration und wird "

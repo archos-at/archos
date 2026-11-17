@@ -236,20 +236,12 @@ def _measure_run(
         travel = treads_in[-1][2][:2] - treads_in[0][2][:2]
         length = float(np.linalg.norm(travel))
         if length < 1e-9:
-            # Every tread centre over the same point in plan — a spiral flight
-            # that closes on itself. Direction-based measurements are meaningless
-            # here and pretending otherwise is how a Wendeltreppe gets reported
-            # with a 0.00 m Auftritt.
             return None, (
                 "Die Trittflächen liegen in der Draufsicht übereinander — ein Lauf, der sich um seine "
                 "eigene Achse dreht. Auftritt und Nutzbreite sind daran nicht messbar."
             )
         along = np.array([travel[0] / length, travel[1] / length, 0.0])
     else:
-        # A single tread between two Podeste is a real thing (one step down into
-        # a room). Its travel direction is the SHORT axis of the tread: a step is
-        # wide across and shallow along, so the short side of its own minimal
-        # rectangle is the direction a person walks.
         along = _short_axis(treads_in[0][3])
         if along is None:
             return None, (
@@ -259,17 +251,10 @@ def _measure_run(
     across = np.array([-along[1], along[0], 0.0])
 
     if len(treads_in) >= 3:
-        # Collinearity. A straight flight holds its tread centres on the line
-        # through the first and the last to within tessellation noise; a winder
-        # bows off it by half a metre, and every directional number measured
-        # across that bow is a number about a chord and not about a step.
         first = treads_in[0][2][:2]
         last = treads_in[-1][2][:2]
         direction = last - first
         direction = direction / float(np.linalg.norm(direction))
-        # The 2-D cross product, written out: numpy 2.0 deprecates `np.cross` on
-        # 2-vectors and the perpendicular offset of a point from a unit line is
-        # exactly this scalar.
         offsets = [
             abs(float(direction[0] * (cluster[2][1] - first[1]) - direction[1] * (cluster[2][0] - first[0])))
             for cluster in treads_in
@@ -294,8 +279,6 @@ def _measure_run(
     levels = [t.z for t in treads]
     steps = [levels[i + 1] - levels[i] for i in range(len(levels) - 1)]
     if landing_below is not None:
-        # The Podest under a flight IS its floor line, so the step up off it is
-        # this flight's bottom riser and there is nothing to guess about.
         bottom = levels[0] - landing_below[0]
         base_riser_used = True
     else:
@@ -304,9 +287,6 @@ def _measure_run(
             median = float(np.median(steps))
             base_riser_used = abs(bottom - median) <= BASE_RISER_RELATIVE_SLACK * median
         else:
-            # Nothing to compare against. The body's underside is the only
-            # candidate for a floor line, and the caveat says the measurement
-            # rests on it.
             base_riser_used = bottom > MIN_INTRUSION
     risers = ([bottom] if base_riser_used else []) + steps
     if landing_above is not None:
@@ -324,8 +304,6 @@ def _measure_run(
 
     goings = [float(np.linalg.norm(treads[i + 1].centre[:2] - treads[i].centre[:2])) for i in range(len(treads) - 1)]
     widths = [t.span[3] - t.span[2] for t in treads]
-    # The nosing is the FRONT edge of the tread — its minimum along the travel
-    # direction — held at the tread's own lateral centre.
     nosings = np.array(
         [[*(t.centre[:2] + along[:2] * (t.span[0] - float(t.centre[:2] @ along[:2]))), t.z] for t in treads]
     )

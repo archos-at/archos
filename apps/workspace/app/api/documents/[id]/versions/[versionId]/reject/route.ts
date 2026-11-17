@@ -1,11 +1,3 @@
-/**
- * Ablehnen — a refusal that expects nothing further of this version.
- *
- * The reason is required for the same reason `changes` needs one, and the two
- * are separate verbs rather than one with a flag because they say different
- * things to whoever wrote it: come back with a revision, or do not.
- */
-
 import { apiRoute, parseJsonBody } from '@/lib/api/handler'
 import { toDocumentVersionView, transitionDocumentVersion } from '@/lib/documents/lifecycle'
 import { refuseRequestSchema } from '@/lib/documents/lifecycle-types'

@@ -53,8 +53,6 @@ _FLUSH_BATCH_SIZE = 20
 
 SpanKind = str  # 'turn' | 'node' | 'llm' | 'tool'
 
-# Single background worker so ledger writes never block the answer path and
-# arrive in order — same rationale as cost_tracking._flush_executor.
 _flush_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="profiler-flush")
 
 
@@ -126,11 +124,7 @@ class AgentProfiler(BaseCallbackHandler):
         self._open: dict[str, _OpenSpan] = {}
         self._pending: list[SpanRecord] = []
         self._spans_recorded = 0
-        # LLM/tool spans are keyed by the callback's run_id so on_*_end can
-        # find the span it opened, exactly like CostTracker._requested_models.
         self._run_span: dict[Any, str] = {}
-
-    # -- span lifecycle --------------------------------------------------------
 
     def start_span(self, kind: SpanKind, name: str, *, metadata: dict[str, Any] | None = None) -> str:
         span_id = str(uuid.uuid4())
@@ -179,8 +173,6 @@ class AgentProfiler(BaseCallbackHandler):
         if should_flush:
             self.flush(wait=False)
 
-    # -- LLM calls ---------------------------------------------------------------
-
     def _model_name(self, kwargs: dict[str, Any]) -> str:
         params = kwargs.get("invocation_params") or {}
         model = params.get("model") or params.get("model_name")
@@ -198,8 +190,6 @@ class AgentProfiler(BaseCallbackHandler):
     def on_llm_error(self, error: BaseException, **kwargs: Any) -> None:
         self._end_run_span(kwargs, status="error", error=str(error))
 
-    # -- tool calls ----------------------------------------------------------------
-
     @staticmethod
     def _tool_name(serialized: dict | None, kwargs: dict[str, Any]) -> str:
         if serialized:
@@ -215,18 +205,12 @@ class AgentProfiler(BaseCallbackHandler):
     def on_tool_error(self, error: BaseException, **kwargs: Any) -> None:
         self._end_run_span(kwargs, status="error", error=str(error))
 
-    # -- run_id-keyed span helpers (shared by LLM + tool callbacks) --------------
-
     def _start_run_span(self, kind: SpanKind, name: str, kwargs: dict[str, Any]) -> None:
         run_id = kwargs.get("run_id")
         span_id = self.start_span(kind, name)
         if run_id is not None:
             with self._lock:
                 self._run_span[run_id] = span_id
-        # A run_id-less call still gets a span, but on_*_end for it (if any)
-        # cannot look it up; such spans are effectively orphaned and never
-        # closed. This matches how run_id is treated as required elsewhere
-        # in this codebase (cost_tracking._requested_models).
 
     def _end_run_span(self, kwargs: dict[str, Any], *, status: str, error: str | None = None) -> None:
         run_id = kwargs.get("run_id")
@@ -236,8 +220,6 @@ class AgentProfiler(BaseCallbackHandler):
             span_id = self._run_span.pop(run_id, None)
         if span_id is not None:
             self.end_span(span_id, status=status, error=error)
-
-    # -- ledger flush ----------------------------------------------------------
 
     @property
     def spans_recorded(self) -> int:
@@ -287,17 +269,8 @@ def _post_profiler_spans(payload: dict[str, Any]) -> None:
         logger.warning("Failed to post profiler spans to internal endpoint", exc_info=True)
 
 
-# -- activation ----------------------------------------------------------------
-
-# register_configure_hook adds the handler held here to every callback manager
-# LangChain configures while the var is set (inheritable across sub-runs) —
-# the single seam that makes span capture agent-agnostic, mirroring
-# cost_tracking.cost_tracker_var.
 agent_profiler_var: ContextVar[AgentProfiler | None] = ContextVar("agent_profiler", default=None)
 
-# The innermost currently-open span id, read as the parent when a new span
-# starts. Set by track_agent_profile() (root) and profiled_node() (per node);
-# LLM/tool spans opened by the callback handler read it without setting it.
 current_span_var: ContextVar[str | None] = ContextVar("agent_profiler_current_span", default=None)
 
 try:
@@ -327,7 +300,6 @@ def profiled_node(name: str, fn: Any) -> Any:
         try:
             result = await fn(*args, **kwargs)
         except asyncio.CancelledError, GeneratorExit:
-            # Abandoned, not failed: a cancelled turn must not read as an error.
             profiler.end_span(span_id, status="cancelled")
             raise
         except Exception as exc:
@@ -365,18 +337,12 @@ def profiled_span(name: str, kind: SpanKind = "node"):
     try:
         yield
     except asyncio.CancelledError, GeneratorExit:
-        # Abandoned, not failed: a cancelled turn, or a consumer that closed
-        # the generator driving this block, must not read as an error.
         profiler.end_span(span_id, status="cancelled")
         raise
     except Exception as exc:
         profiler.end_span(span_id, status="error", error=str(exc))
         raise
     except BaseException as exc:
-        # KeyboardInterrupt, SystemExit. Narrowing to `Exception` left every
-        # non-``Exception`` unwind with the span still in `_open`, so the
-        # waterfall silently lost the row instead of showing where the turn
-        # stopped -- which is exactly the turn somebody opens the waterfall for.
         profiler.end_span(span_id, status="error", error=type(exc).__name__)
         raise
     else:
@@ -467,10 +433,6 @@ def track_agent_profile(
     except Exception:
         logger.warning("Could not activate agent profiling", exc_info=True)
         profiler = None
-    # The shared cache counts inside this block, so the root span can say how
-    # much of the turn the cache answered (latency audit §4.4, option E7). The
-    # scope is a ContextVar, so two turns on one replica count separately; the
-    # teardown below runs INSIDE it, which is what lets it read the totals.
     with count_cache_operations():
         try:
             yield profiler
@@ -504,19 +466,12 @@ def _close_turn_span(
     if profiler is None or root_span_id is None:
         return
     counters = cache_counters()
-    # Silence rather than five zeros: a turn that never read the cache has
-    # nothing to say about it, and `annotate` merges into the caller's own
-    # metadata dict.
     if counters:
         profiler.annotate(root_span_id, counters.as_facts())
     profiler.end_span(root_span_id, status="error" if failed else "ok", error=error)
     if not inline_flush:
         return
     try:
-        # Inline post at teardown, same rationale as
-        # cost_tracking.track_llm_costs: a wait=False flush would hand
-        # the final batch to the daemon executor, which a worker
-        # exiting right after this turn can strand.
         profiler.flush(wait=True)
     except Exception:
         logger.warning("Failed to flush profiler spans at end of turn", exc_info=True)
@@ -544,13 +499,6 @@ async def flush_after_answer(*ledgers: Any, timeout_seconds: float | None = None
             continue
         if future is not None:
             futures.append(future)
-    # Per-turn usage rollup in dollars: the batches above are per CALL (named
-    # by the chat answer, not by the turn of a job). The tracker's
-    # totals ride the trace metadata via usage_rollup (one record per turn,
-    # alongside the citation-health ledger pattern), so waste IS measurable
-    # per turn in Langfuse. Best-effort like everything else here; runs even
-    # when there was nothing left to flush (a spent tracker may already be
-    # empty) and never raises.
     try:
         from agent.observability.usage_rollup import record_usage_turn
 
@@ -576,7 +524,6 @@ async def flush_after_answer(*ledgers: Any, timeout_seconds: float | None = None
             timeout=budget,
         )
     except TimeoutError:
-        # The worker still holds the batch; only this turn stops waiting on it.
         logger.warning("Ledger flush still pending after %.1fs; leaving it to the background worker", budget)
     except Exception:
         logger.warning("Ledger flush after the answer failed", exc_info=True)

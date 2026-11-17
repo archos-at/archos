@@ -1,12 +1,3 @@
-/**
- * "Which edition of this work applied" (ADR-0171, ticket 30): on a date, or to
- * a permit procedure, with the edition named. The route's logic; the decision
- * itself is the pure resolver (`as-of.ts`) on the one rulesets evaluator.
- *
- * Fail closed: a read that is incomplete (too many rows, a stored transition
- * or ruleset the current schema cannot read) decides nothing and says why.
- */
-
 import 'server-only'
 import { NotFoundError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
@@ -19,7 +10,6 @@ import { readTerritoryChain, readTerritoryZones, readWorkInTime } from './reposi
 
 export type AsOfResponse = {
   workId: string
-  /** The legislating node and the territories it lies in, nearest first. */
   territoryChain: string[]
   asOf: string | null
   procedure: Procedure | null

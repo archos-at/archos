@@ -22,7 +22,6 @@ export function withRecentProject(ids: readonly string[], projectId: string): st
   return [projectId, ...ids.filter((id) => id !== projectId)].slice(0, KEEP)
 }
 
-// Browser-only storage: this list is never sent to the server or read by anyone else.
 export function recordRecentProject(projectId: string): void {
   if (typeof window === 'undefined') return
   try {

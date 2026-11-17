@@ -23,9 +23,6 @@ from agent.common.source_kinds import shelf_qualifier
 logger = logging.getLogger(__name__)
 
 
-# German labels are first-class: reports written in German use "Quellen" &c.,
-# and failing to recognize them appended a duplicate English "## Sources"
-# section while mangling the original block.
 _GERMAN_REFERENCE_HEADING_LABEL_PATTERN = r"(?:Quellen(?:verzeichnis|angaben)?|Literatur(?:verzeichnis)?|Referenzen)"
 
 
@@ -72,19 +69,9 @@ COLLAPSED_SOURCE_BOUNDARY_RE = re.compile(r"\s+(?=\[(\d+)\]\s+)")
 INLINE_CITATION_RE = re.compile(r"\[(\d+)\]")
 
 
-#: A marker naming several sources at once: ``[2–5]``, ``[2, 3]``, ``[1-3, 7]``.
-#: Not the label of a Markdown link (``[1-3](url)``): expanded, that link would
-#: lose its label to three markers. The same guard as ``surface_citations._CITATION``.
-#: Each part is a source number as the model writes one: no leading zero, so
-#: ``[1,000]`` and ``[0, 1]`` stay as written. A German decimal ``[1,5]`` still
-#: reads as two citations: the model writes ``[1,2]`` for two sources too, and
-#: no character tells them apart. The verifier removes whichever of the two
-#: names no source line.
 _GROUPED_CITATION_RE = re.compile(r"(?<!\[)\[([1-9]\d{0,2}(?:\s*[,–-]\s*[1-9]\d{0,2})+)\](?![\](])")
 
 
-#: The widest range read as citations; wider is a bracketed figure (``[1990–2020]``
-#: fails the digit bound anyway) or a slip, and stays as written.
 _MAX_CITATION_RANGE = 20
 
 
@@ -116,7 +103,6 @@ def expand_grouped_citations(text: str, *, unterminated_fence_is_code: bool = Fa
             if len(bounds) != 2 or not 0 < low < high or high - low > _MAX_CITATION_RANGE:
                 return match.group(0)
             numbers.extend(range(low, high + 1))
-        # ``[1–3, 2]`` names source 2 once.
         return "".join(f"[{number}]" for number in dict.fromkeys(numbers))
 
     return _GROUPED_CITATION_RE.sub(expand, text)
@@ -134,14 +120,9 @@ SOURCE_LOCATION_CITATION_RE = re.compile(r"\[(\d+)\s*†[^\]]+\]")
 URL_IN_LINE_RE = re.compile(r"https?://\S+")
 
 
-# Knowledge-layer citation pattern: "filename.ext" optionally followed by ", p.N" or ", page N"
 KL_CITATION_PATTERN_RE = re.compile(r"^(.+\.\w{2,5})(?:,\s*(?:p\.?|page)\s*\d+)?$", re.IGNORECASE)
 
 
-# Characters that may appear INSIDE a filename token. Used to require that a
-# registry filename found in a reference line stands on its own rather than
-# being the tail of a longer name — without this, a registry holding `plan.pdf`
-# claims a citation to `bestandsplan.pdf` and the chip opens the wrong document.
 _FILENAME_INNER_CHARS = "_-."
 
 
@@ -159,8 +140,6 @@ def _filename_token_ends(haystack_lower: str, needle_lower: str) -> Iterator[int
         before_ok = index == 0 or not (
             haystack_lower[index - 1].isalnum() or haystack_lower[index - 1] in _FILENAME_INNER_CHARS
         )
-        # A trailing "." is allowed (sentence punctuation); a trailing word
-        # character would mean we matched a prefix of a longer filename.
         after_ok = end >= len(haystack_lower) or not (haystack_lower[end].isalnum() or haystack_lower[end] in "_-")
         if before_ok and after_ok:
             yield end
@@ -221,10 +200,6 @@ def _match_registry_filename(ref_text: str, registry: SourceRegistry) -> str | N
         return None
 
     tail = ref_text[best_end:]
-    # A shelf qualifier stated right after the filename is part of the document's
-    # IDENTITY, not an annotation to trim: it is the only thing separating two
-    # same-named documents on different shelves. Canonicalize its spelling so the
-    # rebuilt key matches the registry regardless of how the line cased it.
     qualifier = ""
     qualifier_match = SCOPE_QUALIFIER_TOKEN_RE.match(tail)
     if qualifier_match:
@@ -232,16 +207,11 @@ def _match_registry_filename(ref_text: str, registry: SourceRegistry) -> str | N
         if label:
             qualifier = f" ({label})"
             tail = tail[qualifier_match.end() :]
-    # The page stated after the filename (and its qualifier), when there is one.
     page_match = PAGE_RE.search(tail)
     name = f"{best_name}{qualifier}"
     return f"{name}, p.{page_match.group(1)}" if page_match else name
 
 
-#: The shortest title HEAD (the title before its edition, ``OIB-Richtlinie 2``
-#: out of ``OIB-Richtlinie 2, Ausgabe Mai 2023``) a line may resolve by. A full
-#: title is specific whatever its length; a head is a prefix, and a four-letter
-#: one ("Plan") would claim every line that mentions the word.
 _MIN_TITLE_HEAD_CHARS = 10
 
 
@@ -365,17 +335,12 @@ def is_digest_shaped_line(ref_text: str) -> bool:
     return lowered[0].startswith("seiten ") and lowered[1].startswith("punkte ") and lowered[2].startswith("turn ")
 
 
-#: What may stand before a source line's leading link: the list bullet, its
-#: ``[N]`` and an origin token. A link there is followed by its separator.
 _LEADING_LINK_PREFIX = r"^(\s*(?:[-*]\s*)?(?:\[\d+\]\s*)?(?:\[(?:KB|RIS|Web)\]\s*)?)"
 
 
-#: A label that only introduces the link (``Source: <url>``, ``Quelle: url``):
-#: without the link it names nothing, so it goes with it.
 _LINK_LABEL = r"(?:(?:Source|Quelle|Fundstelle|Link)(?:[ \t]+URL)?|URL)[ \t]*:[ \t]*"
 
 
-#: What stands between a title and its link, on either side.
 _LINK_SEPARATOR = r"[-–—:,|]"
 
 
@@ -395,8 +360,6 @@ def drop_url(text: str, url: str) -> str:
     )
     if leading:
         return text.rstrip()
-    # A link sharing its parentheses with something else, ``(url, 2024)`` or
-    # ``(2024, url)``, takes its comma and leaves the parentheses to the rest.
     labelled = rf"(?:{_LINK_LABEL})?<?{escaped}>?"
     text, shared = re.subn(rf"\(\s*{labelled}\s*,\s*", "(", text, flags=re.IGNORECASE)
     if not shared:
@@ -420,8 +383,6 @@ def is_knowledge_citation(ref_text: str, registry: SourceRegistry | None = None)
 
     Returns (is_kl, citation_key_or_none).
     """
-    # Strip markdown bold/italic markers only (*, **) — preserve underscores in
-    # filenames. Done before the registry scan so `**file.pdf**` still matches.
     unemphasized = re.sub(r"\*+", "", ref_text).strip()
 
     if registry is not None:
@@ -429,15 +390,7 @@ def is_knowledge_citation(ref_text: str, registry: SourceRegistry | None = None)
         if matched:
             return True, matched
 
-    # Strip trailing "(Internal)" or similar parenthetical
     cleaned = re.sub(r"\s*\(.*?\)\s*$", "", unemphasized).strip()
-    # Remove a leading "Title - ", "Title – " or "Title: " prefix by taking the
-    # last segment if it contains a filename pattern. The TAIL segments come
-    # first: the whole line also matches the shape test (`.+\.ext, p.N` is
-    # satisfied by "OIB-Richtlinie 2 – file.pdf, p.1" as one long filename), and
-    # a key that carries the title in front of the filename meets no document
-    # anywhere downstream. The en and em dash are what the model actually
-    # writes between a display title and a filename.
     for segment in [*_title_prefix_tails(cleaned), cleaned]:
         if KL_CITATION_PATTERN_RE.match(segment):
             return True, segment

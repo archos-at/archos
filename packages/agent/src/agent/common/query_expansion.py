@@ -52,30 +52,21 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-#: The admin-editable glossary, beside the norm registry it mirrors in shape.
 VOCABULARY_PATH = Path(os.environ.get("VOCABULARY_PATH", "configs/norms/at/vocabulary.yml"))
 
-#: Function words that mark a query as English. Chosen to be absent from German:
-#: "die"/"was" would fire on both, "the"/"which" cannot.
 _ENGLISH_MARKERS = frozenset(
     {"the", "what", "which", "how", "are", "is", "for", "of", "in", "must", "required", "do", "does", "can", "and"}
 )
 
-#: German markers, likewise chosen to be unambiguous.
 _GERMAN_MARKERS = frozenset(
     {"welche", "welcher", "wie", "was", "muss", "müssen", "gilt", "gelten", "für", "der", "die", "das", "und", "bei"}
 )
 
-#: Umlauts and eszett are decisive on their own -- no English word carries them.
 _GERMAN_CHARS = frozenset("äöüßÄÖÜ")
 
 _WORD_RE = re.compile(r"[^\W\d_]+", re.UNICODE)
 
-#: Everything that is not a letter or a digit, for matching. English compounds arrive
-#: hyphenated as often as spaced -- "fire-brigade access", "u-value", "step-free" -- and a
-#: raw substring test against a spaced glossary form silently matches none of them.
-#: Measured: "How far may the most remote necessary building entrance be from the
-#: fire-brigade access road?" expanded to nothing at all and ranked its answer 119th.
+# Measured: "fire-brigade access road" expanded to nothing against a spaced glossary form and ranked its answer 119th.
 _PUNCTUATION_RE = re.compile(r"[^\w]+", re.UNICODE)
 
 _lock = threading.Lock()
@@ -175,8 +166,6 @@ def expansion_terms(query: str | None) -> list[str]:
     for form, matcher, german_terms in _load_concepts():
         if not matcher.search(haystack):
             continue
-        # A longer form already claimed this span (`building class` before `class`), so
-        # the shorter one would only restate it.
         if any(form in previous for previous in consumed):
             continue
         consumed.append(form)
@@ -207,13 +196,6 @@ def augmented_query(query: str | None, *, log_miss: bool = True) -> str:
         return query
     terms = expansion_terms(query)
     if not terms:
-        # The coverage metric this table needs and otherwise does not have. A glossary of
-        # this size against a corpus of thousands of legal terms will miss concepts, and
-        # a miss is SILENT: the query is returned unchanged, retrieval fills top_k anyway,
-        # and the user gets a confident building-law answer with no signal that the
-        # English question never reached the German index. Every line here names a concept
-        # worth counting in the corpus and adding, and the rate is the honest measure of
-        # how far from parity this approach actually is.
         if log_miss and detect_language(query) == "en":
             logger.info("Query expansion found no glossary concept for English query: %r", query[:120])
         return query

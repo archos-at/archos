@@ -1,12 +1,3 @@
-/**
- * Platform → storage. Every tenant's consumption, and the quota that bounds it.
- *
- * Owner gate, shell chrome and section nav live in the shared `layout.tsx`;
- * this page only names its section and renders it. The card under the header
- * says what it holds (usage by organization) rather than repeating the page
- * title.
- */
-
 import type { JSX } from 'react'
 import { PageHeader } from '@/components/ui/page-header'
 import { SectionCard } from '@/features/platform/components/section-card'

@@ -1,34 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the inbox surfaces — the real `InboxList`, `InboxItemRow` and
- * `InboxBadge` with fixture data and no backend, so the design can be reviewed
- * and screenshotted (spec NF-10). Not linked from anywhere; 404s outside
- * development.
- *
- * The fetch shim is installed at MODULE SCOPE on purpose: React runs a child's
- * effects before its parent's, so `useInboxList` would fire its request before a
- * parent `useEffect` could install a shim — the shim would race and lose (see
- * `docs/ux/visual-screenshots.md` and `app/dev/document-grid/page.tsx`). It is
- * browser + dev guarded and idempotent via a `window.__inboxShim` flag.
- *
- * The fixtures deliberately exercise every interesting row: an unread actionable
- * mention request, a resolved one, a grouped activity row (`count: 3`), a
- * shared-with-you row, a READ grouped row with `count: 0` (the third counted
- * title — nothing new since it was opened), the OPERATIONAL storage-quota
- * warning (ADR-0042 — no actor, `tone: 'warning'`, pointing at the organization
- * rather than a conversation), a row whose type this build does not know (the
- * runtime fallback that keeps one bad row from taking the page down), and an
- * INERT row whose target is gone — the last one is a security-visible state
- * (IB-13), so it must be in the evidence.
- *
- * Pinned to German (`I18nProvider initialLocale="de" fixedLocale`): German is the product's
- * primary language, so the committed evidence must carry the copy most users
- * actually see — and the scaffolding around these previews is German already, so
- * without the pin a screenshot mixes both languages and the primary-language copy
- * cannot be reviewed at all.
- */
-
 import type { JSX } from 'react'
 import { useEffect, useState } from 'react'
 import { notFound } from 'next/navigation'
@@ -47,11 +18,6 @@ export default function InboxDevPage(): JSX.Element {
     notFound()
   }
 
-  // Read after mount (not during render) so server and client markup agree — the
-  // same trick the herleitung preview uses. The list is held back until then,
-  // because its opening filter depends on the variant: the default view captures
-  // EVERYTHING (the inert / answered / grouped rows only exist outside "needs
-  // me"), while the empty variant captures the needs-me empty state.
   const [ready, setReady] = useState(false)
   const [empty, setEmpty] = useState(false)
   useEffect(() => {
@@ -59,9 +25,6 @@ export default function InboxDevPage(): JSX.Element {
     setReady(true)
   }, [])
 
-  // `text-foreground` matters: the root layout only sets a surface colour, so
-  // without it this preview's own headings inherit the browser default and go
-  // black in dark mode (product pages set it on their shell wrapper).
   return (
     <I18nProvider initialLocale="de" fixedLocale>
       <main

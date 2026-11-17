@@ -57,8 +57,6 @@ logger = logging.getLogger(__name__)
 DEFAULT_NORMS_DIR = "configs/norms"
 ENV_NORMS_DIR = "NORMS_DIR"
 
-# OGD-RIS applications the catalog may point into (subset of the applications the
-# ris_adapter supports; see ris_adapter.client.CONTROLLER_FOR_APPLICATION).
 KNOWN_APPLICATIONS = frozenset(
     {
         "BrKons",
@@ -79,16 +77,8 @@ KNOWN_APPLICATIONS = frozenset(
     }
 )
 
-# Legal rank: the lane an entry renders under. Law ranks carry RIS pointers;
-# `authority_info` (MA-37 Merkblätter etc. — practice guidance, never new law)
-# and `external_standard` (ÖNORM/TRVB/EU-Normen — usually no accessible full text)
-# cover the diagram lanes that are NOT in RIS. The OIB corpus itself stays out
-# of the registry (knowledge base is its source of truth).
 NormRank = Literal["federal_law", "state_law", "ordinance", "authority_info", "external_standard"]
 
-# The German ranks a stored registry (the admin-edited row in the knowledge
-# database, a seed file not yet re-saved) still carries. Read-only: nothing
-# writes these, and the next admin save stores the English ones.
 LEGACY_NORM_RANK: dict[str, str] = {
     "bundesgesetz": "federal_law",
     "landesgesetz": "state_law",
@@ -97,7 +87,6 @@ LEGACY_NORM_RANK: dict[str, str] = {
     "norm_extern": "external_standard",
 }
 
-# Canonical Bundesland names, in free-text probe order.
 BUNDESLAENDER: tuple[str, ...] = (
     "Wien",
     "Niederösterreich",
@@ -110,10 +99,6 @@ BUNDESLAENDER: tuple[str, ...] = (
     "Burgenland",
 )
 
-# Structured `federal_state` fact tokens (intake wizard vocabulary, see
-# apps/workspace/bff/project-profile/intake-definition.ts) -> canonical names.
-# `outside_austria` maps to None on purpose: the project is explicitly
-# outside Austria, so no state's law should be prioritized.
 FEDERAL_STATE_TOKENS: dict[str, str | None] = {
     "vienna": "Wien",
     "lower_austria": "Niederösterreich",
@@ -127,10 +112,8 @@ FEDERAL_STATE_TOKENS: dict[str, str | None] = {
     "outside_austria": None,
 }
 
-# `bundesland=` is the line a prompt view an older pod stored still carries (migration 0159).
 _STRUCTURED_FEDERAL_STATE_RE = re.compile(r"\b(?:federal_state|bundesland)=([a-z_]+)")
 
-# Terms shorter than this never match (guards against noise words).
 _MIN_TOPIC_LENGTH = 4
 
 
@@ -140,8 +123,6 @@ class VerifySeed(BaseModel):
     title_query: str
     expect: str = ""
     exclude: list[str] = Field(default_factory=list)
-    # A stored registry (the admin-edited row, a seed file not yet re-saved) calls it
-    # `gesetzesnummer`; read for one release (remove after), the next save stores `statute_number`.
     statute_number: str = Field(default="", validation_alias=AliasChoices("statute_number", "gesetzesnummer"))
 
 
@@ -166,9 +147,6 @@ class NormEntry(BaseModel):
     def _legacy_rank(cls, value: object) -> object:
         return LEGACY_NORM_RANK.get(value, value) if isinstance(value, str) else value
 
-    # canonical name ("Wien"); "" = federal/stateless. A registry stored before the English names
-    # (the admin-edited row, a seed file not yet re-saved) calls it `bundesland`; read-only, the
-    # next save stores `federal_state`.
     federal_state: str = Field(default="", validation_alias=AliasChoices("federal_state", "bundesland"))
     topics: list[str] = Field(default_factory=list)
     relevance: str = ""
@@ -202,7 +180,6 @@ class NormsFile(BaseModel):
 
     version: int = 1
     corpus_collection: str = "oib_knowledge"
-    # Profile fields the norms store still writes; nothing reads them since ADR-0175 (the packs do).
     language: str = ""
     states: dict[str, str | None] = Field(default_factory=dict)
 
@@ -237,17 +214,7 @@ def _normalize(text: str) -> str:
     return text.strip().lower().replace("ä", "ae").replace("ö", "oe").replace("ü", "ue").replace("ß", "ss")
 
 
-# ---------------------------------------------------------------------------
-# Loading. YAML seed by default; the admin-managed store may register itself as
-# the runtime source via set_db_loader (the YAML stays the seed / fallback).
-# ---------------------------------------------------------------------------
-
 _db_loader: Callable[[], NormsFile | None] | None = None
-# Optional callback that drops the db loader's own cache. The admin store
-# memoizes its parsed payload with a short TTL for the hot path; registering its
-# invalidator here lets ``reset_registry_cache`` (called after admin edits) flush
-# that cache too, so a fresh registry is observed immediately rather than within
-# the TTL.
 _db_cache_reset: Callable[[], None] | None = None
 
 
@@ -268,8 +235,6 @@ def set_db_loader(
     reset_registry_cache()
 
 
-# The repository root, three levels above this file (packages/agent/src/agent/common/).
-# Only meaningful for a source checkout; an installed wheel has no seed beside it.
 _REPO_ROOT = Path(__file__).resolve().parents[5]
 
 
@@ -394,11 +359,6 @@ def reset_registry_cache() -> None:
             logger.warning("norm_registry: db loader cache reset failed", exc_info=True)
 
 
-# ---------------------------------------------------------------------------
-# Matching and jurisdiction (unchanged semantics from the proven flat catalog).
-# ---------------------------------------------------------------------------
-
-
 def _entry_needles(entry: NormEntry) -> list[str]:
     return [needle for needle in (entry.title, entry.short, *entry.aliases, *entry.topics) if needle]
 
@@ -443,7 +403,6 @@ def extract_federal_state(text: str | None) -> str | None:
     return None
 
 
-#: The Länder as the knowledge records name their territories (ISO 3166-2:AT, AT-1 to AT-9).
 _STATES_IN_CODE_ORDER = ("Burgenland", "Kärnten", "Niederösterreich", "Oberösterreich", "Salzburg", "Steiermark")
 STATE_OF_TERRITORY: dict[str, str] = {
     f"AT-{n}": state for n, state in enumerate((*_STATES_IN_CODE_ORDER, "Tirol", "Vorarlberg", "Wien"), 1)
@@ -476,12 +435,6 @@ def focus_entries(entries: list[NormEntry], federal_state: str | None) -> list[N
     return sorted(kept, key=lambda entry: 0 if entry.federal_state == federal_state else 1)
 
 
-# ---------------------------------------------------------------------------
-# Prompt rendering: the method lives in ``law_gate.LEGAL_METHOD``; this block is the data —
-# federal lane, the project's own state lane (other states are dropped), prose
-# binding notes, and a static pointer at the OIB corpus in the knowledge base.
-# ---------------------------------------------------------------------------
-
 _BLOCK_HEADER = (
     "Curated norm catalogue (verified RIS references).\n"
     "The RIS tools know this catalogue and resolve a reference themselves; an entry here\n"
@@ -498,9 +451,6 @@ def _render_entry_line(entry: NormEntry) -> str:
         line = f"- {entry.short} — {entry.title}"
     if entry.federal_state:
         line += f" ({entry.federal_state})"
-    # Render BOTH URLs when both are set (e.g. a consolidated law plus a curated
-    # annex link) — an `elif` here silently dropped a populated ``source_url``
-    # whenever ``full_law_url`` was also present.
     if entry.full_law_url:
         line += f" Full text: {entry.full_law_url}"
     if entry.source_url:
@@ -563,13 +513,6 @@ def render_block_for_prompt(norms_dir: str | None = None) -> str | None:
     return render_prompt_block(registry, federal_state=resolve_federal_state())
 
 
-# ---------------------------------------------------------------------------
-# Parcel plane: Flächenwidmungs-/Bebauungsplan documents live INSIDE the RAG
-# (project collection, tag-classified at ingestion). When present they are the
-# per-parcel source of truth — this note flips the doctrine's "ask for the
-# plan" rule into "the plan is HERE, use it first".
-# ---------------------------------------------------------------------------
-
 _PARCEL_TAGS = ("Bebauungsplan", "Flächenwidmungsplan")
 
 
@@ -608,12 +551,6 @@ def parcel_note(available_documents: list[dict] | None) -> str | None:
     return "\n".join(lines)
 
 
-# ---------------------------------------------------------------------------
-# Lane classification for research-source events (fan-out UI). Deterministic
-# tagging: the hierarchy stays in the registry/filenames, the UI gets labels.
-# ---------------------------------------------------------------------------
-
-# data/oib filename prefixes -> OIB document class.
 _OIB_CLASS_PREFIXES: tuple[tuple[str, str], ...] = (
     ("aenderungen_", "amendment"),
     ("erlaeuterungen_", "explanatory_note"),
@@ -638,19 +575,12 @@ _OIB_CLASS_LANES: dict[str, tuple[str, str]] = {
     "amendment": ("building_law_oib_amendment", "OIB-Änderungsdokument"),
 }
 
-# Label for a lane key, aggregated from the OIB-class + rank tables plus the
-# lanes only reachable through an explicit doc_class: ``building_law_ris`` (a
-# generic RIS legal source) and ``building_law_base`` (the NEW neutral base lane,
-# coarse kind ``building_law`` via the prefix in ``source_kinds._LANE_KIND_PREFIXES``).
 _LANE_LABELS: dict[str, str] = {
     **{key: label for key, label in _OIB_CLASS_LANES.values()},
     **{key: label for key, label in _RANK_LANES.values()},
     "building_law_ris": "Rechtsquelle (RIS)",
     "building_law_base": "Basisdokument",
-    # Reachable only through stated PROVENANCE (``authored_by: agent``), never
-    # through a doc_class — see :data:`~agent.common.source_kinds.AGENT_AUTHORED_LANE`.
     AGENT_AUTHORED_LANE: AGENT_AUTHORED_LANE_LABEL,
-    # Reachable only through the chunk's ``source_format`` (a filed mail thread).
     MAIL_LANE: MAIL_LANE_LABEL,
     OFFICE_MAIL_LANE: MAIL_LANE_LABEL,
 }
@@ -669,8 +599,6 @@ def oib_doc_class(file_name: str) -> str | None:
     return "guideline"
 
 
-# Maps the coarse ``oib_doc_class`` filename guess to the explicit doc_class
-# vocabulary key (``document_classification.DOCUMENT_CLASSES``).
 _OIB_CLASS_TO_DOC_CLASS: dict[str, str] = {
     "guideline": "oib_guideline",
     "guide": "oib_guide",
@@ -696,22 +624,12 @@ def guess_doc_class(file_name: str) -> str:
     return _OIB_CLASS_TO_DOC_CLASS.get(raw, DEFAULT_DOC_CLASS)
 
 
-# German role prefixes derived from the corpus filename convention. These seed a
-# *default* display title only — the stored value in the document_metadata store
-# is authoritative and admin-overridable, so an odd future filename never shows a
-# wrong name forever (worst case: a mediocre default an admin corrects once).
 _OIB_TITLE_ROLE_PREFIXES: tuple[tuple[str, str], ...] = (
     ("erlaeuterungen_", "Erläuterungen zu "),
     ("aenderungen_", "Änderungen zu "),
 )
 
-# The edition as the corpus files spell it: ``ausgabe_<monat>_<jahr>`` or
-# ``ausgabe_<jahr>``. The month is any word, the year any four digits — the
-# shipped corpus is all "Mai 2023", but a title parser that only knows one
-# edition mislabels the next one as the one it knows, or refuses it.
 _OIB_EDITION_RE = re.compile(r"ausgabe[_-](?:([^\W\d_]+)[_-])?(\d{4})")
-# Filenames write German umlauts as digraphs (``maerz``); the title writes them
-# as letters. A structural transliteration rather than a table of month names.
 _UMLAUT_DIGRAPHS = (("ae", "ä"), ("oe", "ö"), ("ue", "ü"))
 _OIB_REVISION_RE = re.compile(r"rev[_.]?(\d+)")
 _OIB_NUMBER_RE = re.compile(r"^(\d+(?:\.\d+)?)")
@@ -749,8 +667,6 @@ def guess_display_title(file_name: str) -> str | None:
     if not file_name:
         return None
     stem = Path(Path(file_name).name).stem
-    # Normalise the one known separator inconsistency (`6-leitfaden` vs
-    # `2_leitfaden`) so the rest of the parse is uniform.
     low = canonical_oib_file_name(stem).replace("-leitfaden", "_leitfaden")
 
     role_prefix = ""
@@ -799,25 +715,6 @@ def guess_display_title(file_name: str) -> str | None:
     return f"{title}, {tail}" if tail else title
 
 
-# ---------------------------------------------------------------------------
-# Families: which Richtlinien belong together, derived from what is INDEXED.
-#
-# "OIB-Richtlinien 1–6" is a range, and a range names no members. OIB-RL 2 is
-# four separate documents — 2, 2.1 (Betriebsbauten), 2.2 (Garagen), 2.3
-# (Hochhäuser) — and the prompt never said so, so an overview question ("Was
-# weißt du über die OIB 2?") could open three of them, forget the fourth, and
-# read as complete. Nothing structural noticed, because nothing knew the family
-# had four members.
-#
-# Membership is DERIVED, never listed: a deployment whose corpus holds no 2.3
-# must not be told it has one, and a corpus that grows a 2.4 must not need this
-# file edited. The only input is the set of indexed filenames.
-# ---------------------------------------------------------------------------
-
-#: The Richtlinie number inside an OIB corpus filename, after the `oib-rl_`
-#: prefix (a published `oib-richtlinie_` spelling is canonicalised first):
-#: `2`, `2.1`, `6`. Anchored, so an edition or a revision that follows cannot
-#: be read as part of the number.
 _OIB_FAMILY_NUMBER_RE = re.compile(r"^(\d+(?:\.\d+)?)(?:[_-]|$)")
 
 
@@ -961,7 +858,6 @@ def lane_for_hit(
         from agent.knowledge.document_classification import DOCUMENT_CLASS_LANES
         from agent.knowledge.document_classification import canonical_doc_class
 
-        # A hit from a point written before the English keys still carries the German one.
         doc_class = canonical_doc_class(doc_class)
         if doc_class and not (doc_class == DEFAULT_DOC_CLASS and users_shelf):
             lane_key = DOCUMENT_CLASS_LANES[doc_class]
@@ -994,9 +890,6 @@ def _lane_for_source(
                 if entry.document_number and entry.document_number in source_url:
                     return _RANK_LANES[entry.rank]
         return ("building_law_ris", "Rechtsquelle (RIS)")
-    # wien.gv.at is the curated MA-37 (Baupolizei Wien) registry pointer —
-    # official municipal building information, Baurecht family, never Web.
-    # The frontend renders the lane sent; only its kind is derived (kindForLane).
     if _host_matches(source_url, "wien.gv.at"):
         return ("authority", "Behördliche Information")
     if collection:  # a named KB collection that is not project/office_shelf: the base corpus

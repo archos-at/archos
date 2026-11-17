@@ -58,18 +58,12 @@ from .replies import split_replies
 
 logger = logging.getLogger(__name__)
 
-#: Content types a calendar invitation comes as.
 CALENDAR_TYPES = frozenset({"text/calendar", "application/ics"})
-#: Content types of an RTF body.
 RTF_TYPES = frozenset({"text/rtf", "application/rtf"})
-#: Content types whose body cannot be read without a key this tier never has.
 ENCRYPTED_TYPES = frozenset({"multipart/encrypted", "application/pkcs7-mime", "application/x-pkcs7-mime"})
 
-#: Charsets a mail client declares for text that is often UTF-8 or Windows-1252
-#: in fact; their bytes are decoded as :func:`~.body_text.decode` does it.
 _LOOSE_CHARSETS = frozenset({"us-ascii", "ascii", "iso-8859-1", "latin-1", "latin1", "iso8859-1"})
 
-#: The longest quoted header kept, in characters.
 _MAX_HEADER_CHARS = 4096
 
 
@@ -99,7 +93,6 @@ async def read_message_within(raw: bytes, timeout: float = limits.READ_TIMEOUT_S
         finally:
             await _reap(process)
     if process.returncode != 0:
-        # Out of memory, or a crash in C: nothing the child could still report.
         logger.warning("mail read: the reading process ended with %s", process.returncode)
         return MailRead.unread(UnreadableReason.FAILED)
     try:
@@ -154,7 +147,6 @@ def _body_forms(message: EmailMessage, reasons: list[UnreadableReason]) -> tuple
     rtf_part = next((part for part in _parts(message) if _is_body_rtf(part)), None)
     plain = _flowed_text(plain_part) if plain_part is not None else None
     if plain and plain.strip():
-        # The text body wins; the others are not parsed, so their caps do not apply.
         return plain, None, None
     html = _capped(html_part, limits.MAX_HTML_BYTES, UnreadableReason.HTML_TOO_LARGE, reasons)
     rtf = _capped(rtf_part, limits.MAX_RTF_BYTES, UnreadableReason.RTF_TOO_LARGE, reasons)
@@ -265,7 +257,6 @@ def _is_encrypted_part(part: EmailMessage) -> bool:
         return True
     if content_type not in ENCRYPTED_TYPES:
         return False
-    # S/MIME also uses pkcs7-mime for opaque signing; only enveloped data is encrypted.
     smime_type = str(part.get_param("smime-type", "enveloped-data")).lower()
     return smime_type in {"enveloped-data", "authenveloped-data"}
 
@@ -291,8 +282,6 @@ def _part_text(part: EmailMessage) -> str:
         codecs.lookup(charset)
         return payload.decode(charset)
     except LookupError, UnicodeDecodeError, ValueError:
-        # An unknown charset, bytes that are not in it, or a name codecs refuses
-        # outright (an embedded NUL).
         return decode(payload)
 
 
@@ -326,7 +315,6 @@ def unflow(text: str, delete_space: bool = False) -> str:
         line = raw_line[depth:]
         line = line.removeprefix(" ")
         if pieces and depth != pieces_depth:
-            # A change of quote depth ends the paragraph whatever the last line said.
             flush()
         pieces_depth = depth
         if line.endswith(" ") and line != "-- ":

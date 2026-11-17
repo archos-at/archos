@@ -42,10 +42,8 @@ from lxml import html as lxml_html
 from lxml.etree import ParserError
 from striprtf.striprtf import rtf_to_text
 
-#: The longest body kept, in characters. A body past it is cut and says so.
 MAX_BODY_CHARS = 1_000_000
 
-#: Elements whose end is a line break in what a reader sees.
 _BLOCK_TAGS = frozenset(
     {
         "address",
@@ -76,26 +74,16 @@ _BLOCK_TAGS = frozenset(
     }
 )
 
-#: Elements that are one cell of a table row.
 _CELL_TAGS = frozenset({"td", "th"})
 
-#: What stands between two cells of a row.
 CELL_SEPARATOR = " | "
 
 _SKIPPED_TAGS = ("script", "style", "head", "title", "template")
-#: Characters a reader never sees that split or turn the text around them: zero-width
-#: space, non-joiner and joiner, word joiner, the byte-order mark, the soft hyphen,
-#: the directional marks, and the bidi embeddings, overrides and isolates.
 _INVISIBLE = re.compile("[\u00ad\u200b-\u200f\u202a-\u202e\u2060\u2066-\u2069\ufeff]")
-#: A CSS length or number that is zero (``0``, ``0px``, ``0.0em``, ``0%``).
 _ZERO = re.compile(r"(?:0+(?:\.0*)?|\.0+)(?:[a-z]+|%)?")
-#: An image this wide or high, or less, is a tracking pixel.
 _PIXEL = 1
-#: Whitespace in markup, which a browser shows as one space (outside ``<pre>``).
 _MARKUP_SPACE = re.compile(r"\s+")
 _LINE_START_SPACE = re.compile(r"\n ")
-#: Characters XML 1.0 does not allow. libxml2 reads past some of them, and lxml
-#: then refuses to write a text node that holds one (``ValueError``).
 _NOT_XML = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\ud800-\udfff\ufffe\uffff]")
 _BLANK_RUN = re.compile(r"\n[ \t]*\n(?:[ \t]*\n)+")
 _TRAILING_SPACE = re.compile(r"[ \t]+\n")
@@ -104,7 +92,6 @@ _TRAILING_SPACE = re.compile(r"[ \t]+\n")
 @dataclass(frozen=True)
 class BodyText:
     text: str
-    #: Which of the stored forms the text came from: plain, html, rtf, or none.
     source: str
     truncated: bool
 
@@ -129,16 +116,11 @@ def html_to_text(markup: str) -> str:
     try:
         root = lxml_html.document_fromstring(markup)
     except ValueError:
-        # A str that declares its own encoding (``<?xml ... encoding=...?>``,
-        # which Outlook writes) is refused as a str; as bytes it parses.
         root = _parse_bytes(markup)
     except ParserError:
-        # Nothing to parse (markup that is only a comment or a doctype).
         return ""
     if root is None:
         return ""
-    # Listed first: dropping an element while iterating skips its next sibling.
-    # ``drop_tree`` keeps the element's tail, the visible text after it.
     for element in [*root.iter(*_SKIPPED_TAGS), *_unseen(root)]:
         element.drop_tree()
     _blank_unseen_text(root)

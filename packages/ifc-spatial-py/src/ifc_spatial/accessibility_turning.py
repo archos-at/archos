@@ -20,10 +20,6 @@ from .operators import _geometry_or_answer
 from .operators import _require
 from .operators import _wrong_kind
 
-# ════════════════════════════════════════════════════════════════════════════
-# 1 — turning circle
-# ════════════════════════════════════════════════════════════════════════════
-
 
 def turning_circle(model: SpatialModel, space_global_id: str, diameter: float | None = None) -> Answer[dict[str, Any]]:
     """The largest circle that fits in this room's clear floor, and where it sits.

@@ -11,19 +11,9 @@ import { HTTPRouteFilter } from "@kubernetes-models/envoy-gateway/gateway.envoyp
 import { BackendTrafficPolicy } from "@kubernetes-models/envoy-gateway/gateway.envoyproxy.io/v1alpha1/BackendTrafficPolicy";
 import { objectName } from "../names";
 
-/**
- * Edge policies on the public routes (`app/httproutes.ts`).
- *
- * Every field here is a string the API server accepts whatever it says: a
- * compressor on the wrong route, or under a name the installed CRD does not
- * know, plans and applies clean. So the assertions read the exact spec sent.
- */
-
 type Policy = { metadata: { name: string }; spec: Record<string, unknown> };
 const POLICIES: Policy[] = [];
-/** Every HTTPRoute and HTTPRouteFilter, by kind. */
 const OTHERS: Array<Policy & { kind: string }> = [];
-/** The full objects, for the upstream CRD schema check. */
 const OBJECTS: Array<Record<string, unknown>> = [];
 
 pulumi.runtime.setMocks(
@@ -62,8 +52,6 @@ describe("BackendTrafficPolicies", () => {
     const { installHttpRoutes } = await import("./httproutes");
     const provider = new k8s.Provider("test", { kubeconfig: "apiVersion: v1" });
     const routes = installHttpRoutes(loadConfig(), provider, "grid", []);
-    // Registration is asynchronous; the policies depend on the routes, so
-    // draining the route outputs and one more tick leaves POLICIES complete.
     await Promise.all(
       Object.values(routes).map((r) => new Promise((resolve) => r.id.apply(resolve))),
     );
@@ -80,15 +68,11 @@ describe("BackendTrafficPolicies", () => {
   });
 
   it("compresses the landing site, Brotli first", () => {
-    // `compressor`, the field EG v1.6+ reads; order is the tie-break when a
-    // browser sends br and gzip at equal weight, which every browser does.
     expect(policy("grid-web-timeouts").compressor).toEqual([{ type: "Brotli" }, { type: "Gzip" }]);
     expect(policy("grid-web-timeouts")).not.toHaveProperty("compression");
   });
 
   it("leaves the streaming app route and presigned S3 bodies uncompressed", () => {
-    // The app route carries the chat token stream; a compressor there is a
-    // decision that needs its own measurement, not a side effect of this one.
     for (const name of ["grid-app-timeouts", "grid-s3-timeouts"]) {
       expect(policy(name)).not.toHaveProperty("compressor");
       expect(policy(name)).not.toHaveProperty("compression");
@@ -147,8 +131,6 @@ describe("the signed internal routes at the edge", () => {
   });
 
   it("holds the ceiling above the BFF's message cap, at the contract's number", () => {
-    // Below the BFF's cap, a mail the BFF would answer 413 + reject (a bounce)
-    // would instead meet the edge's bare 413 (a retry, for days).
     expect(SIGNED_INTERNAL_ROUTE.maxBodyBytes).toBe(contract.edgeMaxBodyBytes);
     expect(SIGNED_INTERNAL_ROUTE.maxBodyBytes).toBeGreaterThanOrEqual(contract.maxRawMessageBytes);
   });
@@ -187,8 +169,6 @@ describe("the signed internal routes at the edge", () => {
   });
 
   it("never buffers a body at the edge, on any route", () => {
-    // `requestBuffer` holds the whole body in the proxy: on the unauthenticated
-    // signed path, a few dozen 27 MiB uploads would OOM the 512Mi Envoy pods.
     for (const p of POLICIES) expect(p.spec, p.metadata.name).not.toHaveProperty("requestBuffer");
   });
 
@@ -198,14 +178,10 @@ describe("the signed internal routes at the edge", () => {
       { group: "gateway.networking.k8s.io", kind: "HTTPRoute", name: SIGNED_INTERNAL_ROUTE.routeName },
     ]);
     expect(spec.timeout).toEqual({ http: { requestTimeout: "120s" } });
-    // Every mail arrives from Cloudflare's shared egress: a per-client bucket
-    // would let another Cloudflare customer's traffic defer it (RT-S9).
     expect(spec).not.toHaveProperty("rateLimit");
   });
 
   it("passes the upstream CRD schemas (what `npm run validate` checks on a plan)", () => {
-    // The Gateway API and Envoy Gateway models are generated from the CRDs, so
-    // a field the installed controller would prune or refuse fails here.
     const named = (kind: string, name: string) =>
       OBJECTS.find((o) => o.kind === kind && (o.metadata as { name: string }).name === name);
     const objects = [
@@ -217,8 +193,6 @@ describe("the signed internal routes at the edge", () => {
   });
 
   it("leaves the app route's buckets as they were: no inverted exemptions", () => {
-    // The signed routes are outside the app route, so the catch-all needs no
-    // carve-out; an inverted match here would mean someone added one anyway.
     const app = policy(objectName("appTimeouts")) as {
       rateLimit?: { global: { rules: Array<{ clientSelectors: Array<{ path?: { invert?: boolean } }> }> } };
     };

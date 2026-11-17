@@ -32,9 +32,7 @@ from pydantic import Field
 
 
 class PdfDocumentConfig(EngineConfig):
-    #: The document's title; the PDF's own metadata title when empty.
     title: str = ""
-    #: The most pages a document may have; a longer one is refused.
     max_pages: int = Field(default=MAX_PDF_PAGES, ge=1, le=MAX_PDF_PAGES)
 
 

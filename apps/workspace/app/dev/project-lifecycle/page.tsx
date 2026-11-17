@@ -1,20 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the project lifecycle (ADR-0098): the REAL status card and
- * banner in each state, side by side.
- *
- *   - Aktiv: pause, or close (the three-step close dialog opens on „Projekt
- *     abschließen"; its debrief step has its own preview, `/dev/closing-debrief`).
- *   - Ruhend: since when, resume, or close; the banner offers „Fortsetzen".
- *   - Abgeschlossen, nicht realisiert: how and when it ended, reopen; the banner
- *     says so and offers „Wieder öffnen".
- *
- * A module-scope fetch shim answers the status move with a 409, so the preview
- * never changes, and the clear-out proposal with nothing to remove. Pinned to
- * German, the product's primary language (`docs/ux/visual-screenshots.md`).
- */
-
 import type { JSX } from 'react'
 import { I18nProvider } from '@/i18n'
 import { ProjectLifecycleCard } from '@/features/projects/components/project-lifecycle-card'

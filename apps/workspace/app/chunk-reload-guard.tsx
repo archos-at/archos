@@ -1,26 +1,10 @@
 'use client'
 
-/**
- * ChunkReloadGuard
- *
- * During a rolling deploy, N frontend replicas (different build ids) briefly
- * serve traffic behind one load balancer with no session affinity. A client
- * that loaded HTML from an OLD pod can then request a JS/CSS chunk that a NEW
- * pod no longer serves -> `ChunkLoadError` / a failed dynamic import, i.e. a
- * broken page for the deploy window. This listens for that specific error and
- * reloads once to pick up the new build's HTML + matching chunks.
- *
- * Loop-safe: it reloads at most once per `MIN_RELOAD_GAP_MS` (a timestamp in
- * sessionStorage), and if sessionStorage is unavailable it skips the reload
- * rather than risk a loop (the user can refresh manually). Renders nothing.
- */
-
 import { useEffect } from 'react'
 
 const RELOAD_TS_KEY = 'chunk-reload-ts'
 const MIN_RELOAD_GAP_MS = 10_000
 
-/** True for the transient chunk/dynamic-import load failures a rollout causes. */
 export function isChunkLoadError(err: unknown): boolean {
   const e = err as { name?: string; message?: string } | null | undefined
   const message = e?.message ?? ''

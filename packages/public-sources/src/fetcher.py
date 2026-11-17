@@ -180,7 +180,6 @@ async def _extract(request: Request, readers: _Readers) -> Response:
         max_pages = min(max(int(request.query_params.get("max_pages", MAX_PDF_PAGES)), 1), MAX_PDF_PAGES)
     except ValueError:
         max_pages = MAX_PDF_PAGES
-    # Again, after the upload: another one may have taken the last slot meanwhile. No await until it is ours.
     if readers.slots.locked():
         return _busy()
     try:

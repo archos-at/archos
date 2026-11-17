@@ -1,8 +1,3 @@
-// Derive the before/after rows the ProjectProfilePatchCard shows the user
-// STRICTLY from the patch operations that will actually be written plus the
-// current profile — never from a model-authored `preview`. A prompt-injected
-// research context could otherwise show a benign preview while the patch writes
-// a different fact, so what the user consents to must equal what gets applied.
 import { flattenIntakeQuestions } from './intake-conditions'
 import { projectIntakeDefinitionV1 } from './intake-definition'
 import { formatIntakeAnswer, humanizeProfileKey, labelForProfileKey } from './intake-vocabulary'
@@ -19,12 +14,6 @@ export interface PatchPreviewRow {
 
 type PatchSection = 'facts' | 'assumptions' | 'goals' | 'unknowns'
 
-/**
- * Build the before/after rows for a proposed profile patch. When `profile` is
- * null (not yet loaded) the `before` column is left blank — the component hides
- * that column until the current profile is known — so the user is never shown a
- * "before" the code cannot vouch for.
- */
 export function buildPatchPreviewRows(
   patch: ProjectProfilePatchOperation[],
   profile: ProjectProfile | null
@@ -32,7 +21,6 @@ export function buildPatchPreviewRows(
   const rows: PatchPreviewRow[] = []
 
   for (const legacyOp of patch) {
-    // A card stored before the English names still names the old keys.
     const op = normalizeProfilePatchOperation(legacyOp)
     const target = extractTarget(op.path)
     if (!target) continue
@@ -61,7 +49,6 @@ export function buildPatchPreviewRows(
   return rows
 }
 
-/** `/facts/<key>`, `/facts/<key>/value`, `/assumptions/...`, `/goals/<key>`, `/unknowns/-`. */
 function extractTarget(
   path: string
 ):
@@ -94,7 +81,6 @@ function extractTarget(
   return null
 }
 
-/** Never hide what will be written: unwrap a shaped `{ value }` op, else JSON-stringify a foreign object. */
 function formatAfter(key: string, raw: unknown): string {
   let value: unknown = raw
   if (raw !== null && typeof raw === 'object' && !Array.isArray(raw)) {
@@ -118,7 +104,6 @@ function formatBefore(
   return formatValue(key, raw)
 }
 
-/** Format a bare value using the intake question that writes this key, else the generic formatter. */
 function formatValue(key: string, value: unknown): string {
   const question = questionForKey(key)
   if (question) return formatIntakeAnswer(question, value as ProjectPrimitiveValue | undefined)

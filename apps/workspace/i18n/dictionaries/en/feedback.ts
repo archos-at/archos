@@ -1,8 +1,3 @@
-/**
- * Product feedback: the form any member opens from the shell, and Platform →
- * Feedback where the platform owners triage what arrives. Not the thumbs on an
- * answer — those live under `chat`.
- */
 export const feedback = {
   open: 'Send feedback',
   openHint: 'Report a bug or share an idea',
@@ -54,7 +49,6 @@ export const feedback = {
       placeholder: 'What would you like to know?',
     },
   },
-  /** PostHog Support's ticket statuses, verbatim keys. */
   statuses: {
     new: 'New',
     open: 'Open',
@@ -62,7 +56,6 @@ export const feedback = {
     on_hold: 'On hold',
     resolved: 'Resolved',
   },
-  /** The reporter's own threads: what they sent and what the team answered. */
   threads: {
     open: 'My feedback',
     title: 'My feedback',
@@ -73,14 +66,11 @@ export const feedback = {
       description: 'When you send feedback, your chat with the team shows up here.',
     },
     send: 'Send feedback',
-    /** Opens the form inside „My feedback”. */
     new: 'New feedback',
-    /** Beside the list, while no case is open. */
     pick: {
       title: 'Pick a report',
       description: 'Choose a report on the left to read the chat with the team, or send new feedback.',
     },
-    /** In the thread of a report sent a moment ago. */
     sent: 'Thank you! Your feedback has reached the {productName} team. You will see their answer here.',
     loadError: 'Your feedback could not be loaded.',
     threadLoadError: 'This chat could not be loaded.',
@@ -100,9 +90,7 @@ export const feedback = {
     replySend: 'Send',
     replyError: 'Your reply could not be sent. Please try again.',
     replyRateLimited: 'You have sent a lot of replies in the last hour. Please try again later.',
-    /** The dot on the avatar and on “More”, for screen readers. */
     newsDot: 'New replies on your feedback',
-    /** The switch above the list, for office admins only. */
     scopeLabel: 'View',
     scope: {
       mine: 'Mine',
@@ -115,29 +103,23 @@ export const feedback = {
       description: 'When anyone in your office sends feedback, it shows up here.',
     },
     officeLoadError: 'Your office’s feedback could not be loaded.',
-    /** The list's two groups: open cases first. */
     groups: {
       active: 'Active',
       done: 'Done',
     },
-    /** The number the team files the case under. */
     ticketNumber: '#{number}',
-    /** Before a relative time: “Updated 3 hours ago”. */
     updated: 'Updated',
     unknownReporter: 'Unknown member',
     readOnly: 'Only {name} can reply to this report.',
     readOnlyUnnamed: 'Only the person who reported this can reply here.',
-    /** Where a case stands, in plain words, for the person who reported it. */
     statuses: {
       new: 'Received',
       open: 'In progress',
       pending: 'Waiting for you',
       on_hold: 'On hold',
       resolved: 'Resolved',
-      /** Without a readable ticket: sent, no state known. */
       unknown: 'Sent',
     },
-    /** The same state in the office view, where “you” would be the wrong person. */
     officeStatuses: {
       pending: 'Waiting for the reporter',
     },

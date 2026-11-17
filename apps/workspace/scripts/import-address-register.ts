@@ -1,35 +1,3 @@
-/**
- * Import the BEV Adressregister into the cell's database (ADR-0172), or show
- * what it would import.
- *
- * The register is a public bulk file ("Adresse Relationale Tabellen –
- * Stichtagsdaten", CC BY 4.0) the BEV publishes twice a year. It is downloaded
- * once, whole: no address anyone types is ever sent anywhere. Lookups read the
- * imported rows (`bff/site-resolution/`).
- *
- *   Usage (from apps/workspace):
- *     bun run register:import -- --zip ./Adresse_Relationale_Tabellen_Stichtagsdaten_20251001.zip
- *         # parse it, count, change nothing
- *     bun run register:import -- --reference-date 2025-10-01 --download
- *         # the same, fetching the archive from data.bev.gv.at
- *
- * What describes the register (its id, rows' municipality and state, postcodes,
- * download address) is the `addressRegister` block of the country's
- * `fact_definitions` record, not code: the script reads it from the pack file
- * the operator proposed (`--pack`, default `configs/knowledge-packs/at-setup.json`).
- * The BEV file's own format (`bev-archive.ts`) is what this script is code for.
- *
- *     APP_DATABASE_URL=postgres://app_rw:…@…/app bun run register:import -- --zip … --apply
- *         # write it as a new release and make it the active one
- *
- * `--apply` connects as the runtime role and steps up to the platform role per
- * transaction (`workers/platform-scope.js`), the one role that writes platform
- * tables. A release that would shrink the active one by more than 5 % is
- * refused (`--max-shrink 0.2` to accept more, after looking at why), and so is
- * a release not newer than the active one (`--allow-older` to roll back). Runbook:
- * docs/deployment/address-register.md.
- */
-
 import { readFileSync } from 'node:fs'
 import postgres from 'postgres'
 import { bevAttribution } from '../bff/site-resolution/bev'
@@ -37,7 +5,6 @@ import { readBevArchive } from '../bff/site-resolution/bev-archive'
 import { DEFAULT_MAX_SHRINK, importRelease, type WithPlatform } from '../bff/site-resolution/import'
 import { registerFromRecord, type AddressRegister } from '../bff/site-resolution/registers'
 import { factDefinitionsSchema } from '../bff/base-knowledge/wire/setup-facts'
-// CommonJS, shared with the purger and the scheduler: the one place the step-up is spelled.
 import platformScope from '../workers/platform-scope.js'
 
 function argument(name: string): string | null {
@@ -45,7 +12,6 @@ function argument(name: string): string | null {
   return index >= 0 ? (process.argv[index + 1] ?? null) : null
 }
 
-/** The register the pack's `fact_definitions` record describes: the one the BEV importer reads. */
 function registerOfPack(): AddressRegister {
   const path = argument('--pack') ?? new URL('../../../configs/knowledge-packs/at-setup.json', import.meta.url).pathname
   const pack = JSON.parse(readFileSync(path, 'utf8')) as { records: Array<{ type: string; values?: { territoryIds: string[]; body: { kind: string; payload: unknown } } }> }

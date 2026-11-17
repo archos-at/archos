@@ -52,25 +52,14 @@ from agent.common import content_to_text
 
 logger = logging.getLogger(__name__)
 
-#: How close the quote must come to some stretch of its nearest passage
-#: (:func:`closeness`) before it counts as misremembered rather than invented.
-#: Below it the model was not quoting that passage, and "correcting" it would
-#: put different words in its mouth. Measured on the test fixtures: a quote
-#: with two words changed scores 0.82-0.85, an invented one 0.39-0.50.
 PATCH_FLOOR = 0.7
 
-#: How similar the corrected wording must stay to what was quoted. A correction
-#: that shares less is a different sentence of the passage, not this one.
 MIN_SIMILARITY = 0.6
 
-#: At most this many quotes are patched per answer; the rest keep their marker.
 MAX_PATCHES = 3
 
-#: Upper bound on one patch call. The answer is final without it.
 PATCH_TIMEOUT_S = 8.0
 
-#: The call the pipeline makes: the misquote and its passage in, the passage's
-#: own wording out (``None`` when there is none).
 QuotePatchFn = Callable[[str, str], Awaitable[str | None]]
 
 _SYSTEM_PROMPT = (
@@ -107,10 +96,6 @@ def select(quotes: Sequence[UnverifiedQuote]) -> list[UnverifiedQuote]:
     return chosen[:MAX_PATCHES]
 
 
-#: The quotation-mark pairs a model may wrap its answer in. Only a MATCHED
-#: outer pair is removed: a lone mark at an edge is the passage's own wording
-#: (``der Bereich „zwischen Brandwänden“``), and stripping it leaves the
-#: correction with an unbalanced „.
 _OUTER_PAIRS = frozenset(
     {
         ("„", "“"),
@@ -183,9 +168,6 @@ def accept(original: str, corrected: str | None, passage: str, *, span: str = ""
         return None
     if not _reads_back_as_one_quote(corrected, span):
         return None
-    # Verbatim, not merely verified: the verifier's fuzzy threshold tolerates
-    # OCR noise, and a corrected "2,50 m" against a passage saying "2,10 m"
-    # clears it. A correction is copied from the passage or it is not one.
     if norm not in normalize_for_quote_match(passage):
         return None
     similarity = difflib.SequenceMatcher(None, normalize_for_quote_match(original), norm).ratio()

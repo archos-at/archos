@@ -44,25 +44,13 @@ from dataclasses import dataclass
 from knowledge_layer.ingest import MIN_JUDGEABLE_CHARS
 from knowledge_layer.ingest import text_quality
 
-#: Thresholds, measured 2026-10 on passages captured from a live knowledge_search
-#: ("Brandabschnitt Gebäudeklasse 5 Wohngebäude", OIB-RL 2 and its Erläuterungen)
-#: in ``tests/fixtures/ocr_noise``. Debris shares: a span of rotated wall labels
-#: 1.00, the spaced-capitals Gebäudeklassen labels 0.66. Text: OIB prose and
-#: lists at most 0.01, tables as text at most 0.04. Between them, the chunks the
-#: debris sits in: 0.08 and 0.16 where a paragraph answers the question, 0.40 for
-#: three sentences on Balkonplatten ahead of a page of drawing debris. All three
-#: are kept, on purpose: half the glyphs is where a passage stops being text.
+#: Thresholds measured 2026-10 on live OIB-RL 2 passages (tests/fixtures/ocr_noise); text at most 0.04 debris.
 MIN_DEBRIS_SHARE = 0.5
 MAX_FRAGMENT_GLYPHS = 4
 MIN_ALNUM_SHARE = 0.5
 MIN_SHREDDED_TOKENS = 4
-#: A table row of values (``R 30 R 30 R 30 R 60``) sits at 0.5: one letter per value.
 MIN_SINGLE_GLYPH_SHARE = 0.6
-#: Below this many glyphs a passage is a heading or a table cell, too short to judge:
-#: the same floor page triage judges a page's text by.
 MIN_JUDGEABLE_GLYPHS = MIN_JUDGEABLE_CHARS
-#: Marks a value is written with in a table row (``≤ 400``, ``30 %``, ``m²``): they
-#: count with the letters and digits, so a row of limits is not a row of symbols.
 _VALUE_MARKS = frozenset("≤≥±×÷%°²³‰")
 
 _JUDGED_CONTENT_TYPES = frozenset({"text"})
@@ -141,13 +129,6 @@ def noise_notice(dropped: int) -> str:
     )
 
 
-# @environment_variable DROP_OCR_NOISE
-# @category Knowledge Layer
-# @type bool
-# @default false
-# @required false
-# Leave OCR debris passages out of knowledge_search's ranked pool before the
-# reranker and the per-document cap. Off until the answer suite has measured it.
 DROP_OCR_NOISE_ENV = "DROP_OCR_NOISE"
 
 _TRUE_VALUES = frozenset({"1", "true", "yes", "on"})

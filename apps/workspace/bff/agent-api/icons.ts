@@ -1,26 +1,3 @@
-/**
- * The icons the door lists (MCP `Icon`: `src`, `mimeType`, `sizes`, `theme`).
- * Small inline SVG `data:` URIs, so no client fetches anything and no asset
- * route has to be public; each one repeats in every `tools/list`,
- * `prompts/list` and `resources/list`, so each stays a few hundred bytes.
- *
- * The server's own icon leads with the app's PNG tiles, served from the
- * deployment's pinned origin (`public/icons/`, the same origin as the MCP
- * endpoint): the spec obliges a client to render only PNG and JPEG, SVG is a
- * SHOULD, and Claude's connector UI showed nothing for an SVG-only list. The SVG
- * marks follow for clients that take them.
- *
- * Two variants per icon, one per client theme: the brand's ink on a light
- * page and its warm white on a dark one (`packages/brand/tokens.json`, `ink`
- * and `surface`; the brand has no hue). The server's own icon is the app
- * icon's glyph, the product name's initial (`BRAND_MARK`); the
- * others are 24-unit line glyphs, one per meaning (search, describe, call,
- * report; the guide, glossary, catalog and project resources; the workflows).
- * Never per operation: in `tools` mode that would repeat ~700 bytes on each of
- * ~300 tools (the mode's budget is 1,000 characters a tool), so `tools` mode
- * carries none on its tools (its server, prompts and resources have them).
- */
-
 import type { Icon } from '@modelcontextprotocol/server'
 import { BRAND_MARK } from '@/lib/brand'
 
@@ -29,7 +6,6 @@ const THEMES = ['light', 'dark'] as const
 
 const ESCAPES: Readonly<Record<string, string>> = { '%': '%25', '<': '%3C', '>': '%3E', '#': '%23', '"': "'", ' ': '%20' }
 
-/** `svg` as a data URI: only the characters a URL cannot carry are escaped, which keeps it short. */
 function dataUri(svg: string): string {
   return `data:image/svg+xml,${svg.replace(/[%<>#" ]/g, (c) => ESCAPES[c] as string)}`
 }
@@ -38,29 +14,21 @@ function icon(build: (ink: string) => string): Icon[] {
   return THEMES.map((theme) => ({ src: dataUri(build(INK[theme])), mimeType: 'image/svg+xml', sizes: ['any'], theme }))
 }
 
-/** A 24-unit line glyph; `d` may hold several subpaths. */
 const glyph = (d: string): Icon[] =>
   icon(
     (ink) =>
       `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="${ink}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`,
   )
 
-/** The app icon's glyph, without its tile. */
 const SERVER_MARK: Icon[] = icon(
   (ink) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${BRAND_MARK.viewBox}"><path fill="${ink}" d="${BRAND_MARK.path}"/></svg>`,
 )
 
-/** The app's PNG tiles (`public/icons/`), theme-neutral: the tile carries its own ground. */
 const SERVER_TILES = [
   { path: '/icons/icon-192.png', size: '192x192' },
   { path: '/icons/icon-512.png', size: '512x512' },
 ] as const
 
-/**
- * The server's icons: the PNG tiles from `origin` first, then the SVG mark. No
- * origin pinned (a dev box), no tiles: the request's own Host is never trusted
- * to name where an icon lives.
- */
 export function serverIcons(origin: string | null): Icon[] {
   const tiles: Icon[] = origin
     ? SERVER_TILES.map(({ path, size }) => ({ src: `${origin}${path}`, mimeType: 'image/png', sizes: [size] }))
@@ -80,7 +48,6 @@ export const RESOURCE_ICONS = {
   glossary: glyph('M4 5h16v11H10l-4 4v-4H4Z'),
   catalog: glyph('M9 7h11M9 12h11M9 17h11M4.5 7h.01M4.5 12h.01M4.5 17h.01'),
   project: glyph('M3 6h6l2 2h10v11H3Z'),
-  // The proposal card (an MCP App view, ADR-0142): a card with a tick.
   'proposal-card': glyph('M4 5h16v14H4ZM8 12l3 3 5-6'),
 } as const
 

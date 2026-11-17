@@ -13,8 +13,6 @@ from typing import Any
 from agent.observability.langfuse_trace_attributes import add_trace_tag
 from agent.observability.langfuse_trace_attributes import record_trace_metadata
 
-#: One tag for "this turn read a building model" — the filter an operator
-#: reaches for first; the per-call detail goes in metadata.
 FEATURE_TAG = "feature:ifc"
 
 

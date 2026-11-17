@@ -22,24 +22,13 @@ from enum import StrEnum
 class WebRole(StrEnum):
     """What a web process serves. The values are what ``PROCESS_ROLE`` holds."""
 
-    #: The chat socket and the answers running on it; scales on active turns (ADR-0080).
     CHAT = "chat"
-    #: Every other HTTP route: knowledge, jobs, LLM utilities, admin, debug; scales on CPU.
     API = "api"
 
 
 ROLE_ENV = "PROCESS_ROLE"
 
 
-# @environment_variable PROCESS_ROLE
-# @category Deployment
-# @type string
-# @default none
-# @required true
-# The process type the backend image runs as: `chat` (the chat socket), `api`
-# (every other HTTP route), `worker` (research jobs) or `ingest-worker`
-# (ingestion). Unset or anything else stops the process at start. `web` no
-# longer exists.
 def web_role(env: Mapping[str, str] | None = None) -> WebRole:
     """The web role ``PROCESS_ROLE`` names; raises ``ValueError`` when it is unset or not one."""
     raw = (os.environ if env is None else env).get(ROLE_ENV, "").strip().lower()

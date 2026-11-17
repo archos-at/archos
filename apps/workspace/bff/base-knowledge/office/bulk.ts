@@ -1,12 +1,3 @@
-/**
- * One change to many entries at once (ADR-0163 amendment): record a check, move
- * them into a base-knowledge folder, or remove them. Bounded by
- * `MAX_BULK_ENTRIES` so the call stays one short request; each entry runs
- * through the single-entry service, with its own authorization and its own
- * refusal, so one refused entry does not undo the others and the answer says
- * which ran.
- */
-
 import 'server-only'
 import { ApiError, ForbiddenError, UnprocessableError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
@@ -33,7 +24,6 @@ async function moveEntry(session: AuthorizedSession, entryId: string, folderId: 
   if (!moved.ok) throw new UnprocessableError(moved.error)
 }
 
-/** A removal some store could not finish is not reported as clean: the records are gone, and the answer names what was left. */
 async function removeEntry(session: AuthorizedSession, entryId: string, request: Request): Promise<void> {
   const removal = await removeBaseKnowledge(session, entryId, request)
   if (removal.removed) return
@@ -53,7 +43,6 @@ export async function bulkBaseKnowledge(
   }
   const ids = [...new Set(body.entryIds)]
   const results: BulkEntryResult[] = []
-  // One after another: a removal runs the office shelf's delete with its backend calls, and a burst of those helps nobody.
   for (const entryId of ids) {
     results.push(
       await runOne(entryId, () => {

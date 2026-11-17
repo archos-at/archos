@@ -1,32 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the RIS reader: what a legal source opens onto INSIDE Piloti.
- *
- * The whole point of the surface is that it no longer leaves the product, so
- * the preview must not either — the fetch is stubbed on `window.fetch` for this
- * route alone and answers with a real Bauordnung excerpt, which is what the
- * route would receive from `/api/ris/document`. No backend, no network, no RIS.
- *
- * Two variants, because the surface has two claims:
- *
- *   (default)  the reader with the cited passage found and marked, scrolled to.
- *              This is the difference the change exists for: a citation that
- *              used to hand the reader a browser tab and a page of statute now
- *              puts them on the sentence.
- *   `failed`   RIS unreachable. The dialog says so and keeps the outbound link,
- *              because the reading copy is the thing that failed and the
- *              authoritative publication is still there. A viewer that spins
- *              forever would be the worse answer, and it is the one this route
- *              exists to make impossible to ship by accident.
- *   `busy`     Rate-limited. A reader who opened six sources in five seconds is
- *              not looking at a broken source, and „lässt sich nicht anzeigen"
- *              told them they were. Separate because the two failures ask for
- *              opposite things: wait a moment, or give up on the reading copy.
- *
- * Not linked from anywhere and 404s outside development.
- */
-
 import { useEffect, useState } from 'react'
 import { notFound, useSearchParams } from 'next/navigation'
 import { RisDocumentDialog } from '@/features/knowledge/components/ris-document-dialog'
@@ -65,9 +38,6 @@ export default function RisSourcePreview() {
   const variant = params.get('variant') ?? 'default'
   const [stubbed, setStubbed] = useState(false)
 
-  // The stub is installed BEFORE the dialog mounts (which is what the flag
-  // gates), because the dialog fetches on open and a real request would leave
-  // the preview waiting on a backend it is designed not to need.
   useEffect(() => {
     const original = window.fetch
     window.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {

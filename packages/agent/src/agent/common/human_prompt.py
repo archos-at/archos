@@ -73,9 +73,6 @@ def build_human_prompt(
     return HumanPromptRadio(
         text=text,
         options=[
-            # `value` is what comes back as the user's answer, so it has to be
-            # the label itself: the clarifier replays that string to the LLM as
-            # the user's turn, and an opaque id there would read as noise.
             MultipleChoiceOption(id=str(index), label=label, value=label, description="")
             for index, label in enumerate(labels, start=1)
         ],

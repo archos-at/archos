@@ -1,29 +1,3 @@
-"""The decisive artefact: every number in `the-question.spec.ts`, measured again.
-
-This suite is the engine-swap evidence. Each row asserts the IfcOpenShell answer
-against the TypeScript package's own ground truth — the numbers in
-``packages/ifc-spatial/test/the-question.spec.ts``,
-``test/metric.spec.ts`` and ``test/constructive.spec.ts``, all of which were
-cross-checked against something the file says about itself somewhere else (the
-window type's name ``1810x1210mm``, the declared ``NetFloorArea``, the storey
-elevations) before they were written down.
-
-The TS reference values are the FULL-PRECISION ones, obtained by running the
-TypeScript operators directly rather than by copying the two-decimal figures out
-of the spec file — so a disagreement of a micrometre is visible instead of being
-hidden by rounding.
-
-**A disagreement is a finding, not a tolerance to widen.** Every row states the
-tolerance it was asserted at. One row did genuinely disagree — ``clear_height``,
-by 30 cm — and it was asserted against the value the investigation showed to be
-right rather than quietly loosened. The TypeScript operator has since been
-corrected to measure the same way, so that row is back in parity and the table
-reports no current finding; the story is kept in the test that owns it, because
-a table that still said FINDING would be describing a fixed defect.
-
-Run with ``-s`` to see the parity table.
-"""
-
 from __future__ import annotations
 
 import json
@@ -40,7 +14,6 @@ FIXTURES = Path(__file__).resolve().parent / "fixtures"
 SAMPLE_HOUSE = FIXTURES / "Ifc4_SampleHouse.ifc"
 NO_NORTH = FIXTURES / "house-with-rooms.ifc"
 
-# ── the subjects, named as the TS specs name them ───────────────────────────
 WINDOW = "3cUkl32yn9qRSPvBJVyWcE"
 OPENING = "3cUkl32yn9qRSPvAVVyWcE"
 SOUTH_OPENING = "3cUkl32yn9qRSPvAVVyZTO"
@@ -54,10 +27,6 @@ ROOF = "3cUkl32yn9qRSPvBJVyWh4"
 GROUND_FLOOR = "1o0c33arXF9AEePDYchjCY"
 LINING = "2YIwE60BLCBQZbE8slzVOB"
 
-#: Every numeric row: the TypeScript value at full precision, and the tolerance
-#: this suite asserts at. The tolerances are the OPERATORS' OWN stated ones —
-#: 5 mm on a coordinate, 10 mm on a dimension, 1 % on an area — never widened to
-#: make a row pass.
 _ROWS: list[dict[str, Any]] = []
 
 
@@ -72,14 +41,6 @@ def record(
     finding: bool = False,
     informational: bool = False,
 ) -> None:
-    """Assert one parity row and remember it for the table.
-
-    ``finding`` marks a row where the two engines genuinely disagree and the
-    disagreement is the result — asserted separately, in the test that owns it,
-    against the value the investigation showed to be right. ``informational``
-    marks a row that has no TS counterpart to compare against, because the
-    capability is new; the test around it still asserts what matters.
-    """
     delta: float | None = None
     if isinstance(ts, (int, float)) and isinstance(py, (int, float)):
         delta = abs(float(py) - float(ts))
@@ -110,19 +71,11 @@ def model() -> SpatialModel:
     return SpatialModel(str(SAMPLE_HOUSE))
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# topology
-# ════════════════════════════════════════════════════════════════════════════
-
-
 def test_finds_the_wall_the_window_sits_in(model: SpatialModel) -> None:
     answer = op.hosted_in(model, WINDOW)
     assert answer.decidable
     assert len(answer.value) == 1
     assert "Wall-Ext_102Bwk" in answer.value[0].name
-    # Two hops through relations the file states outright, so this is a reading
-    # of the file and not a measurement — but it is still not something the file
-    # says, hence `computed`.
     assert answer.provenance == "computed"
     assert answer.value[0].via == "voids+fills"
     record(
@@ -138,9 +91,6 @@ def test_finds_the_room_the_window_serves_and_says_it_measured(model: SpatialMod
     answer = op.opens_to(model, WINDOW)
     assert answer.decidable
     assert [r.name for r in answer.value] == ["Bedroom"]
-    # This export writes no IfcRelSpaceBoundary at all. The relation exists only
-    # because geometry recovered it, and the answer has to say so — presenting a
-    # contact test as a declared fact is the failure this library prevents.
     assert answer.provenance == "computed"
     assert "Geometrie abgeleitet" in answer.caveat
     record(
@@ -157,7 +107,6 @@ def test_bounds_and_adjacency_come_out_of_the_same_primitive(model: SpatialModel
     assert bounds.decidable and bounds.provenance == "computed"
     names = " ".join(r.name or "" for r in bounds.value)
     assert "Wall-Ext_102Bwk" in names and "Roof_Flat" in names
-    # Furniture standing in the room is contained, not bounding.
     assert "Furniture" not in names
     record(
         "bounds",
@@ -211,11 +160,6 @@ def test_enclosed_by_is_the_inverse_of_bounds(model: SpatialModel) -> None:
     )
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# metric
-# ════════════════════════════════════════════════════════════════════════════
-
-
 @pytest.mark.parametrize(
     "subject, name, ts_value",
     [
@@ -230,8 +174,6 @@ def test_measures_the_room_areas(model: SpatialModel, subject: str, name: str, t
     assert answer.unit == "m²"
     assert answer.provenance == "computed"
     assert answer.tolerance > 0
-    # 1 % is the operator's own stated area tolerance; the two engines in fact
-    # agree to a millionth of a square metre.
     record(
         "floorArea",
         name,
@@ -241,22 +183,14 @@ def test_measures_the_room_areas(model: SpatialModel, subject: str, name: str, t
         unit="m²",
         note="Py additionally triangulates against the declared BaseQuantities.NetFloorArea",
     )
-    # The declared quantity is found by the Python operator itself and agrees.
     assert answer.agreement == "agree"
 
 
 def test_the_declared_area_is_found_and_triangulated(model: SpatialModel) -> None:
     answer = op.floor_area(model, BEDROOM)
-    # Revit writes this file's quantities into a pset called `BaseQuantities`,
-    # not `Qto_SpaceBaseQuantities`. The TS operator cannot see it at all — the
-    # host has to pass the number in — so this row is a capability the port adds.
     assert answer.agreement == "agree"
     declared = model.declared_quantity(model.file.by_guid(BEDROOM), ("NetFloorArea",))
     assert declared is not None
-    # This file declares its areas in square metres although it measures in
-    # millimetres, so the conversion is the identity here and the raw value and
-    # the SI value are the same number. On the Trapelo export they are not — see
-    # `test_corpus.py::test_a_declared_area_in_square_feet_is_compared_in_metres`.
     assert declared.scale == 1.0
     record(
         "floorArea (triangulated)",
@@ -268,7 +202,6 @@ def test_the_declared_area_is_found_and_triangulated(model: SpatialModel) -> Non
         note=f"declared at {declared.path}",
     )
 
-    # And a wrong declared value must lose, loudly.
     disagreeing = op.floor_area(model, LIVING, declared_area=45.0)
     assert disagreeing.agreement == "disagree"
     assert "widersprechen sich" in disagreeing.caveat
@@ -284,10 +217,6 @@ def test_measures_the_sill_and_head(model: SpatialModel) -> None:
     assert GROUND_FLOOR in answer.from_
     record("sillAndHead.sill", "window", 0.8999999761581421, answer.value["sill"], tolerance=0.01, unit="m")
     record("sillAndHead.head", "window", 2.1100000143051147, answer.value["head"], tolerance=0.01, unit="m")
-    # The type is named `Windows_Sgl_Plain:1810x1210mm`. The measured height
-    # agreeing with the name to under a millimetre is an independent check that
-    # the world-coordinate transform is right: two unrelated statements in the
-    # file, one a string and one a swept solid, agree.
     record(
         "sillAndHead.height",
         "window",
@@ -302,8 +231,6 @@ def test_measures_the_sill_and_head(model: SpatialModel) -> None:
 def test_extent_and_elevation(model: SpatialModel) -> None:
     box = op.extent(model, WINDOW)
     assert box.decidable
-    # 1.86 rather than the type's 1.81: the box is the window ASSEMBLY (frame and
-    # reveal trim), not the nominal opening.
     record("extent.width", "window", 1.8599999, box.value["width"], tolerance=0.01, unit="m")
     record("extent.box.min.z", "window", 0.9, box.value["box"]["min"][2], tolerance=0.01, unit="m")
 
@@ -321,8 +248,6 @@ def test_extent_and_elevation(model: SpatialModel) -> None:
 
 
 def test_names_the_facade_bearing_instead_of_inventing_one(model: SpatialModel) -> None:
-    # The original failed answer described this as the Südfassade. It faces
-    # north, and the file declares a TrueNorth, so this is checkable.
     answer = op.azimuth(model, NORTH_WALL)
     assert answer.decidable
     assert answer.unit == "°"
@@ -338,7 +263,6 @@ def test_names_the_facade_bearing_instead_of_inventing_one(model: SpatialModel) 
 
 
 def test_the_four_senses_of_distance(model: SpatialModel) -> None:
-    # Living room and bedroom are separated by one 100 mm partition.
     record(
         "distance min",
         "living↔bedroom",
@@ -380,24 +304,6 @@ def test_the_four_senses_of_distance(model: SpatialModel) -> None:
 
 
 def test_clear_height_is_where_the_two_engines_used_to_disagree(model: SpatialModel) -> None:
-    """The row that WAS the finding, and is now the proof it was acted on.
-
-    TS `clearHeight(LIVING)` used to return 2.50 m, the Z extent of the
-    IfcSpace solid, while its own caveat said that is NOT the lichte Höhe
-    because it could not see what hangs in the room ("dafür fehlt dieser
-    Bibliothek noch der Verschneidungstest"). The living room has a suspended
-    ceiling (`IfcCovering` "Compound Ceiling:Plain", z 2.200–2.257), so the true
-    clear height is 2.20 m — 30 cm, on exactly the number an OIB minimum room
-    height is checked against, and on the side that passes a room that fails.
-    Porting the operators onto IfcOpenShell is what found it.
-
-    The TypeScript operator now casts the same rays: `metric.spec.ts` asserts
-    2.2 m and `clearHeight` returns 2.199999999254942 (measured by running it
-    directly, like every other reference value here). So this is no longer a
-    disagreement and must not be reported as one — a parity table that still
-    said FINDING would be describing a defect that was fixed in this same
-    change, and the reader has no way to tell a live finding from a souvenir.
-    """
     answer = op.clear_height(model, LIVING)
     assert answer.decidable
     assert answer.value == pytest.approx(2.20, abs=0.01)
@@ -413,18 +319,11 @@ def test_clear_height_is_where_the_two_engines_used_to_disagree(model: SpatialMo
     )
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# constructive
-# ════════════════════════════════════════════════════════════════════════════
-
-
 def test_seats_the_facade_plane_on_a_real_face(model: SpatialModel) -> None:
     plane = op.facade_plane_of(model, NORTH_WALL)
     assert plane.decidable
     assert plane.value["outward"] is True
     assert plane.value["normal"][1] == pytest.approx(1.0, abs=1e-6)
-    # The wall spans y 4.409 (inside) .. 4.699 (outside) and the plane sits on
-    # the outer leaf — a real face, which is the invariant that matters.
     record("facadePlaneOf.point.y", "north wall", 4.6986, plane.value["point"][1], tolerance=0.005, unit="m")
     record(
         "facadePlaneOf.point.x",
@@ -460,31 +359,23 @@ def test_measures_the_overhang_the_agent_called_unmeasurable(model: SpatialModel
         assert answer.from_ == [ROOF, wall]
         record("overhang", name, ts_value, answer.value, tolerance=0.005, unit="m")
 
-    # Never a negative projection: the south wall does not reach the north
-    # wall's facade plane, and 0 is reported with the reason.
     behind = op.overhang(model, SOUTH_WALL, NORTH_WALL)
     assert behind.value == 0
     assert "erreicht die Fassadenebene nicht" in behind.caveat
 
 
 def test_the_ray_finds_the_glazing_through_the_hole_in_the_wall(model: SpatialModel) -> None:
-    # From inside the bedroom, straight north at window height. The wall is
-    # voided here, so the first surface is the window's own glazing — which is
-    # also proof that the opening was really subtracted from the wall.
     answer = op.ray(model, [3.9, 2.0, 1.5], [0, 1, 0], 50)
     assert answer.decidable
     assert answer.value["hit"] == WINDOW
     record("ray.point.y", "bedroom → north", 4.613, answer.value["point"][1], tolerance=0.005, unit="m")
     record("ray.distance", "bedroom → north", 2.613, answer.value["distance"], tolerance=0.005, unit="m")
-    # BESSER: the OCCT ray also reports the surface normal and the dot product.
     assert answer.value["dotProduct"] == pytest.approx(-1.0, abs=1e-6)
 
     solid = op.ray(model, [1.0, 2.0, 1.5], [0, 1, 0], 50)
     assert solid.value["hit"] == NORTH_WALL
     record("ray.point.y", "through solid wall", 4.409, solid.value["point"][1], tolerance=0.005, unit="m")
 
-    # Same aim, window excluded: nothing is left in the way, and the answer is a
-    # decidable None — "nothing there", never "could not look".
     through = op.ray(model, [3.9, 2.0, 1.5], [0, 1, 0], 50, [WINDOW])
     assert through.decidable and through.value is None
 
@@ -535,8 +426,6 @@ def test_the_roof_cuts_the_prism_and_the_depth_is_monotone(model: SpatialModel, 
 
 
 def test_the_south_window_has_its_own_depth(model: SpatialModel) -> None:
-    # 0.55 m of roof over the south facade rather than 0.65 m, and the prism it
-    # cuts is a different one — the depth must not be copied between windows.
     volume = op.prism(model, SOUTH_OPENING, 45, 30).value
     answer = op.obstructions(model, volume, [SOUTH_WALL])
     assert [f["globalId"] for f in answer.value] == [ROOF]
@@ -548,8 +437,6 @@ def test_the_south_window_has_its_own_depth(model: SpatialModel) -> None:
 def test_obstructions_never_report_the_window_as_its_own_obstruction(model: SpatialModel) -> None:
     volume = op.prism(model, OPENING, 45, 30).value
     ids = [f["globalId"] for f in op.obstructions(model, volume, [NORTH_WALL]).value]
-    # The window's frame projects 40 mm past the facade and would otherwise stand
-    # in its own prism.
     assert WINDOW not in ids
     assert OPENING not in ids
     for global_id in ids:
@@ -559,18 +446,10 @@ def test_obstructions_never_report_the_window_as_its_own_obstruction(model: Spat
 def test_it_returns_geometry_and_refuses_to_turn_it_into_a_verdict(model: SpatialModel) -> None:
     volume = op.prism(model, OPENING, 45, 30).value
     answer = op.obstructions(model, volume, [NORTH_WALL])
-    # The angles are PARAMETERS the caller binds from the clause; this module
-    # knows geometry, not law. A blocked prism ENLARGES the required
-    # Lichteintrittsfläche under OIB 3 — it does not ban the window.
     assert "Lichteintrittsfläche" in answer.caveat
     assert "Regelwerk" in answer.caveat
     serialised = json.dumps(answer.to_dict(), ensure_ascii=False)
     assert not any(word in serialised.lower() for word in ("compliant", "erfüllt", "verstoß", "konform", "zulässig"))
-
-
-# ════════════════════════════════════════════════════════════════════════════
-# the epistemics — the part that must survive the port unchanged
-# ════════════════════════════════════════════════════════════════════════════
 
 
 def test_an_unknown_global_id_raises_and_is_never_an_undecidable(model: SpatialModel) -> None:
@@ -606,7 +485,6 @@ def test_the_wrong_kind_gets_a_pointer_at_the_right_operator(model: SpatialModel
 
 
 def test_a_file_without_true_north_gets_no_compass_bearing() -> None:
-    """The single clearest case for the whole envelope contract."""
     other = SpatialModel(str(NO_NORTH))
     assert other.true_north is None
     wall = other.file.by_type("IfcWall")[0]
@@ -618,22 +496,12 @@ def test_a_file_without_true_north_gets_no_compass_bearing() -> None:
 
 
 def test_the_file_is_georeferenced_and_no_blind_spot_is_invented(model: SpatialModel) -> None:
-    # IfcSite declares 51°30'N 0°07'W, which is London — this is the
-    # buildingSMART sample, not an Austrian project. A false blind spot is the
-    # same failure as a false answer.
     assert model.georeferenced is True
 
 
 def test_no_solar_operator_exists(model: SpatialModel) -> None:
-    # Georeferencing makes a Besonnungsstudie POSSIBLE; it does not make it
-    # built. The honest state of a capability that does not exist is absence.
     surface = " ".join(dir(op))
     assert not any(word in surface.lower() for word in ("sunpath", "besonnung", "solar"))
-
-
-# ════════════════════════════════════════════════════════════════════════════
-# the table
-# ════════════════════════════════════════════════════════════════════════════
 
 
 @pytest.fixture(scope="session", autouse=True)

@@ -68,50 +68,24 @@ T = TypeVar("T")
 
 logger = logging.getLogger(__name__)
 
-# Message types on the envelope (see Envelope.type).
 FRAME = "frame"  # owner -> relays: a stamped chat wire v2 event (payload = the frame)
 HITL_ANSWER = "hitl_answer"  # relay -> owner: an interaction_response, with who sent it
 CANCEL = "cancel"  # relay -> owner: a cancel_turn, with who sent it
 SUPERSEDE = "supersede"  # any replica -> owner: a newer question started, so stop the stale turn
 STEER = "steer"  # relay -> owner: a steering note for the running turn, masked, with who sent it
 
-# Per-conversation channel / key names. Mirrors ADR-0020's ``citations:{id}`` style.
 _EVENTS = "conv:{id}:events"  # owner publishes, relays and spectators subscribe
 _INPUT = "conv:{id}:input"  # relays publish, owner subscribes
 _STREAM = "conv:{id}:stream"  # Redis stream: replayable copy of every frame, read by `attach`
 _TURN = "conv:{id}:turn:{turn}"  # SET NX: the one replica that runs this turn id
 _RUNNING = "conv:{id}:running"  # SET NX + TTL: the one turn of the conversation running now, and where
 
-# Every frame of a turn lands here, and a socket that `attach`es reads back what
-# it missed by `(turn_id, seq)`. A v2 turn is a few dozen frames, so the cap
-# holds many turns; the TTL bounds a conversation nobody comes back to.
 _STREAM_MAXLEN = int(os.environ.get("CONV_STREAM_MAXLEN", "2000") or "2000")
 _STREAM_TTL_SECONDS = int(os.environ.get("CONV_STREAM_TTL_SECONDS", "3600") or "3600")
 
-# @environment_variable CHAT_RUNNING_TTL_SECONDS
-# @category Server
-# @type float
-# @default 12
-# @required false
-# How long the conversation's running marker (`conv:<id>:running`) survives
-# without its owner renewing it. The owner renews every quarter of this while
-# the turn runs and deletes the marker when the turn ends. It bounds two
-# things in opposite directions. How long a newer question waits behind a
-# replica that died mid-turn: up to this value, and it must stay under
-# `CHAT_SUPERSEDE_WAIT_SECONDS`, which must stay under the client's 15 s
-# acknowledgement bound. And, with `CHAT_AFFINITY` off, how long a Dragonfly
-# blip the owner survives: it stops writing and cancels its turn once a
-# successful renewal is older than this minus a 4 s margin (one guarded write,
-# 3 s, plus 1 s). A failed renewal is retried every second, so a blip shorter
-# than about this value minus 6 s is ridden out and a longer one ends the
-# answer. It must be above 4.
 RUNNING_TTL_SECONDS = float(os.environ.get("CHAT_RUNNING_TTL_SECONDS", "12") or "12")
 
-#: The bound on one bus command a turn waits on. RedisTransport's own client
-#: timeout is the same second; this one holds for any transport.
 BUS_CALL_TIMEOUT_S = 1.0
-#: How long a failed bus stays marked down, refusing without I/O, before the
-#: next command tries it again.
 BUS_RETRY_AFTER_S = 5.0
 
 
@@ -195,9 +169,6 @@ class BusTransport(Protocol):
     async def close(self) -> None: ...
 
 
-#: How many conversations' streams the in-process transport keeps. It has no
-#: TTL, so without a cap a long-lived single-node process would keep every
-#: conversation it ever served; the oldest-written stream is dropped first.
 _IN_MEMORY_STREAMS = 256
 
 
@@ -290,21 +261,13 @@ class RedisTransport:
 
     def __init__(self, url: str | None = None, *, client: Any = None) -> None:
         if client is not None:
-            # Tests inject a single client; reuse it for both roles.
             self._redis = client
             self._sub_redis = client
             self._owns_clients = False
         else:
             from redis.asyncio import Redis
 
-            # Command client: a short read timeout so publish/xadd fail fast
-            # (and the bus fails open) instead of hanging the request path.
             self._redis = Redis.from_url(url, decode_responses=True, socket_timeout=1.0, socket_connect_timeout=1.0)
-            # Pub/sub client: subscribe reads BLOCK waiting for the next message,
-            # so they must NOT inherit the 1s command timeout — that raised
-            # "Timeout reading from <host>" every second and tore down the relay
-            # loop. No read timeout here; a periodic health check still detects a
-            # genuinely dead connection.
             self._sub_redis = Redis.from_url(
                 url,
                 decode_responses=True,
@@ -322,7 +285,6 @@ class RedisTransport:
         await pubsub.subscribe(channel)
         try:
             async for msg in pubsub.listen():
-                # The server's own confirmation: from here on no publish is missed.
                 if msg.get("type") == "subscribe" and ready is not None:
                     ready.set()
                 if msg.get("type") == "message":
@@ -333,7 +295,6 @@ class RedisTransport:
                 await pubsub.aclose()
 
     async def xadd(self, stream: str, data: str, maxlen: int, ttl: int) -> None:
-        # One round trip for both: this runs for every frame.
         async with self._redis.pipeline(transaction=False) as pipe:
             pipe.xadd(stream, {"d": data}, maxlen=maxlen, approximate=True)
             pipe.expire(stream, ttl)
@@ -344,7 +305,6 @@ class RedisTransport:
         return [fields["d"] for _id, fields in entries if "d" in fields]
 
     async def set_nx(self, key: str, value: str, ttl: int | float) -> bool:
-        # PX, not EX: the running marker's TTL is a few seconds, and may be fractional.
         return bool(await self._redis.set(key, value, nx=True, px=max(1, int(ttl * 1000))))
 
     async def get(self, key: str) -> str | None:
@@ -410,11 +370,9 @@ class ConversationBus:
             raise BusUnavailable(f"{what}: {exc!r}") from exc
 
     def _mark_down(self, what: str, exc: Exception) -> None:
-        # Once per outage window: the refusals inside it would say nothing new.
         logger.warning("Conversation bus %s failed (%r); refusing bus commands for %.0fs", what, exc, BUS_RETRY_AFTER_S)
         self._down_until = time.monotonic() + BUS_RETRY_AFTER_S
 
-    # ---- owner -> relays (outbound frames) ------------------------------
     async def publish_frame(self, conv: str, frame: dict[str, Any]) -> None:
         """Append a stamped v2 frame to the replay stream, then publish it to relays and spectators."""
         env = Envelope(conv=conv, type=FRAME, payload=frame, origin=self.replica_id).encode()
@@ -463,7 +421,6 @@ class ConversationBus:
         key = _TURN.format(id=conv, turn=turn_id)
         return await self._call("release_turn", lambda: self._t.delete_if_value(key, self.replica_id))
 
-    # ---- one running turn per conversation ------------------------------
     def _running_value(self, turn_id: str) -> str:
         return json.dumps({"replica": self.replica_id, "turn_id": turn_id}, sort_keys=True)
 
@@ -499,7 +456,6 @@ class ConversationBus:
         key = _RUNNING.format(id=conv)
         return await self._call("release_running", lambda: self._t.delete_if_value(key, self._running_value(turn_id)))
 
-    # ---- relays -> owner (answers / control) ----------------------------
     async def publish_input(self, conv: str, input_type: str, payload: dict[str, Any]) -> None:
         """Hand a client message to the owner: ``HITL_ANSWER``, ``CANCEL``, ``STEER`` or ``SUPERSEDE``."""
         env = Envelope(conv=conv, type=input_type, payload=payload, origin=self.replica_id)
@@ -514,22 +470,12 @@ class ConversationBus:
         await self._t.close()
 
 
-# ---------------------------------------------------------------------------
-# Process-global bus. Redis-backed (the stateless architecture) whenever
-# REDIS_URL is set and the bus is not explicitly disabled — ON by default. With
-# no REDIS_URL it uses the in-process transport (single-process, byte-identical
-# to the pre-bus path); the Redis path fails open to local delivery on error.
-# Opt out with CONVERSATION_BUS=0.
-# ---------------------------------------------------------------------------
 _bus: ConversationBus | None = None
 _in_memory_singleton: InMemoryTransport | None = None
 _force_multi_for_tests = False
 
 
 def _bus_enabled() -> bool:
-    # Default ON: the stateless conversation bus is the intended architecture.
-    # Explicit falsey values opt out (the tier then falls back to affinity /
-    # single-process local delivery, byte-identical to the pre-bus path).
     val = os.environ.get("CONVERSATION_BUS", "1").strip().lower()
     return val not in ("0", "false", "no", "off", "")
 

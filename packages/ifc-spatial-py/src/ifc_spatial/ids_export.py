@@ -89,51 +89,15 @@ from .briefing import briefing as build_briefing
 from .briefing import content_hash
 from .envelope import Answer
 from .model import SpatialModel
-
-# The one import that runs against the grain of this package's layering, and it
-# is deliberate: `tools` imports `ids_export` LAZILY inside the handler (its own
-# comment says why), so this edge closes no cycle, and a refusal that a caller
-# can correct must be the same class here as everywhere else. Splitting it into
-# a second error type would let a host catch one and miss the other.
 from .tools import ToolError
 
-# ── the constants a reviewer will want to argue with ────────────────────────
-
-#: Schema versions every specification declares.
-#:
-#: All three, not the schema of the model we derived them from. ``ifctester``
-#: and most checkers skip a specification whose ``ifcVersion`` does not match
-#: the file under test, and a skipped specification is indistinguishable from a
-#: passing one in every checker UI there is. An architect who re-exports as
-#: IFC2X3 to satisfy a client would silently lose the whole shopping list.
 IFC_VERSIONS: tuple[str, ...] = ("IFC2X3", "IFC4", "IFC4X3_ADD2")
 
-#: Appended to every requirement's ``instructions``, where a checker shows it
-#: to the architect. It is the module's central promise, stated where the
-#: person acting on the file can read it.
 NO_THRESHOLD_NOTE = (
     "Diese Prüfung verlangt nur, DASS das Merkmal vorhanden und auswertbar ist. Welcher Wert zulässig ist, "
     "steht in der OIB-Richtlinie und wird hier nicht geprüft."
 )
 
-#: Why the single most common blind spot in this repository's corpus does not
-#: become a specification.
-#:
-#: IDS 1.0 has no facet for it. The ``partOf`` facet's ``relation`` attribute is
-#: a closed enumeration — ``IFCRELAGGREGATES``, ``IFCRELASSIGNSTOGROUP``,
-#: ``IFCRELCONTAINEDINSPATIALSTRUCTURE``, ``IFCRELNESTS`` and
-#: ``IFCRELVOIDSELEMENT IFCRELFILLSELEMENT`` — and space boundaries are not in
-#: it. (The 2024 paper *Extending IDS for digital building permit requirements*
-#: had to add ``IfcRelSpaceBoundary`` to that enumeration to express this, which
-#: is the clearest possible evidence that stock IDS 1.0 cannot.)
-#:
-#: The entity facet would technically accept ``IFCRELSPACEBOUNDARY`` as an
-#: applicability, and ``ifctester`` even evaluates it correctly — measured, it
-#: fails the sample house and passes ``house-with-rooms.ifc``. It is still not
-#: emitted: the IDS user manual describes the entity facet in terms of object
-#: occurrences throughout, so a conforming checker is free to find no applicable
-#: entities and report the specification as passed. A silent pass on the finding
-#: that matters most is exactly the failure this module exists to avoid.
 WHY_NO_SPACE_BOUNDARY = (
     "IDS 1.0 kennt dafür kein Facet: die relation-Aufzählung des partOf-Facets umfasst nur IfcRelAggregates, "
     "IfcRelAssignsToGroup, IfcRelContainedInSpatialStructure, IfcRelNests und "
@@ -171,9 +135,6 @@ WHY_NO_ELEMENTS = (
 )
 
 
-# ── what a property finding turns into ──────────────────────────────────────
-
-
 @dataclass(frozen=True)
 class PropertyTarget:
     """One (Merkmal, Property-Set, Bauteilklassen) triple worth demanding.
@@ -198,13 +159,9 @@ class PropertyTarget:
     ``ifcopenshell.util.pset``, so the flag cannot rot into a lie.
     """
 
-    #: German, as the briefing spells it.
     concept: str
     property: str
     pset: str
-    #: Concrete IFC classes. Concrete because a checker matches the entity facet
-    #: exactly: ``IFCWALL`` does not select an ``IfcWallStandardCase``, which is
-    #: what most IFC2X3 exports and half the IFC4 ones actually write.
     classes: tuple[str, ...]
     standard: bool = True
 
@@ -214,7 +171,6 @@ _DOORS = ("IfcDoor", "IfcDoorStandardCase")
 _WINDOWS = ("IfcWindow", "IfcWindowStandardCase")
 _SLABS = ("IfcSlab", "IfcSlabStandardCase", "IfcSlabElementedCase")
 
-#: Where each decisive property is demanded, and on what.
 PROPERTY_TARGETS: tuple[PropertyTarget, ...] = (
     PropertyTarget("Feuerwiderstand", "FireRating", "Pset_WallCommon", _WALLS),
     PropertyTarget("Feuerwiderstand", "FireRating", "Pset_DoorCommon", _DOORS),
@@ -238,13 +194,6 @@ PROPERTY_TARGETS: tuple[PropertyTarget, ...] = (
     PropertyTarget("außenliegend", "IsExternal", "Pset_DoorCommon", _DOORS),
     PropertyTarget("Raumfläche", "NetFloorArea", "Qto_SpaceBaseQuantities", ("IfcSpace",)),
     PropertyTarget("Höhe", "Height", "Qto_SpaceBaseQuantities", ("IfcSpace",)),
-    # The one entry the IFC standard does not back. Pset_WindowCommon defines
-    # HasSillExternal and HasSillInternal — booleans about whether there IS a
-    # sill — and nowhere in IFC4 or IFC2X3 is there a templated property for the
-    # height of it. `SillHeight` in `Pset_WindowCommon` is what exporters
-    # write and what this library reads, and that is a weaker claim than "the
-    # schema says so". The specification's description says as much, out loud,
-    # in the checker.
     PropertyTarget("Brüstungshöhe", "SillHeight", "Pset_WindowCommon", _WINDOWS, standard=False),
 )
 
@@ -257,17 +206,11 @@ _CONVENTION_NOTE = {
 }
 
 
-# ── the result ──────────────────────────────────────────────────────────────
-
-
 @dataclass(frozen=True)
 class NotExportable:
     """A finding that stays German prose, and the reason it has to."""
 
-    #: The finding in the words the briefing or the answer used.
     what: str
-    #: Why IDS 1.0 cannot state it. German, and specific — "not supported" tells
-    #: the reader nothing they can act on or contradict.
     why: str
 
     def to_dict(self) -> dict[str, str]:
@@ -278,15 +221,9 @@ class NotExportable:
 class IdsShoppingList:
     """An IDS document plus the honest account of what did not fit in it."""
 
-    #: The ``ifctester.ids.Ids`` document. Kept as the library's own object so a
-    #: caller can validate it in-process without a file round trip.
     ids: Any
-    #: Findings that became specifications, in the words they arrived in.
     exported: list[str]
     not_exportable: list[NotExportable]
-    #: What this list was derived from — a content hash for a model, a count for
-    #: a list of answers. Travels so a file found on disk months later can still
-    #: be matched to the export it describes.
     source: str
 
     @property
@@ -329,9 +266,6 @@ class IdsExportError(Exception):
     document that fails its own schema is a defect in this module, and it must
     never reach an architect's checker as a file that silently does nothing.
     """
-
-
-# ── blind_spots_as_ids() ────────────────────────────────────────────────────
 
 
 def blind_spots_as_ids(
@@ -406,9 +340,6 @@ def blind_spots_as_ids(
     )
 
 
-# ── answers_as_ids() ────────────────────────────────────────────────────────
-
-
 def answers_as_ids(
     answers: Sequence[Answer[Any]],
     *,
@@ -455,20 +386,12 @@ def answers_as_ids(
         undecided += 1
         what = answer.missing.what
         if what in seen:
-            # The same gap answered five questions. It is one thing to author in
-            # the CAD, so it is one finding, counted once — otherwise the summary
-            # would suggest the file asks for more than it does.
             continue
         seen.add(what)
         built, reason = _missing_specification(answer, model, present)
         if built is None:
             not_exportable.append(NotExportable(what=what, why=reason or WHY_NO_FACET))
         else:
-            # `_append` drops a specification that is already in the document.
-            # Two answers phrased differently — `IfcBuildingStorey.Elevation` and
-            # `IfcBuildingStorey.Elevation für IfcWall „W1"` — are one demand on
-            # the architect, and a checker showing it twice invites the reading
-            # that they are two different things to fix.
             _append(specifications, built)
             exported.append(what)
 
@@ -488,9 +411,6 @@ def answers_as_ids(
         not_exportable=not_exportable,
         source=f"{undecided} von {len(answers)} Antworten unentscheidbar",
     )
-
-
-# ── to_xml() / write_ids() ──────────────────────────────────────────────────
 
 
 def to_xml(document: IdsShoppingList | Any) -> str:
@@ -535,9 +455,6 @@ def _checked_name(name: str) -> str:
         raise ToolError("name enthält ein Nullbyte und ist kein gültiger Dateiname.")
     if os.path.isabs(name) or os.path.splitdrive(name)[0]:
         raise ToolError(f'name muss ein Dateiname ohne Pfad sein, nicht "{name}" — Ordner über directory angeben.')
-    # Both separators on every platform: a "\" is a plain character in a POSIX
-    # file name, but the same string handed to a Windows host is a directory
-    # walk, and this file must not be safe only on the machine it was tested on.
     if "/" in name or "\\" in name:
         raise ToolError(f'name darf keine Pfadtrennzeichen enthalten, "{name}" tut es — Ordner über directory angeben.')
     return name
@@ -562,9 +479,6 @@ def write_ids(
     good outcome, and raising on it would push callers into treating a clean
     model as a failure.
     """
-    # Checked BEFORE the empty-list return, so a traversing `name` is refused
-    # whether or not this model happened to produce a specification. A guard
-    # that only fires on some inputs is one an attacker chooses their way past.
     checked = _checked_name(name) if name is not None else None
 
     if not document.ids.specifications:
@@ -583,9 +497,6 @@ def write_ids(
     payload = '<?xml version="1.0" encoding="UTF-8"?>\n' + xml
     target_directory = directory or tempfile.mkdtemp(prefix="ifc-spatial-")
     os.makedirs(target_directory, exist_ok=True)
-    # Addressed by its own content, like everything else this package writes: two
-    # runs over an unchanged model produce the same name, so a file already on
-    # disk is visibly the same shopping list rather than a second copy of it.
     digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()[:8]
     path = os.path.join(target_directory, checked or f"fehlt-{digest}.ids")
     with open(path, "w", encoding="utf-8") as handle:
@@ -603,9 +514,6 @@ def write_ids(
             "Grenzwerte — Grenzwerte stehen in der OIB-Richtlinie. " + document.summary()
         ),
     }
-
-
-# ── building the specifications ─────────────────────────────────────────────
 
 
 def _document(
@@ -679,10 +587,6 @@ def _property_specification(target: PropertyTarget, present: Sequence[str] | Non
             f"{target.concept} im CAD pflegen und im Property-Set {target.pset} mitexportieren. {NO_THRESHOLD_NOTE}"
         ),
         applicability=[_entity_facet(classes)],
-        # cardinality="required" on the facet: the property must be there for
-        # every applicable element. `optional` would pass a model that publishes
-        # the property for one wall out of four hundred, which is the fill rate
-        # the briefing already warns about.
         requirements=[Property(propertySet=target.pset, baseName=target.property, cardinality="required")],
     )
 
@@ -743,10 +647,6 @@ def _openings_hosted_specification(remedy: str, present: Sequence[str] | None) -
     ``IFCWALL`` — what the ``hostedIn`` operator needs is a host, of whatever
     class.
     """
-    # The fallback is not dead code: this specification can also be reached from
-    # an answer produced against one model and exported alongside another, and a
-    # missing intersection there must widen the applicability rather than abort
-    # the whole export over one item.
     classes = (_intersect((*_WINDOWS, *_DOORS), present) if present else []) or [*_WINDOWS, *_DOORS]
     return _specification(
         name="Fenster und Türen einer Öffnung zugeordnet",
@@ -788,8 +688,6 @@ def _georeference_specification(remedy: str) -> Any:
             Attribute(name="RefLatitude", cardinality="required"),
             Attribute(name="RefLongitude", cardinality="required"),
         ],
-        # The absence of an IfcSite is itself the gap: a file whose spatial
-        # structure starts at IfcBuilding has nowhere to put a coordinate.
         required=True,
     )
 
@@ -808,9 +706,6 @@ def _missing_specification(
     assert missing is not None  # guarded by the caller
     what = missing.what
     remedy = missing.remedy
-    # Strip the qualifiers the operators append — `IfcBuildingStorey.Elevation
-    # für IfcSpace „Wohnen"`, `IfcRelSpaceBoundary (die Ableitung ... ist zu
-    # teuer)`. The head is the vocabulary; the tail is the sentence around it.
     head = re.split(r"\s+[(„]|\s+für\s+", what)[0].strip()
 
     if head in ("IfcRelVoidsElement + IfcRelFillsElement", "IfcRelFillsElement", "IfcRelVoidsElement"):
@@ -870,9 +765,6 @@ def _missing_specification(
                     instructions=f"{remedy} {NO_THRESHOLD_NOTE}",
                     applicability=[Entity(name=owner.upper())],
                     requirements=[Attribute(name=member, cardinality="required")],
-                    # The attribute is demanded of whatever instances exist; that
-                    # such instances must exist is a separate claim we do not make
-                    # here.
                     required=False,
                 )
             ], None
@@ -931,9 +823,6 @@ def _property_path_specification(
             requirements=[Property(propertySet=pset, baseName=name, cardinality="required")],
         )
     ], None
-
-
-# ── small shared helpers ────────────────────────────────────────────────────
 
 
 def _entity_facet(classes: Sequence[str]) -> Entity:
@@ -996,9 +885,6 @@ def _pset_classes(pset: str) -> list[str]:
             continue
         if template is None or not template.ApplicableEntity:
             continue
-        # `ApplicableEntity` is comma-separated and may carry a predefined type
-        # after a slash (`IfcBuildingElementProxy/PROVISIONFORVOID`), which is
-        # not a class name.
         return sorted({part.split("/")[0].strip() for part in template.ApplicableEntity.split(",") if part.strip()})
     return []
 

@@ -281,17 +281,6 @@ def _judge_one_storey(storey: Any, described: Sequence[dict[str, Any]]) -> tuple
     on room evidence alone and the Fluchtniveau stays **9.30 m**. That is the
     proof that the name was never carrying this case.
     """
-    # The lexicon's classification is the whole of the positive room signal. The
-    # veto that used to sit here ran `NOT_OCCUPIED_TERMS` — a STOREY vocabulary,
-    # matched on substrings — over ROOM names, so a „Dachzimmer" or
-    # „Attikazimmer" that `classify_rooms` had placed as `habitable_room` was
-    # struck out. With no habitable room left, the branch below then read „Alle
-    # Räume … sind Neben- oder Erschließungsflächen" and dropped the storey: on
-    # a two-storey house whose upper storey is cleanly named „1. Obergeschoss"
-    # and holds one Dachzimmer, the Fluchtniveau came back 0.000 m instead of
-    # 3.500 m. That is the direction the module docstring names as the dangerous
-    # one, the reason given was untrue, and a substring on a room name is not
-    # the positive evidence the rule demands.
     habitable = [entry for entry in described if entry["use"] == "habitable_room"]
     placed = [entry for entry in described if entry["use"] is not None]
     unplaced = [entry for entry in described if entry["use"] is None]
@@ -310,8 +299,6 @@ def _judge_one_storey(storey: Any, described: Sequence[dict[str, Any]]) -> tuple
             "dauernd aufhalten",
         )
 
-    # No positive and no negative room signal. Only here does the storey name
-    # count, and only while every unplaceable room name agrees with it.
     hit = _matching_term(storey.name)
     corroborating = [(entry, _matching_term(entry["name"])) for entry in unplaced]
     if hit is not None and all(term is not None for _, term in corroborating):
@@ -403,11 +390,6 @@ def _ground_reference(model: SpatialModel) -> dict[str, Any] | None:
         return None
 
     chosen = dict(candidates[0])
-    # `RefElevation` is reported and never used: it is declared relative to SEA
-    # LEVEL while every coordinate here is on the project origin, and subtracting
-    # one from the other is the tens-of-metres datum error `_storey_datum_drift`
-    # was written to catch. A human comparing the two numbers can spot it; an
-    # operator that silently mixes them cannot be spotted at all.
     declared_elevations = [
         {
             "refElevation": float(site.RefElevation),

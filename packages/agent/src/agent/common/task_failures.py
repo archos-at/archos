@@ -32,8 +32,6 @@ from agent.knowledge.ingest_failures import FailureCategory
 from agent.knowledge.ingest_failures import classify_failure
 from agent.knowledge.ingest_failures import credits_in_flight
 
-#: Database errors, by class name anywhere in the MRO, that say "not now":
-#: SQLAlchemy's wrappers, the psycopg/asyncpg/sqlite3 errors under them.
 _TRANSIENT_DATABASE: Final = frozenset(
     {
         "OperationalError",
@@ -59,8 +57,6 @@ class TaskFailure:
 
     exc_type: str
     category: FailureCategory
-    #: The provider's 402 for credits that requests in flight hold
-    #: (``ingest_failures.credits_in_flight``): transient, and cured by waiting.
     credits_in_flight: bool = False
 
     @property

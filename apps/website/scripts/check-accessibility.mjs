@@ -53,15 +53,12 @@ async function photoText(page, label) {
   for (let i = 0; i < (await elements.count()); i += 1) {
     const element = elements.nth(i)
     await element.evaluate((node) => node.scrollIntoView({ block: 'center' }))
-    // The photos are lazy: wait until every image in view has loaded, so the layout has
-    // settled before the box is measured.
     await page.waitForFunction(() =>
       [...document.images].every((img) => {
         const rect = img.getBoundingClientRect()
         return rect.bottom < 0 || rect.top > innerHeight || (img.complete && img.naturalWidth > 0)
       }),
     )
-    // Loaded is not yet painted: decode what is in view and let two frames pass.
     await page.evaluate(async () => {
       const inView = [...document.images].filter((img) => {
         const rect = img.getBoundingClientRect()
@@ -132,12 +129,9 @@ const findings = []
 let pages = 0
 try {
   await waitFor(`${base}/healthz`)
-  // The prerendered pages' sitemap, and the blog's, which the server renders on request (ADR-0155).
   const sitemap = (await Promise.all(['sitemap-0.xml', 'sitemap-blog.xml'].map(async (f) => (await fetch(`${base}/${f}`)).text()))).join('')
   const routes = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => new URL(m[1]).pathname)
-  // Unlisted pages are off the sitemap but still answer at their address.
   for (const key of UNLISTED_ROUTES) routes.push(ROUTES[key].de, ROUTES[key].en)
-  // The error pages: an unknown address in both languages, and the server-error page (src/pages/500.astro).
   routes.push('/does-not-exist/', '/en/does-not-exist/', '/500/')
 
   const browser = await chromium.launch()
@@ -150,13 +144,10 @@ try {
       findings.push(...(await photoText(page, `${route} @${width}`)))
       pages += 1
 
-      // The open states: the mobile menu on a phone, the hand-off panel of a form.
       if (width < 768 && (await page.locator('.ui-mnav summary').count())) {
         await page.locator('.ui-mnav summary').click()
         findings.push(...(await audit(page, `${route} @${width} menu open`)))
       }
-      // The consent note and its footer link only appear with analytics on, which this
-      // server has off: show them by hand on the home pages.
       if (route === '/' || route === '/en/') {
         await page.evaluate(() => {
           for (const el of document.querySelectorAll('[data-consent-note], [data-consent-open]')) el.hidden = false

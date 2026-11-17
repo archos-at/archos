@@ -43,11 +43,7 @@ _INTERNAL_TOKEN_ENV = "INTERNAL_API_TOKEN"
 _PRESIGN_PATH = "/api/internal/document-image-upload-url"
 _HTTP_TIMEOUT_SECONDS = 15.0
 
-#: ``(document_id, collection, image_index, organization_id) -> (upload_url, storage_key)``,
-#: or ``None`` when no slot is available (unknown document, ceiling reached,
-#: BFF unreachable).
 Presigner = Callable[[str, str, int, str | None], tuple[str, str] | None]
-#: ``(upload_url, image_bytes)``; raises on any failure.
 Uploader = Callable[[str, bytes], None]
 
 
@@ -89,7 +85,6 @@ def request_upload_slot(
             return None
         return upload_url, storage_key
     except Exception as e:  # noqa: BLE001 - fail-open contract
-        # Class name only: an httpx error's text embeds the request URL.
         logger.warning("image_store: presign request failed for document %s: %s", document_id, type(e).__name__)
         return None
 
@@ -124,8 +119,6 @@ def store_extracted_images(
     time, and the re-ingest overwrites in place. Stops at the first failure —
     see the module docstring for why.
     """
-    # Resolved at call time, not bound as defaults, so a test (or a future
-    # alternative transport) can replace the module functions.
     presign = presign or request_upload_slot
     upload = upload or put_raster
     ordered = sorted(image_results, key=lambda item: (item[0].get("page_number", 0), item[0].get("image_index", 0)))
@@ -141,8 +134,6 @@ def store_extracted_images(
         try:
             upload(upload_url, image_bytes)
         except Exception as e:  # noqa: BLE001 - fail-open contract
-            # Class name only: the exception text of a failed PUT renders the
-            # presigned URL, a live bearer credential to the object.
             logger.warning(
                 "image_store: upload of image %d for document %s failed (%s); keeping captions only",
                 index,

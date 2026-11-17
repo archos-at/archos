@@ -28,122 +28,30 @@ from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
-#: Frontmatter block at the very start of a SKILL.md file.
 FRONTMATTER_RE = re.compile(r"^---\r?\n(.*?)\r?\n---(?:\r?\n|$)", re.DOTALL)
 
-#: 1-64 lowercase a-z/0-9 hyphen-separated labels, no leading/trailing/
-#: consecutive hyphens.
 NAME_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 MAX_NAME_CHARS = 64
 MAX_DESCRIPTION_CHARS = 1024
 MAX_COMPATIBILITY_CHARS = 500
 
-#: Reserved GRID metadata keys. ``grid-agents`` is a comma-separated agent
-#: name list (absent = all agents). ``grid-cards`` is a comma-separated list of
-#: preferred Grid output card types.
-#:
-#: A skill says nothing about WHEN a JOB runs or WHAT it produces.
-#: ``grid-execution`` and ``grid-schedulable`` used to live here; scheduling is
-#: a property of a JOB now (a prompt on a timer, with a skill optionally
-#: attached), so the output kind is the job's ``output`` column and there is no
-#: schedulability marker at all. Both keys are simply unreserved: a stored org
-#: row or an old SKILL.md still carrying one keeps it as an ordinary free-form
-#: metadata entry, and nothing reads it.
-#:
-#: ``grid-auto-invoke`` is the same kind of leftover, and is listed here for
-#: the same reason: it is still validated so an old document parses, and it is
-#: read by nobody.
 SKILL_METADATA_KEYS = frozenset(
     {"grid-agents", "grid-cards", "grid-title", "grid-hidden", "grid-auto-invoke", "grid-catalog"}
 )
 
-#: ``grid-cards`` — the card types a skill would LIKE its answers rendered as.
-#:
-#: A preference, not a contract: it costs nothing until the skill is activated,
-#: at which point its ``read_file`` appends a short block naming these types to
-#: the skill body. Values are card ``type`` literals from the ``AnswerCard``
-#: union, minus ``SYSTEM_CARD_TYPES`` — a system card is emitted by a tool on a
-#: sanctioned path, so naming one here would be asking the model to fabricate
-#: something it must never produce.
 ANSWER_CARDS_KEY = "grid-cards"
 
-#: ``grid-title`` — the skill's HUMAN name, for a reader rather than a parser.
-#:
-#: ``name`` is an id: lowercase, hyphenated, unique, and stable enough to be
-#: typed after a slash. It is not a label — "ifc-spatial-analysis" is what the
-#: resolver matches on, not what belongs in a sentence a user reads while the
-#: agent works. Nothing else in the model carries a display string:
-#: ``description`` is a full paragraph written for the MODEL's benefit.
-#:
-#: Deliberately optional and deliberately NOT synthesised from the id. An
-#: absent title is absent, and the surface that renders it decides how to
-#: degrade (the frontend already owns that decision for every other optional
-#: field). Title-casing the id here would manufacture a name nobody wrote and
-#: make a missing one indistinguishable from a real one.
-#:
-#: One value, no per-locale variants: a skill is authored in one language by
-#: one tenant, and a translation table in frontmatter would be a second
-#: catalog to keep in sync with nothing to keep it honest.
 TITLE_KEY = "grid-title"
 
-#: A title is a label, not a sentence. Long enough for "IFC-Raumanalyse
-#: (Fluchtwege)", short enough that no surface has to truncate it.
 MAX_TITLE_CHARS = 60
 
-#: ``grid-hidden`` — keep this skill's activation OUT OF THE NOISY LIVE LINE.
-#:
-#: A boolean-ish flag. Some skills apply on every single answer — a house voice
-#: is the type case — so announcing "„piloti-voice" wird angewendet" live under
-#: every turn is pure noise, the phantom "web search" mistake in a new costume.
-#:
-#: Hidden means "not in the live one-liner by default", NEVER "concealed". The
-#: activation event STILL fires and STILL records; it is merely routed to the
-#: technical channel instead of the live one (see :mod:`agent.skills.events`),
-#: so it stays out of the running line but remains in the recorded trace and in
-#: ``skills_activated`` — the disclosure names it like any other skill, and a
-#: reader who turns on the "reasoning" preference surfaces it. This is doctrine,
-#: not a nicety: a product built on traceable sourcing must not have a class of
-#: instruction it declines to admit ran (see agent-skills.md, activation
-#: transparency).
-#:
-#: A property of the SKILL, keyed off metadata rather than a name list in the
-#: runtime: the platform owner sets it on a row and it takes effect with no
-#: deploy.
 HIDDEN_KEY = "grid-hidden"
 
-#: ``grid-auto-invoke`` — RETIRED. It said whether the model might pick this
-#: skill from L1, which is a person deciding which skill runs: the thing
-#: ADR-0060 removed everywhere else. The author's switch is gone, so honouring
-#: a stored ``false`` would hide a skill from every turn with nobody able to
-#: bring it back. The key is still validated, so an old document parses and
-#: keeps its value; nothing reads it, here or in the BFF.
 AUTO_INVOKE_KEY = "grid-auto-invoke"
 
-#: Case-insensitive truthy tokens that mark a skill hidden. Anything else —
-#: including the recognised falsy tokens, an empty string, and any unrecognised
-#: word — reads as visible, because visible is the safe default: forgetting the
-#: flag under-suppresses (a line too many) rather than swallowing a skill's
-#: activation from the live line without anyone asking.
-#:
-#: Auto-invoke reuses the same token set with the opposite default: absent
-#: means on, and only a recognised falsy token stores the opt-out.
 _HIDDEN_TRUE = frozenset({"true", "1", "yes"})
 _HIDDEN_FALSE = frozenset({"false", "0", "no"})
 
-#: Anything that looks like an XML/HTML tag.
-#:
-#: NOT an agentskills.io rule — the open format says nothing about tags. It is a
-#: GRID prompt-safety rule: ``name`` and ``description`` are interpolated into an
-#: agent's prompt (the ``SkillsMiddleware`` catalog), where a stray tag can
-#: close a structural element the prompt opened and let skill text land in a
-#: position it was never meant to occupy. The body is NOT checked — it is
-#: markdown delivered through a tool result, and restricting its content would
-#: break legitimate skills that document HTML.
-#:
-#: Anthropic's platform additionally forbids the words "anthropic"/"claude" in a
-#: name. That rule governs skills uploaded to their Skills API; this product is
-#: LLM-agnostic and never uploads there, so enforcing it here would only reject
-#: names a tenant may legitimately want.
 XML_TAG_RE = re.compile(r"<[^>]+>")
 
 

@@ -1,15 +1,5 @@
 'use client'
 
-/**
- * The project's own values in an answer: `:project[key]`, the Projektbezug
- * strip, and the case a `:::cases{by=…}` block marks.
- *
- * Every value here comes from the profile the surface supplies
- * (`AnswerDataProvider`), never from the model's text (guardrail 7). Without a
- * surface (a report, the gallery) a binding prints its fact's name, and a cases
- * block keeps the marks the model wrote: there is nothing to hold them against.
- */
-
 import { createContext, useContext, useMemo, type FC, type ReactNode } from 'react'
 import type { Element } from 'hast'
 import { useTranslations } from '@/i18n'
@@ -21,13 +11,11 @@ import { CaseProjectLine, ProjectStrip, ProjectValueChip, StripSeparator, Thresh
 import { useAnswerData } from './answer-block-context'
 import { matchCase, rulerOf, type CaseDescriptor } from './cases'
 
-/** The fact's name in the reader's language („Gebäudeklasse"). */
 export function useProjectLabel(): (key: ProjectKey) => string {
   const t = useTranslations(commonCopy)
   return (key) => t(`markdown.project.keys.${key}`)
 }
 
-/** One bound fact as its chip, or its name where no surface supplies the project. */
 export const ProjectFactChip: FC<{ factKey: ProjectKey; strip?: boolean }> = ({ factKey, strip = false }) => {
   const t = useTranslations(commonCopy)
   const { project, prefill } = useAnswerData()
@@ -43,16 +31,11 @@ export const ProjectFactChip: FC<{ factKey: ProjectKey; strip?: boolean }> = ({ 
   )
 }
 
-/** `:project[key]`, as the renderer draws it. */
 export function AnswerProject({ node, children }: { node?: Element; children?: ReactNode }) {
   const key = String(node?.properties?.dataKey ?? '')
   return isProjectKey(key) ? <ProjectFactChip factKey={key} /> : <>{children}</>
 }
 
-/**
- * The Projektbezug strip: the facts the answer reads, under its masthead.
- * Drawn only where the surface supplies the project.
- */
 export const AnswerProjectStrip: FC<{ keys: readonly ProjectKey[] }> = ({ keys }) => {
   const { project } = useAnswerData()
   if (!project || keys.length === 0) return null
@@ -68,23 +51,12 @@ export const AnswerProjectStrip: FC<{ keys: readonly ProjectKey[] }> = ({ keys }
   )
 }
 
-// ---------------------------------------------------------------------------
-// The case that holds
-// ---------------------------------------------------------------------------
-
-/**
- * The renderer's decision on a `by=` cases block: the index of the project's
- * case, -1 for none (the fact is missing, or no case holds it). Null where the
- * renderer cannot decide (no project, cases that do not parse), and the model's
- * own marks stand.
- */
 export interface CasesDecision {
   match: number
 }
 
 const CasesContext = createContext<CasesDecision | null>(null)
 
-/** The decision of the cases block being drawn, or null. */
 export const useCasesDecision = (): CasesDecision | null => useContext(CasesContext)
 
 function parseList<T>(value: unknown): T[] | null {
@@ -97,7 +69,6 @@ function parseList<T>(value: unknown): T[] | null {
   }
 }
 
-/** The key, cases and labels a shaped cases table or list carries, or null. */
 function casesOf(node: Element | undefined): { by: ProjectKey; cases: CaseDescriptor[]; labels: string[] } | null {
   const by = String(node?.properties?.dataBy ?? '')
   const cases = parseList<CaseDescriptor>(node?.properties?.dataCases)
@@ -108,10 +79,6 @@ function casesOf(node: Element | undefined): { by: ProjectKey; cases: CaseDescri
 const decide = (cases: readonly CaseDescriptor[], fact: BoundFact): number =>
   fact.state === 'missing' ? -1 : matchCase(cases, { number: fact.number, text: fact.text })
 
-/**
- * Wraps a shaped cases table or list: „Ihr Projekt: GK 4" over it, the
- * threshold ruler when the cases are ranges, and the decision every row reads.
- */
 export const CasesScope: FC<{ node?: Element; children: ReactNode }> = ({ node, children }) => {
   const { project } = useAnswerData()
   const label = useProjectLabel()
@@ -142,5 +109,4 @@ export const CasesScope: FC<{ node?: Element; children: ReactNode }> = ({ node, 
   )
 }
 
-/** Whether a shaped node carries cases for {@link CasesScope}. */
 export const hasCases = (node: Element | undefined): boolean => typeof node?.properties?.dataCases === 'string'

@@ -73,14 +73,11 @@ FUNCTION_LIMIT = 60
 BASELINE = Path("ci/size_baseline.json")
 SUFFIXES = (".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs")
 
-# Matched against the repo-relative POSIX path. Each line says what it is and
-# why its length is not a design choice.
 EXCLUDED = re.compile(
     "|".join(
         (
             r"^apps/workspace/shared/cards/generated\.ts$",  # card schemas, rendered from cards/models.py
             r"\.generated\.",  # wire-v2.generated.ts and its kind
-            # Payload's types and the admin panel's import map, written by `bun run generate` in apps/cms
             r"^apps/cms/src/payload-types\.ts$",
             r"^apps/cms/src/app/\(payload\)/admin/importMap\.js$",
             r"\.d\.ts$",  # type declarations
@@ -145,10 +142,6 @@ def function_lengths(source: str) -> dict[str, int]:
     return lengths
 
 
-# One TypeScript or JavaScript import or re-export statement, from its first
-# line to its specifier: `import x from 'm'`, `import type { A } from 'm'`,
-# `import 'm'`, `export { a } from 'm'`, `export * as ns from 'm'`. A dynamic
-# `import(…)` and `import.meta` are expressions, not statements, and are counted.
 TS_IMPORT = re.compile(
     r"^[ \t]*"
     r"(?:import(?:\s+type)?\s+[^'\"`;()]*?\sfrom\s*"  # import x from, import { a } from
@@ -199,8 +192,6 @@ def _python_comment_lines(source: str) -> set[int]:
     for node in ast.walk(tree):
         if isinstance(node, ast.Module | ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef):
             covered |= _docstring_lines(node)
-    # A `#` that opens a line is a comment unless the line is inside a string, and a string that
-    # spans lines is either a docstring (covered above) or code, which the tokenizer tells apart.
     for token in tokenize.generate_tokens(io.StringIO(source).readline):
         if token.type == tokenize.COMMENT and not token.line[: token.start[1]].strip():
             covered.add(token.start[0])
@@ -269,8 +260,6 @@ def measure(root: Path, paths: list[str]) -> Sizes:
     sizes = Sizes()
     for path in paths:
         source = (root / path).read_text(encoding="utf-8", errors="replace")
-        # Split on "\n" only, not splitlines(), which also breaks on U+2028 and
-        # form feeds inside a string.
         lines = counted_lines(path, source)
         if lines > FILE_LIMIT:
             sizes.files[path] = lines
@@ -337,7 +326,6 @@ def main(argv: list[str] | None = None) -> int:
     mode.add_argument("--rebaseline", action="store_true", help="Record the tree as it is, growth included.")
     args = parser.parse_args(argv)
     if sys.version_info < (3, 14):
-        # An older ast measures 3.14 syntax wrong, and --update would write it in.
         print("check_file_size.py needs Python 3.14: run .venv/bin/python scripts/check_file_size.py", file=sys.stderr)
         return 2
 

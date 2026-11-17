@@ -1,22 +1,3 @@
-/**
- * The corpus behind `/dev/folder-brief`: one Austrian architecture project,
- * "Wohnbau Seestadt Nord", as the listing would carry it.
- *
- * Every status the brief sorts is present once or more: mostly completed, three
- * in flight, one pending, four failed (two in `Pläne`, two in `Details`), one
- * held by the content screen, one agent report at rest, and five photos of the
- * site that the agent read but could not place in a document type (three carry
- * what the camera wrote). Three earlier Fassungen sit in `03_Einreichung/alt`,
- * named with their index and linked to their newer one (`revision`), one of them
- * a failed read. The brief counts one entry per document (ADR-0099), so none of
- * the three is counted, summed into the pages, or listed under failures: the
- * root reads „35 von 44 Dokumenten gelesen“ although the corpus holds 48 files.
- *
- * Tags come ONLY from `lib/documents/tag-vocabulary.ts`. Unknown values are null,
- * not guesses: a document still being read has no tags yet, a failed one's are
- * absent, and a quarantined one's content is never described.
- */
-
 import type { FileItem, FolderItem } from '@/features/documents/file-types'
 import type { DocumentAuthor } from '@/lib/documents/document-authors'
 import type { PhotoCapture } from '@/lib/documents/photo-capture'
@@ -41,11 +22,8 @@ interface DocSpec {
   summary?: string | null
   errorMessage?: string | null
   authoredBy?: DocumentAuthor
-  /** The agent's open keywords beside the tags. */
   topics?: readonly string[] | null
-  /** What the camera wrote, for a photo. */
   capture?: PhotoCapture | null
-  /** The confirmed Fassung links, as the listing carries them. */
   revision?: RevisionLinks | null
 }
 
@@ -53,7 +31,6 @@ const PDF = 'application/pdf'
 const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 const JPEG = 'image/jpeg'
 
-/** A listing row, with every FileItem field present: unknowns are null, never absent. */
 function doc(spec: DocSpec): FileItem {
   return {
     id: spec.id,
@@ -77,7 +54,6 @@ function doc(spec: DocSpec): FileItem {
   }
 }
 
-/** Three Fassung chains: the current one lists its history, each older one what replaced it. */
 const GROUND_FLOOR_C: RevisionRef = { id: 'd-03-02', filename: 'EG_Grundriss_Index_C_2026-08-14.pdf' }
 const GROUND_FLOOR_B: RevisionRef = { id: 'd-03-alt-1', filename: 'EG_Grundriss_Index_B_2026-07-02.pdf' }
 const SECTION_B: RevisionRef = { id: 'd-03-04', filename: 'Schnitt_B-B_Index_B.pdf' }
@@ -93,7 +69,6 @@ const replacedBy = (newer: RevisionRef): RevisionLinks => ({ ...EMPTY_REVISION_L
 
 export const PROJECT_NAME = 'Wohnbau Seestadt Nord'
 
-/** Folder ids are readable on purpose: the preview page names them in its sections. */
 export const FOLDERS: FolderItem[] = [
   { id: 'f-01', parentId: null, name: '01_Grundlagen', path: '01_Grundlagen' },
   { id: 'f-02', parentId: null, name: '02_Entwurf', path: '02_Entwurf' },
@@ -109,7 +84,6 @@ export const FOLDERS: FolderItem[] = [
 ]
 
 export const FILES: FileItem[] = [
-  // 01_Grundlagen: every document read and typed. The "all read" section.
   doc({
     id: 'd-01-01', filename: 'Flächenwidmungsplan_Auszug_Seestadt.pdf', folderId: 'f-01',
     status: 'completed', createdAt: '2026-07-08T09:12:00Z', fileSize: 1_820_000,
@@ -147,7 +121,6 @@ export const FILES: FileItem[] = [
     summary: 'Baugrunderkundung mit vier Bohrungen, Grundwasserstand und Empfehlung zur Gründung.',
   }),
 
-  // 02_Entwurf: the design stage. One in flight, one agent report at rest.
   doc({
     id: 'd-02-01', filename: 'Entwurfsbeschreibung_Wohnbau_Nord_v2.pdf', folderId: 'f-02',
     status: 'completed', createdAt: '2026-08-03T10:00:00Z', fileSize: 2_400_000,
@@ -182,7 +155,6 @@ export const FILES: FileItem[] = [
     summary: 'Vergleich der Wohnflächen aus Entwurf und Massenermittlung, von ' + PRODUCT_NAME + ' als Bericht abgelegt.',
   }),
 
-  // 03_Einreichung: the filing. Direct documents, then three subfolders.
   doc({
     id: 'd-03-01', filename: 'Einreichformular_BAU-1.pdf', folderId: 'f-03',
     status: 'completed', createdAt: '2026-09-08T09:00:00Z', fileSize: 540_000,
@@ -190,14 +162,11 @@ export const FILES: FileItem[] = [
     summary: 'Ausgefülltes Einreichformular mit Bauwerber, Planverfasser und Angaben zur Gebäudeklasse.',
   }),
 
-  // 03_Einreichung/Pläne: two failures.
   doc({
     id: 'd-03-02', filename: 'EG_Grundriss_Index_C_2026-08-14.pdf', folderId: 'f-03-plaene',
     status: 'completed', createdAt: '2026-08-14T15:30:00Z', fileSize: 3_200_000,
     pageCount: 1, chunkCount: 12, contentTypes: ['drawing', 'text'], tags: ['Grundriss', 'Brandschutz'],
     summary: 'Grundriss Erdgeschoß Index C mit Fluchtwegen, Brandabschnitten und Stellplatzzufahrt.',
-    // The last topic is 40 characters, the longest the agent writes
-    // (`MAX_TOPIC_LENGTH`): its chip truncates instead of widening the page.
     topics: ['Fluchtweg', 'Brandabschnitt', 'Stellplatzzufahrt', 'Brandabschnitte zwischen Tiefgarage & UG'],
     revision: current(GROUND_FLOOR_B),
   }),
@@ -240,7 +209,6 @@ export const FILES: FileItem[] = [
     revision: current(PARKING_PRELIMINARY),
   }),
 
-  // 03_Einreichung/alt: the earlier Fassungen an office keeps, named with their index.
   doc({
     id: 'd-03-alt-1', filename: 'EG_Grundriss_Index_B_2026-07-02.pdf', folderId: 'f-03-alt',
     status: 'completed', createdAt: '2026-07-02T09:10:00Z', fileSize: 3_050_000,
@@ -256,8 +224,6 @@ export const FILES: FileItem[] = [
     summary: 'Gebäudeschnitt B-B durch das Stiegenhaus, Rauchabzug noch als Fenster.',
     revision: replacedBy(SECTION_B),
   }),
-  // A replaced Fassung that failed to read: never listed under „Hier sind Sie
-  // gefragt“, never re-read by „Alle erneut lesen“.
   doc({
     id: PARKING_PRELIMINARY.id, filename: PARKING_PRELIMINARY.filename, folderId: 'f-03-alt',
     status: 'failed', createdAt: '2026-07-12T08:00:00Z', fileSize: 940_000,
@@ -265,7 +231,6 @@ export const FILES: FileItem[] = [
     revision: replacedBy(PARKING_A),
   }),
 
-  // 03_Einreichung/Gutachten: one in flight.
   doc({
     id: 'd-03-09', filename: 'Brandschutzkonzept_v3.pdf', folderId: 'f-03-gutachten',
     status: 'completed', createdAt: '2026-09-02T11:00:00Z', fileSize: 9_700_000,
@@ -290,7 +255,6 @@ export const FILES: FileItem[] = [
     status: 'processing', createdAt: '2026-10-06T08:10:00Z', fileSize: 1_000_000,
   }),
 
-  // 03_Einreichung/Bescheide: all three read.
   doc({
     id: 'd-03-13', filename: 'Baubescheid_MA37.pdf', folderId: 'f-03-bescheide',
     status: 'completed', createdAt: '2026-09-30T12:00:00Z', fileSize: 1_100_000,
@@ -310,7 +274,6 @@ export const FILES: FileItem[] = [
     summary: 'Nachtragsbewilligung für die Verlegung der Tiefgaragenrampe um 1,20 Meter.',
   }),
 
-  // 04_Ausführung: direct documents.
   doc({
     id: 'd-04-01', filename: 'Bauzeitplan_KW38_2026.pdf', folderId: 'f-04',
     status: 'processing', createdAt: '2026-10-05T07:30:00Z', fileSize: 2_200_000,
@@ -322,7 +285,6 @@ export const FILES: FileItem[] = [
     summary: 'Ausführungsplan der Stiege A mit Podesten, Wangen und Auflagerpunkten.',
   }),
 
-  // 04_Ausführung/Details: two failures.
   doc({
     id: 'd-04-03', filename: 'Detail_Attika_Anschluss_D-07.pdf', folderId: 'f-04-details',
     status: 'failed', createdAt: '2026-09-20T13:10:00Z', fileSize: 880_000,
@@ -347,7 +309,6 @@ export const FILES: FileItem[] = [
     topics: ['Brandwand', 'Tiefgarage'],
   }),
 
-  // 04_Ausführung/Fotos Baustelle: read, but no document type. The unplaced five.
   doc({
     id: 'd-04-07', filename: 'IMG_4031.jpg', folderId: 'f-04-fotos', contentType: JPEG,
     status: 'completed', createdAt: '2026-08-27T07:50:00Z', fileSize: 3_400_000,
@@ -382,7 +343,6 @@ export const FILES: FileItem[] = [
     summary: 'Foto der Baustelle: Abdichtung des Sockels an der Nordseite.',
   }),
 
-  // 05_Korrespondenz: the held one, the pending one, and the letters.
   doc({
     id: 'd-05-01', filename: 'Honorarnote_2026-09.pdf', folderId: 'f-05',
     status: 'quarantined', createdAt: '2026-10-02T08:00:00Z', fileSize: 230_000,

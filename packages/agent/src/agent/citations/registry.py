@@ -20,8 +20,6 @@ from agent.common.grounding_block import SourceRegion
 logger = logging.getLogger(__name__)
 
 
-#: How many boxes one page's source carries. A sheet analysed into more
-#: depictions than this is marked on its best-scoring ones, which arrive first.
 MAX_REGIONS_PER_SOURCE = 6
 
 
@@ -69,24 +67,8 @@ class SourceRegistry:
         self._urls: dict[str, SourceEntry] = {}
         self._parsed_urls: dict[str, ParsedURL] = {}
         self._citation_keys: list[SourceEntry] = []
-        # Dedup key is (collection, filename, page).
-        #
-        # `page`: two chunks from the SAME document at DIFFERENT pages are
-        # distinct evidence and must both become chips. Keying on filename alone
-        # silently dropped every page after the first (and mismatched the
-        # page-aware Trace-Lanes fan-out — see ADR-0026).
-        #
-        # `collection`: a document is `(collection, filename)` — the PRIMARY KEY
-        # of `document_metadata`, and the only pair that is unique. One search
-        # fans out across the base corpus, the session collection and the project
-        # collections at once, so a project `Plan.pdf` and an Archiv `Plan.pdf`
-        # can land in the same result set. Keying on the filename alone collapsed
-        # them onto whichever chunk arrived first and discarded the other
-        # document's evidence entirely.
         self._citation_key_files: set[tuple[str | None, str, int | None]] = set()
         self._all: list[SourceEntry] = []
-        #: This turn's licensed passages whole, by citation key, for quote verification only (ADR-0164). Held in
-        #: memory for the turn: the session cache stores ``_all``, never this, and the next turn starts it empty.
         self.licensed_text: dict[str, str] = {}
 
     def keep_licensed_text(self, key: str, body: str) -> None:
@@ -121,8 +103,6 @@ class SourceRegistry:
         """
         added = False
         if entry.retrieved_at is None and (entry.url or entry.public_url):
-            # Read live over the network: the day of this turn, kept through the session cache (an entry
-            # restored from it already carries its day).
             entry.retrieved_at = datetime.now(UTC).date().isoformat()
         if entry.url:
             raw = entry.url
@@ -148,13 +128,6 @@ class SourceRegistry:
                 if not added:
                     added = True
             else:
-                # A single page may hold >1 retrieved chunk; dedup collapses them
-                # onto one (collection, filename, page) entry, but each chunk's
-                # body is distinct evidence for quote verification. Append the new
-                # body to the surviving entry so the whole-registry fuzzy match
-                # sees every chunk of the page rather than only the first. The
-                # provenance fields fold the same way: the first stated Punkt
-                # survives, and the page keeps the best score any chunk earned.
                 for existing in self._citation_keys:
                     if self._identity(existing) == dedup_key:
                         _merge_passage(existing, entry)
@@ -199,23 +172,17 @@ class SourceRegistry:
         Always returns the tool's URL (with query params etc.). If multiple
         registry URLs match, we reject (ambiguous).
         """
-        # 1. Exact match — raw or normalized; retain the tool's URL
         if url in self._urls:
             return self._urls[url].url
         normalized = normalize_url(url)
         if normalized in self._urls:
             return self._urls[normalized].url
 
-        # 2. Truncation — report URL is a prefix of exactly one registry URL (raw).
-        #    Normalized match fails when the report is cut mid-query (param order differs).
         truncation_entries = [e for e in self._urls.values() if e.url and e.url.startswith(url)]
         result = self._pick_unique(list({e.url: e for e in truncation_entries}.values()), "truncation", url)
         if result:
             return result
 
-        # 3. Prefix match — report normalized is prefix of registry normalized
-        #    Deduplicate by url to avoid raw+normalized keys for the same entry
-        #    being counted as ambiguous.
         prefix_entries = [e for n, e in self._urls.items() if n.startswith(normalized)]
         result = self._pick_unique(
             list({e.url: e for e in prefix_entries}.values()),
@@ -229,9 +196,6 @@ class SourceRegistry:
         host, path = parsed.netloc, parsed.path
         same_host = [p for p in self._parsed_urls.values() if p.host == host]
 
-        # 4. Child-path match — report path extends a registry path (subpage)
-        #    Use rstrip("/") + "/" to enforce segment boundaries (prevents
-        #    /us/benefits matching /us/benefitsOther).
         result = self._pick_unique(
             [
                 p.entry
@@ -244,7 +208,6 @@ class SourceRegistry:
         if result:
             return result
 
-        # 5. Query-subset match — same host+path, report params are a subset of registry params
         report_qs = parse_qs(parsed.query, keep_blank_values=True)
         if report_qs:
             result = self._pick_unique(

@@ -26,7 +26,6 @@ from datetime import date
 from public_sources.engines import RIS_IN_FORCE_UNTIL
 
 _ISO = re.compile(r"(\d{4})-(\d{2})-(\d{2})")
-#: An ISO timestamp, read as its day: OGD-RIS may state a date as one. Nothing else after a date is accepted.
 _ISO_TIMESTAMP = re.compile(r"(\d{4})-(\d{2})-(\d{2})T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?")
 _GERMAN = re.compile(r"(\d{1,2})\.(\d{1,2})\.(\d{4})")
 
@@ -55,6 +54,7 @@ def as_of_error(as_of: str) -> str:
     return ""
 
 
+# RIS prints Ausserkrafttretensdatum as the last day in force (OGD API checked 2026-11-10); that day is in force.
 def in_force_on(metadata: dict[str, str], day: date) -> bool:
     """Whether a RIS version document was in force on ``day``; unknown dates are not."""
     since = parse_day(metadata.get("In Kraft seit", ""))

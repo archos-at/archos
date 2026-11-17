@@ -1,17 +1,3 @@
-/**
- * Clearing the quarantine (ADR-0086): who may, what release does, and the
- * reviewers' queue.
- *
- * A quarantined document's bytes are in the tenant's bucket and nothing of it
- * is indexed. A reviewer either releases it — it is dispatched again with
- * screening skipped for exactly these bytes — or deletes it through the
- * shelf's ordinary delete. Reviewers are the organization's admins
- * (`org:projects:administer`) and, for a project document, that project's
- * admins (`project:manage`); for the Büroablage, whoever curates it
- * (`org:office_shelf:manage`). A chat attachment has no project admin, so only the
- * organization's admins review it.
- */
-
 import 'server-only'
 import { ConflictError, ForbiddenError, NotFoundError } from '@/lib/api/errors'
 import { recordAuditEvent } from '@/lib/audit/service'
@@ -42,7 +28,6 @@ import { mayReviewQuarantine } from './quarantine-reviewers'
 
 export { mayReviewQuarantine }
 
-/** The details of the refusal of a release whose row names no bytes: not a decision someone else made. */
 export const NO_DIGEST_DETAILS = Object.freeze({ reason: 'no_digest' })
 
 export interface ReleaseResult {
@@ -51,26 +36,12 @@ export interface ReleaseResult {
   jobId: string | null
 }
 
-/**
- * Release a held document for indexing.
- *
- * Takes a quarantine, and a file the gate never reached a verdict on and that
- * is no longer in flight (`isHeldAtRest`): an IFC model too large to read, a
- * file whose reading failed, a row stranded before its dispatch. Without this
- * such a file stayed with its uploader for good, since a retry fails the same
- * way. Refuses (409) anything else, and a document without a content digest:
- * a release names the bytes it releases, so a row with no digest could only be
- * released for whatever bytes it holds next. Every upload since migration 0078
- * records one.
- */
 export async function releaseQuarantinedDocument(
   session: AuthorizedSession,
   documentId: string,
   request: Request
 ): Promise<ReleaseResult> {
   const doc = await findDocumentInOrg(documentId, session.organizationId, internalRead('quarantine-review'))
-  // Not found and not allowed answer alike: a reviewer of one project learns
-  // nothing about another project's quarantine.
   if (!doc || !(await mayReviewQuarantine(session, doc))) throw new NotFoundError('Document not found')
   if (!isHeldAtRest(doc)) {
     throw new ConflictError('Only a held document can be released', { status: doc.status })
@@ -81,9 +52,6 @@ export async function releaseQuarantinedDocument(
       NO_DIGEST_DETAILS
     )
   }
-  // Releasing files the document into its folder for good: a write there
-  // (ADR-0088). A reviewer who may only read the folder sees the document and
-  // cannot release it (403); an organization admin writes everywhere.
   if (doc.scope === 'project' && doc.projectId) await requireFolderWrite(session, doc.projectId, [doc.folderId])
 
   const releasedAt = new Date()
@@ -93,12 +61,9 @@ export async function releaseQuarantinedDocument(
     releasedAt,
   })
   if (!took) throw new ConflictError('The document changed while it was being released; open it again')
-  // Released: on its shelf for everyone who may read it, from now on.
   publishShelfChanged(session.organizationId, documentShelf(doc))
   await settleReleaseRequests(session.organizationId, doc.id)
 
-  // Audited once the release took, before the dispatch: a dispatch that fails
-  // leaves an allowed file to be read again, never an unaudited release.
   const reasons = quarantineVerdictOf(doc)?.reasons ?? []
   await recordAuditEvent({
     organizationId: session.organizationId,
@@ -110,11 +75,7 @@ export async function releaseQuarantinedDocument(
     metadata: {
       projectId: doc.projectId ?? '',
       filename: doc.filename.slice(0, 200),
-      // Kinds only: a detector's masked sample stays on the row.
       reasons: [...new Set(reasons.map((reason) => reason.kind))].join(',').slice(0, 200),
-      // The office's words found in the text say what the document holds, so
-      // they go under `terms`, which is withheld with the name when the folder
-      // is restricted (DOCUMENT_NAME_KEYS, ADR-0087).
       terms: [...new Set(reasons.flatMap((reason) => (reason.kind === 'term' && reason.term ? [reason.term] : [])))]
         .join(',')
         .slice(0, 200),
@@ -122,10 +83,6 @@ export async function releaseQuarantinedDocument(
     request,
   })
 
-  // What the uploader chose for these bytes (a document type, the Fassung
-  // they replace): the held reading never stored it, so this one must. Read
-  // from the row loaded above, and only while it names these bytes. The
-  // Fassung is checked again: days may have passed since the upload.
   const choice = storedFilingChoice(doc)
   const revisionOf = choice?.revisionOfId
     ? await resolveReleasedRevisionOf(session.organizationId, choice.revisionOfId, doc)
@@ -146,32 +103,15 @@ export async function releaseQuarantinedDocument(
   return { id: doc.id, status, jobId }
 }
 
-/**
- * The uploader's „Prüfung anfragen" about this document is answered: it was
- * allowed or deleted. Its rows leave every reviewer's inbox, so nobody opens
- * the queue for a file someone already decided about.
- */
 export async function settleReleaseRequests(organizationId: string, documentId: string): Promise<void> {
   await resolveInboxItemsAnchoredOn({ organizationId, types: ['document.release_requested'], anchorId: documentId })
 }
 
 export interface ReleaseRequestResult {
   id: string
-  /** How many reviewers were told. Zero when the uploader is the only one who could release it. */
   notified: number
 }
 
-/**
- * The uploader asks for their quarantined file to be released („Freigabe
- * anfragen", ADR-0086). It releases nothing: it tells the people who may
- * release it, through the inbox, that somebody is waiting on their decision.
- *
- * Only the uploader asks. Everyone else is told the document does not exist,
- * exactly as `getAccessibleDocument` tells them on every other path; a reviewer
- * who is not the uploader is refused (403), since they can release it
- * themselves. Asking again about the same file folds into the reviewer's
- * existing row.
- */
 export async function requestQuarantineRelease(
   session: AuthorizedSession,
   documentId: string
@@ -195,8 +135,6 @@ export async function requestQuarantineRelease(
       anchorId: doc.id,
       actorUserId: session.userId,
       groupKey: inboxGroupKey('document.release_requested', 'organization', session.organizationId, doc.id),
-      // The file's name, which every recipient may already see in their queue,
-      // and the kind of reason it was held for.
       payload: quarantineNoticePayload(doc),
     }))
   )
@@ -204,22 +142,10 @@ export async function requestQuarantineRelease(
 }
 
 export interface QuarantineReviewAccess {
-  /** This session may allow the held document (`releaseQuarantinedDocument`) or delete it. */
   canReview: boolean
-  /** This session uploaded it and may not decide about it, so it may ask those who can (`requestQuarantineRelease`). */
   canAskForReview: boolean
 }
 
-/**
- * What this session may do about one held document, for the surface showing it
- * (the Files preview): decide about it, ask for a decision, or neither.
- *
- * The same rules the two actions enforce, asked without acting: a reviewer
- * (`mayReviewQuarantine`) who may also write the document's folder, as release
- * requires (ADR-0088); otherwise its uploader. A document this session may not
- * see is not found (`getAccessibleDocument`), and one that is not held answers
- * no to both.
- */
 export async function quarantineReviewAccess(
   session: AuthorizedSession,
   documentId: string
@@ -234,10 +160,6 @@ export async function quarantineReviewAccess(
 
 export interface QuarantineQueueItem {
   id: string
-  /**
-   * Why it is held: the gate quarantined it, or its reading ended without a
-   * verdict (`unscreened`), which the queue says instead of a reason.
-   */
   held: 'quarantined' | 'unscreened'
   filename: string
   scope: Document['scope']
@@ -248,19 +170,11 @@ export interface QuarantineQueueItem {
   verdict: QuarantineVerdict | null
 }
 
-/**
- * The quarantined documents this session may review, newest first. An org
- * admin sees the organization's whole queue; a project admin sees their
- * projects' part of it. A session that may review nothing gets an empty list,
- * not a 403: "nothing waits for you" is the true answer.
- */
-/** Pages of the organization's quarantine one queue read may look through. */
 export const QUARANTINE_QUEUE_PAGES = 10
 
 export async function listQuarantineQueue(session: AuthorizedSession): Promise<QuarantineQueueItem[]> {
   const verdictByPlace = new Map<string, Promise<boolean>>()
   const mayReview = (row: Document): Promise<boolean> => {
-    // One check per project and folder, not per document.
     const key = `${row.scope}:${row.projectId ?? ''}:${row.folderId ?? ''}`
     let allowed = verdictByPlace.get(key)
     if (!allowed) {
@@ -270,9 +184,6 @@ export async function listQuarantineQueue(session: AuthorizedSession): Promise<Q
     return allowed
   }
 
-  // Authorized page by page, and read on until the reviewer's own list is full:
-  // limiting before authorizing let another project's newer quarantine push
-  // this reviewer's documents out of their queue.
   const visible: Document[] = []
   let cursor: QuarantineCursor | null = null
   for (let page = 0; page < QUARANTINE_QUEUE_PAGES && visible.length < QUARANTINE_LIST_LIMIT; page += 1) {

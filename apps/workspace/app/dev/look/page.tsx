@@ -1,23 +1,5 @@
 'use client'
 
-/**
- * Dev preview: where Piloti looked (ADR-0128), as the reader of a chat sees it.
- *
- *   1. The look card under an answer: two looks at an A1 Grundriss (the
- *      Plankopf, a room) with what Piloti read there, and the box it showed
- *      the room. Each place is the page clip with the box marked; pressing
- *      one opens the sheet at the page with the box glowing.
- *   2. The same card for a document the reader may not open: the place in
- *      words, no picture.
- *   3. The Herleitung of that turn: the retrieval round that found the sheet
- *      and, under the graph, one row for the three looks at it.
- *
- * Backend-free: a module-scope fetch shim answers the sheet's `/file` with the
- * A1 fixture (`../_fixtures/a1-sheet.ts`) and the hidden document's with 404,
- * as `getAccessibleDocument` answers a reader who may not open it. Fixtures:
- * `../_fixtures/look.ts`. Gated by `../layout.tsx`. Pinned to German.
- */
-
 import { useMemo, type FC } from 'react'
 import { I18nProvider } from '@/i18n'
 import { parseWireEvent } from '@/adapters/api/wire-v2'
@@ -45,7 +27,6 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   }
 }
 
-/** The steps as the app stores them: wire events folded by the turn fold. */
 const useSteps = () =>
   useMemo(() => {
     const events = LOOK_STEP_BODIES.flatMap((body, index) => {

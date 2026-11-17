@@ -20,10 +20,6 @@ from .envelope import undecidable
 from .model import AIR_TYPES
 from .model import SpatialModel
 
-# ════════════════════════════════════════════════════════════════════════════
-# distance_to_site_boundary — the one that usually has to refuse
-# ════════════════════════════════════════════════════════════════════════════
-
 
 def distance_to_site_boundary(model: SpatialModel, global_id: str | None = None) -> Answer[dict[str, Any]]:
     """Horizontal distance from the building — or from one element — to the site boundary, in metres.
@@ -146,10 +142,6 @@ def distance_to_site_boundary(model: SpatialModel, global_id: str | None = None)
 
     measured.sort(key=lambda entry: (entry["distance"], entry["globalId"]))
     nearest = measured[0]
-    # `None`, not `False`, on an open polyline: an even-odd crossing test has to
-    # close the ring to run at all, and on three drawn sides of a parcel that
-    # closing line is a line nobody drew. Reporting `False` would be an answer
-    # about a shape this file does not contain.
     outside = _outside_polygon(np.array(nearest["pointOnElement"]), boundary["points"]) if boundary["closed"] else None
 
     caveat = [
@@ -175,12 +167,6 @@ def distance_to_site_boundary(model: SpatialModel, global_id: str | None = None)
             "und erst danach eine Aussage über das Bauwerk. Der gemeldete Abstand ist in diesem Fall der "
             "Abstand nach außen."
         )
-    # `elements` carries the ten nearest, never all of them, and the caveat has
-    # to say which of the two it is. On a model with 12 candidate elements the
-    # sentence „Die vollständige … Liste steht unter „elemente““ stood over a
-    # payload of 10: a truncation that reads as „das ist alles" is exactly what
-    # `Answer.caveat` means by "a caller that drops this is reporting a subset
-    # as a total".
     listed = measured[:10]
     if global_id is None:
         caveat.append(
@@ -321,15 +307,6 @@ def _distance_to_polygon(vertices: np.ndarray, boundary: np.ndarray) -> tuple[fl
     best = math.inf
     on_element = vertices[0]
     on_boundary = boundary[0]
-    # Only the segments the file actually draws. An open polyline is NOT closed
-    # here, deliberately: a survey layer routinely carries three sides of a
-    # parcel, and the fourth side this code would invent lands wherever the
-    # first and last point happen to be. Measured on a three-sided fixture, that
-    # fabricated closing line came out **1.06 m** from a wall that is 7.70 m
-    # from the nearest drawn boundary — a plausible, precise, invented number,
-    # which is the same substitution this operator refuses to make from the
-    # site's bounding box. The caveat says a missing side makes the distance too
-    # large instead.
     for start, end in zip(boundary[:-1], boundary[1:], strict=False):
         edge = end - start
         length_squared = float(edge @ edge)
@@ -360,9 +337,6 @@ def _outside_polygon(point: np.ndarray, boundary: np.ndarray) -> bool:
             if point[0] < crossing:
                 inside = not inside
     return not inside
-
-
-# ── shared helpers ──────────────────────────────────────────────────────────
 
 
 def _matching_term(name: str | None, terms: Sequence[str] = NOT_OCCUPIED_TERMS) -> str | None:

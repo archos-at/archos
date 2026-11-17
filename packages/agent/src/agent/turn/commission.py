@@ -42,23 +42,12 @@ from agent.tools.tasks.client import post_task
 
 logger = logging.getLogger(__name__)
 
-#: Bound on the question, matching the route's own (`TASK_GOAL_MAX_CHARS`). A
-#: longer one is cut here rather than refused there: the question is the run's
-#: prompt AND its title, and a refusal would lose the work over a long sentence.
 MAX_QUESTION_CHARS = 500
 
-#: Bound on the context block (`RESEARCH_CONTEXT_MAX_CHARS`). What the clarifier
-#: settled is worth carrying; a transcript is not.
 MAX_CONTEXT_CHARS = 8_000
 
-#: Why a question could not become a run. Each one is a different sentence to
-#: the reader, which is the whole reason this is not a bool.
 CommissionRefusal = Literal["no_project", "no_envelope", "forbidden", "confined", "busy", "unreachable"]
 
-#: The BFF's code for a conversation that drew on a restricted folder (ADR-0087,
-#: ``lib/conversations/restricted-egress.ts``): a run is listed to the whole
-#: project, so none is commissioned out of it. Its own refusal, so the reader is
-#: told why rather than that the workspace lacks deep research.
 CONVERSATION_CONFINED_CODE = "CONVERSATION_CONFINED"
 
 
@@ -67,8 +56,6 @@ class CommissionedRun:
     """Where the commissioned run narrates itself."""
 
     run_id: str
-    #: The run's message in this thread, or ``None`` when the BFF could not mint
-    #: one — the run still runs, it just has no block to watch.
     run_message_id: str | None
     conversation_id: str
 
@@ -111,8 +98,6 @@ def _payload(
     settled = (context or "").strip()
     if settled:
         payload["context"] = settled[:MAX_CONTEXT_CHARS]
-    # The Rahmen: the turn's Datengrundlage, which the run keeps. Without it a
-    # run drew on every source the worker has, whatever the composer showed.
     if data_sources is not None:
         payload["dataSources"] = list(data_sources)
     if documents is not None and not documents.is_empty():
@@ -151,8 +136,6 @@ async def commission_research_run(
     """
     project_id = project_context.get_project_id_from_context()
     if not project_id:
-        # A run is project-scoped work: the row's tenancy predicate requires a
-        # project, and there is no such thing as a run outside one.
         raise CommissionRefused("no_project", "this conversation is not in a project")
     envelope = _envelope()
 

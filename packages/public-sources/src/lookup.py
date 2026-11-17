@@ -46,33 +46,23 @@ class LocusUnit(_Strict):
     ``dot`` lets a form be followed by a full stop (``Art. 5``).
     """
 
-    #: How the lookup labels a provision of this kind: ``§``, ``Art``.
     sign: str = Field(min_length=1, max_length=12)
     forms: tuple[str, ...] = Field(min_length=1)
     repeatable: bool = False
     dot: bool = False
-    #: Whether a form is a word (bounded by ``\\b``) rather than a symbol like ``§``.
     word: bool = True
 
 
 class Locus(_Strict):
     """The citation grammar of the source's texts: what a reference to a provision looks like."""
 
-    #: The provision kinds, the first one preferred when a reference names more than one.
     units: tuple[LocusUnit, ...] = Field(min_length=1)
-    #: The words for a numbered part of a provision (``Abs``, ``Absatz``); the first is its label.
     subsection: tuple[str, ...] = Field(min_length=1)
-    #: The words for a numbered item inside a part (``Z``, ``Ziffer``).
     item: tuple[str, ...] = ()
-    #: The words for a lettered item (``lit``).
     letter: tuple[str, ...] = ()
-    #: The word an ordinal sentence reference ends in (``2. Satz``); empty when the language has none.
     sentence: str = ""
-    #: The words joining two items of one list (``und``, ``sowie``, ``u.``).
     conjunctions: tuple[str, ...] = ()
-    #: The words making a range of two items (``bis``); a dash is always a range.
     range_words: tuple[str, ...] = ()
-    #: The words that introduce a further reference (``siehe``, ``vgl.``), dropped when left dangling.
     see_also: tuple[str, ...] = ()
 
 
@@ -85,30 +75,19 @@ class Collection(_Strict):
 
     id: str = Field(min_length=1, max_length=40)
     kind: CollectionKind
-    #: Whose law it holds; ``subdivision`` takes the territory filter.
     level: CollectionLevel = "national"
-    #: A consolidated (informational) text rather than the authentic promulgation.
     consolidated: bool = False
-    #: Offered to the search planner, which chooses among these alone.
     plannable: bool = True
-    #: One line for the search planner: what this collection holds and when to choose it.
     guide: str = Field(default="", max_length=400)
 
 
 class Territory(_Strict):
     """How a territory becomes the source's filter: an argument of the search and its table."""
 
-    #: The search operation's argument the territory's name goes into.
     argument: str
-    #: The access type's table that knows the names (its keys, folded, are the names it accepts).
     table: str
-    #: Territory ids (``AT-9``) to the name the table knows; the turn's site is given by id.
     names: dict[str, str] = Field(default_factory=dict)
-    #: The territories a reference or a question may name, as the planner may choose them.
     choices: tuple[str, ...] = ()
-    #: A structured fact line a text may carry (``federal_state=lower_austria``, the project brief's form): its
-    #: keys, and each token's territory name ("" for a token that names none). When present it decides alone,
-    #: so a town's name in the text ("Wiener Neustadt") never overrides it.
     fact_keys: tuple[str, ...] = ()
     fact_values: dict[str, str] = Field(default_factory=dict)
 
@@ -116,63 +95,41 @@ class Territory(_Strict):
 class Wording(_Strict):
     """The words the lookup writes back to the model for this source, in the source's terms."""
 
-    #: The source's short name (``RIS``), in "No RIS passage answered …".
     source: str
-    #: The word for the subdivision the territory filter selects (``Bundesland``).
     subdivision: str
-    #: Its short form, where a sentence uses one ("not narrowed to one Land"); empty means ``subdivision``.
     subdivision_short: str = ""
-    #: The note a passage from a consolidated collection carries.
     consolidated_note: str = ""
-    #: A territory and a work named in a retry hint.
     example_territory: str = ""
     example_work: str = ""
-    #: The fallback title of a text the source names no title for.
     untitled: str = "Document"
-    #: Title noise the source adds (its name as a prefix, a retrieval-date stamp), dropped from a file name.
     title_prefix: str = ""
     title_suffix: str = ""
-    #: The question language the tool asks for (``German``).
     language: str = ""
 
 
 class Reference(_Strict):
     """How a document's reference (a document number) becomes the document operation's arguments, and back."""
 
-    #: The document operation's argument the reference goes into.
     argument: str = "reference"
-    #: The access table whose keys are reference prefixes, checked in order, and whose values fill
-    #: ``prefix_argument``: a bare number names the part of the source it lives in by its prefix.
     prefix_table: str = ""
     prefix_argument: str = ""
-    #: Query parameters of a source URL that carry a document's reference, read back for a stable name.
     url_parameters: tuple[str, ...] = ()
 
 
 class Lookup(_Strict):
     """A source's ``lookup`` block. See the module docstring."""
 
-    #: BCP 47 language of the source's texts (``de``).
     language: str = Field(min_length=2, max_length=12)
-    #: The access type's operations the lookup uses: a search (empty for a source that offers none, whose
-    #: documents the record lists) and a document by its reference.
     search: str = ""
     document: str = Field(default="document", min_length=1)
     locus: Locus
     collections: tuple[Collection, ...] = Field(min_length=1)
     territory: Territory | None = None
-    #: Words in a question that mean case law, not statute; such a question is searched, not looked up.
     case_law_signals: tuple[str, ...] = ()
-    #: The search planner's guidance on terms, after the collections (``Prefer the statutory term …``).
     search_guidance: str = Field(default="", max_length=2000)
-    #: The collection segment of a passage read from an address no collection was named for (a URL, a number).
     unplaced_collection: str = ""
     wording: Wording
-    #: The first segment of the collection id a passage states (``ris`` in ``ris/LrKons/Wien``), which the
-    #: lanes and the citation reader know the source by; also the namespace of its cache keys. Empty: the source id.
     namespace: str = ""
-    #: Fragments of a document URL that mark a consolidated (informational) text; such a passage carries
-    #: ``wording.consolidated_note``.
     consolidated_urls: tuple[str, ...] = ()
     reference: Reference = Reference()
 

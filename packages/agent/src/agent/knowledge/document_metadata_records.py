@@ -113,7 +113,6 @@ def _take_back_retained(store, conn, collection: str, filename: str) -> None:
         return
     kept = dict(zip(_RETAINED_COLUMNS, kept, strict=True))
     if kept["superseded_by"] and store._closes_a_loop(conn, collection, filename, kept["superseded_by"]):
-        # Linked meanwhile the other way round (X over this file while it was gone): that link stands.
         kept["superseded_by"] = None
     conn.execute(
         # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text

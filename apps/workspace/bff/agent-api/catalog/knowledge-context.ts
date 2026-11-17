@@ -1,9 +1,3 @@
-/**
- * The knowledge context's operations (ADR-0173): how far the base knowledge
- * goes, a report of wrong law, a project's base and its confirmation. See `projects.ts` for the shape and
- * `docs/architecture/agent-surface.md` for the rules.
- */
-
 import { z } from 'zod'
 import {
   baseKnowledgeReportBodySchema,

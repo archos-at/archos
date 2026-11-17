@@ -7,8 +7,6 @@ two must keep naming the same fields (``tests/memory/test_reflection.py``).
 
 from __future__ import annotations
 
-# A reflection turn records a small, curated set — it is a safety net for what
-# the in-turn `remember` tool missed, not a bulk extractor.
 MAX_NEW_ITEMS = 5
 
 REFLECTION_SYSTEM_PROMPT = (

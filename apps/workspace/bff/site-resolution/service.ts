@@ -1,15 +1,3 @@
-/**
- * Site resolution (ADR-0172): a typed address against the official registers
- * hosted in the cell, placed in the territory tree, with the competent
- * authority. Replaces the withheld `address-search`, whose public geocoder saw
- * every keystroke; nothing here leaves the cell.
- *
- * Fail closed. `verified` needs exactly one register address. No register for
- * the stated country, no imported release, no hit, several hits: `unverified`,
- * with the reason and the register's candidates. A verified site's authority
- * is still `undetermined` until a competence ruleset covers its chain.
- */
-
 import 'server-only'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { BadRequestError, NotFoundError } from '@/lib/api/errors'
@@ -41,7 +29,6 @@ function today(now: Date): string {
   return now.toISOString().slice(0, 10)
 }
 
-/** A register row as a site, with the chain its municipality's territory records give, without its authority. Pure. */
 export function siteOf(row: RegisterRow, chain: readonly string[], reference: SiteReference): Omit<RegisterSite, 'authority'> {
   const register = reference.registers[row.release.register]
   const state = register.stateOf(row.municipalityCode)
@@ -58,11 +45,6 @@ export function siteOf(row: RegisterRow, chain: readonly string[], reference: Si
   }
 }
 
-/**
- * The chain of a municipality's territory, read from the platform's territory
- * records (ADR-0165), so a Bezirk between it and its Land is kept; empty when
- * no record holds it. Never built from the code alone.
- */
 async function recordedChains(session: Session, territoryIds: readonly string[], day: string): Promise<Map<string, string[]>> {
   const chains = new Map<string, string[]>()
   await withTenant({ organizationId: session.organizationId }, async () => {
@@ -83,14 +65,12 @@ async function withAuthorities(session: Session, rows: readonly RegisterRow[], n
   return sites.map((site, index) => ({ ...site, authority: authorities[index] }))
 }
 
-/** The registers a parsed line is looked up in: its stated country's, else every one the cell hosts. */
 function registersFor(parsed: ParsedAddress, reference: SiteReference): string[] {
   if (!parsed.statedCountry) return Object.keys(reference.registers)
   const register = registerFor(reference, parsed.statedCountry)
   return register ? [register.id] : []
 }
 
-/** Resolve a typed address. Reads only. */
 export async function resolveSite(session: Session, typed: string, now = new Date()): Promise<SiteResolution> {
   const parsed = parseAddress(typed)
   const unverified = (reason: Extract<SiteResolution, { status: 'unverified' }>['reason'], candidates: RegisterSite[] = []): SiteResolution => ({
@@ -109,10 +89,8 @@ export async function resolveSite(session: Session, typed: string, now = new Dat
   let searched = 0
   for (const release of releases) {
     const register = reference.registers[release.register]
-    // A release of a register no published record describes is not searched: its rules are not known.
     if (!register) continue
     const postcode = usablePostcode(parsed, register.postcodeShape)
-    // A postcode of another country's shape is evidence of that country (A1), unless the register lists it.
     if (parsed.postcode && !postcode && !register.crossBorderPostcodes?.test(parsed.postcode)) continue
     searched += 1
     const found = await findByKeys(session.organizationId, {
@@ -128,9 +106,6 @@ export async function resolveSite(session: Session, typed: string, now = new Dat
   }
   if (searched === 0) return unverified('no_register')
   const outcome = outcomeOf(narrowed, conflict)
-  // A street and number with no place place nothing, even when the register holds one such address:
-  // the line could be in a country this cell has no register for (invariant A1); a four-digit postcode
-  // does not say which (Switzerland and Liechtenstein have them). Its candidates are offered.
   if (!parsed.place)
     return unverified(outcome.status === 'one' ? 'incomplete' : outcome.reason, await withAuthorities(session, outcome.status === 'one' ? [outcome.row] : outcome.rows, now, reference))
   if (outcome.status === 'one') {
@@ -140,7 +115,6 @@ export async function resolveSite(session: Session, typed: string, now = new Dat
   return unverified(outcome.reason, await withAuthorities(session, outcome.rows, now, reference))
 }
 
-/** A register address by the id `resolveSite` gave, or null when the active release holds none. */
 async function siteById(session: Session, addressId: string, now: Date): Promise<RegisterSite | null> {
   const separator = addressId.indexOf(':')
   const reference = siteReferenceOf(await readSetupRecords(session.organizationId), today(now))
@@ -152,12 +126,6 @@ async function siteById(session: Session, addressId: string, now: Date): Promise
   return site
 }
 
-/**
- * Set a project's site from a register address or a typed line, through the
- * profile's one door (`patchProjectProfile`, project:edit). A register address
- * becomes confirmed facts with the register as evidence; anything else is kept
- * as an unverified assumption, as a typed address always was (ADR-0158).
- */
 export async function setProjectSite(
   session: AuthorizedSession,
   projectId: string,

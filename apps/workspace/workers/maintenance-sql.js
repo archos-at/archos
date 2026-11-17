@@ -8,8 +8,6 @@
 
 const PRUNE_BATCH = 1000
 
-// These statements span every organization, so they run under the shared
-// platform step-up (ADR-0041).
 const { PLATFORM_ROLE, enterPlatformScope } = require('./platform-scope')
 
 /**
@@ -20,9 +18,6 @@ const { PLATFORM_ROLE, enterPlatformScope } = require('./platform-scope')
 async function pruneOldRuns(sql, retentionDays) {
   let total = 0
   for (;;) {
-    // One transaction per batch: the platform scope has to be re-entered for
-    // each, and keeping them separate preserves the existing batching contract
-    // (a long backlog is worked off without one long lock).
     const deleted = await sql.begin(async (tx) => {
       await enterPlatformScope(tx)
       return tx`
@@ -217,7 +212,6 @@ async function pruneDownloadLog(sql, { batch = DOWNLOAD_LOG_BATCH, maxBatches = 
   let deleted = 0
   let used = 0
 
-  // One batch; true when it was full, i.e. there may be more behind it.
   const deleteBatch = async (organizationId, days) => {
     used += 1
     const rows = await sql.begin(async (tx) => {
@@ -257,8 +251,6 @@ async function pruneDownloadLog(sql, { batch = DOWNLOAD_LOG_BATCH, maxBatches = 
 
   const organizations = await sql.begin(async (tx) => {
     await enterPlatformScope(tx)
-    // The CASE keeps the cast from running on a value the regex rejected: the
-    // planner is free to evaluate the AND arms in either order.
     return tx`
       SELECT workos_organization_id AS organization_id,
              (settings->>'downloadLogRetentionDays')::int AS days

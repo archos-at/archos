@@ -1,14 +1,3 @@
-/**
- * BYOK LLM credential service (ADR-0022).
- *
- * Owns the credential lifecycle: live verification against the provider,
- * secret storage (WorkOS Vault / local AES-GCM), atomic activation,
- * rotation, revocation, and the just-in-time resolution the Python backend
- * pulls through `/api/internal/llm-credential`. Every lifecycle transition
- * emits a WorkOS audit event. Plaintext keys exist only inside a request:
- * they are never cached, never logged, never returned to browsers.
- */
-
 import 'server-only'
 import { randomUUID } from 'node:crypto'
 import { BadRequestError, ConflictError, NotFoundError, UnprocessableError } from '@/lib/api/errors'
@@ -39,16 +28,9 @@ import { activeSecretBackend, deleteSecret, keyFingerprint, keyHint, revealSecre
 const VERIFY_TIMEOUT_MS = 8_000
 const MARK_USED_THROTTLE_MS = 5 * 60 * 1000
 
-/**
- * Which credential serves the org's LLM traffic (ADR-0022):
- *  - 'byok'     — the org's stored key (default while a credential exists).
- *  - 'platform' — the platform key; the stored credential stays in Vault,
- *    unused, so the org can switch back without re-entering the key.
- */
 export type LlmProviderMode = 'byok' | 'platform'
 const PROVIDER_MODE_SETTING = 'llmProviderMode'
 
-/** Metadata-only view — the ONLY credential shape browsers ever see. */
 export interface LlmCredentialView {
   id: string
   provider: string
@@ -89,17 +71,11 @@ export async function listOrgCredentials(organizationId: string): Promise<LlmCre
   return (await listCredentials(organizationId)).map(toView)
 }
 
-/** The org's chosen traffic mode. Defaults to 'byok' — a connected key is used. */
 export async function getLlmProviderMode(organizationId: string): Promise<LlmProviderMode> {
   const { settings } = await getOrgSettings(organizationId)
   return settings[PROVIDER_MODE_SETTING] === 'platform' ? 'platform' : 'byok'
 }
 
-/**
- * Flip the org between its own key and the platform service without
- * touching the stored credential. Takes effect on new conversations within
- * the backend's resolution-cache TTL (≤ 60 s).
- */
 export async function setLlmProviderMode(
   session: AuthorizedSession,
   mode: LlmProviderMode,
@@ -118,12 +94,6 @@ export async function setLlmProviderMode(
   return mode
 }
 
-/**
- * Live check that the key actually works: `GET {baseUrl}/models` with the
- * key as bearer — the one OpenAI-compatible endpoint every preset supports.
- * Returns the number of models visible to the key (0 when unparseable).
- * Throws `UnprocessableError` when the provider rejects the key.
- */
 export async function verifyKeyAgainstProvider(baseUrl: string, apiKey: string): Promise<number> {
   let response: Response
   try {
@@ -154,14 +124,9 @@ export interface CreateCredentialInput {
   label: string
   baseUrl?: string | null
   apiKey: string
-  /** Set when this create supersedes a specific credential (rotation). */
   rotatedFrom?: string | null
 }
 
-/**
- * Verify + store + activate a credential, superseding the current active one
- * in the same transaction. Used for both first-time setup and rotation.
- */
 export async function createCredential(
   session: AuthorizedSession,
   input: CreateCredentialInput,
@@ -236,10 +201,8 @@ export async function createCredential(
   return toView(inserted)
 }
 
-/** Providers whose base URL is fixed — stored as NULL, resolved from the preset. */
 const PRESET_URL_PROVIDERS = new Set<LlmCredentialProvider>(['openrouter', 'openai'])
 
-/** Revoke the active credential; traffic falls back to the platform key. */
 export async function revokeOrgCredential(
   session: AuthorizedSession,
   credentialId: string,
@@ -266,7 +229,6 @@ export async function revokeOrgCredential(
   return toView(revoked)
 }
 
-/** Re-verify the active credential against its provider on demand. */
 export async function verifyOrgCredential(
   session: AuthorizedSession,
   credentialId: string,
@@ -294,16 +256,6 @@ export async function verifyOrgCredential(
   return { credential: toView({ ...row, lastVerifiedAt: new Date() }), modelCount }
 }
 
-/** What the Python backend receives — includes the PLAINTEXT key. */
-/**
- * Whether the organization's LLM traffic currently runs on its OWN provider
- * key — the same three checks `resolveActiveCredentialForBackend` makes,
- * minus the decrypt. Budget enforcement asks this on every WebSocket upgrade
- * to hand the backend a remaining budget in cost terms without the platform
- * margin a BYOK generation is never charged (ADR-0053), so the answer is
- * cached briefly and write paths that flip it (mode change, credential
- * revocation) are already bounded by the backend's own 60 s resolution TTL.
- */
 const OWN_KEY_CACHE_TTL_MS = 60 * 1000
 const ownKeyCacheKey = (organizationId: string): string => `llmownkey:${organizationId}`
 
@@ -317,17 +269,6 @@ export async function isOrgOnOwnKey(organizationId: string): Promise<boolean> {
   })
 }
 
-/**
- * The provider the org's traffic goes to on its own key, or null when it runs on
- * the platform key — the same decision as `resolveActiveCredentialForBackend`
- * (flag, active credential, provider mode) WITHOUT revealing the secret or
- * touching `last_used_at`. For callers that only need to know where requests
- * go (whether OpenRouter's zero data retention can apply), not to send one.
- *
- * One divergence, on the safe side for that question: a secret that fails to
- * reveal makes the backend fall back to the platform key, which this still
- * reports as the BYOK provider.
- */
 export async function getActiveCredentialProvider(organizationId: string): Promise<string | null> {
   if (!(await isOrgFeatureEnabled(FEATURE_FLAGS.byokLlm, organizationId))) {
     return null
@@ -346,12 +287,6 @@ export interface ResolvedCredential {
   keyFingerprint: string
 }
 
-/**
- * Just-in-time resolution for the internal endpoint. Re-checks the org
- * feature flag, decrypts, and throttles the
- * `last_used_at` bookkeeping write. Returns null when the org has no BYOK
- * credential — the backend then stays on the platform key.
- */
 export async function resolveActiveCredentialForBackend(
   organizationId: string,
 ): Promise<ResolvedCredential | null> {
@@ -362,16 +297,12 @@ export async function resolveActiveCredentialForBackend(
   const row = await getActiveCredential(organizationId)
   if (!row) return null
 
-  // The org owner's explicit choice (ADR-0022): a stored key is only USED
-  // in 'byok' mode. In 'platform' mode it stays in Vault, idle, and the
-  // backend runs on the platform credential — switching back is one toggle.
   if ((await getLlmProviderMode(organizationId)) === 'platform') return null
 
   let apiKey: string
   try {
     apiKey = await revealSecret(row)
   } catch (error) {
-    // Fail open to the platform key — never log key material, only the ref.
     console.error(
       `[LLM Credentials] secret reveal failed for org ${organizationId} credential ${row.id}:`,
       error,

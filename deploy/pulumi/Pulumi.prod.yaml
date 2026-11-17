@@ -634,3 +634,9 @@ config:
   # for both domains and the JWT template's roles claim.
   grid-oib:mcpGatewayEnabled: "true"
   grid-oib:mcpGatewayPlatformOrgId: org_01KYVEVMY9X582SSN872SBTR03
+  # Agent traces through /langfuse/mcp (ADR-0160, amendment of 2026-11-17):
+  # only the organizations of the platform owners, every call pinned to their
+  # org tags. Read from WorkOS Production on 2026-11-17: the platform
+  # organization and the two test offices whose members are all on the team.
+  # A customer's office is never listed here.
+  grid-oib:mcpGatewayLangfuseTraceOrgs: org_01KYVEVMY9X582SSN872SBTR03,org_01M2TTD7J0N620NQ545ZDKSNGR,org_01M34HRAZTEQPTD33H6WM3KY5K

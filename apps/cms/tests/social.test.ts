@@ -8,11 +8,9 @@ const SITE = 'https://example.com';
 const CMS = 'https://cms.example.com';
 const NOW = new Date('2026-11-05T10:00:00Z');
 
-/** A `social-posts` document as the hand-off reads it (`locale=all&depth=2`). */
 const account = { id: 1, key: 'linkedin-company', network: 'linkedin', maxLength: 3000, publisherChannelId: 'chan-1', active: true };
 const blogPost = { id: 7, coverType: 'drawing', cover: 'welcome', publishedAt: '2026-11-01T00:00:00Z', slug: { de: 'willkommen', en: 'welcome' } };
 type Built = { input: { text: string; channelId: string; mode: string; dueAt?: string; assets?: unknown[] }; error: string };
-/** createPostInput, typed for the assertions (buffer.mjs is plain JavaScript). */
 const build = (post: object, ctx: { siteUrl: string; cmsPublicUrl: string; now: Date }) => createPostInput(post, ctx) as unknown as Built;
 const approved = (extra: Record<string, unknown> = {}) => ({ id: 12345678901, status: 'approved', language: 'de', text: 'Neu im Blog.', linkUrl: null, utmCampaign: null, image: null, scheduledAt: null, account, blogPost, ...extra });
 
@@ -36,13 +34,11 @@ test('an approved post becomes a queued Buffer post with its tracked link and sh
 });
 
 test('a scheduled post goes at its time, and its own image wins over the share image', () => {
-  // Payload answers with its own server URL; the post carries the public host's.
   const image = { url: 'http://cms.cms.svc:3000/api/media/file/f1.png', sizes: { share: { url: 'http://cms.cms.svc:3000/api/media/file/f1-1200x630.jpg' } } };
   const { input } = build(approved({ scheduledAt: '2026-11-06T08:00:00Z', image }), { siteUrl: SITE, cmsPublicUrl: CMS, now: NOW });
   assert.equal(input.mode, 'customScheduled');
   assert.equal(input.dueAt, '2026-11-06T08:00:00.000Z');
   assert.deepEqual(input.assets, [{ image: { url: 'https://cms.example.com/api/media/file/f1-1200x630.jpg' } }]);
-  // An image cover's share size stands in when the post has no image of its own.
   const covered = { ...blogPost, coverType: 'image', cover: null, coverImage: { sizes: { share: { url: '/api/media/file/c-1200x630.jpg' } } } };
   const { input: second } = build(approved({ blogPost: covered }), { siteUrl: SITE, cmsPublicUrl: CMS, now: NOW });
   assert.deepEqual(second.assets, [{ image: { url: 'https://cms.example.com/api/media/file/c-1200x630.jpg' } }]);
@@ -54,7 +50,6 @@ test('nothing is handed over that a person has not approved, or that would break
   assert.match(build(approved({ account: { ...account, publisherChannelId: null } }), ctx).error, /by hand/);
   assert.match(build(approved({ scheduledAt: '2026-10-01T00:00:00Z' }), ctx).error, /before the blog post/);
   assert.match(build(approved({ language: 'fr' }), ctx).error, /no fr version/);
-  // An id that did not populate: the hand-off may read only live posts.
   assert.match(build(approved({ blogPost: 7 }), ctx).error, /not live/);
   assert.match(build(approved({ text: 'x'.repeat(2950) }), ctx).error, /over the account's 3000/);
 });

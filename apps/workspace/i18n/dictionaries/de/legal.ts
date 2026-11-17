@@ -1,6 +1,5 @@
 import type { en } from '../en'
 
-/** legal namespace — Rahmen der öffentlichen Rechtsseiten (die Dokumente selbst liegen in `@/lib/legal`). */
 export const legal: typeof en.legal = {
   nav: {
     home: 'Zur Startseite',

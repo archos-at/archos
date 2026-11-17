@@ -1,12 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The seams between the driver and its statechart that `turn-socket.spec.ts`
- * does not reach: a preparation that outlives a close, one that never answers,
- * a socket that cannot be constructed or never opens, and a caller's callback
- * that throws inside a machine step.
- */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   DIAL_TIMEOUT_MS,
@@ -54,7 +48,6 @@ afterEach(() => {
 
 describe('the driver and its statechart', () => {
   it('adopts the preparation in flight when a connect follows a close: one auth refresh, one socket', async () => {
-    // What the chat does when the server says the token expired: close, then connect.
     const refreshAuth = vi.fn(async () => undefined)
     const { socket, sockets, statuses } = setup({ refreshAuth })
     const first = socket.connect()
@@ -75,7 +68,6 @@ describe('the driver and its statechart', () => {
     const { socket, statuses } = setup({
       openTurns: () => [{ turnId: 'turn_1', lastSeq: 3 }],
       createWebSocket: () => {
-        // Born open: `readyState` is read-only on the type, and the hello is what makes it ready.
         const ws: WebSocketLike = { ...made.createWebSocket(), readyState: 1, send: (frame: string) => void sent.push(frame) }
         opened.push(ws)
         return ws
@@ -97,7 +89,6 @@ describe('the driver and its statechart', () => {
     expect(statuses).toEqual(['connecting', 'open', 'closed'])
     expect(answer).toBe(false)
     expect(accepted).toBe(false)
-    // Neither the caller's frame nor the driver's own attach went out on the closing socket.
     expect(sent).toEqual([])
   })
 
@@ -113,7 +104,6 @@ describe('the driver and its statechart', () => {
         return made.createWebSocket()
       },
     })
-    // Every caller drops this promise (`void socket.connect()`): it must not reject.
     await expect(socket.connect()).resolves.toBeUndefined()
     expect(statuses).toEqual(['connecting', 'reconnecting'])
     refuse = false
@@ -134,7 +124,6 @@ describe('the driver and its statechart', () => {
     await vi.advanceTimersByTimeAsync(100)
     expect(statuses).toEqual(['connecting', 'reconnecting', 'connecting', 'reconnecting', 'connecting', 'reconnecting', 'failed'])
     expect(sockets).toHaveLength(0)
-    // The ladder's own attempts have no caller to hand a rejection to.
     vi.useRealTimers()
     await new Promise((resolve) => setTimeout(resolve, 0))
     process.off('unhandledRejection', unhandled)
@@ -154,14 +143,12 @@ describe('the driver and its statechart', () => {
     await vi.advanceTimersByTimeAsync(PREPARE_TIMEOUT_MS - 1)
     expect(statuses).toEqual(['connecting'])
     await vi.advanceTimersByTimeAsync(1)
-    // The promise every caller drops is over with the attempt, not with the hung refresh.
     await expect(connected).resolves.toBeUndefined()
     expect(statuses).toEqual(['connecting', 'reconnecting'])
     await vi.advanceTimersByTimeAsync(100)
     expect(statuses).toEqual(['connecting', 'reconnecting', 'connecting'])
     expect(refreshAuth).toHaveBeenCalledTimes(2)
     expect(sockets).toHaveLength(1)
-    // The abandoned refresh answers at last: no second socket, no status.
     release()
     await vi.advanceTimersByTimeAsync(0)
     expect(sockets).toHaveLength(1)

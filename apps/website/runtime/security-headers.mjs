@@ -71,7 +71,6 @@ export function contentSecurityPolicy(analytics, images = [], framers = []) {
     'media-src': ["'self'"],
     'connect-src': ["'self'", ...analytics.connect],
     'manifest-src': ["'self'"],
-    // Session replay (only after consent) compresses in a worker it starts from a blob.
     'worker-src': ["'self'", ...(analytics.script.length ? ['blob:'] : [])],
     'object-src': ["'none'"],
     'base-uri': ["'self'"],
@@ -96,7 +95,6 @@ export function securityHeaders(analytics, images = [], framers = []) {
     ['Content-Security-Policy', contentSecurityPolicy(analytics, images, framers)],
     ['Strict-Transport-Security', HSTS],
     ['X-Content-Type-Options', 'nosniff'],
-    // CSP's frame-ancestors governs where both are sent; X-Frame-Options has no allow-list.
     ...(framers.length ? [] : [['X-Frame-Options', 'DENY']]),
     ['Referrer-Policy', 'strict-origin-when-cross-origin'],
     ['Cross-Origin-Opener-Policy', 'same-origin'],

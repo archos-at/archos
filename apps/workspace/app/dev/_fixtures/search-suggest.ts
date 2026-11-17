@@ -1,11 +1,3 @@
-/**
- * The `/dev/search` preview's completions (`POST /api/search/suggest` in the
- * product): what the fixture office's documents hold for each free-text
- * filter, with counts, matched on the start of any word as the server folds
- * it (`foldForSuggest`). Not narrowed by the other filters: the preview shows
- * the field's behaviour, and the integration spec holds the counting.
- */
-
 import type { FacetCount } from '@/lib/search/search-wire'
 import { foldForSuggest } from '@/lib/search/suggest-fold'
 import type { SuggestQuestion } from '@/features/search/hooks/use-filter-suggestions'
@@ -63,7 +55,6 @@ const startsAWord = (text: string, prefix: string): boolean => {
   return start === '' || ` ${foldForSuggest(text)}`.includes(` ${start}`)
 }
 
-/** The fixture's answer to one completion. */
 export function searchFixtureSuggest(question: SuggestQuestion): FacetCount[] {
   const prefix = question.prefix ?? ''
   const pool =

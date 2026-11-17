@@ -1,25 +1,9 @@
-/**
- * Deep Research SSE Client
- *
- * Handles Server-Sent Events streaming for deep research async jobs.
- * Uses native EventSource for proper SSE protocol support including
- * event types, event IDs, and automatic reconnection.
- *
- * @see docs/api.md - Deep Research API (Async Jobs) section
- */
-
 import { apiConfig } from './config'
 import { ApiRequestError } from './api-error'
 import type { WireCitationSource } from '@/features/chat/types'
 
-// ============================================================
-// Types
-// ============================================================
-
-/** Job status values */
 export type DeepResearchJobStatus = 'submitted' | 'running' | 'success' | 'failure' | 'interrupted'
 
-/** Valid job status values, used to validate unvalidated SSE payloads */
 const VALID_JOB_STATUSES: ReadonlySet<DeepResearchJobStatus> = new Set([
   'submitted',
   'running',
@@ -28,7 +12,6 @@ const VALID_JOB_STATUSES: ReadonlySet<DeepResearchJobStatus> = new Set([
   'interrupted',
 ])
 
-/** SSE event types from the deep research stream */
 export type DeepResearchEventType =
   | 'stream.start'
   | 'stream.mode'
@@ -45,23 +28,19 @@ export type DeepResearchEventType =
   | 'artifact.update'
   | 'run.ledger'
 
-/** Artifact types in artifact.update events */
 export type ArtifactType = 'todo' | 'citation_source' | 'citation_use' | 'file' | 'output'
 
-/** Base SSE event structure */
 export interface DeepResearchSSEEvent {
   event: DeepResearchEventType
   id?: string
   timestamp?: string
 }
 
-/** stream.start event */
 export interface StreamStartEvent extends DeepResearchSSEEvent {
   event: 'stream.start'
   job_id: string
 }
 
-/** job.status event */
 export interface JobStatusEvent extends DeepResearchSSEEvent {
   event: 'job.status'
   data: {
@@ -70,7 +49,6 @@ export interface JobStatusEvent extends DeepResearchSSEEvent {
   }
 }
 
-/** workflow.start event */
 export interface WorkflowStartEvent extends DeepResearchSSEEvent {
   event: 'workflow.start'
   data: {
@@ -81,7 +59,6 @@ export interface WorkflowStartEvent extends DeepResearchSSEEvent {
   }
 }
 
-/** workflow.end event */
 export interface WorkflowEndEvent extends DeepResearchSSEEvent {
   event: 'workflow.end'
   data: {
@@ -92,7 +69,6 @@ export interface WorkflowEndEvent extends DeepResearchSSEEvent {
   }
 }
 
-/** llm.start event */
 export interface LLMStartEvent extends DeepResearchSSEEvent {
   event: 'llm.start'
   data: {
@@ -103,7 +79,6 @@ export interface LLMStartEvent extends DeepResearchSSEEvent {
   }
 }
 
-/** llm.chunk event */
 export interface LLMChunkEvent extends DeepResearchSSEEvent {
   event: 'llm.chunk'
   data: {
@@ -111,7 +86,6 @@ export interface LLMChunkEvent extends DeepResearchSSEEvent {
   }
 }
 
-/** llm.end event */
 export interface LLMEndEvent extends DeepResearchSSEEvent {
   event: 'llm.end'
   data: {
@@ -126,7 +100,6 @@ export interface LLMEndEvent extends DeepResearchSSEEvent {
   }
 }
 
-/** tool.start event */
 export interface ToolStartEvent extends DeepResearchSSEEvent {
   event: 'tool.start'
   data: {
@@ -141,7 +114,6 @@ export interface ToolStartEvent extends DeepResearchSSEEvent {
   }
 }
 
-/** tool.end event */
 export interface ToolEndEvent extends DeepResearchSSEEvent {
   event: 'tool.end'
   data: {
@@ -152,14 +124,12 @@ export interface ToolEndEvent extends DeepResearchSSEEvent {
   }
 }
 
-/** Todo item in artifact.update */
 export interface TodoItem {
   id: string
   content: string
   status: 'pending' | 'in_progress' | 'completed' | 'cancelled'
 }
 
-/** artifact.update event */
 export interface ArtifactUpdateEvent extends DeepResearchSSEEvent {
   event: 'artifact.update'
   data: {
@@ -171,9 +141,6 @@ export interface ArtifactUpdateEvent extends DeepResearchSSEEvent {
       url?: string // For citation_source and citation_use types
       output_category?: string // For output type (e.g. "final_report")
       cards?: unknown[] // Grid response cards attached to the final report output
-      // Structured citation fields: the backend spreads the whole citation wire
-      // (`source_entry_to_wire`) onto citation_source / citation_use artifacts,
-      // so the payload IS a WireCitationSource and is handed over as one.
       title?: string
       citation_key?: string
       collection?: string
@@ -194,7 +161,6 @@ export interface ArtifactUpdateEvent extends DeepResearchSSEEvent {
   }
 }
 
-/** Union of all SSE event types */
 export type DeepResearchEvent =
   | StreamStartEvent
   | JobStatusEvent
@@ -207,22 +173,12 @@ export type DeepResearchEvent =
   | ToolEndEvent
   | ArtifactUpdateEvent
 
-// ============================================================
-// Callbacks
-// ============================================================
-
-/** Callbacks for deep research SSE events */
 export interface DeepResearchCallbacks {
-  /** Called when stream connection is established */
   onStreamStart?: (jobId: string) => void
-  /** Called when stream mode changes (e.g., replay → live) */
   onStreamMode?: (mode: string) => void
-  /** Called on job status updates */
   onJobStatus?: (status: DeepResearchJobStatus, error?: string) => void
-  /** Called on workflow events */
   onWorkflowStart?: (name: string, input?: string, eventId?: string, agentId?: string) => void
   onWorkflowEnd?: (name: string, output?: string, eventId?: string, agentId?: string) => void
-  /** Called on LLM events */
   onLLMStart?: (name: string, workflow?: string) => void
   onLLMChunk?: (chunk: string) => void
   onLLMEnd?: (
@@ -230,19 +186,9 @@ export interface DeepResearchCallbacks {
     thinking?: string,
     usage?: { input_tokens: number; output_tokens: number }
   ) => void
-  /** Called on tool events */
   onToolStart?: (name: string, input?: Record<string, unknown>, workflow?: string, eventId?: string, agentId?: string) => void
   onToolEnd?: (name: string, output?: string, eventId?: string, agentId?: string) => void
-  /** Called on artifact updates */
   onTodoUpdate?: (todos: TodoItem[], workflow?: string) => void
-  /**
-   * A citation source arrived. `wire` is the backend's citation payload
-   * (`source_entry_to_wire`) verbatim — pass it to `citationFromWire` rather
-   * than re-mapping field by field. Hand-mapping here is how the deep-research
-   * path silently lost `kind`/`lane`/`lane_label`/`binding_note`/`number` and
-   * fell back to the pre-ADR-0026 origin heuristic that tints the OIB corpus as
-   * project material.
-   */
   onCitationUpdate?: (wire: WireCitationSource, isCited: boolean) => void
   onFileUpdate?: (filename: string, content: string) => void
   onOutputUpdate?: (
@@ -251,67 +197,23 @@ export interface DeepResearchCallbacks {
     workflow?: string,
     cards?: unknown[]
   ) => void
-  /** Called on job heartbeat (confirms job is alive during long operations) */
   onHeartbeat?: (uptimeSeconds: number) => void
-  /** Called on coarse deep-research phase transitions (planning/research/writing/…) */
   onPhase?: (phase: string, data?: Record<string, unknown>) => void
-  /**
-   * A `run.ledger` snapshot arrived: the run's WHOLE account of itself as of
-   * this moment (`docs/api/websocket-protocol.md`). Handed over unparsed — the
-   * consumer runs `sanitizeRunLedger` and REPLACES what it holds; it never folds
-   * a delta, because the fold lives on the producer's side and a second one
-   * here would be a second account of the same run.
-   */
   onLedger?: (ledger: unknown) => void
-  /** Called when job completes successfully */
   onComplete?: () => void
-  /** Called on errors */
   onError?: (error: Error) => void
-  /** Called when connection is lost */
   onDisconnect?: () => void
-  /**
-   * The browser is retrying a dropped connection, with the attempt number.
-   *
-   * EventSource reconnects on its own and says nothing, which is right for a
-   * stream nobody is watching and wrong for one a person IS watching: the view
-   * simply stops moving. A reader who is told „the line dropped, retrying" can
-   * wait; one who is told nothing assumes the work stopped.
-   */
   onReconnecting?: (attempt: number) => void
 }
 
-// ============================================================
-// Utilities
-// ============================================================
-
-/**
- * Normalize tool input from the backend SSE stream.
- *
- * The backend's `_trim_tool_input` converts large dict inputs to Python `str()`
- * repr when they exceed 500 characters. For example:
- *   "{'query': 'search term', 'params': {'max_results': 10, ...}"
- *
- * This is NOT valid JSON (single quotes, Python booleans/None). The frontend
- * expects `Record<string, unknown>` for tool input, and downstream code calls
- * `JSON.stringify(input, null, 2)` to display it — which double-quotes a raw
- * string, producing confusing output like `"\"{'query': ...\""`
- *
- * This utility normalizes the input at the adapter boundary so all downstream
- * consumers receive a proper object:
- *   1. If input is already an object → pass through unchanged
- *   2. If input is a JSON string → parse it back to an object
- *   3. If input is a Python repr string → wrap in { _raw, _truncated } sentinel
- */
 const normalizeToolInput = (input: unknown): Record<string, unknown> | undefined => {
   if (input == null) return undefined
 
-  // Already a proper object — pass through
   if (typeof input === 'object' && !Array.isArray(input)) {
     return input as Record<string, unknown>
   }
 
   if (typeof input === 'string') {
-    // Try JSON parse first (handles the case where backend used json.dumps)
     try {
       const parsed = JSON.parse(input)
       if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
@@ -321,71 +223,32 @@ const normalizeToolInput = (input: unknown): Record<string, unknown> | undefined
       // Not valid JSON — likely a Python repr string from str(dict)
     }
 
-    // Python repr or other non-JSON string — wrap in sentinel object
-    // so downstream JSON.stringify produces clean output
     return { _raw: input, _truncated: true }
   }
 
-  // Unexpected primitive (number, boolean) — wrap for safety
   return { _raw: String(input) }
 }
 
-// ============================================================
-// Deep Research SSE Client
-// ============================================================
-
 export interface DeepResearchStreamOptions {
-  /** Job ID to stream */
   jobId: string
-  /** Event callbacks */
   callbacks: DeepResearchCallbacks
-  /** Last event ID for reconnection (optional) */
   lastEventId?: string
-  /** Auth token for authenticated requests */
   authToken?: string
-  /**
-   * The project and conversation the stream is opened in. The job proxy checks
-   * the caller may reach them and signs them, and the backend opens a job inside
-   * them to someone other than its owner (ADR-0084). Without them only the
-   * caller's own jobs, or the stored active project's, can be followed.
-   */
   projectId?: string | null
   conversationId?: string | null
 }
 
 export interface DeepResearchClient {
-  /** Connect to the SSE stream */
   connect: () => void
-  /** Disconnect from the SSE stream */
   disconnect: () => void
-  /** Check if connected */
   isConnected: () => boolean
-  /** Get the last received event ID (for reconnection) */
   getLastEventId: () => string | null
 }
 
-/**
- * Create a deep research SSE client
- *
- * Uses native EventSource for proper SSE protocol support.
- * Handles event types, reconnection, and routes events to callbacks.
- */
-/** Max consecutive reconnection failures before surfacing an error to the caller */
 const MAX_RECONNECT_ATTEMPTS = 5
 
-/**
- * Waits between our own reopens of a stream the browser closed for good.
- *
- * EventSource retries only a network-level failure. When the api tier is
- * restarting, the BFF answers 500 and the browser closes the stream for good,
- * which on a rolling or autoscaled api tier happens every time a pod goes away
- * (ADR-0082 step B). A run outlives that, so the client reopens from the last
- * event id it holds and the stream resumes with no gap.
- */
 const STREAM_REOPEN_DELAYS_MS = [1_000, 2_000, 4_000, 8_000, 15_000]
-/** How long reopens may keep failing in a row before the caller is told the stream is lost. */
 const STREAM_REOPEN_GIVE_UP_MS = 120_000
-/** The server said it is going away: reopen at once, another replica takes it. */
 const STREAM_REOPEN_AFTER_SHUTDOWN_MS = 250
 
 export const createDeepResearchClient = (options: DeepResearchStreamOptions): DeepResearchClient => {
@@ -399,12 +262,7 @@ export const createDeepResearchClient = (options: DeepResearchStreamOptions): De
   let reopenAttempts = 0
   let failingSince: number | null = null
 
-  /**
-   * Build the stream URL with optional last event ID for reconnection
-   * Uses local API route in browser to avoid CORS issues
-   */
   const buildStreamUrl = (): string => {
-    // Use local API route in browser, direct backend URL on server
     const isBrowser = typeof window !== 'undefined'
     const baseUrl = isBrowser ? '' : apiConfig.baseUrl
 
@@ -415,7 +273,6 @@ export const createDeepResearchClient = (options: DeepResearchStreamOptions): De
     }
 
     const query = new URLSearchParams()
-    // Add auth token as query param if provided (EventSource doesn't support headers)
     if (authToken) query.set('token', authToken)
     if (projectId) query.set('projectId', projectId)
     if (conversationId) query.set('conversationId', conversationId)
@@ -424,9 +281,6 @@ export const createDeepResearchClient = (options: DeepResearchStreamOptions): De
     return search ? `${url}?${search}` : url
   }
 
-  /**
-   * Parse SSE event data
-   */
   const parseEventData = (data: string): unknown => {
     try {
       return JSON.parse(data)
@@ -435,20 +289,7 @@ export const createDeepResearchClient = (options: DeepResearchStreamOptions): De
     }
   }
 
-  /**
-   * Handle incoming SSE message
-   *
-   * SSE events have a nested structure where the actual payload is inside a 'data' property:
-   * {
-   *   "id": "uuid",
-   *   "name": "workflow-name",
-   *   "timestamp": "...",
-   *   "data": { actual payload },
-   *   "metadata": { workflow context }
-   * }
-   */
   const handleMessage = (event: MessageEvent, eventType: string) => {
-    // Track last event ID for reconnection
     if (event.lastEventId) {
       lastReceivedEventId = event.lastEventId
     }
@@ -478,8 +319,6 @@ export const createDeepResearchClient = (options: DeepResearchStreamOptions): De
       }
 
       case 'job.phase': {
-        // Coarse phase transitions emitted by the backend job runner
-        // (planning_started, research_started, writing_started, …).
         const phaseWrapper = rawData as { data?: { phase?: string } & Record<string, unknown>; phase?: string }
         const phaseData = phaseWrapper.data || phaseWrapper
         const phase = phaseData.phase
@@ -492,11 +331,9 @@ export const createDeepResearchClient = (options: DeepResearchStreamOptions): De
       }
 
       case 'job.status': {
-        // job.status wraps status in data property
         const statusWrapper = rawData as { data?: { status?: DeepResearchJobStatus; error?: string }; status?: DeepResearchJobStatus; error?: string }
         const statusData = statusWrapper.data || statusWrapper
         const status = statusData.status
-        // Validate before use — the payload is unvalidated JSON from the wire.
         if (!status || !VALID_JOB_STATUSES.has(status)) {
           if (process.env.NODE_ENV === 'development') {
             console.warn('[SSE:job.status] Ignoring event with invalid status:', status)
@@ -505,8 +342,6 @@ export const createDeepResearchClient = (options: DeepResearchStreamOptions): De
         }
         callbacks.onJobStatus?.(status, statusData.error)
 
-        // Check for terminal states — close EventSource immediately to prevent
-        // auto-reconnection loops (EventSource reconnects on its own if left open)
         if (status === 'success') {
           isTerminated = true
           eventSource?.close()
@@ -514,9 +349,6 @@ export const createDeepResearchClient = (options: DeepResearchStreamOptions): De
         } else if (status === 'failure' || status === 'interrupted') {
           isTerminated = true
           eventSource?.close()
-          // Only call onError for actual failures, not user-initiated cancellations.
-          // A failure without an error string is still a failure — fall back to a
-          // generic message so the caller is always notified of the terminal state.
           const isUserCancelled = status === 'interrupted' && statusData.error?.toLowerCase().includes('cancelled by user')
           if (!isUserCancelled) {
             callbacks.onError?.(new Error(statusData.error || `Job ${status}`))
@@ -526,7 +358,6 @@ export const createDeepResearchClient = (options: DeepResearchStreamOptions): De
       }
 
       case 'workflow.start': {
-        // workflow events have nested structure: { id, name, timestamp, data: { input }, metadata: { agent_id } }
         const workflowData = rawData as { id?: string; name: string; data?: { input?: string }; metadata?: { agent_id?: string } }
         callbacks.onWorkflowStart?.(workflowData.name, workflowData.data?.input, workflowData.id, workflowData.metadata?.agent_id)
         break
@@ -552,7 +383,6 @@ export const createDeepResearchClient = (options: DeepResearchStreamOptions): De
       }
 
       case 'llm.end': {
-        // llm.end has nested structure: { id, name, timestamp, metadata: { thinking, usage }, data: { output } }
         const endData = rawData as {
           data?: { output?: string }
           metadata?: {
@@ -562,7 +392,6 @@ export const createDeepResearchClient = (options: DeepResearchStreamOptions): De
         }
         const output = endData.data?.output || ''
         const thinking = endData.metadata?.thinking
-        // Handle both naming conventions for usage (input_tokens/output_tokens or prompt_tokens/completion_tokens)
         const rawUsage = endData.metadata?.usage
         const usage = rawUsage
           ? {
@@ -575,8 +404,6 @@ export const createDeepResearchClient = (options: DeepResearchStreamOptions): De
       }
 
       case 'tool.start': {
-        // tool events have nested structure: { id, name, timestamp, data: { input }, metadata: { workflow, agent_id } }
-        // Note: data.input may be a Python repr string when the backend trims large inputs via str()
         const toolData = rawData as {
           id?: string
           name: string
@@ -595,7 +422,6 @@ export const createDeepResearchClient = (options: DeepResearchStreamOptions): De
       }
 
       case 'artifact.update': {
-        // artifact.update has nested structure: { id, timestamp, data: { type, content, url?, output_category? }, metadata?: { workflow } }
         const artifactWrapper = rawData as {
           data?: { type: ArtifactType; content: string | TodoItem[]; url?: string; output_category?: string; cards?: unknown[] }
           type?: ArtifactType
@@ -605,7 +431,6 @@ export const createDeepResearchClient = (options: DeepResearchStreamOptions): De
           cards?: unknown[]
           metadata?: { workflow?: string }
         }
-        // Handle both nested (data.type) and flat (type) structures
         const artifactData = artifactWrapper.data || artifactWrapper
         const artifactWorkflow = artifactWrapper.metadata?.workflow
 
@@ -615,16 +440,11 @@ export const createDeepResearchClient = (options: DeepResearchStreamOptions): De
             break
           case 'citation_source':
           case 'citation_use': {
-            // citation_source = discovered; citation_use = cited in the report.
-            // The artifact IS the citation wire (the backend spreads
-            // `source_entry_to_wire` onto it), so hand it over whole and let the
-            // one normalizer own the mapping.
             const isCited = artifactData.type === 'citation_use'
             callbacks.onCitationUpdate?.(artifactData as WireCitationSource, isCited)
             break
           }
           case 'file': {
-            // file artifacts are written during research — extract filename from path
             const raw = artifactData as Record<string, unknown>
             const filePath = (raw.file_path || raw.path || artifactData.url || 'unknown') as string
             const fileName = filePath.split('/').pop() || filePath
@@ -648,10 +468,6 @@ export const createDeepResearchClient = (options: DeepResearchStreamOptions): De
       }
 
       case 'run.ledger': {
-        // The ledger sits under `data` like every other event's payload, or flat
-        // when the producer wrote it without the envelope. Not validated here:
-        // `sanitizeRunLedger` is the one bound, and it runs where the ledger is
-        // stored, so the wire and the row are checked by the same function.
         const ledgerWrapper = rawData as { data?: { ledger?: unknown }; ledger?: unknown }
         const ledger = ledgerWrapper.data?.ledger ?? ledgerWrapper.ledger
         if (ledger !== undefined) {
@@ -663,7 +479,6 @@ export const createDeepResearchClient = (options: DeepResearchStreamOptions): De
       }
 
       default:
-        // Unknown event type - log in dev
         if (process.env.NODE_ENV === 'development') {
           console.warn('[SSE] Unknown event type:', eventType, rawData)
         }
@@ -671,9 +486,6 @@ export const createDeepResearchClient = (options: DeepResearchStreamOptions): De
     }
   }
 
-  /**
-   * Connect to the SSE stream
-   */
   const connect = () => {
     if (eventSource) {
       return // Already connected
@@ -683,28 +495,22 @@ export const createDeepResearchClient = (options: DeepResearchStreamOptions): De
     const url = buildStreamUrl()
     eventSource = new EventSource(url)
 
-    // Handle connection open
     eventSource.onopen = () => {
-      // Connection established (or re-established after reconnect) — reset counters
       reconnectAttempts = 0
       reopenAttempts = 0
       failingSince = null
     }
 
-    // The api replica serving this stream is shutting down. Reopen now rather
-    // than waiting for the browser to notice the close.
     eventSource.addEventListener('job.shutdown', () => {
       eventSource?.close()
       eventSource = null
       scheduleReopen(STREAM_REOPEN_AFTER_SHUTDOWN_MS)
     })
 
-    // Handle generic messages (fallback)
     eventSource.onmessage = (event) => {
       handleMessage(event, 'message')
     }
 
-    // Register handlers for each known event type
     const eventTypes: DeepResearchEventType[] = [
       'stream.start',
       'stream.mode',
@@ -718,9 +524,6 @@ export const createDeepResearchClient = (options: DeepResearchStreamOptions): De
       'tool.start',
       'tool.end',
       'artifact.update',
-      // `job.phase` had a `case` above and no listener here, so the named event
-      // the browser never subscribed to never reached the switch. The spec
-      // drives every listed type through a fake EventSource for that reason.
       'job.phase',
       'run.ledger',
     ]
@@ -731,27 +534,17 @@ export const createDeepResearchClient = (options: DeepResearchStreamOptions): De
       })
     })
 
-    // Handle errors
-    // EventSource fires onerror on *any* connection issue, then auto-reconnects
-    // (readyState transitions to CONNECTING). This is normal SSE behaviour, not a
-    // fatal error. We only surface an error to the caller after the reconnection
-    // retry threshold is exceeded or the browser has given up (readyState CLOSED).
     eventSource.onerror = () => {
       if (isTerminated) {
-        // Expected disconnection after terminal state — close to stop auto-reconnect
         eventSource?.close()
         eventSource = null
         return
       }
 
       if (eventSource?.readyState === EventSource.CLOSED) {
-        // The browser will not retry this one (a non-200 from the proxy while
-        // the api tier restarts): reopen it ourselves from the last event id.
         eventSource = null
         scheduleReopen()
       } else if (eventSource?.readyState === EventSource.CONNECTING) {
-        // EventSource is auto-reconnecting — this is expected behaviour.
-        // Only escalate to an error after repeated consecutive failures.
         reconnectAttempts++
         if (reconnectAttempts <= MAX_RECONNECT_ATTEMPTS) {
           callbacks.onReconnecting?.(reconnectAttempts)
@@ -760,15 +553,12 @@ export const createDeepResearchClient = (options: DeepResearchStreamOptions): De
           }
           return // let EventSource retry on its own
         }
-        // Too many consecutive reconnection failures — give up
         eventSource?.close()
         eventSource = null
         callbacks.onError?.(
           new Error(`SSE connection failed after ${reconnectAttempts} reconnection attempts`)
         )
       } else {
-        // Unexpected state (e.g. OPEN) — should not happen per SSE spec, but
-        // handle defensively so the caller is never left in an unknown state.
         const readyState = eventSource?.readyState
         eventSource?.close()
         eventSource = null
@@ -779,10 +569,6 @@ export const createDeepResearchClient = (options: DeepResearchStreamOptions): De
     }
   }
 
-  /**
-   * Reopen the stream after `delayMs`, or the next backoff step. Gives the caller
-   * `onDisconnect` once reopens have failed for {@link STREAM_REOPEN_GIVE_UP_MS}.
-   */
   function scheduleReopen(delayMs?: number) {
     if (isTerminated || reopenTimer) return
     const now = Date.now()
@@ -800,9 +586,6 @@ export const createDeepResearchClient = (options: DeepResearchStreamOptions): De
     }, wait)
   }
 
-  /**
-   * Disconnect from the SSE stream
-   */
   const disconnect = () => {
     if (reopenTimer) {
       clearTimeout(reopenTimer)
@@ -815,16 +598,10 @@ export const createDeepResearchClient = (options: DeepResearchStreamOptions): De
     }
   }
 
-  /**
-   * Check if connected
-   */
   const isConnected = (): boolean => {
     return eventSource !== null && eventSource.readyState === EventSource.OPEN
   }
 
-  /**
-   * Get the last received event ID for reconnection
-   */
   const getLastEventId = (): string | null => {
     return lastReceivedEventId
   }
@@ -837,14 +614,6 @@ export const createDeepResearchClient = (options: DeepResearchStreamOptions): De
   }
 }
 
-// ============================================================
-// REST API Functions (for non-streaming operations)
-// ============================================================
-
-/**
- * Get the base URL for deep research API
- * Uses local API route in browser to avoid CORS issues
- */
 const getDeepResearchBaseUrl = (): string => {
   const isBrowser = typeof window !== 'undefined'
   return isBrowser ? '/api/jobs/async' : `${apiConfig.baseUrl}/v1/jobs/async`
@@ -871,15 +640,12 @@ const getDeepResearchErrorDetails = async (response: Response): Promise<string |
 
 const throwDeepResearchApiError = async (response: Response, context: string): Promise<never> => {
   const details = await getDeepResearchErrorDetails(response)
-  // ApiRequestError carries the HTTP status so consumers can classify the
-  // failure structurally instead of parsing the message text.
   throw new ApiRequestError(
     `${context}: ${response.status}${details ? ` - ${details}` : ''}`,
     response.status
   )
 }
 
-/** Get job status */
 export const getJobStatus = async (
   jobId: string,
   authToken?: string
@@ -907,21 +673,9 @@ export const getJobStatus = async (
   return response.json()
 }
 
-/**
- * The document a commissioned run's report was filed as.
- *
- * The BFF files the report where it OBSERVES the run finishing, which is this
- * endpoint (`app/api/jobs/async/[...path]/route.ts`), and reports the result
- * back as an additive `filed` object. It is optional in every direction: a
- * chat outside a project sends no `projectId` and nothing is filed, an
- * organization can withhold `project:documents:write`, a quota can refuse the
- * bytes, and a report fetched from a build that predates the feature carries
- * nothing at all.
- */
 export interface JobReportFiling {
   documentId: string
   filename: string
-  /** False only on the fetch that created the row; true on every re-read. */
   alreadyFiled: boolean
 }
 
@@ -930,49 +684,11 @@ export interface JobReportResponse {
   has_report: boolean
   report: string | null
   filed?: JobReportFiling
-  /**
-   * A filing was attempted for this report and did not land.
-   *
-   * Mutually exclusive with `filed`, and NOT the same as its absence. The BFF
-   * sets it only in the one state where a promise was made and broken: a
-   * project was resolved, so `deepResearch.starting.filingDisclosure` told the
-   * reader the report would land under „Berichte", and then it did not. No
-   * project, no report yet and no filing attempt all leave both keys absent,
-   * because in none of them was anything promised.
-   *
-   * No reason travels with it, by design — a refused quota, a withheld
-   * `project:documents:write` and a report too long to render are one fact to
-   * an architect: the document is not there. The reasons name buckets,
-   * permissions and limits, and those are in the server log an operator reads.
-   */
   filingFailed?: boolean
-  /**
-   * The report is being rendered and filed by a background job (ADR-0079): the
-   * promise is being kept, and the document appears under „Berichte" when the
-   * job has run. Mutually exclusive with `filed` and `filingFailed`; absent when
-   * no filing was asked for. No reader of the run block uses it yet, like
-   * `filingFailed`, and it is carried across the boundary for the same reason.
-   */
   filingQueued?: boolean
-  /**
-   * The report's verified sources, each carrying the `[N]` the report cites it
-   * by. The live stream announces a source when a tool finds it, before
-   * verification has numbered anything, so a reader of the finished report
-   * had rows with no way to tell which one `[3]` was. Absent when the run
-   * recorded none, or on a body from before the field existed.
-   */
   sources?: WireCitationSource[]
 }
 
-/**
- * Narrow the additive `filed` object off an otherwise untyped response body.
- *
- * `response.json()` is `any` at the boundary and this repo forbids `any`, so
- * the body is read as `unknown` and every field is checked before it is
- * believed — the same posture `readReportMarkdown` takes on the server side of
- * this same call. A malformed or absent `filed` yields `undefined`, which is
- * exactly the state the UI already has to handle.
- */
 function readReportFiling(body: unknown): JobReportFiling | undefined {
   if (typeof body !== 'object' || body === null) return undefined
   const filed = (body as { filed?: unknown }).filed
@@ -983,13 +699,6 @@ function readReportFiling(body: unknown): JobReportFiling | undefined {
   return { documentId, filename, alreadyFiled: alreadyFiled === true }
 }
 
-/**
- * Get job report.
- *
- * `projectId` is not decoration: the proxy resolves the caller's project from
- * the query string, and without it the request is projectless and the report is
- * never filed. Pass the chat's active project whenever there is one.
- */
 export const getJobReport = async (
   jobId: string,
   authToken?: string,
@@ -1012,31 +721,18 @@ export const getJobReport = async (
   }
 
   const body = (await response.json()) as JobReportResponse
-  // Rebuilt rather than passed through, so a malformed `filed` cannot survive
-  // the boundary wearing a type it does not satisfy. The rebuild is also why
-  // `filingFailed` has to be listed here: a key this function does not name is
-  // a key the caller never sees, whatever the server sent.
   const filed = readReportFiling(body)
   return {
     job_id: body.job_id,
     has_report: body.has_report,
     report: body.report,
     ...(filed ? { filed } : {}),
-    // `=== true` and not truthiness: this is a boolean on the wire, and a
-    // client that believed a string here would retract a promise the server
-    // never said was broken.
     ...(body.filingFailed === true ? { filingFailed: true as const } : {}),
     ...(body.filingQueued === true ? { filingQueued: true as const } : {}),
     ...(Array.isArray(body.sources) && body.sources.length > 0 ? { sources: body.sources } : {}),
   }
 }
 
-/**
- * Cancel a running job.
- *
- * `projectId` names the project the job runs in, so the proxy can sign it and a
- * teammate may stop a run somebody else started there (ADR-0084).
- */
 export const cancelJob = async (
   jobId: string,
   authToken?: string,
@@ -1064,7 +760,6 @@ export const cancelJob = async (
   return response.json()
 }
 
-/** Job state/artifacts response */
 export interface JobStateResponse {
   job_id: string
   has_state: boolean
@@ -1086,7 +781,6 @@ export interface JobStateResponse {
   } | null
 }
 
-/** Get job state/artifacts (for catching up on missed events) */
 export const getJobState = async (
   jobId: string,
   authToken?: string

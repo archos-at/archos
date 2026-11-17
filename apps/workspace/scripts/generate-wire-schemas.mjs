@@ -141,8 +141,6 @@ export function buildWireSchemaModule(root) {
       zodVersion: 4,
       parserOverride: wireParserOverride,
     })
-      // An open model's extra fields (a source's lane, a ledger entry's docs)
-      // belong to their own contract: `unknown`, so nothing reads them unchecked.
       .replaceAll('.catchall(z.any())', '.catchall(z.unknown())')
     if (zodExpr.includes('z.any()')) {
       throw new Error(`${defName} would generate z.any(); give the field a type in wire_v2.py`)
@@ -160,11 +158,9 @@ ${declarations.join('\n\n')}
 }
 
 const scriptDir = dirname(fileURLToPath(import.meta.url))
-// scripts -> workspace -> apps -> repo root
 export const schemaPath = resolve(scriptDir, '../../../contracts/wire/v2.schema.json')
 export const outPath = resolve(scriptDir, '../ui/adapters/api/wire-v2.generated.ts')
 
-// Importing this module (the spec does) must not write the generated file.
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const root = JSON.parse(readFileSync(schemaPath, 'utf-8'))
   writeFileSync(outPath, buildWireSchemaModule(root), { encoding: 'utf-8' })

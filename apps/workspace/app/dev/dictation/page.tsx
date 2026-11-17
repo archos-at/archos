@@ -1,16 +1,5 @@
 'use client'
 
-/**
- * Voice dictation dev preview. The first block draws the microphone control in
- * every state it can be in, from `DictationControl` with a fixed state, because
- * the live button's state depends on the browser, the microphone and a backend
- * this page does not have. The second block is the REAL composer, so the
- * button's place in the control row is evidence too; in a browser with a
- * microphone it records, and the transcription call fails with the composer's
- * inline error (no backend here), which is the failure path worth seeing.
- * Not linked anywhere and 404s outside development.
- */
-
 import { notFound } from 'next/navigation'
 import { DictationControl, DictationStrip, type DictationState } from '@/features/dictation'
 import { InputArea } from '@/features/layout/components'

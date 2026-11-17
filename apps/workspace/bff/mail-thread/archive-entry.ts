@@ -1,8 +1,4 @@
 import 'server-only'
-/**
- * An archived mail as the thread tables read it, and what came with it (D33,
- * D36): the pure half of `./archive.ts`, which files what these shape.
- */
 
 import { v5 as uuidv5 } from 'uuid'
 import type { MailImport, MailImportSkipReason } from '@/lib/db/schema/mail-imports'
@@ -27,22 +23,14 @@ import type { MailThreadAttachmentNotFiledReason, MailThreadParticipant } from '
 import { MAIL_THREAD_ENTRY_MAX_TEXT_BYTES } from './mail-thread-vocabulary'
 import { sectionAttachment } from './render'
 
-/** The namespace an archived mail's entry and the Verlauf it opens are derived in. Fixed: changing it breaks retries. */
 const ARCHIVE_NAMESPACE = '8c2f4e1a-6b3d-4f5e-a7c9-0d1e2f3a4b5c'
 
-/** The entry an archived mail becomes: the same id on every retry of the mail. */
 export const archiveEntryIdOf = (importId: string, position: number): string =>
   uuidv5(`entry:${importId}:${position}`, ARCHIVE_NAMESPACE)
 
-/** The Verlauf an archived mail opens, when it opens one: the same id on every retry. */
 export const archiveThreadIdOf = (importId: string, position: number): string =>
   uuidv5(`thread:${importId}:${position}`, ARCHIVE_NAMESPACE)
 
-// ---------------------------------------------------------------------------
-// The mail, as the thread tables read it (pure)
-// ---------------------------------------------------------------------------
-
-/** An archived mail in the shape its entry and the matching ladder read. */
 export interface ArchiveMessage {
   messageId: string | null
   inReplyTo: string[]
@@ -50,7 +38,6 @@ export interface ArchiveMessage {
   threadIndexGuid: string | null
   baseSubject: string
   sender: MailAddress | null
-  /** From, To and Cc, in that order; never Bcc. At most 50, as the entry keeps them. */
   participants: MailThreadParticipant[]
   sentAt: Date
   receivedAt: Date
@@ -65,11 +52,6 @@ function dateOf(value: string | null): Date | null {
 
 const cut = (value: string | null | undefined, max: number): string | null => (value ? value.slice(0, max) : null)
 
-/**
- * The mail's ids, subject, parties and times as the Verlauf keeps them. The
- * receipt time is the mail's own, else its send time (a sent item), else the
- * import's start: an entry needs one, and a mail without a date is still mail.
- */
 export function archiveMessageOf(mail: ArchiveMail, importedAt: Date): ArchiveMessage {
   const sent = dateOf(mail.sent_at)
   const receivedAt = dateOf(mail.received_at) ?? sent ?? importedAt
@@ -96,7 +78,6 @@ export function archiveMessageOf(mail: ArchiveMail, importedAt: Date): ArchiveMe
   }
 }
 
-/** What the matching ladder reads of an archived mail. */
 export function threadingMessageOf(message: ArchiveMessage): ThreadingMessage {
   return {
     messageId: message.messageId,
@@ -109,12 +90,6 @@ export function threadingMessageOf(message: ArchiveMessage): ThreadingMessage {
   }
 }
 
-/**
- * The Verläufe an archived mail may join, best first (D33): a strong rung of
- * the ladder (`reference`, `thread_index`, each with an equal base subject),
- * then a Verlauf that cites this very message under the same subject (the
- * reply was walked before what it answers). Nothing on a subject alone.
- */
 export function archiveThreadMatches(message: ArchiveMessage, candidates: readonly ThreadCandidate[]): string[] {
   const strong = matchThread(threadingMessageOf(message), candidates)
     .filter((match) => PRESELECTABLE_STRENGTHS.includes(match.strength))
@@ -130,11 +105,6 @@ export function archiveThreadMatches(message: ArchiveMessage, candidates: readon
   return [...new Set([...strong, ...citing])]
 }
 
-/**
- * The conversation's other party, from the importer's side („Gegenüber“, D33):
- * the first recipient of a mail they sent, else the sender. A sent item is a
- * mail From the person who started the import.
- */
 export function counterpartOf(
   entry: Pick<MailThreadEntryRow, 'senderAddress' | 'senderName' | 'participants'>,
   importerEmail: string | null
@@ -151,7 +121,6 @@ export function counterpartOf(
   return { name: entry.senderName ?? '', address: entry.senderAddress ?? '' }
 }
 
-/** The entry row an archived mail becomes, before its heading. Pure. */
 export function archiveEntryOf(input: {
   id: string
   threadId: string
@@ -193,11 +162,6 @@ export function archiveEntryOf(input: {
   }
 }
 
-// ---------------------------------------------------------------------------
-// What came with the mail (D36, pure)
-// ---------------------------------------------------------------------------
-
-/** The import's skip reasons as the attachment rows name them; an attached mail is unreadable here. */
 export const NOT_FILED_REASON_OF_SKIP: Readonly<Record<MailImportSkipReason, MailThreadAttachmentNotFiledReason>> = {
   embedded_message: 'unreadable',
   type: 'type_not_accepted',
@@ -208,34 +172,23 @@ export const NOT_FILED_REASON_OF_SKIP: Readonly<Record<MailImportSkipReason, Mai
   name_taken: 'name_taken',
 }
 
-/** What became of one attachment of an archived mail (`lib/mail-import/filing.ts`). Inline pictures have none. */
 export type ArchiveAttachmentOutcome =
   | {
       index: number
-      /** The name the attachment came with. */
       filename: string
       filed: true
       documentId: string
-      /** The name it was filed under (`<mail folder> – <name>`). */
       documentName: string
       folderId: string
     }
   | { index: number; filename: string; filed: false; reason: MailImportSkipReason }
 
-/**
- * One row per attachment of the mail, whatever became of it (D36), with what
- * its section prints frozen in. Pure. A filed attachment is named only when
- * everyone who reads the Verlauf may read the folder it went into, and never
- * when the name check stopped it (it is then not filed at all, ADR-0086).
- */
 export function archiveAttachmentRowsOf(input: {
   entryId: string
   organizationId: string
   projectId: string
   outcomes: readonly ArchiveAttachmentOutcome[]
-  /** The newest Fassung of each filed document, as the importer reads it; absent when it is gone. */
   versions: ReadonlyMap<string, string>
-  /** The folder path of each folder an attachment went into. */
   folderPaths: ReadonlyMap<string, string>
   visibleWithThread: (folderId: string) => boolean
 }): NewMailThreadEntryAttachmentRow[] {

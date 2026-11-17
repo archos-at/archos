@@ -27,7 +27,6 @@ from agent.knowledge.law_lookup.source import LawSource
 logger = logging.getLogger(__name__)
 
 _DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
-#: The search arguments that carry a day; checked before a request is built.
 _DATE_ARGS = ("date_from", "date_to")
 
 
@@ -76,10 +75,7 @@ class SourceClient:
                 timeout=self.timeout,
                 follow_redirects=True,
                 transport=transport,
-                # An environment proxy would take a request past the guard.
                 trust_env=False,
-                # EVERY HOP IS CHECKED, NOT THE FIRST ONE: a source endpoint that reflects a
-                # parameter into `Location` would otherwise turn the host check into a formality.
                 event_hooks={"request": [self._reject_foreign_hop]},
                 headers={"Accept": "application/json, text/html;q=0.9, */*;q=0.8", "User-Agent": "law-lookup/1.0"},
             )
@@ -138,7 +134,6 @@ class SourceClient:
         content_type = response.headers.get("content-type", "").lower()
         if any(binary in content_type for binary in ("pdf", "rtf", "octet-stream", "msword")):
             raise SourceRequestError(f"Document at {url} is only available as a binary format ({content_type}).")
-        # The parse is CPU-bound: off the event loop, so other turns keep moving on a large law.
         title, text = await asyncio.to_thread(self.law.engine.text, response.text)
         if not text:
             raise SourceRequestError(f"Document at {url} contained no extractable text")

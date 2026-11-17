@@ -1,40 +1,3 @@
-/**
- * A scripted v2 chat server behind a stubbed `window.WebSocket`, for
- * `/dev/stream-socket`.
- *
- * The frames are paced by a Web Worker, not by timers on the page. A real
- * socket's frames arrive whether or not the page's main thread is free, and
- * queue up behind a busy one; that queue is the backlog the harness measures.
- * Timers on the main thread would be delayed by the very work being measured,
- * and the server would slow down to match the client. The worker stamps each
- * frame with its send time on the shared epoch clock (`timeOrigin + now()`),
- * and the page records when the client's `onmessage` returned.
- *
- * Like the real one (`docs/api/websocket-protocol.md`), the server keeps every
- * frame of a turn it sent, and a turn runs on whether or not a socket follows
- * it. So it answers what a client sends after an interruption:
- *
- * - `user_message` starts the next scripted turn on the socket that asked; a
- *   resend of a question it already holds is ignored.
- * - `attach{turn_id, after_seq}` replays the turn's frames after `after_seq`
- *   to the asking socket, which then follows the turn live. After a reload the
- *   page names the turn it was in (`resume`): the server takes it up on its
- *   original clock, so the replay holds every frame sent while the page was
- *   gone. A turn it never heard of is `rejected{turn_not_found}`.
- * - `cancel_turn` stops the turn and ends it `cancelled`, as `ChatSocket` does:
- *   cut to `shown`, the text the reader had on screen, by the rule the agent
- *   tier applies (`stopped-answer.ts`), or with the text sent so far when the
- *   cancel names no position. The hello says it reads `shown`. A Stop of a
- *   turn that has already ended is `rejected{turn_not_found}`, as the real
- *   server answers a Stop that crossed its finished answer.
- *
- * `drop()` closes the chat socket the way a lost network does (code 1006),
- * and the client's own ladder reconnects and re-attaches.
- *
- * Only the chat socket (`…/websocket`) is faked; any other `WebSocket` (the
- * dev server's HMR) is the real one.
- */
-
 import { parseWireEvent, type ShownAnswer, type WireEvent } from '@/adapters/api/wire-v2'
 import { foldTurnEvents } from '@/lib/turns/turn-fold'
 import { stoppedAnswer } from '@/lib/turns/stopped-answer'
@@ -42,37 +5,25 @@ import { CONVERSATION_PLACEHOLDER, TURN_PLACEHOLDER, type FrameKind, type TurnSc
 
 export interface SocketProbeSink {
   onOpen: () => void
-  /** A new question reached the server; `index` is its scripted turn. */
   onUserMessage: (at: number, index: number) => void
   onFrameHandled: (kind: FrameKind, sentAt: number, handledAt: number) => void
   onHeartbeat: () => void
-  /** The server answered an `attach`, replaying `frames` frames. */
   onAttach?: (afterSeq: number, frames: number) => void
 }
 
-/** A turn the page was in when it reloaded: the server picks it up on its original clock. */
 export interface ResumeTurn {
   index: number
   turnId: string
   conversationId: string
-  /** Epoch ms the turn started at, on the server's clock. */
   startedAtEpoch: number
 }
 
 export interface FakeTurnServer {
   uninstall: () => void
-  /** Close the chat socket as a lost network does. */
   drop: () => void
-  /** The turn running now, for the page to resume after a reload. */
   running: () => ResumeTurn | null
 }
 
-/**
- * The worker: holds every turn's frames, and once told a turn's ids, posts
- * each of its frames at its time, from the turn's start epoch (in the past
- * after a reload, which sends the frames already due at once).
- * Plain JS in a string, so it needs no bundler support for workers.
- */
 const WORKER_SOURCE = `
 let turns = []
 const timers = new Map()
@@ -122,14 +73,12 @@ interface ServerTurn extends ResumeTurn {
   ended: boolean
 }
 
-/** Epoch milliseconds on the page's own `performance.now()` clock. */
 const pageTime = (epoch: number): number => epoch - performance.timeOrigin
 const epochNow = (): number => performance.timeOrigin + performance.now()
 
 const OPEN = 1
 const CLOSED = 3
 
-/** The answer text a turn's log adds up to, as the fold reads it: deltas, reset by a retraction. */
 const sentText = (log: readonly LoggedFrame[]): string => {
   let text = ''
   for (const { data } of log) {
@@ -141,11 +90,6 @@ const sentText = (log: readonly LoggedFrame[]): string => {
   return text
 }
 
-/**
- * What a stopped turn keeps when the cancel said what was on screen: the
- * frames through `shown.seq` folded as the client folds them, cut to
- * `shown.chars` by the agent tier's rule (`TurnTextFold.stopped`).
- */
 const stoppedResult = (log: readonly LoggedFrame[], shown: ShownAnswer, messageId: string): Record<string, unknown> => {
   const events = log
     .filter((frame) => frame.seq <= shown.seq)
@@ -166,7 +110,6 @@ const stoppedResult = (log: readonly LoggedFrame[], shown: ShownAnswer, messageI
   }
 }
 
-/** Declared here so `ServerTurn` can name it; the class is built inside the installer. */
 interface FakeTurnSocket {
   readonly conversationId: string
   readyState: number
@@ -174,10 +117,6 @@ interface FakeTurnSocket {
   drop: () => void
 }
 
-/**
- * Install the fake server as `window.WebSocket`. `onScriptEnd` fires once the
- * worker has sent the last frame of the last scripted turn.
- */
 export const installFakeTurnServer = (
   script: TurnScript,
   sink: SocketProbeSink,
@@ -186,14 +125,11 @@ export const installFakeTurnServer = (
 ): FakeTurnServer => {
   const RealWebSocket = window.WebSocket
   const workerUrl = URL.createObjectURL(new Blob([WORKER_SOURCE], { type: 'text/javascript' }))
-  // Loaded now, not at send: cloning megabytes of frames into the worker is
-  // main-thread work that belongs to no turn.
   const worker = new Worker(workerUrl)
   worker.postMessage({ type: 'load', turns: script.turns.map((turn) => turn.frames) })
   const turns: ServerTurn[] = []
   const sockets = new Set<FakeTurnSocket>()
 
-  /** Hand one frame to the turn's follower, if it has one that is open. */
   const forward = (turn: ServerTurn, frame: LoggedFrame, sentAt: number): void => {
     const socket = turn.follower
     if (!socket || socket.readyState !== OPEN) return
@@ -223,7 +159,6 @@ export const installFakeTurnServer = (
     worker.postMessage({ type: 'start', index, turnId, conversationId, startedAtEpoch })
   }
 
-  /** Stop: no more scripted frames, and the cancelled terminal with what was shown, or else what was sent. */
   const cancel = (turn: ServerTurn, shown: ShownAnswer | undefined): void => {
     if (turn.ended) return
     worker.postMessage({ type: 'stop', index: turn.index })
@@ -246,7 +181,6 @@ export const installFakeTurnServer = (
     forward(turn, frame, performance.now())
   }
 
-  /** The answer id the turn's `RUN_STARTED` named. */
   const messageIdOf = (turn: ServerTurn): string => {
     const started = turn.log[0] && (JSON.parse(turn.log[0].data) as { message_id?: string })
     return started?.message_id ?? ''
@@ -273,19 +207,15 @@ export const installFakeTurnServer = (
     constructor(url: string | URL, protocols?: string | string[]) {
       const href = new URL(String(url), window.location.href)
       this.url = String(url)
-      // Not the chat socket: hand back a real one (the constructor's return value wins).
       if (!href.pathname.endsWith('/websocket')) {
         return new RealWebSocket(url, protocols) as unknown as Socket
       }
-      // One socket per conversation, as the real URL names it.
       this.conversationId = href.searchParams.get('conversationId') ?? ''
       sockets.add(this)
       window.setTimeout(() => {
         if (this.readyState === CLOSED) return
         this.readyState = OPEN
         this.onopen?.(new Event('open'))
-        // The server's first frame, as `ChatSocket.serve` sends it: the client
-        // sends nothing on a socket that has not said hello.
         this.deliver(
           JSON.stringify({
             v: 2,
@@ -318,7 +248,6 @@ export const installFakeTurnServer = (
     }
 
     private ask(messageId: string | undefined): void {
-      // A resend of a question the server holds: it is already running.
       if (!messageId || turns.some((turn) => turn?.turnId === messageId)) return
       const index = turns.length
       if (index >= script.turns.length) return
@@ -337,8 +266,6 @@ export const installFakeTurnServer = (
       }
       const resume = options.resume
       if (resume?.turnId === turnId) {
-        // The turn the page reloaded out of: the worker sends what is already
-        // due at once, which is the replay from seq 1.
         sink.onAttach?.(afterSeq, 0)
         start({ ...resume, log: [], follower: this, ended: false })
         return
@@ -346,7 +273,6 @@ export const installFakeTurnServer = (
       this.reject('attach', turnId)
     }
 
-    /** `rejected{turn_not_found}`: the server holds no running turn by that id. */
     private reject(of: 'attach' | 'cancel_turn', turnId: string): void {
       this.deliver(
         JSON.stringify({
@@ -366,7 +292,6 @@ export const installFakeTurnServer = (
       if (this.readyState === OPEN) this.onmessage?.(new MessageEvent('message', { data }))
     }
 
-    /** The network went away: closed without a close frame. */
     drop(): void {
       this.shut(1006, false)
     }

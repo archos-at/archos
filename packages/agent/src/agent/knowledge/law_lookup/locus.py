@@ -27,9 +27,7 @@ from dataclasses import dataclass
 from public_sources.lookup import Locus
 from public_sources.lookup import LocusUnit
 
-#: A provision's number: digits and an optional letter (``63a``).
 _NUMBER = r"\d+[a-z]?"
-#: The dashes that make a range in every language.
 DASHES = ("–", "-")
 
 
@@ -76,11 +74,8 @@ def _flags(unit: LocusUnit) -> int:
 class Grammar:
     """The compiled regexes of one source's citation grammar."""
 
-    #: Units in the record's order, the first preferred.
     units: tuple[LocusUnit, ...]
-    #: Per unit sign: the first mention of it in a text, its number in group 1.
     first: dict[str, re.Pattern[str]]
-    #: Per unit sign: an item at a position, ``(digits, letter)`` in groups 1 and 2.
     signed: dict[str, re.Pattern[str]]
     subsection: re.Pattern[str]
     join: re.Pattern[str]
@@ -88,11 +83,8 @@ class Grammar:
     qualifier: re.Pattern[str]
     subsection_list: re.Pattern[str]
     trailing_reference: re.Pattern[str]
-    #: A line that starts a provision of the source's texts; the unit in group ``u<i>``, the number in ``number``.
     section_line: re.Pattern[str]
-    #: The first part's marker run into the provision's head: ``§ 63. (1) …``.
     subsection_inline: re.Pattern[str]
-    #: The label of a provision's part (``Abs``), and the word between the two ends of a range (``bis``).
     subsection_label: str
     range_word: str
 

@@ -60,12 +60,9 @@ from . import scoring
 from .fixture import load_answer_key
 from .fixture import load_fixture
 
-#: Set from the first four runs of the boot model (openai/gpt-6-luna, 2026-10-14): recall 0.94-0.97 of 31
-#: stated keys, stayed-open 0.83-1.00 of 12 open keys. Each floor is the lowest run less one key, rounded
-#: down to 0.05, so one more miss than the worst run fails and run-to-run wobble does not.
+#: Four boot-model runs, 2026-10-14: recall 0.94-0.97, stayed-open 0.83-1.00; floor = lowest run less one key.
 DEFAULT_MIN_RECALL = 0.90
 DEFAULT_MIN_STAYED_OPEN = 0.75
-#: Spend after which no further run starts, in USD.
 DEFAULT_MAX_COST = 5.0
 
 

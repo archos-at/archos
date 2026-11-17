@@ -1,20 +1,5 @@
 'use client'
 
-/**
- * Usage-analytics opt-out (profile page).
- *
- * Product analytics keeps an identifier in this browser's cookie and local
- * storage (`lib/analytics/posthog.ts`), which is not strictly necessary, so a
- * person must be able to say no and mean it. The switch calls PostHog's own
- * opt-out: the choice is stored by the SDK in this browser, applies on every
- * later visit, and stops events and recordings before anything is queued.
- *
- * Per browser, not per account, on purpose: the thing being refused is the
- * storage and the traffic of THIS device. It is rendered only where the
- * deployment has analytics configured (decided on the server, so the page never
- * offers a switch that controls nothing).
- */
-
 import { type FC, useCallback, useEffect, useState } from 'react'
 import { ChartNoAxesColumn } from 'lucide-react'
 
@@ -26,14 +11,11 @@ import { profileCopy } from '@/i18n/namespaces/profile'
 import { isPosthogOptedOut, optInPosthog, optOutPosthog } from '@/lib/analytics/posthog'
 
 interface UsageAnalyticsSettingsProps {
-  /** Whether this deployment has PostHog configured. Without it there is nothing to switch. */
   available: boolean
 }
 
 export const UsageAnalyticsSettings: FC<UsageAnalyticsSettingsProps> = ({ available }) => {
   const t = useTranslations(profileCopy, 'usageAnalytics')
-  // On until the SDK says otherwise: the server render cannot know this
-  // browser's stored choice, and the first effect corrects it.
   const [enabled, setEnabled] = useState(true)
 
   useEffect(() => {

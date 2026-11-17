@@ -41,7 +41,6 @@ class Passage:
 class ParsedDocument:
     title: str
     uri: str
-    #: The version the document states about itself (an expression date), or empty.
     version: str = ""
     passages: tuple[Passage, ...] = field(default_factory=tuple)
 
@@ -54,8 +53,6 @@ class Engine:
 
     name: ClassVar[str]
     config_model: ClassVar[type[EngineConfig]]
-    #: The labels a search hit's metadata states a version's in-force window, its territory and the provision
-    #: it holds under, empty for a format whose hits state none.
     in_force_from: ClassVar[str] = ""
     in_force_until: ClassVar[str] = ""
     territory_field: ClassVar[str] = ""

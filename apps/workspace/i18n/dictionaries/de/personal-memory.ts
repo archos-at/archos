@@ -1,10 +1,8 @@
 import type { en } from '../en'
 
-/** Mein Gedächtnis: die eigenen Notizen einer Person, die sonst niemand liest (`/app/memory`, ADR-0180). */
 export const personalMemory: typeof en.personalMemory = {
   title: 'Mein Gedächtnis',
   subtitle: 'Was {productName} sich über Sie und Ihre Arbeitsweise merkt.',
-  // Das eine überprüfbare Versprechen der Seite. Es nennt Kolleg:innen und die Administrator:innen des Büros, wie ADR-0180.
   audience: 'Nur Sie sehen diese Notizen, weder Kolleg:innen noch die Administrator:innen Ihres Büros.',
   backToApp: 'Zurück',
   add: 'Notiz hinzufügen',
@@ -44,7 +42,6 @@ export const personalMemory: typeof en.personalMemory = {
   unpinnedNote: 'Notiz gelöst.',
   removed: 'Notiz entfernt.',
   removedAll: '{count, plural, one {# Notiz} other {# Notizen}} entfernt.',
-  // Warum der Server eine Notiz abgelehnt hat (`details.kind`, `bff/knowledge/note-refusal.ts`). Nie der gefundene Wert.
   refused: {
     iban: 'Nicht gespeichert: Eine Notiz darf keine Kontonummer (IBAN) enthalten. Lassen Sie sie weg und speichern Sie erneut.',
     at_svnr: 'Nicht gespeichert: Eine Notiz darf keine Sozialversicherungsnummer enthalten. Lassen Sie sie weg und speichern Sie erneut.',

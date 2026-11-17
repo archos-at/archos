@@ -7,7 +7,6 @@ from collections.abc import Sequence
 logger = logging.getLogger(__name__)
 
 
-#: Replaced files one notice names before it counts the rest.
 _HIDDEN_REVISIONS_NAMED = 5
 
 

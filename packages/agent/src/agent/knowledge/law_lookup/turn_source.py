@@ -25,7 +25,6 @@ from agent.knowledge.law_lookup.source import law_source_from_record
 
 logger = logging.getLogger(__name__)
 
-#: Repository records a lookup fell back to in this process (the log line is said once per source).
 _FELL_BACK: set[str] = set()
 
 
@@ -34,7 +33,6 @@ def turn_source() -> TurnSource | None:
     context = turn_knowledge_context()
     usable = [source for source in context.sources if "lookup" in source.config]
     if context.site_country:
-        # A site's law is its own country's: another country's record never answers for it.
         return next((source for source in usable if source.country == context.site_country), None)
     return usable[0] if len(usable) == 1 else None
 
@@ -51,7 +49,6 @@ def _released(_revision_id: str, source: TurnSource) -> LawSource:
     return law_source_from_record(parse_released_source(dict(source.config)))
 
 
-#: Released revisions this process could not read (logged once each).
 _UNREADABLE: set[str] = set()
 
 
@@ -90,7 +87,6 @@ def dropped_note(law: LawSource) -> str:
     )
 
 
-#: How a refusal of the fallback begins: the call is answered with it, not run.
 WITHHELD_PREFIX = "Not executed:"
 
 

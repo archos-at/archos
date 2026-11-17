@@ -62,12 +62,7 @@ logger = logging.getLogger(__name__)
 
 FIRST_LOOK_ENV = "INGEST_PAGE_FIRST_LOOK"
 MODEL_ENV = "INGEST_FIRST_LOOK_MODEL"
-#: The cheapest image-capable model ``configs/`` names. Today that is the only
-#: one, the vision model itself (``configs/config_oib_openrouter.yml``,
-#: ``VLM_MODEL``), so the knob does nothing until a cheaper model with a
-#: zero-data-retention endpoint is named here or in ``INGEST_FIRST_LOOK_MODEL``.
 DEFAULT_MODEL = "openai/gpt-6-luna"
-#: Below this share of the page a picture is a mark (a logo, a stamp), above it a photo.
 LOGO_MAX_COVERAGE = 0.05
 
 Look = Literal["photo", "logo", "blank"]

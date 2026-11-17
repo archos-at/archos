@@ -108,15 +108,9 @@ SKIP_COMMANDS = frozenset({"skip", "done", "exit", "quit", "proceed", "continue"
 """Replies to a clarification QUESTION that mean "stop asking and get on with it"."""
 
 PLAN_REPLIES: dict[str, PlanDecision] = {
-    # The three tokens the plan envelope names, and the only three the UI's
-    # buttons send (apps/workspace .../AgentPrompt.tsx).
     "approve": "approved",
     "shallow": "shallow",
     "cancel": "cancelled",
-    # A bare refusal, typed rather than picked. Kept, and kept to single words,
-    # because dropping it re-opens the transcript where the user said "no", was
-    # handed a second plan, said "reject", and only then got out. Anything
-    # longer is plan FEEDBACK on purpose: "no, only Wien" is a revision.
     "no": "shallow",
     "nein": "shallow",
     "nope": "shallow",
@@ -211,9 +205,6 @@ class ClarifyDeps:
     def run_config(self) -> RunnableConfig:
         """The LangChain config every call in this run carries (tracing only)."""
         return {"callbacks": list(self.callbacks)}
-
-
-# -- pure helpers --------------------------------------------------------------
 
 
 def parse_json_response[ModelT: BaseModel](content: Any, schema: type[ModelT]) -> ModelT | None:
@@ -358,28 +349,15 @@ def _inventory_rows(inventory: list[dict[str, Any]] | None) -> list[dict[str, An
     return rows
 
 
-#: The plan card lists what the run can read. Two hundred rows is more than a
-#: card can show and more than a project usually holds; beyond it the picker
-#: still resolves a typed name against the full inventory server-side.
 MAX_PLAN_INVENTORY_ROWS = 200
 
 
 def format_plan_for_user(plan: PlanResponse, inventory: list[dict[str, Any]] | None = None) -> str:
     """Render the plan preview the user replies to."""
     sections_text = "\n".join(f"  {i + 1}. {s}" for i, s in enumerate(plan.sections))
-    # The footer sentence is a byte-stable envelope: the UI detects it,
-    # strips it, and renders localized action buttons in its place
-    # (apps/workspace .../AgentPrompt.tsx). Changing a byte here requires
-    # changing the regexes there in the same commit.
-    # The same plan as data, for the plan card: the client strips the fence
-    # and renders the sections, the genre and the depth as controls; a client
-    # that does not know the fence shows the list above and the fence stays
-    # readable. The envelope sentence below it is untouched.
     payload: dict[str, Any] = plan.model_dump()
     rows = _inventory_rows(inventory)
     if rows:
-        # What the run can read, so the card's picker needs no second fetch
-        # and can only ever name a document this turn could find.
         payload["documents"] = rows
     plan_json = json.dumps(payload, ensure_ascii=False)
     return (
@@ -470,9 +448,6 @@ def _fallback_plan() -> PlanResponse:
     return PlanResponse(title=FALLBACK_PLAN_TITLE, sections=list(FALLBACK_PLAN_SECTIONS))
 
 
-# -- the dialog ----------------------------------------------------------------
-
-
 def _clarification_messages(
     request: ClarifyRequest, deps: ClarifyDeps, messages: Sequence[BaseMessage], log: str
 ) -> list[BaseMessage]:
@@ -485,8 +460,6 @@ def _clarification_messages(
         max_turns=deps.max_turns,
     )
     outgoing: list[BaseMessage] = [SystemMessage(content=system_prompt), *messages]
-    # After tool results the model reaches for a report; the reminder is what
-    # keeps the tool-bound path answering in JSON.
     if messages and isinstance(messages[-1], ToolMessage):
         outgoing.append(HumanMessage(content=JSON_REMINDER_AFTER_TOOLS))
     return outgoing
@@ -661,18 +634,12 @@ async def clarify(request: ClarifyRequest, deps: ClarifyDeps) -> ClarifyResult:
     logger.info("Clarifier: Starting (max %d turns)", deps.max_turns)
     query = get_latest_user_query(list(request.messages))
     logger.info("User's query: %s...", str(query)[:100] if query else "")
-    # The one row this step contributes to the reader's trace, emitted before
-    # the first question blocks the turn rather than after the dialog ends. A
-    # clarifier configured to ask nothing has no question to announce.
     if deps.max_turns:
         emit_step(ClarificationStep(id="clarification", max_turns=deps.max_turns))
     log = await gather_clarification(request, deps)
     if not deps.enable_plan_approval:
         return ClarifyResult(research_context=log)
     return await preview_plan(request, deps, log)
-
-
-# -- wiring --------------------------------------------------------------------
 
 
 async def ask_through_nat(question: str, options: Sequence[str] = ()) -> str:
@@ -726,7 +693,6 @@ def build_deps(
 ) -> ClarifyDeps:
     """Resolve one run's models and tools from the provider it should use."""
     llm = provider.get(LLMRole.CLARIFIER)
-    # The planner is always tool-free, so it always gets the schema natively.
     planner = planner_llm or llm
     return ClarifyDeps(
         llm=_clarifier_llm(llm, tools),
@@ -807,12 +773,9 @@ class Clarifier:
         on the LLM side; the data sources this request selected on the tool
         side. The planner LLM belongs to the same ``clarifier`` agent group.
         """
-        # No `data_sources is not None` guard: org-disabled sources (ADR-0022)
-        # narrow the tool set even when the request selects "all tools".
         selected = filter_tools_by_sources(list(self.tools), request.data_sources)
         if all_mapped_tools_filtered_out(list(self.tools), selected, request.data_sources):
             logger.warning("Clarifier received data_sources with no matching tools")
-        # Off the loop: each dial can fall back to a blocking BFF call.
         context = await read_request_llm_context()
         active = context.apply(self.provider)
         if active is self.provider and selected == list(self.tools):

@@ -5,20 +5,6 @@ import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 import { baseStackConfig } from "../test-support/stack-config";
 
-/**
- * The api tier (ADR-0082 step B).
- *
- * What goes wrong here plans clean and deploys green:
- *   - A `PROCESS_ROLE` the Python image does not know stops every pod of the tier
- *     at start (the entrypoint refuses it), and a role nobody sets gets no route
- *     at all. Both sides are read as source below.
- *   - A BFF whose `BACKEND_URL` still names the chat tier sends every HTTP call
- *     through pods that drain turns, which is the coupling the split removes;
- *     one whose `BACKEND_CHAT_URL` is missing cannot open a socket.
- *   - An api rollout that waits as long as a chat drain makes every deploy of
- *     the knowledge API as slow as the longest answer.
- */
-
 const RESOURCES: Array<{ type: string; name: string; inputs: Record<string, any> }> = [];
 
 pulumi.runtime.setMocks(
@@ -37,7 +23,6 @@ pulumi.runtime.setMocks(
   false,
 );
 
-// src/app -> src -> deploy/pulumi -> deploy -> repo root
 const repoRoot = join(__dirname, "..", "..", "..", "..");
 const read = (...parts: string[]) => readFileSync(join(repoRoot, ...parts), "utf8");
 
@@ -108,7 +93,6 @@ describe("the api tier", () => {
     chatEnvValues = literal(chatEnv(made.wiring as never));
     apiEnvValues = literal(apiEnv(made.wiring as never));
     frontendEnvValues = literal(frontendEnv(made.wiring as never));
-    // Pulumi registers asynchronously: wait for each resource a test reads.
     await Promise.all([api.service.id, api.hpa.id, api.pdb.id].map((id) => new Promise((done) => id.apply(done))));
   });
 
@@ -218,9 +202,6 @@ describe("the api tier", () => {
   });
 
   it("carries no Langfuse API env where the tier is not deployed", () => {
-    // Langfuse needs the collector, which TUNED turns off. A host with no
-    // Service behind it would make every score post time out instead of being
-    // the capability-off no-op `langfuse_scores.emit_scores` is.
     expect(cfg.langfuse.enabled).toBe(false);
     for (const env of [chatEnvValues, apiEnvValues]) {
       expect(Object.keys(env).filter((name) => name.startsWith("LANGFUSE_"))).toEqual([]);
@@ -232,9 +213,6 @@ describe("the api tier", () => {
   });
 
   it("is reachable from the frontend and the CronJobs through the namespace-wide ingress allow", async () => {
-    // Intra-namespace ingress is allowed wholesale except for the pods named in
-    // the policy's `NotIn` list (Langfuse, Gotenberg).
-    // The api tier must never join that list, or every BFF call times out.
     const { installNetworkPolicies } = await import("../platform/network-policies");
     const made = await wiringFor(TUNED);
     const policies = installNetworkPolicies(made.cfg, made.provider, "grid");
@@ -243,7 +221,6 @@ describe("the api tier", () => {
 
     expect(spec.ingress).toEqual([{ from: [{ podSelector: {} }] }]);
     expect(spec.podSelector.matchExpressions[0].values).not.toContain("api");
-    // KEDA scrapes the chat tier's occupancy route and nothing of the api tier's.
     const keda = RESOURCES.filter((r) => r.name === "allow-keda-to-aiq-api");
     expect(keda).toEqual([]);
   });

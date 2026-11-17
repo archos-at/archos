@@ -77,23 +77,9 @@ class LlamaIndexRetriever(BaseRetriever):
         HYBRID_RETRIEVAL: Enable hybrid lexical+vector retrieval (default: true)
     """
 
-    # Default configuration from environment variables
     DEFAULT_EMBED_MODEL = os.environ.get("EMBED_MODEL", "openai/text-embedding-3-large")
     DEFAULT_EMBED_BASE_URL = os.environ.get("EMBED_BASE_URL", "https://openrouter.ai/api/v1")
-    # @environment_variable RETRIEVER_TOP_K
-    # @category Knowledge Layer
-    # @type int
-    # @default 10
-    # @required false
-    # Default number of results returned by the LlamaIndex retriever.
     DEFAULT_TOP_K = env_int("RETRIEVER_TOP_K", 10)
-    # @environment_variable HYBRID_RETRIEVAL
-    # @category Knowledge Layer
-    # @type bool
-    # @default true
-    # @required false
-    # Enable the lexical channels beside the dense one: German BM25 and the
-    # exact-term phrase channels, fused in Qdrant by reciprocal rank fusion.
     DEFAULT_HYBRID_SEARCH = os.environ.get("HYBRID_RETRIEVAL", "true").strip().lower() not in {
         "0",
         "false",
@@ -109,52 +95,27 @@ class LlamaIndexRetriever(BaseRetriever):
         self.embed_model_name = self.config.get("embed_model", self.DEFAULT_EMBED_MODEL)
         self.embed_base_url = self.config.get("embed_base_url", self.DEFAULT_EMBED_BASE_URL)
         self.default_top_k = self.config.get("top_k", self.DEFAULT_TOP_K)
-        # Explicit config wins; otherwise the environment default (on).
         self.hybrid_search = bool(self.config.get("hybrid_search", self.DEFAULT_HYBRID_SEARCH))
 
-        # Lazy-loaded components
         self._embed_model = None
         self._initialized = False
         self._init_lock = threading.Lock()
 
-        # One embedding per (model, query), shared by every caller that asks
-        # while it is computed (``query_embeddings``).
         self._query_embeddings = QueryEmbeddingCache()
 
-        # Document frequency of each BM25 and exact term, per collection size,
-        # as Qdrant counts it (a phrase on the word-tokenized text index), so
-        # pricing a term costs one count per new term rather than one per
-        # retrieval (`lexical_query.lexical_inputs`).
         self._qdrant_term_df: dict[tuple[str, int, str], int] = {}
 
-        # Result cache for static corpora (the shared OIB knowledge base):
-        # identical questions recur across users and conversations, and the
-        # corpus only changes on re-sync. Keyed on the collection write
-        # version, so in-process ingestion invalidates immediately.
         self._result_cache: dict[tuple[str, int, str, int, str], tuple[float, RetrievalResult]] = {}
         self._result_cache_order: list[tuple[str, int, str, int, str]] = []
         self._result_cache_lock = threading.Lock()
 
         logger.info("LlamaIndexRetriever initialized")
 
-    # @environment_variable STATIC_RESULT_CACHE_COLLECTIONS
-    # @category Knowledge Layer
-    # @type str
-    # @default oib_knowledge
-    # @required false
-    # Comma-separated collections whose retrieval results may be cached
-    # (static corpora only — never project/session collections).
     STATIC_RESULT_CACHE_COLLECTIONS = frozenset(
         name.strip()
         for name in os.environ.get("STATIC_RESULT_CACHE_COLLECTIONS", "oib_knowledge").split(",")
         if name.strip()
     )
-    # @environment_variable STATIC_RESULT_CACHE_TTL_SECONDS
-    # @category Knowledge Layer
-    # @type int
-    # @default 3600
-    # @required false
-    # TTL for cached static-collection retrieval results.
     STATIC_RESULT_CACHE_TTL_SECONDS = int(os.environ.get("STATIC_RESULT_CACHE_TTL_SECONDS", "3600"))
     RESULT_CACHE_MAX = 256
 
@@ -169,8 +130,6 @@ class LlamaIndexRetriever(BaseRetriever):
             self._initialize_components()
 
     def _initialize_components(self):
-        # Same complete preflight as the ingestion path: "initialized" has to
-        # mean usable, not "the first import worked".
         dependencies.ensure_retrieval_dependencies()
 
         try:
@@ -186,14 +145,9 @@ class LlamaIndexRetriever(BaseRetriever):
                 model=self.embed_model_name,
                 api_key=embed_api_key,
                 embed_batch_size=EMBED_BATCH_SIZE,
-                # The retriever embeds queries a reader is waiting on: bounded
-                # tightly and retried, never the ingestion batch's 60 s.
                 timeout=QUERY_EMBED_TIMEOUT_SECONDS,
                 max_retries=EMBED_MAX_RETRIES,
             )
-            # Not installed as the process-wide `Settings.embed_model`: the
-            # global would put this 3 s query model under anything else in the
-            # process that reads it.
 
             self._initialized = True
             logger.info("LlamaIndex retriever components initialized")
@@ -216,6 +170,7 @@ class LlamaIndexRetriever(BaseRetriever):
         """
         return await asyncio.to_thread(self._retrieve_sync, query, collection_name, top_k, filters)
 
+    # The query embedding is a remote round trip of 280-980 ms (measured 2026-09-24).
     async def warm_query(self, query: str) -> None:
         """Embed ``query`` ahead of the search that will ask for it; never raises.
 
@@ -305,8 +260,6 @@ class LlamaIndexRetriever(BaseRetriever):
         chunks = [self._chunk_from_hit(hit) for hit in hits]
         for rank, (chunk, hit) in enumerate(zip(chunks, hits, strict=True)):
             chunk.retrieval_rank = rank
-            # A reader that continues a read needs the chunk's place in its file, which the hit's
-            # metadata leaves out as store-only (``payload.STORE_ONLY_FIELDS``).
             if isinstance(hit.payload.get(CHUNK_ORDINAL_FIELD), int):
                 chunk.metadata.setdefault(CHUNK_ORDINAL_FIELD, hit.payload[CHUNK_ORDINAL_FIELD])
         return chunks
@@ -325,20 +278,17 @@ class LlamaIndexRetriever(BaseRetriever):
         from knowledge_layer.vector_store import CHUNK_ORDINAL_FIELD
         from knowledge_layer.vector_store import retrieval as qdrant_retrieval
 
-        # Every returned chunk matches, so none ranks above another; the
-        # caller orders them by document and page (cosine 1.0).
         office = office_for([collection_name])
         hits = qdrant_retrieval.find_text(
             collection_name, pattern, filters, limit, office_id=office, user_regex=user_regex, stem_phrases=stem_phrases
         )
         chunks = [self._chunk_from_hit(hit) for hit in hits]
         for chunk, hit in zip(chunks, hits, strict=True):
-            # The count finds a chunk's overlap by its place in the file (``chunk_positions``), which
-            # the hit's metadata leaves out as store-only.
             if isinstance(hit.payload.get(CHUNK_ORDINAL_FIELD), int):
                 chunk.metadata.setdefault(CHUNK_ORDINAL_FIELD, hit.payload[CHUNK_ORDINAL_FIELD])
         return chunks
 
+    # Measured 2026-10-27: 1.0 s + 0.6 s + 0.4 s warm, 6.1 s for the llama_index.core import alone cold.
     def warm_components(self) -> None:
         """Pay the lazy initialisation now, so the first search of the process does not. Blocking.
 
@@ -376,8 +326,6 @@ class LlamaIndexRetriever(BaseRetriever):
                 if key in self._result_cache_order:
                     self._result_cache_order.remove(key)
                 return None
-            # Deep copy: callers merge/annotate results and must never mutate
-            # the cached object.
             return result.model_copy(deep=True)
 
     def _store_static_result(self, key: tuple[str, int, str, int, str], result: RetrievalResult) -> None:
@@ -436,12 +384,6 @@ class LlamaIndexRetriever(BaseRetriever):
 
             chunks = self._qdrant_chunks(query, collection_name, top_k, filters)
 
-            # State each hit's rank in this collection's FINAL order, after the lexical
-            # fusion has had its say. `_rank_channel` in register.py documents reading it
-            # here and nothing ever wrote it, so every cross-collection merge fell back to
-            # list position. That fallback happens to be correct today -- position is the
-            # final order -- but it made the field dead weight and the docstring false,
-            # and it left the fuser unable to tell a genuine rank from a coincidence.
             for rank, chunk in enumerate(chunks):
                 chunk.retrieval_rank = rank
 
@@ -458,14 +400,6 @@ class LlamaIndexRetriever(BaseRetriever):
             return result
 
         except Exception as e:
-            # ``exception``, not ``error``: these failures are routinely chained
-            # (a RuntimeError raised *from* the ImportError that actually
-            # explains it), and the bare f-string dropped the chain. Combined
-            # with the 100-char cut below, issue #330 reached us as the string
-            # "LlamaIndex retrieval failed: LlamaIndex dependencies not instal"
-            # -- truncated mid-word, cause discarded, and the surviving half was
-            # a misdescription of the fault. The log now carries the whole chain;
-            # the caller-facing summary stays bounded.
             logger.exception("LlamaIndex retrieval failed")
             return RetrievalResult(
                 chunks=[],

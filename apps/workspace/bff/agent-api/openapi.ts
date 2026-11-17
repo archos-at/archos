@@ -1,22 +1,5 @@
-/**
- * The agent-reachable API as an OpenAPI 3.1 document (ADR-0122).
- *
- * Generated from the one catalog, `AGENT_OPERATIONS`, so it documents exactly
- * the routes an agent can already call and opens nothing new: each path here is
- * a route the UI calls, under that route's own `authz`. OpenAPI is the standard
- * for an HTTP contract; MCP is the agent door. A client that reads OpenAPI finds
- * the same operations an MCP client finds at `/api/mcp`, by the same names, and
- * an agent calls them THERE, with its OAuth token: the paths themselves accept
- * the app's signed-in session cookie only, which is what `security` says.
- *
- * OpenAPI 3.1 takes JSON Schema 2020-12 as its schema dialect, so Zod's own
- * exporter, through `lib/api/zod-json-schema.ts`, describes the inputs and no
- * second converter or dependency is needed.
- */
-
 import type { z } from 'zod'
 import { type JsonSchemaNode, toJsonSchema } from '@/lib/api/zod-json-schema'
-// The backend operations (backend-operations.ts) are left out on purpose: they are not BFF routes, so there is no path to document.
 import { isExposedTo } from './exposure'
 import { MCP_PATH } from './mcp-config'
 import { type AgentOperation, annotationsOf, pathParams } from './operation'
@@ -24,7 +7,6 @@ import { PRODUCT_NAME } from '@/lib/brand'
 
 export type OpenApiDocument = Record<string, unknown>
 
-/** The statuses `lib/api/handler.ts` answers with the shared error envelope. */
 const ERROR_RESPONSES = {
   '400': 'The input failed the route’s own validation (bad JSON, schema violation, invalid parameter).',
   '401': 'No valid session.',
@@ -52,17 +34,14 @@ const UNDESCRIBABLE: JsonSchemaNode = {
   description: 'Shape not describable here; the route validates it.',
 }
 
-/** A zod schema as JSON Schema, or an open schema when the converter cannot describe it. */
 function schemaOf(schema: z.ZodType): JsonSchemaNode {
   try {
     return toJsonSchema(schema)
   } catch {
-    // The route's own schema is the gate; the export only shapes what is shown.
     return UNDESCRIBABLE
   }
 }
 
-/** `/api/projects/[id]` → `/api/projects/{id}`; a catch-all `[...path]` becomes `{path}`. */
 export function openApiPath(path: string): string {
   return path.replace(/\[(?:\.\.\.)?([^\]]+)\]/g, '{$1}')
 }
@@ -86,7 +65,6 @@ function pathParameters(op: AgentOperation): ParameterObject[] {
     const parameter: ParameterObject = {
       name,
       in: 'path',
-      // OpenAPI: a path parameter is always required.
       required: true,
       schema: field ? schemaOf(field) : { type: 'string' },
     }
@@ -112,7 +90,6 @@ function queryParameters(op: AgentOperation): ParameterObject[] {
   })
 }
 
-/** The shared error responses, once in `components.responses`. */
 function errorResponseComponents(): Record<string, JsonSchemaNode> {
   return Object.fromEntries(
     Object.entries(ERROR_RESPONSES).map(([status, description]) => [
@@ -125,25 +102,18 @@ function errorResponseComponents(): Record<string, JsonSchemaNode> {
   )
 }
 
-/** Each operation's error statuses, as references to the shared responses. */
 function errorResponses(): Record<string, JsonSchemaNode> {
   return Object.fromEntries(
     Object.keys(ERROR_RESPONSES).map((status) => [status, { $ref: `#/components/responses/Error${status}` }]),
   )
 }
 
-/** The `fields` of an upload body as the form's text parts. */
 function formFieldsOf(body: z.ZodType): Record<string, JsonSchemaNode> {
   const node = schemaOf(body)
   const fields = (node.properties as Record<string, JsonSchemaNode> | undefined)?.fields
   return { ...((fields?.properties as Record<string, JsonSchemaNode> | undefined) ?? {}) }
 }
 
-/**
- * The HTTP request body of an operation. A script posts what the UI posts: a
- * JSON object, a multipart form with a `file` part, or raw bytes. Over MCP the
- * file travels as base64 inside JSON (`upload-wire.ts`); the description says so.
- */
 function requestBodyOf(op: AgentOperation, body: z.ZodType): JsonSchemaNode {
   const required = !body.isOptional()
   if (op.bodyEncoding === 'multipart') {
@@ -175,7 +145,6 @@ function requestBodyOf(op: AgentOperation, body: z.ZodType): JsonSchemaNode {
   return { required, content: { 'application/json': { schema: schemaOf(body) } } }
 }
 
-/** The 200 response: JSON by default, or the file's media types for an operation that returns one. */
 function successResponse(op: AgentOperation): JsonSchemaNode {
   if (op.binaryResponse) {
     return {
@@ -227,16 +196,6 @@ function pathsOf(operations: readonly AgentOperation[]): Record<string, Record<s
   return paths
 }
 
-/**
- * The OpenAPI 3.1 document for `operations`. `serverUrl` is the origin the
- * paths are relative to; the route passes the deployment's, a spec a fixed one.
- */
-/**
- * The operations the document shows a caller: what `exposure.config.ts` offers
- * an outside agent (never a withheld one), and the operator console (`platform`)
- * only to platform staff. Its routes refuse everyone else anyway; listing them
- * would only describe a console the reader cannot use.
- */
 export function documentedOperations(
   operations: readonly AgentOperation[],
   { platformStaff }: { platformStaff: boolean },
@@ -244,7 +203,6 @@ export function documentedOperations(
   return operations.filter((op) => isExposedTo('external', op.name) || (platformStaff && isExposedTo('platform', op.name)))
 }
 
-/** The cookie AuthKit keeps the app's session in (`WORKOS_COOKIE_NAME`, default `wos-session`). */
 const SESSION_COOKIE = 'wos-session'
 
 export function buildOpenApiDocument(

@@ -24,10 +24,6 @@ from .model import AIR_TYPES
 from .model import DERIVED_BOUNDARY_MAX_PRODUCTS
 from .model import SpatialModel
 
-# ════════════════════════════════════════════════════════════════════════════
-# topology — every one of these is an inverse-attribute read, no geometry
-# ════════════════════════════════════════════════════════════════════════════
-
 
 def hosts(model: SpatialModel, global_id: str) -> Answer[list[ElementRef]]:
     """Openings cut out of this element — the window and door reveals in a wall.
@@ -143,12 +139,6 @@ def hosted_in(model: SpatialModel, global_id: str) -> Answer[list[ElementRef]]:
         "in welcher Wand dieses Fenster sitzt."
     )
     if not refs and subject.is_a() in FENESTRATION:
-        # An empty list here is true and reads as false. The corpus has an
-        # ArchiCAD 18 export with 464 windows and doors and 79 IfcRelVoidsElement
-        # — 84 % of its fenestration carries no opening at all, because the wall
-        # body was exported with the hole already subtracted. `[]` on its own
-        # would be rendered as "dieses Fenster sitzt in keiner Wand", which is a
-        # statement about the building; the truth is a statement about the file.
         caveat = (
             "Für dieses Bauteil ist in der Datei keine Öffnungskette hinterlegt (IfcRelFillsElement → "
             "IfcRelVoidsElement fehlt), obwohl die Datei solche Ketten grundsätzlich enthält. Das heißt "
@@ -225,9 +215,6 @@ def bounds(model: SpatialModel, space_global_id: str) -> Answer[list[ElementRef]
     found, answer = _derived_bounds(model, subject, method)
     if answer is not None:
         return answer
-    # The derived route selects against a spatial tree and has never been seen
-    # to repeat an element, but the same one-element-one-entry guarantee has to
-    # hold on both routes: a consumer cannot ask which one answered it.
     unique = []
     for element in found:
         if element.GlobalId in seen:
@@ -276,8 +263,6 @@ def _derived_bounds(model: SpatialModel, space: Any, method: str) -> tuple[list[
         return [], missing
     low, high = geo.box
     found: list[Any] = []
-    # One offset of THIS space, not of every space in the file: the model-wide
-    # map costs 0.5–2 s per room and answers a question nobody asked here.
     for global_id in sorted(model.contacts_of(space, CONTACT)):
         element = model.file.by_guid(global_id)
         if element.is_a() in AIR_TYPES:
@@ -286,9 +271,6 @@ def _derived_bounds(model: SpatialModel, space: Any, method: str) -> tuple[list[
         if other is None:
             continue
         o_low, o_high = other.box
-        # An element BOUNDS the space when it reaches outside it. Furniture
-        # standing in the room is contained, not bounding, and reporting a piano
-        # as a room boundary would make every downstream envelope figure wrong.
         if bool((o_low < low - 0.01).any() or (o_high > high + 0.01).any()):
             found.append(element)
     return found, None
