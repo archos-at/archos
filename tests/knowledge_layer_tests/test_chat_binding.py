@@ -1,5 +1,3 @@
-"""Where the estate is read, knowledge_search and list_files are rebound; the agent-runtime function is shared."""
-
 from __future__ import annotations
 
 import pytest

@@ -1,38 +1,3 @@
-"""Voice dictation: one recorded utterance in, clean composer text out.
-
-Backs the BFF's ``POST /api/dictation`` (``apps/workspace/bff/dictation``),
-which authenticates the member, bounds the audio and rate-limits the call
-before it reaches this route. Design and what is still unverified:
-``docs/architecture/voice-dictation.md``.
-
-**A dedicated transcription endpoint, not a chat model.** The audio goes to
-``/audio/transcriptions``, which takes the browser's own containers (WebM, Ogg,
-MP4/AAC), returns the duration and the cost, and cannot follow an instruction
-spoken into the microphone the way a chat model given the audio could.
-Fillers the model leaves in are removed afterwards by
-:func:`._dictation_text.clean_transcript`, which does not depend on the model.
-
-**The language is never fixed.** A sentence that mixes German and English must
-come back exactly as spoken, so no ``language`` is sent. The member's UI
-language chooses only the wording hint (:func:`wording_hint`), a sample of
-clean, mixed-language text that the provider may use as a style prompt.
-
-**The organization's credential, the platform's limiter.** The endpoint is
-resolved by :func:`~agent.common.credential_resolution.resolve_llm_credential`,
-so an organization's own key (BYOK) is used exactly as for every other call. On
-the platform's key the body is pinned to zero data retention, because the
-platform fixes the model (:func:`_credential`). Every attempt queues for a
-provider slot (ADR-0081).
-
-**Fail open, always 200.** Every failure is an ``error`` code the composer turns
-into its inline error; the chat around it is untouched. The fallback model is
-tried only when the primary attempt failed.
-
-**Recorded, never billed.** A transcript's real cost lands on the ledger as
-``activity = 'dictation'`` with its audio length. The BFF prices those rows at
-nothing and keeps them out of the rollup the budgets read.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -72,8 +37,6 @@ logger = logging.getLogger(__name__)
 
 MODEL_ENV = "DICTATION_MODEL"
 FALLBACK_MODEL_ENV = "DICTATION_FALLBACK_MODEL"
-# Chosen in a live test (2026-10-08, ten mixed German/English clips): Scribe kept every mixed
-# sentence; openai/gpt-4o-transcribe has no zero-data-retention endpoint.
 DEFAULT_MODEL = "elevenlabs/scribe-v2"
 DEFAULT_FALLBACK_MODEL = "openai/whisper-large-v3-turbo"
 OWN_KEY_MODELS = ("gpt-4o-transcribe", "whisper-1")
@@ -94,8 +57,6 @@ _PROMPT_PROVIDER_SLUGS = ("openai", "groq")
 
 @dataclass(frozen=True)
 class Transcription:
-    """What one successful provider call returned."""
-
     text: str
     model: str
     audio_seconds: float | None
@@ -107,11 +68,6 @@ class Transcription:
 
 
 def dictation_models(base_url: str | None = None) -> tuple[str, ...]:
-    """The primary model, then the fallback; an empty fallback env disables it.
-
-    Off OpenRouter (an organization's own OpenAI-compatible key) it is
-    :data:`OWN_KEY_MODELS`, that provider's own names.
-    """
     if base_url is not None and not targets_openrouter(base_url):
         return OWN_KEY_MODELS
     primary = os.getenv(MODEL_ENV, "").strip() or DEFAULT_MODEL
@@ -120,18 +76,10 @@ def dictation_models(base_url: str | None = None) -> tuple[str, ...]:
 
 
 def wording_hint(locale: str | None) -> str:
-    """The style prompt for the member's UI language (German unless it is English)."""
     return _WORDING_HINTS["en" if (locale or "").lower().startswith("en") else "de"]
 
 
 def _credential(organization_id: str | None) -> ResolvedCredential:
-    """The organization's endpoint: its own key when it has one, else the platform's.
-
-    The platform fixes the dictation model, so on the platform's key the call is
-    pinned to zero data retention like every platform-fixed model
-    (``openrouter.PLATFORM_FIXED``), whatever the organization's setting. An
-    organization on its own key follows its own policy, as every BYOK call does.
-    """
     base_url = _OPENROUTER_BASE if read_api_key_env("OPENROUTER_API_KEY") else _OPENAI_BASE
     cred = resolve_llm_credential(
         primary_env="",
@@ -145,7 +93,6 @@ def _credential(organization_id: str | None) -> ResolvedCredential:
 async def _post_audio(
     client: httpx.AsyncClient, cred: ResolvedCredential, model: str, audio: bytes, audio_format: str, hint: str
 ) -> httpx.Response:
-    """POST the audio in the shape the endpoint takes: JSON on OpenRouter, multipart elsewhere."""
     url = f"{cred.base_url}/audio/transcriptions"
     headers = {"Authorization": f"Bearer {cred.api_key}"}
     if targets_openrouter(cred.base_url):
@@ -164,14 +111,12 @@ async def _post_audio(
 
 
 def _number(value: Any) -> float | None:
-    """A finite, non-negative number, or None. ``bool`` is not a number here."""
     if isinstance(value, bool) or not isinstance(value, int | float):
         return None
     return float(value) if math.isfinite(value) and value >= 0 else None
 
 
 def parse_transcription(data: Any, *, model: str, own_key: bool, generation_id: str | None) -> Transcription:
-    """Read a transcription response. Raises ``ValueError`` when it carries no text field."""
     if not isinstance(data, dict) or not isinstance(data.get("text"), str):
         raise ValueError("transcription response has no text")
     usage = data.get("usage") if isinstance(data.get("usage"), dict) else {}
@@ -189,7 +134,6 @@ def parse_transcription(data: Any, *, model: str, own_key: bool, generation_id: 
 
 
 async def _attempt(cred: ResolvedCredential, model: str, audio: bytes, audio_format: str, hint: str):
-    """One model's attempt. ``None`` on any failure, logged with its cause."""
     try:
         async with limited_async_http_client(
             cls=provider_limiter.INTERACTIVE, timeout=_ATTEMPT_TIMEOUT_SECONDS
@@ -211,7 +155,6 @@ async def _attempt(cred: ResolvedCredential, model: str, audio: bytes, audio_for
 
 
 async def transcribe(cred: ResolvedCredential, audio: bytes, audio_format: str, hint: str) -> Transcription | None:
-    """The primary model's transcript, or the fallback's when the primary failed."""
     for model in dictation_models(cred.base_url):
         result = await _attempt(cred, model, audio, audio_format, hint)
         if result is not None:
@@ -222,7 +165,6 @@ async def transcribe(cred: ResolvedCredential, audio: bytes, audio_format: str, 
 def record_dictation_cost(
     organization_id: str | None, user_id: str | None, result: Transcription, duration_ms: int | None
 ) -> None:
-    """Put the call's real cost and audio length on the ledger, in the background."""
     if not organization_id:
         return
     seconds = result.audio_seconds if result.audio_seconds is not None else (duration_ms or 0) / 1000
@@ -248,7 +190,6 @@ def record_dictation_cost(
 
 
 def _decode_audio(audio_base64: str) -> bytes | str:
-    """The recording's bytes, or the error code for why there are none."""
     try:
         audio = base64.b64decode(audio_base64, validate=True)
     except binascii.Error, ValueError:
@@ -259,7 +200,6 @@ def _decode_audio(audio_base64: str) -> bytes | str:
 
 
 def add_dictation_routes(router: APIRouter) -> None:
-    """Register the dictation endpoint."""
 
     @router.post(
         "/v1/dictation",

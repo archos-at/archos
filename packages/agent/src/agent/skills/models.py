@@ -1,21 +1,3 @@
-"""Skill model and STRICT SKILL.md parsing for the skills substrate.
-
-The agentskills.io format contract:
-- ``name``: 1-64 chars, lowercase a-z/0-9/hyphens, no leading/trailing/
-  consecutive hyphens; for filesystem skills it must match the parent dir name.
-- ``description``: 1-1024 chars, non-empty.
-- ``license``: optional free-form string.
-- ``compatibility``: optional, at most 500 chars.
-- ``metadata``: map of strings; reserved keys are validated
-  (``cards`` must name known, non-system card types; ``title``
-  is a short human display name).
-- ``allowed-tools``: optional free-form string (tool-level allowlist).
-- Body: markdown; <500 lines recommended, not enforced.
-
-Unlike deepagents' warn-and-continue scan, this substrate validates
-strictly: an invalid SKILL.md is an error, never a silent skip.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -59,28 +41,10 @@ _HIDDEN_FALSE = frozenset({"false", "0", "no"})
 XML_TAG_RE = re.compile(r"<[^>]+>")
 
 
-class SkillValidationError(ValueError):
-    """A SKILL.md (or BFF skill payload) violates the agentskills.io contract."""
+class SkillValidationError(ValueError): ...
 
 
 class Skill(BaseModel):
-    """A validated skill in the skills substrate.
-
-    Attributes:
-        name: Lowercase hyphenated skill id (1-64 chars).
-        description: One-line summary shown to the model (progressive
-            disclosure level 1).
-        body: The full markdown instructions (level 2, loaded via
-            ``read_file`` on its ``SKILL.md``).
-        metadata: Reserved keys + free-form extra keys.
-        origin: ``platform`` for builtin files, ``org`` for BFF-served rows.
-        collection: Mid-level collection dir name for builtin files
-            (bim|oib|research|synthesis); ``None`` for org rows.
-        license: Optional license string.
-        compatibility: Optional compatibility note (<=500 chars).
-        allowed_tools: Optional tool allowlist string.
-    """
-
     name: str
     description: str
     body: str
@@ -121,15 +85,6 @@ def _validate_description(description: Any) -> str:
 
 
 def _pop_allowed_tools(payload: dict[str, Any]) -> str | None:
-    """Read the tool allowlist under either spelling.
-
-    SKILL.md frontmatter spells it ``allowed-tools`` (the Agent Skills spec);
-    the BFF row and this module's own field spell it ``allowed_tools``. Reading
-    only the underscore form meant a hand-written SKILL.md declaring
-    ``allowed-tools`` had its allowlist silently dropped — a permission
-    narrowing that vanishes is worse than one that errors, so both spellings
-    are accepted and the hyphenated one wins where a file sets both.
-    """
     hyphenated = payload.pop("allowed-tools", None)
     underscored = payload.pop("allowed_tools", None)
     value = hyphenated if hyphenated is not None else underscored
@@ -137,11 +92,6 @@ def _pop_allowed_tools(payload: dict[str, Any]) -> str | None:
 
 
 def split_metadata_list(raw: str) -> list[str]:
-    """Split a reserved comma-list value: trimmed, empties dropped, order kept.
-
-    Deduplicated because these lists are read as sets of preferences, and a name
-    repeated in the frontmatter should not be repeated back at the model.
-    """
     seen: set[str] = set()
     out: list[str] = []
     for part in raw.split(","):
@@ -153,23 +103,6 @@ def split_metadata_list(raw: str) -> list[str]:
 
 
 def _validate_answer_cards(value: str, *, strict: bool, key: str) -> str | None:
-    """Validate ``cards`` against the model-facing card catalog.
-
-    Returns the value to store, or ``None`` when nothing usable is left and the
-    key should be dropped entirely.
-
-    Two tolerances, matching how the two sources of skills fail. A SKILL.md is
-    authored in this repo and reviewed, so a name that no longer exists is a
-    typo we want to hear about at parse time (``strict``). A BFF-served org row
-    is tenant data arriving over the wire, where one stale name must not delete
-    the whole skill from the toolbox — so the bad entries are logged and dropped
-    and the rest of the row survives, exactly as the resolver treats an unknown
-    ``agents`` name.
-
-    A SYSTEM card is rejected on both paths and never merely downgraded: it is
-    emitted by a tool on a sanctioned path, and telling the model to produce one
-    would be inviting it to fabricate a card the product treats as trustworthy.
-    """
     from agent.cards.catalog import model_facing_card_types
 
     known = model_facing_card_types()
@@ -191,18 +124,6 @@ def _validate_answer_cards(value: str, *, strict: bool, key: str) -> str | None:
 
 
 def _validate_title(value: str, *, strict: bool, key: str) -> str | None:
-    """Validate ``title``; return the value to store, or ``None`` to drop it.
-
-    Same two tolerances as :func:`_validate_answer_cards`, for the same reason: a
-    SKILL.md is reviewed in this repo, so a title that is empty, over-long or
-    carries markup is an authoring error we want at parse time; a BFF-served
-    org row is tenant data over the wire, where a bad title must cost the
-    tenant its title and not its whole skill.
-
-    Tags are rejected on both paths because a title is interpolated into the
-    same prompt-adjacent and user-facing surfaces ``name`` is — see
-    :data:`XML_TAG_RE`.
-    """
     title = value.strip()
     if not title:
         if strict:
@@ -223,20 +144,6 @@ def _validate_title(value: str, *, strict: bool, key: str) -> str | None:
 
 
 def _validate_hidden(value: str, *, strict: bool, key: str) -> str | None:
-    """Validate ``hidden``; return canonical ``"true"`` to store, or ``None`` to drop.
-
-    Same two tolerances as :func:`_validate_title`, for the same reason: a
-    SKILL.md is reviewed in this repo, so ``hidden: maybe`` is an authoring
-    typo we want at parse time (``strict``); a BFF-served org row is tenant data
-    over the wire, where a garbage flag must cost the tenant the flag and not
-    the whole skill (``lenient``).
-
-    A truthy token normalises to the canonical ``"true"``. The recognised falsy
-    tokens and an empty string drop the key entirely, because visible is the
-    default and an absent key already reads as visible — storing ``"false"``
-    would be a second spelling of "nothing" for every reader to special-case.
-    A bad flag costs the flag, never the skill or the turn.
-    """
     token = value.strip().lower()
     if token in _HIDDEN_TRUE:
         return "true"
@@ -252,17 +159,6 @@ def _validate_hidden(value: str, *, strict: bool, key: str) -> str | None:
 
 
 def _validate_auto_invoke(value: str, *, strict: bool, key: str) -> str | None:
-    """Validate ``auto-invoke``; return canonical ``"false"`` or ``None``.
-
-    Kept only so an old document still parses (see
-    :data:`AUTO_INVOKE_KEY`). A truthy token and an empty string drop the
-    key; a recognised falsy token is normalised to ``"false"`` and stored. No
-    reader acts on either.
-
-    Same two tolerances as :func:`_validate_hidden`. A garbage flag on a
-    reviewed SKILL.md is an authoring error; on an org row it costs the flag
-    (and so reads as on) rather than the skill.
-    """
     token = value.strip().lower()
     if token in _HIDDEN_FALSE:
         return "false"
@@ -278,13 +174,6 @@ def _validate_auto_invoke(value: str, *, strict: bool, key: str) -> str | None:
 
 
 def _stringify_metadata_value(key: str, value: Any) -> str:
-    """Metadata is strings. YAML and JSON both have native booleans.
-
-    An unquoted ``hidden: true`` is a YAML bool. Rejecting it used to take
-    down every builtin when one file used that spelling. Coerce, then validate.
-    Integers follow for the same reason (``hidden: 1``). Nested types stay
-    an error — those are not a spelling of a flag.
-    """
     if isinstance(value, bool):
         return "true" if value else "false"
     if isinstance(value, str):
@@ -334,12 +223,6 @@ def _validate_metadata(metadata: Any, *, strict: bool = True) -> dict[str, str]:
 
 
 def preferred_cards(metadata: dict[str, str]) -> tuple[str, ...]:
-    """The card types a skill prefers, in author order; ``()`` when unset.
-
-    Filtered against the catalog on read as well as on write: a skill snapshot
-    persisted before a card type was retired would otherwise name a card the
-    renderer no longer has.
-    """
     from agent.cards.catalog import model_facing_card_types
 
     raw = metadata_value(metadata, ANSWER_CARDS_KEY)
@@ -350,28 +233,11 @@ def preferred_cards(metadata: dict[str, str]) -> tuple[str, ...]:
 
 
 def skill_title(skill: Skill) -> str | None:
-    """The skill's human display name, or ``None`` when the author gave none.
-
-    ``None`` is a real answer, not a failure: see :data:`TITLE_KEY` for
-    why no title is ever synthesised from the id here.
-    """
     title = metadata_value(skill.metadata, TITLE_KEY)
     return title if title else None
 
 
 def skill_hidden(metadata: dict[str, str]) -> bool:
-    """Whether this skill's live activation line is suppressed by default.
-
-    ``True`` routes the activation to the technical channel instead of the live
-    one (see :mod:`agent.skills.events`), keeping it out of the noisy live
-    line while the event still fires and still records. Hidden is never
-    concealed: the disclosure still names the skill and a reader who turns on
-    the "reasoning" preference surfaces it — see :data:`HIDDEN_KEY`.
-
-    Read as tolerantly as it is written: the value stored is the canonical
-    ``"true"``, but an un-revalidated snapshot may carry any truthy token, so an
-    absent or unrecognised value reads as visible — the fail-open default.
-    """
     return (metadata_value(metadata, HIDDEN_KEY) or "").strip().lower() in _HIDDEN_TRUE
 
 
@@ -381,15 +247,6 @@ def build_skill_from_payload(
     origin: Literal["platform", "org"] = "platform",
     collection: str | None = None,
 ) -> Skill:
-    """Build + validate a :class:`Skill` from parsed data (YAML frontmatter or BFF row).
-
-    Raises :class:`SkillValidationError` on any contract violation — the shared
-    strict path for both builtin files and org rows.
-
-    The one deliberate softening is ``origin="org"``: a tenant row's reserved
-    comma-lists are validated leniently (unknown entries logged and dropped)
-    rather than taking the whole skill down. Everything structural still errors.
-    """
     payload = dict(payload)
     name = _validate_name(payload.get("name"), expected_dir_name=None)
     description = _validate_description(payload.get("description"))
@@ -426,12 +283,6 @@ def parse_skill_md(
     origin: Literal["platform", "org"] = "platform",
     collection: str | None = None,
 ) -> Skill:
-    """Parse a SKILL.md document into a validated :class:`Skill`.
-
-    HARD-fails (raises :class:`SkillValidationError`) on malformed frontmatter,
-    invalid YAML, or any field violating the agentskills.io contract — the
-    substrate validates strictly, unlike deepagents' warn-and-continue scan.
-    """
     match = FRONTMATTER_RE.match(text)
     if match is None:
         raise SkillValidationError("SKILL.md must start with a `---` YAML frontmatter block")

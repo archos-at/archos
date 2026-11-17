@@ -40,11 +40,12 @@ def render(entries: dict[str, dict[str, Any]]) -> str:
     return json.dumps(entries, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
 
 
-def live() -> dict[str, dict[str, Any]]:
+def live(*, without_docstrings: bool = False) -> dict[str, dict[str, Any]]:
     paths = [ROOT / "packages" / "agent" / "src", Path(__file__).resolve().parents[1], ROOT]
     env = {**os.environ, "PYTHONPATH": os.pathsep.join(str(path) for path in paths)}
+    optimize = ["-OO"] if without_docstrings else []
     done = subprocess.run(
-        [sys.executable, "-m", "agent_testing.model_facing_text"],
+        [sys.executable, *optimize, "-m", "agent_testing.model_facing_text"],
         cwd=ROOT,
         env=env,
         capture_output=True,

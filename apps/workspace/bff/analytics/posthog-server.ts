@@ -2,8 +2,8 @@ import 'server-only'
 
 import { PostHog } from 'posthog-node'
 
-import { configuredAppOrigin } from '@/lib/app-origin'
-import { deployedSha } from '@/lib/boot'
+import { configuredAppHost } from '@/lib/app-origin'
+import { deployedSha, deploymentName } from '@/lib/boot'
 
 import { scrubServerEvent } from './scrub-server-event'
 
@@ -61,12 +61,19 @@ export const posthogServerSettings = (): { host: string; projectToken: string } 
 
 export const isPosthogServerEnabled = (): boolean => posthogServerSettings() !== null
 
-export const serverSuperProperties = (): { release: string; service: string; app_host?: string } => {
-  const origin = configuredAppOrigin() ?? configuredAppOrigin({ WORKOS_REDIRECT_URI: process.env.MCP_RESOURCE_URL })
+export const serverSuperProperties = (): {
+  release: string
+  service: string
+  app_host?: string
+  deployment?: string
+} => {
+  const host = configuredAppHost()
+  const deployment = deploymentName()
   return {
     release: deployedSha(),
     service: process.env.OTEL_SERVICE_NAME?.trim() || 'grid-ui',
-    ...(origin ? { app_host: new URL(origin).host } : {}),
+    ...(host ? { app_host: host } : {}),
+    ...(deployment ? { deployment } : {}),
   }
 }
 

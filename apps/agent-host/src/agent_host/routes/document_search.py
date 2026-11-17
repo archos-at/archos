@@ -1,11 +1,3 @@
-"""Semantic document-search endpoint.
-
-Deterministic vector search over a single collection's already-embedded chunks
-(NO LLM, no agent loop). The low-level structured retriever returns per-chunk
-hits; this route aggregates them into a document-centric result — one hit per
-file (its best-scoring chunk), sorted by score descending.
-"""
-
 import logging
 import os
 from typing import Any
@@ -41,36 +33,10 @@ SNIPPET_MAX_CHARS = 300
 
 
 def _require_auth() -> bool:
-    """Whether the backend is running in WorkOS-authenticated mode (REQUIRE_AUTH=true).
-
-    Same flag ``plugin.py`` / ``AuthMiddleware`` / the envelope-enforcement
-    middleware read. In authenticated deployments the BFF is the only intended
-    caller of this route and always forwards a signed collection scope, so a
-    request that arrives with no scope is not a legitimate one; in anonymous
-    mode (REQUIRE_AUTH=false) there is no tenant boundary to enforce.
-    """
     return os.getenv("REQUIRE_AUTH", "false").lower() == "true"
 
 
 def _verified_collection_scope(http_request: Request) -> list[str] | None:
-    """Return the caller's collection scope from the SIGNED request-context envelope.
-
-    Defense-in-depth for cross-tenant reads (PB-SYNTH-4). This route is a plain
-    FastAPI route, not an agent-runtime workflow endpoint, so the agent runtime's ``Context.metadata.headers``
-    is never populated for it (verified empirically) — ``get_collection_scope_from_context()``
-    used by the chat retrieval path would always read ``None`` here. We therefore
-    parse the caller's actual HTTP headers with the SAME verified-envelope parser
-    that ``get_collection_scope_from_context()`` prefers under the hood
-    (``RequestContext.from_envelope``), fed the request headers directly.
-
-    Only the HMAC-signed ``X-Grid-Request-Context`` envelope is honored — never
-    the raw, forgeable ``X-Grid-Collection-Scope`` header on its own — because
-    collection names are guessable (``proj_<uuid>`` / ``archiv_<orgId>`` / ``office_shelf_<orgId>``), so an
-    attacker who could set a raw scope header would read another tenant's corpus.
-    When ``INTERNAL_API_TOKEN`` is unset (dev), ``from_envelope`` accepts the
-    envelope on shape alone, mirroring the rest of the codebase's fail-open dev
-    posture. Returns ``None`` when no valid signed envelope is present.
-    """
     ctx = RequestContext.from_envelope(
         http_request.headers.get(REQUEST_CONTEXT_ENVELOPE_HEADER),
         http_request.headers.get(REQUEST_CONTEXT_ENVELOPE_SIG_HEADER),
@@ -82,15 +48,6 @@ def _verified_collection_scope(http_request: Request) -> list[str] | None:
 
 
 def request_office(http_request: Request) -> str | None:
-    """The office this request searches as: the signed envelope's organization, else (anonymous mode only) the header.
-
-    The agent runtime's context is empty on a plain route (see
-    :func:`_verified_collection_scope`), so a search here names its office
-    through ``knowledge_layer.search.reading_as``. Under ``REQUIRE_AUTH`` only
-    the signed envelope counts, as for the scope. None when neither names one:
-    the knowledge layer then takes an office shelf's organization from its
-    name, and refuses a project or session read (``vector_store.scope.ScopeRead``).
-    """
     ctx = RequestContext.from_envelope(
         http_request.headers.get(REQUEST_CONTEXT_ENVELOPE_HEADER),
         http_request.headers.get(REQUEST_CONTEXT_ENVELOPE_SIG_HEADER),
@@ -104,30 +61,6 @@ def request_office(http_request: Request) -> str | None:
 
 
 def _authorize_collection(http_request: Request, collection_name: str) -> None:
-    """Reject a search whose target collection is outside the caller's signed scope.
-
-    Mirrors the chat retrieval authorization boundary (``knowledge/scoping.py``):
-    a turn may only read the collections the BFF signed into its request context.
-    Enforcement matrix:
-
-    - A valid signed scope is present → the target ``collection_name`` MUST be in
-      it, else ``404`` (indistinguishable from a genuinely missing collection, so
-      the route never confirms the existence of an out-of-scope/other-tenant
-      collection).
-    - No signed scope AND ``REQUIRE_AUTH=true`` → ``403``: an authenticated-mode
-      deployment's only intended caller (the BFF) always forwards the signed
-      scope, so its absence means the request did not come through the trusted
-      path.
-    - No signed scope AND anonymous mode (``REQUIRE_AUTH=false``) → allowed: there
-      is no tenant boundary to enforce (parity with the pre-envelope behavior and
-      the envelope-enforcement middleware, which also no-ops when auth is off).
-
-    RESIDUAL TRUST BOUNDARY: ``RequestContextEnvelopeMiddleware`` exempts
-    ``/v1/collections`` from its deny-by-default envelope rule, and this route's
-    BFF caller is a server-side service fetch carrying no WorkOS bearer token
-    anyway, so the middleware would classify it as non-jwt and never enforce.
-    The check here is the envelope's equivalent for this specific read route.
-    """
     scope = _verified_collection_scope(http_request)
     if scope is not None:
         allowed = {_normalize_collection_name(name) for name in scope}
@@ -141,7 +74,6 @@ def _authorize_collection(http_request: Request, collection_name: str) -> None:
 
 
 def _snippet(content: str, limit: int = SNIPPET_MAX_CHARS) -> str:
-    """Truncate chunk content to a short snippet, on a whitespace-trimmed boundary."""
     text = (content or "").strip()
     if len(text) <= limit:
         return text
@@ -151,13 +83,6 @@ def _snippet(content: str, limit: int = SNIPPET_MAX_CHARS) -> str:
 def _aggregate_hits(
     chunks: list[Chunk], collection_name: str, top_k_files: int, snippet_max_chars: int = SNIPPET_MAX_CHARS
 ) -> list[DocumentSearchHit]:
-    """Group chunks by ``file_name`` and keep each file's max-score chunk.
-
-    Within this one collection ``file_name`` uniquely identifies a document
-    (v1), so a repeated filename is the same document — we keep its best-scoring
-    chunk as the file's representative hit. Files are sorted by that max score
-    descending and capped at ``top_k_files``.
-    """
     best_by_file: dict[str, Chunk] = {}
     for chunk in chunks:
         existing = best_by_file.get(chunk.file_name)
@@ -182,19 +107,16 @@ GROUP_CHUNKS_PER_FILE = 3
 
 
 def _fused(chunk: Chunk) -> float:
-    """A chunk's place in the one fused ranking (``FUSED_SCORE_KEY``); 0 from a backend that states none."""
     value = chunk.metadata.get(FUSED_SCORE_KEY)
     return float(value) if isinstance(value, (int, float)) else 0.0
 
 
 def _lexical(chunks: list[Chunk]) -> bool | None:
-    """Whether any of a document's ranked chunks holds a word of the query; None when the retriever does not say."""
     stated = [chunk.metadata[LEXICAL_MATCH_KEY] for chunk in chunks if LEXICAL_MATCH_KEY in chunk.metadata]
     return any(stated) if stated else None
 
 
 def _document_id(chunk: Chunk) -> str | None:
-    """The document's BFF id from the chunk's metadata, when the store put it there."""
     value = chunk.metadata.get(LEGACY_DOCUMENT_ID_FIELD)
     return value if isinstance(value, str) and value else None
 
@@ -202,20 +124,6 @@ def _document_id(chunk: Chunk) -> str | None:
 def _ranked_group_hits(
     grouped: list[tuple[str, list[Chunk]]], files_per_group: int, snippet_max_chars: int
 ) -> list[DocumentSearchHit]:
-    """Every group's best documents as one list, ordered DOCUMENT by document across the groups.
-
-    Each document is represented by its best chunk in the fused ranking, at
-    most ``files_per_group`` per collection, and the documents are ordered by
-    that chunk's fused score, ties in group order. A group-major list (the
-    best collection's documents, then the next collection's) would let one
-    project's weak documents fill a caller's first page ahead of another
-    project's strong one. The order IS the ranking: a caller keeps it rather
-    than re-sorting by ``score``, each document's cosine.
-
-    ``collection`` is the group key, the collection that was searched and
-    authorized, never what a chunk's own metadata claims (the
-    single-collection search makes the same choice in the BFF).
-    """
     ranked: list[tuple[float, int, int, DocumentSearchHit]] = []
     for group_index, (collection, chunks) in enumerate(grouped):
         best: dict[str, Chunk] = {}
@@ -244,22 +152,13 @@ def _ranked_group_hits(
 CURRENT_REVISIONS: dict[str, Any] = {"superseded": {"$ne": True}}
 
 
-class MatchesNothing(Exception):
-    """The filters admit no passage: every ``refers_to`` text read as no reference at all."""
+class MatchesNothing(Exception): ...
 
 
 def reference_values(terms: list[str]) -> list[str]:
-    """``terms`` as the ``references`` values a document carries, through the pushdown ``knowledge_search`` uses.
-
-    A ``kind:key`` token (``norm:önorm b 1600``, the projection's own spelling)
-    is taken in every spelling a document can have stored it under
-    (``references.spellings``); anything else is read as a person names a reference
-    (``prefilter.plan``: ``references.reference_keys_for``, then
-    ``payload.reference_value``). Any of the terms, so the values are their union.
-    """
     from knowledge_layer.references import KINDS
     from knowledge_layer.references import spellings
-    from knowledge_layer.vector_store import prefilter
+    from knowledge_layer.vector_store import plan
     from knowledge_layer.vector_store import reference_value
 
     values: list[str] = []
@@ -268,18 +167,13 @@ def reference_values(terms: list[str]) -> list[str]:
         if sep and kind in KINDS and key.strip() == key and key:
             values.extend(reference_value(kind, spelling) for spelling in spellings(kind, key))
             continue
-        pushdown = prefilter.plan(doc_class=None, folder=None, file_name=None, refers_to=term)
+        pushdown = plan(doc_class=None, folder=None, file_name=None, refers_to=term)
         values.extend(pushdown.references)
     return list(dict.fromkeys(values))
 
 
 def _reading_clauses(filters: GroupedSearchFilters) -> list[dict[str, Any]]:
-    """The conditions on what ingestion put on every chunk: the document, its dossier type, its references.
-
-    Raises :class:`MatchesNothing` when ``refers_to`` was asked and named no
-    reference: dropping the condition would widen the search instead.
-    """
-    from knowledge_layer.vector_store import prefilter
+    from knowledge_layer.vector_store import Pushdown
 
     parts: list[dict[str, Any]] = []
     if filters.document_ids:
@@ -295,18 +189,11 @@ def _reading_clauses(filters: GroupedSearchFilters) -> list[dict[str, Any]]:
         references = tuple(reference_values(filters.refers_to))
         if not references:
             raise MatchesNothing
-        parts.extend(prefilter.Pushdown(hide_superseded=False, references=references).clauses(user_shelf=False))
+        parts.extend(Pushdown(hide_superseded=False, references=references).clauses(user_shelf=False))
     return parts
 
 
 def grouped_filters(filters: GroupedSearchFilters | None) -> dict[str, Any]:
-    """The typed request filters in the retriever's filter grammar, always with the superseded exclusion.
-
-    The grammar is what ``knowledge_layer.vector_store.scope`` compiles into the
-    scope filter, so these become pre-filters inside the one query. Each
-    tag group is a separate any-of, as the BFF's ``matchesTags`` reads them.
-    Raises :class:`MatchesNothing` for filters no passage can meet.
-    """
     if filters is None:
         return CURRENT_REVISIONS
     parts: list[dict[str, Any]] = []
@@ -327,13 +214,10 @@ def grouped_filters(filters: GroupedSearchFilters | None) -> dict[str, Any]:
     return {"$and": [*parts, CURRENT_REVISIONS]}
 
 
-# Measured 2026-10-27 on openai/text-embedding-3-large: unrelated passages score 0.11 to 0.30,
-# related 0.37 and up; re-measure with the embedder.
 MEANING_ONLY_MIN_COSINE = 0.35
 
 
 def above_meaning_floor(hits: list[DocumentSearchHit]) -> list[DocumentSearchHit]:
-    """``hits`` less the documents that matched by meaning alone below :data:`MEANING_ONLY_MIN_COSINE`. Pure."""
     return [hit for hit in hits if hit.lexical is not False or hit.score >= MEANING_ONLY_MIN_COSINE]
 
 
@@ -343,25 +227,16 @@ TRACE_COLLECTION_LIMIT = 50
 
 
 def _filter_fields(filters: GroupedSearchFilters | None) -> list[str]:
-    """The filter fields a request set (never their values)."""
     return sorted(filters.model_dump(exclude_defaults=True, exclude_none=True)) if filters else []
 
 
 def prefilter_mode(filters: GroupedSearchFilters | None) -> str:
-    """How the BFF narrowed the content query before ranking (ADR-0136 item 5), as a label.
-
-    ``document_ids``: the SQL candidates themselves, few enough to name.
-    ``payload``: too many to name, so what the documents are and cite
-    (``reading_types``, ``refers_to``) or their tags. ``none``: only the
-    superseded exclusion.
-    """
     if filters is not None and filters.document_ids:
         return "document_ids"
     return "payload" if _filter_fields(filters) else "none"
 
 
 def _trace_query(request: GroupedDocumentSearchRequest, collections: list[str]) -> dict[str, Any]:
-    """The trace's input: the ask as data. The words stay out (ADR-0089); their length and word count do not."""
     return {
         "text_chars": len(request.query),
         "text_tokens": len(request.query.split()),
@@ -375,7 +250,6 @@ def _trace_query(request: GroupedDocumentSearchRequest, collections: list[str]) 
 
 
 def _trace_picks(grouped: list[tuple[str, list[Chunk]]], hits: list[DocumentSearchHit]) -> dict[str, Any]:
-    """The trace's output: counts, by collection; never a passage, a file name or the words."""
     per_collection: dict[str, int] = {}
     for hit in hits:
         per_collection[hit.collection] = per_collection.get(hit.collection, 0) + 1
@@ -392,7 +266,6 @@ def _trace_picks(grouped: list[tuple[str, list[Chunk]]], hits: list[DocumentSear
 async def _search_grouped(
     request: GroupedDocumentSearchRequest, collections: list[str]
 ) -> tuple[list[DocumentSearchHit], list[tuple[str, list[Chunk]]]]:
-    """The grouped search's documents, and the groups it ranked them from; none when the filters admit nothing."""
     from agent.knowledge.factory import get_active_retriever
 
     try:
@@ -421,12 +294,6 @@ async def _search_grouped(
 
 
 async def _workspace_search(request: GroupedDocumentSearchRequest, collections: list[str]) -> list[DocumentSearchHit]:
-    """The workspace search's documents, traced, less those that matched by meaning alone below the floor.
-
-    Only this caller is held to :data:`MEANING_ONLY_MIN_COSINE`: it shows the
-    hits as results, where the cross-project lookup hands a ranked pool to a
-    model that reads the passages.
-    """
     mode = prefilter_mode(request.filters)
     with observed_retrieval(
         WORKSPACE_SEARCH_FEATURE,
@@ -445,7 +312,6 @@ async def _workspace_search(request: GroupedDocumentSearchRequest, collections: 
 async def _search_across(
     request: GroupedDocumentSearchRequest, collections: list[str], office_id: str | None
 ) -> DocumentSearchResponse:
-    """The grouped search over ``collections``, read as ``office_id`` (``request_office``)."""
     from knowledge_layer.search import reading_as
 
     with reading_as(office_id):
@@ -456,7 +322,6 @@ async def _search_across(
 
 
 async def _retrieve_one(request: DocumentSearchRequest, collection_name: str, office_id: str | None) -> list[Chunk]:
-    """The top chunks of one collection for the query, read as ``office_id`` (``request_office``)."""
     from knowledge_layer.search import reading_as
 
     from agent.knowledge.factory import get_active_retriever
@@ -469,7 +334,6 @@ async def _retrieve_one(request: DocumentSearchRequest, collection_name: str, of
 
 
 def add_document_search_routes(router: APIRouter):
-    """Add semantic document-search routes to the FastAPI app."""
 
     @router.post(
         "/v1/collections/search",
@@ -480,18 +344,6 @@ def add_document_search_routes(router: APIRouter):
     async def search_across_collections(
         request: GroupedDocumentSearchRequest, http_request: Request
     ) -> DocumentSearchResponse:
-        """Rank every named collection's documents in one query (Qdrant, ADR-0116).
-
-        Every collection must be in the caller's signed scope, as for the
-        single-collection search. Qdrant is the only store (ADR-0115), so the
-        BFF has nothing to fall back to: a failed search is a 500, as for the
-        single-collection search, and the BFF surfaces it as an upstream error.
-
-        The workspace search (``purpose="workspace_search"``) is a root trace
-        ``workspace-search`` holding one ``retrieve.workspace_search``
-        retriever observation; no agent-runtime run sees this route. Other callers are
-        traced where they run (``retrieve.project_lookup``).
-        """
         collections = list(dict.fromkeys(request.collections))
         for collection in collections:
             _authorize_collection(http_request, collection)
@@ -509,13 +361,6 @@ def add_document_search_routes(router: APIRouter):
         http_request: Request,
         ingestor: BaseIngestor = Depends(_require_ingestor),
     ) -> DocumentSearchResponse:
-        """Deterministic semantic search over one collection's embedded chunks.
-
-        Retrieves the top ``top_k`` chunks for the query, then aggregates them
-        into a document-centric result: one hit per file (its best-scoring
-        chunk), sorted by score descending, capped at ``top_k_files``. No LLM or
-        agent loop is involved.
-        """
         _authorize_collection(http_request, collection_name)
 
         await require_collection(ingestor, collection_name)

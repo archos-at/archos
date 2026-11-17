@@ -104,7 +104,38 @@ def test_no_code_emits_posthog_ai_observability_events() -> None:
     assert offenders == [], f"LLM data reaches PostHog through Langfuse's integration (ADR-0100): {offenders}"
 
 
+CATALOGUE = "docs/observability/posthog-events.md"
+PYTHON_EVENT_ROOTS = ("packages/agent/src", "apps/agent-host/src")
+_PY_UNION = re.compile(r"^ServerEvent = Literal\[([^\]]*)\]", re.MULTILINE)
+_PY_CAPTURE = re.compile(r"""posthog_client\.capture\(\s*['"]([^'"]+)['"]""")
+
+
+def _python_events() -> set[str]:
+    union = _PY_UNION.search((REPO_ROOT / PYTHON_CLIENT).read_text(encoding="utf-8"))
+    assert union, f"{PYTHON_CLIENT} has no `ServerEvent = Literal[...]`"
+    return set(re.findall(r"""['"]([^'"]+)['"]""", union.group(1)))
+
+
+def test_every_python_capture_names_an_event_of_the_closed_union() -> None:
+    events = _python_events()
+    strays = [
+        f"{_rel(path)}: {event}"
+        for path in _files(PYTHON_EVENT_ROOTS, {".py"})
+        for event in _PY_CAPTURE.findall(path.read_text(encoding="utf-8", errors="ignore"))
+        if event not in events
+    ]
+    assert strays == [], f"add the event to ServerEvent in {PYTHON_CLIENT} and a row to {CATALOGUE}: {strays}"
+
+
+def test_every_python_event_has_a_row_in_the_catalogue() -> None:
+    catalogue = (REPO_ROOT / CATALOGUE).read_text(encoding="utf-8")
+    missing = sorted(event for event in _python_events() if f"| `{event}` |" not in catalogue)
+    assert missing == [], f"{CATALOGUE} has no row for {missing}"
+
+
 def test_the_scanners_see_what_they_guard(tmp_path: Path) -> None:
+    assert _PY_CAPTURE.findall('posthog_client.capture(\n    "answer_finished", distinct_id=x)') == ["answer_finished"]
+    assert _PY_UNION.search('ServerEvent = Literal["a", "b"]\n')
     assert _PY_IMPORT.search("from posthog import Posthog")
     assert _PY_IMPORT.search("import posthog")
     assert not _PY_IMPORT.search("from agent.observability import posthog_client")

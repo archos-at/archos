@@ -348,17 +348,7 @@ config:
 
   # come from the ESC environment (`qdrantApiKey`, `qdrantReadOnlyApiKey`,
 
-  # `qdrantS3SecretKey`). The migration off Chroma ran on production on
-
-  # 2026-10-18 (#1079): 11 collections, 52,280 chunks, 0 failed or out of step.
-
-  # Do NOT set `chromaMigration` again: a second Job's import finds the
-
-  # mark the first one left and refuses (exit 2), which fails the deploy. The
-
-  # retired Chroma's volume stays as `data-chroma-0`, the only way back, until it
-
-  # is deleted a few days later (docs/deployment/qdrant-runbook.md).
+  # `qdrantS3SecretKey`).
   # ── Agent (backend) — vertical scaling levers ──
 
   grid-oib:backendRequestsCpu: "1"
@@ -371,7 +361,7 @@ config:
 
   # Dedicated agent-worker replicas execute research jobs, scaling the token-heavy
   # workload horizontally.
-  # KEDA scales the tier on research_job_queue (ADR-0079); one worker stays warm.
+  # KEDA scales the tier on Hatchet's research backlog (ADR-0150); one worker stays warm.
   grid-oib:agentWorkerMinReplicas: "1"
   grid-oib:agentWorkerMaxReplicas: "3"
   grid-oib:agentWorkerConcurrency: "1"

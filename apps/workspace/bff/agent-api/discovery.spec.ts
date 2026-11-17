@@ -219,7 +219,7 @@ describe('call-operation', () => {
       { params: { id: 'p1' }, body: { userId: 'u2', role: 'viewer' } },
       session,
       'agent',
-      { decisionSource: undefined, clientId: 'c' },
+      { decisionSource: undefined, clientId: 'c', door: 'mcp', sessionSource: 'mcp' },
     )
     expect(result.isError).toBeUndefined()
     expect(structured(result)).toEqual({ projects: [] })
@@ -347,7 +347,7 @@ describe('call-operation', () => {
       expect.objectContaining({ ifMatch: '"3"' }),
       session,
       'agent',
-      { decisionSource: undefined, clientId: 'c' },
+      { decisionSource: undefined, clientId: 'c', door: 'mcp', sessionSource: 'mcp' },
     )
   })
 

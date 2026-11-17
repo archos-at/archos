@@ -1,28 +1,3 @@
-"""``ask_user`` tool — a blocking, enumerable question the agent asks mid-turn.
-
-The clarification step can only run on a deep turn (``conversation.py`` routes
-to it when the answer asks to escalate), so a turn that answers directly and
-needs to disambiguate had exactly one move: write the question as prose and end the
-turn. That is how "Welches IFC-Modell meinst du: AC20-Institute-Var-2.ifc oder
-Ifc2x3_SampleCastle.ifc?" reaches the user as two filenames to retype.
-
-This tool gives the agent that same channel instead: it goes
-through ``user_interaction_manager.prompt_user_input``, blocks until the answer
-arrives, and hands it back as the tool result, so the agent finishes the SAME
-turn with the answer in hand.
-
-Going through the interaction manager is not incidental — it is what makes the
-addressee guard, the pending-interaction registry, reconnect handling and
-spectator (read-only) rendering apply for free (ADR-0032/0037). A private
-channel here would re-open all four.
-
-The blocking is the risk, so every failure is explicit: no interaction manager
-bound, another prompt already outstanding, an unanswered prompt, or an
-already-asked turn all return a short instruction to answer with a stated
-assumption instead. A turn that hangs on a future nobody can resolve is far
-worse than a prose question.
-"""
-
 from __future__ import annotations
 
 import json
@@ -111,30 +86,12 @@ _MAX_TRACKED_TURNS = 1000
 
 
 class AskUserGuard:
-    """The two "already asked" conditions, both of which end a live turn badly if ignored:
-
-    * another prompt from this conversation is still outstanding: the
-      transport keeps ONE pending interaction per conversation and a second
-      registration overwrites the first, orphaning a future that another
-      participant is looking at right now;
-    * this turn already asked: the doctrine is one question per turn, and a
-      loop that asks twice reads as interrogation.
-
-    Lock-guarded rather than a ContextVar: the tool loop binds
-    ``parallel_tool_calls=True``, and parallel calls run in sibling asyncio
-    tasks that each copy the context at creation, so a ContextVar set inside
-    one is invisible to the other and would guard nothing. Keyed by
-    conversation id, which is a UUID minted per conversation, so two tenants
-    cannot collide on it.
-    """
-
     def __init__(self) -> None:
         self._asked_turns: OrderedDict[str, str] = OrderedDict()
         self._pending_conversations: dict[str, str] = {}
         self._lock = threading.Lock()
 
     def claim(self, conversation_id: str | None, turn_id: str | None) -> str | None:
-        """Claim the single ask_user slot; a refusal reason, or None on success."""
         if not conversation_id:
             return None
         with self._lock:
@@ -148,14 +105,12 @@ class AskUserGuard:
         return None
 
     def _remember_turn(self, conversation_id: str, turn_id: str) -> None:
-        """Bounded: the oldest conversation falls out past ``_MAX_TRACKED_TURNS``."""
         self._asked_turns[conversation_id] = turn_id
         self._asked_turns.move_to_end(conversation_id)
         while len(self._asked_turns) > _MAX_TRACKED_TURNS:
             self._asked_turns.popitem(last=False)
 
     def release(self, conversation_id: str | None) -> None:
-        """Release the in-flight claim. Always run this, including on failure."""
         if not conversation_id:
             return
         with self._lock:
@@ -171,17 +126,10 @@ _guard = AskUserGuard()
 
 
 def reset_ask_user_guard() -> None:
-    """Forget every claim (tests)."""
     _guard.reset()
 
 
 def _normalize_options(options: list[str] | str | None) -> list[str]:
-    """Coerce the model's ``options`` argument into a list of clean labels.
-
-    A JSON array arriving as a string is accepted because weaker models
-    stringify list arguments; failing on that would cost a turn for a
-    formatting slip rather than a real mistake.
-    """
     if options is None:
         return []
     if isinstance(options, str):
@@ -195,20 +143,16 @@ def _normalize_options(options: list[str] | str | None) -> list[str]:
 
 
 def _is_decline(reply: str) -> bool:
-    """Whether the user's reply declines to choose rather than naming a choice."""
     return reply.strip().strip(".!").lower() in DECLINE_REPLIES
 
 
-class AskUserConfig(FunctionBaseConfig, name="ask_user"):
-    """Configuration for the ``ask_user`` tool."""
+class AskUserConfig(FunctionBaseConfig, name="ask_user"): ...
 
 
-class _Undeliverable(Exception):
-    """The prompt could not be put to the user; the message says why, for the model."""
+class _Undeliverable(Exception): ...
 
 
 def _reject_arguments(question: str, labels: list[str]) -> str | None:
-    """Why the call cannot be a question at all, or None when it can."""
     if not question:
         return f"Error: `question` was empty. {_FALL_BACK_TO_ASSUMPTION}"
     if len(labels) < MIN_OPTIONS:
@@ -225,7 +169,6 @@ def _reject_arguments(question: str, labels: list[str]) -> str | None:
 
 
 def _turn_scope() -> tuple[str | None, str | None, Any] | None:
-    """``(conversation_id, turn_id, interaction manager)`` from the agent-runtime context, or None without one."""
     try:
         nat_context = Context.get()
         return nat_context.conversation_id, nat_context.user_message_id, nat_context.user_interaction_manager
@@ -235,7 +178,6 @@ def _turn_scope() -> tuple[str | None, str | None, Any] | None:
 
 
 async def _prompt_user(manager: Any, question: str, labels: list[str]) -> Any:
-    """Put the prompt to the user through the interaction manager, or say why not."""
     try:
         return await manager.prompt_user_input(build_human_prompt(question, labels))
     except NotImplementedError as exc:
@@ -263,7 +205,6 @@ _REFUSALS = {
 
 
 def _headless() -> bool:
-    """Whether this turn runs headless (``auth.request_identity``); a failure to tell reads as attended."""
     try:
         return headless_turn_requested()
     except Exception:  # noqa: BLE001 - outside the API tier there is no caller to read
@@ -271,7 +212,6 @@ def _headless() -> bool:
 
 
 def _reply_for(answer: str, option_count: int) -> str:
-    """What the model is told about the user's answer."""
     if _is_decline(answer):
         logger.info("ask_user: user declined to choose")
         return (
@@ -283,7 +223,6 @@ def _reply_for(answer: str, option_count: int) -> str:
 
 
 async def _ask(question: str, options: list[str] | str | None = None) -> str:
-    """Put one enumerable question to the user and wait for the answer."""
     question_text = str(question or "").strip()
     labels = _normalize_options(options)
     rejection = _reject_arguments(question_text, labels)
@@ -311,5 +250,4 @@ async def _ask(question: str, options: list[str] | str | None = None) -> str:
 
 @register_function(config_type=AskUserConfig)
 async def ask_user(tool_config: AskUserConfig, builder: Builder):
-    """Register the blocking ``ask_user`` interaction tool."""
     yield FunctionInfo.from_fn(_ask, description=_TOOL_DESCRIPTION)

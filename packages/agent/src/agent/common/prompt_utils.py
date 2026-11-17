@@ -1,9 +1,3 @@
-"""Agent-local prompt loading utilities.
-
-This module provides utilities for loading prompts co-located with agents.
-Each agent package has a prompts/ directory containing its Jinja2 templates.
-"""
-
 import logging
 from functools import lru_cache
 from pathlib import Path
@@ -18,30 +12,14 @@ logger = logging.getLogger(__name__)
 
 @lru_cache(maxsize=256)
 def _compile_template(template: str) -> jinja2.Template:
-    """Compile a template string once; templates are static per process."""
     return jinja2.Template(template, undefined=jinja2.StrictUndefined)
 
 
 class PromptError(Exception):
-    """Error loading or rendering prompts."""
-
     pass
 
 
 def load_prompt(path: Path, name: str) -> str:
-    """
-    Load a prompt template from an agent's prompts/ directory.
-
-    Args:
-        path: Path to the prompts directory.
-        name: Name of the prompt file (e.g., 'system' or 'system.j2').
-
-    Returns:
-        The prompt template as a string.
-
-    Raises:
-        PromptError: If the prompt file cannot be found.
-    """
     prompt_path = path / name
     if not prompt_path.exists() and not name.endswith(".j2"):
         prompt_path = path / f"{name}.j2"
@@ -56,25 +34,6 @@ def load_prompt(path: Path, name: str) -> str:
 
 
 def render_prompt_template(template: str, **kwargs: Any) -> str:
-    """
-    Render a Jinja2 template with the given variables.
-
-    When the caller passes ``available_documents`` and does not already supply
-    ``document_inventory``, the shelf-grouped inventory block is injected so
-    every agent prompt that lists files uses the same grouping (ADR-0047).
-    ``product_name`` defaults to the product's name (``common/brand.py``), so a
-    prompt names the agent with ``{{ product_name }}`` and never spells it.
-
-    Args:
-        template: The template string.
-        **kwargs: Variables to substitute in the template.
-
-    Returns:
-        The rendered template.
-
-    Raises:
-        PromptError: If template rendering fails.
-    """
     if "document_inventory" not in kwargs:
         from agent.knowledge.inventory import get_listing_shelf
         from agent.knowledge.inventory import in_scope_shelves_from_context

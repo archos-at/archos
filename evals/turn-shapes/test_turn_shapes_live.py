@@ -1,50 +1,3 @@
-"""Live turn-shape eval for the two behaviours ADR-0052 moved from code into the prompt.
-
-ADR-0052 deleted the intent classifier: every turn enters
-the agent with every tool bound, and what the turn IS is decided by the model
-with the tools in hand. Two things that used to be routing are now the model's
-judgment, pinned only by the ``<output_contract>`` block of
-``packages/agent/src/agent/core/prompts/system.j2``:
-
-1. a greeting or a question about the assistant is a direct reply, and calls
-   no data-source tool;
-2. a commissioned report is handed to deep research (``escalate_to_deep`` in
-   the envelope) BEFORE any retrieval of its own.
-
-Three more cases cover the shape the agent-writes work added and nothing
-measured (ledger row 5): a commissioned Aktenvermerk is WRITTEN rather than
-described, a revision edits the draft instead of writing a second one, and
-„leg das ins Projekt ab" files it. Their prompts and their one assertion live
-in ``tests/fixtures/drafting_turns.py``, shared with the scripted-LLM pair in
-``packages/agent/tests/core/test_agent.py`` that runs them in CI — two
-harnesses asking different questions would stop being the same eval the first
-time either was edited.
-
-This file is the eval the ADR said those behaviours lacked. It builds the real
-``ChatAgent`` on the real system prompt against the agent's own
-model through OpenRouter, with STUB tools in place of the retrieval stack: the
-stubs return a plausible hit, so nothing here needs a corpus, a database or a
-RIS connection. The trace the assertions read is the turn's own transcript,
-every tool call the model asked for, the same source the scripted harness
-reads. A recorder inside the stubs cannot see the real drafting verbs, which
-is how this eval once reported „write_file was never called" about a turn that
-had written the file. The third case is the control: a plain Baurecht question must
-still search, or a prompt edit that "fixes" greetings by discouraging retrieval
-would pass the first two cases and break the product.
-
-Runs only when selected with ``-m live`` (``pyproject.toml`` deselects the
-marker everywhere else, so the default ``pytest`` run, ``task verify`` and every
-PR job stay model-free whatever the shell holds), and then skips without
-``OPENROUTER_API_KEY``. CI runs it weekly and on demand from
-``.github/workflows/turn-shapes-live.yml``. Locally:
-``task be:eval:turn-shapes``.
-
-The assertions are strict: a behaviour miss fails, with the recorded tool trace
-in the message. The ONE retry is for transport (connection, timeout, 429, 5xx),
-never for a behaviour the model got wrong — a flaky-then-green model judgment
-is exactly the drift this eval exists to measure.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -145,36 +98,40 @@ Snippet: Die OIB-Richtlinie 4 regelt Nutzungssicherheit und Barrierefreiheit, da
 """
 
 
-@tool
+@tool(
+    description=(
+        "Search the knowledge base: OIB-Richtlinien, Bürowissen and the project's uploaded documents.\n"
+        "\n"
+        "Returns the best matching passages with a Citation line each. Use for any question that needs\n"
+        "the text of an OIB-Richtlinie, an internal document or a project file."
+    )
+)
 def knowledge_search(query: str, file_name: str | None = None) -> str:
-    """Search the knowledge base: OIB-Richtlinien, Bürowissen and the project's uploaded documents.
-
-    Returns the best matching passages with a Citation line each. Use for any question that needs
-    the text of an OIB-Richtlinie, an internal document or a project file."""
     return _KNOWLEDGE_HIT
 
 
-@tool
+@tool(
+    description=(
+        "Search Austrian federal and state law (Bauordnungen, statutes, case law) in the official RIS.\n"
+        "\n"
+        "Use German search terms. Returns hits with document numbers and URLs; fetch the full text with\n"
+        "ris_fetch_tool."
+    )
+)
 def ris_search_tool(query: str) -> str:
-    """Search Austrian federal and state law (Bauordnungen, statutes, case law) in the official RIS.
-
-    Use German search terms. Returns hits with document numbers and URLs; fetch the full text with
-    ris_fetch_tool."""
     return _RIS_HIT
 
 
-@tool
+@tool(description="Fetch the full text of one RIS document by its document number, for exact wording and citation.")
 def ris_fetch_tool(document_number: str) -> str:
-    """Fetch the full text of one RIS document by its document number, for exact wording and citation."""
     return (
         "§ 101. (1) Bei Absturzhöhen ab 60 cm sind Absturzsicherungen von mindestens 1,00 m Höhe anzubringen.\n"
         "URL: https://www.ris.bka.gv.at/Dokumente/LrW/LWI40000234/LWI40000234.html\n"
     )
 
 
-@tool
+@tool(description="Search the web for general facts, news, or when the sources above are silent.")
 def web_search_tool(query: str) -> str:
-    """Search the web for general facts, news, or when the sources above are silent."""
     return _WEB_HIT
 
 
@@ -184,14 +141,6 @@ _TRANSPORT_ERRORS = (openai.APIConnectionError, openai.RateLimitError, openai.In
 
 
 def _research_model_name() -> str:
-    """The agent's model as the OIB config would boot it.
-
-    Read from ``research_llm.model_name`` rather than hard-coded here, so the
-    eval follows the boot floor when it moves (``${DEFAULT_MODEL:-…}``
-    resolved the way the config loader resolves it). The live default an actual
-    user gets is admin-set (ADR-0014); the boot floor is what a model-free
-    process runs on, and the closest thing to a fixed reference this eval has.
-    """
     block = _OIB_CONFIG.read_text(encoding="utf-8").split("research_llm:", 1)[1]
     match = re.search(r"model_name:\s*\$\{(\w+):-([^}]+)\}", block)
     if match is None:
@@ -201,7 +150,6 @@ def _research_model_name() -> str:
 
 
 def _build_agent(extra_tools: list = []) -> ChatAgent:  # noqa: B006 - read-only default
-    """The real agent, the real prompt, the real model; stub tools."""
     from langchain_openai import ChatOpenAI
 
     llm = ChatOpenAI(
@@ -224,13 +172,6 @@ def _build_agent(extra_tools: list = []) -> ChatAgent:  # noqa: B006 - read-only
 
 
 async def _run_turn(agent: ChatAgent, question: str, cards: CardRegistry | None = None) -> ResearchAgentState:
-    """One turn, with a single rerun for a transport failure only.
-
-    ``cards`` is bound around the run here, in the coroutine that resets it,
-    the way the conversation layer binds it around a production turn. A token
-    set in one Context cannot be reset from another, and a pytest fixture's
-    teardown does not run in the test's Context.
-    """
     for attempt in (1, 2):
         token = set_card_registry(cards) if cards is not None else None
         try:
@@ -246,7 +187,6 @@ async def _run_turn(agent: ChatAgent, question: str, cards: CardRegistry | None 
 
 
 def _trace(result: ResearchAgentState) -> list[str]:
-    """Every tool the model asked for this turn, in order, as the shape assertion names it."""
     return [
         traced_tool_name(call["name"], call.get("args"))
         for message in this_turn(result.messages)
@@ -277,13 +217,6 @@ def agent() -> ChatAgent:
 
 
 async def test_a_greeting_is_answered_directly_without_a_search(agent):
-    """ADR-0052, behaviour 1: „Hallo, was kannst du?" is a direct reply.
-
-    The full tool set is bound (there is no narrowed binding to fall into), so
-    the only thing between this turn and a pointless retrieval is the model
-    reading ``<output_contract>``. The trace must show no data-source call, the
-    turn must report no lookup, and the envelope must not escalate.
-    """
     result = await _run_turn(agent, "Hallo, was kannst du?")
 
     assert _data_source_calls(result) == [], f"a greeting searched: {_trace(result)}"
@@ -293,13 +226,6 @@ async def test_a_greeting_is_answered_directly_without_a_search(agent):
 
 
 async def test_a_commissioned_report_escalates_before_any_retrieval(agent):
-    """ADR-0052, behaviour 2: a commissioned Prüfbericht is handed off at once.
-
-    The prompt says a commissioned report needs no retrieval of the agent's
-    own first. So the envelope must carry ``escalate_to_deep`` with a
-    reason, and the trace must be empty of data-source calls — the hand-off is
-    the final answer, so any recorded retrieval happened before it.
-    """
     result = await _run_turn(
         agent,
         "Erstelle mir einen vollständigen Prüfbericht zur Barrierefreiheit für das Projekt Musterstraße "
@@ -312,12 +238,6 @@ async def test_a_commissioned_report_escalates_before_any_retrieval(agent):
 
 
 async def test_a_plain_domain_question_still_searches(agent):
-    """The control: a Baurecht question retrieves and does not escalate.
-
-    Without this, a prompt edit that stopped greetings from searching by
-    discouraging retrieval in general would pass the two cases above and ship
-    an assistant that answers OIB questions from memory.
-    """
     result = await _run_turn(agent, "Wie hoch muss ein Geländer bei einer Absturzhöhe von 2 m sein?")
 
     assert _data_source_calls(result), f"a domain question retrieved nothing; answer was: {_answer_text(result)[:400]}"
@@ -326,18 +246,6 @@ async def test_a_plain_domain_question_still_searches(agent):
 
 
 def _filing_stubs(backend):
-    """`file_draft`, with the REAL description.
-
-    The description is the last thing the model reads before choosing a verb,
-    so a stub that paraphrases it is measuring a different prompt. Imported
-    from the tool module rather than copied, underscore and all: a copy would
-    drift the day somebody edits the real one, and this eval would then be
-    green about a sentence production no longer says.
-
-    ``submit`` is part of the schema although no case asks for it: „ablegen"
-    must not put an item in a colleague's inbox, and an argument the model
-    cannot reach cannot be shown to be avoided.
-    """
     from langchain_core.tools import StructuredTool
 
     from agent.tools.documents.cards import emit_draft_card
@@ -365,11 +273,6 @@ def _filing_stubs(backend):
 
 @pytest.fixture
 def drafting_turn():
-    """One drafting case: the seeded working directory, the agent, the cards.
-
-    Function-scoped and seeded per case, so the three run in any order and a
-    failure names one case rather than the one before it.
-    """
     from langgraph.store.memory import InMemoryStore
 
     from agent.tools.documents.draft_store import DraftBackend
@@ -387,13 +290,6 @@ def drafting_turn():
 
 @pytest.mark.parametrize("case", DRAFTING_CASES, ids=[case.id for case in DRAFTING_CASES])
 async def test_a_drafting_turn_keeps_its_shape(case, drafting_turn):
-    """Commission, revise, file — the same three the scripted pair runs in CI.
-
-    The assertion is `tests/fixtures/drafting_turns.py::assert_turn_shape`, so
-    what a drafting turn owes the reader is written down once: the verb it
-    called, the card it left, an answer that is not a ruling, and no hand-off
-    to deep research.
-    """
     agent, cards = await drafting_turn(case)
 
     result = await _run_turn(agent, case.prompt, cards)
@@ -409,12 +305,6 @@ async def test_a_drafting_turn_keeps_its_shape(case, drafting_turn):
 
 
 async def test_filing_says_the_draft_is_still_a_draft(drafting_turn):
-    """The one sentence a filed draft's answer must not lose.
-
-    „Abgelegt" is not „freigegeben": the reader has to be able to tell that
-    nobody has reviewed the document and that it is not published. The card
-    carries the state; this is the answer prose agreeing with it.
-    """
     agent, cards = await drafting_turn(FILE)
 
     result = await _run_turn(agent, FILE.prompt, cards)

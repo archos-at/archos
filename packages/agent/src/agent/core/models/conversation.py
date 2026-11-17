@@ -1,16 +1,3 @@
-"""The state of one conversation with the agent.
-
-This is the CONVERSATION-scoped state — the one the checkpointer persists
-between turns — as distinct from :class:`ResearchAgentState`, which is
-one research turn's own working state and is never checkpointed.
-
-NOTE: any new pydantic state type added below (or nested inside these fields)
-MUST also be added to the checkpointer allow-list in
-``agent/common/__init__.py`` (``_build_checkpointer_serde``). The
-checkpointer deserializes with a STRICT msgpack allow-list; a type missing from
-that list will break checkpoint restore for states that contain it.
-"""
-
 from typing import Annotated
 from typing import Any
 from typing import Literal
@@ -28,43 +15,6 @@ RoutingDecision = Literal["meta", "shallow", "deep", "error"]
 
 
 class ConversationState(BaseModel):
-    """
-    State for the conversation graph: one answering agent, one escalation path.
-
-    Attributes:
-        messages: Conversation history with LangGraph message reducer.
-        user_info: Optional user information for personalization.
-        data_sources: Optional list of user-selected data source IDs.
-        escalate_to_deep: Whether this turn's answering agent asked for deep
-            research (ADR-0052: the ask is the agent's own, made in its answer
-            envelope, and this is the one bit the escalation edge reads).
-        clarifier_result: Log from clarifier agent dialog.
-        original_query: The latest user query, preserved for deep research.
-        available_documents: User-uploaded documents with summaries for context.
-        in_flight_documents: Filenames whose ingestion has not finished, so they
-            are absent from ``available_documents`` AND unreachable by retrieval.
-            The distinction matters: without it a just-attached plan looks
-            exactly like a file that does not exist, and the answer omits it
-            silently instead of saying it could not be read yet.
-        focus_file_name: Filename of the composer's "Asking about <file>" subject.
-        focus_shelf: Shelf that focused file sits on (session/project/office_shelf).
-        skip_clarifier: When True the clarifier node is bypassed regardless of
-            ``enable_clarifier``.  Set automatically for API-key and anonymous
-            callers so headless workflows do not stall waiting for user input.
-        deep_research_declined: Sticky per-conversation flag set when the user
-            rejects or cancels a research plan; suppresses the deep route
-            thereafter.
-        deep_research_allowed: Whether the tenant may be offered a deep-research
-            run at all (the `deep-research` flag, resolved per turn). False
-            withdraws the hand-off before it is proposed.
-        licensed_text_allowed: Whether licensed text may reach the model inside
-            the call (the `licensed-seam` flag, resolved per turn).
-        tasks_allowed: Whether the tenant may have work handed over via
-            `create_task` (the `task-automation` flag, resolved per turn).
-        confined: Whether this turn's signed scope holds a restricted folder's
-            collection (ADR-0087), which withdraws both of the above.
-    """
-
     messages: Annotated[list[AnyMessage], add_messages]
     user_info: dict[str, Any] | None = None
     data_sources: list[str] | None = None

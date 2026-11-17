@@ -1,49 +1,3 @@
-"""What a filed mail says about a document: the thread it is, or the message it came with.
-
-A conversation a person files from a project's E-Mail-Eingang becomes one
-document, the E-Mail-Verlauf, with one Markdown section per message
-(``apps/workspace/bff/mail-thread/render.ts``, ADR-0137); each attachment the
-person files becomes a document of its own. Two records on the document's
-metadata row (``document_metadata``) say so, and this module is the one place
-that knows what they look like, so the store, the payload, the listing and the
-reader cannot disagree:
-
-* ``mail_thread`` on a Verlauf: ``latest_sent_at`` (the newest message's send
-  time, already clamped by the BFF to its receipt window), ``message_count`` and
-  the thread's ``locale``. ``latest_sent_at`` is the document's own date
-  (``document_date`` in the payload): what "the newest correspondence" sorts by.
-* ``mail_origin`` on an attachment: the message it came with. ``sent_at``,
-  ``received_at``, the sender's display name and domains, the ``sender_trust``
-  the receive step established, the Verlauf's BFF id and the thread's locale.
-  A forwarded message (migration 0198) names its AUTHOR in ``from_*`` and the
-  time they wrote it in ``sent_at``, and its forwarder in ``forwarded_by_name``,
-  ``forwarded_by_domain`` and ``forwarded_at``: a citation says who wrote it
-  and when, and who brought it into the project.
-
-**A domain is authority only when a signature confirmed it** (RT-S2). The line
-:func:`mail_origin_label` prints names the SIGNING domain for a verified sender,
-and otherwise the From domain with „Domain nicht bestätigt“, the same words and
-the same rule as the Verlauf's own section headings. So the agent can attribute
-(„laut E-Mail von Mag. Huber vom 12.05.2026“) and never present a sender
-nobody confirmed as the Behörde.
-
-A forward's author is attributed, never confirmed: the forwarder's signature
-covers the forward, not what it quotes, so the author's domain always carries
-„Domain nicht bestätigt“, and the signing domain names the forwarder.
-
-**No address reaches a model.** The records hold a display name and domains
-only; the BFF sends nothing else, and :func:`normalise_mail_origin` drops any
-key it does not know.
-
-The words are document text in the thread's locale, not interface copy: the
-copy table below mirrors the trust words of ``render-copy.ts``
-(``packages/agent/tests/knowledge/test_mail_facts.py`` pins the parity), because a
-listing that called a sender „nicht verifiziert“ while the Verlauf says „Domain
-nicht bestätigt“ would be two words for one concept.
-
-Pure: no I/O, no framework.
-"""
-
 from __future__ import annotations
 
 import re
@@ -75,8 +29,6 @@ _UUID = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4
 
 @dataclass(frozen=True)
 class MailCopy:
-    """The words of the two lines, in one locale."""
-
     unverified_domain: str
     from_archive: str
     unknown_sender: str
@@ -121,7 +73,6 @@ MAIL_COPY: dict[str, MailCopy] = {
 
 
 def _moment(value: Any) -> datetime | None:
-    """An aware UTC datetime from an ISO string (``Z`` or an offset), else ``None``."""
     if isinstance(value, datetime):
         moment = value
     elif isinstance(value, str) and value.strip():
@@ -145,7 +96,6 @@ def _one_line(value: Any) -> str:
 
 
 def clean_name(value: Any) -> str | None:
-    """A sender's display name as a line prints it: one line, no brackets, no address, at most 80 characters."""
     name = _one_line(_BRACKETS.sub(" ", value) if isinstance(value, str) else "")
     if not name or "@" in name:
         return None
@@ -153,7 +103,6 @@ def clean_name(value: Any) -> str | None:
 
 
 def clean_domain(value: Any) -> str | None:
-    """A domain as printed: lower-case letters, digits, dots and hyphens, so it cannot close a bracket or add a word."""
     if not isinstance(value, str):
         return None
     domain = _NOT_DOMAIN.sub("", value.strip().lower().rstrip("."))[:253]
@@ -165,12 +114,6 @@ def _locale(value: Any) -> str:
 
 
 def normalise_mail_thread(raw: Any) -> dict[str, Any] | None:
-    """A ``mail_thread`` record as it is stored and read, or ``None`` when it states no newest message.
-
-    ``latest_sent_at`` is required (it is the record's reason to exist: the
-    Verlauf's date); ``message_count`` is kept when it is a count a thread can
-    have; ``locale`` falls back to the default.
-    """
     if not isinstance(raw, Mapping):
         return None
     latest = _moment(raw.get("latest_sent_at"))
@@ -184,14 +127,6 @@ def normalise_mail_thread(raw: Any) -> dict[str, Any] | None:
 
 
 def normalise_mail_origin(raw: Any) -> dict[str, Any] | None:
-    """A ``mail_origin`` record as it is stored and read, or ``None`` when it cannot say which message.
-
-    ``sent_at`` and a ``sender_trust`` of :data:`SENDER_TRUSTS` are required: an
-    origin with no trust could not be printed honestly, and one with no date
-    could not be attributed. Every other key is kept when it is valid and
-    dropped when it is not; a key this module does not know is never kept, so
-    an address the BFF did not mean to send stops here.
-    """
     if not isinstance(raw, Mapping):
         return None
     sent_at = _moment(raw.get("sent_at"))
@@ -218,13 +153,6 @@ def normalise_mail_origin(raw: Any) -> dict[str, Any] | None:
 
 
 def sender_authority(origin: Mapping[str, Any], copy: MailCopy) -> str:
-    """What the bracket after the sender's name says: the signing domain, or the From domain and why it is not one.
-
-    The rule of the Verlauf's headings (``render.ts``, ``headingAuthority``): a
-    verified sender is named by the domain that signed; an archive entry says
-    where it came from; every other sender's From domain carries „Domain nicht
-    bestätigt“, because DKIM proves a domain and nothing proved this one.
-    """
     from_domain = origin.get("from_domain")
     if is_forward(origin):
         return ", ".join(part for part in (from_domain, copy.unverified_domain) if part)
@@ -240,12 +168,10 @@ _FORWARD_KEYS: tuple[str, ...] = ("forwarded_by_name", "forwarded_by_domain", "f
 
 
 def is_forward(origin: Mapping[str, Any]) -> bool:
-    """Whether the record is a forwarded message's: its ``from_*`` are then the author, never confirmed."""
     return any(origin.get(key) for key in _FORWARD_KEYS)
 
 
 def forwarder_label(origin: Mapping[str, Any], copy: MailCopy) -> str:
-    """``Weitergeleitet von Max Muster (buero.at)``: the forwarder, by the rule of a sender's bracket."""
     forwarder = {
         "from_domain": origin.get("forwarded_by_domain"),
         "signer_domain": origin.get("signer_domain"),
@@ -256,14 +182,6 @@ def forwarder_label(origin: Mapping[str, Any], copy: MailCopy) -> str:
 
 
 def mail_origin_label(origin: Mapping[str, Any] | None) -> str | None:
-    """``kam mit der E-Mail vom 12.05.2026 09:12 von Mag. Anna Huber (ma37.wien.gv.at)``, or ``None``.
-
-    A forward adds its forwarder: ``… (ma37.wien.gv.at, Domain nicht bestätigt) · Weitergeleitet von
-    Max Muster (buero.at)``.
-
-    In the thread's locale, at the office's clock, from a record
-    :func:`normalise_mail_origin` accepts.
-    """
     record = normalise_mail_origin(origin) if origin is not None else None
     if record is None:
         return None
@@ -278,7 +196,6 @@ def mail_origin_label(origin: Mapping[str, Any] | None) -> str | None:
 
 
 def mail_thread_label(thread: Mapping[str, Any] | None) -> str | None:
-    """``E-Mail-Verlauf · 4 E-Mails, zuletzt 14.05.2026``, or ``None`` for no record."""
     record = normalise_mail_thread(thread) if thread is not None else None
     if record is None:
         return None
@@ -293,6 +210,5 @@ def mail_thread_label(thread: Mapping[str, Any] | None) -> str | None:
 
 
 def mail_thread_date(thread: Mapping[str, Any] | None) -> str | None:
-    """The Verlauf's own date: its newest message's send time, RFC 3339 UTC, or ``None``."""
     record = normalise_mail_thread(thread) if thread is not None else None
     return record["latest_sent_at"] if record else None

@@ -39,8 +39,8 @@ const pythonSources = [
   read("apps", "agent-host", "src", "agent_host", "jobs", "ingest_worker.py"),
   read("packages", "agent", "src", "agent", "knowledge", "ingest_scheduler.py"),
   read("packages", "agent", "src", "agent", "knowledge", "ingest_workflow.py"),
-  read("packages", "knowledge-layer", "src", "ingest", "adapter.py"),
-  read("packages", "knowledge-layer", "src", "ingest", "page_reads.py"),
+  read("packages", "knowledge-layer", "src", "knowledge_layer", "ingest", "adapter.py"),
+  read("packages", "knowledge-layer", "src", "knowledge_layer", "ingest", "page_reads.py"),
 ].join("\n");
 const configSource = [
   read("deploy", "pulumi", "src", "app", "config.ts"),
@@ -119,7 +119,7 @@ describe("the ingest-worker tier", () => {
 
   it("states the raster pixel budget the Python module defaults to", async () => {
     const cfg = await load();
-    const python = read("packages", "knowledge-layer", "src", "ingest", "adapter.py").match(
+    const python = read("packages", "knowledge-layer", "src", "knowledge_layer", "ingest", "adapter.py").match(
       /MAX_IMAGE_PIXELS = env_int\("MAX_IMAGE_PIXELS", ([\d_]+)/,
     )?.[1];
     expect(python).toBeDefined();

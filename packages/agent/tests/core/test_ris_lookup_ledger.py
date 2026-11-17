@@ -1,23 +1,3 @@
-"""What the ledger says a RIS round read — through the compiled graph.
-
-The old RIS search captured twenty lane hits per call: every document the
-search listed, including the nineteen it never opened. The Herleitung then drew
-twenty documents for a round that produced one passage, which is not a
-transparency feature, it is a lie with a UI.
-
-`ris_lookup` captures once per RETURNED passage. Proving that needs the
-COMPILED GRAPH and not a unit test of the capture, for the reason
-``test_retrieval_rounds_spine`` is written down for: the round stamp is set in
-the agent's tools node and LangGraph builds every node's task with
-``copy_context()``, so a capture that reads the stamp in a unit test reads a
-value the real tool would never see.
-
-A NEW file rather than a case added to ``test_retrieval_ledger.py``: that
-package is being edited concurrently, and this test only needs the public
-surface (``ChatAgent``, ``ResearchAgentState``) plus the real capture the
-tool performs.
-"""
-
 from __future__ import annotations
 
 from unittest.mock import AsyncMock
@@ -43,7 +23,6 @@ _GARAGE_URL = "https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=LrW&Gesetze
 
 
 def _passage(clause: str, *, title: str = "Bauordnung für Wien", url: str = _LAW_URL) -> Passage:
-    """One returned passage, as ``passages.build_passages`` builds it."""
     return Passage(
         title=title,
         url=url,
@@ -58,9 +37,8 @@ def _passage(clause: str, *, title: str = "Bauordnung für Wien", url: str = _LA
 RETURNED: list[list[Passage]] = []
 
 
-@tool
+@tool(description="Answer a question about Austrian law from RIS with citable passages.")
 def ris_lookup_tool(question: str, conclusion: str = "") -> str:
-    """Answer a question about Austrian law from RIS with citable passages."""
     passages = RETURNED.pop(0) if RETURNED else []
     capture_passages(passages)
     return "\n".join(f"Citation: {passage.citation}" for passage in passages)
@@ -77,7 +55,6 @@ def _clean_slate():
 
 @pytest.fixture(autouse=True)
 def _bypass_citation_pipeline():
-    """The answer pipeline is not what this file is about."""
     with (
         patch.object(SourceRegistry, "all_sources", return_value=[SourceEntry(url="https://example.com")]),
         patch("agent.core.answer_pipeline.verify_citations") as verify,
@@ -92,7 +69,6 @@ def _bypass_citation_pipeline():
 
 @pytest.fixture
 def scripted_agent():
-    """A ChatAgent whose LLM plays a fixed script of tool rounds."""
 
     def build(*rounds: AIMessage) -> ChatAgent:
         llm = MagicMock()
@@ -125,7 +101,6 @@ async def _run(agent: ChatAgent) -> ResearchAgentState:
 
 @pytest.mark.asyncio
 async def test_the_ledger_records_one_hit_per_returned_passage(scripted_agent):
-    """Two passages of one law: two hits a reader can tell apart, one document."""
     RETURNED.append([_passage("§ 63 Abs 1"), _passage("§ 64")])
     agent = scripted_agent(
         _lookup("r1", "Welche Unterlagen verlangt die Baubehörde in Wien?"),
@@ -143,8 +118,6 @@ async def test_the_ledger_records_one_hit_per_returned_passage(scripted_agent):
 
 @pytest.mark.asyncio
 async def test_each_round_owns_the_passages_it_returned(scripted_agent):
-    """The stamp has to survive the agent→tools node boundary, or round 1's
-    passages are filed under round 0 and the Herleitung draws one layer."""
     RETURNED.append([_passage("§ 63 Abs 1")])
     RETURNED.append([_passage("§ 5", title="Wiener Garagengesetz 2008", url=_GARAGE_URL)])
     agent = scripted_agent(
@@ -165,7 +138,6 @@ async def test_each_round_owns_the_passages_it_returned(scripted_agent):
 
 @pytest.mark.asyncio
 async def test_a_miss_is_a_round_with_no_documents_not_a_missing_round(scripted_agent):
-    """A lookup that found nothing is still something the turn did."""
     RETURNED.append([])
     agent = scripted_agent(
         _lookup("r1", "Wie hoch ist die Grunderwerbsteuer?"),
@@ -182,11 +154,6 @@ async def test_a_miss_is_a_round_with_no_documents_not_a_missing_round(scripted_
 
 @pytest.mark.asyncio
 async def test_the_round_takes_its_checkpoint_from_the_conclusion_argument(scripted_agent, emitted):
-    """`conclusion=` is in the signature, so the checkpoint is a SLOT the model
-    fills rather than prose it usually skips — which is the whole reason the
-    argument exists on every retrieval tool. A RIS round that could not reach
-    the argument channel would fall back to "none" and the Herleitung would
-    draw a layer with no body."""
     RETURNED.append([_passage("§ 63 Abs 1")])
     agent = scripted_agent(
         _lookup("r1", "Welche Unterlagen?", conclusion="Ich kenne die Bauordnung noch nicht."),

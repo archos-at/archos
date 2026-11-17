@@ -1,5 +1,3 @@
-"""State models for deep research agent."""
-
 from typing import Annotated
 from typing import Any
 from typing import Literal
@@ -25,23 +23,6 @@ def _merge_dict_state(left: dict[str, Any] | None, right: dict[str, Any] | None)
 
 
 class DeepResearchAgentState(BaseModel):
-    """
-    State for deep research agent.
-
-    The deepagents-based DeepResearcherAgent manages its own internal state
-    through the deepagents library. This state primarily handles the interface
-    with the orchestrator.
-
-    Attributes:
-        messages: Conversation history with LangGraph message reducer.
-        data_sources: List of data sources selected by the user.
-        user_info: Optional user information.
-        todos: Todo list managed by TodoListMiddleware.
-        files: Virtual filesystem managed by FilesystemMiddleware.
-        clarifier_result: Log from clarifier agent dialog.
-        available_documents: User-uploaded documents with summaries for context.
-    """
-
     messages: Annotated[list[AnyMessage], add_messages]
     data_sources: list[str] | None = None
     user_info: dict[str, Any] | None = None
@@ -77,13 +58,6 @@ class DeepResearchAgentState(BaseModel):
 
 
 def last_message_text(result: Any) -> str | None:
-    """The final message's text from a graph state (dict or object), or None when blank.
-
-    The writer normally persists its report to ``/shared/output.md``; this is
-    the fallback when it did not, and the researcher's fallback when a worker
-    put its notes in prose instead of the structured channel. Structured block
-    content is joined as text rather than repr'd.
-    """
     messages = result.get("messages") if isinstance(result, dict) else getattr(result, "messages", None)
     if not messages:
         return None

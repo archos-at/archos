@@ -1,7 +1,7 @@
 import 'server-only'
 
 import { langfuseApiConfig } from './config'
-import { clientFor, environment, release } from './tool-call-trace'
+import { clientFor, deploymentTags, environment, release } from './tool-call-trace'
 
 export const SOURCE_MONITOR_TRACE_NAME = 'source-monitor'
 export const FRESHNESS_SCORE_NAME = 'freshness-lag-days'
@@ -40,7 +40,7 @@ export function sourceMonitorBatch(run: SourceMonitorRun, ids: { traceId: string
             opened: run.opened,
             duration_ms: run.endedAt - run.startedAt,
           },
-          tags: ['feature:source-monitor', ...(run.failed > 0 ? ['error:source'] : [])],
+          tags: ['feature:source-monitor', ...(run.failed > 0 ? ['error:source'] : []), ...deploymentTags()],
           ...(env ? { environment: env } : {}),
           ...(rel ? { release: rel } : {}),
         },

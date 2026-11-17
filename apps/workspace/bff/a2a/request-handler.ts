@@ -27,6 +27,8 @@ import { findOperation } from '@/lib/agent-api/catalog'
 import { isExposedTo } from '@/lib/agent-api/exposure'
 import { callOperation, type OperationInput, type OperationResult } from '@/lib/agent-api/dispatch'
 import type { AgentPrincipal } from '@/lib/agent-api/principal'
+import type { ActingOrigin } from '@/lib/agent-api/acting-session'
+import { actingDoorOf } from '@/lib/agent-api/call-origin'
 import { recordOperationCalled } from '@/lib/agent-api/telemetry'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { ASK_WAIT_SECONDS, isTerminalAskState, type AskView } from '@/lib/agent-asks/ask-wire'
@@ -37,13 +39,18 @@ export const BLOCKING_MAX_MS = 5 * 60_000
 export const STREAM_MAX_MS = 15 * 60_000
 const STREAM_POLL_SECONDS = 10
 
-export type AskCaller = (name: string, input: OperationInput, session: AuthorizedSession) => Promise<OperationResult>
+export type AskCaller = (
+  name: string,
+  input: OperationInput,
+  session: AuthorizedSession,
+  origin?: ActingOrigin,
+) => Promise<OperationResult>
 
-export const callAskOperation: AskCaller = (name, input, session) => {
+export const callAskOperation: AskCaller = (name, input, session, origin = {}) => {
   const op = findOperation(name)
   if (!op) throw new Error(`the operation ${name} is not in the catalog`)
   if (!isExposedTo('external', op.name)) throw new Error(`the operation ${name} is not offered to an outside agent`)
-  return callOperation(op, input, session, 'agent')
+  return callOperation(op, input, session, 'agent', origin)
 }
 
 function routeMessage(result: OperationResult): string {
@@ -90,6 +97,7 @@ function* artifactUpdates(view: AskView): Generator<StreamResponse> {
 
 export class AgentA2ARequestHandler implements A2ARequestHandler {
   private readonly session: AuthorizedSession
+  private readonly origin: ActingOrigin
 
   constructor(
     private readonly principal: AgentPrincipal,
@@ -97,10 +105,11 @@ export class AgentA2ARequestHandler implements A2ARequestHandler {
     private readonly call: AskCaller = callAskOperation,
   ) {
     this.session = principal.session
+    this.origin = { clientId: principal.clientId ?? undefined, ...actingDoorOf({ principal, door: 'a2a' }) }
   }
 
   private async run(name: string, input: OperationInput, recorded = true): Promise<OperationResult> {
-    if (!recorded) return this.call(name, input, this.session)
+    if (!recorded) return this.call(name, input, this.session, this.origin)
     const startedAt = Date.now()
     const record = (status: number) =>
       recordOperationCalled(
@@ -108,7 +117,7 @@ export class AgentA2ARequestHandler implements A2ARequestHandler {
         { operation: name, domain: 'conversations', decision: 'run', status, startedAt },
       )
     try {
-      const result = await this.call(name, input, this.session)
+      const result = await this.call(name, input, this.session, this.origin)
       record(result.status)
       return result
     } catch (error) {

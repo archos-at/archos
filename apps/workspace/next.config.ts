@@ -1,6 +1,5 @@
 import path from 'node:path'
 import type { NextConfig } from 'next'
-import { LEGACY_ROUTES } from './bff/api/legacy-routes'
 import { AVATAR_IMAGE_PATTERNS } from './bff/images/avatar-hosts'
 import { LOCAL_IMAGE_PATTERNS } from './bff/images/optimizable'
 import { requestBodyLimitBytes } from './shared/config/request-body-limit'
@@ -16,7 +15,6 @@ export const nextConfig: NextConfig = {
 
   async redirects() {
     return [
-      ...LEGACY_ROUTES.map(({ from, to }) => ({ source: from, destination: to, permanent: true })),
       { source: '/app/archiv', destination: '/app/office-shelf', permanent: true },
       { source: '/app/archiv/:path*', destination: '/app/office-shelf/:path*', permanent: true },
       { source: '/app/platform/norms', destination: '/app/platform/countries', permanent: true },

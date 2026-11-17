@@ -1,31 +1,3 @@
-"""``remember`` tool — silent, observable memory capture.
-
-The agent calls this mid-turn when it learns something durable. Writes go
-through the internal BFF endpoint (the backend never touches the app
-database — strict single-writer separation); observability comes from the
-tool call itself, which streams to the UI as an intermediate step like any
-other tool, and from the memory panels where users curate items.
-
-Three scopes, chosen by whom the finding is about (ADR-0180):
-- ``personal``: a finding about the person asking. Only that person reads it;
-  written with the turn's signed envelope to their personal memory.
-- ``project`` (default): a finding about the current project, read by its members.
-- ``organization``: cross-cutting knowledge that applies to every project in
-  the user's organization (never shared across organizations).
-
-A temporary conversation keeps nothing: the tool says so without calling the BFF.
-
-A turn whose scope holds a restricted folder's collection (ADR-0087) still
-remembers: :mod:`agent.memory.restriction` decides which restricted
-collections the finding depends on, and it is stored as restricted memory that
-only people cleared for them are served or shown. Such a finding is never
-organization memory (that reaches every project): it is filed in the turn's
-project instead, and it never becomes a confirmation card (an accepted card is
-written open, by the user's own session).
-
-See docs/architecture/project-memory-design.md.
-"""
-
 import asyncio
 import json
 import logging
@@ -134,12 +106,6 @@ _WRITE_FAILURES = (OSError, RuntimeError, json.JSONDecodeError)
 
 
 def _normalized(value: object) -> object:
-    """Lowercase and trim an enum argument, leaving anything else to pydantic.
-
-    Models write ``"Decision"`` or ``" high"``; those are the same value, not a
-    different one, so they are folded here rather than rejected. A value that is
-    genuinely outside the vocabulary still fails the ``Literal`` below.
-    """
     return value.strip().lower() if isinstance(value, str) else value
 
 
@@ -156,23 +122,12 @@ Scope = Annotated[ScopeName, BeforeValidator(_normalized)]
 
 @dataclass(frozen=True)
 class _Target:
-    """Where a write actually lands, after the scope policy has had its say."""
-
     scope: SharedScopeName
     project_id: str | None
     organization_id: str | None
 
 
 def _resolve_target(scope: str, project_id: str | None, organization_id: str | None) -> _Target | str:
-    """The target for this write, or the error string to hand back to the model.
-
-    A project-scoped call with no project in scope escalates to the
-    organization, because the finding is still worth keeping. NOTE: in default
-    deployments the frontend denies agent org-wide writes (ORG_MEMORY_DISABLED,
-    audit finding S1) unless ``ALLOW_AGENT_ORG_MEMORY=true``; the caller
-    then turns the refusal into a confirmation card. (Escalation kept
-    intentionally — product decision deferred.)
-    """
     if scope == "project" and project_id:
         return _Target("project", project_id, organization_id)
     if not organization_id:
@@ -181,15 +136,6 @@ def _resolve_target(scope: str, project_id: str | None, organization_id: str | N
 
 
 def _turn_restriction_evidence() -> RestrictionEvidence:
-    """What this turn could have taken from restricted folders (ADR-0087).
-
-    The scope decides whether the question arises at all: the inventory block
-    and ``list_files`` name in-scope documents with their summaries, so a
-    restricted collection in scope can be in front of the model before any
-    retrieval. What was read is this turn's captures plus the conversation's
-    citation registry, whose passages are in the history the model is
-    answering from; what could be listed is the turn's uncapped inventory.
-    """
     scope = scoping.get_collection_scope_from_context()
     earlier = turn_shown_notes()
     if not restricted_collections_in(scope) and earlier.empty:
@@ -216,12 +162,6 @@ def _turn_restriction_evidence() -> RestrictionEvidence:
 
 
 def _restricted_target(target: _Target, project_id: str | None) -> _Target | str:
-    """Where a restricted finding lands: always the project, never the organization.
-
-    Organization memory reaches every project in the tenant, and the restriction
-    is a project's folders, so a restricted finding meant for the whole office is
-    kept as restricted memory of the project it came from.
-    """
     if target.scope == "project":
         return target
     if not project_id:
@@ -236,19 +176,6 @@ MAX_SUPERSEDES_CHARS = 500
 async def _emit_memory_proposal_card(
     *, content: str, kind: str, confidence: str, supersedes: str = "", topic: str = ""
 ) -> bool:
-    """Build and register a ``memory_proposal`` confirmation card, with its server proposal.
-
-    Returns True if the card was added to a bound conversation-scoped card
-    registry, False when no card channel is available (so the caller can fall
-    back to an honest error string). Mirrors ``emit_card``'s None handling.
-
-    The note is also stored as a ``memory`` proposal (``POST
-    /api/internal/proposals``, ADR-0105) and the card carries its id; accepting
-    it files the note in the accepting person's session, retiring ``supersedes``
-    when the call had one. Where the server cannot store it (an older BFF, a
-    run with no envelope) the card goes out without an id and the browser
-    writes the note, as it always did.
-    """
     registry = get_card_registry()
     if registry is None:
         return False
@@ -292,18 +219,6 @@ async def _write_failed(
     restricted: bool = False,
     topic: str = "",
 ) -> str:
-    """The tool result for a failed write, after offering a confirmation card when one helps.
-
-    An ORG-scoped write the agent's service token may not make is the one
-    failure with a sanctioned alternative: a confirmation card, backed by a
-    ``memory`` proposal, lets the user complete the write through their OWN
-    authenticated session (org-wide) or save it to just this project. Only that
-    refusal: the BFF audits the memory judge's verdict before it refuses
-    (``outcome: refused``), and a write that failed otherwise (a 500, a
-    timeout) reached no audit, so a card for it would write open memory whose
-    judge's "none" the trail never saw. Everything else gets an honest error
-    string (:func:`_failure_result`).
-    """
     if (
         not restricted
         and isinstance(exc, memory_client.OrgMemoryDisabledError)
@@ -317,12 +232,6 @@ async def _write_failed(
 
 
 def _failure_result(exc: Exception, *, kind: str, content: str, confidence: str, restricted: bool = False) -> str:
-    """The tool result for a failed write that gets no card.
-
-    ``kind``, ``content`` and ``confidence`` are what a card would be made of;
-    only :func:`_write_failed` makes one, and they stay in the signature the
-    callers and ``packages/agent/tests/knowledge/test_cross_project_turn.py`` use.
-    """
     if isinstance(exc, memory_client.TemporaryConversationError):
         return _TEMPORARY_RESULT
     if isinstance(exc, memory_client.CrossProjectMemoryRefusedError):
@@ -336,7 +245,6 @@ def _failure_result(exc: Exception, *, kind: str, content: str, confidence: str,
 
 
 def _success_result(kind: str, scope: str, *, supersedes: bool, restricted: bool = False, demoted: bool = False) -> str:
-    """The tool result for a write that landed: where it was saved, and who can read it."""
     result = f"Recorded {kind} in {scope} memory"
     if supersedes:
         result += ", replacing the earlier note where it still matched"
@@ -352,7 +260,6 @@ def _success_result(kind: str, scope: str, *, supersedes: bool, restricted: bool
 
 
 def _refusal_before_write(scope: str, kind: str, content: str) -> str | None:
-    """Why this call writes nothing, decided before any round trip; None when it may write."""
     if memory_client.turn_is_temporary():
         return _TEMPORARY_RESULT
     if scope == "personal":
@@ -366,16 +273,6 @@ def _refusal_before_write(scope: str, kind: str, content: str) -> str | None:
 
 
 async def _remember_personal(kind: str, content: str, supersedes: str = "", topic: str = "") -> str:
-    """Record, correct or drop a finding about the person asking in their personal memory (ADR-0180).
-
-    With ``supersedes`` the quoted note is removed first, and only once it is
-    gone is ``content`` written, so a correction never leaves the old note and
-    its contradiction side by side; with ``supersedes`` alone the note is just
-    removed (the person asked to undo it). Never restricted-folder memory and
-    never a proposal card: one person reads it, the one who was in the turn.
-    Without the turn's envelope there is no owner to write for, and the
-    project's memory is not a fallback.
-    """
     header, signature = project_context.get_request_envelope_from_context()
     if not header or not signature:
         return _PERSONAL_NO_ENVELOPE_RESULT
@@ -415,7 +312,6 @@ async def _remember_personal(kind: str, content: str, supersedes: str = "", topi
 
 
 async def _forget_personal(envelope: SignedEnvelope, supersedes: str) -> str | None:
-    """Remove the personal note ``supersedes`` quotes; the tool result when it was not removed, else None."""
     try:
         outcome = await asyncio.to_thread(
             personal_client.forget_personal_memory_item, envelope=envelope, content=supersedes
@@ -434,7 +330,6 @@ async def _forget_personal(envelope: SignedEnvelope, supersedes: str) -> str | N
 async def _remember_shared(
     *, kind: str, content: str, confidence: str, scope: str, supersedes: str, topic: str, judge_llm: Any
 ) -> str:
-    """Record a finding in project or organization memory, restricted when the turn's evidence says so."""
     if drew_on_other_projects():
         return _CROSS_PROJECT_RESULT
     project_id = project_context.get_project_id_from_context()
@@ -540,8 +435,6 @@ _SUPERSEDES_DESCRIPTION = (
 
 
 class ProjectMemoryRememberConfig(FunctionBaseConfig, name="project_memory_remember"):
-    """Configuration for the project-memory ``remember`` tool."""
-
     max_content_chars: int = Field(default=500, description="Maximum characters per remembered finding.")
     judge_llm: LLMRef | None = Field(
         default=None,
@@ -555,7 +448,6 @@ class ProjectMemoryRememberConfig(FunctionBaseConfig, name="project_memory_remem
 
 
 async def _base_judge_llm(builder: Builder, ref: LLMRef | None) -> Any:
-    """The judge's configured model, or None (fail closed) when unset or unbuildable."""
     if ref is None:
         return None
     try:
@@ -568,7 +460,6 @@ async def _base_judge_llm(builder: Builder, ref: LLMRef | None) -> Any:
 
 
 def _turn_judge_llm(base: Any) -> Any:
-    """``base`` with this turn's org override and credential, as the reflection stage resolves it."""
     if base is None:
         return None
     from agent.common.model_overrides import AgentGroup
@@ -589,7 +480,6 @@ async def project_memory_remember(tool_config: ProjectMemoryRememberConfig, buil
         supersedes: Annotated[str, Field(description=_SUPERSEDES_DESCRIPTION)] = "",
         topic: Annotated[str, Field(description=_TOPIC_DESCRIPTION)] = "",
     ) -> str:
-        """Record one durable finding in personal, project or organization memory."""
         content = content.strip()[: tool_config.max_content_chars]
         if scope == "personal" and supersedes.strip() and not content:
             return await _remember_personal(kind, content, supersedes.strip())

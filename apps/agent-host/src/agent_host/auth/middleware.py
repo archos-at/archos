@@ -1,78 +1,3 @@
-"""Raw ASGI authentication middleware.
-
-Three independent checks:
---------------------------------------------------
-1. **Path allowlist** — blocks unexposed paths on external requests.
-   *Always* enforced, regardless of ``REQUIRE_AUTH``.
-2. **Token validation** — rejects missing / invalid JWT credentials.
-   Controlled by the ``require_auth`` constructor arg (``REQUIRE_AUTH`` env var).
-3. **Caller type detection** — sets ``user.type`` for downstream logic
-   (e.g. skip the clarifier for headless callers).
-   *Always* applied, even when auth is disabled.
-
-CONTEXTVAR PROPAGATION
------------------------
-The middleware binds the resolved user dict in the agent tier's ``ContextVar``
-(``agent.auth.request_identity``) so that
-Agent-runtime workflow functions (which do not receive the ASGI ``Request`` object)
-can read the caller type without framework coupling.
-
-    from agent.auth.request_identity import get_current_user
-    user = get_current_user()          # {"type": "jwt"|"internal"|"anonymous"|...}
-    skip = user.get("skip_clarifier")  # True / False
-
-ENVIRONMENT VARIABLES
-----------------------
-``EXTERNAL_HOSTNAMES``
-    Comma-separated list of external-facing hostnames.  Requests that arrive
-    with a ``Host`` header matching one of these are treated as external (auth
-    + path filter applied).
-
-``REQUIRE_AUTH``
-    ``"true"`` / ``"false"`` (case-insensitive).  When ``false``, token
-    validation is skipped but the path filter and caller-type detection still
-    run.  Defaults to ``"false"`` (safe default; configure ``"true"`` in
-    production).
-
-``JWT_ISSUER``
-    OIDC issuer URL used for JWT signature verification
-    (e.g. ``https://accounts.google.com``).  Required when ``REQUIRE_AUTH=true``.
-
-``JWT_AUDIENCE``
-    Optional ``aud`` claim to verify.  Leave unset to skip audience
-    verification.
-
-``TRACE_USER_IDENTITY_MODE``
-    Controls whether verified user identity is attached to active trace spans.
-    Supported values:
-    - ``none``: do not attach any user identity tags
-    - ``id``: attach pseudonymous stable identifiers only (``enduser.id``, ``user.id``,
-      ``auth.type``)
-    - ``full``: attach identifiers plus ``user.email`` and
-      ``user.name`` when present
-    Defaults to ``none``.
-
-``TRACE_USER_IDENTITY_HMAC_SECRET``
-    Secret used to derive pseudonymous trace user IDs from verified subjects
-    when ``TRACE_USER_IDENTITY_MODE`` is ``id`` or ``full``. If unset,
-    user identity tagging is disabled even when a mode is configured.
-
-``TRACE_CLIENT_ID_MODE``
-    Controls whether a pseudonymous client identifier is attached to trace spans.
-    Supported values:
-    - ``none``: do not attach a client identifier
-    - ``ip``: derive a pseudonymous client ID from the request IP
-    Defaults to ``none``.
-
-``TRACE_CLIENT_ID_HMAC_SECRET``
-    Secret used to derive pseudonymous client IDs. Falls back to
-    ``TRACE_USER_IDENTITY_HMAC_SECRET`` when unset.
-
-``TRACE_CLIENT_IP_HEADERS``
-    Comma-separated header names to check for the client IP before falling back
-    to the ASGI client address. Defaults to ``x-real-ip,x-forwarded-for``.
-"""
-
 import inspect
 import json
 import logging
@@ -106,7 +31,6 @@ _build_pseudonymous_trace_client_id = auth_utils._build_pseudonymous_trace_clien
 
 
 def get_current_trace_tags() -> dict[str, str]:
-    """Return request trace tags resolved by ``AuthMiddleware`` for this request."""
     return get_request_trace_tags()
 
 
@@ -117,7 +41,6 @@ def build_request_trace_tags(
     *,
     external_hostnames: set[str] | None = None,
 ) -> dict[str, str]:
-    """Build request trace tags using the same policy as ``AuthMiddleware``."""
     is_external = is_external_request(headers, external_hostnames)
     trust_access_channel_override = (not is_external) or bool(user.get("sub"))
     return _build_request_trace_tags(
@@ -148,20 +71,17 @@ AUTH_EXEMPT_PATHS: set[str] = {"/health", "/docs", "/redoc", "/openapi.json"}
 
 
 def _load_external_hostnames() -> set[str]:
-    """Read ``EXTERNAL_HOSTNAMES`` env var; fall back to staging hostname."""
     env = os.getenv("EXTERNAL_HOSTNAMES", "")
     names = {h.strip() for h in env.split(",") if h.strip()}
     return names
 
 
 def is_external_request(headers: dict[bytes, bytes], external_hostnames: set[str] | None = None) -> bool:
-    """Return ``True`` when the Host header matches an external-facing hostname."""
     host = headers.get(b"host", b"").decode().split(":")[0]
     return host in (external_hostnames or _load_external_hostnames())
 
 
 def extract_auth_token(headers: dict[bytes, bytes]) -> str | None:
-    """Extract a bearer token or idToken cookie from ASGI headers."""
     auth = headers.get(b"authorization", b"").decode()
     if auth.startswith("Bearer "):
         return auth[7:]
@@ -175,7 +95,6 @@ def extract_auth_token(headers: dict[bytes, bytes]) -> str | None:
 
 
 async def validate_token_with_error(token: str, validators: list) -> tuple[dict[str, Any] | None, str | None]:
-    """Try validators in order and preserve the most specific auth failure code."""
     last_error: str | None = "token_invalid"
     for validator in validators:
         if validator.can_handle(token):
@@ -203,13 +122,11 @@ async def validate_token_with_error(token: str, validators: list) -> tuple[dict[
 
 
 async def validate_token_with_validators(token: str, validators: list) -> dict[str, Any] | None:
-    """Try validators in order and return the first successful identity dict."""
     user, _ = await validate_token_with_error(token, validators)
     return user
 
 
 def detect_internal_caller(headers: dict[bytes, bytes]) -> dict[str, Any]:
-    """Classify an internal request without validating any presented token."""
     token = extract_auth_token(headers)
     headless = is_headless_request(headers)
     marks = {"skip_clarifier": headless, **({"headless": True} if headless else {})}
@@ -225,14 +142,6 @@ async def resolve_request_user(
     require_auth: bool,
     external_hostnames: set[str] | None = None,
 ) -> tuple[dict[str, Any] | None, int | None, bool, str | None]:
-    """Resolve request identity from validated credentials when present.
-
-    Returns a tuple of:
-      - resolved user dict, or None when the request should be rejected
-      - HTTP status code to use on rejection, or None on success
-      - whether the request was classified as external
-      - machine-readable auth error code, or None on success
-    """
     is_external = is_external_request(headers, external_hostnames)
     token = extract_auth_token(headers)
 
@@ -256,24 +165,6 @@ async def resolve_request_user(
 
 
 class AuthMiddleware:
-    """
-    Raw ASGI middleware that enforces path filtering and token validation
-    without buffering response bodies.
-
-    Provider-agnostic: accepts any list of ``TokenValidator`` instances.
-    Each validator implements ``can_handle()`` + ``validate()``.  The first
-    validator that returns a non-None result wins.
-
-    Register via FastAPI's ``add_middleware``
-
-    Args:
-        app: The inner ASGI application.
-        validators: Ordered list of token validators to try.
-        require_auth: When ``True``, external requests must carry a valid token.
-        external_hostnames: Hostnames considered "external".
-            Defaults to ``EXTERNAL_HOSTNAMES`` env var.
-    """
-
     def __init__(
         self,
         app: ASGIApp,
@@ -397,11 +288,9 @@ class AuthMiddleware:
         return is_headless_request(headers)
 
     async def _validate_token(self, token: str) -> tuple[dict[str, Any] | None, str | None]:
-        """Try each validator in order, returning ``(user, None)`` or ``(None, error_code)``."""
         return await validate_token_with_error(token, self._validators)
 
     def _detect_internal_caller(self, headers: dict[bytes, bytes]) -> dict[str, Any]:
-        """Classify an internal request without validating the token."""
         return detect_internal_caller(headers)
 
     @staticmethod

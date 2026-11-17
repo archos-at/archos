@@ -61,6 +61,20 @@ def test_what_the_model_reads_matches_the_snapshot(entries: dict) -> None:
     assert SNAPSHOT.read_text(encoding="utf-8") == render(entries), f"Snapshot not in canonical form: {REGENERATE}"
 
 
+EXPLICIT_FIELDS = (
+    "A text the model reads comes from a docstring, which `python -OO` strips. Set it explicitly: "
+    "`description=` on the tool or a `*_DESCRIPTION` constant, `Field(description=...)` on a field, "
+    '`model_config = ConfigDict(json_schema_extra={"description": ...})` on a schema, which a card\'s '
+    "`card_description()` also reads."
+)
+
+
+def test_no_model_facing_text_comes_from_a_docstring() -> None:
+    stored = json.loads(SNAPSHOT.read_text(encoding="utf-8"))
+    stripped = live(without_docstrings=True)
+    assert stored == stripped, f"{EXPLICIT_FIELDS}\n\n{_diff(stored, stripped)}"
+
+
 def test_every_mechanism_is_enumerated(entries: dict) -> None:
     prefixes = {key.rsplit(":", 1)[0] if key.startswith("tool:") else key.split(":")[0] for key in entries}
     assert {

@@ -1,33 +1,5 @@
 #!/usr/bin/env python3
 
-"""Fail a TypeScript or JavaScript spec that reads source files as text.
-
-A spec that opens `bff/x.ts` with `readFileSync` and asserts that a string
-appears in it pins what the code says, not what it does: it passes while the
-behaviour is broken and fails on a rename that changes nothing. About 220 such
-specs had accumulated by 2026-11 (Wave B1 rewrote them). What may read the tree
-is a structural guard across it (every route declares authz, every table runs
-`secure_table`), and only when it parses the code with a real parser: those
-specs are listed in ``ALLOWLIST``, and a listed spec must import one of
-``PARSERS``.
-
-What counts as reading source text, in a spec or a test-support module:
-
-- it reads files (``READ_CALL``: `readFileSync`, `readdir`, `globSync`, …, a
-  local function that wraps one, or a function imported from a test-support
-  module that reads), and
-- it names a source file (``SOURCE_NAME``: `.ts`, `.tsx`, `.js`, `.py`, `.css`,
-  `.sql`, `Dockerfile`, …) in a string, template or regex that is not a module
-  specifier, a test title, a sentence, a generated file (whose freshness a
-  spec may check against its generator) or the script a spawned process runs, or
-- it imports a source file `?raw`.
-
-Data a spec reads (a JSON contract, a PDF or IFC fixture, a YAML stack file) is
-not source text and passes.
-
-Usage:
-    python scripts/check_spec_source_reads.py
-"""
 
 from __future__ import annotations
 
@@ -35,7 +7,8 @@ import re
 import subprocess
 import sys
 from dataclasses import dataclass
-from pathlib import Path, PurePosixPath
+from pathlib import Path
+from pathlib import PurePosixPath
 
 ALLOWLIST = Path("ci/ast_guard_specs.txt")
 DOC = "docs/contributing/code-conventions.md#specs-test-behaviour"
@@ -80,14 +53,11 @@ PARSERS = (
 
 @dataclass(frozen=True)
 class Literal:
-    """A string, template or regex literal: its text and where it starts."""
-
     text: str
     start: int
 
 
 def _regex_allowed(before: str) -> bool:
-    """Whether a `/` after the code ``before`` opens a regex literal rather than a division."""
     before = before.rstrip()
     if not before:
         return True
@@ -97,7 +67,6 @@ def _regex_allowed(before: str) -> bool:
 
 
 def scan(source: str) -> tuple[str, list[Literal]]:
-    """The source with comments blanked and every literal blanked to quotes, and the literals."""
     out: list[str] = []
     literals: list[Literal] = []
     i, n = 0, len(source)
@@ -126,7 +95,6 @@ def scan(source: str) -> tuple[str, list[Literal]]:
 
 
 def _literal_end(source: str, start: int) -> int:
-    """The index just past the literal that opens at ``start``."""
     quote = source[start]
     i, n = start + 1, len(source)
     depth = 0
@@ -159,7 +127,6 @@ def _literal_end(source: str, start: int) -> int:
 
 
 def _call_spans(code: str, names: tuple[str, ...] | set[str], *, bare: bool = False) -> list[tuple[int, int]]:
-    """The (open, close) offsets of the argument lists of calls to ``names``; ``bare`` skips `x.name(` calls."""
     if not names:
         return []
     spans = []
@@ -179,7 +146,6 @@ def _call_spans(code: str, names: tuple[str, ...] | set[str], *, bare: bool = Fa
 
 
 def _readers_defined(code: str, apis: set[str]) -> set[str]:
-    """Local functions whose body reads, found until none is added."""
     readers = set(apis)
     definition = re.compile(r"\b(?:const|let|function)\s+([A-Za-z_$][\w$]*)\s*(?:=\s*(?:async\s*)?)?")
     while True:
@@ -197,7 +163,6 @@ def _readers_defined(code: str, apis: set[str]) -> set[str]:
 
 
 def _const_owner(code: str, at: int) -> str | None:
-    """The name of the `const` whose one-statement initializer holds offset ``at``."""
     start = max(code.rfind(";", 0, at), code.rfind("\n\n", 0, at))
     match = None
     for match in re.finditer(r"\b(?:const|let)\s+([A-Za-z_$][\w$]*)\s*=", code[start + 1 : at]):
@@ -206,7 +171,6 @@ def _const_owner(code: str, at: int) -> str | None:
 
 
 def source_names(code: str, literals: list[Literal]) -> list[str]:
-    """The literals that name a source file and are neither a specifier, a test title nor a spawned script."""
     spawned = _call_spans(code, SPAWN_API, bare=True)
     in_spawn = lambda at: any(a < at < b for a, b in spawned)  # noqa: E731
     found = []
@@ -221,7 +185,9 @@ def source_names(code: str, literals: list[Literal]) -> list[str]:
             continue
         owner = _const_owner(code, literal.start)
         if owner:
-            uses = [u.start() for u in re.finditer(rf"(?<![\w$.]){re.escape(owner)}\b", code) if u.start() > literal.start]
+            uses = [
+                u.start() for u in re.finditer(rf"(?<![\w$.]){re.escape(owner)}\b", code) if u.start() > literal.start
+            ]
             if uses and all(in_spawn(u) for u in uses):
                 continue
         found.append(literal.text.strip()[:80])
@@ -229,20 +195,20 @@ def source_names(code: str, literals: list[Literal]) -> list[str]:
 
 
 def raw_source_imports(source: str) -> list[str]:
-    """`?raw` imports of a source file."""
-    return [m.group(1) for m in re.finditer(r"['\"]([^'\"]+\?raw)['\"]", source) if SOURCE_NAME.search(m.group(1).split("?")[0])]
+    return [
+        m.group(1)
+        for m in re.finditer(r"['\"]([^'\"]+\?raw)['\"]", source)
+        if SOURCE_NAME.search(m.group(1).split("?")[0])
+    ]
 
 
 @dataclass(frozen=True)
 class Finding:
-    """One file that reads source text, and what gave it away."""
-
     path: str
     names: tuple[str, ...]
 
 
 def _module_path(importer: str, specifier: str, known: set[str]) -> str | None:
-    """The tracked file an import specifier names, when it is ours."""
     if specifier.startswith("@/"):
         app = importer.split("/")[:2]
         base = PurePosixPath(*app, specifier[2:])
@@ -264,7 +230,6 @@ def _module_path(importer: str, specifier: str, known: set[str]) -> str | None:
 
 
 def imported_readers(path: str, source: str, readers_of: dict[str, set[str]], known: set[str]) -> set[str]:
-    """Names this file imports from a test-support module that are functions which read files."""
     names: set[str] = set()
     for match in re.finditer(r"import\s+(?:type\s+)?\{([^}]*)\}\s*from\s*['\"]([^'\"]+)['\"]", source):
         module = _module_path(path, match.group(2), known)
@@ -278,7 +243,6 @@ def imported_readers(path: str, source: str, readers_of: dict[str, set[str]], kn
 
 
 def find(root: Path, paths: list[str]) -> list[Finding]:
-    """Every file in ``paths`` (specs and test support) that reads source text."""
     known = set(paths)
     sources = {path: (root / path).read_text(encoding="utf-8", errors="replace") for path in paths}
     scanned = {path: scan(source) for path, source in sources.items()}
@@ -286,7 +250,9 @@ def find(root: Path, paths: list[str]) -> list[Finding]:
     readers_of: dict[str, set[str]] = {}
     for _ in range(3):
         readers_of = {
-            path: _readers_defined(scanned[path][0], set(READ_API) | imported_readers(path, sources[path], readers_of, known))
+            path: _readers_defined(
+                scanned[path][0], set(READ_API) | imported_readers(path, sources[path], readers_of, known)
+            )
             - set(READ_API)
             for path in support
         }
@@ -303,8 +269,11 @@ def find(root: Path, paths: list[str]) -> list[Finding]:
 
 
 def in_scope(path: str) -> bool:
-    """Whether ``path`` is a TS/JS spec or test-support module this check reads."""
-    return bool(SCRIPT.search(path)) and not EXCLUDED.search(path) and bool(TEST_FILE.search(path) or TEST_SUPPORT.search(path))
+    return (
+        bool(SCRIPT.search(path))
+        and not EXCLUDED.search(path)
+        and bool(TEST_FILE.search(path) or TEST_SUPPORT.search(path))
+    )
 
 
 def tracked(root: Path) -> list[str]:
@@ -320,12 +289,10 @@ def load_allowlist(path: Path) -> list[str]:
 
 
 def parses(source: str) -> bool:
-    """Whether a spec imports a real parser, which a listed guard must."""
     return any(re.search(rf"""['"]{re.escape(parser)}['"]""", source) for parser in PARSERS)
 
 
 def check(root: Path) -> list[str]:
-    """Problems: unlisted specs reading source text, and listed ones that are not AST guards or no longer read."""
     allowed = load_allowlist(root / ALLOWLIST)
     findings = {finding.path: finding for finding in find(root, tracked(root))}
     problems = []
@@ -352,7 +319,6 @@ def check(root: Path) -> list[str]:
 
 
 def main() -> int:
-    """CLI entry point: exit 1 when a spec reads source text it may not."""
     problems = check(Path.cwd())
     if problems:
         print(f"Spec source-read check FAILED ({len(problems)}):", file=sys.stderr)

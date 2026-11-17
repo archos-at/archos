@@ -1,63 +1,3 @@
-"""The structured answer envelope (``answer_json``): the answer IS a document.
-
-A research answer is generated as ONE JSON object in a fenced ``answer_json``
-block — the schema is taught in the system prompt and RENDERED FROM the models
-in this module (:func:`render_envelope_schema`), so the contract the model sees
-and the validator that enforces it cannot drift. The object's required
-``answer`` field carries the markdown prose (citations, the sources section and
-the trailing control markers included, so the whole verification pipeline keeps
-operating on one string); the other fields are the answer's own RHETORICAL
-anatomy, every one optional: the headline verdict, the nominal topic, the
-one-line context scope, the takeaways, the single callout.
-
-They used to be ordinary card types the model emitted through ``emit_card``,
-which was wrong twice over — emission was optional twice (the model had to
-recognise the trigger AND spend a tool call), and the domain model was muddy: a
-verdict is not an exhibit attached BESIDE the answer the way a stair diagram
-is, it is the answer's own headline. So they are NATIVE answer fields,
-structured from generation onwards: parsed and validated here, gated
-deterministically, and carried on the answer itself — ``answer_meta`` beside
-``answer_confidence`` on the wire — where the frontend renders them in a FIXED
-layout (verdict above the prose, callout and takeaways after it). The model
-decides content, never placement. The retired card TYPES stay valid union
-members only so stored threads keep rendering.
-
-**Extension contract.** The envelope is versioned (:data:`ENVELOPE_VERSION`,
-stamped as ``v`` on the wire payload) and the anatomy is a REGISTRY
-(:data:`ANATOMY_FIELDS`): one entry per field, carrying its model and its
-deterministic gate. Adding a field is one registry entry, one earned-when line
-in the prompt section, and one layout slot in the frontend — nothing else
-changes, and the schema the model sees updates itself. Unknown fields in a
-model's output are ignored (never fatal), and the frontend sanitizer keeps a
-newer payload's version stamp and every field it knows, so a rollback renders
-what it can instead of blanking the row.
-
-**Home.** ``common/`` rather than under the agent, deliberately: the deep
-writer's report is the obvious next adopter of the same contract (the job
-runner already parses a trailing ``[CONFIDENCE:…]`` line out of
-``/shared/output.md``; the envelope generalises that), and a contract two
-agents share must not live in one agent's package.
-
-Fail-open in every direction, and the asymmetry is deliberate: a malformed
-envelope may cost the ENRICHMENT, never the ANSWER. Parsing is safe to attempt
-at all because what the reader sees before this module has run is only
-provisional frames (the masthead, the ``answer`` prose with its markers pending,
-the cards as they close), and the terminal frame built from this module's output
-replaces them (ADR-0066).
-
-The gates are the point, not an accident (see ``docs/architecture/cards.md``):
-
-- a verdict must be a short VALUE the reader can copy — a number, a class,
-  „Nicht geregelt" — so anything longer than :data:`VERDICT_VALUE_MAX_CHARS`
-  is a heading claiming too much, and is dropped. It is also exclusive to
-  ``kind=ruling``; an absent kind is the legacy envelope and keeps today's
-  behaviour (the verdict may survive);
-- a takeaway block is earned by an answer long enough to need one
-  (:data:`TAKEAWAYS_MIN_PROSE_CHARS`, mirroring the frontend's lede threshold)
-  and holds two to five items, never more;
-- at most ONE callout, by schema shape.
-"""
-
 from __future__ import annotations
 
 import json
@@ -122,14 +62,10 @@ ANSWER_KINDS: tuple[str, ...] = get_args(AnswerKind)
 
 
 class _EnvelopeModel(BaseModel):
-    """Base for envelope models: ignore unknown fields, model output is untrusted."""
-
     model_config = {"extra": "ignore"}
 
 
 class AnswerMetaReference(_EnvelopeModel):
-    """The Fundstelle a verdict rests on; mirrors the card NormReference."""
-
     document: str = Field(min_length=1, description="e.g. 'OIB-Richtlinie 2'")
     section: str | None = Field(default=None, description="e.g. 'Tabelle 1b'")
     edition: str | None = Field(default=None, description="e.g. 'Ausgabe Mai 2023'")
@@ -144,15 +80,6 @@ class AnswerMetaVerdict(_EnvelopeModel):
 
 
 class AnswerMetaTakeaway(_EnvelopeModel):
-    """One row of „Das Wichtigste" — the claim, and the footnote folded behind it.
-
-    Both descriptions are long on purpose: they are the only guidance that
-    reaches BOTH the taught schema and the provider-enforced one, and the two
-    failures they name are the two this block actually shipped — a row that is
-    a topic („Rechtsgrundlage") instead of a claim, and a `detail` so thin that
-    opening it repaid nothing.
-    """
-
     text: str = Field(
         min_length=1,
         description=(
@@ -193,8 +120,6 @@ class AnswerMetaCallout(_EnvelopeModel):
 
 
 class AnswerMetaWorkItem(_EnvelopeModel):
-    """One line of a work report: what, and the object, the person and the time it names."""
-
     text: str = Field(min_length=1, description="one line, what was done, proposed, blocked or comes next")
     ref: str | None = Field(
         default=None, description="the id it is about: the proposal id for a proposal, else the object's id"
@@ -206,8 +131,6 @@ class AnswerMetaWorkItem(_EnvelopeModel):
 
 
 class AnswerMetaWork(_EnvelopeModel):
-    """The report of an operations turn: what ran, what waits as a proposal, what is blocked, what is next."""
-
     done: list[AnswerMetaWorkItem] | None = Field(
         default=None, description="what this turn read or did that needed no one's yes"
     )
@@ -222,15 +145,6 @@ class AnswerMetaWork(_EnvelopeModel):
 
 
 class AnswerMetaConfidence(_EnvelopeModel):
-    """The self-assessment, as a field instead of a bracket grammar.
-
-    The canonical carrier of what the ``[CONFIDENCE:…]`` marker used to say;
-    the marker stays UNDERSTOOD as a fallback (and the deep writer still uses
-    it), so the two never race — the envelope wins when both appear. The value
-    surfaced to the reader is still decided by the server-side overconfidence
-    guard, never here.
-    """
-
     level: Literal["low", "medium", "high"]
     reason: str | None = Field(
         default=None, description="one short clause naming the decisive grounding fact, in the answer's language"
@@ -238,23 +152,6 @@ class AnswerMetaConfidence(_EnvelopeModel):
 
 
 class AnswerMeta(_EnvelopeModel):
-    """The validated envelope beyond ``answer``. Every field optional.
-
-    Two kinds of field, deliberately separate: ANATOMY (kind, summary, verdict,
-    topic, context, takeaways, callout — rendered content, gated through :data:`ANATOMY_FIELDS`
-    onto the wire) and CONTROL (confidence, escalate_to_deep — signals the
-    platform consumes, which never ride the ``answer_meta`` wire payload;
-    confidence travels as ``answer_confidence`` exactly as it always has).
-
-    ``kind`` is exclusive: a verdict is kept only for ``ruling``. An absent
-    kind is the legacy envelope and keeps today's behaviour. Unknown values
-    are coerced to ``walkthrough`` (no verdict) rather than failing open
-    to a ruling. ``topic`` and ``context`` render in the masthead and have no
-    gate interaction with ``kind`` — the frontend prefers the verdict masthead
-    when it shows, the backend keeps both; the model decides content, never
-    placement.
-    """
-
     kind: AnswerKind | None = Field(
         default=None,
         description=(
@@ -344,8 +241,6 @@ class AnswerMeta(_EnvelopeModel):
 
 @dataclass(frozen=True)
 class GateContext:
-    """Everything a gate may judge an answer by. Extend here, not per gate."""
-
     prose_chars: int
     agent_authored_documents: frozenset[str] = frozenset()
     prose: str = ""
@@ -367,7 +262,6 @@ _NOT_PROSE_BLOCK = ("|", "```", "[[", "#", "- ", "* ", "> ", "$$")
 
 
 def _content_words(text: str) -> set[str]:
-    """Words that carry meaning, clipped to a crude stem so „Gebäude"/„Gebäuden" match."""
     plain = re.sub(r"\[\d+\]|\*\*|\[\[[^\]]*\]\]", " ", text.lower())
     return {word[:5] for word in _CONTENT_WORD.findall(plain)}
 
@@ -381,7 +275,6 @@ _SENTENCE = re.compile(r"[^.!?]+[.!?](?:\s*\[\d+\])*(?=\s|$)")
 
 
 def _sentence_count(text: str) -> int:
-    """How many sentences `text` has, not counting an abbreviation's period as an end."""
     return len(_SENTENCE.findall(_ABBREVIATION.sub(lambda m: m.group().replace(".", ""), text)))
 
 
@@ -394,15 +287,6 @@ def _prose_paragraphs(prose: str) -> list[str]:
 
 
 def _summary_redundant(summary: str, prose: str) -> str | None:
-    """Why the prose already says what the summary says, or None.
-
-    The standfirst sits directly above the prose, and the prose is told to
-    open with the answer, so a summary earns its place only by saying what the
-    opening does not: the consequence for this reader (the prompt's
-    "Vier Fächer" rule). Two cases say it twice: a reply of two sentences or
-    fewer, which is its own summary, and a summary whose words are mostly the
-    opening paragraph's.
-    """
     if not prose.strip():
         return None
     blocks = [block for block in re.split(r"\n\s*\n", prose) if block.strip()]
@@ -479,21 +363,6 @@ def _gate_kind(meta: AnswerMeta, ctx: GateContext) -> str | None:
 
 
 def _verdict_drop_reason(verdict: AnswerMetaVerdict, ctx: GateContext) -> str | None:
-    """Why this verdict may not stand as the answer's headline, or ``None``.
-
-    Two refusals, and the second exists because the first could be walked
-    around. A verdict whose Fundstelle names a document AGENT wrote is dropped
-    — an approved office document is evidence of what the OFFICE decided, never
-    of what the OIB requires. A verdict with NO Fundstelle cannot be judged that
-    way at all, so on a turn that retrieved agent-authored material the gate
-    fell open: omitting the reference was the cheapest route to the same
-    headline, resting on the same document, with the evidence left out.
-
-    So the absent reference is refused too, and only on such a turn. When
-    nothing agent-authored was retrieved there is nothing for the headline to
-    launder, and a verdict the model chose not to attribute — „Nicht geregelt"
-    is the common one — keeps standing exactly as before.
-    """
     if _names_agent_authored_document(verdict.reference, ctx):
         return VERDICT_DROP_AGENT_AUTHORED
     if verdict.reference is None and ctx.agent_authored_documents:
@@ -502,16 +371,6 @@ def _verdict_drop_reason(verdict: AnswerMetaVerdict, ctx: GateContext) -> str | 
 
 
 def _names_agent_authored_document(reference: AnswerMetaReference | None, ctx: GateContext) -> bool:
-    """Whether a verdict's Fundstelle names a document AGENT wrote.
-
-    ``reference.document`` is free text a model produced, so the comparison is
-    on normalised names and matches in BOTH directions: the reference may carry
-    the document plus an annotation („Brandschutzkonzept Haus B (Büroablage)"),
-    or be the bare slug of a longer stored title. Deliberately eager — the cost
-    of a false positive is a headline the reader loses while the prose keeps
-    every word of the answer, and the cost of a false negative is a normative
-    value presented as if the OIB required it.
-    """
     if reference is None or not ctx.agent_authored_documents:
         return False
     named = normalize_document_name(reference.document)
@@ -564,19 +423,6 @@ def _gate_callout(meta: AnswerMeta, ctx: GateContext) -> dict | None:
 
 
 def _takeaway_payload(item: AnswerMetaTakeaway) -> dict:
-    """One takeaway on the wire, without a ``detail`` that opens onto nothing.
-
-    A row WITH a detail is a button in the frontend; a row without one is not
-    (``KeyTakeawaysCard.tsx``). So a detail that repeats its own claim does not
-    merely waste a line — it teaches the reader the chevrons are decorative, and
-    then they stop opening the ones that are not.
-
-    Blank and verbatim-restated are the two forms of that a gate can judge
-    without guessing at editorial quality; the rest is the schema's job
-    (:class:`AnswerMetaTakeaway`, whose description says what a detail must
-    carry). Deliberately not a similarity test: a detail that qualifies the
-    claim in words close to it is exactly what the field is for.
-    """
     text = item.text.strip()
     detail = (item.detail or "").strip()
     if not detail or detail.casefold() == text.casefold():
@@ -604,7 +450,6 @@ def _gate_takeaways(meta: AnswerMeta, ctx: GateContext) -> list | None:
 
 
 def _work_item_payload(item: AnswerMetaWorkItem) -> dict | None:
-    """One line on the wire, or None when it is not a line (blank, or a paragraph)."""
     text = item.text.strip()
     if not text or len(text) > WORK_TEXT_MAX_CHARS:
         return None
@@ -617,7 +462,6 @@ def _work_item_payload(item: AnswerMetaWorkItem) -> dict | None:
 
 
 def _gate_work(meta: AnswerMeta, ctx: GateContext) -> dict | None:
-    """The work report, kept only on a work turn, each list bounded, paragraphs dropped."""
     if meta.work is None:
         return None
     if meta.kind != "work":
@@ -641,15 +485,6 @@ def _gate_work(meta: AnswerMeta, ctx: GateContext) -> dict | None:
 
 
 def drop_unfiled_proposals(payload: dict | None, filed: frozenset[str]) -> tuple[dict | None, int]:
-    """``payload`` without the work report's ``proposed`` lines whose ``ref`` names no proposal filed this turn.
-
-    A ``proposed`` line tells the person a decision waits for them; one the
-    turn did not file sends them to an inbox with nothing in it. ``filed`` is
-    the ids the server returned for this turn's writes
-    (``workspace_records.filed_proposal_ids``), lower-cased; a line without a
-    ``ref`` names none of them. Returns the payload (``work`` gone when nothing
-    is left in it) and how many lines were dropped.
-    """
     work = (payload or {}).get("work")
     if not isinstance(work, dict) or not work.get("proposed"):
         return payload, 0
@@ -669,13 +504,6 @@ def drop_unfiled_proposals(payload: dict | None, filed: frozenset[str]) -> tuple
 
 @dataclass(frozen=True)
 class AnatomyField:
-    """One envelope field: its wire name and its deterministic gate.
-
-    The registry order is also the frontend's render order contract for the
-    fields that share a slot; the frontend owns the LAYOUT (verdict above the
-    prose, the rest after it), this owns which content survives.
-    """
-
     name: str
     gate: Callable[[AnswerMeta, GateContext], object | None]
 
@@ -693,11 +521,6 @@ ANATOMY_FIELDS: tuple[AnatomyField, ...] = (
 
 
 def _object_end(raw: str, start: int) -> int | None:
-    """The index just past the JSON object opening at ``raw[start]``, or None.
-
-    String-aware, so a brace or a fence inside a string value is text, not
-    structure. None when the object never closes.
-    """
     depth = 0
     in_string = False
     escaped = False
@@ -723,11 +546,6 @@ def _object_end(raw: str, start: int) -> int | None:
 
 
 def _envelope_blocks(content: str) -> list[tuple[int, int, str]]:
-    """Every fenced envelope as ``(start, end, body)``, in order.
-
-    ``body`` is the JSON object; ``start``/``end`` span the whole block, fences
-    included, so the trailer form can cut it out of the prose.
-    """
     blocks: list[tuple[int, int, str]] = []
     position = 0
     while opening := _ANSWER_JSON_OPEN_RE.search(content, position):
@@ -751,7 +569,6 @@ def _envelope_blocks(content: str) -> list[tuple[int, int, str]]:
 
 
 def _without_blocks(content: str, blocks: list[tuple[int, int, str]]) -> str:
-    """``content`` with every envelope block cut out."""
     kept: list[str] = []
     position = 0
     for start, end, _ in blocks:
@@ -762,13 +579,6 @@ def _without_blocks(content: str, blocks: list[tuple[int, int, str]]) -> str:
 
 
 def _parse_object(raw: str) -> dict | None:
-    """One JSON object out of ``raw``, tolerating trailing junk; None if none.
-
-    ``strict=False`` for the same reason ``emit_card`` uses it: a raw newline
-    inside a JSON string is how a model writes a two-sentence detail. When a
-    direct parse fails, a brace-balanced re-scan from the first ``{`` recovers
-    the common failure of text before/after an otherwise well-formed object.
-    """
     try:
         payload = json.loads(raw, strict=False)
         return payload if isinstance(payload, dict) else None
@@ -788,7 +598,6 @@ def _parse_object(raw: str) -> dict | None:
 
 
 def _validated_meta(payload: dict) -> AnswerMeta | None:
-    """The payload's anatomy fields as a validated model, or None. Fail-open."""
     try:
         meta = AnswerMeta.model_validate(payload)
     except ValidationError as exc:
@@ -801,14 +610,6 @@ _ANSWER_KEY_RE = re.compile(r'"answer"\s*:\s*(?=")')
 
 
 def _recover_answer_string(raw: str) -> str | None:
-    """The ``answer`` string out of an envelope that does not parse as a whole.
-
-    Only a value that decodes as one complete JSON string counts: a model that
-    broke the object AFTER its prose (a stray brace in a card, a cut trailer)
-    loses the anatomy and keeps the answer. A broken string itself (a bad
-    escape, no closing quote) recovers nothing, so no JSON fragment is ever
-    shipped as prose; the caller then leaves the reply untouched as before.
-    """
     match = _ANSWER_KEY_RE.search(raw)
     if match is None:
         return None
@@ -823,26 +624,6 @@ _PROSE_OUTSIDE_WARN_CHARS = 200
 
 
 def extract_answer_envelope(content: object) -> tuple[object, AnswerMeta | None]:
-    """Split a research reply into its prose and its validated anatomy.
-
-    The contract is one fenced ```answer_json object whose ``answer`` field is
-    the markdown prose; extraction is deliberately more tolerant than the
-    contract, in this order:
-
-    1. A fenced ``answer_json`` object with a usable ``answer`` string — the
-       contract shape. Prose is that field; anatomy is the rest.
-    2. A reply that IS one bare JSON object with an ``answer`` key — a model
-       that dropped the fence. Same split.
-    3. A fenced object WITHOUT a usable ``answer`` — the trailer form (prose
-       outside, anatomy inside). Prose is the content with the fences removed;
-       anatomy comes from the object.
-    4. Anything else — plain prose. Returned unchanged with no anatomy.
-
-    Fail-open with one invariant: the ANSWER is never lost. A fence whose JSON
-    cannot be parsed at all is left standing in the content (ugly beats gone)
-    and logged. Must run BEFORE the control-marker detectors, which are
-    tail-anchored on the prose this returns.
-    """
     if not isinstance(content, str):
         return content, None
 
@@ -894,24 +675,6 @@ _HEADLESS_TAIL_RE = re.compile(r'"\s*,\s*(?="(?:' + "|".join(sorted(map(re.escap
 
 
 def _salvage_headless(content: str) -> tuple[str, AnswerMeta | None] | None:
-    """An envelope whose opening (the fence and `{"answer": "`) is missing.
-
-    Seen live (September 2026 suite, 1 reply in 27): the model began with the
-    prose itself and switched into JSON half way, `…p.5", "kind":"ruling",
-    "confidence":{…}}` plus the closing fence. Read as plain prose, the reader
-    got that JSON tail under the answer and the turn lost its verdict, its
-    confidence and its cards. The tail need not open with ``kind``: answer
-    feedback (October 2026) caught one that opened `…p.1", "confidence":{…}}`
-    and shipped as prose. Whatever stands before the first `", "<key>":` is
-    the answer when the rest, opened with `{`, parses whole as one envelope
-    object. The top-level keys come before any nested card's, so a nested
-    `", "kind":` is never the cut, and prose quoting JSON is untouched.
-
-    A reply that opens with `{` or the ``answer_json`` fence HAS its head: it is
-    an object that did not parse, and a nested `", "kind":` (a callout's) would
-    cut it into a JSON fragment passed off as prose. It is left to the caller's
-    fail-open path instead.
-    """
     head = content.lstrip()
     if head.startswith("{") or head.startswith(f"```{ENVELOPE_FENCE}"):
         return None
@@ -932,14 +695,6 @@ def _salvage_headless(content: str) -> tuple[str, AnswerMeta | None] | None:
 
 
 def _headless_tail(tail: str) -> dict | None:
-    """``tail`` as the envelope's remaining top-level object, or None.
-
-    The whole tail must be ONE object whose keys are all envelope keys, and
-    whose kind, if it has one, is an answer kind. A nested card's `", "kind":`
-    (a callout's ``note``) leaves `]}` after its own object and a kind that
-    is no answer kind, so it is refused rather than cut at; an object with a
-    key the envelope does not have is someone else's JSON.
-    """
     try:
         payload, end = json.JSONDecoder(strict=False).raw_decode("{" + tail)
     except json.JSONDecodeError:
@@ -961,26 +716,6 @@ def gate_answer_meta(
     prose: str = "",
     record: bool = True,
 ) -> dict | None:
-    """Run the registry's gates and return the versioned wire payload, or None.
-
-    The payload is what rides the answer as its ``answer_meta`` field: the
-    contract version under ``v`` plus every surviving anatomy field, gated-out
-    fields absent rather than null. Callers pass ``prose_chars`` as the length
-    of the answer's prose WITHOUT the sources section, so the takeaway gate
-    judges the answer, not its apparatus.
-
-    ``agent_authored_documents`` is what the turn retrieved that AGENT wrote
-    (``citations.source_identity.agent_authored_document_names``); a verdict whose
-    Fundstelle resolves into it is dropped, and so is a verdict that names no
-    Fundstelle at all — see :func:`_verdict_drop_reason` for why the second
-    refusal is not the first one being over-eager. Defaulted so a caller with no
-    registry — the deep writer's report path, a test — behaves exactly as
-    before.
-
-    ``record=False`` gates without recording a drop as a turn event: the live
-    stream gates the same masthead provisionally, twice, and the finished
-    answer's gating is the one that counts.
-    """
     ctx = GateContext(
         prose_chars=prose_chars, agent_authored_documents=agent_authored_documents, prose=prose, record=record
     )
@@ -995,20 +730,6 @@ def gate_answer_meta(
 
 
 def resolve_callout_marker(prose: str, *, has_callout: bool) -> str:
-    """Leave at most one placeable ``[[callout]]`` in ``prose``, or none.
-
-    Runs after gating, on the final answer text. Two invariants, mirroring the
-    card-marker contract on the frontend:
-
-    - The reader never meets a marker with nothing behind it: when the callout
-      was gated out (or the envelope carried none), every occurrence is
-      stripped — the own-line form with its whole line, the mid-sentence form
-      in place.
-    - One callout, one slot: when the callout survived, the FIRST own-line
-      marker stays and every later or mid-sentence occurrence goes. The
-      frontend would place a slot per marker, and a warning drawn twice reads
-      as two warnings.
-    """
     if CALLOUT_MARKER not in prose:
         return prose
 
@@ -1025,7 +746,6 @@ def resolve_callout_marker(prose: str, *, has_callout: bool) -> str:
 
 
 def _shape(model_cls: type[BaseModel]) -> str:
-    """A model's fields as ``{ name*: type (desc), ... }`` — one line, compact."""
     parts: list[str] = []
     for name, info in model_cls.model_fields.items():
         annotation = info.annotation
@@ -1051,19 +771,6 @@ def _shape(model_cls: type[BaseModel]) -> str:
 
 
 def _strict_property(annotation: object, *, required: bool) -> dict:
-    """One field's strict-mode JSON schema, derived from its annotation.
-
-    Strict structured outputs (OpenRouter/OpenAI ``json_schema`` with
-    ``strict: true``) require EVERY key present and ``additionalProperties:
-    false`` — optionality is expressed as a nullable type, not an absent key.
-    The envelope models already accept explicit ``null`` everywhere a field is
-    optional (``X | None`` throughout), so an enforced reply parses through
-    the same validator as a fenced one.
-
-    Raises on an annotation shape no envelope field has, deliberately: a new
-    field whose type this walker cannot express must fail the test suite at
-    the registry, not ship a silently wrong schema to the provider.
-    """
     origin = get_origin(annotation)
     if origin is Union or origin is UnionType:
         members = [a for a in get_args(annotation) if a is not type(None)]
@@ -1096,7 +803,6 @@ def _strict_property(annotation: object, *, required: bool) -> dict:
 
 
 def _strict_object(model_cls: type[BaseModel]) -> dict:
-    """A model as a strict-mode object schema: all keys required, closed."""
     properties: dict[str, dict] = {}
     for name, info in model_cls.model_fields.items():
         extra = info.json_schema_extra if isinstance(info.json_schema_extra, dict) else {}
@@ -1118,7 +824,6 @@ MASTHEAD_FIELDS = ("kind", "topic", "context", "verdict", "summary")
 
 
 def _masthead_first(properties: dict) -> dict:
-    """``properties`` reordered: the masthead fields, then ``answer``, then the rest."""
     head = {name: properties[name] for name in MASTHEAD_FIELDS if name in properties}
     answer = {"answer": properties["answer"]} if "answer" in properties else {}
     rest = {name: value for name, value in properties.items() if name not in head and name != "answer"}
@@ -1126,16 +831,6 @@ def _masthead_first(properties: dict) -> dict:
 
 
 def render_envelope_response_format() -> dict:
-    """The provider-enforced shape of a research reply, for ``response_format``.
-
-    OpenRouter structured outputs (``type: json_schema``, ``strict: true``):
-    on a supporting provider the reply IS one schema-valid JSON object — no
-    fence, no prose around it — which the extractor's bare-object tier already
-    accepts. Derived from the same Pydantic models as the validator and the
-    prompt schema, so the three cannot drift. The deterministic gates stay the
-    editorial enforcement (a schema cannot know the answer is too short to
-    earn takeaways); this only guarantees the syntax and the shape.
-    """
     schema = _strict_object(AnswerMeta)
     schema["properties"] = _masthead_first(
         {
@@ -1154,7 +849,6 @@ def render_envelope_response_format() -> dict:
 
 
 def _masthead_lines_first(lines: list[str]) -> list[str]:
-    """The schema lines in the order the reply is written: masthead, answer, rest."""
     named = {line.split(":", 1)[0].rstrip("*"): line for line in lines}
     order = [*MASTHEAD_FIELDS, "answer"]
     head = [named[name] for name in order if name in named]
@@ -1162,14 +856,6 @@ def _masthead_lines_first(lines: list[str]) -> list[str]:
 
 
 def render_envelope_schema() -> str:
-    """The envelope's field spec for the system prompt, derived from the models.
-
-    Fields marked ``*`` are required; everything else is omitted rather than
-    nulled. Rendered rather than hand-written so a registry change reaches the
-    model in the same commit that changes the validator — the drift between a
-    taught schema and an enforced one is exactly what this module exists to
-    close.
-    """
     lines = [
         "answer*: string (the full written answer: markdown prose with [N] citations and the sources section)",
         f"confidence: {_shape(AnswerMetaConfidence)}",

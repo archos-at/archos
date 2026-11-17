@@ -114,14 +114,14 @@ def test_a_file_the_store_holds_no_chunk_of_reads_as_none(qdrant_store):  # noqa
 
 @pytest.mark.parametrize("reader", [read_chunks, read_pages])
 def test_an_unreachable_store_raises_rather_than_reading_as_no_chunks(reader, qdrant_store, monkeypatch):  # noqa: ARG001
-    from knowledge_layer.vector_store import store as store_module
+    from knowledge_layer.vector_store import QdrantStore
 
     qt.write("proj_down", _ingested_records("da.pdf", LINES[:1]))
 
     def down(*_args, **_kwargs):
         raise ConnectionError("qdrant down")
 
-    monkeypatch.setattr(store_module.QdrantStore, "scroll", down)
+    monkeypatch.setattr(QdrantStore, "scroll", down)
     with pytest.raises(ConnectionError):
         reader("proj_down", "da.pdf")
 

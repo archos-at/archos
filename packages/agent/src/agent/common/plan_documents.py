@@ -1,27 +1,3 @@
-"""The documents a reader names for a run: the Unterlagen on the Rechercheplan.
-
-Three intentions travel here, and they are kept apart because a run does
-different things with each:
-
-- **Grundlage** — documents the run must read in full, whatever else it finds.
-  The planner gives each its own research query, the writer cites them, and a
-  Grundlage document the run never reached is named as unread on the report:
-  it marks the report rather than blocking it, because a report that names
-  what it missed is still worth more than no report.
-- **Ausgeschlossen** — documents the run may not use. An excluded document
-  never enters the run's source registry, so it can neither be cited nor
-  quoted; a citation to it is stripped like one to a source that does not
-  exist.
-- The **Rahmen** — which sources the run may draw on at all — is not a list of
-  documents but the composer's own Datengrundlage, and travels as
-  ``data_sources`` beside this.
-
-Identity is the knowledge layer's own: ``(file_name, shelf)`` as
-``AvailableDocument`` states it (ADR-0047). A name that is not in the turn's
-inventory is dropped at the plan card, so a run is never told to read a file
-that nobody can find.
-"""
-
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -43,8 +19,6 @@ _LEGACY_KEYS = {new: old for old, new in LEGACY_PLAN_DOCUMENT_KEYS.items()}
 
 
 class PlanDocument(BaseModel):
-    """One document the reader named, as the run and the run block name it."""
-
     model_config = ConfigDict(extra="forbid")
 
     name: str = Field(min_length=1, max_length=MAX_DOCUMENT_NAME_CHARS)
@@ -57,8 +31,6 @@ class PlanDocument(BaseModel):
 
 
 class PlanDocuments(BaseModel):
-    """What the reader named on the plan: the wire shape between every tier."""
-
     model_config = ConfigDict(extra="forbid")
 
     basis: list[PlanDocument] = Field(default_factory=list, max_length=MAX_PLAN_DOCUMENTS)
@@ -67,7 +39,6 @@ class PlanDocuments(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def _legacy_keys(cls, data: Any) -> Any:
-        """A checkpointed run state or a pod that has not rolled yet still says ``grundlage``."""
         if not isinstance(data, dict):
             return data
         out = dict(data)
@@ -95,12 +66,6 @@ def _clip(value: Any, limit: int) -> str | None:
 
 
 def sanitize_plan_documents(raw: Any) -> PlanDocuments | None:
-    """Reduce an untrusted payload to the contract; ``None`` when nothing survives.
-
-    Fail-soft per row, like the findings sanitiser: a row without a name is
-    dropped, the rest stay, a name in both lists is excluded (the stricter
-    intention wins), and the caps apply after deduplication.
-    """
     if not isinstance(raw, dict):
         return None
     out = PlanDocuments()
@@ -138,13 +103,6 @@ def _document_from(row: Any) -> PlanDocument | None:
 
 
 def resolve_documents(names: list[Any], inventory: list[dict[str, Any]] | None) -> list[PlanDocument]:
-    """The named documents, as the turn's inventory knows them.
-
-    A name matches a row's ``file_name`` or its ``display_title``, case-folded.
-    Without an inventory nothing resolves: a run is only ever told to read a
-    document somebody could find, and the plan card, not the model, is the
-    place where a typo is corrected.
-    """
     rows = inventory or []
     by_key: dict[str, dict[str, Any]] = {}
     for row in rows:
@@ -178,7 +136,6 @@ def resolve_documents(names: list[Any], inventory: list[dict[str, Any]] | None) 
 def documents_from_plan(
     basis: list[str], excluded: list[str], inventory: list[dict[str, Any]] | None
 ) -> PlanDocuments | None:
-    """Both lists resolved against the inventory; an excluded name beats a Grundlage one."""
     resolved_excluded = resolve_documents(excluded, inventory)
     excluded_keys = {_fold(doc.name) for doc in resolved_excluded}
     read = [doc for doc in resolve_documents(basis, inventory) if _fold(doc.name) not in excluded_keys]
@@ -189,11 +146,6 @@ def documents_from_plan(
 def unread_basis(
     documents: PlanDocuments | None, read_names: set[str], added: Sequence[PlanDocument] = ()
 ) -> list[PlanDocument]:
-    """The Grundlage the run did not reach, given the file names it did read.
-
-    ``added`` is what the reader added while the run went: Grundlage too, and
-    as easily left unread. Each document is named once.
-    """
     basis = [*(documents.basis if documents is not None else ()), *added]
     seen = {_fold(name) for name in read_names}
     unread: list[PlanDocument] = []

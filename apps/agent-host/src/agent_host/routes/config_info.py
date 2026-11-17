@@ -1,17 +1,3 @@
-"""Workflow-configuration introspection for the BFF.
-
-``GET /v1/config/llm-defaults`` reports which model each named LLM in the
-loaded workflow YAML uses. The org model-config UI shows these as the
-"workflow default" per agent group (ADR-0014) so admins can see what they are
-overriding — and what a reset returns to.
-
-Reachable only over the compose network in practice (the middleware already
-distinguishes internal callers); additionally guarded with the shared
-``INTERNAL_API_TOKEN`` when one is configured, mirroring the BFF's
-internal endpoints. Model names are not secrets — the guard is consistency,
-not confidentiality.
-"""
-
 import hmac
 import logging
 import os
@@ -36,7 +22,6 @@ def _token_ok(request: Request) -> bool:
 
 
 def add_config_info_routes(router: APIRouter, llm_configs: Mapping[str, Any]) -> None:
-    """Register the llm-defaults route over the loaded workflow config."""
 
     defaults = {
         name: getattr(config, "model_name", None) or getattr(config, "model", None)

@@ -12,7 +12,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 @pytest.fixture(scope="module")
 def checker():
-    spec = importlib.util.spec_from_file_location("check_spec_source_reads", ROOT / "scripts" / "check_spec_source_reads.py")
+    spec = importlib.util.spec_from_file_location(
+        "check_spec_source_reads", ROOT / "scripts" / "check_spec_source_reads.py"
+    )
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None
     sys.modules[spec.name] = module
@@ -74,7 +76,11 @@ def test_a_local_read_helper_and_a_walk_filtered_by_extension_are_reads(checker,
 
 
 def test_a_reader_imported_from_test_support_counts(checker, repo):
-    add(repo, "tests/test-utils/disk.ts", "import { readFileSync } from 'node:fs'\nexport const text = (p: string) => readFileSync(p, 'utf8')\n")
+    add(
+        repo,
+        "tests/test-utils/disk.ts",
+        "import { readFileSync } from 'node:fs'\nexport const text = (p: string) => readFileSync(p, 'utf8')\n",
+    )
     add(repo, "app/uses.spec.ts", "import { text } from '../tests/test-utils/disk'\nit('x', () => text('bff/a.ts'))\n")
 
     assert [f.path for f in checker.find(repo, checker.tracked(repo))] == ["app/uses.spec.ts"]

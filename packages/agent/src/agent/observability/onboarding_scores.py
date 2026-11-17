@@ -1,13 +1,3 @@
-"""The scores the country onboarding tooling produces (ADR-0174), declared into ``SCORE_DEFINITIONS``.
-
-- ``advice-policy-held``: the judge reads an answered turn that carried a site's advice policy (its hedge codes
-  in the trace metadata, ``hedges``, and the tag :data:`ADVICE_POLICY_TRACE_TAG`) and says whether the answer
-  kept to it. The rule runs only on such turns, so a turn without a policy is never graded against one.
-- ``freshness-lag-days``: written by the BFF's source monitor (``bff/base-knowledge/platform/monitor.ts``) on its
-  run's trace, one per watched source, its item the source's record id: days since the source's last
-  successful check. The monitor writes it whether or not the source changed, so a silent source shows as lag.
-"""
-
 from __future__ import annotations
 
 from .score_definition import ScoreDefinition

@@ -1,59 +1,3 @@
-"""Where an upload belongs: the agent's filing judgement, one bounded call per upload batch.
-
-``POST /v1/filing-fit`` is the model half of the filing suggestion
-(``docs/architecture/proposed-changes.md``, „Ablage"). The BFF
-(``apps/workspace/bff/filing/``) has already decided everything a person's
-access decides: which documents of the batch the uploader may see, which
-folders are open to every reader (a restricted folder is never sent, ADR-0087),
-and whether a document's screening passed (ADR-0086). This route reads nothing
-of its own. It gets:
-
-* the shelf's folders, each with its path, the description a person wrote and
-  the Dokumentarten already filed there;
-* the office's conventions: folder paths its other projects use, with their
-  descriptions, or an Austrian default when the office has none;
-* the batch's documents: file name, the folder it landed in, and, once
-  ingestion has read it, its Dokumentart, tags and summary.
-
-The model names, per document, a folder that clearly fits better, or nothing.
-Silence is the default: a wrong suggestion costs trust, a missing one costs a
-drag. What comes back is checked here and again in the BFF: a document or a
-folder the input did not name is dropped, as is a move into the folder the
-document already sits in.
-
-**Two bases, one call each.** ``basis: name`` runs as soon as the batch's bytes
-are in, while the person is still looking at the upload: the file name and the
-folders' descriptions only, queued as ``interactive`` (ADR-0081). ``basis:
-content`` runs when ingestion has read the batch, with the Dokumentart and the
-summary, queued as ``bulk``. The Dokumentart was set by a person or read from
-the content, and outweighs the file name (``doc_class`` beats every guess).
-
-**Mail.** ``basis: mail`` places the attachments of a mail that waits in the
-project's E-Mail-Eingang for a person to file it (ADR-0137, DECISION D21), and,
-when the mail matched no E-Mail-Verlauf, the folder its text would start one in.
-It reads metadata only: the attachments' names that passed the name check, the
-subject masked by the office's content check, the sender's domain, the folders
-every member reads and the office's conventions. Never the body and never the
-bytes: the request has no field that could carry them, and a mail request that
-fills a document's type, tags or summary is refused before the handler runs.
-The answer adds a Dokumentart per attachment, from :data:`DOCUMENT_TYPE_TAGS`, each shown
-to the model with the classifier's criterion for it.
-The subject and the names come from someone outside the office and are data,
-never instructions. Queued ``bulk``; never scored.
-
-**Sort.** ``purpose: sort`` is a person placing the shelf root's documents, not an upload: the prompt
-asks for a folder for every document that has a plausible home, the budget is 4000 tokens, the call queues
-``interactive``, and each move carries ``confidence``, Jev's probability for its folder (ADR-0064). Scoring
-only adds that number; a failure leaves the moves as they were.
-
-**Observable.** One ``filing-fit`` generation per call (ADR-0089), with the
-batch, the project, the shelf and the basis as metadata, and its trace id in
-the answer so a person's decision on the proposal is scored on it.
-
-Fails soft: no credential, an upstream error or an answer that does not parse
-returns no moves with ``error`` set, and nothing is proposed.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -150,8 +94,6 @@ MAX_OPTION = 300
 
 
 class FilingFolder(BaseModel):
-    """A folder of the shelf, as every reader of it may see it."""
-
     model_config = ConfigDict(extra="forbid")
 
     path: str = Field(..., min_length=1, max_length=1024)
@@ -160,8 +102,6 @@ class FilingFolder(BaseModel):
 
 
 class FilingConvention(BaseModel):
-    """A folder the office uses elsewhere; proposing one creates it on the shelf."""
-
     model_config = ConfigDict(extra="forbid")
 
     path: str = Field(..., min_length=1, max_length=1024)
@@ -171,8 +111,6 @@ class FilingConvention(BaseModel):
 
 
 class FilingDocument(BaseModel):
-    """One document of the batch, as ingestion described it. No content."""
-
     model_config = ConfigDict(extra="forbid")
 
     id: str = Field(..., min_length=1, max_length=64)
@@ -184,13 +122,10 @@ class FilingDocument(BaseModel):
 
 
 def _legacy_shelf(value: object) -> object:
-    """Read the shelf's old wire value (``archiv``) as ``office_shelf``. Remove after one release."""
     return LEGACY_SHELF_VALUES.get(value, value) if isinstance(value, str) else value
 
 
 class FilingTrace(BaseModel):
-    """What the generation carries as trace metadata. Ids only."""
-
     model_config = ConfigDict(extra="forbid")
 
     batch_id: str = Field(..., min_length=1, max_length=64)
@@ -200,8 +135,6 @@ class FilingTrace(BaseModel):
 
 
 class MailContext(BaseModel):
-    """The mail a ``basis: mail`` request places the attachments of: metadata only, never its text."""
-
     model_config = ConfigDict(extra="forbid")
 
     subject: str | None = Field(None, max_length=998, description="Masked by the office's content check.")
@@ -223,7 +156,6 @@ class FilingFitRequest(BaseModel):
 
     @model_validator(mode="after")
     def _mail_reads_names_only(self) -> FilingFitRequest:
-        """A mail request carries its mail and names only; any other basis carries no mail."""
         if (self.basis == "mail") != (self.mail is not None):
             raise ValueError("`mail` is sent with basis mail, and only with it")
         if self.basis != "mail":
@@ -236,7 +168,6 @@ class FilingFitRequest(BaseModel):
         return self
 
     def placeable_ids(self) -> set[str]:
-        """The ids a move may name: the documents, and the mail's text when it is to be placed."""
         ids = {document.id for document in self.documents}
         if self.mail is not None and self.mail.text_id:
             ids.add(self.mail.text_id)
@@ -261,7 +192,6 @@ class FilingFitResponse(BaseModel):
 
 
 def _path_key(path: str) -> str:
-    """A folder path keyed as the BFF keys it: NFC, folded whitespace, case-folded, per segment."""
     segments = (" ".join(segment.split()) for segment in unicodedata.normalize("NFC", path).split("/"))
     return "/".join(segment.lower() for segment in segments if segment)
 
@@ -271,7 +201,6 @@ def _without_empty(fields: dict[str, Any]) -> dict[str, Any]:
 
 
 def _mail_lines(mail: MailContext) -> list[str]:
-    """The sections only a mail request has: the mail, the types to choose from, and the text to place."""
     lines = ["", "MAIL", json.dumps(_without_empty(mail.model_dump(exclude={"text_id"})), ensure_ascii=False)]
     types = {tag: DOCUMENT_TYPE_CRITERIA[tag] for tag in DOCUMENT_TYPE_TAGS}
     lines += ["", "TYPES", json.dumps(types, ensure_ascii=False)]
@@ -281,7 +210,6 @@ def _mail_lines(mail: MailContext) -> list[str]:
 
 
 def build_user_content(request: FilingFitRequest) -> str:
-    """The batch as the model reads it: labelled sections of one JSON object per line."""
     language = "German" if request.locale.lower().startswith("de") else "English"
     lines = [f"Write each reason in {language}."]
     if request.mail is not None:
@@ -301,13 +229,6 @@ def build_user_content(request: FilingFitRequest) -> str:
 
 
 def parse_moves(data: dict[str, Any], request: FilingFitRequest) -> list[FilingMove] | None:
-    """The model's moves, checked against the input; ``None`` when the answer is not the shape asked for.
-
-    Dropped: an id the input did not name, a second move for one document, a
-    folder neither in FOLDERS nor in CONVENTIONS, a move into the folder the
-    document already sits in, an empty reason. A folder is answered in the
-    input's own spelling.
-    """
     raw = data.get("moves")
     if not isinstance(raw, list):
         return None
@@ -350,17 +271,12 @@ def parse_moves(data: dict[str, Any], request: FilingFitRequest) -> list[FilingM
 
 
 def _mail_type(value: object, document_id: str, request: FilingFitRequest) -> str | None:
-    """The Dokumentart a mail move names, when it is one of the vocabulary; never on another basis.
-
-    The mail's text is filed as correspondence whatever the model says, so it carries none.
-    """
     if request.mail is None or document_id == request.mail.text_id:
         return None
     return value if isinstance(value, str) and value in DOCUMENT_TYPE_TAGS else None
 
 
 def _candidate_folders(request: FilingFitRequest) -> dict[str, tuple[str, str | None]]:
-    """Existing folders, then conventions, keyed by path key; the first spelling of a key wins."""
     candidates: dict[str, tuple[str, str | None]] = {}
     for folder in request.folders:
         candidates.setdefault(_path_key(folder.path), (folder.path, folder.description))
@@ -370,12 +286,10 @@ def _candidate_folders(request: FilingFitRequest) -> dict[str, tuple[str, str | 
 
 
 def _option(path: str, description: str | None) -> str:
-    """A folder as the decision reads it: its path and what a person wrote it is for, cut to ``MAX_OPTION``."""
     return (f"{path}: {description}" if description else path)[:MAX_OPTION]
 
 
 def _score_state(document: FilingDocument) -> dict[str, Any]:
-    """What the decision reads of one document: the fields the model reads, never the folder it sits in."""
     return _without_empty(
         {
             "file": document.file,
@@ -397,12 +311,6 @@ def _confidence(decision: Decision | None, key: str | None) -> float | None:
 async def score_moves(
     request: FilingFitRequest, moves: list[FilingMove], organization_id: str | None
 ) -> list[float | None]:
-    """Jev's p(the move's folder) for each move, one decision per moved document, in move order.
-
-    Scoring only ADDS a number (ADR-0064): a failure, a skipped decision or too
-    many folders to offer as options leaves every confidence ``None`` and the
-    moves as they were.
-    """
     from agent.common.decisions import choice
     from agent.common.decisions import decide_many
 
@@ -424,7 +332,6 @@ async def score_moves(
 
 
 def _request_body(cred: Any, request: FilingFitRequest) -> dict[str, Any]:
-    """The completion request: a sort places every document, so it gets its own instructions and more room."""
     sorting = request.purpose == "sort"
     return cred.request_body(
         {
@@ -449,12 +356,6 @@ def _system_prompt(request: FilingFitRequest) -> str:
 
 
 def _trace_metadata(request: FilingFitRequest) -> dict[str, Any]:
-    """What the generation carries in Langfuse: ids and counts, never content.
-
-    A mail request names its surface (``inbound_mail``), whether its text was placed, and its
-    sender class (a ``verified_writer``'s suggestion is filed without a person, so no decision
-    score follows it); its ``batch_id`` is the mail's id.
-    """
     mail = (
         {
             "surface": "inbound_mail",
@@ -478,7 +379,6 @@ def _trace_metadata(request: FilingFitRequest) -> dict[str, Any]:
 
 
 def add_filing_fit_routes(router: APIRouter) -> None:
-    """Register the filing judgement endpoint."""
 
     @router.post(
         "/v1/filing-fit",

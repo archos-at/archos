@@ -1,27 +1,3 @@
-"""Which DXF the agent means, its bytes, and its site, cached (ADR-0153).
-
-The document is resolved the way ``look`` resolves one (``look/resolve.py``): by
-the name the model gives, else the document open on the canvas or the
-conversation's subject, inside the scope the turn's signed envelope allows.
-The object key then comes from the BFF's scoped lookup
-(``GET /api/internal/document-file``), the one ``look`` reads through: it
-answers only for a collection the envelope signs, and for a restricted folder
-only when everyone in the conversation may read it NOW (ADR-0088). The bytes are
-read on the backend's read-only object-store credential (ADR-0039). A read is
-reported (``note_collections_read``), so the turn admits the folder it came from
-like a passage of it.
-
-**The cache holds sites, keyed by object key, and is never a way in.** Every
-call resolves the document through the BFF first; only a caller the BFF has just
-answered for reaches the lookup, so a cached site is only ever handed to someone
-allowed its bytes. The key names a version's own object (``…/v3/Lageplan.dxf``),
-so a new Fassung is a new key and never served the old site. Bounded to a few
-sites and to their source bytes per process: parsing a whole cadastral community
-takes seconds, and the second question about the same file should not. Parallel
-calls on one file parse it once; a parse that outlasts ``PARSE_TIMEOUT_S`` is
-answered with a sentence while it finishes in the background.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -63,18 +39,14 @@ NO_ENVELOPE = (
 
 @dataclass(frozen=True)
 class LoadedSite:
-    """The site, and the file name the answer names."""
-
     file_name: str
     site: Site
 
 
-class SiteUnavailableError(Exception):
-    """The file could not be read: a sentence the model relays as it is."""
+class SiteUnavailableError(Exception): ...
 
 
 async def load_site(document: str, building_layers: tuple[str, ...] = ()) -> LoadedSite | str:
-    """The site of the DXF ``document`` names, or the sentence the model reads instead."""
     try:
         resolved = await resolve_document(document)
     except Refused as refused:
@@ -143,7 +115,6 @@ def _remember(cache_key: _CacheKey, site: Site, size: int) -> None:
 
 
 def _locate(collection: str, file_name: str, headers: dict[str, str]) -> tuple[str, str]:
-    """The bucket and key of the document's bytes, from the BFF's scoped lookup."""
     try:
         body = bff_http.get_json(
             DOCUMENT_FILE_PATH, timeout=10.0, query={"collection": collection, "filename": file_name}, headers=headers
@@ -181,7 +152,6 @@ _TOO_LARGE = "The DXF is larger than 150 MB; ask for an extract of the area in q
 
 
 def clear_cache() -> None:
-    """Forget every cached site (tests)."""
     with _CACHE_LOCK:
         _CACHE.clear()
         _PARSING.clear()

@@ -1,29 +1,3 @@
-"""The clarification step: ask, then confirm a plan, before deep research runs.
-
-One step of the conversation graph, not an agent. It has exactly one caller
-(``conversation.ConversationGraph._clarifier_node``), it is handed a state that
-caller builds, and it returns a result only that caller can act on — so its
-former agent-runtime registration (``_type: clarifier_agent``) bought a YAML block and
-nothing else. The block moved onto ``chat_deepresearcher_agent`` as
-:class:`ClarifierSettings`; ``AgentGroup.CLARIFIER`` did NOT move, because an
-org can re-point this step's model (Platform → Models) and that value is
-persisted in ``platform_models.agent_group``.
-
-Shape of the step, in one paragraph: ask at most ``max_turns`` focused
-questions (the model may search first, and may offer pickable options), then —
-when plan approval is on — show a research plan and take the user's verdict,
-revising it while the reply is feedback. The dialog is a loop rather than a
-LangGraph because that is all it ever was: no checkpoint, no persistence, no
-node name that reaches a reader. What the reader DOES see is one trace row, a
-``clarification`` step.
-
-Nothing is rebuilt to serve a request. The models, tools and limits are
-resolved once at boot into a :class:`ClarifyDeps`; a request that varies
-something — a per-org model override, a BYOK credential, ZDR routing, a
-narrowed data-source set — gets its own, and every other request reuses the
-boot one.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -155,13 +129,6 @@ ClarifyFn = Callable[[ClarifyRequest], Awaitable[ClarifyResult]]
 
 
 class ClarifierSettings(BaseModel):
-    """The clarification step's configuration, nested under the workflow config.
-
-    These fields were the ``clarifier_agent`` agent-runtime function's own config block;
-    they read identically in YAML, one level deeper. ``enable_clarifier`` on the
-    workflow decides whether the step exists at all and stays where it is.
-    """
-
     llm: LLMRef = Field(..., description="LLM to use for generating questions")
     planner_llm: LLMRef | None = Field(
         default=None,
@@ -190,8 +157,6 @@ class ClarifierSettings(BaseModel):
 
 @dataclass(frozen=True)
 class ClarifyDeps:
-    """One run's resolved models, tools and limits — what the step reads."""
-
     llm: Any
     planner_llm: Any
     tools: Mapping[str, BaseTool]
@@ -203,22 +168,10 @@ class ClarifyDeps:
 
     @property
     def run_config(self) -> RunnableConfig:
-        """The LangChain config every call in this run carries (tracing only)."""
         return {"callbacks": list(self.callbacks)}
 
 
 def parse_json_response[ModelT: BaseModel](content: Any, schema: type[ModelT]) -> ModelT | None:
-    """Parse one structured response out of an LLM reply.
-
-    The model is asked for this schema natively (strict ``json_schema``) or, on
-    the tool-bound path, in prose; either way the reply is JSON with at most a
-    code fence around it, which :func:`extract_json` already handles for the
-    whole repo.
-
-    Returns:
-        The parsed model, or None when the reply carried no JSON or the JSON
-        did not fit the schema — both logged with what was wrong.
-    """
     payload = extract_json(content_to_text(content))
     if payload is None:
         logger.warning("No JSON in the %s reply: %.200s", schema.__name__, content_to_text(content))
@@ -231,12 +184,6 @@ def parse_json_response[ModelT: BaseModel](content: Any, schema: type[ModelT]) -
 
 
 def unwrap_query(reply: str) -> str:
-    """The reply text, unwrapped from the ``{"query": ...}`` envelope some
-    transports put around it.
-
-    A non-string ``query`` (number, null, object) is ignored rather than
-    coerced: it used to abort the whole turn on the caller's ``.strip()``.
-    """
     try:
         data = json.loads(reply)
     except json.JSONDecodeError, TypeError:
@@ -247,17 +194,6 @@ def unwrap_query(reply: str) -> str:
 
 
 def parse_plan_reply(reply: str) -> tuple[PlanDecision, str]:
-    """Read one reply to the plan preview.
-
-    Returns:
-        ``("approved", "")`` run deep research on this plan;
-        ``("approved", json)`` run it on the plan as the reader EDITED it on
-        the plan card — the sections, the genre, the depth — as a JSON object
-        after the keyword (:func:`apply_plan_edits`);
-        ``("shallow", "")`` answer now without the plan;
-        ``("cancelled", "")`` stop the turn, no answer wanted;
-        ``("feedback", text)`` revise the plan with this text.
-    """
     text = unwrap_query(reply).strip()
     decision = PLAN_REPLIES.get(text.lower())
     if decision is not None:
@@ -287,11 +223,6 @@ def _names(value: Any) -> list[str]:
 
 
 def apply_plan_edits(plan: PlanResponse, edits_json: str) -> PlanResponse:
-    """The plan as the reader left it on the card; the original on anything unreadable.
-
-    The Unterlagen lists are taken as named; :func:`plan_documents` resolves
-    them against the inventory, which is where a name nobody can find falls out.
-    """
     edits = _parse_edits(edits_json)
     if edits is None:
         return plan
@@ -316,11 +247,6 @@ def apply_plan_edits(plan: PlanResponse, edits_json: str) -> PlanResponse:
 
 
 def plan_data_sources(edits_json: str) -> list[str] | None:
-    """The Rahmen the reply carries: the composer's Datengrundlage at approval.
-
-    ``None`` when the reply names none — an older client — so the turn's own
-    sources stay. An empty list is a statement (no sources) and is kept.
-    """
     edits = _parse_edits(edits_json) if edits_json else None
     if edits is None or not isinstance(edits.get("data_sources"), list):
         return None
@@ -328,12 +254,10 @@ def plan_data_sources(edits_json: str) -> list[str] | None:
 
 
 def plan_documents(plan: PlanResponse, inventory: list[dict[str, Any]] | None) -> PlanDocuments | None:
-    """The plan's Unterlagen, resolved against what this turn can actually read."""
     return documents_from_plan(plan.basis, plan.excluded, inventory)
 
 
 def _inventory_rows(inventory: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
-    """The turn's documents as the plan card lists them: name, title, shelf."""
     rows: list[dict[str, Any]] = []
     for row in inventory or []:
         if not isinstance(row, dict) or not isinstance(row.get("file_name"), str):
@@ -353,7 +277,6 @@ MAX_PLAN_INVENTORY_ROWS = 200
 
 
 def format_plan_for_user(plan: PlanResponse, inventory: list[dict[str, Any]] | None = None) -> str:
-    """Render the plan preview the user replies to."""
     sections_text = "\n".join(f"  {i + 1}. {s}" for i, s in enumerate(plan.sections))
     payload: dict[str, Any] = plan.model_dump()
     rows = _inventory_rows(inventory)
@@ -372,10 +295,6 @@ def format_plan_for_user(plan: PlanResponse, inventory: list[dict[str, Any]] | N
 
 
 def fallback_clarification(query: str | None) -> ClarificationResponse:
-    """The question to ask when the model's own clarification was unusable.
-
-    Topic-aware when the user's query is known, generic otherwise.
-    """
     if not query:
         return ClarificationResponse(
             needs_clarification=True,
@@ -402,7 +321,6 @@ def fallback_clarification(query: str | None) -> ClarificationResponse:
 
 
 def question_for(response: ClarificationResponse | None, messages: Sequence[BaseMessage]) -> ClarificationResponse:
-    """The clarification to put to the user: the model's own, or the fallback."""
     if response is not None and response.is_valid():
         return response
     logger.warning("Unusable clarification from the model, asking the fallback question instead")
@@ -419,13 +337,6 @@ def _document_lines(docs: list[Any]) -> str:
 
 
 def approved_plan_context(plan: PlanResponse, documents: PlanDocuments | None = None) -> str:
-    """The approved plan as deep research reads it.
-
-    The orchestrator, the planner and the writer all receive it
-    (``factory.py`` ``prompt_values``): the sections become the required
-    components in this order, the genre the answer type, the depth the length,
-    and the Unterlagen what must be read and what may not be used.
-    """
     sections_text = "\n".join(f"- {s}" for s in plan.sections)
     text = (
         f"**Approved Research Plan**\n\nTitle: {plan.title}\nGenre: {plan.genre}\nDepth: {plan.depth}\n\n"
@@ -451,7 +362,6 @@ def _fallback_plan() -> PlanResponse:
 def _clarification_messages(
     request: ClarifyRequest, deps: ClarifyDeps, messages: Sequence[BaseMessage], log: str
 ) -> list[BaseMessage]:
-    """The message list for one clarification call, prompt included."""
     system_prompt = render_prompt_template(
         CLARIFICATION_PROMPT,
         clarifier_result=log,
@@ -466,13 +376,6 @@ def _clarification_messages(
 
 
 async def _run_one_tool(deps: ClarifyDeps, call: ToolCall) -> ToolMessage:
-    """One tool call, as the message the model reads next.
-
-    A failure is reported back TO THE MODEL rather than raised: this is a
-    context search the model chose to make before asking its question, and a
-    dead search tool must not end a turn that can still be clarified. The
-    exception is logged in full at the same time, so nothing is hidden.
-    """
     call_id = call.get("id") or ""
     tool = deps.tools.get(call.get("name") or "")
     if tool is None:
@@ -486,19 +389,12 @@ async def _run_one_tool(deps: ClarifyDeps, call: ToolCall) -> ToolMessage:
 
 
 async def run_tool_calls(deps: ClarifyDeps, calls: Sequence[ToolCall]) -> list[ToolMessage]:
-    """Every tool the model asked for, at once — they are independent searches."""
     return list(await asyncio.gather(*(_run_one_tool(deps, call) for call in calls)))
 
 
 async def _decide(
     request: ClarifyRequest, deps: ClarifyDeps, messages: list[BaseMessage], log: str
 ) -> tuple[ClarificationResponse | None, list[BaseMessage]]:
-    """One clarification decision: call the model, run any tools it asked for,
-    call it again, until it answers with something other than a tool call.
-
-    Returns the parsed reply (None when it was not parseable — the caller asks
-    the fallback question) and the message history the calls produced.
-    """
     for _ in range(MAX_TOOL_ROUNDS + 1):
         reply = await deps.llm.ainvoke(_clarification_messages(request, deps, messages, log), config=deps.run_config)
         messages = [*messages, reply]
@@ -510,11 +406,6 @@ async def _decide(
 
 
 async def gather_clarification(request: ClarifyRequest, deps: ClarifyDeps) -> str:
-    """Ask up to ``max_turns`` questions and return the markdown transcript.
-
-    Ends early on a model that says it has enough, and on a user who types one
-    of :data:`SKIP_COMMANDS`.
-    """
     messages = list(request.messages)
     log = ""
     for turn in range(1, deps.max_turns + 1):
@@ -536,12 +427,6 @@ async def gather_clarification(request: ClarifyRequest, deps: ClarifyDeps) -> st
 async def generate_plan(
     request: ClarifyRequest, deps: ClarifyDeps, log: str, feedback_history: list[str]
 ) -> PlanResponse:
-    """One planner call, anchored on the CURRENT request.
-
-    The anchor exists because the planner otherwise drifts to an earlier turn's
-    topic still present in the history (an aborted research the user has moved
-    on from), producing plans unrelated to what was just asked.
-    """
     query = get_latest_user_query(list(request.messages)) or ""
     shape = await decide_plan_shape(query, request.project_context, organization_id=get_organization_id_from_context())
     system_prompt = render_prompt_template(
@@ -586,7 +471,6 @@ def _outcome(
     inventory: list[dict[str, Any]] | None = None,
     data_sources: list[str] | None = None,
 ) -> ClarifyResult:
-    """One finished plan preview, as the conversation graph reads it."""
     if outcome != "approved":
         return ClarifyResult(research_context=log, outcome=outcome)
     documents = plan_documents(plan, inventory)
@@ -599,7 +483,6 @@ def _outcome(
 
 
 async def preview_plan(request: ClarifyRequest, deps: ClarifyDeps, log: str) -> ClarifyResult:
-    """Show a plan, take the user's verdict, revise on feedback."""
     feedback_history: list[str] = []
     plan = _fallback_plan()
 
@@ -622,15 +505,6 @@ async def preview_plan(request: ClarifyRequest, deps: ClarifyDeps, log: str) -> 
 
 
 async def clarify(request: ClarifyRequest, deps: ClarifyDeps) -> ClarifyResult:
-    """Run the clarification dialog and, when enabled, the plan approval.
-
-    Args:
-        request: The conversation window and project context to clarify against.
-        deps: This run's resolved models, tools, limits and user channel.
-
-    Returns:
-        How the dialog ended, plus the text deep research reads if it runs.
-    """
     logger.info("Clarifier: Starting (max %d turns)", deps.max_turns)
     query = get_latest_user_query(list(request.messages))
     logger.info("User's query: %s...", str(query)[:100] if query else "")
@@ -643,41 +517,16 @@ async def clarify(request: ClarifyRequest, deps: ClarifyDeps) -> ClarifyResult:
 
 
 async def ask_through_nat(question: str, options: Sequence[str] = ()) -> str:
-    """
-    Ask the user a question through the agent runtime's user interaction manager.
-
-    Args:
-        question: The clarification question to display to the user.
-        options: Short labels of the answers the question offers. When present
-            the prompt becomes a multiple-choice one so the client can render a
-            picker; the question text is unchanged either way, and the user may
-            still type a free-text answer or "skip".
-
-    Returns:
-        The user's response text, extracted from the agent-runtime response object — a
-        typed answer and a picked option arrive as different response models,
-        and `extract_user_response` normalizes both.
-    """
     user_input_manager = Context.get().user_interaction_manager
     response = await user_input_manager.prompt_user_input(build_human_prompt(question, list(options)))
     return extract_user_response(response)
 
 
 async def resolve_tools(settings: ClarifierSettings, builder: Builder) -> list[BaseTool]:
-    """The tool set the step boots with: the configured refs, else the whole registry."""
     return await load_agent_tools(builder, settings.tools or get_all_tool_refs(), settings.exclude_tools)
 
 
 def _clarifier_llm(llm: BaseChatModel, tools: Sequence[BaseTool]) -> Any:
-    """Bind the clarifier's model to its tools, or to its output schema.
-
-    Never both. OpenRouter's failure mode for an unsupported ``response_format``
-    is to accept it and silently degrade — dropping tool calls — which is why
-    the agent keeps json mode off its tool-bound calls by default
-    (``envelope_call.py``). A clarifier with tools therefore asks for JSON in
-    the prompt and parses it once; a clarifier without tools gets the schema
-    enforced natively.
-    """
     if tools:
         return llm.bind_tools(tools, parallel_tool_calls=True)
     return llm.bind(response_format=strict_json_response_format(ClarificationResponse))
@@ -691,7 +540,6 @@ def build_deps(
     ask_user: AskUser,
     callbacks: tuple[Any, ...] = (),
 ) -> ClarifyDeps:
-    """Resolve one run's models and tools from the provider it should use."""
     llm = provider.get(LLMRole.CLARIFIER)
     planner = planner_llm or llm
     return ClarifyDeps(
@@ -707,14 +555,6 @@ def build_deps(
 
 
 def _request_planner(planner_llm: BaseChatModel | None, context: RequestLLMContext) -> BaseChatModel | None:
-    """This request's planner: the boot one under the org's credential, override and ZDR policy.
-
-    Every dial comes from ``context``, already read off the loop; passing each
-    explicitly keeps ``apply_model_override`` from calling its blocking getters
-    here. The credential goes first so the ZDR pin lands only on a model that
-    still points at OpenRouter. ``None`` stays ``None`` — no configured planner
-    means :func:`build_deps` falls back to the (already overridden) clarifier LLM.
-    """
     if planner_llm is None:
         return None
     return apply_model_override(
@@ -728,15 +568,6 @@ def _request_planner(planner_llm: BaseChatModel | None, context: RequestLLMConte
 
 @dataclass(frozen=True)
 class Clarifier:
-    """The boot-time step, callable once per escalating turn.
-
-    Holds what registration resolved — the provider tagged with
-    ``AgentGroup.CLARIFIER``, the tools, the optional planner, the limits — and
-    the deps those produce. :meth:`deps_for` returns exactly that object again
-    unless this request varies something, so the common turn re-binds no tool
-    schema and rebuilds no tool map.
-    """
-
     provider: LLMProvider
     tools: tuple[BaseTool, ...]
     planner_llm: BaseChatModel | None
@@ -766,13 +597,6 @@ class Clarifier:
         )
 
     async def deps_for(self, request: ClarifyRequest) -> ClarifyDeps:
-        """What this request varies from the boot deps, or the boot deps themselves.
-
-        Two sources of variation, both per-org: the runtime model override
-        (X-Grid-Model-Overrides), the provider credential (BYOK) and ZDR routing
-        on the LLM side; the data sources this request selected on the tool
-        side. The planner LLM belongs to the same ``clarifier`` agent group.
-        """
         selected = filter_tools_by_sources(list(self.tools), request.data_sources)
         if all_mapped_tools_filtered_out(list(self.tools), selected, request.data_sources):
             logger.warning("Clarifier received data_sources with no matching tools")
@@ -788,15 +612,6 @@ class Clarifier:
 
 
 async def build_clarifier(settings: ClarifierSettings, builder: Builder) -> ClarifyFn:
-    """Resolve the clarification step from the workflow config, once, at boot.
-
-    Args:
-        settings: The workflow config's ``clarifier`` block.
-        builder: Agent-runtime Builder for obtaining LLM and tool instances.
-
-    Returns:
-        The callable the conversation graph holds as its ``clarifier_fn``.
-    """
     llm = await get_langchain_llm(builder, settings.llm)
     planner_llm = await get_langchain_llm(builder, settings.planner_llm) if settings.planner_llm else None
     tools = await resolve_tools(settings, builder)

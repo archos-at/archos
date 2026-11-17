@@ -681,3 +681,55 @@ class TestAStreamedChatCompletionKeepsItsCost:
         payload = seen[0].to_payload()
         assert (payload["costUsd"], payload["costSource"]) == (pytest.approx(0.02), "usage_field")
         assert (payload["cachedTokens"], payload["cacheWriteTokens"]) == (600, 300)
+
+
+class TestAStreamedCallNamesItsModelOnce:
+    MODEL = "openai/gpt-6.1-terra"
+
+    def _llm(self, finish_chunks: int):
+        import httpx
+        from langchain_openai import ChatOpenAI
+
+        def chunk(**fields):
+            return {"id": "gen-2", "object": "chat.completion.chunk", "created": 0, "model": self.MODEL, **fields}
+
+        usage = {"prompt_tokens": 10, "completion_tokens": 1, "total_tokens": 11, "cost": 0.001}
+        finish = [{"index": 0, "delta": {"content": ""}, "finish_reason": "stop"}]
+        stream = [chunk(choices=[{"index": 0, "delta": {"role": "assistant", "content": "hi"}, "finish_reason": None}])]
+        stream += [chunk(choices=finish) for _ in range(finish_chunks - 1)]
+        stream.append(chunk(choices=finish, usage=usage))
+        body = "".join(f"data: {json.dumps(c)}\n\n" for c in stream) + "data: [DONE]\n\n"
+
+        def handler(request):
+            return httpx.Response(200, text=body, headers={"content-type": "text/event-stream"})
+
+        return ChatOpenAI(
+            model=self.MODEL,
+            api_key="test",  # pragma: allowlist secret
+            base_url="https://openrouter.ai/api/v1",
+            http_async_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        )
+
+    @pytest.mark.parametrize("finish_chunks", [1, 2, 3])
+    async def test_the_ledger_books_the_model_id_once(self, finish_chunks):
+        from langchain_core.messages import HumanMessage
+
+        tracker = CostTracker(organization_id="org_1")
+        llm = self._llm(finish_chunks).bind(stream=True)
+        await llm.ainvoke([HumanMessage(content="q")], config={"callbacks": [tracker]})
+
+        assert tracker.events_recorded == 1
+        assert tracker._pending[0].model == self.MODEL
+
+    @pytest.mark.parametrize(
+        ("reported", "booked"),
+        [
+            ("openai/gpt-6.1-terraopenai/gpt-6.1-terra", "openai/gpt-6.1-terra"),
+            ("~openai/gpt-7~openai/gpt-7~openai/gpt-7", "~openai/gpt-7"),
+            ("deepseek/deepseek-v4-flash", "deepseek/deepseek-v4-flash"),
+            ("gpt-4ogpt-4o", "gpt-4ogpt-4o"),
+        ],
+    )
+    def test_only_a_repeated_provider_id_is_folded(self, reported, booked):
+        event = extract_usage_event(_openrouter_result(model=reported))
+        assert event is not None and event.model == booked

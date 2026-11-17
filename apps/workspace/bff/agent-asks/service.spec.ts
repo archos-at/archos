@@ -58,6 +58,7 @@ import { findProjectProfile } from '@/lib/projects/repository'
 import { verifyRequestContextEnvelope } from '@/lib/request-context'
 import { cancelHeadlessTurn, chatSocketUrl, runHeadlessTurn, type HeadlessTurnRequest } from '@/lib/turns/headless-turn'
 import { resolveTurnContext, TurnBudgetExhaustedError } from '@/lib/turns/turn-context'
+import { runAsActingSession } from '@/lib/agent-api/acting-session'
 import {
   deleteAskQuestion,
   endAsk,
@@ -214,6 +215,21 @@ describe('askAgent', () => {
       SECRET,
     )
     expect(context).toMatchObject({ userId: USER, organizationId: ORG, conversationId: row.conversationId })
+  })
+
+  it('names the agent door the ask came through, so the turn’s answer_finished is filed under it', async () => {
+    await runAsActingSession(
+      SESSION,
+      () => askAgent(SESSION, { question: 'Welche Fluchtweglänge gilt?' }, { waitMs: 0 }),
+      'agent',
+      { door: 'a2a', sessionSource: 'script' },
+    )
+    expect(turnRequest().headers).toMatchObject({ 'x-turn-door': 'a2a', 'x-turn-session-source': 'script' })
+  })
+
+  it('names no door for an ask started outside one (the golden run)', async () => {
+    await askAgent(SESSION, { question: 'Welche Fluchtweglänge gilt?' }, { waitMs: 0 })
+    expect(Object.keys(turnRequest().headers)).not.toContain('x-turn-door')
   })
 
   it('waits for the turn’s outcome and answers with the agent’s message', async () => {

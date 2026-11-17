@@ -1,40 +1,3 @@
-"""Marks: read them, propose or set them, change or delete them, answer in a thread.
-
-The tools are ``marks``, ``mark``, ``update``, ``delete`` and ``reply``.
-
-An Anmerkung is a mark a person sets at a place on a page of a document (a
-point or a region), with what is to be done about it (a Hinweis, a Rückfrage or
-a Mangel) and a thread of replies under it.
-
-## A proposal is not a finding
-
-The agent's marks are born ``proposed`` (the CHECKs of migration 0138 hold it on
-the BFF side): they appear on the document as the agent's suggestions, and count
-only once a person takes one over („übernehmen“) or dismisses it
-(„verwerfen“). VISION.md principle 4, suggest then confirm. So the ``mark``
-result leads with what has NOT happened, the way ``propose_file_change`` does:
-a model told „gesetzt“ writes an answer claiming the defects are recorded.
-
-## What the person asked for is done in their name
-
-„There should not be any difference between what the agent does and what a human
-does": when the person ASKS for a mark, a change or a deletion, the agent does it
-under that person's own rights, through the same service a person's PATCH
-runs. A mark set on request is born open with the asker as ``accepted_by``
-(``mark`` with ``open``); a change (``update``) posts the model's ``note`` as
-the agent's reply in the mark's thread, in the same request; a deletion is
-allowed for exactly the marks the asker set. Findings the agent makes on its own
-initiative stay proposals; the tool descriptions say which is which.
-
-Only where the office allows it: with the organization switch ``agent-direct-edits``
-off (the default) the BFF refuses ``create``, ``update`` and ``delete``, and
-the agent proposes the mark or leaves the change to the person (``calls.py``).
-
-A reply lands at once, marked as the agent's: it changes no state. All of these
-are read by everyone who opens the document, so all pass the restricted-folder
-rule first (``policy.py``).
-"""
-
 from __future__ import annotations
 
 import re
@@ -45,6 +8,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 from pydantic import BeforeValidator
+from pydantic import ConfigDict
 from pydantic import ValidationError
 
 from agent.common.agent_kind import is_agent_kind
@@ -69,7 +33,11 @@ Shape = Annotated[Literal["point", "region"], BeforeValidator(_normalized)]
 
 
 class AnnotationProposal(BaseModel):
-    """One finding: where on which page, what kind, what is wrong, what it rests on."""
+    model_config = ConfigDict(
+        json_schema_extra={
+            "description": "One finding: where on which page, what kind, what is wrong, what it rests on."
+        }
+    )
 
     page: int
     shape: Shape = "region"
@@ -165,7 +133,6 @@ def _annotation_lines(item: dict[str, Any]) -> list[str]:
 
 
 def _sort_key(item: dict[str, Any]) -> tuple[int, int, int]:
-    """Live ones first, then by page and number: the order a review walks them in (``compareAnnotations``)."""
     live = 0 if item.get("status") in _LIVE else 1
     page = item.get("page") if isinstance(item.get("page"), int) else 0
     number = item.get("number") if isinstance(item.get("number"), int) else 0
@@ -178,7 +145,6 @@ def _annotations(body: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def render_list(body: dict[str, Any]) -> str:
-    """The marks as compact English text a model can cite by number and answer by id."""
     items = _annotations(body)
     named = f"„{body['documentName']}“" if body.get("documentName") else "this document"
     if not items:
@@ -199,7 +165,6 @@ def render_list(body: dict[str, Any]) -> str:
 
 
 def _region_size(proposal: AnnotationProposal, index: int) -> tuple[float, float]:
-    """A region's width and height, clamped onto the page when it pokes past an edge by a hair."""
     w, h = proposal.w or 0.0, proposal.h or 0.0
     if w <= 0 or h <= 0:
         raise Refused(f"Error: Proposal {index}: a region needs `w` and `h` greater than 0.")
@@ -209,7 +174,6 @@ def _region_size(proposal: AnnotationProposal, index: int) -> tuple[float, float
 
 
 def _proposal_payload(proposal: AnnotationProposal, index: int) -> dict[str, Any]:
-    """One ``AnnotationProposal`` body, or a refusal naming what is wrong with it."""
     if proposal.page < 1:
         raise Refused(f"Error: Proposal {index}: `page` counts from 1.")
     if not (0 <= proposal.x <= 1 and 0 <= proposal.y <= 1):
@@ -244,7 +208,6 @@ def _coerced(proposals: list[Any]) -> list[AnnotationProposal]:
 
 
 def propose_payload(proposals: list[Any]) -> dict[str, Any]:
-    """The ``propose`` body, every proposal checked here so the model can fix it before the BFF refuses."""
     if not proposals:
         raise Refused("Error: `mark` needs at least one entry in `proposals`.")
     if len(proposals) > MAX_PROPOSALS_PER_CALL:
@@ -274,7 +237,6 @@ def render_proposed(body: dict[str, Any]) -> str:
 
 
 def create_payload(proposals: list[Any]) -> dict[str, Any]:
-    """The ``create`` body: the same marks as a proposal, born open in the asker's name."""
     return {"op": "create", "marks": propose_payload(proposals)["proposals"]}
 
 
@@ -285,19 +247,16 @@ def render_created(body: dict[str, Any]) -> str:
 
 
 def _box(item: dict[str, Any]) -> dict[str, Any]:
-    """A proposed mark's place, as the activity card carries it: a point has no size."""
     if item.get("shape") == "point":
         return {"shape": "point", "x": item.get("x"), "y": item.get("y")}
     return {"shape": "region", "x": item.get("x"), "y": item.get("y"), "w": item.get("w"), "h": item.get("h")}
 
 
 def proposed_items(body: dict[str, Any]) -> list[dict[str, Any]]:
-    """The activity card's entries for a ``propose`` answer, built from what the BFF returned."""
     return _set_items(_proposed(body), "proposed")
 
 
 def created_items(body: dict[str, Any]) -> list[dict[str, Any]]:
-    """The activity card's entries for a ``create`` answer: marks set at the person's request."""
     return _set_items(_set_marks(body, "created"), "created")
 
 
@@ -317,7 +276,6 @@ def _set_items(marks: list[dict[str, Any]], action: str) -> list[dict[str, Any]]
 
 
 def replied_item(body: dict[str, Any], text: str) -> dict[str, Any]:
-    """The activity card's entry for a ``reply`` answer."""
     return {
         "action": "replied",
         "annotation_id": body.get("annotationId"),
@@ -327,18 +285,15 @@ def replied_item(body: dict[str, Any], text: str) -> dict[str, Any]:
 
 
 def annotation_number(annotation: str) -> int | None:
-    """The mark's number in ``annotation`` („Nr. 4“, „#4“, „4“), or None when it is not one."""
     ref = (annotation or "").strip().removeprefix("Nr.").strip().lstrip("#")
     return int(ref) if ref.isdigit() else None
 
 
 def annotation_by_number(body: dict[str, Any], number: int) -> str:
-    """The id of mark ``number`` in a ``list`` answer; a refusal when the document has none."""
     return annotation_entry(body, number)["id"]
 
 
 def annotation_entry(body: dict[str, Any], number: int) -> dict[str, Any]:
-    """Mark ``number`` as a ``list`` answer carries it (id and status); a refusal when the document has none."""
     match = next((item for item in _annotations(body) if item.get("number") == number), None)
     if match is None or not isinstance(match.get("id"), str):
         raise Refused(ANNOTATION_GONE, "not_found")
@@ -402,7 +357,6 @@ def _due_on(value: str) -> str | None:
 
 
 def update_payload(*, status: str, assignee: str, due_on: str, kind: str, body: str, note: str) -> dict[str, Any]:
-    """The change fields of an ``update`` body, each checked here so the model can fix it before the BFF refuses."""
     text = (note or "").strip()
     if not text or len(text) > MAX_BODY:
         raise Refused(f"Error: `update` needs `note` (1 to {MAX_BODY} characters): what you did and why.")
@@ -447,7 +401,6 @@ def _field_changes(before: dict[str, Any], after: dict[str, Any]) -> list[dict[s
 
 
 def changed_item(body: dict[str, Any], note: str) -> dict[str, Any]:
-    """The activity card's entry for an ``update`` answer: what moved, the note, and the status left behind."""
     before = body.get("before") if isinstance(body.get("before"), dict) else {}
     after = body.get("after") if isinstance(body.get("after"), dict) else {}
     return {
@@ -491,7 +444,6 @@ def render_updated(body: dict[str, Any]) -> str:
 
 
 def deleted_item(body: dict[str, Any]) -> dict[str, Any]:
-    """The activity card's entry for a ``delete`` answer."""
     return {"action": "deleted", "number": body.get("number"), "body": _clipped(body.get("body"), MAX_BODY)}
 
 
@@ -503,7 +455,6 @@ def render_deleted(body: dict[str, Any]) -> str:
 
 
 def marks_observation(operation: str, body: dict[str, Any]) -> dict[str, Any]:
-    """What one call did, as Langfuse should see it: counts and numbers, never the text of a mark."""
     if operation == "list":
         items = _annotations(body)
         by_kind: dict[str, int] = {}

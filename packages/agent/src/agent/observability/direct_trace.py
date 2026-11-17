@@ -1,39 +1,3 @@
-"""A Langfuse generation for a model call that no agent-runtime workflow makes (ADR-0089).
-
-Every model call must be observable, and the agent runtime's span exporter only sees what runs
-inside a workflow. The auxiliary routes in ``agent_host`` (conversation title,
-project summary, consistency check, skill review, lesson distill, feedback
-digest) post to the chat-completions endpoint straight from a FastAPI handler, so
-they cost money and took seconds without leaving a span anywhere. This module gives
-each such call ONE span, which Langfuse files as a root trace holding a single
-GENERATION observation: model, usage, cost, input, output, and a level of ERROR
-when the call failed.
-
-Mechanics, each a decision:
-
-* **A private ``TracerProvider``, never the global one.** The agent runtime, and whatever else
-  in the process speaks the OpenTelemetry API, must not start exporting through
-  this provider. Built lazily on the first call and kept for the life of the
-  process; the SDK flushes it at interpreter exit.
-* **The collector the rest already uses.** ``OTEL_EXPORTER_OTLP_ENDPOINT``, which
-  Pulumi injects as the full ``/v1/traces`` URL; a bare collector URL gets the
-  suffix. A blank endpoint builds nothing and every call is a no-op, the same
-  availability rule as ``otel_header_redaction_exporter``.
-* **A root unless told otherwise.** A span starts from an empty context, so an
-  ambient span (an instrumented request, a test harness) cannot adopt it into
-  its trace. The one exception is stated, never ambient: background work that
-  carries its trigger's traceparent continues that trace (:func:`continued_from`).
-* **Fail-open.** A telemetry fault logs at DEBUG and the route carries on; the
-  context manager never raises and never swallows the route's own exception.
-
-Input and output are the content category the agent runtime already exports for a chat turn
-(ADR-0029), each capped at :data:`MAX_PAYLOAD_CHARS` so a long skill document
-cannot turn one span into megabytes. The environment, release and observation
-type come from ``trace_context`` and the usage buckets from
-``usage_observation_attributes``, so this span and an agent-runtime generation cannot
-disagree about what they carry.
-"""
-
 from __future__ import annotations
 
 import functools
@@ -46,6 +10,8 @@ from collections.abc import Mapping
 from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import Any
+
+from opentelemetry.sdk.trace import SpanProcessor
 
 from agent.common import residency
 from agent.common.image_redaction import redact_inline_images
@@ -90,12 +56,6 @@ _tracer = None
 
 
 def install_tracer_provider(endpoint: str | None, *, env: Mapping[str, str] | None = None, exporter=None):
-    """Build the private ``TracerProvider``; None when there is no endpoint.
-
-    Idempotent: a later call returns what the first one decided, including
-    "disabled". ``exporter`` replaces the OTLP exporter (tests). The provider
-    is never made the global one.
-    """
     global _resolved, _provider, _tracer
     with _lock:
         if _resolved:
@@ -110,7 +70,6 @@ def install_tracer_provider(endpoint: str | None, *, env: Mapping[str, str] | No
 
 
 def reset_tracer_provider() -> None:
-    """Forget the provider, so the next call decides again (tests)."""
     global _resolved, _provider, _tracer
     with _lock:
         if _provider is not None:
@@ -128,22 +87,33 @@ def _build(endpoint: str | None, env: Mapping[str, str], exporter):
 
         exporter = OTLPSpanExporter(endpoint=signal_endpoint(endpoint or "", "traces"))
     provider = TracerProvider(resource=Resource.create(resource_attributes(env)))
+    provider.add_span_processor(ProcessContextSpanProcessor())
     provider.add_span_processor(BatchSpanProcessor(exporter))
     return provider
 
 
-def tracer_provider():
-    """The private provider, built from the environment on first use; None when tracing is off.
+def process_context_additions(existing: Mapping[str, Any]) -> dict[str, Any]:
+    additions = {key: value for key, value in process_trace_attributes().items() if key not in existing}
+    tags = process_trace_attributes().get(TAGS_ATTRIBUTE)
+    if tags:
+        additions[TAGS_ATTRIBUTE] = list(dict.fromkeys([*(existing.get(TAGS_ATTRIBUTE) or ()), *tags]))
+    return additions
 
-    For an instrumentor that should export where these spans go (the Hatchet
-    SDK's, ``orchestrator_tracing``), never for making it the global one.
-    """
+
+class ProcessContextSpanProcessor(SpanProcessor):
+    def on_start(self, span: Any, parent_context: Any = None) -> None:
+        try:
+            span.set_attributes(process_context_additions(span.attributes or {}))
+        except Exception:
+            logger.debug("direct_trace: could not stamp the process context onto a span", exc_info=True)
+
+
+def tracer_provider():
     _current_tracer()
     return _provider
 
 
 def _current_tracer():
-    """The tracer, building the provider from the environment on first use; None when disabled."""
     if not _resolved:
         try:
             install_tracer_provider(os.environ.get(ENDPOINT_ENV))
@@ -153,12 +123,6 @@ def _current_tracer():
 
 
 def _clip(text: str) -> str:
-    """A payload attribute as it may leave the process: images and licensed text redacted, then cut to the bound.
-
-    Every payload this tracer writes passes here, so no prompt, output or pick carries an image's bytes
-    (``common.image_redaction``) or a licensed passage past its quote cap (``common.licensed_text``). Redacted
-    before the cut, so a cut never leaves half a data URL the pattern no longer matches.
-    """
     text = trace_payload(redact_inline_images(text))
     if len(text) <= MAX_PAYLOAD_CHARS:
         return text
@@ -166,7 +130,6 @@ def _clip(text: str) -> str:
 
 
 def _count(value: Any) -> int:
-    """A token count as a non-negative int; anything else (a bool included) is 0."""
     if isinstance(value, bool) or not isinstance(value, int | float):
         return 0
     return max(0, int(value))
@@ -185,19 +148,7 @@ def generation_start_attributes(
     metadata: Mapping[str, Any] | None = None,
     nested: bool = False,
 ) -> dict[str, Any]:
-    """What the span knows before the call: trace identity, model, prompt. Pure.
-
-    Metadata keeps scalars only, since a Langfuse metadata value is one
-    attribute; ``feature`` is written last so a caller cannot rename the trace.
-
-    ``nested``: the generation is a child of an :func:`observed_span` (an ingested
-    file), whose trace it must not claim. Langfuse reads ``langfuse.trace.*`` off
-    ANY span of a trace, so a child that wrote its own trace name, tags and
-    ``feature`` renamed its file's ``ingest-file`` trace to ``ingest-vision``
-    whenever its span was ingested after the root's. A nested generation writes
-    its metadata on the observation instead, and no trace-level attribute.
-    """
-    attributes: dict[str, Any] = {**process_trace_attributes(), OBSERVATION_TYPE_ATTRIBUTE: "generation"}
+    attributes: dict[str, Any] = {OBSERVATION_TYPE_ATTRIBUTE: "generation"}
     if not nested:
         attributes[TRACE_NAME_ATTRIBUTE] = feature
         attributes[TAGS_ATTRIBUTE] = [f"feature:{feature}", AUXILIARY_SURFACE_TAG]
@@ -216,7 +167,6 @@ def generation_start_attributes(
 
 
 def _usage_attributes(usage: Any) -> dict[str, Any]:
-    """OpenRouter's ``usage`` object as generation usage and cost; empty when absent."""
     if not isinstance(usage, Mapping):
         return {}
     cost = usage.get("cost")
@@ -232,10 +182,6 @@ def _usage_attributes(usage: Any) -> dict[str, Any]:
 
 
 def generation_result_attributes(response: Any) -> dict[str, Any]:
-    """What a chat-completion body adds to the span: usage, served model, output. Pure.
-
-    Tolerates any shape; what it cannot read stays absent rather than zero.
-    """
     if not isinstance(response, Mapping):
         return {}
     attributes = _usage_attributes(response.get("usage"))
@@ -255,7 +201,6 @@ def generation_result_attributes(response: Any) -> dict[str, Any]:
 
 
 def failure_message(exc: BaseException) -> str:
-    """The exception's type, plus the HTTP status when it carries one. No URL, no body."""
     status = getattr(getattr(exc, "response", None), "status_code", None)
     if isinstance(status, int):
         return f"{type(exc).__name__}: HTTP {status}"
@@ -263,8 +208,6 @@ def failure_message(exc: BaseException) -> str:
 
 
 class GenerationRecorder:
-    """The handle a route reports its reply through. A no-op when tracing is off."""
-
     __slots__ = ("_span",)
 
     def __init__(self, span: Any | None) -> None:
@@ -272,11 +215,6 @@ class GenerationRecorder:
 
     @property
     def trace_id(self) -> str | None:
-        """The generation's trace id as Langfuse names it (32 hex digits), or ``None`` when tracing is off.
-
-        For a caller that hands the trace on, so a later decision about what this
-        call produced can be scored on it (``piloti-decision``).
-        """
         if self._span is None:
             return None
         try:
@@ -287,7 +225,6 @@ class GenerationRecorder:
         return format(trace_id, "032x") if isinstance(trace_id, int) and trace_id else None
 
     def finish(self, response: Any) -> None:
-        """Record the parsed chat-completion body. Never raises."""
         if self._span is None:
             return
         try:
@@ -300,13 +237,10 @@ class GenerationRecorder:
 
 
 def _on_observation(key: str) -> str:
-    """A trace-metadata attribute key as the same key on the observation."""
     return key.replace(METADATA_PREFIX, OBSERVATION_METADATA_PREFIX, 1)
 
 
 class _ObservedGeneration:
-    """What :func:`observed_generation` returns: ``async with`` in a route, ``with`` on a worker thread."""
-
     def __init__(self, feature: str, attributes: dict[str, Any]) -> None:
         self._feature = feature
         self._attributes = attributes
@@ -331,7 +265,6 @@ class _ObservedGeneration:
 
 
 def _record_route(span: Any, route: Any) -> None:
-    """``route``'s processing location, subprocessor and compliance as the generation's own metadata."""
     if span is not None:
         span.set_attributes({f"{OBSERVATION_METADATA_PREFIX}{key}": value for key, value in route.metadata().items()})
 
@@ -362,8 +295,6 @@ def _start_span(feature: str, attributes: dict[str, Any]) -> Any | None:
 
 
 class SpanRecorder:
-    """The handle a unit of background work reports its outcome through. A no-op when tracing is off."""
-
     __slots__ = ("_span",)
 
     def __init__(self, span: Any | None) -> None:
@@ -371,11 +302,9 @@ class SpanRecorder:
 
     @property
     def span(self) -> Any | None:
-        """The OpenTelemetry span, or None when tracing is off (``orchestrator_tracing`` links runs to it)."""
         return self._span
 
     def finish(self, output: Mapping[str, Any], *, failed: str | None = None) -> None:
-        """Record the outcome (counts, seconds, statuses: never document text). Never raises."""
         if self._span is None:
             return
         try:
@@ -395,13 +324,6 @@ class SpanRecorder:
 
 @contextmanager
 def observed_span(feature: str, *, metadata: Mapping[str, Any] | None = None) -> Iterator[SpanRecorder]:
-    """One root trace for a unit of background work, the generations made inside it nested under it.
-
-    Synchronous, for a worker thread: an ingest opens one per file, and every vision call,
-    transcription and dossier the file makes (on this thread, or on a pool thread that copied
-    its context) becomes a child generation. ``metadata`` is scalars only (ids, a file type);
-    the outcome goes through :meth:`SpanRecorder.finish`. Fail-open like the rest of this module.
-    """
     span = None
     tracer = _current_tracer()
     if tracer is not None:
@@ -414,7 +336,6 @@ def observed_span(feature: str, *, metadata: Mapping[str, Any] | None = None) ->
                 context=_parent_context.get() or Context(),
                 kind=SpanKind.INTERNAL,
                 attributes={
-                    **process_trace_attributes(),
                     OBSERVATION_TYPE_ATTRIBUTE: "span",
                     TRACE_NAME_ATTRIBUTE: feature,
                     TAGS_ATTRIBUTE: [f"feature:{feature}", AUXILIARY_SURFACE_TAG],
@@ -435,13 +356,6 @@ def observed_span(feature: str, *, metadata: Mapping[str, Any] | None = None) ->
 
 @contextmanager
 def continued_from(traceparent: str | None) -> Iterator[None]:
-    """Spans :func:`observed_span` opens in this block join the trace ``traceparent`` names (W3C).
-
-    For background work a trigger started: an ingest run carries its trigger's
-    traceparent in its Hatchet metadata, so the trigger, the run's wait for a
-    worker and every file's trace are one trace. Nothing to continue (None, or
-    a value that does not parse) leaves each span a root, as before.
-    """
     parent = None
     if traceparent:
         try:
@@ -486,21 +400,6 @@ def observed_generation(
     session_id: str | None = None,
     metadata: Mapping[str, Any] | None = None,
 ) -> _ObservedGeneration:
-    """Trace one direct model call as a Langfuse generation named ``feature``.
-
-    Wrap the request and ``.finish(body)`` the parsed reply inside the block::
-
-        async with observed_generation("conversation-title", model=cred.model, messages=msgs) as generation:
-            response = await client.post(...)
-            response.raise_for_status()
-            data = response.json()
-            generation.finish(data)
-
-    An exception leaving the block marks the generation ERROR and propagates
-    unchanged, so the route's own ``except`` clauses see exactly what they did
-    before. ``session_id`` is the conversation id, when the call belongs to
-    one; only then is the trace grouped into a Langfuse session.
-    """
     return _ObservedGeneration(
         feature,
         {"model": model, "messages": messages, "session_id": session_id, "metadata": metadata},
@@ -508,7 +407,6 @@ def observed_generation(
 
 
 def _scalars(metadata: Mapping[str, Any] | None) -> dict[str, Any]:
-    """Metadata as Langfuse attributes: scalars only, since one metadata value is one attribute."""
     return {
         f"{METADATA_PREFIX}{key}": value
         for key, value in (metadata or {}).items()
@@ -522,14 +420,7 @@ def retrieval_attributes(
     query: Mapping[str, Any],
     metadata: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """What a direct retrieval span carries when it starts: trace identity, the ask as data. Pure.
-
-    The observation is a ``retriever``, as every ``retrieve.*`` step of a chat
-    turn is; ``query`` is its input and holds ids and counts, never the text
-    searched for. ``feature`` is written last so a caller cannot rename the trace.
-    """
     return {
-        **process_trace_attributes(),
         OBSERVATION_TYPE_ATTRIBUTE: "retriever",
         TRACE_NAME_ATTRIBUTE: feature,
         TAGS_ATTRIBUTE: [f"feature:{feature}", AUXILIARY_SURFACE_TAG],
@@ -539,15 +430,12 @@ def retrieval_attributes(
 
 
 class RetrievalRecorder:
-    """The handle a route reports what a direct retrieval found through. A no-op when tracing is off."""
-
     __slots__ = ("_span",)
 
     def __init__(self, span: Any | None) -> None:
         self._span = span
 
     def finish(self, picks: Mapping[str, Any], metadata: Mapping[str, Any] | None = None) -> None:
-        """Record the picks (ids, pages, scores, counts: never passage text) and scalar metadata. Never raises."""
         if self._span is None:
             return
         try:
@@ -558,8 +446,6 @@ class RetrievalRecorder:
 
 
 class _ObservedRetrieval:
-    """The context manager :func:`observed_retrieval` returns."""
-
     def __init__(self, step: str, attributes: dict[str, Any]) -> None:
         self._step = step
         self._attributes = attributes
@@ -592,17 +478,4 @@ def observed_retrieval(
     query: Mapping[str, Any],
     metadata: Mapping[str, Any] | None = None,
 ) -> _ObservedRetrieval:
-    """Trace one store query that no workflow runs, as a Langfuse ``retriever`` observation named ``step``.
-
-    A search a person starts from a page (similar passages) runs in a plain
-    route, where the agent runtime's exporter sees nothing. Wrap the query and ``.finish``
-    the picks inside the block::
-
-        with observed_retrieval("similar-passages", step="retrieve.similar_passages", query={...}) as trace:
-            result = run()
-            trace.finish({"picked": [...]}, {"documents": 3})
-
-    The trace is a root named ``feature``; an exception leaving the block
-    marks it ERROR and propagates unchanged.
-    """
     return _ObservedRetrieval(step, retrieval_attributes(feature, query=query, metadata=metadata))

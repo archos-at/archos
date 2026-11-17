@@ -6,11 +6,10 @@ import pathlib
 import re
 
 REPO = pathlib.Path(__file__).resolve().parents[3]
-ALLOWED = REPO / "packages" / "knowledge-layer" / "src" / "vector_store"
+ALLOWED = REPO / "packages" / "knowledge-layer" / "src" / "knowledge_layer" / "vector_store"
 SEARCHED = ("src", "packages", "apps/agent-host/src", "scripts")
 IMPORT = re.compile(r"^\s*(from\s+qdrant_client\b|import\s+qdrant_client\b)", re.MULTILINE)
 
-CHROMA_ALLOWED = ("deploy/migration",)
 NOT_OURS = frozenset({".venv", "node_modules", ".git", ".claude", ".agents"})
 CHROMA_IMPORT = re.compile(
     r"^\s*(from\s+(chromadb|llama_index\.vector_stores\.chroma)\b"
@@ -40,7 +39,7 @@ def _offenders(repo: pathlib.Path = REPO) -> list[str]:
     offenders: list[str] = []
     files = _real_python_files() if repo == REPO else _python_files(repo)
     roots = tuple(repo / root for root in SEARCHED)
-    allowed = repo / "packages" / "knowledge-layer" / "src" / "vector_store"
+    allowed = repo / "packages" / "knowledge-layer" / "src" / "knowledge_layer" / "vector_store"
     for path in files:
         relative = path.relative_to(repo)
         test_code = {"tests", "testing"} & set(relative.parts)
@@ -55,13 +54,10 @@ def _chroma_users(pattern: re.Pattern[str], repo: pathlib.Path = REPO) -> list[s
     offenders: list[str] = []
     files = _real_python_files() if repo == REPO else _python_files(repo)
     for path in files:
-        relative = path.relative_to(repo)
-        if str(relative).startswith(CHROMA_ALLOWED):
-            continue
         if path == pathlib.Path(__file__).resolve():  # this file plants the strings it looks for
             continue
         if pattern.search(path.read_text(encoding="utf-8", errors="ignore")):
-            offenders.append(str(relative))
+            offenders.append(str(path.relative_to(repo)))
     return offenders
 
 
@@ -85,7 +81,7 @@ def test_the_boundary_check_would_see_an_offender(tmp_path):
     assert "scripts/_planted_qdrant_import_check.py" in _offenders(tmp_path)
 
 
-def test_nothing_but_the_migration_imports_chromadb():
+def test_nothing_imports_chromadb():
     assert _chroma_importers() == []
 
 

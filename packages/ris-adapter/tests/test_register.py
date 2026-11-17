@@ -1,5 +1,3 @@
-"""Tests for the ris_search and ris_fetch_document agent-runtime tools."""
-
 from unittest.mock import MagicMock
 
 import pytest
@@ -104,13 +102,6 @@ class TestBuildSearchParams:
 
 class TestFormatHit:
     def test_contains_the_citation_and_the_address_of_the_full_text(self):
-        """A hit states an ADDRESS, never a next call.
-
-        The trailer used to read "Fetch full text: ris_fetch_document with
-        'NOR…'" — one of the four places that taught the search→fetch sequence.
-        The sequence now lives inside `ris_lookup`; these three tools are deep
-        research's, and a deep researcher needs the address, not an imperative.
-        """
         output = _format_hit(1, _sample_hit())
 
         assert "--- Result 1 ---" in output
@@ -124,8 +115,6 @@ class TestFormatHit:
 
 
 class _FakeClient:
-    """Stands in for RisClient inside the registered tools."""
-
     search_result: RisSearchResult | Exception = RisSearchResult()
     fetch_result: RisDocument | Exception = RisDocument(url="", title="", text="")
     search_calls: list[dict] = []
@@ -152,18 +141,10 @@ class _FakeClient:
         pass
 
 
-class _CallProbeToolConfig(FunctionBaseConfig, name="test_register_call_probe"):
-    """Dummy config so _call can wrap a FunctionInfo in the real runtime Function."""
+class _CallProbeToolConfig(FunctionBaseConfig, name="test_register_call_probe"): ...
 
 
 async def _call(info, **kwargs):
-    """Invoke a registered agent-runtime tool through the real runtime path.
-
-    LambdaFunction.ainvoke converts the kwargs into the tool's input schema and
-    unpacks it per the function's arity — calling info.single_fn(...) directly
-    would hand SINGLE-argument tools (ris_catalog_lookup) the whole schema
-    object instead of the value, which production never does.
-    """
     fn = LambdaFunction.from_info(config=_CallProbeToolConfig(), info=info)
     return await fn.ainvoke(kwargs, to_type=str)
 
@@ -270,8 +251,6 @@ class TestRisSearchTool:
 
 
 class _FakeStructuredLLM:
-    """Mimics a LangChain chat model with .with_structured_output(...).ainvoke(...)."""
-
     def __init__(self, plan):
         self.plan = plan
         self.structured_kwargs = None
@@ -292,8 +271,6 @@ class _FakeStructuredLLM:
 
 
 class _SequenceStructuredLLM:
-    """Structured LLM whose successive ainvoke calls return/raise a scripted sequence."""
-
     def __init__(self, sequence):
         self.sequence = list(sequence)
         self.structured_kwargs = None
@@ -447,8 +424,6 @@ class TestRisSearchPlanner:
 
 
 class TestSafeDocumentName:
-    """The name becomes a CITATION KEY the reader sees, so it must be legible AND stable."""
-
     def test_prefers_title_and_anchors_it_with_the_document_number(self):
         assert _safe_document_name("NOR1", "Bauordnung für Wien §5") == "RIS_Bauordnung_für_Wien__5_NOR1.txt"
 
@@ -461,19 +436,12 @@ class TestSafeDocumentName:
         assert len(name) <= len("RIS_.txt") + 80
 
     def test_the_ris_title_prefix_is_not_doubled(self):
-        """RIS titles start with "RIS - "; prefixing our own gave "RIS_RIS_-_…"."""
         name = _safe_document_name("LWI40010002", "RIS - Wiener Garagengesetz 2008")
 
         assert name.startswith("RIS_Wiener_Garagengesetz")
         assert "RIS_RIS" not in name
 
     def test_the_same_law_keeps_ONE_name_across_days(self):
-        """A RIS title carries "Fassung vom <retrieval date>".
-
-        Leaving it in meant the same law ingested as a NEW document every day:
-        a session accumulated near-duplicate snapshots and a citation pointed at
-        whichever day's copy happened to be retrieved.
-        """
         title = "RIS - Wiener Garagengesetz 2008 - Landesrecht konsolidiert Wien, Fassung vom {date}"
         monday = _safe_document_name("LWI40010002", title.format(date="28.07.2026"))
         tuesday = _safe_document_name("LWI40010002", title.format(date="29.07.2026"))
@@ -483,19 +451,12 @@ class TestSafeDocumentName:
         assert "2026" not in monday
 
     def test_truncation_never_leaves_a_dot_against_the_extension(self):
-        """Cutting mid-token used to produce "…vom_28..txt"."""
         name = _safe_document_name("NOR1", "Ein sehr langer Titel " * 10 + "28.07.2026")
 
         assert ".." not in name
         assert name.endswith(".txt")
 
     def test_a_url_and_its_document_number_name_ONE_document(self):
-        """`ris_fetch_document` takes either form for the same document.
-
-        Sanitizing the whole URL made the two forms two documents. The ingest
-        marker is keyed on the fetched URL, so the second form skipped ingestion
-        and told the agent about a filename that was never stored.
-        """
         by_number = _safe_document_name("NOR40217157", "RIS - Garagengesetz")
         by_url = _safe_document_name(
             "https://www.ris.bka.gv.at/Dokumente/Bundesnormen/NOR40217157/NOR40217157.html",
@@ -514,11 +475,9 @@ class TestSafeDocumentName:
         assert name == "RIS_Garagengesetz_10008935.txt"
 
     def test_a_url_urlparse_refuses_still_yields_a_name(self):
-        """Naming the document must not fail a fetch that already succeeded."""
         assert _safe_document_name("http://[", "RIS - Garagengesetz") == "RIS_Garagengesetz.txt"
 
     def test_an_unreadable_url_contributes_no_anchor(self):
-        """The title alone is stable; a sanitized URL is neither stable nor legible."""
         name = _safe_document_name("https://www.ris.bka.gv.at/Suche?query=garagen", "RIS - Garagengesetz")
 
         assert name == "RIS_Garagengesetz.txt"
@@ -855,9 +814,6 @@ class TestRisSearchCatalogShortcut:
 
 
 def _override_setting(monkeypatch, values):
-    """Patch the platform retrieval-settings resolver: only the listed keys are
-    overridden, every other key falls through to its config fallback — exactly
-    what the real resolver does for unpinned keys."""
     from agent.common import retrieval_settings
 
     def fake_get(key, fallback):
@@ -867,9 +823,6 @@ def _override_setting(monkeypatch, values):
 
 
 class TestPlatformRetrievalSettings:
-    """The ris_search / ris_catalog_lookup counts come from Platform → Retrieval
-    when pinned there, and fall back to the YAML config values otherwise."""
-
     async def test_platform_max_results_overrides_config(self, fake_client, monkeypatch):
         fake_client.search_result = RisSearchResult(
             hits=[_sample_hit() for _ in range(5)], total=5, page=1, page_size=20
@@ -941,14 +894,7 @@ class TestPlatformRetrievalSettings:
 
 
 class TestLaneCapture:
-    """Shown RIS hits reach the per-round ledger with their round stamp.
-
-    The capture reads the structured hits, never the prose: the ledger join
-    must not depend on formatting.
-    """
-
     async def test_search_hits_are_captured_with_the_round(self, fake_client):
-        """Shown search hits are captured with the active round."""
         from agent.common import turn_status
 
         fake_client.search_result = RisSearchResult(hits=[_sample_hit()], total=1, page=1, page_size=20)
@@ -970,7 +916,6 @@ class TestLaneCapture:
         ]
 
     async def test_catalog_shortcut_hits_are_captured(self, fake_client, fake_catalog):
-        """Catalog shortcut hits are captured like live hits."""
         from agent.common import turn_status
 
         token = turn_status.begin_lane_capture()
@@ -991,7 +936,6 @@ class TestLaneCapture:
         ]
 
     async def test_fetch_captures_the_document_url(self, fake_client):
-        """A fetched document is captured by URL."""
         from agent.common import turn_status
 
         fake_client.fetch_result = RisDocument(
@@ -1020,14 +964,6 @@ class TestLaneCapture:
         ]
 
     async def test_a_cached_search_still_captures_its_hits(self, fake_client):
-        """A repeat search served from cache still feeds the ledger."""
-        """A repeat search must not record a round that returned nothing.
-
-        The read-through cache short-circuits before the live path, so without
-        the hits riding along the second identical search would announce a
-        round with `docs: []` while the model received the full hit list — the
-        ledger lying on exactly the repeats it should be counting.
-        """
         from agent.common import turn_status
 
         fake_client.search_result = RisSearchResult(hits=[_sample_hit()], total=1, page=1, page_size=20)
@@ -1054,12 +990,3 @@ class TestLaneCapture:
                 "detail": "NOR40217157",
             }
         ]
-
-
-def test_ris_search_still_reads_the_old_state_argument_for_one_release():
-    """Remove with the ``bundesland`` alias on ``RisSearchInput``."""
-    from ris_adapter.register import RisSearchInput
-
-    assert RisSearchInput.model_validate({"query": "x", "bundesland": "Wien"}).federal_state == "Wien"
-    assert RisSearchInput.model_validate({"query": "x", "federal_state": "Tirol"}).federal_state == "Tirol"
-    assert "bundesland" not in RisSearchInput.model_json_schema()["properties"]

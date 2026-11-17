@@ -1,5 +1,3 @@
-"""The agent's actor kind: its new value, and the old one the database and the BFF still carry."""
-
 from agent.common.legacy_agent_kind import LEGACY_AGENT_KIND
 
 AGENT_KIND = "agent"

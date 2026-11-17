@@ -1,32 +1,3 @@
-"""What a memory note may not hold: a secret anywhere, a way to reach a person on a shared shelf.
-
-The twin of ``apps/workspace/bff/knowledge/note-content-guard.ts``. The BFF's
-copy is the authority: it sits at the one writer of both stores, so a note typed
-in a panel, accepted on a card or sent through the MCP door meets it too. This
-copy gives the agent its refusal before the round trip. Both are held to one
-table of cases, ``tests/fixtures/memory_note_guard_cases.json``, and every rule
-below is written so that Python's ``re`` and JavaScript's ``RegExp`` read it
-alike: ASCII classes spelt out (``[0-9]``, never ``\\d``), no ``\\b`` (the two
-disagree on an umlaut), and the same order of checks.
-
-Two classes, because the shelves differ (ADR-0180):
-
-- a **secret** is refused everywhere, the person's own memory included: a note
-  rides every later prompt. Account and identity numbers come from the content
-  screen's detectors (:mod:`agent.common.content_screen`), which count a number
-  only when its checksum holds (IBAN mod 97, the Austrian and German insurance
-  numbers' check digits, Luhn in a card network's range), so a plot number, a
-  drawing number or a date is not one. Credentials are the rules below.
-- a **contact** detail (an e-mail address, a phone number) is refused on the
-  project's and the office's shelves, which other people read, and allowed on
-  the personal one.
-
-Shapes, not meanings, and tuned to miss before it refuses a fact: a password
-with no label and no digit or sign ("Passwort: SommerRegen") passes, and so
-does an all-lower-case one. What each rule deliberately leaves alone is in the
-shared table's passing cases.
-"""
-
 from __future__ import annotations
 
 import re
@@ -134,12 +105,10 @@ def _count(pattern: re.Pattern[str], text: str) -> int:
 
 
 def _value_of(token: str) -> str:
-    """A token as the value it holds: opening quotes and closing punctuation taken off."""
     return token.lstrip(_LEADING_QUOTES).rstrip(_TRAILING_MARKS)
 
 
 def _character_classes(value: str) -> tuple[bool, bool, bool, bool]:
-    """Whether the value holds a lower-case letter, an upper-case one, a digit, a sign a password carries."""
     return (
         bool(_LOWER.search(value)),
         bool(_UPPER.search(value)),
@@ -149,7 +118,6 @@ def _character_classes(value: str) -> tuple[bool, bool, bool, bool]:
 
 
 def _is_labelled_password(token: str, *, explicit: bool) -> bool:
-    """Whether the token after a credential's label is its value, not the next word of the sentence."""
     value = _value_of(token)
     if len(value) < 4 or _URL_START.match(value):
         return False
@@ -160,7 +128,6 @@ def _is_labelled_password(token: str, *, explicit: bool) -> bool:
 
 
 def _is_unlabelled_password(token: str) -> bool:
-    """Whether a token after a login's label can only be a password: a letter, a digit and a sign."""
     value = _value_of(token)
     if len(value) < 6 or _URL_START.match(value) or _EMAIL_TOKEN.fullmatch(value):
         return False
@@ -169,7 +136,6 @@ def _is_unlabelled_password(token: str) -> bool:
 
 
 def _is_random_token(run: str) -> bool:
-    """Whether a long run holds a stretch no word or file name has: 24 characters, six digits and six letters."""
     for part in _TOKEN_SPLIT.split(run):
         letters = _count(_LOWER, part) + _count(_UPPER, part)
         if len(part) >= _RANDOM_MIN_CHARS and _count(_DIGIT, part) >= _RANDOM_MIN_EACH and letters >= _RANDOM_MIN_EACH:
@@ -193,7 +159,6 @@ def _has_credential(text: str) -> bool:
 
 
 def secret_kind(content: str) -> str | None:
-    """The kind of secret a note holds (one of :data:`SECRET_KINDS`), or ``None``."""
     text = content or ""
     spans = find_spans(text, DETECTORS_ONLY)
     if spans:
@@ -214,7 +179,6 @@ def _digits_between(match: re.Match[str], low: int, high: int) -> bool:
 
 
 def contact_kind(content: str) -> str | None:
-    """The kind of contact detail a note holds (one of :data:`CONTACT_KINDS`), or ``None``."""
     text = content or ""
     if _EMAIL.search(text):
         return "email"
@@ -229,5 +193,4 @@ def contact_kind(content: str) -> str | None:
 
 
 def note_refusal(content: str, *, shared: bool) -> str | None:
-    """Why a note may not be stored, as the kind found, or ``None``: a secret anywhere, a contact on a shared shelf."""
     return secret_kind(content) or (contact_kind(content) if shared else None)

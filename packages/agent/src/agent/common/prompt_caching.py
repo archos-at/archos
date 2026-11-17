@@ -1,140 +1,3 @@
-"""Provider prompt caching: switch it on where it is opt-in, keep a turn on one shard.
-
-WHAT THE PROVIDER ALREADY DOES, AND WHAT IT NEEDS FROM US
-========================================================
-Every research turn re-sends the same ~35 KB of prefix — the system prompt
-(rendered once per run and cached on the agent state) plus the bound tool
-schemas — on each of its 3-6 model calls. Providers in the OpenAI family cache
-that prefix **automatically**: "Prompt caching with OpenAI is automated and does
-not require any additional configuration. There is a minimum prompt size of 1024
-tokens." (https://openrouter.ai/docs/features/prompt-caching). Nothing in the
-request body turns it on, and no ``cache_control`` breakpoint is needed — those
-are Anthropic's and Alibaba's explicit mechanism, not OpenAI's.
-
-What caching *does* need is landing on the same upstream endpoint twice. A cache
-lives inside one provider; OpenRouter load-balances a model across several. Its
-answer is sticky routing, and the key it sticks on is ours to supply::
-
-    For more explicit control over sticky routing, you can pass a `session_id`
-    in your request. When a `session_id` is present, OpenRouter uses it directly
-    as the sticky routing key instead of deriving one from message hashing.
-    […] When `session_id` is set, sticky routing activates on any successful
-    request — even before cache usage is observed […]. Without `session_id`,
-    sticky routing only activates after a cache hit is detected.
-
-Without a key, OpenRouter derives one by hashing the first system message and
-the first non-system message, and only starts pinning **after** it has seen a
-hit — which a fleet spread over several endpoints may never produce. That is the
-chicken-and-egg this module breaks.
-
-``prompt_cache_key`` rides along for the same reason one layer up: it is
-OpenAI's own cache-shard hint ("Use separate keys to maintain separate cache
-accounting for customers or users"), and OpenRouter falls back to it as the
-sticky key when no ``session_id`` is present, so sending both is coherent rather
-than redundant. Both are declared top-level fields of OpenRouter's ChatRequest
-*and* its Responses request, so the gateway parses them itself and no upstream
-provider can reject them as unknown parameters — which is what makes this safe
-for a model an admin re-points us at (ADR-0014).
-
-WHAT WE DELIBERATELY DO NOT SEND
-================================
-- ``provider.order``: "Sticky routing is not used when you specify a manual
-  provider order via ``provider.order`` — in that case, your explicit ordering
-  takes priority." Pinning the provider ourselves would *disable* the mechanism
-  we are trying to use, and would hard-fail whenever an override lands on a
-  model that provider does not serve.
-- ``usage: {include: true}``: "The ``usage: { include: true }`` and
-  ``stream_options: { include_usage: true }`` parameters are deprecated and have
-  no effect. Full usage details are now always included automatically in every
-  response." (https://openrouter.ai/docs/use-cases/usage-accounting). Cached
-  token counts arrive whether or not we ask.
-ONE BLOCK BREAKPOINT AT THE END OF THE STATIC SYSTEM PROMPT
-==========================================================
-A provider writes a cache entry only at a breakpoint, and a later request
-looks back at most 20 blocks from its own breakpoints for an entry to read
-(Anthropic, "Prompt caching", read 2026-11-10, page names Fable 5.2 so dated
-on or after 2026-11-09). The automatic marker below sits at the TAIL of each
-request. Inside a turn that is enough: round 2 finds what round 1 wrote. Across
-turns it carries nothing, because the next turn drops the previous turn's
-context message and edits its history, so no entry was ever written at the
-end of the bytes every turn shares: the tools and the system prompt. Every
-turn's first call re-wrote 23-31k tokens at 1.25x
-(``docs/design/international/research/token-budget-2026-11.md``).
-
-So the agent that owns a static system prompt sends it as ONE text block with
-``cache_control`` (:func:`cached_system_message`). Anthropic's own audit puts
-"one breakpoint on the system block" (Optimizing for cost and intelligence,
-on or after 2026-11-09), and OpenRouter translates an Anthropic-style block
-marker into OpenAI's ``prompt_cache_breakpoint`` on a supporting GPT model
-(OpenRouter prompt caching guide, on or after 2026-10-07). That translation
-happens on Chat Completions only: "the Responses API does not expose per-block
-``cache_control``", and langchain's Responses converter drops the key
-(measured 2026-11-10), which is why the chat role runs on Chat Completions.
-
-The marker goes only to families whose provider is documented to accept a
-block marker (:data:`BLOCK_BREAKPOINT_FAMILIES`); :func:`strip_block_breakpoints`
-takes it off for any other model, and for any client that is not OpenRouter,
-so an admin re-pointing a group never sends a field a provider rejects. The
-key (:func:`prompt_cache_key`) hashes the block's TEXT, so moving to the block
-form did not re-key a single shard.
-
-A CALL MADE ONCE WRITES NOTHING
-===============================
-Automatic caching writes at the tail of a request, and a write is billed at
-1.25x: on Claude when the marker below is sent, and on GPT-5.6+ always ("a
-prompt of 1024 tokens or more that is only sent once costs more with caching on
-than off", OpenRouter prompt caching guide, on or after 2026-10-07). A call
-whose tail is unique to it (the claim judge over one answer's evidence, the
-follow-ups, the memory reflection, the RIS planner over one request) writes an
-entry nobody reads. Inside :func:`one_shot_calls` such a call carries
-``prompt_cache_options: {"mode": "explicit"}`` and no breakpoint on the
-OpenAI family, which turns caching off, and no automatic marker on Claude.
-
-WHAT CLAUDE NEEDS ON TOP: ONE TOP-LEVEL ``cache_control``
-=========================================================
-Anthropic models cache nothing unless the request asks. This module used to
-send only the routing fields above, on the reading that caching is automatic;
-that holds for the OpenAI family and not for Claude, and from the day Opus
-became the chat model every call paid full price for the prefix the previous
-call of the same turn had just sent. Measured on production on 2026-10-27:
-60 M Anthropic prompt tokens in 30 days, 0 of them read from the cache, against
-51 % for the OpenAI models on the same code path.
-
-OpenRouter's answer is automatic caching: "Add a single ``cache_control``
-field at the top level of your request", and the provider "moves the
-breakpoint forward as the conversation grows"
-(https://openrouter.ai/docs/guides/best-practices/prompt-caching). It is
-accepted on both Chat Completions and the Responses API. Measured the same day
-on ``anthropic/claude-haiku-5.5``, a 7.5 k-token prompt sent twice: without
-the field 0 cached tokens on either API; with it the second call read 7 520
-from the cache and cost 89 % less. A write costs 1.25x, a read 0.1x, so one
-repeat pays for it, and a turn makes 3-6 calls.
-
-The field goes only to the families in :data:`EXPLICIT_CACHE_FAMILIES`: the
-docs name the providers that accept it, and a model an admin re-points a group
-at must not start failing on a field its provider rejects.
-
-THE KEY IS THE PREFIX, NOT THE CONVERSATION
-===========================================
-:func:`prompt_cache_key` hashes exactly what the cached prefix is made of — the
-tenant, the model, the system prompt and the tool set — and nothing that varies
-within a turn. Two consequences, both wanted:
-
-* every call of one turn shares a key, so iteration 2 lands where iteration 1
-  wrote its cache;
-* two turns of the same tenant with the same prompt and tools share it too, so
-  the cache survives across turns for as long as the provider keeps it;
-* an agent whose system prompt has a stable prefix and a per-turn tail names
-  the prefix (``begin_stable_prefix``), so every turn of the tenant lands on
-  the shard that holds the prefix instead of starting it cold.
-
-The tenant is in the hash rather than left out of it because a cache key is also
-an accounting boundary, and because OpenAI advises partitioning traffic across
-keys ("aim for about 15 requests per minute in total across all prefixes using
-each key") — one key for the whole fleet would be exactly the funnel that
-advice warns about.
-"""
-
 from __future__ import annotations
 
 import hashlib
@@ -163,7 +26,6 @@ CACHE_CONTROL_FIELD = "cache_control"
 PROMPT_CACHE_OPTIONS_FIELD = "prompt_cache_options"
 _NO_CACHE_WRITES = {"mode": "explicit"}
 
-# OpenAI GPT from 5.6 on caches and bills the write unasked (OpenRouter prompt caching guide, 2026-10-07).
 AUTOMATIC_WRITE_FAMILIES = ("openai",)
 _AUTOMATIC_WRITES_FROM = (5, 6)
 _GPT_VERSION = re.compile(r"gpt-(\d+)(?:\.(\d+))?")
@@ -186,7 +48,6 @@ _ONE_SHOT: ContextVar[bool] = ContextVar("prompt_cache_one_shot", default=False)
 
 @contextmanager
 def one_shot_calls() -> Iterator[None]:
-    """Model calls made inside write nothing to the provider's cache: their tail is sent once."""
     token = _ONE_SHOT.set(True)
     try:
         yield
@@ -195,7 +56,6 @@ def one_shot_calls() -> Iterator[None]:
 
 
 def _without_cache_writes(extra_body: Any, model: str | None) -> dict[str, Any] | None:
-    """The ``extra_body`` of a one-shot call: caching off where it is on by default, no marker anywhere."""
     merged: dict[str, Any] = dict(extra_body) if isinstance(extra_body, Mapping) else {}
     if writes_automatically(model):
         merged.setdefault(PROMPT_CACHE_OPTIONS_FIELD, dict(_NO_CACHE_WRITES))
@@ -203,12 +63,6 @@ def _without_cache_writes(extra_body: Any, model: str | None) -> dict[str, Any] 
 
 
 def writes_automatically(model: str | None) -> bool:
-    """Whether ``model`` writes, and bills, cache entries unasked: GPT-5.6 and later. Pure.
-
-    Only these get ``prompt_cache_options``: an older model or another family
-    writes nothing a one-shot call has to switch off, and has no reason to see
-    a field it may not know.
-    """
     if _family(model) not in AUTOMATIC_WRITE_FAMILIES:
         return False
     match = _GPT_VERSION.search(model or "")
@@ -216,7 +70,6 @@ def writes_automatically(model: str | None) -> bool:
 
 
 def begin_stable_prefix(prefix: str | None) -> Token[str | None]:
-    """Name the stable prefix of this turn's system prompt; pair with ``end_stable_prefix``."""
     return _STABLE_PREFIX.set(prefix or None)
 
 
@@ -225,12 +78,6 @@ def end_stable_prefix(token: Token[str | None]) -> None:
 
 
 def _cacheable_prefix(system_prompt: str) -> str:
-    """What of the system prompt goes into the key: the stable prefix when it leads it.
-
-    A system prompt that does not START with the named prefix is keyed whole,
-    as before: a call from another agent, or a render the prefix no longer
-    matches, must not claim a shard it does not share.
-    """
     prefix = _STABLE_PREFIX.get()
     if prefix and system_prompt.startswith(prefix):
         return prefix
@@ -238,13 +85,6 @@ def _cacheable_prefix(system_prompt: str) -> str:
 
 
 def _canonical(value: Any) -> str:
-    """A stable text rendering of one hash input, whatever shape it arrived in.
-
-    ``json.dumps`` with sorted keys makes a tool payload independent of dict
-    insertion order, so two builds of the same tool set hash alike even if a
-    schema converter reorders a mapping. Anything unserializable falls back to
-    ``repr``, which is stable for the tuples and strings this is actually given.
-    """
     if value is None:
         return ""
     if isinstance(value, str):
@@ -256,12 +96,6 @@ def _canonical(value: Any) -> str:
 
 
 def stable_prefix_digest(*parts: Any) -> str:
-    """A short, deterministic digest of the parts that make up a cached prefix.
-
-    Parts are joined with a separator that cannot occur in the digest alphabet,
-    so ``("ab", "c")`` and ``("a", "bc")`` cannot collide. Pure: the same inputs
-    give the same digest in every process and every release.
-    """
     joined = "\x1e".join(_canonical(part) for part in parts)
     return hashlib.sha256(joined.encode("utf-8")).hexdigest()[:_DIGEST_CHARS]
 
@@ -273,26 +107,11 @@ def prompt_cache_key(
     organization_id: str | None = None,
     model: str | None = None,
 ) -> str:
-    """The cache/sticky-routing key for one stable prefix.
-
-    Identical for every call that shares a tenant, a model, a system prompt and
-    a tool set — which is every call of one research turn, and every later turn
-    whose prefix has not changed. Different the moment any of those four
-    differ, because a changed prefix is a different cache entry and pinning it
-    to the old shard would only send misses to a warm endpoint.
-    """
     digest = stable_prefix_digest(organization_id or "-", model or "-", system_prompt or "", tools)
     return f"{_KEY_PREFIX}-{digest}"
 
 
 def with_prompt_cache_routing(extra_body: Any, key: str) -> dict[str, Any]:
-    """Return a NEW ``extra_body`` carrying the cache/sticky-routing fields.
-
-    Non-destructive, like the ZDR merge it sits beside: the response-healing
-    plugin, ``provider`` routing and anything else already present are copied
-    through untouched. A caller that already set either field wins — an
-    explicit key from a call site is a decision, not something to overwrite.
-    """
     merged: dict[str, Any] = dict(extra_body) if isinstance(extra_body, Mapping) else {}
     merged.setdefault(SESSION_ID_FIELD, key)
     merged.setdefault(PROMPT_CACHE_KEY_FIELD, key)
@@ -300,35 +119,22 @@ def with_prompt_cache_routing(extra_body: Any, key: str) -> dict[str, Any]:
 
 
 def _family(model: str | None) -> str:
-    """The ``<family>`` of an OpenRouter model id, without the ``~`` of a ``-latest`` alias."""
     return (model or "").lstrip("~").partition("/")[0]
 
 
 def needs_cache_marker(model: str | None) -> bool:
-    """Whether ``model``'s provider caches only when the request carries ``cache_control``."""
     return _family(model) in EXPLICIT_CACHE_FAMILIES
 
 
 def cached_system_message(text: str) -> SystemMessage:
-    """A system prompt that is the same on every call and every turn, with a breakpoint at its end.
-
-    For a STATIC prompt only: a breakpoint on bytes that change per turn writes
-    an entry nobody reads, at 1.25x.
-    """
     return SystemMessage(content=[{"type": "text", "text": text, CACHE_CONTROL_FIELD: dict(_AUTOMATIC_CACHE)}])
 
 
 def cached_context_message(text: str) -> HumanMessage:
-    """A context message that leads every turn of a conversation, with a breakpoint at its end.
-
-    The conversation layout's stable head (the chat agent's ``context_layout``): the
-    second breakpoint after the system prompt's, of Anthropic's four.
-    """
     return HumanMessage(content=[{"type": "text", "text": text, CACHE_CONTROL_FIELD: dict(_AUTOMATIC_CACHE)}])
 
 
 def _without_breakpoint(content: Any) -> Any:
-    """``content`` with every block's ``cache_control`` taken off; one bare text block becomes its string."""
     if not isinstance(content, list) or not any(isinstance(b, dict) and CACHE_CONTROL_FIELD in b for b in content):
         return content
     blocks = [
@@ -341,11 +147,6 @@ def _without_breakpoint(content: Any) -> Any:
 
 
 def strip_block_breakpoints(messages: Any, model: str | None, *, openrouter: bool = True) -> Any:
-    """``messages`` as they may go to ``model``: block breakpoints kept only where the provider takes them.
-
-    Returns the input object itself when nothing changes, so a call with no
-    marker pays nothing.
-    """
     if openrouter and _family(model) in BLOCK_BREAKPOINT_FAMILIES:
         return messages
     if not isinstance(messages, list):
@@ -364,11 +165,6 @@ def strip_block_breakpoints(messages: Any, model: str | None, *, openrouter: boo
 
 
 def with_cache_marker(extra_body: Any, model: str | None) -> dict[str, Any]:
-    """Return a NEW ``extra_body`` that turns on automatic caching where the model needs it.
-
-    Non-destructive like :func:`with_prompt_cache_routing`; a caller that set
-    its own ``cache_control`` (a one-hour TTL, say) wins.
-    """
     merged: dict[str, Any] = dict(extra_body) if isinstance(extra_body, Mapping) else {}
     if needs_cache_marker(model):
         merged.setdefault(CACHE_CONTROL_FIELD, dict(_AUTOMATIC_CACHE))
@@ -376,12 +172,6 @@ def with_cache_marker(extra_body: Any, model: str | None) -> dict[str, Any]:
 
 
 def _system_text(messages: Any) -> str | None:
-    """The leading system message's content, or None when a call has no system turn.
-
-    Only the FIRST message counts: a system message anywhere else is not part
-    of the cacheable prefix, and hashing it would split the key for calls that
-    in fact share a prefix.
-    """
     if not isinstance(messages, Sequence) or isinstance(messages, str | bytes) or not messages:
         return None
     first = messages[0]
@@ -403,16 +193,6 @@ def prompt_cache_extra_body(
     organization_id: str | None = None,
     model: str | None = None,
 ) -> dict[str, Any] | None:
-    """The ``extra_body`` override that pins one call to its prefix's shard.
-
-    Returns ``None`` when there is nothing to add: a call with no leading
-    system message has no prefix worth a key. A model that caches only on
-    request still gets the cache marker then, since its history may be long.
-
-    ``kwargs`` is the per-call binding — ``bind(tools=…)``, ``bind(response_format=…)``
-    — and is read, never mutated: the tool payload and the response format both
-    sit in the cached prefix, so both go into the key.
-    """
     if _ONE_SHOT.get():
         return _without_cache_writes(extra_body, model)
     system_prompt = _system_text(messages)

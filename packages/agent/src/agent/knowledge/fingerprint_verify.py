@@ -1,25 +1,3 @@
-"""Check each fingerprint value the closed-project reading proposes against its own quote (ADR-0064 use 12).
-
-The fingerprint pen (``project_experience.extract_fingerprint``) answers the
-intake's closed vocabularies — Bundesland, Bauweise, uses, kind of work, the
-OIB edition — each with a quote, and code already checks that the quote is in
-the text the pen read. Code cannot check that the quote SAYS the value: a pen
-that cites „Brettsperrholz-Decken über dem Stahlbeton-Sockel" for Bauweise
-„Massivbau", or „Baubehörde Wien" for a project in Niederösterreich, passes
-every check today and becomes a suggestion the similarity ranking reads
-(ADR-0096: a suggestion ranks until a person corrects it).
-
-So one ``stated`` noul per proposed token asks the decision model exactly
-that, over the quote and the value, nothing else. A token it rejects is not
-suggested; a value with no token left is dropped. A token it could not judge
-stays, so a decision model that is down leaves the reading as it was.
-
-The Gebäudeklasse is not checked. The pen may derive it from heights and
-floors (``docs/roadmap/office-experience.md``: arithmetic, not a classifier's
-job), and a quote that gives the heights does not state the class in words: the
-check would drop exactly the derivations the pen is there for.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -36,7 +14,6 @@ logger = logging.getLogger(__name__)
 
 SLOT = "experience_verify"
 
-# 2026-10-10, 32 labelled quotes: wrong <= 0.32, correct >= 0.14; 0.1 keeps all 17 correct, rejects slips (0.03-0.05).
 STATED_THRESHOLD = 0.1
 
 UNCHECKED_KEYS = frozenset({"building_class", "gebaeudeklasse"})
@@ -103,12 +80,6 @@ def verify_fingerprint(
     organization_id: str | None = None,
     fact_labels: Mapping[str, str] | None = None,
 ) -> list[FingerprintValue]:
-    """The values whose quotes state them; unchecked keys and undecided tokens kept. Never raises.
-
-    ``fact_labels`` names a key's fact as a German reader would, for keys
-    :data:`FACT_LABELS` does not know: the project intake checks any select
-    question of the wizard, and hands over the question's own label.
-    """
     asked: list[tuple[int, str]] = []
     states: list[dict[str, Any]] = []
     for index, value in enumerate(values):

@@ -6,7 +6,7 @@
  *
  * The claim (ADR-0078) is that a shelf is a parameter: the same code files,
  * renames, moves and deletes folders on both, and what the Archiv adds is only
- * who may (`org:archiv:manage`), where its collection is, and that a folder row
+ * who may (`org:office_shelf:manage`), where its collection is, and that a folder row
  * carries its tenant and shelf. The database's half of that — a parent and a
  * document held on their own shelf and tenant — is
  * `tenant-isolation.integration.spec.ts`; this suite pins the service's half
@@ -141,7 +141,7 @@ describe('who may touch the Archiv shelf', () => {
     ['update', () => updateShelfFolder(session, OFFICE_SHELF, { folderId: 'f-1', name: 'Neu' })],
     ['delete', () => deleteShelfFolder(session, OFFICE_SHELF, 'f-1')],
     ['ensure', () => ensureShelfFolderPaths(session, OFFICE_SHELF, { parentId: null, paths: ['A/B'] })],
-  ])('refuses %s to a member without org:archiv:manage, before touching the database', async (_name, run) => {
+  ])('refuses %s to a member without org:office_shelf:manage, before touching the database', async (_name, run) => {
     vi.mocked(canManageOfficeShelf).mockReturnValue(false)
 
     await expect(run()).rejects.toBeInstanceOf(ForbiddenError)

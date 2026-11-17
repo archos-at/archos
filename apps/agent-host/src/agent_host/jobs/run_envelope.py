@@ -1,43 +1,3 @@
-"""The person a background run acts as: the signed envelope it carries (ADR-0108).
-
-A run is commissioned by somebody, and the tools that act as a person
-(``file_draft``, ``create_task``, ``project_lookup``, anything that echoes
-``RequestContext.envelope_header``) need that somebody's signed
-request-context envelope. A chat turn has one because the BFF minted it from a
-live session. A background run had none, so every one of those tools refused in
-it. This module is how a run gets one, in three steps, none of which signs.
-
-**Carry.** When the job API accepts a submit, :func:`capture_request_envelope`
-keeps the envelope the BFF sent with it, byte for byte, but only when it
-verifies for the run's own requester (:func:`agent_host.jobs.access.verified_envelope`).
-It travels inside the job's encrypted payload as ``request_envelope``
-(``jobs/payload_crypto.py``), next to the auth token it is as sensitive as.
-
-**Inject.** At claim the worker hands the two strings to the run's request
-metadata under the names a chat turn uses
-(:func:`envelope_headers_for_run`), so ``RequestContext`` reads them exactly
-as it does there.
-
-**Renew.** An envelope lives six hours. One older than
-:data:`RUN_ENVELOPE_RENEW_AFTER_MS` at claim is exchanged for a fresh one at
-``POST /api/internal/runs/{runId}/envelope``, where the BFF re-derives it from
-the ``task_runs`` row and the requester's CURRENT membership. The claim is the
-only seam this needs: a run that resumes after a crash is claimed again and
-renews again, and a run's own wall clock (deep research stops at 40 minutes)
-ends long before an envelope renewed at claim could expire.
-
-**Echo, never sign.** The internal token and the signing secret are one secret,
-so this tier could mint an envelope that works. It must not: that would be the
-service choosing whose permissions it runs under. Python here only VERIFIES
-(the same HMAC check every reader does) and forwards what the BFF signed. Every
-refusal leaves the run without an envelope, which is what every run was before
-ADR-0108: the person-acting tools refuse, and nothing else changes. A failure to
-ASK (the BFF unreachable) is no refusal: the run keeps the carried envelope
-while it is inside its 6 h window.
-
-Nothing here logs an envelope. Log lines name the run, the job and the reason.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -71,8 +31,6 @@ RUN_ENVELOPE_REFUSALS = frozenset({"unknown-run", "run-not-active", "requester-m
 
 @dataclass(frozen=True)
 class RunEnvelope:
-    """The two header values, exactly as the BFF signed them."""
-
     header: str
     signature: str
 
@@ -98,13 +56,6 @@ def capture_request_envelope(
     user_id: str | None,
     organization_id: str | None = None,
 ) -> dict[str, str] | None:
-    """The submit's envelope as the payload stores it, when it may speak for the run's requester.
-
-    ``user_id`` (and ``organization_id`` when the caller names one) is who the
-    run is FOR: the bearer token's subject on the public route, the body's
-    requester on the internal one. An envelope for anybody else, unsigned, or
-    out of its window is not carried; the run then acts as nobody.
-    """
     context = verified_envelope(headers, user_id=user_id, organization_id=organization_id)
     if context is None or not context.envelope_header or not context.envelope_signature:
         return None
@@ -112,7 +63,6 @@ def capture_request_envelope(
 
 
 def _verify(envelope: RunEnvelope) -> RequestContext | None:
-    """The envelope's verified payload, or None. Verifies; never signs."""
     secret = os.environ.get("INTERNAL_API_TOKEN")
     if not secret:
         return None
@@ -123,7 +73,6 @@ def _verify(envelope: RunEnvelope) -> RequestContext | None:
 
 
 def _same_person(context: RequestContext, identity: Mapping[str, Any]) -> bool:
-    """Whether the envelope speaks for the run's own requester, where the run names one."""
     for field in ("user_id", "organization_id"):
         expected = identity.get(field)
         if expected and getattr(context, field) != expected:
@@ -139,12 +88,6 @@ async def envelope_headers_for_run(
     identity: Mapping[str, Any] | None = None,
     now_ms: int | None = None,
 ) -> dict[str, str]:
-    """The envelope headers to inject into a run, or ``{}`` for a run that acts as nobody.
-
-    ``request_envelope`` is the payload value (``None`` for a run submitted
-    without one, or before ADR-0108). ``identity`` is the run's own
-    (``usage_context["identity"]``): an envelope for anybody else is dropped.
-    """
     carried = RunEnvelope.from_payload(request_envelope)
     if carried is None:
         return {}
@@ -171,16 +114,6 @@ async def envelope_headers_for_run(
 
 
 def _accept_renewal(fresh: RunEnvelope, *, carried: RequestContext, job_id: str) -> dict[str, str]:
-    """The renewed envelope's headers, when it is a renewal of the carried one.
-
-    The BFF is the authority on whether the requester may still act; these
-    checks only refuse an answer that is not that authority's answer to THIS
-    run. A fresh envelope must verify, speak for the same person in the same
-    organization, and keep a collection scope when the carried one had one:
-    ``RequestContext`` prefers the envelope to the worker's own headers
-    wholesale, so an envelope without a scope would silently narrow the run's
-    retrieval to the shared corpus.
-    """
     context = _verify(fresh)
     if context is None:
         logger.warning("Job %s: the renewed request envelope does not verify; running without one", job_id)
@@ -195,8 +128,6 @@ def _accept_renewal(fresh: RunEnvelope, *, carried: RequestContext, job_id: str)
 
 
 class _Refused:
-    """The BFF's answer that the requester may not act for this run any more."""
-
     def __repr__(self) -> str:
         return "REFUSED"
 
@@ -205,14 +136,6 @@ REFUSED = _Refused()
 
 
 async def renew_run_envelope(run_id: str | None, *, job_id: str) -> RunEnvelope | _Refused | None:
-    """Ask the BFF for a fresh envelope for ``run_id``; never raises.
-
-    A fresh envelope; ``REFUSED`` when the BFF answered with one of its
-    refusals (the run is unknown, no longer active, or the requester may not
-    act): a verdict, so the run drops its envelope; ``None`` when the BFF could
-    not be asked or answered something else: no verdict, so the caller keeps
-    the carried envelope while it is still inside its window.
-    """
     if not run_id:
         logger.info("Job %s: its request envelope is due for renewal and it has no run to renew it for", job_id)
         return None
@@ -251,7 +174,6 @@ def _json(response: httpx.Response) -> Any:
 
 
 def parse_renewal(body: Any) -> RunEnvelope | None:
-    """A ``RunEnvelopeResponse`` (``{header, signature, issuedAt}``, nothing else), or None."""
     if not isinstance(body, Mapping) or set(body) != {"header", "signature", "issuedAt"}:
         return None
     issued_at = body["issuedAt"]
@@ -261,7 +183,6 @@ def parse_renewal(body: Any) -> RunEnvelope | None:
 
 
 def refusal_reason(body: Any) -> str | None:
-    """The ``RunEnvelopeError`` code a refusal names, or None for any other body."""
     if not isinstance(body, Mapping) or set(body) != {"error", "message"}:
         return None
     error = body.get("error")

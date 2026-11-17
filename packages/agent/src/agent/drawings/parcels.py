@@ -1,19 +1,3 @@
-"""The parcels a Katastralmappe holds, rebuilt from its boundary network (ADR-0152).
-
-A DKM never stores a parcel as a polygon. Its boundaries run from node to node
-across the whole sheet (BEV spec v2.6, §3.2: "Netzkanten von Knoten zu
-Knoten"), and a parcel number names the mesh its reference point falls into
-(§3.3: the text's centre, or a number with an arrow's tip). So the network of
-every boundary rank (GG up to RG) is unioned and polygonized, and each number is
-placed in the mesh that contains it. Arcs (a vertex's bulge) are flattened to
-5 cm.
-
-What comes out is what the map says, not the land register: the area is
-computed from the boundary as drawn, which in the Grundsteuerkataster is graphic
-(§2, p. 12). The page that lists it says so. A mesh cut open at the edge of an
-extract has no area and is listed as such, rather than closed by a guess.
-"""
-
 from __future__ import annotations
 
 import re
@@ -38,8 +22,6 @@ _NEIGHBOUR_EDGE_M = 0.5
 
 @dataclass(frozen=True)
 class Parcel:
-    """One parcel as the map draws it."""
-
     number: str
     community: str
     boundary_cadastre: bool
@@ -49,7 +31,6 @@ class Parcel:
 
 
 def read_parcels(doc: Drawing) -> list[Parcel]:
-    """Every numbered parcel in the model space, in parcel-number order."""
     meshes = _meshes(doc)
     tree = STRtree(meshes) if meshes else None
     placed: list[tuple[str, str, bool, int | None]] = []
@@ -83,7 +64,6 @@ def read_parcels(doc: Drawing) -> list[Parcel]:
 def _neighbours(
     tree: STRtree | None, meshes: list[Polygon], mesh: int, numbers_by_mesh: dict[int, list[str]]
 ) -> tuple[str, ...]:
-    """The numbers of the meshes sharing more than a corner with this one, found through the index."""
     if tree is None:
         return ()
     own = meshes[mesh].boundary
@@ -111,7 +91,6 @@ def _meshes(doc: Drawing) -> list[Polygon]:
 
 
 def _containing(tree: STRtree | None, point: Point) -> int | None:
-    """The index of the mesh a parcel number's reference point lies in."""
     if tree is None:
         return None
     for index in tree.query(point, predicate="within"):
@@ -120,7 +99,6 @@ def _containing(tree: STRtree | None, point: Point) -> int | None:
 
 
 def parcel_sort_key(number: str) -> tuple[int, int, int, str]:
-    """Parcel numbers as a surveyor sorts them: Bauflächen (".57") first, then by stem and sub-number."""
     building_plot = 0 if number.startswith(".") else 1
     stem, _, sub = number.lstrip(".").partition("/")
     return building_plot, _int(stem), _int(sub), number

@@ -1,15 +1,3 @@
-"""The composer's "Asking about <file>" subject must reach the models.
-
-`focus_file_name` arrives on the wire and is stored in the turn ContextVars,
-where retrieval reads it. For a long while that was ALL it did: no prompt in
-the repo named the focused file, so a deictic turn ("summarize this document",
-"fass zusammen") reached the answering model with no antecedent at all. The
-model did the only reasonable thing and asked which file was meant — over an
-open PDF, with the composer bar on screen saying exactly which one.
-
-These tests hold the wire → state → prompt path shut at each seam.
-"""
-
 from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
 
@@ -30,15 +18,13 @@ from agent.core.models import ResearchAgentState
 SUBJECT = "220724_Aufsicht_1_100.pdf"
 
 
-@tool
+@tool(description="Search the knowledge base.")
 def searching_tool(query: str) -> str:
-    """Search the knowledge base."""
     return ""
 
 
-@tool
+@tool(description="Remember a fact for later conversations.")
 def remember_tool(fact: str) -> str:
-    """Remember a fact for later conversations."""
     return "saved"
 
 
@@ -86,10 +72,6 @@ class TestChatAgentPromptNamesTheSubject:
         assert "never ask which file is meant" in rendered
 
     def test_the_block_states_the_fact_and_leaves_the_procedure_to_the_tool(self, mock_llm_provider, real_tool):
-        """How to retrieve the focused file is `knowledge_search`'s own rule
-        („pass `file_name=` that exact indexed name"), and it used to be
-        restated here on every turn with a focused file (ADR-0060 (d)).
-        """
         from knowledge_layer.register import _KNOWLEDGE_SEARCH_DESCRIPTION
 
         agent = ChatAgent(llm_provider=mock_llm_provider, tools=[real_tool])
@@ -100,7 +82,6 @@ class TestChatAgentPromptNamesTheSubject:
         assert "`file_name=` (an indexed name" in _KNOWLEDGE_SEARCH_DESCRIPTION
 
     def test_shelf_is_omitted_rather_than_invented(self, mock_llm_provider, real_tool):
-        """An unknown shelf names the file alone — never a guessed shelf."""
         agent = ChatAgent(llm_provider=mock_llm_provider, tools=[real_tool])
 
         rendered = _render(agent, focus_file_name=SUBJECT, focus_shelf_label=None)
@@ -115,7 +96,6 @@ class TestChatAgentPromptNamesTheSubject:
         assert "This turn's subject" not in rendered
 
     def test_render_survives_callers_that_pass_no_focus_at_all(self, mock_llm_provider, real_tool):
-        """The template is rendered under StrictUndefined; the guards must hold."""
         agent = ChatAgent(llm_provider=mock_llm_provider, tools=[real_tool])
 
         rendered = _render(agent)
@@ -141,15 +121,6 @@ class TestShelfLabel:
 
 
 class TestSubjectKeepsTheSearchTools:
-    """A deictic turn with a subject must have the search tools on it.
-
-    A pre-answer partition once withheld the search tools from anything that
-    read as chit-chat, and "fass zusammen" over an open PDF read as chit-chat —
-    so the only tool that could read the file was gone before the model saw
-    the question. Since ADR-0052 every turn carries the full tool set; this
-    pins that the bare summary request is one of them.
-    """
-
     @pytest.mark.asyncio
     async def test_a_bare_summary_request_with_a_subject_has_the_search_tools(self, mock_llm_provider, mock_llm):
         populate_from_config(
@@ -181,9 +152,6 @@ class TestSubjectKeepsTheSearchTools:
 
 
 class TestSubjectSurvivesTheGraphHandoff:
-    """The chat graph is the only thing between the wire and the answering
-    agent; a field it forgets to copy is a field the model never sees."""
-
     @pytest.mark.asyncio
     async def test_shallow_node_forwards_the_subject(self):
         from agent.core.conversation import ConversationGraph

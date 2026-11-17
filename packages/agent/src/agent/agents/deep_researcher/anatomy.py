@@ -1,20 +1,3 @@
-"""The report's anatomy and its findings, extracted after the report is written.
-
-The deep writer produces Markdown. The chat answer carries a structured
-envelope beside its prose (``common/answer_envelope.py``): the summary that
-renders as the standfirst, a verdict when there is a copyable value, the
-takeaways, one callout. A report reached the reader with none of that, and
-with no list of what it found, so a twelve-minute run landed as one wall of
-text. This module reads the finished report ONCE with a structured call and
-returns both: the gated ``answer_meta`` the masthead renders, and the
-``findings`` the Befundmatrix renders (``common/findings.py``).
-
-Post hoc rather than in the writer, deliberately: the writer's contract and
-its citation verification stay untouched, the extraction cannot change a word
-of the report, and a failure here costs the reader the masthead and the
-matrix, never the report. Same footing as the post-hoc cards beside it.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -80,10 +63,15 @@ class _Verdict(BaseModel):
 
 
 class ReportAnatomyDraft(BaseModel):
-    """The strict-JSON shape the extraction asks for. Every field present,
-    optionals nullable, as the strict schema requires."""
-
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "description": (
+                "The strict-JSON shape the extraction asks for. Every field present,\n"
+                "optionals nullable, as the strict schema requires."
+            )
+        },
+    )
     kind: Literal["walkthrough", "ruling"]
     summary: str | None
     topic: str | None
@@ -96,9 +84,6 @@ class ReportAnatomyDraft(BaseModel):
 
 @dataclass(frozen=True)
 class ReportAnatomy:
-    """What the extraction produced. ``failed`` says the call itself lost, so
-    the runner can tell "no findings" from "could not look"."""
-
     answer_meta: dict[str, Any] | None = None
     findings: dict[str, Any] | None = None
     failed: bool = False
@@ -145,7 +130,6 @@ def _user_prompt(query: str, report: str) -> str:
 
 
 async def extract_report_anatomy(llm: Any, query: str, report: str) -> ReportAnatomy:
-    """One structured call over the finished report; never raises."""
     if llm is None or not report.strip():
         return ReportAnatomy()
     try:

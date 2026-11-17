@@ -1,25 +1,3 @@
-"""Strip leaked DeepSeek DSML tool-call blocks from a visible answer.
-
-Some models occasionally emit their tool-call machinery as *literal text* in the
-final answer instead of as a real tool invocation. DeepSeek does this with DSML
-blocks delimited by fullwidth vertical bars (``U+FF5C`` ``｜``), e.g.::
-
-    <｜DSML｜invoke name="emit_card">
-    <｜DSML｜parameter name="card_json" string="true">{"type": "summary", ...}
-
-When that happens the card never reaches the registry (no tool actually ran) and
-the raw markup pollutes the rendered answer. This module:
-
-1. detects well-formed DSML tool-call blocks (guarded by the DSML marker so
-   ordinary prose is never touched),
-2. salvages any ``emit_card`` invocation whose ``card_json`` parses, feeding it
-   to the conversation card registry the way the real ``emit_card`` tool does,
-3. strips the machinery from the visible answer, leaving surrounding prose intact.
-
-Everything is fail-soft: a malformed or unparseable block is left untouched (for
-salvage) but still stripped from the visible text when it is well-formed markup.
-"""
-
 from __future__ import annotations
 
 import json
@@ -47,7 +25,6 @@ _EMIT_CARD_PARAM_RE = re.compile(
 
 
 def _string_step(ch: str, escaped: bool) -> tuple[bool, bool]:
-    """One character inside a JSON string literal: ``(still_in_string, escaped)``."""
     if escaped:
         return True, False
     if ch == "\\":
@@ -56,13 +33,6 @@ def _string_step(ch: str, escaped: bool) -> tuple[bool, bool]:
 
 
 def _extract_balanced_json(text: str, start: int) -> tuple[str | None, int]:
-    """Return the brace-balanced JSON object starting at ``text[start]``.
-
-    ``start`` must point at ``{``. Returns ``(json_substring, end_index)`` where
-    ``end_index`` is exclusive, or ``(None, start)`` when no balanced object is
-    found. String literals (and their escapes) are respected so braces inside
-    strings do not throw off the depth count.
-    """
     if start >= len(text) or text[start] != "{":
         return None, start
     depth = 0
@@ -83,7 +53,6 @@ def _extract_balanced_json(text: str, start: int) -> tuple[str | None, int]:
 
 
 def _dsml_token_end(region: str, i: int) -> int | None:
-    """Where the DSML token (tag or JSON payload) starting at ``i`` ends, or None if there is none."""
     if region[i] == "<":
         match = _DSML_TAG_RE.match(region, i)
         return match.end() if match else None
@@ -94,13 +63,6 @@ def _dsml_token_end(region: str, i: int) -> int | None:
 
 
 def _consume_dsml_region(region: str) -> int:
-    """Return the length of the leading run of DSML machinery in ``region``.
-
-    Consumes DSML tags, brace-balanced JSON payloads, and whitespace, stopping at
-    the first character that belongs to none of those (i.e. normal prose). This
-    is what lets us strip only the well-formed machinery and preserve any text
-    that follows it.
-    """
     i = 0
     last_end = 0
     while i < len(region):
@@ -115,12 +77,6 @@ def _consume_dsml_region(region: str) -> int:
 
 
 def _salvage_card(card_json: str) -> None:
-    """Validate and register one card the way the real ``emit_card`` tool does.
-
-    Mirrors ``agent.cards.register.emit_card``: parse → validate against the
-    shared adapter → reject system card types → push into the active
-    conversation card registry. Fail-soft.
-    """
     try:
         payload = json.loads(card_json, strict=False)
         if not isinstance(payload, dict):
@@ -138,13 +94,6 @@ def _salvage_card(card_json: str) -> None:
 
 
 def strip_and_salvage_dsml_tool_calls(content: str) -> str:
-    """Strip leaked DSML tool-call machinery and salvage any ``emit_card`` block.
-
-    Conservative: if the DSML marker is absent the content is returned unchanged,
-    so ordinary prose (including text that merely discusses tool calls) is never
-    touched. Only the well-formed DSML region is removed; text before and after
-    it is preserved.
-    """
     if not content or _DSML_MARKER not in content:
         return content
 

@@ -21,11 +21,13 @@ BODY = {
 
 @pytest.fixture
 def written(monkeypatch):
-    from knowledge_layer.vector_store import retrieval
+    from knowledge_layer import vector_store
 
     calls: list[tuple[str, dict, str]] = []
-    monkeypatch.setattr(
-        retrieval, "set_project_facts", lambda scope, facts, status: calls.append((scope, facts, status)) or True
+    monkeypatch.setitem(
+        vars(vector_store),
+        "set_project_facts",
+        lambda scope, facts, status: calls.append((scope, facts, status)) or True,
     )
     return calls
 
