@@ -6,162 +6,42 @@ import {
   quantity,
   undecidableWithoutExternalFlag,
 } from './rule-values'
-import type { RuleBasis } from './rule-basis'
 import type { BimElement } from './types'
+import type {
+  BimElementVerdict,
+  BimMissingProperty,
+  BimRuleFacts,
+  BimRuleResult,
+  RuleDefinition,
+} from './rule-types'
+import { toCentimetres, toMetres } from './length-units'
+import { decimal, measure, round } from './reading-format'
+import { compareFireRating, FIRE_RESISTANCE_R_MINUTES } from './fire-resistance'
+import { classifyStorey, STOREY_LABEL } from './storey-position'
+import { ratedSoundReduction } from './sound-reduction'
+import { matchesType } from './ifc-type-variants'
 
-export type BimCheckStatus = 'pass' | 'fail' | 'undecidable'
-
-export interface BimRuleFacts {
-  bases: Readonly<Record<string, RuleBasis>>
-  buildingClass?: number | null
-  mainUse?: string | null
-  storeys?: Array<{ name: string; elevation: number | null }>
-  lengthScale?: number | null
-}
-
-export interface BimElementVerdict {
-  globalId: string
-  name: string | null
-  storeyName: string | null
-  status: BimCheckStatus
-  reading: string
-}
-
-export interface BimMissingProperty {
-  path: string
-  elements: number
-}
-
-export interface BimRuleResult {
-  ruleId: string
-  richtlinie: string
-  clause: string
-  titleDe: string
-  thresholdDe: string
-  applicable: boolean
-  notApplicableReason?: string
-  hint?: string
-  passed: number
-  failed: number
-  undecidable: number
-  failures: BimElementVerdict[]
-  unknowns: BimElementVerdict[]
-  truncated: boolean
-  missing: BimMissingProperty[]
-}
+export type {
+  BimCheckStatus,
+  BimElementVerdict,
+  BimMissingProperty,
+  BimRuleFacts,
+  BimRuleResult,
+} from './rule-types'
+export { classifyStorey, type BimStoreyPosition } from './storey-position'
+export { ifcTypeVariants } from './ifc-type-variants'
+export { canonicalBimRuleId, LEGACY_BIM_RULE_IDS } from './legacy-rule-ids'
+export { missingPropertyShoppingList, summarizeBimRules, type BimComplianceSummary } from './rule-summary'
+export {
+  attachConfirmations,
+  type BimCheckConfirmation,
+  type BimRuleResultWithConfirmation,
+} from './rule-confirmations'
+export { hasOpenWork, outstandingRules, rulesWithOpenWork } from './open-work'
+export { renderBimRules } from './rule-report'
+export { diffBimCompliance, renderBimComplianceDiff, type BimComplianceChange, type BimComplianceTrend } from './compliance-diff'
 
 const VISIBLE_VERDICTS = 25
-
-function toMetres(value: number | null, scale?: number | null): number | null {
-  if (value === null) return null
-  if (typeof scale === 'number' && Number.isFinite(scale) && scale > 0) return value * scale
-  return value > 20 ? value / 1000 : value
-}
-
-function toCentimetres(value: number | null, scale?: number | null): number | null {
-  const metres = toMetres(value, scale)
-  return metres === null ? null : metres * 100
-}
-
-function round(value: number, digits = 2): number {
-  const factor = 10 ** digits
-  return Math.round(value * factor) / factor
-}
-
-function decimalsOf(value: number): number {
-  const text = String(value)
-  if (text.includes('e')) return 0
-  const dot = text.indexOf('.')
-  return dot === -1 ? 0 : text.length - dot - 1
-}
-
-function decimal(value: number, minDigits: number): string {
-  return value.toFixed(Math.max(minDigits, decimalsOf(value))).replace('.', ',')
-}
-
-function measure(
-  value: number,
-  satisfies: (candidate: number) => boolean,
-  digits = 2,
-  maxDigits = 5
-): string {
-  const truth = satisfies(value)
-  for (let d = digits; d < maxDigits; d += 1) {
-    if (satisfies(round(value, d)) === truth) return decimal(round(value, d), digits)
-  }
-  return decimal(round(value, maxDigits), digits)
-}
-
-function fireResistanceMinutes(raw: string): number | null {
-  const match = /(\d{2,3})/.exec(raw)
-  if (!match) return null
-  const minutes = Number(match[1])
-  return Number.isFinite(minutes) ? minutes : null
-}
-
-const EURO_CRITERIA = new Set(['R', 'E', 'I', 'M', 'W', 'S', 'C'])
-
-function compareFireRating(declared: string, required: string): 'meets' | 'short' | 'unreadable' {
-  if (/[/|]|\bund\b|\band\b/i.test(declared)) return 'unreadable'
-
-  const declaredMinutes = fireResistanceMinutes(declared)
-  const requiredMinutes = fireResistanceMinutes(required)
-  if (declaredMinutes === null || requiredMinutes === null) return 'unreadable'
-
-  const requiredLetters = /^[A-Za-z]+/.exec(required.trim())?.[0]?.toUpperCase() ?? ''
-  const declaredLetters = /^[A-Za-z]+/.exec(declared.trim())?.[0]?.toUpperCase() ?? ''
-  if (declaredLetters === '' || [...declaredLetters].some((letter) => !EURO_CRITERIA.has(letter))) {
-    return 'unreadable'
-  }
-  const coversCriteria = [...requiredLetters].every((letter) => declaredLetters.includes(letter))
-  return declaredMinutes >= requiredMinutes && coversCriteria ? 'meets' : 'short'
-}
-
-const FIRE_RESISTANCE_R_MINUTES: Record<'top' | 'above' | 'below', Record<number, number | null>> = {
-  top: { 1: null, 2: 30, 3: 30, 4: 30, 5: 60 },
-  above: { 1: 30, 2: 30, 3: 60, 4: 60, 5: 90 },
-  below: { 1: 60, 2: 60, 3: 90, 4: 90, 5: 90 },
-}
-
-export type BimStoreyPosition = 'top' | 'above' | 'below'
-
-const STOREY_LABEL: Record<BimStoreyPosition, string> = {
-  top: 'oberstes Geschoß',
-  above: 'oberirdisches Geschoß',
-  below: 'Kellergeschoß',
-}
-
-export function classifyStorey(
-  storeyName: string | null,
-  storeys: BimRuleFacts['storeys']
-): BimStoreyPosition | null {
-  if (!storeyName || !storeys || storeys.length === 0) return null
-  const known = storeys.filter((entry) => typeof entry.elevation === 'number')
-  const match = known.find((entry) => entry.name === storeyName)
-  if (!match || typeof match.elevation !== 'number') return null
-  if (match.elevation < 0) return 'below'
-  const highest = Math.max(...known.map((entry) => entry.elevation as number))
-  if (match.elevation !== highest) return 'above'
-  const atHighest = known.filter((entry) => entry.elevation === highest).length
-  return atHighest === 1 ? 'top' : null
-}
-
-
-interface RuleDefinition {
-  id: string
-  designation: string
-  edition: string
-  clause: string
-  titleDe: string
-  thresholdDe: string
-  ifcTypes: string[]
-  scope?: (element: BimElement) => boolean
-  notApplicable?: (facts: BimRuleFacts) => string | null
-  judge: (
-    element: BimElement,
-    facts: BimRuleFacts
-  ) => { status: BimCheckStatus; reading: string; missing?: string }
-}
 
 const mayBeLoadBearing = (element: BimElement): boolean =>
   property(element, ['LoadBearing']) !== false
@@ -250,47 +130,6 @@ const isOccupiedSpace = (element: BimElement): boolean => {
       NON_OCCUPIED_WORDS.has(word) || NON_OCCUPIED_STEMS.some((stem) => edgeMatch(word, stem))
   )
 }
-
-const ACOUSTIC_LABEL = /\b(?:R['´’]?\s*w|DnT\s*,?\s*w|D\s*n\s*T|Rw|SRI|Schalld[äa]mm[- ]?Ma[sß]{1,2})\b/i
-const NUMBER = /-?\d+(?:[.,]\d+)?/
-
-function ratedSoundReduction(raw: string | number | boolean | null): number | null {
-  if (typeof raw === 'number') return Number.isFinite(raw) ? raw : null
-  if (typeof raw !== 'string') return null
-  const text = raw.trim()
-  if (text === '') return null
-
-  const parse = (token: string): number | null => {
-    const value = Number(token.replace(',', '.'))
-    return Number.isFinite(value) ? value : null
-  }
-
-  const bare = new RegExp(`^${NUMBER.source}$`).exec(text)
-  if (bare) return parse(bare[0])
-
-  const labelled = ACOUSTIC_LABEL.exec(text)
-  if (labelled) {
-    const after = new RegExp(NUMBER.source).exec(text.slice(labelled.index + labelled[0].length))
-    if (after) return parse(after[0])
-  }
-
-  const withUnit = new RegExp(`(${NUMBER.source})\\s*dB\\b`, 'i').exec(text)
-  if (withUnit) return parse(withUnit[1])
-
-  return null
-}
-
-export const LEGACY_BIM_RULE_IDS: Readonly<Record<string, string>> = {
-  'oib4-treppe-steigungsverhaeltnis': 'oib4-stair-rise-run-ratio',
-  'oib4-tuer-durchgangsbreite': 'oib4-door-clear-width',
-  'oib3-raumhoehe': 'oib3-room-height',
-  'oib2-feuerwiderstand-tragend': 'oib2-fire-resistance-load-bearing',
-  'oib6-u-wert-aussenwand': 'oib6-u-value-external-wall',
-  'oib6-u-wert-fenster': 'oib6-u-value-window',
-  'oib5-schalldaemmung-deklariert': 'oib5-sound-insulation-declared',
-}
-
-export const canonicalBimRuleId = (ruleId: string): string => LEGACY_BIM_RULE_IDS[ruleId] ?? ruleId
 
 export const BIM_RULES: RuleDefinition[] = [
   {
@@ -618,18 +457,6 @@ export const BIM_RULES: RuleDefinition[] = [
   },
 ]
 
-const CASE_SUFFIX = /(standardcase|elementedcase)$/
-
-const normaliseType = (ifcType: string): string => ifcType.toLowerCase().replace(CASE_SUFFIX, '')
-
-export function ifcTypeVariants(ifcType: string): string[] {
-  const base = normaliseType(ifcType)
-  return [base, `${base}standardcase`, `${base}elementedcase`]
-}
-
-const matchesType = (element: BimElement, types: readonly string[]): boolean =>
-  types.some((type) => normaliseType(type) === normaliseType(element.ifcType))
-
 export function runBimRules(
   elements: readonly BimElement[],
   facts: BimRuleFacts
@@ -709,141 +536,4 @@ export function runBimRules(
         .sort((a, b) => b.elements - a.elements || a.path.localeCompare(b.path)),
     }
   })
-}
-
-export interface BimComplianceSummary {
-  rulesApplicable: number
-  rulesNotApplicable: number
-  rulesFailing: number
-  rulesUndecidable: number
-  rulesPassing: number
-  rulesEmpty: number
-  elementsFailed: number
-  elementsUndecidable: number
-}
-
-export function summarizeBimRules(results: readonly BimRuleResult[]): BimComplianceSummary {
-  const summary: BimComplianceSummary = {
-    rulesApplicable: 0,
-    rulesNotApplicable: 0,
-    rulesFailing: 0,
-    rulesUndecidable: 0,
-    rulesPassing: 0,
-    rulesEmpty: 0,
-    elementsFailed: 0,
-    elementsUndecidable: 0,
-  }
-  for (const result of results) {
-    if (!result.applicable) {
-      summary.rulesNotApplicable += 1
-      continue
-    }
-    summary.rulesApplicable += 1
-    summary.elementsFailed += result.failed
-    summary.elementsUndecidable += result.undecidable
-    const checked = result.passed + result.failed + result.undecidable
-    if (checked === 0) summary.rulesEmpty += 1
-    else if (result.failed > 0) summary.rulesFailing += 1
-    else if (result.undecidable > 0) summary.rulesUndecidable += 1
-    else summary.rulesPassing += 1
-  }
-  return summary
-}
-
-export function missingPropertyShoppingList(
-  results: readonly BimRuleResult[]
-): Array<{ path: string; elements: number; rules: string[] }> {
-  const byPath = new Map<string, { elements: number; rules: Set<string> }>()
-  for (const result of results) {
-    if (!result.applicable) continue
-    for (const entry of result.missing) {
-      const bucket = byPath.get(entry.path) ?? { elements: 0, rules: new Set<string>() }
-      bucket.elements += entry.elements
-      bucket.rules.add(result.ruleId)
-      byPath.set(entry.path, bucket)
-    }
-  }
-  return [...byPath.entries()]
-    .map(([path, bucket]) => ({ path, elements: bucket.elements, rules: [...bucket.rules].sort() }))
-    .sort((a, b) => b.elements - a.elements || a.path.localeCompare(b.path))
-}
-
-export interface BimCheckConfirmation {
-  ruleId: string
-  modelId: string
-  confirmedBy: string
-  note: string | null
-  confirmedAt: string
-}
-
-export interface BimRuleResultWithConfirmation extends BimRuleResult {
-  confirmation: BimCheckConfirmation | null
-  confirmationStale: boolean
-}
-
-export function attachConfirmations(
-  results: readonly BimRuleResult[],
-  confirmations: readonly BimCheckConfirmation[],
-  currentModelId: string,
-  seriesModelIds: readonly string[] = [currentModelId]
-): BimRuleResultWithConfirmation[] {
-  const inSeries = new Set(seriesModelIds.length > 0 ? seriesModelIds : [currentModelId])
-  inSeries.add(currentModelId)
-
-  const byRule = new Map<string, BimCheckConfirmation>()
-  for (const entry of confirmations) {
-    if (!inSeries.has(entry.modelId)) continue
-    const held = byRule.get(entry.ruleId)
-    if (!held) {
-      byRule.set(entry.ruleId, entry)
-      continue
-    }
-    if (held.modelId === currentModelId) continue
-    if (entry.modelId === currentModelId || entry.confirmedAt > held.confirmedAt) {
-      byRule.set(entry.ruleId, entry)
-    }
-  }
-
-  return results.map((result) => {
-    const confirmation = result.hint ? null : (byRule.get(result.ruleId) ?? null)
-    return {
-      ...result,
-      confirmation,
-      confirmationStale: confirmation !== null && confirmation.modelId !== currentModelId,
-    }
-  })
-}
-
-export const hasOpenWork = (result: BimRuleResult): boolean =>
-  result.applicable && !result.hint && (result.failed > 0 || result.undecidable > 0)
-
-export function rulesWithOpenWork<T extends BimRuleResult>(results: readonly T[]): T[] {
-  return results.filter(hasOpenWork)
-}
-
-export function outstandingRules(
-  results: readonly BimRuleResultWithConfirmation[]
-): BimRuleResultWithConfirmation[] {
-  return results.filter((result) => hasOpenWork(result) && (result.confirmation === null || result.confirmationStale))
-}
-
-export { diffBimCompliance, renderBimComplianceDiff, type BimComplianceChange, type BimComplianceTrend } from './compliance-diff'
-
-export function renderBimRules(results: readonly BimRuleResult[]): string {
-  const lines = results.map((result) => {
-    const head = `${result.richtlinie} ${result.clause} — ${result.titleDe}`
-    if (!result.applicable) return `${head}: nicht einschlägig (${result.notApplicableReason})`
-    const checked = result.passed + result.failed + result.undecidable
-    if (checked === 0) return `${head}: keine betroffenen Bauteile im Modell`
-    if (result.hint) return `${head}: ${result.hint}; ${checked} Bauteile gelesen, keines beurteilt (${result.thresholdDe})`
-    return (
-      `${head}: ${result.passed} erfüllt, ${result.failed} nicht erfüllt, ` +
-      `${result.undecidable} nicht entscheidbar (${result.thresholdDe})`
-    )
-  })
-  lines.push(
-    'Orientierende Prüfung anhand der im Modell veröffentlichten Werte — keine Rechtsauskunft ' +
-      'und kein Nachweis. „Nicht entscheidbar“ heißt: das Modell führt den Wert nicht.'
-  )
-  return lines.join('\n')
 }
