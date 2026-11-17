@@ -26,7 +26,7 @@ import { DEFAULT_FILE_SORT } from '@/features/documents/lib/file-sort'
 import { I18nProvider } from '@/i18n'
 import { makeFile, useFixtureFolderNav } from '../file-browser/fixtures'
 import { REAL_FILES, REAL_FOLDERS } from '../files-page/fixtures'
-import { ALL_CHATS, ChatRow, Foot, GroupLabel, MoreRow, NavRow, Page, PROJECTS } from '../personal-area-rail/prototype'
+import { ALL_CHATS, ChatHeader, ChatRow, Foot, GroupLabel, MoreRow, NavRow, Page, PROJECTS } from '../personal-area-rail/prototype'
 
 const OWN = { id: 'none', name: 'Alle Projekte' }
 
@@ -243,9 +243,9 @@ function SwitchPage({ own, top, titleSwitch, mode, menuOpen, settingsOpen }: { o
     <>
       <Rail own={top === 'all'} section="files" gear={mode === 'cards' || mode === 'wide' ? (settingsOpen ? 'menu' : 'none') : mode !== 'track'} shelfRows={mode === 'rail' ? (own ? 'own' : 'project') : undefined} ownShelf={mode === 'foot' ? (own ? 'open' : 'idle') : undefined} />
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <div className={`bg-background absolute left-8 right-8 top-[10px] z-40 flex flex-col justify-between ${tall ? 'h-[126px] justify-start gap-1' : 'h-[68px]'}`}>
+        <div className={`bg-background absolute left-8 right-8 z-40 flex flex-col ${tall ? 'top-0 h-[138px] justify-start pt-3' : 'top-[10px] h-[68px] justify-between'}`}>
           <span className="text-muted-foreground text-meta flex items-center gap-1.5">{own ? 'Projektunabhängig' : project.name}</span>
-          {tall && <h1 className="text-page-title -mt-1">Ablage</h1>}
+          {tall && <h1 className="text-page-title">Ablage</h1>}
           {mode === 'wide' && (
             <div className="bg-desk mt-4 grid max-w-[620px] grid-cols-2 rounded-[10px] p-1">
               {sides.map((side) => (
@@ -312,7 +312,7 @@ function SwitchPage({ own, top, titleSwitch, mode, menuOpen, settingsOpen }: { o
           )}
           </div>
         </div>
-        <div className={tall ? 'flex min-h-0 flex-1 flex-col pt-[58px]' : 'contents'}>
+        <div className={tall ? 'flex min-h-0 flex-1 flex-col pt-[68px]' : 'contents'}>
         <ProjectSectionFrame projectId="dev" projectName={own ? (top === 'all' ? 'Alle Projekte' : project.name) : project.name} pathname="/app/projects/dev/files" inboundMail={!own}>
           <ProjectSectionActions>
             <FilesHeaderControls
@@ -382,14 +382,8 @@ function FromChat(): JSX.Element {
     <>
       <Rail own openChat={0} gear="none" />
       <main className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <header className="flex flex-col gap-1 px-8 pb-4 pt-6">
-          <span className="text-muted-foreground text-meta">Projektübergreifend</span>
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-pane-title">Rampenneigung Tiefgarage</h1>
-            <OnlyYou />
-          </div>
-        </header>
-        <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 px-8">
+        <ChatHeader title="Rampenneigung Tiefgarage" />
+        <div className="mx-auto mt-4 flex w-full max-w-2xl flex-1 flex-col gap-4 px-8">
           <div className="bg-desk text-name self-end rounded-[16px] px-3 py-2">Prüf das bitte gegen meinen Leitfaden.</div>
           <div className="bg-sheet shadow-sm flex items-center gap-3 self-end rounded-[10px] px-3 py-2">
             <FileText className="text-muted-foreground size-4" aria-hidden />
@@ -452,8 +446,8 @@ function Talk({ place, settingsOpen }: { place: string; settingsOpen: boolean })
   const own = place === 'me'
   return (
     <>
-      <Rail own={own} openChat={own ? 0 : place === 'project' ? 1 : null} gear={settingsOpen ? 'menu' : 'none'} />
-      <Page me={own} fresh={place === 'new'} noneLabel="Alle Projekte" />
+      <Rail own={own} openChat={own ? 0 : place === 'project' ? 1 : place === 'shared' ? 2 : null} gear={settingsOpen ? 'menu' : 'none'} />
+      <Page me={own} fresh={place === 'new'} shared={place === 'shared'} noneLabel="Alle Projekte" />
     </>
   )
 }

@@ -18,6 +18,7 @@ import {
   Plus,
   X,
   Search,
+  Share2,
   UserRound,
   UsersRound,
   Zap,
@@ -39,7 +40,10 @@ import {
   SidebarProvider,
   SidebarRail,
 } from '@/components/ui/sidebar'
+import { Button } from '@/components/ui/button'
 import { InboxBadge } from '@/features/collaboration/components'
+import { ParticipantStrip } from '@/features/collaboration/components/ParticipantStrip'
+import type { ResourceAccessEntry } from '@/lib/sharing/types'
 import identity from '@/shared/brand/identity.json'
 import { cn } from '@/lib/utils'
 
@@ -366,23 +370,50 @@ export function Foot({ personalDoor = false, officeShelfOpen = false, ownShelf }
   )
 }
 
-export function Page({ me, fresh = false, noneLabel = 'Ohne Projekt' }: { me: boolean; fresh?: boolean; noneLabel?: string }): JSX.Element {
-  const project = PROJECTS[0]!.name
+const PILL = 'flex min-h-8 items-center gap-0.5 rounded-surface border border-base bg-card/60 p-0.5'
+const person = (userId: string, name: string): ResourceAccessEntry => ({
+  person: { userId, name, email: `${userId}@example.at`, profilePictureUrl: null },
+  role: userId === 'anna' ? 'owner' : 'collaborator',
+  reason: userId === 'anna' ? 'creator' : 'grant',
+  grantedBy: null,
+})
+const SHARED_WITH = [person('anna', 'Anna Berger'), person('florian', 'Florian Huber')]
+
+export function ChatHeader({ title, shared = false }: { title: string; shared?: boolean }): JSX.Element {
+  return (
+    <header className="flex items-start justify-between gap-3 px-8 pb-2 pt-2">
+      <div className={cn(PILL, 'min-w-0')}>
+        <span className="truncate px-2.5 text-sm font-medium">{title}</span>
+      </div>
+      <div className={cn(PILL, 'shrink-0')}>
+        <div className="flex items-center gap-1 pl-1.5 pr-1.5">
+          {shared ? (
+            <ParticipantStrip entries={SHARED_WITH} currentUserId="anna" />
+          ) : (
+            <span className="text-muted-foreground inline-flex items-center gap-1.5 pl-0.5 text-xs font-medium">
+              <LockKeyhole className="size-3.5" aria-hidden />
+              Nur Sie
+            </span>
+          )}
+          <div aria-hidden className="bg-border ml-1 h-4 w-px" />
+        </div>
+        <Button variant="ghost" size="sm" className="h-7 gap-1.5 rounded-control px-2">
+          <Share2 className="size-4" aria-hidden />
+          <span className="text-xs font-medium">Teilen</span>
+        </Button>
+      </div>
+    </header>
+  )
+}
+
+export function Page({ me, fresh = false, shared = false, noneLabel = 'Ohne Projekt' }: { me: boolean; fresh?: boolean; shared?: boolean; noneLabel?: string }): JSX.Element {
   const across = me && noneLabel === 'Alle Projekte'
   return (
     <main className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <header className="flex flex-col gap-1 px-8 pb-4 pt-6">
-        <span className="text-muted-foreground text-meta">{across ? 'Projektübergreifend' : me ? noneLabel : project}</span>
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-pane-title">{fresh ? 'Neuer Chat' : me ? 'Rampenneigung Tiefgarage' : 'Fluchtweglänge im Erdgeschoss'}</h1>
-          <span className="bg-sheet shadow-press text-name inline-flex h-7 items-center gap-1.5 rounded-full px-2.5">
-            <LockKeyhole className="size-3.5" aria-hidden />
-            Nur Sie
-          </span>
-        </div>
-        {across && <p className="text-muted-foreground mt-1 text-sm">An kein Projekt gebunden. {PRODUCT} kann in allen Ihren Projekten nachsehen, auch in abgeschlossenen.</p>}
-      </header>
-      <div className="flex-1" />
+      <ChatHeader title={fresh ? 'Neuer Chat' : shared ? 'Abgleich Statik, Planstand Oktober' : me ? 'Rampenneigung Tiefgarage' : 'Fluchtweglänge im Erdgeschoss'} shared={shared} />
+      <div className="flex flex-1 items-center justify-center px-8">
+        {across && <p className="text-muted-foreground max-w-md text-center text-sm">An kein Projekt gebunden. {PRODUCT} kann in allen Ihren Projekten nachsehen, auch in abgeschlossenen.</p>}
+      </div>
       <div className="mx-auto mb-8 w-full max-w-2xl px-8">
         <div className="bg-sheet border-field-border flex flex-col gap-3 rounded-[10px] border p-3">
           <span className="text-muted-foreground text-sm">Frage stellen …</span>
