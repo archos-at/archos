@@ -314,7 +314,7 @@
   "apps/workspace/ui/features/chat/components/UserMessage.spec.tsx": 1,
   "apps/workspace/ui/features/chat/components/answer-skills-disclosure.spec.tsx": 7,
   "apps/workspace/ui/features/chat/lib/citations/views.ts": 1,
-  "apps/workspace/ui/features/chat/store.spec.ts": 2,
+  "apps/workspace/ui/features/chat/store-composer.spec.ts": 2,
   "apps/workspace/ui/features/chat/store.ts": 1,
   "apps/workspace/ui/features/chat/stores/chat-storage-rename.spec.ts": 1,
   "apps/workspace/ui/features/chat/stores/messages-store.remote.spec.ts": 2,

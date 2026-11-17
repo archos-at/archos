@@ -172,7 +172,7 @@
   "apps/workspace/ui/features/chat/components/AnswerActions.tsx": 1,
   "apps/workspace/ui/features/chat/components/UserMessage.spec.tsx": 1,
   "apps/workspace/ui/features/chat/components/answer-skills-disclosure.spec.tsx": 7,
-  "apps/workspace/ui/features/chat/store.spec.ts": 2,
+  "apps/workspace/ui/features/chat/store-composer.spec.ts": 2,
   "apps/workspace/ui/features/chat/stores/messages-store.remote.spec.ts": 2,
   "apps/workspace/ui/features/collaboration/components/InboxItemRow.spec.tsx": 3,
   "apps/workspace/ui/features/collaboration/hooks/use-mark-answer.ts": 2,
