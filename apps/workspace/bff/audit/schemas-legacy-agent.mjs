@@ -1,4 +1,4 @@
-// drop after release 2026-W48
+// drop after release 2026-W51
 export const LEGACY_AGENT_AUDIT_SCHEMAS = /** @type {const} */ ({
   'piloti.wake.suppressed': {
     targets: [{ type: 'document_annotation' }],

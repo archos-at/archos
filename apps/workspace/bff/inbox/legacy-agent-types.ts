@@ -1,4 +1,4 @@
-// drop after release 2026-W48
+// drop after release 2026-W51
 import type { InboxItemType } from '@/lib/inbox/inbox-vocabulary'
 
 export const LEGACY_AGENT_INBOX_TYPES = {

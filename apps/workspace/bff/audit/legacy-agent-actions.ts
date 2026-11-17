@@ -1,4 +1,4 @@
-// drop after release 2026-W48
+// drop after release 2026-W51
 const WRITTEN_AS: Readonly<Record<string, string>> = {
   'agent.mark.decided': 'piloti.mark.decided',
   'agent.wake.started': 'piloti.wake.started',
