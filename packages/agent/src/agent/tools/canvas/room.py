@@ -18,13 +18,13 @@ from __future__ import annotations
 import math
 from typing import Any
 
+from agent.common.agent_kind import is_agent_kind
+
 from .calls import Refused
 
 MAX_POINT_LABEL = 80
 MAX_HIGHLIGHT_LABEL = 120
 _EDGE_SLACK = 0.02
-
-_KIND_LABELS = {"person": "Person", "piloti": "Agent"}
 
 
 def _share(value: object, name: str) -> float:
@@ -110,7 +110,7 @@ def _viewport_words(viewport: object) -> str | None:
 
 def _peer_line(peer: dict[str, Any]) -> str:
     who = " ".join(str(peer.get("name") or "Someone").split())
-    kind = _KIND_LABELS.get(str(peer.get("kind")), "Person")
+    kind = "Agent" if is_agent_kind(peer.get("kind")) else "Person"
     parts = [f"- {who} ({kind})"]
     if (viewport := _viewport_words(peer.get("viewport"))) is not None:
         parts.append(f"is viewing {viewport}")

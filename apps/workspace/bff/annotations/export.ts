@@ -25,6 +25,7 @@ import { listAnnotations } from './service'
 import { isLive, isOverdue, type AnnotationView } from './types'
 import { protocolFileNameOf, type AnnotationExportOptions } from './export-request'
 import { PRODUCT_NAME } from '@/lib/brand'
+import { isAgentKind } from '@/lib/agent-kind'
 
 export const MARKDOWN_MEDIA_TYPE = 'text/markdown; charset=utf-8'
 
@@ -68,7 +69,7 @@ export function holdsAgentText(selection: ProtocolSelection): boolean {
 }
 
 const unreviewed = (annotation: AnnotationView): boolean =>
-  annotation.authorKind === 'piloti' && annotation.acceptedBy === null
+  isAgentKind(annotation.authorKind) && annotation.acceptedBy === null
 
 const byNumber = (a: AnnotationView, b: AnnotationView): number => a.number - b.number
 
@@ -122,7 +123,7 @@ function attributionLines(annotation: AnnotationView, t: Translator, f: Formatte
         ? t('review.export.document.proposalFor', { name: annotation.createdByName, date: set })
         : t('review.export.document.proposal', { date: set })
     )
-  } else if (annotation.authorKind === 'piloti') {
+  } else if (isAgentKind(annotation.authorKind)) {
     lines.push(
       annotation.acceptedByName
         ? t('review.export.document.agentSetFor', { name: annotation.acceptedByName, date: set })
@@ -172,7 +173,7 @@ function threadBlocks(annotation: AnnotationView, t: Translator, f: Formatters):
   if (annotation.replies.length === 0) return []
   const items: DocRun[][] = annotation.replies.map((reply) => {
     const author =
-      reply.authorKind === 'piloti' ? agentFor(t, reply.createdByName) : (reply.createdByName ?? t('review.someone'))
+      isAgentKind(reply.authorKind) ? agentFor(t, reply.createdByName) : (reply.createdByName ?? t('review.someone'))
     return [{ text: `${author} · ${f.date(reply.createdAt)}: `, bold: true }, { text: reply.body }]
   })
   return [{ kind: 'paragraph', runs: [{ text: t('review.export.document.thread'), bold: true }] }, { kind: 'bullets', items }]

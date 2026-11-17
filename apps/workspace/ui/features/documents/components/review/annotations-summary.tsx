@@ -16,6 +16,7 @@ import { useRoomSelector } from '../../hooks/use-document-room'
 import { MarkBody } from './mark-body'
 import { markInk } from './review-page-layer'
 import { hasLiveMarks, openMarksShortLabel } from '../open-marks-chip'
+import { isAgentKind } from '@/lib/agent-kind'
 
 const PREVIEWED = 3
 
@@ -32,7 +33,7 @@ export function AnnotationsSummary({
   const live = review.annotations.filter(isLive)
   const others = useRoomSelector(
     review.room,
-    (peers) => new Set(peers.filter((state) => state.peer.kind !== 'piloti').map((state) => state.peer.userId)).size
+    (peers) => new Set(peers.filter((state) => !isAgentKind(state.peer.kind)).map((state) => state.peer.userId)).size
   )
   const ready = review.load === 'ready'
   return (

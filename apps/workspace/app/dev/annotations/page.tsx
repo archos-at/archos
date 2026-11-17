@@ -10,6 +10,9 @@ import type { RealtimeFrame } from '@/lib/realtime/types'
 import type { AnnotationReplyView, AnnotationView } from '@/lib/annotations/types'
 import { assemblePdf, buildPdf, pdfString } from '../_fixtures/sample-pdf'
 import { PRODUCT_NAME } from '@/lib/brand'
+import { isAgentMentionId } from '@/lib/mentions/types'
+import { isAgentKind } from '@/lib/agent-kind'
+import { LEGACY_AGENT_KIND } from '@/lib/legacy-agent-kind'
 
 const SHEET_WIDTH = 842
 const SHEET_HEIGHT = 595
@@ -178,7 +181,7 @@ const agentReply = (
   asker: { userId: string; name: string },
   id: string,
   body: string
-): AnnotationReplyView => ({ ...reply(annotationId, asker, 0, body), id, authorKind: 'piloti' })
+): AnnotationReplyView => ({ ...reply(annotationId, asker, 0, body), id, authorKind: LEGACY_AGENT_KIND })
 
 let annotations: AnnotationView[] = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('blank') ? [] : [
   {
@@ -269,7 +272,7 @@ let annotations: AnnotationView[] = typeof window !== 'undefined' && new URLSear
     shape: 'point',
     ...pt(640, 420),
     kind: 'question',
-    authorKind: 'piloti',
+    authorKind: LEGACY_AGENT_KIND,
     body: 'Gilt die Brüstungshöhe ab Fertigfußboden oder ab Rohdecke?',
     acceptedBy: 'u-1',
     acceptedByName: ME.name,
@@ -342,7 +345,7 @@ const AGENT_PROPOSALS: AnnotationView[] = [
     kind: 'question',
     body: 'Gang als Fluchtweg: lichte Breite ist nicht kotiert. Mindestens 1,20 m nachweisen.',
     basis: 'OIB-RL 4, Pkt. 2.2.1',
-    authorKind: 'piloti',
+    authorKind: LEGACY_AGENT_KIND,
     status: 'proposed',
     canDelete: false,
   },
@@ -355,7 +358,7 @@ const AGENT_PROPOSALS: AnnotationView[] = [
     kind: 'defect',
     body: 'Tür Technik in den Fluchtweg: Feuerwiderstand fehlt, Technikraum gilt als Raum mit erhöhter Brandgefahr.',
     basis: 'OIB-RL 2, Pkt. 3.4',
-    authorKind: 'piloti',
+    authorKind: LEGACY_AGENT_KIND,
     status: 'proposed',
     canDelete: false,
   },
@@ -368,7 +371,7 @@ const AGENT_PROPOSALS: AnnotationView[] = [
     kind: 'hint',
     body: 'Belichtung Zimmer 1: Fensterfläche gegen 1/10 der Bodenfläche prüfen.',
     basis: 'OIB-RL 3, Pkt. 9.1.1',
-    authorKind: 'piloti',
+    authorKind: LEGACY_AGENT_KIND,
     status: 'proposed',
     canDelete: false,
   },
@@ -382,7 +385,7 @@ const peer = (who: { userId: string; name: string }, peerId: string): RoomPeer =
 const annaPeer = peer(ANNA, 'peer-anna-0001')
 const jakobPeer = peer(JAKOB, 'peer-jakob-001')
 const lenaPeer = peer(LENA, 'peer-lena-0001')
-const agentPeer: RoomPeer = { peerId: 'agent-dev-conv', userId: ME.userId, name: PRODUCT_NAME, kind: 'piloti' }
+const agentPeer: RoomPeer = { peerId: 'agent-dev-conv', userId: ME.userId, name: PRODUCT_NAME, kind: LEGACY_AGENT_KIND }
 
 const WAKES = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('wakes')
 
@@ -401,7 +404,7 @@ const wakeReply = (annotationId: string) => {
     kind: 'annotations.changed',
     annotationIds: [annotationId],
     change: 'replied',
-    actor: { peerId: null, userId: ME.userId, name: PRODUCT_NAME, kind: 'piloti' },
+    actor: { peerId: null, userId: ME.userId, name: PRODUCT_NAME, kind: LEGACY_AGENT_KIND },
   })
 }
 
@@ -414,7 +417,7 @@ const proposeFindings = () => {
     kind: 'annotations.changed',
     annotationIds: proposed.map((proposal) => proposal.id),
     change: 'created',
-    actor: { peerId: null, userId: ME.userId, name: PRODUCT_NAME, kind: 'piloti' },
+    actor: { peerId: null, userId: ME.userId, name: PRODUCT_NAME, kind: LEGACY_AGENT_KIND },
   })
 }
 
@@ -693,7 +696,7 @@ const answerAboutBox = (turn: ScriptedTurn, box: FocusBox, replyInThread: boolea
             kind: 'annotations.changed',
             annotationIds: [thread.id],
             change: 'replied',
-            actor: { peerId: null, userId: ME.userId, name: PRODUCT_NAME, kind: 'piloti' },
+            actor: { peerId: null, userId: ME.userId, name: PRODUCT_NAME, kind: LEGACY_AGENT_KIND },
           })
         }
         finish(turn, text, thread ? [] : [OIB_RL_4])
@@ -791,7 +794,7 @@ const checkFixed = (turn: ScriptedTurn, question: string) => {
             kind: 'annotations.changed',
             annotationIds: checked.map((one) => one.id),
             change: 'replied',
-            actor: { peerId: null, userId: ME.userId, name: PRODUCT_NAME, kind: 'piloti' },
+            actor: { peerId: null, userId: ME.userId, name: PRODUCT_NAME, kind: LEGACY_AGENT_KIND },
           })
         }
         emit(turn, { type: 'STEP_FINISHED', step: replyStep })
@@ -1057,7 +1060,7 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
           ...target,
           body: String(input.body).trim(),
           mentions: ((input.mentions as AnnotationReplyView['mentions']) ?? target.mentions ?? []).filter(
-            (one) => one.targetId !== 'agent:piloti' || (target.mentions ?? []).some((had) => had.targetId === 'agent:piloti')
+            (one) => !isAgentMentionId(one.targetId) || (target.mentions ?? []).some((had) => isAgentMentionId(had.targetId))
           ),
           editedAt: new Date().toISOString(),
         }
@@ -1077,7 +1080,7 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
         }
         const next = { ...current, replies: [...current.replies, added], updatedAt: new Date().toISOString() }
         annotations = annotations.map((annotation) => (annotation.id === next.id ? next : annotation))
-        const answersAgent = current.authorKind === 'piloti' && current.kind === 'question' && current.status !== 'resolved' && current.status !== 'dismissed'
+        const answersAgent = isAgentKind(current.authorKind) && current.kind === 'question' && current.status !== 'resolved' && current.status !== 'dismissed'
         const wake = !added.addressesPiloti && !answersAgent ? 'none' : WAKES ? 'queued' : 'off'
         if (wake === 'queued') setTimeout(() => wakeReply(current.id), 4_000)
         return json({ annotation: next, replyId: added.id, wake }, 201)
@@ -1122,7 +1125,7 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
           ...(moved && status === 'open'
             ? { closedBy: null, closedByName: null, closedAt: null, carryTarget: current.onCurrentRevision ? null : CARRY_HERE }
             : {}),
-          ...(moved && status === 'open' && current.authorKind === 'piloti' && !current.acceptedBy
+          ...(moved && status === 'open' && isAgentKind(current.authorKind) && !current.acceptedBy
             ? { acceptedBy: ME.userId, acceptedByName: ME.name }
             : {}),
           updatedAt: now,

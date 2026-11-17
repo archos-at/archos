@@ -81,7 +81,7 @@ describe('InboxPushOffer', () => {
 
   test('when the agent asked, says the agent has a question, never that someone needs them', async () => {
     badge.pending = 1
-    render(<InboxPushOffer enabled client={client({ actorName: null, type: 'piloti.asks_you' })} />)
+    render(<InboxPushOffer enabled client={client({ actorName: null, type: 'agent.asks_you' })} />)
     await waitFor(() =>
       expect(toastMock).toHaveBeenCalledWith(`${PRODUCT_NAME} has a question for you. Do you want to be notified on this device?`, expect.anything())
     )
@@ -91,7 +91,7 @@ describe('InboxPushOffer', () => {
     badge.pending = 1
     render(
       <I18nProvider initialLocale="de" fixedLocale>
-        <InboxPushOffer enabled client={client({ actorName: null, type: 'piloti.asks_you' })} />
+        <InboxPushOffer enabled client={client({ actorName: null, type: 'agent.asks_you' })} />
       </I18nProvider>
     )
     await waitFor(() =>

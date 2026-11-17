@@ -90,6 +90,7 @@ import {
   resolveRequestsOnReply,
 } from './service'
 import { AGENT_MENTION_ID, MENTION_ERROR_REASONS } from './types'
+import { LEGACY_AGENT_MENTION_ID } from './legacy-mention-ids'
 
 const session = {
   userId: 'user_me',
@@ -627,7 +628,7 @@ describe('listMentionCandidates (spec MN-4, SH-19)', () => {
 
     const { candidates, canInvite } = await listMentionCandidates(session, 'conv_1')
 
-    expect(candidates.map((candidate) => candidate.targetId)).toEqual([AGENT_MENTION_ID, ANNA, BOB])
+    expect(candidates.map((candidate) => candidate.targetId)).toEqual([LEGACY_AGENT_MENTION_ID, ANNA, BOB])
     expect(candidates[0]).toMatchObject({ isAgent: true, needsInvite: false })
     expect(candidates[1]).toMatchObject({ isParticipant: true, needsInvite: false })
     expect(candidates[2]).toMatchObject({ isParticipant: false, needsInvite: true })
@@ -641,7 +642,7 @@ describe('listMentionCandidates (spec MN-4, SH-19)', () => {
 
     const { candidates } = await listMentionCandidates(session, 'conv_1')
 
-    expect(candidates.map((candidate) => candidate.targetId)).toEqual([AGENT_MENTION_ID, BOB])
+    expect(candidates.map((candidate) => candidate.targetId)).toEqual([LEGACY_AGENT_MENTION_ID, BOB])
   })
 
   it('reports canInvite false for a collaborator, who may only tag participants', async () => {

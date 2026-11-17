@@ -19,6 +19,8 @@ import { defineChannel } from './channel'
 import { publish } from './hub'
 import { flushRoster, forgetRosterPeer, noteRosterPeer, readRoster, rosterKey, type RosterEntry, type RosterFacts } from './roster'
 import { PRODUCT_NAME } from '@/lib/brand'
+import type { AgentKind } from '@/lib/agent-kind'
+import { LEGACY_AGENT_KIND } from '@/lib/legacy-agent-kind'
 
 export const DOCUMENT_REAUTHORIZE_MS = 30_000
 
@@ -105,7 +107,7 @@ export function agentPeer(conversationId: string, onBehalfOf: string, forName?: 
     peerId: `piloti-${id}`.padEnd(8, '0'),
     userId: onBehalfOf,
     name: PRODUCT_NAME,
-    kind: 'piloti',
+    kind: LEGACY_AGENT_KIND,
     ...(name ? { forName: name } : {}),
   }
 }
@@ -155,7 +157,7 @@ export interface RoomSnapshotPeer {
   peerId: string
   userId: string
   name: string
-  kind: 'person' | 'piloti'
+  kind: 'person' | AgentKind
   forName?: string
   page: number | null
   viewport: { page: number; y: number } | null

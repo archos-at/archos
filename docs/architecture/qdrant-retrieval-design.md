@@ -840,7 +840,7 @@ rest stands.
 * **Scopes are still logical collection names.** `scope` is the old
   collection name (`proj_…`, `<proj>_r…`, `s_…`), so the BFF contract, the
   signed envelope and restricted-folder placement (ADR-0087) are unchanged.
-  `office_id`, `project_id` and `grid_document_id` are on every point written
+  `office_id`, `project_id`, `grid_document_id` and `document_id` are on every point written
   through ingestion, but the import from Chroma only knows the ones a collection name
   carries (the Büroablage's office). Moving the envelope to ids, and
   restriction to a `restriction_id` field, is slice 2.

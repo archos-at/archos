@@ -60,7 +60,7 @@ describe('the organization target', () => {
   it('deep-links a Büroablage filing suggestion to the Büroablage, where its file row carries it', async () => {
     const access = await organizationTarget.resolve(makeSession(), 'org_1')
 
-    expect(access!.deepLink({ itemType: 'piloti.proposal_waiting', anchorId: 'prop-1' })).toBe('/app/office-shelf')
+    expect(access!.deepLink({ itemType: 'agent.proposal_waiting', anchorId: 'prop-1' })).toBe('/app/office-shelf')
   })
 
   it('lands an office filing sort on the office shelf with the run open', async () => {
@@ -230,7 +230,7 @@ describe('where an anchor lands (marks, proposals and Fassungen anchor rows too)
     return deepLink.mock.calls.at(-1)?.[1]
   }
 
-  it.each(['piloti.asks_you', 'piloti.work_done', 'piloti.work_failed', 'annotation.assigned_to_you', 'annotation.activity'] as const)(
+  it.each(['agent.asks_you', 'agent.work_done', 'agent.work_failed', 'annotation.assigned_to_you', 'annotation.activity'] as const)(
     'opens a document at the mark for %s',
     async (itemType) => {
       expect(await linkFor('document', { itemType, anchorId: 'ann-1' })).toEqual({
@@ -250,7 +250,7 @@ describe('where an anchor lands (marks, proposals and Fassungen anchor rows too)
   })
 
   it('does not read a proposal id as a message of the chat it was made in', async () => {
-    expect(await linkFor('conversation', { itemType: 'piloti.proposal_waiting', anchorId: 'prop-1' })).toEqual({
+    expect(await linkFor('conversation', { itemType: 'agent.proposal_waiting', anchorId: 'prop-1' })).toEqual({
       anchorId: undefined,
       markId: undefined,
       projectId: 'proj_1',
@@ -273,7 +273,7 @@ describe('where an anchor lands (marks, proposals and Fassungen anchor rows too)
   it('sends a proposal with no chat (a filing suggestion) to the project files, and redacts it for a reader who cannot view the project', async () => {
     vi.mocked(requireProjectAccess).mockResolvedValueOnce({ role: 'project-viewer', closed: false, readsBecauseClosed: false })
     const access = await INBOX_TARGET_REGISTRY.project.resolve(makeSession(), 'proj_1')
-    expect(access!.deepLink({ itemType: 'piloti.proposal_waiting', anchorId: 'prop-1' })).toBe('/app/projects/proj_1/files')
+    expect(access!.deepLink({ itemType: 'agent.proposal_waiting', anchorId: 'prop-1' })).toBe('/app/projects/proj_1/files')
 
     vi.mocked(requireProjectAccess).mockRejectedValueOnce(new Error('forbidden'))
     expect(await INBOX_TARGET_REGISTRY.project.resolve(makeSession(), 'proj_1')).toBeNull()

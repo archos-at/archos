@@ -14,6 +14,7 @@ from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import HTTPException
 from fastapi import Request
+from knowledge_layer.vector_store import LEGACY_DOCUMENT_ID_FIELD
 
 from agent.knowledge.base import FUSED_SCORE_KEY
 from agent.knowledge.base import LEXICAL_MATCH_KEY
@@ -194,7 +195,7 @@ def _lexical(chunks: list[Chunk]) -> bool | None:
 
 def _document_id(chunk: Chunk) -> str | None:
     """The document's BFF id from the chunk's metadata, when the store put it there."""
-    value = chunk.metadata.get("grid_document_id")
+    value = chunk.metadata.get(LEGACY_DOCUMENT_ID_FIELD)
     return value if isinstance(value, str) and value else None
 
 
@@ -282,7 +283,7 @@ def _reading_clauses(filters: GroupedSearchFilters) -> list[dict[str, Any]]:
 
     parts: list[dict[str, Any]] = []
     if filters.document_ids:
-        by_id: dict[str, Any] = {"grid_document_id": {"$in": list(dict.fromkeys(filters.document_ids))}}
+        by_id: dict[str, Any] = {LEGACY_DOCUMENT_ID_FIELD: {"$in": list(dict.fromkeys(filters.document_ids))}}
         parts.append(
             {"$or": [by_id, {"file_name": {"$in": list(dict.fromkeys(filters.file_names))}}]}
             if filters.file_names

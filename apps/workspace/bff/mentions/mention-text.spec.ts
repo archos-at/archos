@@ -5,6 +5,7 @@ import { describe, expect, test } from 'vitest'
 
 import { PRODUCT_NAME } from '@/lib/brand'
 import { AGENT_MENTION_ID } from '@/lib/mentions/types'
+import { LEGACY_AGENT_MENTION_ID } from '@/lib/mentions/legacy-mention-ids'
 import {
   findMentionQuery,
   humanMentions,
@@ -140,6 +141,7 @@ describe('toMentionInputs / humanMentions', () => {
   test('separates the assistant from the people', () => {
     expect(humanMentions([agent, anna])).toEqual([anna])
     expect(humanMentions([agent])).toEqual([])
+    expect(humanMentions([{ targetId: LEGACY_AGENT_MENTION_ID, display: PRODUCT_NAME }])).toEqual([])
   })
 })
 

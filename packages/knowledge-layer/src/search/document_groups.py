@@ -10,7 +10,7 @@ round of groups it collects (measured on 1.19.2, ``vector_store/search.py``
 ``grouped_search``), and this pool is fused across several collections besides.
 Ranking is untouched: a group's place is its best passage's place.
 
-A document is its ``grid_document_id`` (the BFF's id, on every point an ingest
+A document is its ``document_id`` (the BFF's id, on every point an ingest
 job wrote), and, where a point carries none (the base corpus, a point written
 before the field), its collection and file name: a file name is unique within
 one collection only.
@@ -22,6 +22,8 @@ from collections.abc import Iterable
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
+
+from knowledge_layer.vector_store import LEGACY_DOCUMENT_ID_FIELD
 
 GROUP_BY_DOCUMENT = "document"
 
@@ -40,7 +42,7 @@ class DocumentGroup:
 def document_key(chunk: Any) -> tuple[str, ...]:
     """The document a chunk belongs to: its BFF id, else its collection and file name."""
     metadata = getattr(chunk, "metadata", None) or {}
-    document_id = metadata.get("grid_document_id")
+    document_id = metadata.get(LEGACY_DOCUMENT_ID_FIELD)
     if document_id:
         return ("id", str(document_id))
     return ("file", str(metadata.get("collection") or ""), str(getattr(chunk, "file_name", None) or ""))

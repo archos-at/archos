@@ -12,7 +12,7 @@ export function auditMarkDecided(
   decision: MarkDecision
 ): void {
   recordAuditEventAfterCommit({
-    action: 'piloti.mark.decided',
+    action: 'agent.mark.decided',
     organizationId: session.organizationId,
     actor: { userId: session.userId, email: session.email || null },
     targetType: 'document_annotation',

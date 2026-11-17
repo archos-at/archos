@@ -6,7 +6,9 @@ from langchain_core.messages import AIMessage
 from langchain_core.messages import HumanMessage
 from langchain_core.messages import ToolMessage
 
+from agent.common.agent_kind import AGENT_KIND
 from agent.common.answer_envelope import drop_unfiled_proposals
+from agent.common.legacy_agent_kind import LEGACY_AGENT_KIND
 from agent.common.workspace_records import LISTING_MAX_CHARS
 from agent.common.workspace_records import filed_proposal_ids
 from agent.common.workspace_records import is_workspace_call
@@ -168,3 +170,21 @@ def test_a_bare_name_counts_and_a_refusal_or_an_empty_listing_is_no_record():
     assert len(records_from_messages(_listing(TREE, tool="list_files"))) == 1
     assert records_from_messages(_listing("`view` must be files or tree.")) == []
     assert records_from_messages(_listing("  ")) == []
+
+
+def test_a_row_the_agent_wrote_is_dropped_under_either_actor_kind():
+    for kind in (AGENT_KIND, LEGACY_AGENT_KIND):
+        record = record_from_result(
+            "comment-list",
+            {},
+            json.dumps(
+                {
+                    "total": 2,
+                    "items": [
+                        {"authorKind": kind, "text": "Die Brüstung ist zu niedrig"},
+                        {"authorKind": "person", "text": "Schnitt prüfen"},
+                    ],
+                }
+            ),
+        )
+        assert json.loads(record.text) == {"total": 2, "items": [{"authorKind": "person", "text": "Schnitt prüfen"}]}
