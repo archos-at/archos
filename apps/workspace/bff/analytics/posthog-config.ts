@@ -1,5 +1,3 @@
-import { deploymentName } from '@/lib/boot'
-
 export interface PostHogConfig {
   host: string
   projectToken: string
@@ -66,5 +64,5 @@ export const postHogConfigFromEnv = (env: Record<string, string | undefined>): P
   replaySampleRate: parseReplaySampleRate(env.NEXT_PUBLIC_POSTHOG_REPLAY_SAMPLE_RATE),
   proxy: parseSwitch(env.NEXT_PUBLIC_POSTHOG_PROXY, true),
   release: (env.GIT_SHA ?? '').trim() === 'unknown' ? '' : (env.GIT_SHA ?? '').trim(),
-  deployment: deploymentName(env) ?? '',
+  deployment: (env.POSTHOG_DEPLOYMENT ?? '').trim(),
 })
