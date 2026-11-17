@@ -94,6 +94,7 @@ export interface McpServer {
    * refused until it is named, so an upgrade never widens what the agent reaches.
    */
   tools: "all" | readonly string[];
+  pinnedToTags?: { tools: readonly string[]; tags: readonly string[] };
 }
 
 export interface McpGatewaySettings {
@@ -146,6 +147,35 @@ export function toolAllowlist(server: McpServer): Record<string, unknown> | unde
     if (!/^[A-Za-z0-9_.-]+$/.test(tool)) throw new Error(`Not a tool name agentgateway can match literally: ${tool}`);
   }
   return { rules: [{ allow: `mcp.tool.name in [${server.tools.map((tool) => `"${tool}"`).join(", ")}]` }] };
+}
+
+const LITERAL = /^[A-Za-z0-9_.:-]+$/;
+
+export function tagPinGuardrails(server: McpServer): Record<string, unknown> | undefined {
+  const pin = server.pinnedToTags;
+  if (!pin || pin.tools.length === 0) return undefined;
+  for (const literal of [...pin.tools, ...pin.tags]) {
+    if (!LITERAL.test(literal)) throw new Error(`Not a literal a CEL rule can hold: ${literal}`);
+  }
+  if (pin.tags.length === 0) throw new Error(`${server.name}: a pinned tool needs at least one tag to pin to.`);
+  const list = (values: readonly string[]) => `[${values.map((v) => `"${v}"`).join(", ")}]`;
+  const pinned =
+    "has(mcp.params.arguments) && has(mcp.params.arguments.filter) && " +
+    "mcp.params.arguments.filter.exists(f, has(f.column) && f.column == \"tags\" && " +
+    "has(f.operator) && f.operator in [\"any of\", \"all of\"] && " +
+    `has(f.value) && size(f.value) > 0 && f.value.all(v, v in ${list(pin.tags)}))`;
+  return {
+    processors: [
+      {
+        kind: "expression",
+        methods: { "tools/call": "request" },
+        condition: `mcp.params.name in ${list(pin.tools.flatMap((t) => [t, `${server.name}_${t}`]))} && !(${pinned})`,
+        reject:
+          `Pin this call to the traces you may read: a filter {"column": "tags", "operator": "any of", "value": [...]} ` +
+          `with values among ${pin.tags.join(", ")}.`,
+      },
+    ],
+  };
 }
 
 /** The CEL condition under which the app decides: a token of another organization, outside discovery. */
@@ -265,6 +295,7 @@ function route(settings: McpGatewaySettings, server: McpServer, origin: string):
       ...(otherOrganizationAdmission(settings) ? { extAuthz: otherOrganizationAdmission(settings) } : {}),
       authorization: { rules: [{ require: admissionRule(settings.platformOrgId, settings.admission !== undefined) }] },
       ...(toolAllowlist(server) ? { mcpAuthorization: toolAllowlist(server) } : {}),
+      ...(tagPinGuardrails(server) ? { mcpGuardrails: tagPinGuardrails(server) } : {}),
       ...(server.authority ? { urlRewrite: { authority: { full: server.authority } } } : {}),
     },
     backends: [{ mcp: { statefulMode: "stateful", targets: [target] } }],

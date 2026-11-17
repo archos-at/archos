@@ -94,6 +94,32 @@ export const LANGFUSE_PLATFORM_TOOLS = [
   "getHealth",
 ] as const;
 
+export const LANGFUSE_TRACE_TOOLS = {
+  pinned: ["listObservations"],
+  schema: ["getObservationFilterSchema", "getObservationFieldSchema"],
+  unpinnable: ["getObservation", "getObservationFilterValues"],
+} as const;
+
+export const orgTraceTag = (organizationId: string): string => `org:${organizationId}`;
+
+function langfuseTools(traceOrgs: "all" | readonly string[]): Pick<McpServer, "tools" | "pinnedToTags"> {
+  if (traceOrgs === "all") {
+    return {
+      tools: [
+        ...LANGFUSE_PLATFORM_TOOLS,
+        ...LANGFUSE_TRACE_TOOLS.pinned,
+        ...LANGFUSE_TRACE_TOOLS.schema,
+        ...LANGFUSE_TRACE_TOOLS.unpinnable,
+      ],
+    };
+  }
+  if (traceOrgs.length === 0) return { tools: LANGFUSE_PLATFORM_TOOLS };
+  return {
+    tools: [...LANGFUSE_PLATFORM_TOOLS, ...LANGFUSE_TRACE_TOOLS.pinned, ...LANGFUSE_TRACE_TOOLS.schema],
+    pinnedToTags: { tools: LANGFUSE_TRACE_TOOLS.pinned, tags: traceOrgs.map(orgTraceTag) },
+  };
+}
+
 /**
  * The MCP servers behind the gateway, each at `/<name>/mcp`. Adding one is an
  * entry here, with its `tools` classified (ADR-0160), plus the NetworkPolicy that lets the gateway reach it when its
@@ -115,8 +141,8 @@ export function mcpServers(cfg: DeployConfig): McpServer[] {
             // that project, prompts included (`ADMITTED_ROLES`).
             credential: { secretName: LANGFUSE_SECRETS_NAME, secretKey: LANGFUSE_SECRET_KEYS.otlpBasicAuth },
             timeout: "300s",
-            // Traces hold every office's turns: configuration tools only (ADR-0160).
-            tools: LANGFUSE_PLATFORM_TOOLS,
+            // Traces hold every office's turns (ADR-0160 and its amendment of 2026-11-17).
+            ...langfuseTools(cfg.mcpGateway.langfuseTraceOrgs),
           },
         ]
       : []),

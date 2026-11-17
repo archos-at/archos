@@ -319,6 +319,9 @@ config:
   # and the JWT template's roles claim are set in WorkOS staging.
   grid-oib:mcpGatewayEnabled: "true"
   grid-oib:mcpGatewayPlatformOrgId: org_01KX06QQJN3KA25R9G2PNFBGXV
+  # Every agent trace through /langfuse/mcp (ADR-0160, amendment of
+  # 2026-11-17): staging's offices are the team's own test offices.
+  grid-oib:mcpGatewayLangfuseTraceOrgs: "*"
   # ── Feedback → GitHub issues ──
   # Bug reports from the in-app feedback form are filed as issues by the BFF,
   # with the err2issue PAT and repo above (feedbackIssuesEnabled defaults on).
