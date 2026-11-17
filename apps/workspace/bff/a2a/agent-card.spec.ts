@@ -2,7 +2,7 @@
  * @vitest-environment node
  */
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { findOperation } from '@/lib/agent-api/catalog'
 import { a2aEndpointUrl, agentCardResponse, buildAgentCard, A2A_SECURITY_SCHEME } from './agent-card'
 import { PRODUCT_NAME } from '@/lib/brand'
@@ -55,10 +55,11 @@ describe('buildAgentCard', () => {
 })
 
 describe('agentCardResponse', () => {
-  const saved = { ...process.env }
-  beforeEach(() => Object.assign(process.env, ENV))
+  beforeEach(() => {
+    for (const [name, value] of Object.entries(ENV)) vi.stubEnv(name, value)
+  })
   afterEach(() => {
-    process.env = { ...saved }
+    vi.unstubAllEnvs()
   })
 
   it('says a project is read only when the message names its id, and no example asks one without it', () => {
