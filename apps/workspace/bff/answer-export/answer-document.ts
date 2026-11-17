@@ -37,6 +37,7 @@ export interface AnswerDocumentInput {
   quoteStamps?: readonly QuoteStamp[]
   findings?: unknown
   confidence?: AnswerConfidence | null
+  // The printed notice only; the machine-readable marking is on every export (Art. 50(2) AI Act; the Commission's Art. 50 guidelines, 2026-11-05, points 90-91, exempt only standard editing).
   agentAuthored?: boolean
   diagramPlaceholder?: string
 }

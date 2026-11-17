@@ -10,6 +10,7 @@ export const AI_PROVENANCE_PROPERTIES = {
   digitalSourceType: 'DigitalSourceType',
 } as const
 
+// AI Act Art. 50(2) and the Commission's Code of Practice on Transparency of AI-Generated Content (final, 2026-06-10), Measure 1.1.1: embedded metadata records that the content is AI-generated.
 export const IPTC_TRAINED_ALGORITHMIC_MEDIA =
   'http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia'
 
