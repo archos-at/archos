@@ -1,23 +1,4 @@
 // @disk-inputs: app/app/(shell)/projects/**, app/app/onboarding/**, app/dev/create-project/**, app/dev/intake/**, app/dev/onboarding/**, app/dev/project-memory-restricted/**, app/dev/project-setup/**, app/dev/projects-home/**, ui/components/projects/**, ui/features/onboarding/**, ui/features/project-intake/**, ui/features/projects/**
-/**
- * Two phone defects the projects surfaces had, held in the source so a third
- * occurrence is caught by a test and not by someone holding an iPhone.
- *
- *  1. A fixed height next to the top inset. `h-14 … pt-[env(safe-area-inset-top)]`
- *     under `box-sizing: border-box` leaves a content box of 56 − 59px: nothing.
- *     The onboarding header's logo and „Abmelden“ sat on the Dynamic Island
- *     instead of below it. `min-h-14` is the form that grows with the inset (the
- *     app's own mobile bar says so in `app-sidebar.tsx`).
- *
- *  2. A grid that is wide from a breakpoint on and has no column below it. A
- *     grid's implicit column is `auto`, and `auto` grows to the widest
- *     unbreakable line in it, so one long file name or one row of buttons pushed
- *     the page 97px past a phone's edge (the project memory preview). `grid
- *     grid-cols-1 lg:grid-cols-2` is `minmax(0, 1fr)` and can shrink.
- *
- * Scoped to the projects work package's own source; the rules are cheap enough
- * to widen when the rest of the app is cleaned up.
- */
 import { describe, expect, it } from 'vitest'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
@@ -51,7 +32,6 @@ const walk = (dir: string, out: string[] = []): string[] => {
 
 const FILES = ROOTS.flatMap((root) => walk(srcJoin(root)))
 
-/** Every string literal that looks like a class list, with comments blanked first. */
 function classLists(file: string): string[] {
   const code = blankComments(readFileSync(file, 'utf8')) as string
   return [...code.matchAll(/(["'`])((?:\\.|(?!\1)[^\\\n])*)\1/g)]

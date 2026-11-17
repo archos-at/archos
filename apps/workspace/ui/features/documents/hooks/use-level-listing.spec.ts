@@ -1,13 +1,3 @@
-/**
- * One folder level, page by page (ADR-0102).
- *
- * These pin what the reader sees: the first page of a level, later pages
- * appended behind it when asked for, a folder change starting over, a change
- * of order or search keeping the rows until the new answer lands, an answer
- * for a level the reader has already left dropped, and the server's seeded
- * page never read twice.
- */
-
 import { describe, expect, it } from 'vitest'
 import { act, renderHook, waitFor } from '@/test-utils'
 import { http, HttpResponse } from 'msw'
@@ -44,7 +34,6 @@ const request = (overrides: Partial<Omit<LevelPageRequest, 'limit'>> = {}): Omit
 
 const ids = (files: readonly { id: string }[]) => files.map((file) => file.id)
 
-/** A response held until the test lets it go. */
 function gate() {
   let release: () => void = () => undefined
   const opened = new Promise<void>((resolve) => {
@@ -122,7 +111,6 @@ describe('useLevelListing', () => {
     await waitFor(() => expect(ids(result.current.files)).toEqual(['in-root']))
 
     rerender({ folderId: 'f1' })
-    // The root's rows are not the folder's: they leave at once.
     expect(result.current.files).toEqual([])
     expect(result.current.isLoading).toBe(true)
     await waitFor(() => expect(ids(result.current.files)).toEqual(['in-f1']))

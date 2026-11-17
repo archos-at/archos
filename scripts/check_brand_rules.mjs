@@ -49,7 +49,7 @@ export const BANNED_TERMS = [
  * retired site's lint-claims.mjs). `allowed` is removed from the text before the pattern is tried.
  * Not ported: the site's "EU" rule (the privacy policy names PostHog's EU servers and the EU-US
  * framework, both true) and its "plan" rule (the website's design-system copy says Pläne for
- * drawings; the file-word rule stays with review, AGENTS.md).
+ * drawings; the file-word rule stays with review, docs/contributing/obligations.md).
  * A phrase leaves the list only when the product genuinely makes it true again; say so in the PR.
  */
 export const RETRACTED_CLAIMS = [
@@ -72,7 +72,7 @@ export const RETRACTED_CLAIMS = [
 export const IDENTITY = JSON.parse(readFileSync(join(REPO, 'packages/brand/identity.json'), 'utf8'))
 const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
-/** The product name is copy: write {name}, never type it (apps/website/AGENTS.md). The domain is not the name. */
+/** The product name is copy: write {name}, never type it (docs/contributing/naming.md, "No brand in a name"). The domain is not the name. */
 const TYPED_NAME = new RegExp(`\\b${escape(IDENTITY.name)}\\b(?!${escape(IDENTITY.domain.slice(IDENTITY.name.length))})`, 'i')
 
 /**

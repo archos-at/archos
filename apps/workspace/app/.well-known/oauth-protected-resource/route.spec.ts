@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The RFC 9728 document an MCP client reads to find the authorization server
- * (ADR-0122). Both well-known paths serve the same document: the bare one and
- * the path-inserted one the 401 challenge points at.
- */
 
 import { beforeEach, describe, expect, it } from 'vitest'
 import { GET as a2a } from './api/a2a/route'
@@ -18,7 +13,6 @@ const CANONICAL = 'https://app.piloti.test/api/mcp'
 
 const CURRENT_HOST = new URL(CANONICAL).host
 
-/** A GET for the metadata as Envoy forwards it: the client's host in `Host`. */
 const at = (host = CURRENT_HOST) => new Request('http://10.0.0.7:3000/.well-known/oauth-protected-resource', { headers: { host } })
 
 beforeEach(() => {

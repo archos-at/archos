@@ -1,4 +1,5 @@
-# Repo-wide tooling: agent skills (apm), release notes, pre-commit.
+# Repo-wide tooling: agent skills (apm), release notes, pre-commit, and the
+# local stack (the whole app on this machine, scripts/local-stack/).
 #
 # Included by the root Taskfile.yml with `flatten: true`: task names stay literal
 # (`agents:audit`). Shared vars (UI, SITE, PY, ...) and env live in the root file.
@@ -157,6 +158,16 @@ tasks:
     cmds:
       - '{{.RELNOTES}} publish {{.CLI_ARGS}}'
 
+  baselines:tighten:
+    desc: Lower every shrink-only ratchet baseline to the tree, so a gain cannot be spent again
+    cmds:
+      # A shrink passes the checks on its own (it is the direction we want), so
+      # nothing forces a baseline down in the PR that earned it. Run this to lock
+      # the gain in: each `--update` only lowers or removes entries, never raises
+      # one. Commit the ci/*baseline*.json it rewrites.
+      - for: [check_file_size, check_nesting, check_comments, check_brand_names, check_brand_prose, check_country_in_code, check_package_surfaces]
+        cmd: '{{.VENV_BIN}}/python{{.EXE}} scripts/{{.ITEM}}.py --update'
+
   lint:repo:
     desc: pre-commit across the whole repo, plus the agent-skill lockfile — the same scope CI lints
     cmds:
@@ -167,3 +178,36 @@ tasks:
       # gitignored, so an edit to a skill that was never re-locked shows up
       # here and nowhere else. See the task for what each half catches.
       - task: agents:audit
+
+  # ── the local stack ─────────────────────────────────────────────────────────
+  #
+  # The workspace, the BFF and the backend on this machine, with a real
+  # signed-in session and no Docker and no WorkOS account: Postgres from the
+  # server binaries, Redis for Dragonfly, a test double of the WorkOS API.
+  # Ports, the data directory and the UI directory are LOCAL_STACK_* variables
+  # (scripts/local-stack/defaults.sh). docs/contributing/local-stack.md.
+
+  local:up:
+    desc: 'Start the whole app locally (Postgres, Redis, fake WorkOS, backend api + chat, UI) and migrate; open http://localhost:3000 with `task local:session`'
+    cmds:
+      - bash scripts/local-stack/local-stack.sh up
+
+  local:down:
+    desc: Stop everything `local:up` started (the data directory stays)
+    cmds:
+      - bash scripts/local-stack/local-stack.sh down
+
+  local:status:
+    desc: Which process of the local stack runs, on which port, and where its logs are
+    cmds:
+      - bash scripts/local-stack/local-stack.sh status
+
+  local:session:
+    desc: 'Print a `wos-session` cookie value for a local user (`-- anna` or `-- bert`) to put in a browser or a curl call'
+    cmds:
+      - bash scripts/local-stack/local-stack.sh session {{.CLI_ARGS}}
+
+  local:smoke:
+    desc: 'Browser check of a running local stack: anna adds a memory note, bert sees none (Playwright)'
+    cmds:
+      - bash scripts/local-stack/local-stack.sh smoke

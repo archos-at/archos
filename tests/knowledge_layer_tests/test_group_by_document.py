@@ -1,13 +1,3 @@
-"""``knowledge_search(group_by="document")``: one entry per document (ADR-0127, S7).
-
-The grouping is a pure function over the ranked pool (``document_groups``), so
-ranking is untouched: a document's place is its best passage's place. Keyed by
-``grid_document_id``, by collection and file name where a point has none. The
-end-to-end tests drive the tool through a fake retriever and read the grounding
-records back, which is how a citation is checked: only the passages shown are
-citable.
-"""
-
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -115,11 +105,6 @@ class TestTheGrouping:
 
     def test_no_groups_render_nothing(self):
         assert render_document_groups([], 0) == ""
-
-
-# ---------------------------------------------------------------------------
-# Through the tool
-# ---------------------------------------------------------------------------
 
 
 class _Retriever:

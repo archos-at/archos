@@ -15,7 +15,7 @@ import { procedureSchema, type AsOfQuery, type Procedure } from '@/lib/base-know
 import { readRulesetsInForce } from '../store/rulesets'
 import { editionAsOf, editionForProcedure, type AsOfAnswer } from './as-of'
 import { procedureFromProfile, profileHasProcedure } from './profile-procedure'
-import { readTerritoryChain, readWorkInTime } from './repository'
+import { readTerritoryChain, readTerritoryZones, readWorkInTime } from './repository'
 
 export type AsOfResponse = {
   workId: string
@@ -83,6 +83,7 @@ export async function editionAsOfForSession(
     work: read.work,
     rulesets: rules.rulesets,
     chain,
+    zones: await readTerritoryZones(organizationId, chain),
     procedure,
     now,
   })

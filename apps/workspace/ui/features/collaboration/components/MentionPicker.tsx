@@ -1,30 +1,5 @@
 'use client'
 
-/**
- * The `@` picker (spec MN-4, MN-5) — the panel that opens above the composer.
- *
- * Shape and behaviour follow the Slack/Linear/GitHub pattern deliberately, because
- * that is the interaction people already know: the panel spans the composer, the
- * whole row highlights, hover and keyboard share ONE selection, and `↵`/`⇥` insert.
- * Three decisions are worth knowing before changing anything here:
- *
- * 1. **This component is the panel, not the popover.** The composer owns the
- *    `Popover`/`PopoverAnchor` (it is the anchor), which keeps the placement
- *    decision — above the composer, spanning its width — where the composer is,
- *    and lets the dev preview and the tests render the real panel without
- *    floating-ui in the loop.
- *
- * 2. **Keyboard navigation is driven from the outside** (`MentionPickerHandle`).
- *    Focus never leaves the textarea while the picker is open — that is the whole
- *    point of an inline mention picker — so cmdk's own key handling (which needs
- *    focus inside the command root) cannot be used. The composer forwards
- *    `↑ ↓ ↵ ⇥ esc`; everything else about selection lives here.
- *
- * 3. **A candidate who needs an invitation the caller may not send is DISABLED,
- *    never hidden** (spec MN-5, SH-19). An invite picker that silently omits a
- *    colleague reads as a bug; the row says who they are and why it is inert.
- */
-
 import type { JSX } from 'react'
 import {
   forwardRef,
@@ -54,122 +29,57 @@ import { collaborationCopy } from '@/i18n/namespaces/collaboration'
 import type { MentionCandidate } from '@/lib/mentions/types'
 import { cn } from '@/lib/utils'
 
-/** What the composer needs to drive the picker from the textarea. */
 export interface MentionPickerHandle {
-  /** Move the selection by `delta`, wrapping around at both ends. */
   move: (delta: number) => void
-  /** Insert the selected candidate. False when there is nothing to insert. */
   selectActive: () => boolean
 }
 
-/**
- * The ids the composer's textarea has to point at (`aria-controls`,
- * `aria-activedescendant`). Reported rather than passed in because cmdk mints the
- * LISTBOX id itself (it overrides an `id` prop), so it can only be read back from
- * the rendered panel. Option ids are ours — see `mentionOptionDomId`.
- */
 export interface MentionPickerAria {
   listboxId: string | null
   activeOptionId: string | null
 }
 
 export interface MentionPickerProps {
-  /** The fragment after `@`; drives filtering and the no-results copy. */
   query: string
   candidates: readonly MentionCandidate[]
-  /** Whether the caller may invite — decides if `needsInvite` rows are actionable. */
   canInvite: boolean
   loading?: boolean
   onSelect: (candidate: MentionCandidate) => void
   onAriaChange?: (aria: MentionPickerAria) => void
-  /**
-   * The heading over everyone who is not a participant, where „Weitere im
-   * Projekt" is not what they are: on an Anmerkung, the people who may open
-   * the document.
-   */
   othersHeading?: string
-  /**
-   * The line under „Keine Treffer", where the surface has a rule worth saying:
-   * on an Anmerkung, that only people who may open the document can be
-   * mentioned, so a name typed by hand that finds nobody says why.
-   */
   noResultsHint?: string
-  /**
-   * One line over the list when the surface knows something the list cannot
-   * say itself: on an Anmerkung, that the people could not be loaded, so an
-   * empty list is not read as „nobody".
-   */
   notice?: string
   className?: string
 }
 
-/** Grouped, ordered result of filtering — exported so the composer can size itself. */
 export interface MentionCandidateGroups {
-  /** The assistant, pinned first and in its own group (it is not a person). */
   agent: MentionCandidate[]
   participants: MentionCandidate[]
   others: MentionCandidate[]
-  /** Every candidate in visual order, disabled rows included. */
   visible: MentionCandidate[]
-  /** The candidates a keypress can actually land on. */
   selectable: MentionCandidate[]
-  /** Index into `selectable` of the best match, the row selected as the query changes. */
   preselected: number
 }
 
-/** cmdk compares item values verbatim, so a stable per-candidate key is enough. */
 const optionValue = (candidate: MentionCandidate): string => `mention:${candidate.targetId}`
 
-/**
- * The option's DOM id, which the textarea's `aria-activedescendant` points at.
- *
- * Ours, not cmdk's: cmdk mints an id per item and overrides an `id` prop, so each
- * row is rendered through `asChild` onto an element that carries this stable id
- * instead. That keeps the combobox wiring derivable from state (no DOM reading, no
- * dependence on when cmdk's internal store settles) and readable in the inspector.
- */
 export const mentionOptionDomId = (candidate: MentionCandidate): string =>
   `mention-option-${candidate.targetId.replace(/[^a-zA-Z0-9_-]+/g, '-')}`
 
-/** A row the caller cannot act on: mentioning them needs an invite they can't send. */
 const isBlocked = (candidate: MentionCandidate, canInvite: boolean): boolean =>
   candidate.needsInvite && !canInvite
 
-/**
- * Lower-case and strip diacritics, so the search works in the language the
- * product is actually used in. Without the folding, `@muller` never found
- * "Müller" and `@jurgen` never found "Jürgen" — and typing the umlaut is exactly
- * what somebody reaching for a picker is trying to avoid.
- *
- * NFD splits a letter from its combining mark; the mark is then dropped.
- * Deliberately not `localeCompare`-based: this must produce an INDEX that maps
- * back onto the original string for the highlight below, so it has to be a
- * character-for-character transform.
- */
 function fold(value: string): string {
   return value.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLocaleLowerCase()
 }
 
-/**
- * How well a candidate answers the query, best first. A name part that starts
- * with the query beats the query inside a name, and both beat an e-mail-only
- * match: `@Le` is someone reaching for Lena, not for Anna whose address happens
- * to read `…@lehner-architekten.at`. Typing an address still finds its person,
- * which is how two namesakes are told apart, but below every name it matches.
- */
 const RANK = { nameStart: 0, inName: 1, emailOnly: 2 } as const
 type Rank = (typeof RANK)[keyof typeof RANK]
 
-/** Whether a folded name has a word (a name part) beginning at `index`. */
 function isWordStart(folded: string, index: number): boolean {
   return index === 0 || !/[\p{L}\p{N}]/u.test(folded[index - 1] ?? '')
 }
 
-/**
- * Where the needle sits in a folded name: at the start of a name part where it
- * can, else its first occurrence, else -1. The ranking and the emphasis read
- * the same position, so the fragment drawn bold is the one that ranked the row.
- */
 function nameMatchIndex(folded: string, needle: string): number {
   let first = -1
   for (let at = folded.indexOf(needle); at >= 0; at = folded.indexOf(needle, at + 1)) {
@@ -195,17 +105,6 @@ function rankOf(candidate: MentionCandidate, query: string, agentLabel: string):
   return fold(candidate.person.email ?? '').includes(needle) ? RANK.emailOnly : null
 }
 
-/**
- * Filter, rank and group candidates: the assistant first, then the people
- * already in the conversation, then everyone else in the project. Inside each
- * group the better match leads (`RANK`); among equal matches the server's order
- * stands, since it knows about recency and this component does not.
- *
- * `preselected` is the row `↵` takes before any arrow key: the first selectable
- * row of the best rank anywhere in the list. Usually the first row; but a
- * participant whose e-mail matches sits above a colleague whose NAME matches,
- * and `↵` must not mention the one the reader did not type.
- */
 export function filterMentionCandidates(
   candidates: readonly MentionCandidate[],
   query: string,
@@ -216,7 +115,6 @@ export function filterMentionCandidates(
     const rank = rankOf(candidate, query, agentLabel)
     return rank === null ? [] : [{ candidate, rank }]
   })
-  // `sort` is stable, so equal ranks keep the server's order.
   ranked.sort((a, b) => a.rank - b.rank)
   const rankOfHit = new Map(ranked.map(({ candidate, rank }) => [candidate, rank]))
   const hits = ranked.map(({ candidate }) => candidate)
@@ -233,15 +131,7 @@ export function filterMentionCandidates(
   return { agent, participants, others, visible, selectable, preselected }
 }
 
-/**
- * The matched fragment, emphasised inside the name. Weight, not colour: the row is
- * already tinted when selected, and a second colour would fight it.
- */
 function HighlightedName({ name, query }: { name: string; query: string }): JSX.Element {
-  // Folding can change a string's LENGTH (a decomposed umlaut loses its mark, ß
-  // and ﬁ do not map one-to-one), so an offset found in the folded string cannot
-  // be used to slice the original — that emphasised the wrong characters. Fold
-  // character by character and keep a map back to the source offsets.
   const { folded, offsets } = foldWithOffsets(name)
   const needle = fold(query)
   const at = needle ? nameMatchIndex(folded, needle) : -1
@@ -257,7 +147,6 @@ function HighlightedName({ name, query }: { name: string; query: string }): JSX.
   )
 }
 
-/** The folded string plus, per folded character, the offset it came from. */
 function foldWithOffsets(value: string): { folded: string; offsets: number[] } {
   let folded = ''
   const offsets: number[] = []
@@ -279,8 +168,6 @@ function CandidateAvatar({
   candidate: MentionCandidate
   agentLabel: string
 }): JSX.Element {
-  // The assistant is not a person: a squared, ink-filled glyph rather than a
-  // round portrait, so it never reads as one more colleague in the list.
   if (candidate.isAgent) {
     return (
       <span
@@ -293,12 +180,6 @@ function CandidateAvatar({
     )
   }
 
-  /*
-    The SHARED avatar primitive, not a local disc: the same person must look the
-    same in the picker, the participant strip and their message bubbles. A
-    per-component palette makes recognising a colleague harder in exactly the
-    surface whose job is identifying them.
-  */
   return <PersonAvatar person={candidate.person} size="md" />
 }
 
@@ -330,15 +211,6 @@ export const MentionPicker = forwardRef<MentionPickerHandle, MentionPickerProps>
 
     const rootRef = useRef<HTMLDivElement>(null)
 
-    /*
-      The selection belongs to one query and one result set. A new query (a
-      letter more, a letter less) or freshly loaded candidates put it back on the
-      best match; a re-render alone never does, or it would fight the arrow keys.
-      Keyed on the query too, not on the result set alone: „@L" and „@Le" can
-      find the same people, and the row a reader arrowed to for „@L" is not the
-      best match for „@Le". Derived during render rather than reset in an
-      effect, so no render shows the previous query's selection.
-    */
     const selectionKey = `${query}\u0000${selectable.map((candidate) => candidate.targetId).join('|')}`
     const { preselected } = groups
     const [selection, setSelection] = useState({ key: selectionKey, index: preselected })
@@ -374,8 +246,6 @@ export const MentionPicker = forwardRef<MentionPickerHandle, MentionPickerProps>
       [active, move, onSelect],
     )
 
-    // Hover moves the selection, so mouse and keyboard can never disagree about
-    // which row `↵` would insert. cmdk fires this on pointer move over a row.
     const handleValueChange = useCallback(
       (value: string) => {
         const index = selectable.findIndex((candidate) => optionValue(candidate) === value)
@@ -384,20 +254,6 @@ export const MentionPicker = forwardRef<MentionPickerHandle, MentionPickerProps>
       [select, selectable],
     )
 
-    /*
-      Keep the highlighted row on screen.
-
-      The panel is bounded (`max-h-[320px]`) and the list scrolls, but nothing
-      scrolled it: arrowing past the fifth candidate moved the highlight onto a
-      row the user could not see, and `↵` then inserted somebody they had never
-      laid eyes on. The bottom fade said "more below" and the keyboard could not
-      reach it — the worst combination, because `@` is a keyboard surface first.
-
-      `block: 'nearest'` so a row already visible is left exactly where it is;
-      only a row past an edge moves, and only by as much as it must. Layout
-      effect, so the scroll lands in the same frame as the highlight rather than
-      one frame behind it.
-    */
     useLayoutEffect(() => {
       if (!active) return
       rootRef.current
@@ -405,10 +261,6 @@ export const MentionPicker = forwardRef<MentionPickerHandle, MentionPickerProps>
         ?.scrollIntoView({ block: 'nearest' })
     }, [active])
 
-    // Publish the ids the composer's textarea has to reference. A passive effect
-    // (not layout) because React attaches THIS component's ref only after its
-    // children's layout effects have run; and deduped, because a fresh object on
-    // every render would bounce off the composer's state.
     const reportedRef = useRef<MentionPickerAria>({ listboxId: null, activeOptionId: null })
     useEffect(() => {
       if (!onAriaChange) return
@@ -445,10 +297,8 @@ export const MentionPicker = forwardRef<MentionPickerHandle, MentionPickerProps>
             if (!blocked) onSelect(candidate)
           }}
           className={cn(
-            // The WHOLE row is the highlight — 12px radius, full-bleed inside the
-            // list padding — which is what makes selection legible at a glance.
             'items-center gap-3 rounded-lg px-2.5 py-2 transition-colors duration-snap ease-out motion-reduce:transition-none',
-            'data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground',
+            'data-[selected=true]:bg-hover data-[selected=true]:text-accent-foreground',
             blocked && 'opacity-55',
           )}
         >
@@ -476,11 +326,6 @@ export const MentionPicker = forwardRef<MentionPickerHandle, MentionPickerProps>
                 {t('mentions.picker.badgeAgent')}
               </Badge>
             ) : candidate.needsInvite && !blocked ? (
-              // Only when the caller CAN invite. On a blocked row the badge said
-              // "Wird eingeladen" while the subtitle directly beneath it said only an
-              // owner may bring people in — two statements about one row that
-              // contradict each other. The subtitle is the true one, so the badge
-              // steps aside.
               <Badge variant="warning" className="shrink-0 gap-1">
                 <UserPlus aria-hidden />
                 {t('mentions.picker.needsInvite')}
@@ -504,12 +349,7 @@ export const MentionPicker = forwardRef<MentionPickerHandle, MentionPickerProps>
         ref={rootRef}
         data-testid="mention-picker"
         className={cn(
-          // Capped by the room above the composer as well as by 320px: with the
-          // keyboard up a phone shows about 500px of shell, and a 320px panel
-          // over it hid the conversation the mention was about. Radix measures
-          // that room (`--radix-popover-content-available-height`); outside a
-          // popover the 320px stands alone.
-          'bg-popover text-popover-foreground flex max-h-[min(20rem,var(--radix-popover-content-available-height,20rem))] w-full flex-col overflow-hidden rounded-xl border shadow-lg',
+          'bg-popover text-popover-foreground flex max-h-[min(20rem,var(--radix-popover-content-available-height,20rem))] w-full flex-col overflow-hidden rounded-xl shadow-lg',
           'animate-in fade-in-0 slide-in-from-bottom-1 duration-snap ease-out motion-reduce:animate-none',
           className,
         )}
@@ -533,13 +373,9 @@ export const MentionPicker = forwardRef<MentionPickerHandle, MentionPickerProps>
               it is outside this scroll region. */}
           <CommandList
             label={resultsAria}
-            // No minimum height: one matching name used to sit on 80px of
-            // empty list. The loading skeleton holds its own three rows.
             className="scroll-fade-bottom max-h-none min-h-0 flex-1 p-1.5"
           >
             {loading ? (
-              // Skeletons shaped like the real rows (avatar + two lines), never a
-              // spinner: the panel keeps its height and does not jump on arrival.
               <div className="flex flex-col gap-1" aria-busy="true">
                 <span className="sr-only">{t('mentions.picker.loading')}</span>
                 {[0, 1, 2].map((row) => (

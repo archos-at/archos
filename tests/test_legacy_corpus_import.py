@@ -1,5 +1,3 @@
-"""The one-shot import of a pre-A2 data volume into the corpus store."""
-
 from __future__ import annotations
 
 import hashlib
@@ -13,7 +11,6 @@ from agent import legacy_corpus_import as importer
 
 @pytest.fixture
 def store(monkeypatch):
-    """The corpus store as a dict: name -> bytes. ``fail`` names a file whose store raises."""
     stored: dict[str, bytes] = {}
     fail: set[str] = set()
 
@@ -75,7 +72,6 @@ def test_a_second_run_stores_nothing(tmp_path, store):
 
 
 def test_a_name_the_corpus_keeps_with_other_bytes_is_left_alone(tmp_path, store):
-    """A corpus file's bytes never change (ADR-0165): a request's text of that name stays the text a reviewer read."""
     stored, _ = store
     stored["OIB-RL2.pdf"] = b"the text a change request names"
     root = _legacy(tmp_path, operator=["OIB-RL2.pdf"], uploads=["Bauordnung.pdf"])
@@ -103,8 +99,6 @@ def test_a_volume_without_a_corpus_is_a_successful_no_op(tmp_path, store):
 
 
 def test_the_operator_pdfs_can_live_beside_the_volume(tmp_path, store):
-    # Compose bind-mounted the host's data/oib over /app/data/oib, so the
-    # importer is given it as its own directory.
     stored, _ = store
     volume = _legacy(tmp_path / "data", uploads=["Bauordnung.pdf"], excluded=["Alt.pdf"])
     operator = tmp_path / "host-oib"

@@ -2,6 +2,7 @@ import type { Conversation } from '@/lib/db/schema/conversations'
 import type { Message } from '@/lib/db/schema/messages'
 import { fetchThreadHistory } from '@/lib/conversations/history-client'
 import type { MessageView } from '@/lib/conversations/message-view'
+import { ApiRequestError } from './api-error'
 
 export interface ConversationSummary {
   id: string
@@ -126,6 +127,8 @@ export const conversationsClient = {
     title?: string | null,
     projectId?: string | null,
     subject?: { resourceType: 'document'; resourceId: string } | null,
+    /** Start it as a temporary conversation (ADR-0180): nothing from it is kept in any memory. */
+    temporary?: boolean,
   ): Promise<Conversation> {
     const res = await fetch('/api/conversations', {
       method: 'POST',
@@ -136,9 +139,27 @@ export const conversationsClient = {
         projectId: projectId ?? null,
         subjectResourceType: subject?.resourceType ?? null,
         subjectResourceId: subject?.resourceId ?? null,
+        // Sent only when set: an id that already exists answers its row as it is.
+        ...(temporary ? { temporary: true } : {}),
       }),
     })
     if (!res.ok) throw new Error('Failed to create conversation')
+    return res.json()
+  },
+
+  /**
+   * Switch a conversation's `temporary` flag (ADR-0180), the owner's call.
+   * Answers the row as it now stands. Switching it off keeps what comes after,
+   * never what came before. Throws {@link ApiRequestError} with the status, so
+   * the caller can tell a refusal (403, 404) from a failure.
+   */
+  async setTemporary(id: string, temporary: boolean): Promise<Conversation> {
+    const res = await fetch(`/api/conversations/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ temporary }),
+    })
+    if (!res.ok) throw new ApiRequestError(`Failed to set temporary: ${res.status}`, res.status)
     return res.json()
   },
 
@@ -279,15 +300,17 @@ export const conversationsClient = {
    * Record what a POST-ANSWER STAGE computed for this turn
    * (`docs/architecture/post-answer-stages.md` §4.3).
    *
-   * The browser is what persists it, and that is not an implementation detail:
-   * the agent tier holds the WS turn id and the browser holds the message row
-   * id, and there is no id that is both (§1.6). The half that owns the row does
-   * the writing.
+   * Both sides know the answer's row id: it is derived from the conversation
+   * and the turn (`answerMessageId`, the agent's `answer_message_id`). For the
+   * memory reflection stage the agent tier also stores the frame itself
+   * (`PATCH /api/internal/conversations/{id}/messages/{messageId}/stages`), so
+   * a note saved after the reader left is still under its answer; this write
+   * then lands the same content through the same merge and changes nothing.
+   * For follow-ups the browser is the only writer.
    *
    * Best-effort, like every other mirror on this route — the chips are already
-   * rendered from the store, so losing this costs a colleague's view and the
-   * cross-device replay, not the turn. The server whitelists and bounds the
-   * payload (`sanitizeStages`).
+   * rendered from the store. The server whitelists and bounds the payload
+   * (`sanitizeStages`).
    */
   async updateMessageStages(
     conversationId: string,

@@ -1,34 +1,5 @@
 'use client'
 
-/**
- * The phone's bottom tab bar: the daily destinations under the thumb.
- *
- * WHAT IT IS. A row of four or five tabs, icon over label, pinned to the bottom
- * of the shell below `md`. Which tabs, and why those, is `phone-tabs.ts`. "Mehr"
- * opens a bottom sheet with the destinations the bar does not carry
- * (`phone-more-sheet.tsx`), so nothing the rail offers is lost.
- *
- * WHY IN FLOW AND NOT FIXED. The bar is the last child of the shell column,
- * after `<main>`, not a `position: fixed` layer over it. `<main>` is the scroll
- * container and simply ends where the bar begins, so no page can scroll content
- * under it, no page has to reserve its height, and a page that forgot to is
- * not a bug waiting to happen. The bar owns the home-indicator inset; while it
- * stands, the shell publishes `--shell-inset-bottom: 0px` so a composer above
- * it does not pad for an inset it no longer touches (`AppShellChrome`).
- *
- * WHEN IT STANDS DOWN. While the on-screen keyboard is up (`useKeyboardUp`), on the intake
- * wizard (`phoneTabBarHiddenOnRoute`), and at `md` and up, where the rail
- * stands instead. Full-screen overlays (the Postfach, the Büroablage, a dialog)
- * cover it on their own; hiding it under them would reflow the page for
- * nothing.
- *
- * LOOK. Ink, never colour: the current tab's glyph sits on the same raised
- * white chip the rail's active entry wears, and the chip glides between tabs on
- * `springGlide`, because where it came from is the one thing a reader needs to
- * see. Short-height screens (a phone on its side) lay icon and label side by
- * side in a 44px row, so the bar costs as little of 393px as a target allows.
- */
-
 import type { JSX } from 'react'
 import * as React from 'react'
 import Link from 'next/link'
@@ -53,17 +24,11 @@ import { useShellOverlays } from './shell-overlays'
 import { orgPhoneTabs, projectPhoneTabs, type PhoneTab, type PhoneTabLabel } from './phone-tabs'
 
 export interface PhoneTabBarProps {
-  /** The project whose sections the bar carries, or null above a project. */
   projectId: string | null
   canAccessOfficeShelf: boolean
   canAccessInbox: boolean
-  /** The office receives project mail: the Dateien tab carries the muted waiting count (ADR-0137). */
   inboundMailEnabled?: boolean
   className?: string
-  /**
-   * The route to light a tab for. The product omits it and the bar reads the
-   * URL; a `/dev` preview pins the route it is standing in for.
-   */
   pathname?: string
 }
 
@@ -79,19 +44,13 @@ export function PhoneTabBar({
   const pathname = pinnedPathname ?? currentPathname
   const t = useTranslations(navCopy)
   const tCollaboration = useTranslations(collaborationCopy)
-  // The badge subscription only where the bar is seen: at `md` and up the rail
-  // or the org header already holds one, and the bar is `display: none`.
   const isMobile = useIsMobile()
   const { pending } = useInboxBadge(canAccessInbox && isMobile)
   const inboundMail = useInboundMailWaiting(projectId, inboundMailEnabled && isMobile)
   const moreOpen = useShellOverlays((s) => s.moreSheetOpen)
   const setMoreOpen = useShellOverlays((s) => s.setMoreSheetOpen)
-  // „Mein Feedback" lives in the „Mehr" sheet: a team reply marks the tab.
   const feedbackNews = useFeedbackUpdatedCount() > 0
   const tFeedback = useTranslations(feedbackCopy)
-  // One shared-layout id per mounted bar, never a module constant: the scopes
-  // preview mounts two bars at once, and a constant would fly the chip
-  // between them.
   const pillId = `phone-tab-pill-${React.useId()}`
 
   const flags = { canAccessOfficeShelf, canAccessInbox }
@@ -108,11 +67,6 @@ export function PhoneTabBar({
       data-scope={projectId ? 'project' : 'org'}
       className={cn(
         'w-full shrink-0 md:hidden',
-        // Inside a project the bar is the rail on its side: the desk, a
-        // track whose thumb is the current tab, and the step to the paper is
-        // its edge in both themes. Above a project the bar is paper on paper,
-        // and the rule is the only thing that says where the scrolling page
-        // ends and the fixed bar begins.
         projectId ? 'bg-desk' : 'border-border bg-background border-t',
         'pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]',
         className
@@ -154,9 +108,7 @@ function PhoneTabItem({
   label: string
   pillId: string
   badgeCount: number
-  /** Something new one level down (a feedback reply under „Mehr"): a dot, and this said to a screen reader. */
   newsLabel: string | null
-  /** The muted count (mail waiting in Dateien), where no ink pill is. */
   waitingCount?: number | null
   expanded?: boolean
   onOpenMore: () => void
@@ -164,7 +116,6 @@ function PhoneTabItem({
   const Icon = tab.icon
   const className = cn(
     'relative flex h-[3.25rem] w-full flex-col items-center justify-center gap-1 rounded-control outline-none',
-    // A phone on its side: icon beside label, one 44px row.
     '[@media(max-height:31rem)]:h-11 [@media(max-height:31rem)]:flex-row [@media(max-height:31rem)]:gap-2',
     PRESSABLE,
     FOCUS_RING_INSET,
@@ -178,12 +129,6 @@ function PhoneTabItem({
             layoutId={pillId}
             data-slot="phone-tab-pill"
             aria-hidden
-            // The rail's current sheet, at the size of one glyph: white with
-            // its edge and the thumb's shadow on the project's desk bar; on
-            // the paper bar above a project, where there is no track, the
-            // desk's fill.
-            // `rounded-control`, as the rail's and the Dateien tabs' thumb:
-            // a capsule is for what is round (a count, an avatar).
             className="bg-desk in-data-[scope=project]:bg-sheet in-data-[scope=project]:shadow-xs absolute inset-0 rounded-control"
             transition={springGlide}
           />
@@ -197,10 +142,7 @@ function PhoneTabItem({
       <span
         data-slot="phone-tab-label"
         className={cn(
-          // The 12px label, as every label in the app (design-language.md,
-          // „Type ramp“); 11px read as fine print under an 18px glyph.
           'relative max-w-full truncate px-0.5 text-xs leading-none',
-          // 500 at rest and 600 when current, as the rail's rows.
           tab.active ? 'font-semibold' : 'font-medium'
         )}
       >

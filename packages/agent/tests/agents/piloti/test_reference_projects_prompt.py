@@ -1,12 +1,3 @@
-"""The office's reference projects: turn context → state → prompt.
-
-The catalog is what lets the agent look into past projects UNASKED
-(docs/design/cross-project-escalation.md): the closed projects most like this
-one, one line each, rendered below the KV-cache boundary because they vary per
-office. It renders only when the turn can act on it: a catalog without
-``project_lookup`` bound promises a door the model does not have.
-"""
-
 from langchain_core.messages import HumanMessage
 
 from agent.agents.piloti.models import ResearchAgentState
@@ -37,7 +28,6 @@ def test_the_catalog_reaches_the_model_below_the_cache_boundary_with_the_rule_to
 
 
 def test_a_precedent_is_kept_apart_into_what_applies_what_the_office_does_and_where_it_was_done():
-    """The contract, not the prose: the three parts, their order, and the edition/Land caveat."""
     block = _render([SEARCH, LOOKUP], reference_projects=CATALOG).split(HEADING)[1]
 
     assert "keep three parts apart and in this order" in block
@@ -55,8 +45,6 @@ def test_no_catalog_renders_no_section():
 
 
 def test_the_conversation_state_hands_the_catalog_to_the_research_state():
-    """The graph edge the field has to survive: a catalog that stops at the
-    conversation state is one the answering agent never reads."""
     from agent.agents.piloti.conversation import ConversationGraph
     from agent.agents.piloti.models.conversation import ConversationState
 

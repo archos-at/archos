@@ -1,13 +1,5 @@
 'use client'
 
-/**
- * The parts of a similar-project card, one decision each: the stretched link
- * to the project, a labelled fact, the mark that a value came from the
- * documents and is not yet confirmed, the origin of a decision, and the decision
- * and permit items. The organism composes these and the card primitives
- * (`RaisedCard`); none of them draws a shape of its own beyond its material.
- */
-
 import type { JSX, ReactNode } from 'react'
 import Link from 'next/link'
 import { Chip } from '@/components/ui/chip'
@@ -24,10 +16,6 @@ import type {
   ReferencePermit,
 } from '@/lib/references/types'
 
-/**
- * The project's name as the card's one link, stretched over the whole card.
- * Its own route is the project root, which opens the project's chat.
- */
 export function ReferenceProjectLink({ project }: { project: { id: string; name: string } }): JSX.Element {
   return (
     <Link
@@ -41,7 +29,6 @@ export function ReferenceProjectLink({ project }: { project: { id: string; name:
   )
 }
 
-/** A labelled fact on one line: the label at the start, the value at the end. */
 export function ReferenceRow({ label, children }: { label: string; children: ReactNode }): JSX.Element {
   return (
     <div className="flex min-w-0 items-baseline justify-between gap-3 text-sm">
@@ -51,7 +38,6 @@ export function ReferenceRow({ label, children }: { label: string; children: Rea
   )
 }
 
-/** The mark beside a value that came from the documents and that no person has checked. */
 export function UnconfirmedMark(): JSX.Element {
   const t = useTranslations(referencesCopy)
   return (
@@ -61,7 +47,6 @@ export function UnconfirmedMark(): JSX.Element {
   )
 }
 
-/** A fact's value, with the unconfirmed mark beside it when it is one. */
 export function ReferenceFactText({
   fact,
   children,
@@ -77,7 +62,6 @@ export function ReferenceFactText({
   )
 }
 
-/** Where a decision came from, as a chip. A person's word is the strongest; a note of Piloti's the weakest. */
 export function OriginChip({ origin }: { origin: ReferenceOrigin }): JSX.Element {
   const t = useTranslations(referencesCopy)
   const variant = origin === 'person' ? 'success' : origin === 'documents' ? 'info' : 'muted'
@@ -88,10 +72,6 @@ export function OriginChip({ origin }: { origin: ReferenceOrigin }): JSX.Element
   )
 }
 
-/**
- * A period as its years: „2019–2021", one year when it began and ended in it,
- * and „2019–" while it has no end, as the agent's catalog writes it.
- */
 export function periodYears(period: ReferencePeriod): string {
   const from = period.start.slice(0, 4)
   const to = period.end?.slice(0, 4)
@@ -99,7 +79,6 @@ export function periodYears(period: ReferencePeriod): string {
   return to !== from ? `${from}–${to}` : from
 }
 
-/** A section of the card: its eyebrow, then what it holds. */
 export function ReferenceSection({ title, children }: { title: string; children: ReactNode }): JSX.Element {
   return (
     <section className="grid min-w-0 gap-2">
@@ -109,7 +88,6 @@ export function ReferenceSection({ title, children }: { title: string; children:
   )
 }
 
-/** One recorded decision or constraint, its origin and the files it was read from. */
 export function ReferenceDecisionItem({ decision }: { decision: ReferenceDecision }): JSX.Element {
   const t = useTranslations(referencesCopy)
   return (
@@ -136,7 +114,6 @@ export function ReferenceDecisionItem({ decision }: { decision: ReferenceDecisio
   )
 }
 
-/** One permit record: its kind, issuer and day, and the requirements it sets. */
 export function ReferencePermitItem({ permit }: { permit: ReferencePermit }): JSX.Element {
   const t = useTranslations(referencesCopy)
   const { locale } = useLocale()

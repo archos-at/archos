@@ -17,7 +17,6 @@ const SEPTEMBER: QualityScope = {
 const SEPTEMBER_QUERY = 'from=2026-09-01&to=2026-09-30'
 const OCTOBER: QualityScope = { ...SEPTEMBER, from: '2026-10-01', to: '2026-10-09' }
 
-/** The list requests a fetch spy saw, as their query parameters. */
 const listQueries = (spy: ReturnType<typeof vi.fn>): URLSearchParams[] =>
   spy.mock.calls
     .map(([url]) => String(url))
@@ -75,7 +74,6 @@ const timeline = (conversationId: string, label = 'answer') => ({
       durationMs: 800,
       status: 'ok',
       spanCount: 4,
-      // The server's stand-in for a root span that never reached the ledger.
       root: {
         ...span('turn', 'turn', 60_000, 800, [span('node', 'retrieve', 60_000, 700)]),
         spanId: 'turn-2:root',
@@ -107,8 +105,6 @@ describe('formatSpanDuration', () => {
 
 describe('barGeometry', () => {
   test('keeps a late, long span inside its track', () => {
-    // Started at 95% of the turn and ran for half of it: the bar used to be
-    // drawn from 95% with a 50% width, far past the row's right edge.
     const { left, width } = barGeometry(950, 500, 1_000)
     expect(left).toBe(95)
     expect(left + width).toBeLessThanOrEqual(100)
@@ -165,8 +161,6 @@ describe('AgentProfiler', () => {
   })
 
   test('prints the reason a span failed on the page, and a tap opens the full text', async () => {
-    // The reason used to be `sr-only` text plus a `title`, neither of which a
-    // sighted reader on a phone ever gets.
     vi.stubGlobal('fetch', routedFetch([conversation('c-1', 'Brandabschnitte')]))
 
     render(<AgentProfiler scope={SEPTEMBER} />)
@@ -336,12 +330,9 @@ describe('AgentProfiler', () => {
     rerender(<AgentProfiler scope={OCTOBER} />)
     await vi.waitFor(() => expect(pending).toHaveLength(2))
 
-    // No skeleton: the old list stays, dimmed, until the new one lands.
     expect(screen.getByText('September')).toBeDefined()
     expect(screen.getByText('September').closest('.opacity-60')).not.toBeNull()
 
-    // A slow September answer cannot land over October's: the stale-response
-    // guard keeps whichever was asked for last.
     await act(async () =>
       pending[1](json({ conversations: [conversation('c-2', 'October')], capped: false }))
     )
@@ -374,7 +365,6 @@ describe('AgentProfiler', () => {
         'The conversation you had selected has no turns in this period.'
       )
     ).toBeDefined()
-    // It asked about exactly that conversation, in the new scope.
     expect(listQueries(fetchSpy).at(-1)?.get('conversation')).toBe('c-1')
   })
 
@@ -398,7 +388,6 @@ describe('AgentProfiler', () => {
     expect(await within(card).findByText('web_search')).toBeDefined()
     rerender(<AgentProfiler scope={OCTOBER} />)
 
-    // The header names it from the server's answer, though the list does not carry it.
     expect(await within(card).findByText('Weit unten')).toBeDefined()
     expect(within(card).getByText('web_search')).toBeDefined()
   })

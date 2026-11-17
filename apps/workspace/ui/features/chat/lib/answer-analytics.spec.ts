@@ -3,7 +3,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import type { ChatMessage, CitationSource } from '../types'
-import { initialTurnView, type TurnView } from './turn-fold'
+import { initialTurnView, type TurnView } from '@/lib/turns/turn-fold'
 import { answerCompletionOf } from './answer-analytics'
 
 const running = initialTurnView('turn-1', 'conv-1')

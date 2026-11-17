@@ -1,10 +1,3 @@
-/**
- * The excerpt of a cited page: drawn only once asked for, with the quote
- * marked where the viewer would mark it; the whole page, saying so, when the
- * quote is not in its text; a line instead of a broken frame when there is
- * nothing to draw. pdf.js is the shared fake, so this is the real path from
- * the file's name to the drawn page.
- */
 import { render, screen, waitFor } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -59,7 +52,6 @@ describe('PageExcerpt', () => {
         { status: 200 }
       )
     })
-    // One route answers both shelves; only the project's own is counted, the office shelf answers empty.
     setDocumentsByNameFetch(async (path, init) =>
       path === '/api/documents/by-name' && !String(init?.body).includes('"office_shelf"')
         ? byName(path, init)

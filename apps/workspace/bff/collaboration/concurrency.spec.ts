@@ -1,21 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Concurrency and idempotency across the collaboration feature (spec CC-15, MN-2,
- * MN-9, IB-8).
- *
- * Everything here is about a SECOND attempt: two colleagues answering the same
- * question, a retried message id, a double-clicked "continue without them", a
- * replayed notification, a revocation that already happened. The rule is uniform —
- * the first attempt wins and the second changes nothing — and the failure modes it
- * prevents are the expensive ones: a rewritten resolution, a duplicated request, a
- * notification that arrives twenty times.
- *
- * Where the guarantee is a SQL predicate (`status = 'open'`) or an index-backed
- * upsert, the REAL repository statement is captured through drizzle's proxy driver
- * and asserted, because that is where the property actually lives.
- */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -39,8 +24,6 @@ vi.mock('@/lib/auth/require-auth', () => ({
   requireAuthorizedSession: vi.fn(),
 }))
 
-// Which people may read what a conversation recorded is `restricted-use.spec.ts`'s
-// subject (ADR-0088); here nothing it recorded restricts anybody.
 vi.mock('@/lib/conversations/restricted-use', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/conversations/restricted-use')>()),
   peopleWhoMayRead: vi.fn(async (_org: string, _id: string, userIds: readonly string[]) => new Set(userIds)),
@@ -245,7 +228,6 @@ interface CapturedQuery {
   params: unknown[]
 }
 
-/** Point `getDb()` at drizzle's proxy driver so the REAL statement is observable. */
 function captureSql(rows: unknown[][] = []): CapturedQuery[] {
   const queries: CapturedQuery[] = []
   const db = proxyDrizzle(async (sql: string, params: unknown[]) => {
@@ -257,10 +239,6 @@ function captureSql(rows: unknown[][] = []): CapturedQuery[] {
 }
 
 beforeEach(() => {
-  // The collaboration feature is an entitlement (spec NF-7): without the
-  // organization's flag the mention path refuses outright, so these tests run as
-  // a signed-in deployment whose session holds it (`session.featureFlags`). The
-  // flag-OFF behaviour has its own tests.
   vi.stubEnv('REQUIRE_AUTH', 'true')
   stubConversation()
   stubContainer('project-editor')
@@ -286,8 +264,6 @@ afterEach(() => {
 
 describe('two people answering the same mention (matrix D21, spec CC-15)', () => {
   it('transitions only rows that are still open, so a late close cannot rewrite a resolution', async () => {
-    // The race is settled in SQL. `status = 'open'` in the WHERE clause is the
-    // whole mechanism: the loser's UPDATE matches nothing.
     const queries = captureSql()
     const mentions = await vi.importActual<typeof import('@/lib/mentions/repository')>(
       '@/lib/mentions/repository',
@@ -302,8 +278,6 @@ describe('two people answering the same mention (matrix D21, spec CC-15)', () =>
   })
 
   it('makes the losing answer a no-op rather than a second notification', async () => {
-    // The request looked open when we read it, but somebody else closed it in
-    // between — `resolveRequests` returns nothing, and nothing downstream fires.
     vi.mocked(listOpenRequestsForSubject).mockResolvedValue([requestRow()])
     vi.mocked(resolveRequests).mockResolvedValue([])
 
@@ -315,8 +289,6 @@ describe('two people answering the same mention (matrix D21, spec CC-15)', () =>
     })
 
     expect(result).toEqual({ answered: 0, askedBack: 0, askerUserIds: [] })
-    // No "your request was answered" for a request this author did not close, and
-    // no awaiting republish claiming the state changed.
     expect(upsertInboxItems).not.toHaveBeenCalled()
     expect(resolveInboxItemsForTargets).not.toHaveBeenCalled()
     expect(publishToUsers).not.toHaveBeenCalled()
@@ -342,8 +314,6 @@ describe('two people answering the same mention (matrix D21, spec CC-15)', () =>
 
 describe('a replayed message id (matrix D22, spec MN-2)', () => {
   it('reads back the first ruling instead of minting a second mention request', async () => {
-    // The client fires create-if-missing per appended message, so the same id can
-    // arrive twice. The first attempt's addressee ruling is authoritative.
     vi.mocked(findMessageInConversation).mockResolvedValue(
       messageRow({ metadata: { addressees: { agent: false, users: [ANNA] } } }),
     )
@@ -354,7 +324,6 @@ describe('a replayed message id (matrix D22, spec MN-2)', () => {
 
     expect(persisted!.addressees).toEqual({ agent: false, users: [ANNA] })
     expect(persisted!.createdRequests).toBe(0)
-    // No second request, no second invitation, no second notification.
     expect(insertMentionRequests).not.toHaveBeenCalled()
   })
 })
@@ -378,8 +347,6 @@ describe('emitting the same notification twice (matrix D23, spec IB-8)', () => {
 
     const [first] = vi.mocked(upsertInboxItems).mock.calls[0]![0] as NewInboxItem[]
     const [second] = vi.mocked(upsertInboxItems).mock.calls[1]![0] as NewInboxItem[]
-    // Identical key on both attempts is what lets the unique index do the folding —
-    // a key that varied per call would silently opt out of dedup.
     expect(second!.groupKey).toBe(first!.groupKey)
     expect(second!.recipientUserId).toBe(first!.recipientUserId)
   })
@@ -403,10 +370,7 @@ describe('emitting the same notification twice (matrix D23, spec IB-8)', () => {
 
     expect(queries).toHaveLength(1)
     expect(queries[0]!.sql).toContain('on conflict ("recipient_user_id","group_key") do update set')
-    // The stored count plus what the incoming row stands for: 1 for a
-    // plain emission, N for one emission that folds N occurrences (`InboxEmission.occurrences`).
     expect(queries[0]!.sql).toContain('"count" = "inbox_items"."count" + excluded.count')
-    // A new occurrence is new information, so the group resurfaces.
     expect(queries[0]!.sql).toContain('"read_at" = ')
     expect(queries[0]!.sql).not.toContain('do nothing')
   })
@@ -420,7 +384,6 @@ describe('emitting the same notification twice (matrix D23, spec IB-8)', () => {
     expect(plain!.count).toBe(1)
     expect(folded!.count).toBe(4)
 
-    // …and that is the value the insert carries, so `excluded.count` adds it.
     const queries = captureSql([['item_1']])
     const inbox = await vi.importActual<typeof import('@/lib/inbox/repository')>('@/lib/inbox/repository')
     await inbox.upsertInboxItems([{ ...folded!, payload: {} }])
@@ -437,7 +400,6 @@ describe('emitting the same notification twice (matrix D23, spec IB-8)', () => {
 
 describe('releasing a request twice (matrix D24, spec MN-9.2)', () => {
   it('is a no-op the second time, not an error', async () => {
-    // The row already settled, so `resolveRequests` (open-only) touches nothing.
     vi.mocked(findRequestById).mockResolvedValue(
       requestRow({ status: 'released', resolution: 'released', resolvedBy: session.userId }),
     )
@@ -445,8 +407,6 @@ describe('releasing a request twice (matrix D24, spec MN-9.2)', () => {
     const state = await releaseRequest(session, 'req_1')
 
     expect(state).toEqual({ pending: [], awaitingMe: false })
-    // Nothing re-resolved, and no awaiting event announcing a change that did not
-    // happen — a double click must not look like a second release.
     expect(resolveInboxItemsForTargets).not.toHaveBeenCalled()
     expect(publishToUsers).not.toHaveBeenCalled()
   })
@@ -471,7 +431,6 @@ describe('revoking a grant twice (matrix D25, spec SH-13)', () => {
       revokeResourceAccess(session, 'conversation', CONVERSATION_ID, ANNA),
     ).rejects.toBeInstanceOf(NotFoundError)
 
-    // A revocation that removed nothing must leave no trail claiming it did.
     expect(recordAuditEvent).not.toHaveBeenCalled()
     expect(publishToUsers).not.toHaveBeenCalled()
     expect(resolveInboxItemsForTargets).not.toHaveBeenCalled()

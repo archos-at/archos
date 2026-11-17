@@ -1,0 +1,6 @@
+---
+# area: administration
+operators:
+  - >
+    The incident alert now also fires when a stack's object storage is more than 85 percent full or has turned
+    read-only for lack of space, on every stack, which is what stopped project mail and uploads on dev.

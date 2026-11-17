@@ -24,7 +24,6 @@ vi.mock('@/lib/authz/feature-flags', () => ({
   isIfcModelsEnabled: vi.fn().mockReturnValue(true),
 }))
 
-/** `project-a` is granted; every other project 404s, as FGA does here. */
 vi.mock('@/lib/authz/projects', () => ({
   requireProjectAccess: vi.fn(async (_session: unknown, projectId: string) => {
     if (projectId !== 'project-a') {
@@ -41,8 +40,6 @@ vi.mock('@/lib/documents/repository', async () => {
     findDocumentInOrg: vi.fn(async (documentId: string) =>
       makeDocument({
         id: documentId,
-        // `doc-a` belongs to the granted project; `doc-b` to a project the
-        // caller has no grant on. Both are in the same organization.
         projectId: documentId === 'doc-a' ? 'project-a' : 'project-b',
         storageKey: 'k',
       })
@@ -93,8 +90,6 @@ describe('queryAccessibleModel', () => {
   beforeEach(() => vi.clearAllMocks())
 
   it('refuses a base model in a project the caller has no grant on', async () => {
-    // Without the second `getAccessibleModel`, this resolves and the response
-    // carries `model-b`'s element names.
     await expect(
       queryAccessibleModel(SESSION, 'model-a', {
         op: 'compare',

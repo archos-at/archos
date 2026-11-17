@@ -33,7 +33,6 @@ describe.skipIf(!url)('mail imports against Postgres', () => {
   let repo: typeof import('./repository')
   let projectId: string
   let otherProjectId: string
-  /** The project's imports, newest first, as the list must answer them. */
   const expected: string[] = []
 
   const inTenant = <T>(run: () => Promise<T>): Promise<T> => withTenant({ organizationId: ORG, userId: USER }, run)
@@ -80,7 +79,6 @@ describe.skipIf(!url)('mail imports against Postgres', () => {
     projectId = await insertProject('mail_imports')
     otherProjectId = await insertProject('mail_imports_other')
 
-    // The person's open import is the OLDEST row, behind a page of finished ones.
     const open = await insertImport(projectId, '2026-09-01T08:00:00Z', 'uploading', USER)
     const tied = [await insertImport(projectId, SAME_INSTANT), await insertImport(projectId, SAME_INSTANT)]
     const later = []

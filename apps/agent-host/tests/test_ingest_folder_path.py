@@ -1,15 +1,3 @@
-"""`POST /v1/ingest` carries the folder the BFF filed the document in (ADR-0049).
-
-This is the crossing point: the BFF knows `project_folders.path`, the Python
-backend does not, and the ingest dispatch is the only call that runs when a
-document first appears. If `folder_path` does not survive into the job config,
-nothing downstream can stamp it and the agent never learns the filing.
-
-The field name is the contract and both sides pin it: the BFF twin is
-`dispatch.spec.ts` ("the ingest dispatch sends the document's folder path"),
-which asserts the same `folder_path` key on the request body.
-"""
-
 from unittest.mock import MagicMock
 
 import httpx
@@ -47,7 +35,6 @@ def app(mock_ingestor, monkeypatch):
 
 async def _ingest(app, body: dict) -> httpx.Response:
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        # The request downloads nothing (the job does), so nothing to stub.
         return await client.post("/v1/ingest", json=body)
 
 
@@ -73,8 +60,6 @@ async def test_the_folder_path_reaches_the_ingest_job_config(app, mock_ingestor)
 
 @pytest.mark.asyncio
 async def test_a_document_with_no_folder_carries_none(app, mock_ingestor):
-    # A caller predating this field, and a document at the project root, are the
-    # same case: the key is simply absent, which reads as "the root".
     response = await _ingest(
         app,
         {

@@ -219,8 +219,11 @@ async function markFailedPermanent(sql, claim, message) {
  * before the reap, which fails what is left.
  *
  * What it cannot tell stays `failed`, for a person: a folder whose removal
- * owes traces, and every chat. A chat's erasure leaves its row gone, but
- * whether its Langfuse traces were erased is recorded nowhere. A project's
+ * owes traces. A chat is not closed here either, but it is closed: its erasure
+ * leaves its `conversations` row gone, and the scheduler's trace sweep
+ * (`findConversationsAwaitingTraceErasure`, `workers/maintenance-sql.js`) takes
+ * a `failed` row whose chat is gone, erases the traces the purger could not,
+ * stamps `payload.langfuseTracesErasedAt` and closes the row `purged`. A project's
  * rows go in the same transaction as its queue row, so it cannot be half done.
  * Returns the number closed.
  */

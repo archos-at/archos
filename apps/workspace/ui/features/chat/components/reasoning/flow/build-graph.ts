@@ -46,21 +46,13 @@ import { roundKind, SpineFolding, GraphInteraction, NO_INTERACTION } from './rou
 export interface BuiltGraph {
   nodes: Node[]
   edges: Edge[]
-  /** Row groups, top→bottom, for the measured y-stacking pass. */
   rows: string[][]
 }
 
-/** While the answer runs, a fan of more than this many shows its first {@link LIVE_SHOWN} and folds the rest. */
 const LIVE_FAN_MAX = 3
 
 const LIVE_SHOWN = 2
 
-/**
- * Which of a fan's documents stand as cards and which fold into the dashed
- * „+N abgerufen, nicht zitiert“ card. Settled, the cited ones stand; while the
- * answer runs nothing is cited yet, so the first few stand and the rest fold
- * as „+N weitere“. Exported for its spec.
- */
 export function partitionFan(
   slots: readonly FanCard[],
   live: boolean
@@ -73,7 +65,6 @@ export function partitionFan(
   return { shown: slots.filter(cited), folded: slots.filter((slot) => !cited(slot)) }
 }
 
-/** A fan's slots with the prefetch's merged in front, once each by document. */
 const mergeFans = (first: readonly FanCard[], second: readonly FanCard[]): FanCard[] => {
   const seen = new Set<string>()
   const out: FanCard[] = []
@@ -86,39 +77,23 @@ const mergeFans = (first: readonly FanCard[], second: readonly FanCard[]): FanCa
   return out
 }
 
-/**
- * Pure graph builder — exported for structural regression tests. Produces the
- * nodes (with per-column handle specs), the parallel wiring, and the row groups
- * for the measured layout pass. See ReasoningFlow.spec.
- */
 export function buildGraph(
   props: ReasoningFlowProps,
   t: Translator,
   layout: FanLayout,
   cards: CitedDocument[],
-  /**
-   * Which checkpoint layers are folded, and how to unfold one. Absent means
-   * "nothing is folded and the control does nothing" — the right answer for a
-   * structural test that is not about folding.
-   */
   folding: SpineFolding = { folded: new Set<number>(), onToggle: () => {} },
-  /** `retrievalRounds(props.steps)`, when the caller has parsed it already. */
   rounds: RetrievalRound[] = withActionRounds(retrievalRounds(props.steps), props.steps),
   interaction: GraphInteraction = NO_INTERACTION
 ): BuiltGraph {
   const work = workRounds(props.steps)
   const live = Boolean(props.live)
-  // Phone width, whether or not the turn has a fan to group: the rows and the
-  // last card stack their parts instead of setting them side by side.
   const compact = layout.contentW <= GROUPED_MAX_W
   const { selection } = interaction
-  // The decision's prefetch (round 0) is no step a reader sees: its documents
-  // join the first fan like any other source (ADR-0132).
   const prefetch = prefetchRounds(props.steps)
   const visible = rounds.filter((round) => !prefetch.has(round.index))
   const prefetched = rounds.filter((round) => prefetch.has(round.index))
 
-  // The calls that returned each document, for the row↔card link.
   const callsOf = callIdsByDocument(props.steps, normalizeFileName)
   const slotCalls = (slot: FanCard): string[] => {
     const names = [slot.name, slot.card?.fileName, slot.card?.title].filter(
@@ -132,7 +107,6 @@ export function buildGraph(
     return isLinked(selection, callIds) ? 'linked' : 'receded'
   }
 
-  /** A fan's column slots: the standing cards, then the fold of the rest. */
   const columnSlots = (fanKey: string, slots: readonly FanCard[]): ColumnSlot[] => {
     const { shown, folded } = partitionFan(slots, live)
     const open = interaction.openFolds.has(fanKey)
@@ -159,20 +133,12 @@ export function buildGraph(
     return out
   }
 
-  // While the turn streams there is no answer yet, but the graph still gets its
-  // converge node — in a pending state. Without it the source columns end in
-  // mid-air and the whole shape jumps the instant the answer lands.
   const spine = visible.length >= 2 || (visible.length === 1 && work.length > 0)
   const pendingFindings = live && (cards.length > 0 || spine)
-  // Only once the turn has landed: while it streams, the graph already has its
-  // pending converge node, and the answer's own note does not exist yet.
   const truncation = live ? null : researchTruncation(props.steps)
-  // The two records a DEEP run keeps about its own limits, under the same live gate.
   const cutoff = live ? null : deepResearchCutoff(props.steps)
   const degradations = live ? [] : answerDegradations(props.steps)
   const limitLines = limitations(cutoff, degradations, t)
-  // „Grundlagen · Entwurf“: the cited law, the cited project and office
-  // sources, and what stayed open. Read off the turn, never invented.
   const basis = live ? null : basisLines(t, cards)
   const open = live ? [] : openPoints(t, work, cards)
   const B = 'thinking.node.basis.'
@@ -196,8 +162,6 @@ export function buildGraph(
 
   const convergeId = hasFindings ? 'findings' : null
 
-  // ONE centred anchor on each banner, both directions, unconditional: see the
-  // module header on structural handles.
   const framingSources: HandleSpec[] = [CENTRE_BOTTOM]
   const convergeTargets: HandleSpec[] = [CENTRE_TOP]
 
@@ -211,11 +175,6 @@ export function buildGraph(
       : undefined,
     sources: framingSources,
   }
-  /**
-   * The truncation sentence, split around the step name, resolved through the
-   * SAME authority the "Ausgeführt:" chips use: a reader-facing noun where one
-   * exists, otherwise the bare tool id shown as an id (`mono`).
-   */
   const truncationLine = (() => {
     if (!truncation) return undefined
     if (!truncation.lastTool) {
@@ -243,10 +202,6 @@ export function buildGraph(
   const nodes: Node[] = []
   const edges: Edge[] = []
 
-  // One retrieval stays the old fan. Two or more are a spine: each checkpoint
-  // hangs the files THAT fetch returned, then the next conclusion. The body
-  // is the thought, never the query (PF-12). A turn with calls drawn
-  // (ADR-0132) is a spine even in one round: the calls sit on its node.
   const roundIds = spine ? visible.map((_, i) => `round-${i}`) : []
 
   const actionLabels = (tools: string[]): string[] => {
@@ -261,13 +216,8 @@ export function buildGraph(
     return out
   }
 
-  // The prefetch's documents, in front of the first step's own.
   const prefetchSlots = prefetched.flatMap((round) => roundFan(round, cards, props.retrievalLedger))
 
-  // A folded layer keeps its cards (the count is the whole point of the fold)
-  // and contributes NO column nodes: the fan is gone from the graph, not merely
-  // hidden with CSS, so the measured stacking pass reclaims its row and the
-  // checkpoint wires straight into the next one.
   const fans = spine
     ? visible.map((round, i) => {
         const own = roundFan(round, cards, props.retrievalLedger)
@@ -286,8 +236,6 @@ export function buildGraph(
     : []
 
   const pushColumns = (ids: string[], packed: FanLayout, slots: ColumnSlot[]) => {
-    // Driven by the ID list, not by the packing: a FOLDED layer keeps its
-    // packing and is given no ids.
     if (ids.length === 0) return
     const xOf = (i: number) => packed.fanX + i * (packed.colW + packed.gap)
     packed.columns.slice(0, ids.length).forEach((indices, i) => {
@@ -316,7 +264,6 @@ export function buildGraph(
   const linking: RowLinking = {
     selection,
     onSelect: interaction.onSelect,
-    // Only a call that returned a card links its row: a listing or a search for files returns none.
     carded: new Set([...callsOf.values()].flat()),
     nameOf: (target) => {
       const card = cardForTarget(target, cards)
@@ -343,15 +290,11 @@ export function buildGraph(
     visible.forEach((round, i) => {
       const text = round.reason?.trim() ?? ''
       const fan = fans[i]!
-      // DOCUMENTS, not hits: a slot is one file with every passage this round
-      // read of it.
       const documentCount = fan.roundCards.length
       const accounted = props.retrievalLedger?.some((entry) => entry.index === round.index) ?? false
       const calls = work.find((entry) => entry.round === round.index)
       const roundData: RoundData = {
         label: t('thinking.node.stepTab', { n: i + 1 }),
-        // A step with calls is named by what they did („Suchen“, „Lesen“); one
-        // stored before them by what its round's tools and files say.
         sub: calls
           ? t(`thinking.work.kind.${workKind(calls)}`)
           : roundKind(text.length > 0, documentCount, round.tools, t, accounted),
@@ -362,8 +305,6 @@ export function buildGraph(
         linking,
         targets: [CENTRE_TOP],
         sources: [CENTRE_BOTTOM],
-        // A step with rows has none of its own fold: the rows are its controls,
-        // and the Herleitung as a whole folds in its header.
         foldable: !calls && documentCount > 0,
         folded: fan.folded,
         foldSummary: foldSummary(fan.roundCards, t),
@@ -392,10 +333,6 @@ export function buildGraph(
     })
   }
 
-  // Wiring: a single retrieval still fans framing → columns → assessment
-  // (parallel, never a source-to-source chain). Two or more retrievals put
-  // each checkpoint above the files THAT fetch returned; the next conclusion
-  // hangs off that fan's merge.
   if (spine) {
     edges.push(edge('framing', 'c-bottom', roundIds[0]!, 'c-top'))
     visible.forEach((_, i) => {
@@ -420,9 +357,6 @@ export function buildGraph(
     }
   }
 
-  // Row groups for the measured stacking pass — every column of one fan
-  // shares a row, so the next checkpoint clears the TALLEST column of this
-  // fetch, not a mix of two fetches.
   const rows: string[][] = [['framing']]
   if (spine) {
     fans.forEach((fan, i) => {
@@ -437,14 +371,6 @@ export function buildGraph(
   return { nodes, edges, rows }
 }
 
-/**
- * Is a rebuilt node's data the same as what the node already shows? Compared
- * by value, because `buildGraph` builds every node afresh. Functions count as
- * equal: the ones in node data are labels and handlers rebuilt from the same
- * translations and props, and they do not change what a node draws; the fold
- * toggle reads the round count through a ref for that reason. Exported for its
- * own spec.
- */
 export function sameNodeData(a: unknown, b: unknown): boolean {
   if (a === b) return true
   if (typeof a === 'function' && typeof b === 'function') return true
@@ -473,24 +399,12 @@ export function sameNodeData(a: unknown, b: unknown): boolean {
   return keys.every((key) => key in bFields && sameNodeData(aFields[key], bFields[key]))
 }
 
-/**
- * The edges as React Flow draws them: the connectors INTO `newestRow` get the
- * library's own `animated` flag (the marching `dashdraw` dash), every other
- * connector stays solid. Pass an empty row for a settled graph. Exported for
- * its spec.
- */
 export function animateFrontier(edges: Edge[], newestRow: readonly string[]): Edge[] {
   if (newestRow.length === 0) return edges
   const frontier = new Set(newestRow)
   return edges.map((e) => (frontier.has(e.target) ? { ...e, animated: true } : e))
 }
 
-/**
- * Keep the previous edge object wherever a rebuilt edge says the same thing.
- * `buildGraph` makes every edge afresh, and React Flow re-renders an edge
- * whose object changed; this is the edge half of what `sameNodeData` does for
- * the nodes. Exported for its spec.
- */
 export function keepEdgeIdentity(prev: readonly Edge[], next: Edge[]): Edge[] {
   if (prev.length === 0) return next
   const prevById = new Map(prev.map((e) => [e.id, e]))

@@ -1,16 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * A mark's date and its Zuständige, driven through the TYPED CLIENT and the
- * real route, service and inbox emitters (ADR-0055). The document reader, the
- * repository and the inbox's writes are faked.
- *
- * What is pinned: the row that asks a Zuständige says by when; moving or
- * clearing the date tells the Zuständige who stays, in that same row; a date
- * that comes with a new Zuständige is that one's assignment, told once; and
- * nobody hears their own change.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 

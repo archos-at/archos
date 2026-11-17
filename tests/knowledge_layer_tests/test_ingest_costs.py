@@ -1,11 +1,3 @@
-"""An ingestion job's model spend reaches the usage ledger, booked as ingestion.
-
-Until this, the only scopes with a cost tracker were chat turns, research jobs
-and memory reflection: every vision caption, transcription, summary and
-embedding an ingestion job paid for reached no ledger, no budget and no
-platform view.
-"""
-
 from __future__ import annotations
 
 from unittest.mock import patch
@@ -33,8 +25,6 @@ def test_an_ingestion_job_opens_a_tracker_booked_to_its_organization_project_and
 
 
 def test_an_ingestion_job_is_never_refused_by_a_budget_midway():
-    # A document half-read because a limit ran out mid-job is worse than the
-    # overrun; the spend still lands in the budgets it counts toward.
     with patch("agent.common.cost_tracking._post_usage_events"):
         with adapter._ingest_cost_scope("job-1", {"organization_id": "org_1"}):
             tracker = cost_tracker_var.get()

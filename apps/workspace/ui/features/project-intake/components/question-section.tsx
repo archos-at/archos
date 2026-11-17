@@ -18,12 +18,6 @@ import { DocumentHandIn } from './document-hand-in'
 import { IntakeSection } from './intake-atoms'
 import type { DropInfo } from '@/features/documents/hooks/use-file-drag-drop'
 
-/**
- * Rückfragen: the decisive needs no document has answered. Each is the
- * wizard's own control for that question (`QuestionControl`), with why Piloti
- * asks, where the answer is usually found, a „Nicht bekannt", and a place to
- * hand in the document that has it.
- */
 export function QuestionSection({
   questions,
   canDecide,
@@ -57,12 +51,6 @@ export function QuestionSection({
   )
 }
 
-/**
- * One need's answer: the wizard's own control for its question, where the
- * value is usually found, „Übernehmen", and (unless the caller offers it for
- * several needs at once) „Nicht bekannt". Shared by the question card and a
- * document request, which may hold more than one need.
- */
 export function NeedAnswer({
   need,
   canDecide,
@@ -76,11 +64,8 @@ export function NeedAnswer({
   canDecide: boolean
   busy: boolean
   onDecide: (decisions: IntakeDecision[]) => Promise<boolean>
-  /** Offer „Nicht bekannt" for this need alone. */
   withUnknown?: boolean
-  /** Say where the value is usually found; off where the document is already named. */
   showFoundIn?: boolean
-  /** A further control in the row (the interview's „Überspringen"). */
   trailing?: ReactNode
 }): JSX.Element {
   const t = useTranslations(projectIntakeCopy)
@@ -151,11 +136,8 @@ export function QuestionCard({
   canDecide: boolean
   busy: boolean
   onDecide: (decisions: IntakeDecision[]) => Promise<boolean>
-  /** Where the answer's document may be handed in; absent, the card offers none. */
   onFiles?: (files: File[], info?: DropInfo) => void
-  /** Leave the question for later without saying anything about it. */
   onSkip?: () => void
-  /** „Frage 2 von 9", when the card is one of a series. */
   position?: string
 }): JSX.Element {
   const t = useTranslations(projectIntakeCopy)
@@ -189,15 +171,6 @@ export function QuestionCard({
   )
 }
 
-/**
- * Weitere Angaben: every need no document and no person has answered that
- * decides no class, asked one at a time in the wizard's order. This is the
- * interview: with no documents at all it is how a project is set up by hand,
- * so creating a project needs no choice between Piloti and the wizard. Each
- * question can be answered, marked unknown, or skipped for now; an answered
- * one leaves the list when the review is read again, a skipped one only for
- * this visit.
- */
 export function InterviewSection({
   needs,
   canDecide,
@@ -209,7 +182,6 @@ export function InterviewSection({
   canDecide: boolean
   busy: boolean
   onDecide: (decisions: IntakeDecision[]) => Promise<boolean>
-  /** Without its own heading: the caller frames it (step 4 folds it away). */
   bare?: boolean
 }): JSX.Element | null {
   const t = useTranslations(projectIntakeCopy)
@@ -221,7 +193,6 @@ export function InterviewSection({
   const body = (
     <>
       {current ? (
-        // Keyed by the question: a new one starts with an empty draft.
         <QuestionCard
           key={current.key}
           need={current}

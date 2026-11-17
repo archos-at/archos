@@ -1,9 +1,3 @@
-"""A research run binds the knowledge context its payload carries, and fails closed without one (ADR-0175).
-
-A run never calls the turn-context route, so the payload is the only place its law can come from.
-Without it the run must read ``knowledge_unavailable``, never Austria by default.
-"""
-
 from __future__ import annotations
 
 import contextvars

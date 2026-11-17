@@ -46,7 +46,7 @@
   "packages/agent/src/agent/citations/quote_matching.py": 4,
   "packages/agent/src/agent/citations/quote_verification.py": 1,
   "packages/agent/src/agent/citations/references.py": 1,
-  "packages/agent/src/agent/citations/registry.py": 6,
+  "packages/agent/src/agent/citations/registry.py": 3,
   "packages/agent/src/agent/citations/session.py": 1,
   "packages/agent/src/agent/citations/trailer_values.py": 3,
   "packages/agent/src/agent/citations/verification.py": 5,

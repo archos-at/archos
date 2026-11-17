@@ -1,14 +1,4 @@
 // @disk-inputs: app/**, ui/**
-/**
- * Every module that renders `<ReactFlow>` imports React Flow's stylesheet.
- *
- * Without `@xyflow/react/dist/style.css` a node is not absolutely positioned:
- * the nodes stack in document flow with their transforms added on top, so the
- * graph draws as a staircase with its edges anchored in the wrong places. The
- * Herleitung shipped like that when the ReasoningFlow split (#1387) left the
- * import behind in the old file. Whether another chunk happened to load the
- * sheet first is luck, so each render site carries its own import.
- */
 import { readdirSync, readFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { describe, expect, it } from 'vitest'

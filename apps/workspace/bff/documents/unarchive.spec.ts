@@ -1,7 +1,6 @@
 /**
  * @vitest-environment node
  */
-/** The reverse of archiving (ADR-0131 rule 7): back in the working set, and read into the index again. */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))

@@ -1,18 +1,3 @@
-/**
- * The one branch that must never be got wrong: what happens to a stored object.
- *
- * An IFC model's STEP source is not a document. Handed to the ingestor it is
- * chunked and embedded as unreadable noise, and the collection reports a green
- * "Ready" for a model nobody can open. Every shelf therefore parses it instead —
- * project uploads, project re-ingests, org-wide Archiv uploads, and (ADR-0047
- * Phase 2) session uploads.
- *
- * That branch used to be copied at each call site. These specs are about the
- * single copy: `dispatchDocument` routes an IFC to extraction and everything
- * else to `/v1/ingest`, and no caller can opt out of the choice because no
- * caller makes it.
- */
-
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/s3', async (importOriginal) => ({
@@ -35,8 +20,6 @@ vi.mock('@/lib/bim/service', async (importOriginal) => ({
   runBimExtraction: vi.fn().mockResolvedValue({ status: 'ready' }),
 }))
 
-// The queue is `jobs-queue/*.spec.ts`'s subject; here it is a place a dispatch
-// leaves a job, and `runQueuedJob` is the `bff-jobs` worker that picks it up.
 vi.mock('@/lib/jobs-queue/enqueue', () => ({ enqueueJob: vi.fn().mockResolvedValue({ jobId: 'bff-job-1' }) }))
 vi.mock('@/lib/jobs-queue/repository', () => ({ findOpenJobId: vi.fn().mockResolvedValue(null) }))
 vi.mock('./shelf-live', () => ({ publishShelfChanged: vi.fn() }))
@@ -54,8 +37,6 @@ vi.mock('./repository', () => ({
   deleteProjectDocument: vi.fn(),
 }))
 
-// The organization's upload-screening policy (ADR-0086) is read through its
-// settings row; each test states the row it means.
 vi.mock('@/lib/organizations/service', () => ({ getOrgSettings: vi.fn() }))
 vi.mock('@/lib/base-knowledge/text-guard', async () => ({
   isTextHeld: vi.fn(async () => false),
@@ -63,8 +44,6 @@ vi.mock('@/lib/base-knowledge/text-guard', async () => ({
   licenceMarkFields: (await vi.importActual<typeof import('@/lib/base-knowledge/office/text-use')>('@/lib/base-knowledge/office/text-use')).licenceMarkFields,
 }))
 
-// The converter is `rendition.spec.ts`'s subject; here it is a switch and an
-// outcome, so what is under test is what dispatch does with each.
 vi.mock('./rendition', async (importOriginal) => {
   const { renditionModuleMock } = await import('@/test-utils/rendition-module')
   return renditionModuleMock(await importOriginal(), false)
@@ -110,7 +89,6 @@ const input = (filename: string): DispatchDocumentInput => ({
   collectionName: 'proj_abc',
 })
 
-/** What a job run without an id of its own (these specs' default attempt) says it owns: the bytes. */
 const ownedBy = (filename: string) => ({
   storageKey: input(filename).storageKey,
   backgroundJobId: null,
@@ -119,18 +97,12 @@ const ownedBy = (filename: string) => ({
 
 let fetchSpy: ReturnType<typeof vi.fn>
 
-/** The job the last dispatch left in the queue. */
 function queuedJob() {
   const queued = vi.mocked(enqueueJob).mock.calls.at(-1)?.[0]
   if (!queued) throw new Error('nothing was queued')
   return queued
 }
 
-/**
- * Run the job the last dispatch queued, the way a `bff-jobs` worker does: the
- * payload read back from the row, the document row as it stands (`processing`,
- * for the bytes the job names).
- */
 async function runQueuedJob(attempt: JobAttempt = { last: false }): Promise<void> {
   const queued = queuedJob()
   const current = await findDocumentInOrg('doc-1', 'org-1', internalRead('ingest'))
@@ -148,10 +120,6 @@ async function runQueuedJob(attempt: JobAttempt = { last: false }): Promise<void
 beforeEach(() => {
   fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ job_id: 'job-1' }) })
   vi.stubGlobal('fetch', fetchSpy)
-  // An ordinary human upload, before every test. `vi.clearAllMocks()` clears
-  // calls and not implementations, so without this a row set by one test is
-  // still the row the next one reads — which is how a suite comes to depend on
-  // the order its cases happen to run in.
   vi.mocked(findDocumentInOrg).mockResolvedValue(makeDocument({ authoredBy: 'user' }))
   vi.mocked(getOrgSettings).mockResolvedValue({ displayName: null, defaultLocale: 'de', homeCountry: null, settings: {} })
 })
@@ -161,7 +129,6 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-// A filed mail (ADR-0137): `ingest-mail-contract.spec.ts` pins both keys across the seam.
 const MAIL_THREAD = { latest_sent_at: '2026-10-14T07:12:00Z', message_count: 4, locale: 'de' as const }
 const MAIL_ORIGIN = {
   sent_at: '2026-10-14T07:12:00Z',
@@ -174,19 +141,6 @@ const MAIL_ORIGIN = {
 }
 
 describe('dispatchDocument', () => {
-  /**
-   * The invariant the whole agent-authored feature rests on, tested at the ONE
-   * place every ingestion path funnels through.
-   *
-   * It used to be tested in `generated.spec.ts` alone, which proved only that
-   * the FILING path does not ingest — a claim about one function, where the
-   * design's claim is about the document. `reindexProject`, behind the
-   * „Projekt neu indizieren" button, enumerated every document in the project
-   * and re-dispatched it; an agent-authored row passed its guard, went into the
-   * project's own retrieval collection, and came back out as a green „Bereit"
-   * document with „Piloti dazu fragen" enabled. One click, and the model could
-   * cite its own writing as Projektwissen.
-   */
   it('REFUSES a document a machine wrote, whatever the caller asked for', async () => {
     vi.mocked(findDocumentInOrg).mockResolvedValue(makeDocument({ authoredBy: 'agent' }))
 
@@ -194,19 +148,11 @@ describe('dispatchDocument', () => {
       /must not be indexed/,
     )
 
-    // Nothing left for a retry to pick up, and nothing reached the index.
     expect(fetchSpy).not.toHaveBeenCalled()
     expect(runBimExtraction).not.toHaveBeenCalled()
     expect(setDocumentIngestJob).not.toHaveBeenCalled()
   })
 
-  /**
-   * A quarantined row (ADR-0086) is released by a reviewer, who moves it to
-   * `uploaded` first, and by nobody else. A restore from the Papierkorb, a
-   * placement move and a project re-index all re-dispatch whole folders; a
-   * dispatch used to set the row `pending`, which every reader may open, and
-   * screened it again under whatever the rules had become by then.
-   */
   it.each(['report.pdf', 'haus.ifc'])('leaves a quarantined %s where it is, for a reviewer to decide', async (name) => {
     vi.mocked(findDocumentInOrg).mockResolvedValue(makeDocument({ authoredBy: 'user', status: 'quarantined' }))
 
@@ -218,11 +164,6 @@ describe('dispatchDocument', () => {
     expect(setDocumentIngestJob).not.toHaveBeenCalled()
   })
 
-  /**
-   * An archived document answers nothing: archiving purged its chunks. A
-   * same-name re-upload still versions it, and dispatching those bytes put a
-   * document nobody sees in the listing back into the index.
-   */
   it.each(['report.pdf', 'haus.ifc'])('reads nothing for an archived %s, and says so on the row', async (name) => {
     vi.mocked(findDocumentInOrg).mockResolvedValue(makeDocument({ authoredBy: 'user', lifecycle: 'archived' }))
 
@@ -234,10 +175,6 @@ describe('dispatchDocument', () => {
     expect(setDocumentIngestJob).not.toHaveBeenCalled()
   })
 
-  /**
-   * A licensed base-knowledge copy the office has not confirmed for AI
-   * processing is metadata-only (ADR-0163): a re-read keeps it out of the index.
-   */
   it('reads nothing for a metadata-only office shelf copy, and asks only for office shelf rows', async () => {
     vi.mocked(isTextHeld).mockResolvedValueOnce(true)
     vi.mocked(findDocumentInOrg).mockResolvedValue(makeDocument({ authoredBy: 'user', scope: 'office_shelf' }))
@@ -252,17 +189,6 @@ describe('dispatchDocument', () => {
     expect(isTextHeld).not.toHaveBeenCalled()
   })
 
-  /**
-   * The one clause ADR-0054 added, and everything it deliberately does not
-   * cover.
-   *
-   * The rule is a COMPARISON — `published_version_id === the dispatched
-   * version` — rather than a list of allowed states, which is why every state a
-   * version can be in that is not "the published one" fails here without being
-   * enumerated in the production code. Enumerating them in the SPEC is the
-   * point: a reader has to be able to see that `approved` (approved on Tuesday,
-   * not yet issued) is refused exactly as `draft` is.
-   */
   describe('the published-version clause', () => {
     const agentRow = (publishedVersionId: string | null) =>
       makeDocument({
@@ -282,14 +208,6 @@ describe('dispatchDocument', () => {
       ).resolves.toEqual({ jobId: 'job-1', status: 'pending' })
     })
 
-    /**
-     * Every state that is not the published version, by the id it dispatches
-     * with. A draft, an in-review version, a changes-requested one, an approved
-     * one and a rejected one are all versions the row's pointer does not name;
-     * a superseded one is the version the pointer named until the last publish
-     * moved it. The pointer is `null` while nothing has ever been published,
-     * which is the first three rows.
-     */
     const refused: Array<[string, string | null, string | null]> = [
       ['a draft, before anything was ever published', null, 'ver_1'],
       ['an in-review version', null, 'ver_1'],
@@ -313,11 +231,6 @@ describe('dispatchDocument', () => {
     })
 
     it('does not let a caller assert the pointer: the ROW decides', async () => {
-      // The version id travels in the input because the row cannot supply it —
-      // "are these the published version's bytes" is not a question a row
-      // answers alone. What the row DOES supply is the pointer, and a caller
-      // naming a version the row does not point at is refused however
-      // plausible the id looks.
       vi.mocked(findDocumentInOrg).mockResolvedValue(agentRow(null))
 
       await expect(
@@ -326,9 +239,6 @@ describe('dispatchDocument', () => {
     })
 
     it('leaves a human upload admitted with no version named at all', async () => {
-      // Every upload shelf and every re-ingest dispatches without a version:
-      // the clause widened the rule for machine-authored rows and changed
-      // nothing for a person's.
       vi.mocked(findDocumentInOrg).mockResolvedValue(makeDocument({ authoredBy: 'user' }))
 
       await expect(dispatchDocument(input('plan.pdf'))).resolves.toEqual({
@@ -339,8 +249,6 @@ describe('dispatchDocument', () => {
   })
 
   it('refuses even when the filename would route to IFC extraction', async () => {
-    // The refusal is not a property of the ingest branch — a machine-written
-    // `.ifc` must not be parsed into a project's model set either.
     vi.mocked(findDocumentInOrg).mockResolvedValue(makeDocument({ authoredBy: 'agent' }))
 
     await expect(dispatchDocument(input('haus.ifc'))).rejects.toThrow(/must not be indexed/)
@@ -365,22 +273,17 @@ describe('dispatchDocument', () => {
       expect.objectContaining({ method: 'POST' }),
     )
     expect(runBimExtraction).not.toHaveBeenCalled()
-    expect(setDocumentIngestJob).toHaveBeenCalledWith('doc-1', 'org-1', 'job-1', null)
+    expect(setDocumentIngestJob).toHaveBeenCalledWith('doc-1', 'org-1', 'job-1', null, expect.objectContaining({ ingestJobId: null }))
     expect(result).toEqual({ jobId: 'job-1', status: 'pending' })
   })
 
   it('sends an IFC model to extraction and NEVER to the ingestor', async () => {
     const result = await dispatchDocument(input('haus.ifc'))
 
-    // The whole point. The STEP source must not be embedded as text.
     expect(fetchSpy).not.toHaveBeenCalled()
-    // Marked in-flight first, so the row never renders a green "Ready" for a
-    // model that cannot be opened yet.
     expect(markDocumentProcessing).toHaveBeenCalledWith('doc-1', 'org-1')
     expect(result).toEqual({ jobId: null, status: 'processing' })
 
-    // The parse is a job (ADR-0079): nothing runs in this request, and the job
-    // does what the detached promise used to.
     expect(runBimExtraction).not.toHaveBeenCalled()
     expect(queuedJob()).toMatchObject({
       kind: 'bim_extract',
@@ -424,7 +327,6 @@ describe('dispatchDocument', () => {
     await expect(dispatchDocument(input('haus.ifc'))).resolves.toEqual({ jobId: null, status: 'processing' })
 
     expect(enqueueJob).not.toHaveBeenCalled()
-    // The row still learns which job to wait for.
     expect(setDocumentBackgroundJob).toHaveBeenCalledWith('doc-1', 'org-1', 'bff-job-open')
     expect(findOpenJobId).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -440,7 +342,6 @@ describe('dispatchDocument', () => {
 
     await expect(dispatchDocument(input('haus.ifc'))).resolves.toEqual({ jobId: null, status: 'failed' })
 
-    // Not left at `processing` with nothing behind it.
     expect(markDocumentIngestFailed).toHaveBeenCalledWith('doc-1', 'org-1', INGEST_DISPATCH_FAILED_MESSAGE)
   })
 
@@ -466,27 +367,11 @@ describe('dispatchDocument', () => {
   })
 })
 
-/**
- * The wire join for folders (ADR-0049).
- *
- * The BFF owns `project_folders`; the Python backend has no such table and files
- * each document under the materialised PATH instead. `POST /v1/ingest` is the
- * only call that runs when a document first appears, so this body is where the
- * folder crosses — and a field that one side spells and the other does not is
- * exactly the failure two green suites do not catch.
- *
- * The backend twin is `apps/agent-host/tests/test_ingest_folder_path.py`,
- * which asserts the same `folder_path` key reaches the ingest job config.
- */
 describe('the ingest dispatch sends the document folder path', () => {
   const bodyOf = (call: number): Record<string, unknown> =>
     JSON.parse(fetchSpy.mock.calls[call][1].body as string) as Record<string, unknown>
 
   it('signs file_ref and the thumbnail slot for a day: the queued JOB uses them, not the request', async () => {
-    // `/v1/ingest` hands the job a deferred download and answers at once; the
-    // job may start hours after dispatch behind a folder upload on the
-    // two-worker ingest pool, and an expired signature fails the document as
-    // `original_download_failed` although nothing is wrong with it.
     await dispatchDocument(input('plan.pdf'))
 
     const signed = vi.mocked(getSignedUrl).mock.calls
@@ -501,8 +386,6 @@ describe('the ingest dispatch sends the document folder path', () => {
   })
 
   it('states the original’s size only when the row names the bytes it sends', async () => {
-    // The backend reads a file of INGEST_HEAVY_FILE_BYTES or more on its
-    // high-memory pool; a size of other bytes would send the wrong file there.
     vi.mocked(findDocumentInOrg).mockResolvedValue(
       makeDocument({ authoredBy: 'user', storageKey: input('plan.pdf').storageKey, fileSize: 52_428_800 }),
     )
@@ -540,11 +423,6 @@ describe('the ingest dispatch sends the document folder path', () => {
   })
 
   it('states the row’s own filename as the chunk join key', async () => {
-    // Without it the backend derives the name from the presigned URL's last
-    // path segment — the OBJECT KEY's basename, which `storageKeySegment` has
-    // already sanitised. For a namespaced Piloti document those are different
-    // strings, and chunks filed under the derived one are chunks no purge can
-    // ever address, because every purge asks by `documents.filename`.
     vi.mocked(findDocumentInOrg).mockResolvedValue(
       makeDocument({
         authoredBy: 'agent',
@@ -562,9 +440,6 @@ describe('the ingest dispatch sends the document folder path', () => {
   })
 
   it('sends the four provenance keys for a published Piloti document', async () => {
-    // The backend twin is `apps/agent-host/tests/test_ingest_provenance.py`,
-    // which asserts the same four keys reach the ingest job config. They are
-    // spelled in `packages/agent/src/agent/common/provenance.py` and nowhere else.
     vi.mocked(findDocumentInOrg).mockResolvedValue(
       makeDocument({
         authoredBy: 'agent',
@@ -598,16 +473,12 @@ describe('the ingest dispatch sends the document folder path', () => {
   it('sends no provenance keys for a human document', async () => {
     await dispatchDocument(input('plan.pdf'))
 
-    // Absent, not null-valued: `parse_agent_provenance` returns None for
-    // anything unmarked, and every human document must stay byte-for-byte what
-    // it was through the whole pipeline.
     const body = bodyOf(0)
     expect(body).not.toHaveProperty('authored_by')
     expect(body).not.toHaveProperty('approved_by')
   })
 
   it('sends the older file’s name when the upload was filed as its new Fassung (ADR-0099)', async () => {
-    // The backend twin is `apps/agent-host/tests/test_ingest_fassung_of.py`: the same `revision_of` key.
     await dispatchDocument({ ...input('Grundriss_EG_Index_C.pdf'), revisionOf: 'Grundriss_EG_Index_B.pdf' })
 
     expect(bodyOf(0).revision_of).toBe('Grundriss_EG_Index_B.pdf')
@@ -622,8 +493,6 @@ describe('the ingest dispatch sends the document folder path', () => {
   })
 
   it('sends the document type the filing chose, as document_type', async () => {
-    // The backend twin is `apps/agent-host/tests/test_ingest_document_type.py`; the key is
-    // pinned across the seam by `ingest-document-type-contract.spec.ts`.
     await dispatchDocument({ ...input('letter.pdf'), documentType: DOCUMENT_TYPE_TAGS[7] })
 
     expect(bodyOf(0).document_type).toBe(DOCUMENT_TYPE_TAGS[7])
@@ -662,8 +531,6 @@ describe('the ingest dispatch sends the document folder path', () => {
     expect(bodyOf(0)).not.toHaveProperty('mail_origin')
   })
 
-  // `./filing-choice`: kept on the row with the job, so a reviewer's release of
-  // a file this reading holds can send it again.
   it('records the filing choice on the row with the job, and none for a dispatch without one', async () => {
     await dispatchDocument({
       ...input('Grundriss_EG_Index_C.pdf'),
@@ -674,7 +541,6 @@ describe('the ingest dispatch sends the document folder path', () => {
     await dispatchDocument(input('plan.pdf'))
 
     const recorded = vi.mocked(setDocumentIngestJob).mock.calls.map((call) => call[3])
-    // The id, never the name: a release re-resolves it.
     expect(recorded).toEqual([
       { documentType: DOCUMENT_TYPE_TAGS[2], revisionOfId: '0b6c8a52-3f1e-4c7a-9d2b-5e8f1a2b3c4d' },
       null,
@@ -683,16 +549,12 @@ describe('the ingest dispatch sends the document folder path', () => {
   })
 
   it('sends null for a document at the project root', async () => {
-    // Explicitly null rather than omitted: the backend reads absent and null the
-    // same way, and stating it keeps the body shape stable across shelves.
     await dispatchDocument(input('plan.pdf'))
 
     expect(bodyOf(0).folder_path).toBeNull()
   })
 
   it('carries the folder onto the digest an IFC model produces', async () => {
-    // The model is parsed and its Markdown digest is what gets ingested. The
-    // digest is the same document to the user, so it belongs in the same folder.
     await dispatchDocument({ ...input('haus.ifc'), folderPath: 'Modelle' })
     await runQueuedJob()
 
@@ -703,13 +565,6 @@ describe('the ingest dispatch sends the document folder path', () => {
   })
 })
 
-/**
- * An office file is converted before it is ingested, by a job (ADR-0070,
- * ADR-0071, ADR-0079). The PDF feeds the thumbnail (`preview_ref`) and, for Word and
- * presentation formats, the indexed text (`extraction_ref`). The rendition is a
- * convenience beside a durable file, so every way it can fail must leave the
- * ingest exactly as it was before conversion existed.
- */
 describe('an office file is converted, by a job, before it is ingested', () => {
   const bodyOf = (call: number): Record<string, unknown> =>
     JSON.parse(fetchSpy.mock.calls[call][1].body as string) as Record<string, unknown>
@@ -718,7 +573,6 @@ describe('an office file is converted, by a job, before it is ingested', () => {
   const ORIGINAL_URL = 'https://seaweedfs.internal/presigned'
   const officeRow = (filename: string, contentType: string | null = null) =>
     makeDocument({ authoredBy: 'user', filename, contentType })
-  /** The job has POSTed. */
   const ingested = () => vi.waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1))
 
   beforeEach(() => {
@@ -731,8 +585,6 @@ describe('an office file is converted, by a job, before it is ingested', () => {
   })
 
   afterEach(() => {
-    // `clearAllMocks` keeps implementations; put the module defaults back so no
-    // later case inherits the rendition-aware signer or a failing write.
     vi.mocked(getSignedUrl).mockResolvedValue(ORIGINAL_URL)
     vi.mocked(isRenditionEnabled).mockReturnValue(false)
     vi.mocked(setDocumentIngestJob).mockResolvedValue(true)
@@ -743,8 +595,6 @@ describe('an office file is converted, by a job, before it is ingested', () => {
       jobId: null,
       status: 'processing',
     })
-    // Marked in flight first, so the row never renders a green "Ready" for a
-    // file nothing has been dispatched for yet.
     expect(markDocumentProcessing).toHaveBeenCalledWith('doc-1', 'org-1')
     expect(fetchSpy).not.toHaveBeenCalled()
     expect(ensureRendition).not.toHaveBeenCalled()
@@ -752,7 +602,6 @@ describe('an office file is converted, by a job, before it is ingested', () => {
       kind: 'office_rendition',
       organizationId: 'org-1',
       priority: 0,
-      // The row's own name, which is the join key the chunks are filed under.
       payload: expect.objectContaining({ documentId: 'doc-1', fileName: 'Baubeschreibung.docx' }),
     })
   })
@@ -773,20 +622,16 @@ describe('an office file is converted, by a job, before it is ingested', () => {
       storageKey: 'org/org-1/project/proj-1/doc/doc-1/Baubeschreibung.docx',
       filename: 'Baubeschreibung.docx',
     })
-    // Converted BEFORE the POST: the backend fetches it as part of the job.
     expect(vi.mocked(ensureRendition).mock.invocationCallOrder[0]).toBeLessThan(
       fetchSpy.mock.invocationCallOrder[0],
     )
     expect(bodyOf(0)).toMatchObject({
       preview_ref: RENDITION_URL,
       extraction_ref: RENDITION_URL,
-      // The original is still what `file_ref` names, and the chunks keep the
-      // row's name: only the bytes extracted come from the PDF.
       file_ref: ORIGINAL_URL,
       file_name: 'Baubeschreibung.docx',
     })
-    await vi.waitFor(() => expect(setDocumentIngestJob).toHaveBeenCalledWith('doc-1', 'org-1', 'job-1', null))
-    // The rendition is read by the same queued job, so it lives as long as file_ref.
+    await vi.waitFor(() => expect(setDocumentIngestJob).toHaveBeenCalledWith('doc-1', 'org-1', 'job-1', null, expect.objectContaining({ ingestJobId: null })))
     const renditionRead = vi
       .mocked(getSignedUrl)
       .mock.calls.find(([, command]) => (command as { input: { Key: string } }).input.Key === RENDITION_KEY)
@@ -856,8 +701,6 @@ describe('an office file is converted, by a job, before it is ingested', () => {
   })
 
   it('reads a queued type the vocabulary no longer holds as no choice, and still ingests', async () => {
-    // A job queued before a vocabulary change: the classifier types the file,
-    // where sending the stale value would be a 422 and a failed document.
     await dispatchDocument({ ...input('Baubeschreibung.docx'), documentType: DOCUMENT_TYPE_TAGS[6] })
     queuedJob().payload.documentType = 'a-retired-token'
     await runQueuedJob()
@@ -878,8 +721,6 @@ describe('an office file is converted, by a job, before it is ingested', () => {
   })
 
   it('fails a Word file whose PDF cannot be made, and never reads the original instead', async () => {
-    // The rendition is its only source (ADR-0071): a converter outage is a
-    // failure the reader can retry, not a quietly worse index.
     vi.spyOn(console, 'warn').mockImplementation(() => undefined)
     vi.mocked(ensureRendition).mockRejectedValue(new RenditionFailedError('Office conversion answered 503'))
 
@@ -887,11 +728,8 @@ describe('an office file is converted, by a job, before it is ingested', () => {
       jobId: null,
       status: 'processing',
     })
-    // The conversion failing is the document's verdict, not the job's: the job
-    // finishes (no throw), and "Erneut lesen" is what runs the converter again.
     await expect(runQueuedJob()).resolves.toBeUndefined()
 
-    // Held to the bytes the job was queued for: a row archived or replaced meanwhile is not failed.
     expect(markDocumentIngestFailed).toHaveBeenCalledWith(
       'doc-1',
       'org-1',
@@ -935,10 +773,6 @@ describe('an office file is converted, by a job, before it is ingested', () => {
   })
 
   it('hands a failure around the dispatch back to the queue, and says so on the last attempt', async () => {
-    // `dispatchIngest` records its own failures; a write that throws after the
-    // POST is infrastructure, so the queue retries the job. Only the attempt
-    // after which the queue gives up leaves the row failed, so a retry that
-    // would have worked is not pre-empted by a verdict.
     vi.spyOn(console, 'warn').mockImplementation(() => undefined)
     vi.mocked(setDocumentIngestJob).mockRejectedValue(new Error('database gone'))
 
@@ -956,8 +790,6 @@ describe('an office file is converted, by a job, before it is ingested', () => {
     )
   })
 
-  // The same bytes read again run under a new job. The earlier job, failing on
-  // its last attempt, must not fail the row the new job is about to read.
   describe('a job knows its row by its own id, not only by the bytes', () => {
     const waitingFor = (jobId: string | null) =>
       makeDocument({
@@ -1023,13 +855,10 @@ describe('an office file is converted, by a job, before it is ingested', () => {
       status: 'processing',
     })
 
-    // Deleted while it waited.
     vi.mocked(findDocumentInOrg).mockResolvedValue(null)
     await run()
-    // Its bytes were replaced: the newer dispatch queued its own job.
     vi.mocked(findDocumentInOrg).mockResolvedValue({ ...waiting, storageKey: 'org/org-1/other/doc.docx' })
     await run()
-    // A worker that died after finishing left a claim another worker took over.
     vi.mocked(findDocumentInOrg).mockResolvedValue({ ...waiting, status: 'pending' })
     await run()
 
@@ -1096,16 +925,6 @@ describe('an office file is converted, by a job, before it is ingested', () => {
   })
 })
 
-/**
- * A timeout is the one dispatch outcome that leaves the backend's side unknown.
- *
- * The backend may still be downloading when the ten-second budget runs out and
- * start the job afterwards; recording `failed` then was a false failure, and a
- * duplicate once someone retried. `/v1/ingest` is idempotent per document and
- * object, so the dispatch sends the same request once more and takes whichever
- * job id comes back. The backend twin is the idempotency block at the end of
- * `apps/agent-host/tests/test_ingest.py`.
- */
 describe('the ingest dispatch after a timeout', () => {
   const timeout = () =>
     Object.assign(new Error('The operation was aborted due to timeout'), { name: 'TimeoutError' })
@@ -1121,9 +940,8 @@ describe('the ingest dispatch after a timeout', () => {
     })
 
     expect(fetchSpy).toHaveBeenCalledTimes(2)
-    // The same request, so the backend can recognise it.
     expect(fetchSpy.mock.calls[1][1].body).toBe(fetchSpy.mock.calls[0][1].body)
-    expect(setDocumentIngestJob).toHaveBeenCalledWith('doc-1', 'org-1', 'job-live', null)
+    expect(setDocumentIngestJob).toHaveBeenCalledWith('doc-1', 'org-1', 'job-live', null, expect.objectContaining({ ingestJobId: null }))
     expect(markDocumentIngestFailed).not.toHaveBeenCalled()
   })
 
@@ -1139,7 +957,8 @@ describe('the ingest dispatch after a timeout', () => {
     expect(markDocumentIngestFailed).toHaveBeenCalledWith(
       'doc-1',
       'org-1',
-      'Ingestion could not be started'
+      'Ingestion could not be started',
+      expect.objectContaining({ ingestJobId: null })
     )
   })
 
@@ -1167,12 +986,6 @@ describe('the ingest dispatch after a timeout', () => {
   })
 })
 
-/**
- * ADR-0086: every path into the index carries the office's content rules, so
- * the ingest job can quarantine a match before its first model call. Tested at
- * the choke point, for the same reason as the authorship refusal above: a
- * caller cannot forget what it never has to supply.
- */
 describe('dispatchDocument — upload screening', () => {
   const sentBody = (): Record<string, unknown> =>
     JSON.parse(String((fetchSpy.mock.calls[0]?.[1] as RequestInit | undefined)?.body)) as Record<string, unknown>
@@ -1236,23 +1049,17 @@ describe('dispatchDocument — upload screening', () => {
     expect(sentBody().screening).not.toBeNull()
   })
 
-  // Piloti's suggestion in its place would let through a document that
-  // matches only a term the office added.
   it('fails closed when the policy cannot be read: sends nothing, and the row offers a retry', async () => {
     vi.mocked(getOrgSettings).mockRejectedValue(new Error('db down'))
     const errorLog = vi.spyOn(console, 'error').mockImplementation(() => undefined)
     const result = await dispatchDocument(input('Baubeschreibung.pdf'))
     expect(result).toEqual({ jobId: null, status: 'failed' })
     expect(fetchSpy).not.toHaveBeenCalled()
-    expect(markDocumentIngestFailed).toHaveBeenCalledWith('doc-1', 'org-1', INGEST_DISPATCH_FAILED_MESSAGE)
+    expect(markDocumentIngestFailed).toHaveBeenCalledWith('doc-1', 'org-1', INGEST_DISPATCH_FAILED_MESSAGE, expect.objectContaining({ ingestJobId: null }))
     errorLog.mockRestore()
   })
 })
 
-/**
- * The sweep's door (ADR-0079): a document left at `processing` with no live job
- * is dispatched again, by the same code a first upload runs, as nobody's upload.
- */
 describe('redispatchStuckDocument', () => {
   const stuck = (overrides: Partial<ReturnType<typeof makeDocument>> = {}) =>
     makeDocument({

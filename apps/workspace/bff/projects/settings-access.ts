@@ -65,6 +65,15 @@ async function holdsAny(
 }
 
 /**
+ * Whether this session may add, edit and remove the project's memory items:
+ * what the memory routes enforce (`MEMORY_WRITE_PERMISSIONS`). A reader of the
+ * memory is told with the list, so a surface offers no action its route refuses.
+ */
+export async function canWriteProjectMemory(session: AuthorizedSession, projectId: string): Promise<boolean> {
+  return holdsAny(session, projectId, CHECKS.writeMemory)
+}
+
+/**
  * `project:manage` even when the project is closed. A denial (`NotFoundError`)
  * is a plain no; anything else is an outage, and hiding the status controls
  * would make it look like a permission.

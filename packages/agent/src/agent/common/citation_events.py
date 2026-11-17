@@ -471,7 +471,7 @@ def _score_in_langfuse(events: list[CitationEvent], agent: str) -> None:
     vote and its prompt version.
     """
     try:
-        from agent.observability.langfuse_scores import citation_scores
+        from agent.observability.citation_scores import citation_scores
         from agent.observability.langfuse_scores import emit_scores
 
         emit_scores(citation_scores(events), writer=f"citations-{agent}")

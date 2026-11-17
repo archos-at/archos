@@ -1,12 +1,3 @@
-"""Tests for the platform-tunable reasoning effort ("thinking level") resolver.
-
-The property that matters most here is the distinction between "the platform
-owner has not pinned this group" and "the platform owner pinned it to `none`":
-the first must leave the role's configured effort alone, the second must
-actively disable reasoning. A resolver that conflates them silently re-tunes
-every role the owner never touched.
-"""
-
 import httpx
 import pytest
 
@@ -30,7 +21,6 @@ def _clean_cache(monkeypatch):
 
 
 def _mock_bff(monkeypatch, payload: object = None, error: Exception | None = None) -> dict:
-    """Patch httpx.get; returns a call counter."""
     calls = {"n": 0}
 
     class FakeResponse:
@@ -67,8 +57,6 @@ class TestSanitize:
         assert sanitize_reasoning_efforts({"shallow_research": "low", "nonsense": "low"}) == {"shallow_research": "low"}
 
     def test_unknown_levels_dropped(self):
-        # "max" is DeepSeek's provider-native tier name. OpenRouter rejects it,
-        # so it must never survive into a request even from a hand-edited row.
         raw = {"shallow_research": "max", "deep_research": "ludicrous", "clarifier": "high"}
         assert sanitize_reasoning_efforts(raw) == {"clarifier": "high"}
 
@@ -90,12 +78,9 @@ class TestResolution:
 
         assert get_reasoning_effort("shallow_research") == "high"
         assert get_reasoning_effort("deep_research") == "low"
-        # Second lookup is served from the TTL cache, not a second round-trip.
         assert calls["n"] == 1
 
     def test_unpinned_group_is_none_not_a_level(self, monkeypatch):
-        """`None` means "leave the YAML value alone" and must not be confused
-        with the level "none", which disables reasoning."""
         monkeypatch.setenv("INTERNAL_API_TOKEN", "tok")
         _mock_bff(monkeypatch, {"efforts": {"shallow_research": "none"}})
 
@@ -103,7 +88,6 @@ class TestResolution:
         assert get_reasoning_effort("deep_research") is None
 
     def test_the_whole_map_is_one_round_trip_and_a_copy(self, monkeypatch):
-        """``LLMProvider.with_reasoning_efforts`` takes the map; it must not alias the cache."""
         monkeypatch.setenv("INTERNAL_API_TOKEN", "tok")
         calls = _mock_bff(monkeypatch, {"efforts": {"shallow_research": "high", "deep_research": "low"}})
 
@@ -125,8 +109,6 @@ class TestResolution:
 
 
 class _FakeLlm:
-    """Minimal pydantic-ish stand-in exposing the fields the transforms read."""
-
     def __init__(self, model_name: str = "vendor/model", reasoning_effort: str | None = "medium") -> None:
         self.model_name = model_name
         self.reasoning_effort = reasoning_effort
@@ -144,7 +126,6 @@ class TestOverrideReasoningEffort:
         result = override_reasoning_effort(llm, "xhigh")
         assert result is not llm
         assert result.reasoning_effort == "xhigh"
-        # The shared build-time instance must never be mutated.
         assert llm.reasoning_effort == "medium"
 
     def test_no_op_when_already_at_that_level(self):
@@ -173,8 +154,6 @@ class TestApplyModelOverride:
         assert result.reasoning_effort == "low"
 
     def test_effort_applies_even_without_a_model_override(self):
-        """The two layers are independent: the platform can re-tune thinking for
-        a group no org has re-modelled."""
         llm = _FakeLlm(model_name="vendor/yaml", reasoning_effort="medium")
         result = apply_model_override(llm, AgentGroup.RESEARCH, overrides={}, zdr_only=False, reasoning_effort="none")
         assert result.model_name == "vendor/yaml"
@@ -200,9 +179,6 @@ class TestApplyModelOverride:
 
 
 class TestCatalogParity:
-    """The backend vocabulary must match the BFF catalog exactly (fixture
-    exported from apps/workspace/bff/reasoning-settings/catalog.ts)."""
-
     def test_efforts_match_frontend_catalog(self):
         import json
         from pathlib import Path

@@ -16,10 +16,8 @@ import {
   type PaceState,
 } from './stream-pace'
 
-/** One animation frame at 60 Hz, the step the reveal's clock takes. */
 const FRAME_MS = 16
 
-/** Step the pace for `ms` in `FRAME_MS` steps; returns the shown lengths after each. */
 const run = (state: PaceState, text: string, ms: number, start = 0) => {
   const shown: number[] = []
   let now = start
@@ -54,16 +52,13 @@ describe('isCleanCut', () => {
 
   it('accepts a table row after a finished cell, once the delimiter row is there', () => {
     expect(isCleanCut('| Spalte | Wert |\n| --- | --- |\n| Treppe | ')).toBe(true)
-    // A header row alone is still held: without its delimiter it is no table yet.
     expect(isCleanCut('| Spalte | ')).toBe(false)
   })
 
   it('holds a cut after a whole header line until its delimiter row has arrived', () => {
-    // The header alone would render as a paragraph of pipes for a moment.
     expect(isCleanCut('Die Werte:\n\n| Spalte | Wert |\n')).toBe(false)
     expect(isCleanCut('Die Werte:\n\n| Spalte | Wert |\n| --- | --- |\n| Treppe | ')).toBe(true)
     expect(isCleanCut('| Spalte | Wert |\n| --- | --- |\n| Treppe | offen |\n')).toBe(true)
-    // A blank line after it ends the run: whatever the pipes were, they are drawn.
     expect(isCleanCut('| Spalte | Wert |\n\n')).toBe(true)
   })
 
@@ -81,7 +76,6 @@ describe('furthestCleanCut', () => {
   })
 })
 
-/** Every word gap after `from` that `isCleanCut` accepts, asked position by position: the definition the walk is held to. */
 const cleanCutsByDefinition = (text: string, from: number) => {
   const cuts: number[] = []
   for (let i = from + 1; i <= text.length; i++) {
@@ -90,7 +84,6 @@ const cleanCutsByDefinition = (text: string, from: number) => {
   return cuts
 }
 
-/** Every construct `isCleanCut` has a rule for, in one answer. */
 const MIXED = [
   'Die **Außentreppe** ist [OIB-RL 2](https://example.org) zu prüfen, `R 90` gilt (siehe [1]). ',
   '',
@@ -115,8 +108,6 @@ const MIXED = [
 ].join('\n')
 
 describe('the clean-cut walk', () => {
-  // `nextCleanCut` and `furthestCleanCut` walk the text once instead of asking
-  // `isCleanCut` per position; they must find exactly the cuts it would.
   it('finds exactly the cuts isCleanCut accepts, from any start, on every prefix', () => {
     for (let end = 0; end <= MIXED.length; end += 7) {
       const text = MIXED.slice(0, end)
@@ -130,10 +121,6 @@ describe('the clean-cut walk', () => {
     }
   })
 
-  // Inside an open fence no position is clean, so the search for the next cut
-  // walks to the end of the text. Asking `isCleanCut` per position re-read the
-  // whole prefix each time: 6.9 ms a frame on a desktop for 3.5k of prose
-  // ahead of an open 4k mermaid fence.
   it('is linear in the text when a fence is still open', () => {
     const inOpenFence = (chars: number) => {
       const prose = PROSE.repeat(Math.ceil(chars / 2 / PROSE.length)).slice(0, chars / 2)
@@ -156,8 +143,6 @@ describe('keepThroughRewrite', () => {
   const SETTLED = 'Die Treppe ist in GK 4 zulässig. Sie braucht einen zweiten Fluchtweg über den Hof. '
 
   it('never takes shown text back to type it out again', () => {
-    // A settled snapshot dropped an unverified marker near the top: the
-    // reader keeps the length they had, not the first 31 characters.
     expect(keepThroughRewrite(SETTLED, SHOWN.length)).toBeGreaterThanOrEqual(SHOWN.length - ' [8]'.length)
   })
 
@@ -177,7 +162,6 @@ describe('advancePace', () => {
   it('pays a burst out steadily instead of all at once', () => {
     const start = noteArrival(initialPace(0), PROSE.length, 0)
     const { shown } = run(start, PROSE, 400)
-    // After one tick only a part is shown, and it grows tick by tick.
     expect(shown[0]).toBeGreaterThan(0)
     expect(shown[0]).toBeLessThan(PROSE.length / 2)
     for (let i = 1; i < shown.length; i++) expect(shown[i]).toBeGreaterThanOrEqual(shown[i - 1]!)
@@ -197,7 +181,6 @@ describe('advancePace', () => {
   })
 
   it('shows the first words of an answer that opens in bold at once', () => {
-    // The recorded first delta of a real answer.
     const text = '**Die Außentreppe ist in GK 4 in A2'
     const start = noteArrival(initialPace(0), text.length, 0)
     const { shown } = run(start, text, FRAME_MS)
@@ -205,15 +188,11 @@ describe('advancePace', () => {
   })
 
   it('shows a table with its first row, never its header alone', () => {
-    // A header-only table drew as a table for a frame and, on a phone, was
-    // restacked (header hidden) when its first row came.
     expect(isCleanCut('Die Werte:\n\n| Spalte | Wert |\n| --- | --- |\n')).toBe(false)
-    // A table that really has no rows is drawn once the blank line ends it.
     expect(isCleanCut('| Spalte | Wert |\n| --- | --- |\n\n')).toBe(true)
   })
 
   it('shows a row with its first cell, never as a blank row', () => {
-    // `| ` is a row GFM pads with empty cells: it drew blank and grew per cell.
     expect(isCleanCut('| Spalte | Wert |\n| --- | --- |\n| ')).toBe(false)
     expect(isCleanCut('| Spalte | Wert |\n| --- | --- |\n| Treppe | offen |\n| ')).toBe(false)
     expect(isCleanCut('| Spalte | Wert |\n| --- | --- |\n|  | offen | ')).toBe(true)
@@ -226,7 +205,6 @@ describe('advancePace', () => {
     const { shown } = run(start, text, 1000)
     for (const n of shown) {
       const lastLine = text.slice(0, n).split('\n').at(-1) ?? ''
-      // Never a bare `| `, never the header and delimiter without a row.
       expect(/^\|\s*$/.test(lastLine)).toBe(false)
       expect(text.slice(0, n).endsWith('|---|---|---|\n')).toBe(false)
     }
@@ -261,7 +239,6 @@ describe('the reveal, frame by frame', () => {
   })
 
   it('reaches a word longer than a moment of its rate instead of stalling until the ceiling', () => {
-    // At the slowest rate 200 ms of credit is 9 characters; each word is longer.
     const text = 'Die Brandschutzanforderungen, Fluchtwegslängen und Gebäudeklassenbestimmungen gelten. '
     const start = noteArrival(initialPace(0), text.length, 0)
     const { shown } = run(start, text, MAX_LAG_MS / 2)

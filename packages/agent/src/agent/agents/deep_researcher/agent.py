@@ -1,4 +1,11 @@
-"""Deep research agent using deepagents library for multi-phase workflow."""
+"""Deep research agent using deepagents library for multi-phase workflow.
+
+Keep every call off the event loop (``asyncio.to_thread``): the worker
+heartbeats from it, and the ghost reaper fails a job silent for 300 s. Report
+post-processing goes in ``finalize.py``, which both a complete and a salvaged
+run pass through. The seams and their reasons: ``docs/architecture/backend-deep-dive.md``
+("The deep researcher's seams").
+"""
 
 from __future__ import annotations
 
@@ -33,6 +40,7 @@ from agent.common.turn_status import end_lane_capture
 from agent.common.turn_status import get_lane_captures
 from agent.common.turn_status import step_scope
 from agent.common.turn_status import subagent_run
+from agent.observability.citation_scores import emit_citation_line_scores
 from agent.observability.langfuse_trace_attributes import begin_trace_contributions
 from agent.observability.langfuse_trace_attributes import end_trace_contributions
 from agent.project_context import get_organization_id_from_context
@@ -464,6 +472,7 @@ class DeepResearcherAgent:
             basis_unread=[doc.name for doc in unread],
         )
         annotate_state(result, finalized, artifacts.skill_runtime)
+        emit_citation_line_scores(finalized.wire_sources, writer="deep_research")
         lane_hits = [hit for hit in get_lane_captures() if not middleware.is_excluded_locator(str(hit.get("name")))]
         record_retrieval_ledger(result, artifacts.rounds.announcements, lane_hits)
         emit_final_report(artifacts.callbacks, finalized.report)

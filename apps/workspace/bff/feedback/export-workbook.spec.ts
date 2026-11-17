@@ -2,19 +2,11 @@
  * @vitest-environment node
  */
 
-/**
- * The workbook, read back with the same library that wrote it: what a person
- * opening the file would find, sheet by sheet. A snapshot of the bytes would
- * pin the zip's timestamps; these pin what matters — typed cells, the frozen
- * and filterable header, links, the overview's caveats and the dictionary.
- */
-
 import { Workbook, type CellHyperlinkValue, type Worksheet } from 'exceljs'
 import { describe, expect, it, vi } from 'vitest'
 import { feedbackExportCopy } from '@/i18n/namespaces/feedback-export'
 import { platformCopy } from '@/i18n/namespaces/platform'
 
-/** The two namespaces an export reads, in the dictionary's shape. */
 const en = { feedbackExport: feedbackExportCopy.messages.en, platform: platformCopy.messages.en }
 const de = { feedbackExport: feedbackExportCopy.messages.de, platform: platformCopy.messages.de }
 import {
@@ -120,7 +112,6 @@ describe('the answer-feedback workbook', () => {
       expect(cell.formula).toBeUndefined()
     })
 
-    /** Excel refuses a longer cell and reports the whole file as damaged. */
     it(`cuts text at Excel's ${XLSX_MAX_CELL_CHARS} characters and keeps the full length beside it`, async () => {
       const long = 'x'.repeat(XLSX_MAX_CELL_CHARS + 500)
       const data = feedbackExport({ records: [feedbackExportRecord({ answer: long })] })
@@ -195,7 +186,6 @@ describe('the answer-feedback workbook', () => {
       )
 
       expect(text).toContain('Organisationen | Ziviltechniker Gruber')
-      // A project whose name did not resolve is named by its id, never dropped.
       expect(text).toContain('Projekte | p_1')
       expect(text).toContain(
         'Bewertungsfilter | Urteil: nicht hilfreich · Grund: Ungenau oder Falsche Quelle · Thema: Schallschutz · ' +
@@ -231,7 +221,6 @@ describe('the answer-feedback workbook', () => {
   })
 })
 
-/** Keeps the fixture honest: the unstored row really is the empty one. */
 it('fixture sanity: the unstored vote has no answer', () => {
   expect(unstoredFeedbackExportRecord().answer).toBeNull()
 })

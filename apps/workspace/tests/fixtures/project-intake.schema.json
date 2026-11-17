@@ -445,6 +445,9 @@
               "type": "null"
             }
           ]
+        },
+        "setupPublished": {
+          "type": "boolean"
         }
       },
       "required": [
@@ -3498,6 +3501,9 @@
             "questions",
             "documentRequests"
           ]
+        },
+        "setupPublished": {
+          "type": "boolean"
         },
         "readingProgress": {
           "type": "object",

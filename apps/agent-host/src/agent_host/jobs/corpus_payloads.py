@@ -8,7 +8,7 @@ one-time legacy backfill marks the corpus that predates ``country_id`` with it.
 from __future__ import annotations
 
 
-def mark_corpus_chunks(payloads: dict[str, dict[str, str]]) -> None:
+def mark_corpus_chunks(payloads: dict[str, dict[str, str | bool]]) -> None:
     """``payloads`` per file name onto the base corpus's chunks; nothing when the collection does not exist."""
     from knowledge_layer.vector_store import get_store
 

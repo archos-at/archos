@@ -22,19 +22,6 @@ export interface PreviewHandlers {
   onMarksChanged: NonNullable<FilePreviewContext['onMarksChanged']>
 }
 
-/**
- * Which file is open, and how to open and shut it — whichever way the shelf
- * holds its preview.
- *
- * A project's shell mounts the preview host and a chat can drive the same store,
- * so its preview lives there. The Archiv sheet has no host, so its preview is
- * local to the page. Both answer the same three questions — which id is open,
- * open this, shut it — and everything above this hook (the `?doc=` link, the row
- * highlight, the reconciliation) is written once against them.
- *
- * Both halves are always called: hooks cannot be conditional, and the unused
- * half is one subscription and one `useState`. Only the shelf's own is read.
- */
 export function usePreviewChannel(
   shelf: FileShelf,
   files: readonly FileItem[],
@@ -43,8 +30,6 @@ export function usePreviewChannel(
   const storeFileId = useFilePreviewStore((state) => state.file?.id ?? null)
   const [dialogId, setDialogId] = useState<string | null>(null)
   const viaStore = shelf.preview.kind === 'store'
-  // A dialog's file is derived from the list, so a document deleted behind it
-  // closes it — and `?doc=` follows, because the id read here goes null.
   const dialogFile = viaStore ? null : (files.find((f) => f.id === dialogId) ?? null)
   const openId = viaStore ? storeFileId : (dialogFile?.id ?? null)
   const projectName = shelf.preview.kind === 'store' ? shelf.preview.projectName : undefined
@@ -74,10 +59,6 @@ export function usePreviewChannel(
     else setDialogId(null)
   }, [viaStore])
 
-  // The open modal is a snapshot the store took when it was opened, and the
-  // listing is the fresher read of the same row: without this the grid behind
-  // the modal said "Bereit" while the modal kept "Wird verarbeitet…" until it
-  // was closed and reopened. A dialog derives its file from the list instead.
   useEffect(() => {
     if (!viaStore) return
     const store = useFilePreviewStore.getState()
@@ -91,28 +72,6 @@ export function usePreviewChannel(
   return { openId, open, close, dialogFile }
 }
 
-/**
- * Keep `?doc=` and the open preview saying the same thing, in both directions.
- *
- * This was two effects pulling one way each, and the transition neither owned
- * was the one the change exists for: pressing Back dropped the parameter and
- * left the file open. One effect, and the rule is WHICH SIDE MOVED. The
- * snapshot alone cannot tell a Back from a `router.push` that has not landed
- * yet — in both, the URL names no file while the preview shows one — so each
- * side is compared against what it was, and the side that changed is the cause.
- * When the preview moved the URL is rewritten: opening pushes (on a phone,
- * back is how anyone dismisses a full-screen overlay), closing replaces, so
- * shutting the preview leaves no entry back would re-open. When the URL moved,
- * the preview is opened or shut to match.
- *
- * A link from another page that says where it came from (`back`, a search
- * hit's: `lib/open-review.ts`) is closed back to that page, the way a review
- * link is: Back when the entry behind is that page, else a replace with it.
- *
- * `onUrlOpen` is the way in for a link: the rows may still be loading, and then
- * it is NOT yet handled — `previousDocRef` is left behind on purpose, so the
- * render that has them still counts as a move.
- */
 export function useDocParamSync({
   openId,
   files,
@@ -150,11 +109,7 @@ export function useDocParamSync({
         else router.replace(back, { scroll: false })
         return
       }
-      // The review and the place a link opened at belong to the document that
-      // was open: a different one, or none, starts without them
-      // (`lib/open-review.ts`, `lib/document-locus.ts`).
       const params = clearDocumentLocus(clearReviewParams(new URLSearchParams(searchParams?.toString() ?? '')))
-      // So does the mail a link pointed at in a thread document (`?mailEntry=`).
       params.delete(MAIL_ENTRY_PARAM)
       const path = pathname ?? ''
       if (openId === null) {

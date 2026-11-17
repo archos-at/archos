@@ -1,21 +1,5 @@
 'use client'
 
-/**
- * The page rail: every page of the document, small, down the stage's left
- * edge, with the one the reader is on marked.
- *
- * It answers the two questions a page counter cannot: what the document LOOKS
- * like (a plan set is a cover, three Grundrisse and two Schnitte, and you find
- * the Schnitt by its shape, not its number) and where in it you are. Only where
- * there is room for it: the caller hides it in a narrow container, so the chat
- * peek never pays for it, and a hidden rail rasterises nothing because its
- * thumbnails never intersect anything.
- *
- * Thumbnails rasterise lazily, as the pages do, and drop their bitmaps once
- * they scroll well out of the rail: two hundred thumbnails at device resolution
- * are tens of megabytes nobody is looking at.
- */
-
 import { useEffect, useRef, useState, type FC, type RefObject } from 'react'
 import type { PDFDocumentProxy } from 'pdfjs-dist'
 import { useTranslations } from '@/i18n'
@@ -23,7 +7,6 @@ import { knowledgeCopy } from '@/i18n/namespaces/knowledge'
 import { cn } from '@/lib/utils'
 import { PageSheet, PageThumbnailButton } from './pdf-viewer-atoms'
 
-/** Drawn width of a thumbnail's sheet, in CSS pixels. */
 const THUMB_WIDTH = 84
 const MAX_PIXEL_RATIO = 2
 const PRERENDER_MARGIN = '200% 0px'
@@ -32,7 +15,6 @@ export interface PdfThumbnailRailProps {
   doc: PDFDocumentProxy
   pages: readonly number[]
   currentPage: number
-  /** Page 1's height over its width, until a thumbnail knows its own. */
   defaultAspect: number | null
   onSelect: (page: number) => void
   className?: string
@@ -49,8 +31,6 @@ export const PdfThumbnailRail: FC<PdfThumbnailRailProps> = ({
   const t = useTranslations(knowledgeCopy)
   const railRef = useRef<HTMLElement | null>(null)
 
-  // Keep the current page's thumbnail in view while the reader scrolls the
-  // document, without dragging the rail when it is already visible.
   useEffect(() => {
     const rail = railRef.current
     const node = rail?.querySelector<HTMLElement>(`[data-thumb="${currentPage}"]`)

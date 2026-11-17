@@ -1,11 +1,3 @@
-"""Voice dictation: the transcript cleanup and the ``/v1/dictation`` route.
-
-The provider is a ``httpx.MockTransport``, so these tests pin what is sent
-(no fixed language, the data policy, the fallback order) and what is booked.
-What a real model does with mixed German and English audio is not something a
-unit test can say; ``docs/architecture/voice-dictation.md`` lists it as open.
-"""
-
 from __future__ import annotations
 
 import base64
@@ -49,13 +41,10 @@ def test_fillers_are_removed(raw: str, expected: str):
 @pytest.mark.parametrize(
     "kept",
     [
-        # "um" is a German preposition, with and without a comma after it.
         "Es geht um die Fluchtwege.",
         "Wir treffen uns um, sagen wir, acht Uhr.",
-        # "eh", "er" and "mhm" are words.
         "Das ist eh schon klar, er kommt.",
         "Mhm, genau.",
-        # Mixed languages pass through untouched.
         "Bitte prüf den Fire Safety Report für das Stiegenhaus.",
     ],
 )
@@ -71,7 +60,6 @@ def test_silence_and_hallucinated_credits_insert_nothing(silence: str):
 
 
 def test_audio_event_tags_go_and_a_dictated_aside_stays():
-    # Scribe writes "[pause]" over room noise (live test, 2026-10-08).
     assert clean_transcript("Bitte prüf [pause] das Stiegenhaus.") == "Bitte prüf das Stiegenhaus."
     assert clean_transcript("Prüf das Gutachten (Statik) und OIB [2].") == "Prüf das Gutachten (Statik) und OIB [2]."
 
@@ -105,9 +93,6 @@ def test_the_platforms_key_is_always_pinned_and_an_own_key_follows_its_organizat
     assert route._credential("org_1").data_policy == NO_RETENTION_LIMITS
 
 
-# -- the route ----------------------------------------------------------------
-
-
 @pytest.fixture
 def app(monkeypatch):
     monkeypatch.setenv("INTERNAL_API_TOKEN", TOKEN)
@@ -126,7 +111,6 @@ def _credential(base_url: str = "https://openrouter.ai/api/v1", *, source: str =
 
 @pytest.fixture
 def provider(monkeypatch):
-    """Route every provider call to ``provider.reply``; record each request."""
 
     class Provider:
         requests: list[httpx.Request] = []
@@ -165,7 +149,6 @@ async def _post(app, body: dict | None = None, headers: dict | None = None) -> h
 
 
 async def _drain_ledger():
-    # The cost is flushed on the tracker's background executor.
     from agent.common import cost_tracking
 
     cost_tracking._flush_executor.submit(lambda: None).result(timeout=5)

@@ -1,10 +1,5 @@
 'use client'
 
-/**
- * The folder level's two small controls, beside the drill-down in `folder-navigation.tsx`: „Ordner anlegen“ as a
- * popover form where the reader stands, and a folder's own ⋯ where the caller supplies no menu of its own.
- */
-
 import type { JSX } from 'react'
 import { useState } from 'react'
 import { Folder, FolderPlus, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
@@ -24,11 +19,6 @@ interface FolderLevelProps {
   onCreateFolder: (name: string, parentId?: string) => Promise<boolean>
 }
 
-/**
- * "New folder" as a popover form: name it where you stand, Enter creates it in
- * the CURRENT level. Failure keeps the popover open with the typed name — the
- * workspace surfaces the error toast.
- */
 export function NewFolderControl({
   currentFolderId,
   onCreateFolder,
@@ -106,7 +96,7 @@ export function FolderActionsMenu({
           type="button"
           aria-label={t('folders.actionsFor', { name: folder.name })}
           title={t('folders.actions')}
-          className="hover:bg-accent focus-visible:ring-ring flex size-8 shrink-0 items-center justify-center rounded-full transition-opacity duration-snap ease-out focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 pointer-coarse:size-11 pointer-coarse:opacity-100 motion-reduce:transition-none md:opacity-0 md:group-hover:opacity-100 data-[state=open]:opacity-100"
+          className="hover:bg-hover focus-visible:ring-ring flex size-8 shrink-0 items-center justify-center rounded-full transition-opacity duration-snap ease-out focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 pointer-coarse:size-11 pointer-coarse:opacity-100 motion-reduce:transition-none md:opacity-0 md:group-hover:opacity-100 data-[state=open]:opacity-100"
           data-testid={`folder-actions-${folder.id}`}
         >
           <MoreHorizontal className="size-3.5" aria-hidden />

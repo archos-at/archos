@@ -66,7 +66,6 @@ describe('insertMention', () => {
     const range = findMentionQuery(text, 13)
     const result = insertMention(text, range!, 'Anna')
     expect(result.text).toBe('Frage an @Anna — passt das?')
-    // Caret sits right after "@Anna"; the space that was already there is reused.
     expect(result.caret).toBe(14)
   })
 
@@ -82,7 +81,6 @@ describe('reconcileMentions — structured, never re-derived (MN-3)', () => {
     const graz = { targetId: 'user_graz', display: 'Anna Berger' }
 
     expect(reconcileMentions('@Anna Berger passt das?', [wien, graz])).toEqual([graz])
-    // Both still standing: both kept, in the order they were picked.
     expect(reconcileMentions('@Anna Berger und @Anna Berger', [wien, graz])).toEqual([wien, graz])
   })
 
@@ -95,7 +93,6 @@ describe('reconcileMentions — structured, never re-derived (MN-3)', () => {
   })
 
   test('never invents a mention from text that only looks like a name', () => {
-    // "@Markus Hofer" is typed but was never picked: it stays prose.
     expect(reconcileMentions('@Anna und @Markus Hofer', [anna])).toEqual([anna])
   })
 
@@ -175,8 +172,6 @@ describe('splitMentionSegments — rendering', () => {
 
 describe('boundaries', () => {
   test('a recorded display does not match inside a longer name', () => {
-    // `@Tom` used to pill the first four letters of `@Tommy` and keep Tom
-    // addressed by a message that no longer mentions him.
     const segments = splitMentionSegments('Frage an @Tommy Berger', [
       { targetId: 'u-tom', display: 'Tom' },
     ])
@@ -184,9 +179,6 @@ describe('boundaries', () => {
   })
 
   test('a mention still stands inside brackets and quotes', () => {
-    // German prose puts names in brackets and quotation marks. Requiring
-    // whitespace before the `@` silently dropped the mention: no request, no
-    // inbox item, and the agent answered instead.
     for (const text of ['(@Anna Berger)', '„@Anna Berger“', '[@Anna Berger]']) {
       const segments = splitMentionSegments(text, [
         { targetId: 'u-anna', display: 'Anna Berger' },
@@ -203,8 +195,6 @@ describe('boundaries', () => {
   })
 
   test('a quoted email local part is not a mention candidate', () => {
-    // `"` opens a quoted local part, so treating it as an opening mark would
-    // have made `"Berger"@example.com` a boundary the scanner accepts.
     const segments = splitMentionSegments('schreib an "Berger"@example.com', [
       { targetId: 'u-b', display: 'example.com' },
     ])

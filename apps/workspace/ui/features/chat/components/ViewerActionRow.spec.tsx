@@ -1,8 +1,3 @@
-/**
- * The chat's row for Piloti's viewer actions (ADR-0144): announced once the
- * answer is there, undoable, offered when it did not move, neutral when the
- * document is not available, and the person's switch beside it.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, screen } from '@/test-utils'
 import { I18nProvider } from '@/i18n'
@@ -54,7 +49,6 @@ const answered = async (proposed: ViewerActionCall) => {
   })
 }
 
-// German, as the person reads it: the copy is what these tests are about.
 const draw = () =>
   render(
     <I18nProvider initialLocale="de" fixedLocale>

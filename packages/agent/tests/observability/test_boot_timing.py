@@ -1,5 +1,3 @@
-"""Boot timing: readings wait in the process until the meter provider can take them."""
-
 from __future__ import annotations
 
 import os
@@ -14,7 +12,6 @@ from agent.observability.boot_timing import BootClock
 
 @pytest.fixture
 def reader(monkeypatch):
-    """A histogram on a local provider: the global one can be set once per process."""
     reader = InMemoryMetricReader()
     provider = MeterProvider(metric_readers=[reader])
     histogram = provider.get_meter("test").create_histogram(boot_timing.PHASE_HISTOGRAM)
@@ -49,8 +46,6 @@ def test_a_reading_waits_until_flush(reader):
 
 
 def test_a_flush_takes_every_role_s_readings_once(reader):
-    # The research worker is ready before any workflow exists; its first job's
-    # build flushes both readings.
     BootClock("research-worker").record("ready", 2.0)
     BootClock("research-job").record("workflow_build", 3.0)
 
@@ -74,7 +69,6 @@ def test_the_process_age_comes_from_the_kernel_s_start_time(tmp_path):
     (tmp_path / "self").mkdir()
     (tmp_path / "uptime").write_text("1000.00 4000.00\n")
     fields = ["S"] + ["0"] * 18 + [str(990 * ticks)] + ["0"] * 10
-    # A command name with spaces and a parenthesis must not shift the fields.
     (tmp_path / "self" / "stat").write_text(f"42 (python (worker) x) {' '.join(fields)}\n")
 
     assert boot_timing.process_age_seconds(str(tmp_path)) == pytest.approx(10.0)

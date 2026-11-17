@@ -31,11 +31,13 @@ from .event_store import EventStore
 from .outcome_notify import notify_job_outcome
 from .phase_events import PHASE_DONE
 from .phase_events import emit_phase_event
+from .run_result import TEMPORARY_CONVERSATION_SKIP
 from .run_result import build_job_output
 from .run_result import extract_answer_transparency
 from .run_result import extract_result
 from .run_result import extract_skills_activated
 from .run_result import extract_verified_sources
+from .run_result import is_temporary_conversation
 from .run_result import mark_degraded
 from .runner import _DEGRADED_EVENT_FIELDS
 from .runner import JOB_DEGRADED_EVENT_TYPE
@@ -71,6 +73,23 @@ class JobOutcome:
     output: Any
 
 
+def reflection_enabled(request: JobRequest) -> bool:
+    """Whether the run reflects on its report: the organization's flag, and never for a temporary conversation.
+
+    A temporary conversation keeps nothing (ADR-0180 rule 2). The BFF says so at
+    submit (``usage_context["temporary_conversation"]``), so the skip costs no
+    model call and is named in the log; the trace says it on the workflow span
+    (``agent_job_setup.trace_metadata``). A conversation switched to temporary
+    after the submit is not known here: the BFF's memory routes refuse its writes.
+    """
+    if not request.memory_reflection_enabled:
+        return False
+    if is_temporary_conversation(request.usage_context):
+        logger.info("Job %s: memory reflection skipped: %s", request.job_id, TEMPORARY_CONVERSATION_SKIP)
+        return False
+    return True
+
+
 async def persist(
     scope: JobScope,
     request: JobRequest,
@@ -101,7 +120,7 @@ async def persist(
         job_id=request.job_id,
         # A scheduled job's submitter (the BFF) knows the flag, not the config's LLM ref.
         reflection_llm_ref=request.memory_reflection_llm or _workflow_reflection_llm_ref(config),
-        reflection_enabled=request.memory_reflection_enabled,
+        reflection_enabled=reflection_enabled(request),
         usage_context=request.usage_context,
         memory_digest=run.memory_digest,
         org_credential=models.org_credential,

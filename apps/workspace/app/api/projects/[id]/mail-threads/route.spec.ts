@@ -1,9 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * `/api/projects/[id]/mail-threads`: the list's query is the thread wire's.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const session = {

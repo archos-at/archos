@@ -59,7 +59,14 @@ class KnowledgeMarkUpdate(BaseModel):
     country_id: str | None = Field(
         None,
         pattern=r"^[A-Z]{2}$",
-        description="The country whose pack a base-corpus text belongs to (ADR-0173); ZZ for none; None clears it",
+        description="The country whose pack a base-corpus text belongs to (ADR-0173); None clears it",
+    )
+    released: bool | None = Field(
+        None,
+        description=(
+            "Whether a base-corpus text is released (ADR-0173): false withdraws it from every office and keeps its "
+            "country; None clears it"
+        ),
     )
 
 
@@ -70,6 +77,8 @@ class KnowledgeMarkResult(BaseModel):
     file_name: str
     licence_class: LicenceClass | None
     edition_id: str | None
+    #: The released flag the body set; None when it set none. A caller that withdraws a text checks it is echoed.
+    released: bool | None = None
     chunks: int
 
 
@@ -93,4 +102,26 @@ class OibReingestRequest(BaseModel):
         """The marks as the corpus stores them (``agent.corpus_store.FileMark``)."""
         from agent.corpus_store import FileMark
 
-        return {name: FileMark(**mark.model_dump()) for name, mark in self.marks.items()}
+        # A mark the platform sends with a re-index is a release's: the text is released.
+        return {name: FileMark(**mark.model_dump(), released=True) for name, mark in self.marks.items()}
+
+
+class CorpusReingestResponse(BaseModel):
+    """Outcome of queueing a subset re-ingest.
+
+    Ingestion runs in the background exactly as it does for an upload, so ``status`` is
+    ``'pending'`` whenever anything was queued — the caller polls ``/v1/oib/status``,
+    where each queued document reads PENDING until its chunks are rebuilt.
+    """
+
+    status: str = Field(..., description="'pending' when at least one document was queued, else 'noop'.")
+    queued: list[str] = Field(default_factory=list, description="Basenames now re-ingesting.")
+    unknown: list[str] = Field(default_factory=list, description="Basenames that match no corpus document.")
+    released: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Queued basenames whose release mark was recorded as released (ADR-0173). The BFF checks every marked "
+            "name is here: a backend from before the flag leaves a withdrawn row withdrawn, so its answer is retried."
+        ),
+    )
+    message: str

@@ -1,6 +1,5 @@
 /**
- * Platform → countries. Each country's platform knowledge, and the review
- * queue that is the only way it changes (ADR-0165).
+ * Platform → Länder: every country's knowledge, one row each; a row opens the country.
  *
  * Owner gate, shell chrome and section nav live in the shared `layout.tsx`;
  * this page only names its section and renders it.

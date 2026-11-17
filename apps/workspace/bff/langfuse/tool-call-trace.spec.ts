@@ -1,12 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * One MCP tool call is one Langfuse trace (ADR-0089, ADR-0122). The mapping is
- * pure and checked field by field; the posting is checked at the network, the
- * way the agent door really sends it: through `recordOperationCalled`, the one
- * place every tool call is recorded.
- */
 import { webcrypto } from 'node:crypto'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { recordOperationCalled } from '@/lib/agent-api/telemetry'
@@ -31,7 +25,6 @@ const call: ToolCallRecord = {
 }
 
 beforeAll(() => {
-  // The shared setup file swaps `crypto` for a stub with no randomUUID.
   vi.stubGlobal('crypto', webcrypto)
 })
 

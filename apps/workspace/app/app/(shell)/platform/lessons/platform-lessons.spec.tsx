@@ -54,7 +54,6 @@ describe('PlatformLessons', () => {
     const row = await screen.findByTestId('lesson-a')
     await userEvent.click(within(row).getByRole('button', { name: 'Activate' }))
 
-    // Moved into the active group, with focus following it there.
     await waitFor(() =>
       expect(
         within(screen.getByTestId('lesson-a')).getByRole('button', { name: 'Retire' })

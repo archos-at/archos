@@ -2,14 +2,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The job ids the BFF sends per status call, pinned to the number the backend accepts.
- *
- * `BatchStatusRequest.job_ids` is capped, and a longer list is a 422 the
- * reconciler read as "backend unreachable": two bulk uploads of 309 and 219
- * documents stayed `pending` that way. The limit is read out of the route
- * rather than restated, so this fails when either side is edited alone.
- */
 
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'

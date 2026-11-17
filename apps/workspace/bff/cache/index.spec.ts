@@ -1,24 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The floor under ADR-0020: **a cache outage degrades, it never fails.**
- *
- * That contract is what lets every call site in `lib/` call `getCached` without
- * a try/catch of its own, and until this file existed nothing asserted it — the
- * caching audit counted the coverage at zero ("No test covers `common/cache.py`
- * or `lib/cache/index.ts` at all",
- * `docs/audit/latency-and-caching-audit-2026-09.md` §4.4, option E6).
- * A regression here is silent by construction: a `throw` from the store surfaces
- * as a 500 on whichever route happens to be first past the broken op, and looks
- * like that route's bug.
- *
- * So the fake below throws on EVERY operation, and each public function is
- * asserted on three axes at once: it returns the fallback, it does not throw,
- * and it warns exactly once. The third matters as much as the first two — a
- * fail-open that says nothing is indistinguishable from a cache that is working,
- * and the counters in this module are the only other thing that would tell you.
- */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -52,7 +34,6 @@ class ThrowingStore implements CacheStore {
   }
 }
 
-/** A store that reads fine and only fails on the way out. */
 class WriteOnlyFailingStore implements CacheStore {
   async get(): Promise<string | null> {
     return null
@@ -64,7 +45,6 @@ class WriteOnlyFailingStore implements CacheStore {
   async deletePrefix(): Promise<void> {}
 }
 
-/** A store holding a value that is not JSON — a half-written entry. */
 class CorruptStore implements CacheStore {
   async get(): Promise<string | null> {
     return '{"partial":'
@@ -153,7 +133,6 @@ describe('fail-open: a store that throws on every operation', () => {
   })
 
   it('every public function survives one broken store, in one pass', async () => {
-    // The whole surface at once: nothing here may reject, whatever the store does.
     const results = await Promise.allSettled([
       getCached('flags:org_1', 1000, async () => ['image-upload']),
       setCached('flags:org_1', ['image-upload'], 1000),
@@ -182,8 +161,6 @@ describe('fail-open: partial failures', () => {
   })
 
   it('an entry that is not JSON takes the same road as an outage', async () => {
-    // `JSON.parse` throws INSIDE the read try/catch. That is deliberate: a
-    // half-written entry is a broken cache, not a broken request.
     setCacheStore(new CorruptStore())
 
     await expect(getCached('directory:org_1', 1000, async () => ['ada'])).resolves.toEqual(['ada'])

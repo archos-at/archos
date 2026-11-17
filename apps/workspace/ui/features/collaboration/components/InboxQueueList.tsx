@@ -1,27 +1,5 @@
 'use client'
 
-/**
- * The list half of the Postfach queue: „Wartet auf Sie“, gathered under each
- * document or chat (most urgent first), then „Neuigkeiten“, one quiet line
- * each.
- *
- * Flat on purpose. The groups were cards in a panel, boxes in a box, and the
- * borders said more than the entries; a group is its name over its entries
- * now, set apart by space alone. What a section holds is said once, in its
- * heading: how many wait, and how many of them are late. The dock's own header
- * carries no count, and an empty section does not say „wartet auf Sie“ a second
- * time under the heading that already does.
- *
- * Every entry is a link to its real place (the chat at the message, the
- * review at the mark), so a phone, a new tab and a screen reader all get a
- * real link. The entry whose place the reader is at is drawn as current.
- *
- * Rows arrive and leave by their height (`HeightArrival`): an archived entry
- * folds away and the ones below close the gap, rather than jumping up a row in
- * one frame. What was there when the list mounted stands at once
- * (`initial={false}`).
- */
-
 import type { JSX, MouseEvent, ReactNode } from 'react'
 import Link from 'next/link'
 import { Archive, Clock } from 'lucide-react'
@@ -43,20 +21,13 @@ import { InboxItemFace } from './InboxItemFace'
 export interface InboxQueueListProps {
   groups: readonly InboxQueueGroup[]
   news: readonly InboxItemView[]
-  /** How many entries wait, and how many of them are late: the section's heading says both. */
   waitingCount: number
   lateCount: number
-  /** The entry whose place the reader is at. */
   currentId: string | null
-  /** Where an entry's link goes (on the Postfach page, a mark's carries the way back). */
   hrefOf: (item: InboxItemView) => string | null
-  /** The reader followed an entry's link. */
   onFollow: (event: MouseEvent<HTMLAnchorElement>, item: InboxItemView) => void
-  /** Puts an entry away (with the list's undo). */
   onArchive?: (itemId: string) => void
-  /** Marks the news read; absent when there is none unread. */
   onNewsRead?: () => void
-  /** Each section's „Weitere laden“, when the server has more. */
   waitingMore?: ReactNode
   newsMore?: ReactNode
 }
@@ -88,8 +59,6 @@ export function InboxQueueList({
           )}
         </div>
         {groups.length === 0 ? (
-          // The heading already says „Wartet auf Sie“; under it, what is absent,
-          // by its kind. Not „Alles erledigt“: the news below may still be unread.
           <p className="px-2 text-sm text-muted-foreground" data-testid="inbox-queue-nothing-waiting">
             {t('inbox.queue.nothingWaiting')}
           </p>
@@ -161,12 +130,6 @@ interface EntryProps {
   onFollow: (event: MouseEvent<HTMLAnchorElement>, item: InboxItemView) => void
 }
 
-/**
- * One entry's list item: the link, and beside it the control that puts the
- * entry away. A sibling of the link, never inside it (a button in an anchor is
- * an accessibility defect). It comes up on the entry the pointer or the focus
- * is on, and stays under a finger, which has no hover.
- */
 function EntryItem({ item, onArchive, children }: { item: InboxItemView; onArchive?: (itemId: string) => void; children: ReactNode }): JSX.Element {
   const t = useTranslations(collaborationCopy)
   return (
@@ -179,7 +142,8 @@ function EntryItem({ item, onArchive, children }: { item: InboxItemView; onArchi
           title={t('inbox.archive')}
           onClick={() => onArchive(item.id)}
           className={cn(
-            'absolute top-1.5 right-1.5 flex size-7 items-center justify-center rounded-control text-muted-foreground hover:bg-background hover:text-foreground',
+            'absolute top-1.5 right-1.5 flex size-7 items-center justify-center rounded-control text-muted-foreground hover:bg-hover hover:text-foreground',
+            'pointer-coarse:top-0 pointer-coarse:right-0 pointer-coarse:size-11',
             'opacity-0 transition-opacity duration-snap group-hover/entry:opacity-100 group-focus-within/entry:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100 motion-reduce:transition-none',
           )}
           data-testid="inbox-queue-archive"
@@ -191,16 +155,13 @@ function EntryItem({ item, onArchive, children }: { item: InboxItemView; onArchi
   )
 }
 
-/** The link an entry is, or plain text when its target is gone. */
 function EntryFrame({ item, href, current, onFollow, className, children }: EntryProps & { className: string; children: ReactNode }): JSX.Element {
   const frame = cn(
     'flex w-full min-w-0 rounded-control text-left outline-none transition-colors duration-snap motion-reduce:transition-none',
-    'hover:bg-muted',
-    current && 'bg-accent hover:bg-accent',
+    'hover:bg-hover',
+    current && 'bg-selected hover:bg-selected',
     className,
-    // Room at the end for the archive control that comes up over it. Last, so
-    // an entry's own `px-*` cannot merge it away and put the text under it.
-    'pr-9',
+    'pr-9 pointer-coarse:pr-11',
   )
   if (!href) {
     return <div className={frame} data-item-id={item.id}>{children}</div>
@@ -220,12 +181,6 @@ function EntryFrame({ item, href, current, onFollow, className, children }: Entr
   )
 }
 
-/**
- * A request: what it is about in the words of the thing itself, then by when
- * and why it is the reader's. No unread dot: everything here waits on the
- * reader, so a dot on every row said nothing; one not opened yet is set in
- * the heavier weight. The line under it wraps rather than cutting a name off.
- */
 function WaitingEntry(props: EntryProps): JSX.Element {
   const { item } = props
   const t = useTranslations(collaborationCopy)
@@ -261,7 +216,6 @@ function WaitingEntry(props: EntryProps): JSX.Element {
   )
 }
 
-/** News: who, what in up to two lines, and when. */
 function NewsEntry(props: EntryProps): JSX.Element {
   const { item } = props
   const t = useTranslations(collaborationCopy)

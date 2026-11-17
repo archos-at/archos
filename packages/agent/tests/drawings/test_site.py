@@ -1,11 +1,3 @@
-"""A DXF measured as a site (ADR-0153): the numbers checked by hand against the fixture's own geometry.
-
-The fixture (``agent_testing.cadastre``) is a BEV Katastralmappe in a few
-parcels. Parcel 123/4 is the 20 × 40 m block at the west end north of the
-street parcel 1288; house 1 stands in it from x 4 to 15 and y 8 to 21. Every
-figure asserted below follows from those coordinates.
-"""
-
 from __future__ import annotations
 
 import io
@@ -29,7 +21,6 @@ def site() -> Site:
 
 
 def _generic(insunits: int) -> Site:
-    """A plain drawing: a 10 000 × 6 000 outline on WALLS, a line, a label, in the unit ``insunits`` names (0: none)."""
     doc = ezdxf.new("R2010")
     doc.header["$INSUNITS"] = insunits
     msp = doc.modelspace()
@@ -81,7 +72,6 @@ def test_what_remains_buildable_follows_the_setbacks_given(site: Site) -> None:
         site, "123/4", setback_m=3, setbacks_by_neighbour={"Gst. 123/5": 4}, coverage_limit=40, density_limit=1.2
     )
     text = answer.text()
-    # x 3 … 16 and y 3 … 37: 13 × 34 m.
     assert (
         "Buildable area inside the setbacks: 442.0 m² (55.2% of 800.0 m²); its enclosing rectangle is 34.00 m × 13.00 m"
         in text
@@ -145,7 +135,6 @@ def test_a_plain_drawing_in_millimetres_is_converted_and_its_buildings_are_the_l
 
 
 def _two_communities() -> Site:
-    """Parcel „12“ in KG 16117 and again in KG 16118 across a KG boundary, and „20“ drawn in two parts."""
     dxf = R12Writer()
     for x in (0, 20, 40):
         dxf.polyline("KG" if x == 20 else "GG", [(x, 0), (x, 20)])
@@ -178,7 +167,6 @@ def test_a_parcel_drawn_in_two_parts_is_one_parcel() -> None:
 
 
 def _l_shaped() -> Site:
-    """One L-shaped parcel, 20 × 20 with the 10 × 10 north-east quarter cut out: 300 m²."""
     dxf = R12Writer()
     dxf.polyline("GG", [(0, 0), (20, 0), (20, 10), (10, 10), (10, 20), (0, 20), (0, 0)])
     dxf.insert("GN", "GN1", (5, 5), "7", "16117")
@@ -187,7 +175,6 @@ def _l_shaped() -> Site:
 
 
 def test_a_setback_band_covers_the_re_entrant_corner() -> None:
-    """Every point within 3 m of the boundary is outside what remains, the quarter circle at the inner corner too."""
     from shapely.geometry import Polygon
 
     site = _l_shaped()

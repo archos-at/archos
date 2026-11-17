@@ -191,8 +191,8 @@ let cached: { key: string; client: LangfuseClient } | null = null
 const configKey = (config: LangfuseApiConfig): string =>
   `${config.baseUrl}\u0000${config.publicKey}\u0000${config.secretKey}`
 
-/** One client per configuration; rebuilt only if the keys or host change. */
-function clientFor(config: LangfuseApiConfig): LangfuseClient {
+/** One client per configuration; rebuilt only if the keys or host change. Shared with the golden run's dataset writes. */
+export function clientFor(config: LangfuseApiConfig): LangfuseClient {
   const key = configKey(config)
   if (cached?.key !== key) {
     cached = {

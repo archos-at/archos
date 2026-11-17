@@ -1,7 +1,3 @@
-/**
- * The shell's notification offer: the inbox prompt's offer, made once as a
- * toast when something first waits on a person who may never open the inbox.
- */
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { act, render, waitFor } from '@/test-utils'
 
@@ -58,7 +54,6 @@ describe('InboxPushOffer', () => {
     badge.pending = 2
     view.rerender(<InboxPushOffer enabled client={inbox} />)
     await waitFor(() => expect(toastMock).toHaveBeenCalledTimes(1))
-    // Named from the requests waiting on the person, never from an FYI.
     expect(inbox.list).toHaveBeenCalledWith({ filter: 'requests' })
     const [message, options] = toastMock.mock.calls[0] as [string, { action: { label: string; onClick: () => void }; cancel: { label: string } }]
     expect(message).toBe('Anna Weber mentioned you. Do you want to be notified on this device?')
@@ -68,7 +63,6 @@ describe('InboxPushOffer', () => {
     act(() => options.action.onClick())
     expect(enable).toHaveBeenCalledTimes(1)
 
-    // Once: a later step from nothing to something does not ask again.
     badge.pending = 0
     view.rerender(<InboxPushOffer enabled client={inbox} />)
     badge.pending = 1
@@ -85,7 +79,6 @@ describe('InboxPushOffer', () => {
     )
   })
 
-  // Piloti's Rückfrage is Piloti's: „someone needs you" hid who was asking.
   test('when Piloti asked, says Piloti has a question, never that someone needs them', async () => {
     badge.pending = 1
     render(<InboxPushOffer enabled client={client({ actorName: null, type: 'piloti.asks_you' })} />)

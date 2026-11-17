@@ -1,10 +1,3 @@
-/**
- * ErrorBanner Component
- *
- * Displays persistent error messages in the chat area using shadcn Alert.
- * Uses the error registry for consistent error metadata across the application.
- */
-
 'use client'
 
 import { type FC, useId, useState } from 'react'
@@ -24,43 +17,15 @@ import { getErrorMeta } from '../lib/error-registry'
 export type { ErrorCode }
 
 export interface ErrorBannerProps {
-  /** Error code from the error registry */
   code: ErrorCode
-  /** Optional custom message (overrides default from registry) */
   message?: string
-  /** Optional expandable details */
   details?: string
-  /** Timestamp of the error */
   timestamp?: Date | string
-  /** Optional callback when banner is dismissed */
   onDismiss?: () => void
-  /**
-   * Optional retry action. When provided, the banner renders a "Erneut
-   * versuchen" button (the design language mandates "helpful message + retry").
-   * Left optional so callers/specs that don't wire a retry are unaffected.
-   */
   onRetry?: () => void
-  /**
-   * The failed response's correlation id, when it carried one.
-   *
-   * The BFF puts it on every error as `requestId` in the body and `x-request-id`
-   * on the response (`lib/api/request-id`), and prints it on its own log line
-   * for a 500. Shown here because the reader is the only person who knows WHICH
-   * request failed, and without something quotable a report is "es hat gestern
-   * nicht funktioniert" — which no operator can look up. Optional: an error
-   * raised in the client (a dropped socket, a parse failure) has no id, and the
-   * banner says nothing rather than inventing one.
-   */
   requestId?: string | null
 }
 
-/**
- * Error banner for displaying connection, file, auth, and system errors.
- *
- * Motion: none of its own. In the transcript the thread row (`ChatArea`)
- * gives it the entrance every other turn gets, gated so a restored banner does
- * not replay it on every mount, and the same row takes it out on retry.
- */
 export const ErrorBanner: FC<ErrorBannerProps> = ({
   code,
   message,
@@ -72,24 +37,13 @@ export const ErrorBanner: FC<ErrorBannerProps> = ({
 }) => {
   const t = useTranslations(chatCopy)
   const tc = useTranslations(commonCopy)
-  // Same reason AgentResponse threads it: without the locale `formatTime` uses
-  // the RUNTIME default, so a German user on an en-US browser read "03:35 PM"
-  // under this card while every answer beside it said "15:35".
   const { locale } = useLocale()
   const [isExpanded, setIsExpanded] = useState(false)
-  // Unique per banner: two error cards in one thread with a shared literal id
-  // would point both disclosures at the first card's <pre>.
   const detailsId = useId()
   const errorMeta = getErrorMeta(code)
 
-  // Prefer the caller-supplied (already-localized / interpolated) message.
-  // Otherwise localize the registry default via `messageKey`, falling back to
-  // the static English `defaultMessage` when the entry opts out or no provider
-  // is present.
   const displayMessage =
     message || (errorMeta.messageKey ? t(errorMeta.messageKey) : errorMeta.defaultMessage)
-  // Localize the title when the registry entry opts in via `titleKey`;
-  // otherwise fall back to the static (English) registry title.
   const displayTitle = errorMeta.titleKey ? t(errorMeta.titleKey) : errorMeta.title
   const variant = errorMeta.status === 'error' ? 'destructive' : errorMeta.status
   const StatusIcon = errorMeta.status === 'error' ? XCircle : AlertTriangle
@@ -140,7 +94,7 @@ export const ErrorBanner: FC<ErrorBannerProps> = ({
           {onRetry && errorMeta.retryable !== false && (
             <div className="mt-2">
               <Button
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 onClick={onRetry}
                 aria-label={t('error.retry')}
@@ -170,18 +124,6 @@ export const ErrorBanner: FC<ErrorBannerProps> = ({
   )
 }
 
-/**
- * „Referenz für den Support": the eight characters a person reads out.
- *
- * Short on screen and long on the clipboard, on purpose. The short form is a
- * literal prefix of the full id, so either one greps to the same log line, but
- * what gets pasted into a ticket should be the whole thing — a truncated id in
- * a bug report is a second round trip.
- *
- * A copy affordance rather than plain text because this is an identifier, and
- * the failure mode of an identifier a person has to retype is a typo nobody
- * notices until the search comes back empty.
- */
 const RequestReference: FC<{ requestId: string }> = ({ requestId }) => {
   const t = useTranslations(chatCopy)
   const [copied, setCopied] = useState(false)
@@ -192,8 +134,6 @@ const RequestReference: FC<{ requestId: string }> = ({ requestId }) => {
       setCopied(true)
       window.setTimeout(() => setCopied(false), 1500)
     } catch {
-      // The id is on screen either way — it is selectable text — so a refused
-      // clipboard costs the reader nothing but the shortcut.
       setCopied(false)
     }
   }

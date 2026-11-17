@@ -1,19 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * What a BATCH post to this route costs (ADR-0040 L2).
- *
- * The route factory charges one unit of `DEFAULT_MUTATION_LIMIT` per request,
- * and this endpoint accepts an array. Those two facts together are the hole
- * these tests close: without a cap and a per-message charge, one unit of budget
- * buys arbitrarily many inserts, and the rate limit stops bounding the work the
- * endpoint actually does.
- *
- * So the properties pinned here are about ARITHMETIC, not about the happy path:
- * a batch of N costs N, and an array past the cap is refused by validation
- * before any of it is written.
- */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -24,9 +11,22 @@ vi.mock('@/lib/auth/require-auth', () => ({
 vi.mock('server-only', () => ({}))
 
 const createConversationMessages = vi.fn()
+const listConversationMessages = vi.fn()
 vi.mock('@/lib/conversations/service', () => ({
   createConversationMessages: (...args: unknown[]) => createConversationMessages(...args),
-  listConversationMessages: vi.fn(),
+  listConversationMessages: (...args: unknown[]) => listConversationMessages(...args),
+}))
+
+const actingReaderIsAgent = vi.fn(() => false)
+vi.mock('@/lib/agent-api/acting-session', () => ({ actingReaderIsAgent: () => actingReaderIsAgent() }))
+vi.mock('@/lib/conversations/repository', () => ({
+  findConversationTenancy: vi.fn(async () => ({ projectId: 'p1' })),
+}))
+vi.mock('@/lib/projects/repository', () => ({
+  findProjectProfile: vi.fn(async () => ({
+    version: 1,
+    facts: { building_class: { value: 'gk5', confidence: 'confirmed', source: 'onboarding', updatedAt: '' } },
+  })),
 }))
 
 import {
@@ -35,10 +35,9 @@ import {
   createInProcessStore,
   setLimitStore,
 } from '@/lib/limits'
-import { POST } from './route'
+import { GET, POST } from './route'
 
 let orgCounter = 0
-/** A distinct org per test, so each starts with a full budget. */
 function session() {
   return {
     userId: 'user_me',
@@ -84,8 +83,6 @@ describe('POST /api/conversations/[id]/messages batch metering', () => {
     const response = await POST(post(tooMany), context)
 
     expect(response.status).toBe(400)
-    // The bound has to bite BEFORE the service runs, or capping the array would
-    // only be documentation.
     expect(createConversationMessages).not.toHaveBeenCalled()
   })
 
@@ -97,17 +94,11 @@ describe('POST /api/conversations/[id]/messages batch metering', () => {
   })
 
   it('keeps the cap servable against the burst budget', async () => {
-    // Charging per message means a maximal batch spends its whole size at once.
-    // A cap above the burst clause would therefore document a batch size that
-    // is refused every time — a contract the endpoint cannot honour. This is
-    // the guard for whoever lowers the burst number later.
     const burst = DEFAULT_MUTATION_LIMIT.burst?.limit ?? DEFAULT_MUTATION_LIMIT.limit
     expect(MAX_MESSAGES_PER_REQUEST).toBeLessThanOrEqual(burst)
   })
 
   it('charges one unit per message, not one per request', async () => {
-    // The burst clause is what a batch would race, so it is the budget to
-    // exhaust: N messages must cost the same as N single posts.
     const burst = DEFAULT_MUTATION_LIMIT.burst?.limit ?? DEFAULT_MUTATION_LIMIT.limit
     const batchSize = 10
     const batch = Array.from({ length: batchSize }, (_, i) => message(`m${i}`))
@@ -123,8 +114,6 @@ describe('POST /api/conversations/[id]/messages batch metering', () => {
       spent += batchSize
     }
 
-    // Had the route charged per REQUEST, `burst` requests would have passed —
-    // that is `burst * batchSize` messages, far past where this stops.
     expect(refused).not.toBeNull()
     expect(spent).toBeLessThanOrEqual(burst)
     expect(spent).toBeGreaterThan(burst - batchSize - 1)
@@ -137,5 +126,43 @@ describe('POST /api/conversations/[id]/messages batch metering', () => {
       'c1',
       [expect.objectContaining({ id: 'm1' })]
     )
+  })
+})
+
+describe('GET /api/conversations/[id]/messages: the stored answer by reader', () => {
+  const STORED =
+    'In Wien beträgt die Mindesthöhe **1,00 m** [1].\n\n[[card:1]]\n\n' +
+    'Gebäudeklasse :project[building_class] [Beleg nicht verifiziert].'
+  const page = () => ({
+    messages: [
+      { id: 'q', role: 'user', content: 'Wie hoch? [[card:1]] bleibt, wie getippt.' },
+      { id: 'a', role: 'assistant', content: STORED, metadata: { cards: [{ type: 'guardrail_check' }] } },
+    ],
+    nextCursor: null,
+  })
+  const read = async () =>
+    (await GET(new Request('https://grid.test/api/conversations/c1/messages?include=metadata'), context)).json()
+
+  beforeEach(() => {
+    listConversationMessages.mockReset()
+    listConversationMessages.mockResolvedValue(page())
+    actingReaderIsAgent.mockReset()
+  })
+
+  it('hands an agent plain Markdown: no card marker, no binding, no German verifier label', async () => {
+    actingReaderIsAgent.mockReturnValue(true)
+    const body = await read()
+    const answer = (body.messages[1].content as string).replace(/\u00a0/g, ' ')
+    expect(answer).not.toMatch(/\[\[card:\d+\]\]/)
+    expect(answer).not.toContain(':project[')
+    expect(answer).toBe('In Wien beträgt die Mindesthöhe **1,00 m** [1].\n\nGebäudeklasse GK 5 (citation not verified).')
+    expect(body.messages[0].content).toBe('Wie hoch? [[card:1]] bleibt, wie getippt.')
+    expect(body.messages[1].metadata.cards).toHaveLength(1)
+  })
+
+  it('keeps the dialect for the browser, which places the card at its marker', async () => {
+    actingReaderIsAgent.mockReturnValue(false)
+    const body = await read()
+    expect(body.messages[1].content).toBe(STORED)
   })
 })

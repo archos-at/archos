@@ -1,16 +1,8 @@
-/**
- * The browser's door to `POST /api/search` and its Planliste export.
- *
- * Scope is the query string (`scope`, `projectId`, `folderId`) and the
- * question is the body, as the route reads them (`lib/search/search-wire.ts`).
- */
-
 import { downloadFetched, type FetchedDownload } from '@/lib/browser-download'
 import type { SearchBody, SearchResponse, SearchScopeQuery, SuggestBody, SuggestResponse } from '@/lib/search/search-wire'
 
 export type SearchExportFormat = 'csv' | 'xlsx'
 
-/** The query string for a scope: nothing for the whole office. */
 export function scopeQueryString(scope: SearchScopeQuery): string {
   const params = new URLSearchParams()
   if (scope.scope && scope.scope !== 'office') params.set('scope', scope.scope)
@@ -26,7 +18,6 @@ export class SearchRequestError extends Error {
   }
 }
 
-/** Ask one question. `onServerTiming` hears the route's `Server-Timing` header, raw (`search-telemetry.ts` parses it). */
 export async function postSearch(
   scope: SearchScopeQuery,
   body: SearchBody,
@@ -45,7 +36,6 @@ export async function postSearch(
   return (await response.json()) as SearchResponse
 }
 
-/** Complete one free-text filter (`POST /api/search/suggest`) where the search looks, under its other filters. */
 export async function postSuggest(scope: SearchScopeQuery, body: SuggestBody, signal?: AbortSignal): Promise<SuggestResponse> {
   const query = scopeQueryString(scope)
   const response = await fetch(`/api/search/suggest${query ? `?${query}` : ''}`, {
@@ -58,7 +48,6 @@ export async function postSuggest(scope: SearchScopeQuery, body: SuggestBody, si
   return (await response.json()) as SuggestResponse
 }
 
-/** Download the current document result as a Planliste, named as the route names it. */
 export function exportSearch(
   scope: SearchScopeQuery,
   body: SearchBody,

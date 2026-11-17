@@ -1,18 +1,3 @@
-/**
- * The ways from the file preview into the Prüfansicht, and what the preview
- * says about the marks on the way.
- *
- * What is pinned: a PDF that carries Anmerkungen opens full screen AS the
- * review (an image keeps the enlarged viewer); the review keeps its address
- * while it is open, so a reload stays in it and Back leaves it; „Anmerken" in
- * the viewer's pill opens it with the point in hand; the rail's section stands
- * while the list loads and when it could not be read; a mark set on an earlier
- * Fassung says so; the phone reader has „Anmerken" at the thumb; and a pin
- * shows its mark when the pointer rests on it.
- *
- * The review itself is stood in for: it is the canvas's own suite's. What this
- * file owns is what the pane hands it and when.
- */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ComponentProps } from 'react'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
@@ -27,7 +12,6 @@ import { useFilePreviewStore } from '../stores/file-preview-store'
 const pdf = vi.hoisted((): FakePdfState => ({ fail: false, pages: [], destroyed: 0 }))
 vi.mock('@/features/knowledge/lib/pdfjs-runtime', () => fakePdfjsRuntime(pdf))
 
-/** The page's address, played by the test: what the pane read, and what it wrote. */
 const nav = vi.hoisted(() => ({
   params: new URLSearchParams(),
   push: vi.fn<(href: string) => void>(),
@@ -125,7 +109,6 @@ const mark = (overrides: Partial<AnnotationView> = {}): AnnotationView => ({
 const json = (body: unknown, status = 200): Response =>
   ({ ok: status < 400, status, json: async () => body }) as Response
 
-/** The BFF: the preview's link, and the marks (or a failure, or a list that never comes). */
 function serve(marks: AnnotationView[] | 'error' | 'pending', { canAnnotate = true } = {}) {
   const calls = { annotations: 0 }
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
@@ -149,7 +132,6 @@ function serve(marks: AnnotationView[] | 'error' | 'pending', { canAnnotate = tr
 }
 
 const realMatchMedia = window.matchMedia
-/** Answer media queries as a phone, or as a desktop pointer that hovers. */
 function media(matches: (query: string) => boolean) {
   window.matchMedia = ((query: string) => ({
     matches: matches(query),
@@ -207,13 +189,11 @@ describe('into the review from the header', () => {
   it('takes the inline viewer away while the review is open, and brings it back once it closes', async () => {
     serve([mark()])
     render(pane())
-    // The inline viewer: its pill, and the marks drawn over its page.
     expect(await screen.findByTestId('inline-annotate')).toBeInTheDocument()
     expect(await screen.findByTestId('review-layer-1')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Open review' }))
     await screen.findByTestId('review-mode')
-    // Under the full-screen review, a second viewer drew the same pages for nobody.
     expect(screen.queryByTestId('inline-annotate')).toBeNull()
     expect(screen.queryByTestId('review-layer-1')).toBeNull()
 
@@ -303,7 +283,6 @@ describe('the review keeps its address', () => {
     const back = '/app/projects/proj-1/files/open-points?assignee=me'
     nav.params = new URLSearchParams(`doc=doc-1&review=1&mark=ann-1&back=${encodeURIComponent(back)}`)
     render(pane())
-    // At the link's mark, its list read, as a reader is before they close: the address has settled.
     expect((await screen.findByTestId('review-mode')).dataset.focus).toBe('ann-1')
     await waitFor(() => expect(screen.getAllByTestId('annotations-summary-row')).toHaveLength(1))
     fireEvent.click(screen.getByRole('button', { name: 'close review' }))
@@ -311,7 +290,6 @@ describe('the review keeps its address', () => {
     expect(nav.replace).toHaveBeenLastCalledWith(back, { scroll: false })
   })
 
-  /** This tab's history as the Navigation API lists it, the review the last entry. */
   const historyBehind = (...paths: string[]) => {
     const origin = window.location.origin
     const entries = [...paths, `/app/projects/proj-1/files?${nav.params.toString()}`].map((path) => ({ url: `${origin}${path}` }))
@@ -320,11 +298,9 @@ describe('the review keeps its address', () => {
       value: { entries: () => entries, currentEntry: { index: entries.length - 1 } },
     })
   }
-  /** The address a link opens: the review at its mark, with where it came from. */
   const openFromLink = (back: string) => {
     nav.params = new URLSearchParams(`doc=doc-1&review=1&mark=ann-1&back=${encodeURIComponent(back)}`)
   }
-  /** At the link's mark, its list read, as a reader is before they close: then close. */
   const closeSettled = async () => {
     render(pane())
     expect((await screen.findByTestId('review-mode')).dataset.focus).toBe('ann-1')
@@ -341,7 +317,6 @@ describe('the review keeps its address', () => {
     it('goes Back to the Postfach opened from Dateien of the same project, so it is in history once', async () => {
       serve([mark()])
       const back = '/app/inbox?filter=unread'
-      // The review's path is Dateien's, as the entry two back: only the query tells them apart.
       openFromLink(back)
       historyBehind('/app/projects/proj-1/files', back)
       await closeSettled()
@@ -398,7 +373,6 @@ describe('the row behind the pane says what the review says', () => {
       mark({ id: 'ann-4', number: 4, status: 'resolved' }),
     ])
     const onMarksChanged = vi.fn()
-    // The listing was read when all five were open.
     render(pane({ file: { ...FILE, marks: { open: 5, proposed: 0, forYou: 0 } }, viewerUserId: 'user_me', onMarksChanged }))
     await waitFor(() => expect(onMarksChanged).toHaveBeenCalledWith('doc-1', { open: 2, proposed: 1, forYou: 1 }))
   })
@@ -430,7 +404,6 @@ describe('the row behind the pane says what the review says', () => {
     const { rerender } = render(pane({ file: { ...FILE, marks: null }, onMarksChanged }))
     await waitFor(() => expect(onMarksChanged).toHaveBeenCalledWith('doc-1', { open: 1, proposed: 0, forYou: 0 }))
 
-    // The pane is reused for another document, whose listing row says three are open.
     rerender(pane({ file: { ...FILE, id: 'doc-2', marks: { open: 3, proposed: 0, forYou: 0 } }, onMarksChanged }))
     await new Promise((resolve) => setTimeout(resolve, 50))
     expect(onMarksChanged.mock.calls.filter(([id]) => id === 'doc-2')).toEqual([])

@@ -1,18 +1,3 @@
-"""A URL a caller hands this tier is an ``ObjectStoreUrl``, or this file says why not.
-
-The SSRF gate used to be a private function a route had to remember to call,
-and the mail-archive routes did not: they took a caller's URL and requested it
-(``routes/mail_archive.py`` before ``agent_host.object_store_url``). The type
-cannot be forgotten once it is on the field, so this test holds every request
-model to it: it walks the body of every route mounted from ``routes/``, and
-every request-shaped model this package defines, into their nested models, and
-fails on a field whose name says URL (``url``, ``*_url``, ``*_ref``, ``*_uri``,
-``*_href``) typed as a plain ``str``.
-
-A URL that is stored or shown and never requested by this tier is not an SSRF;
-it goes in :data:`NOT_REQUESTED` with the reason, where a reviewer reads it.
-"""
-
 from __future__ import annotations
 
 import importlib
@@ -32,32 +17,25 @@ import agent_host
 from agent_host import routes as routes_package
 from agent_host.object_store_url import ObjectStoreUrl
 
-#: A field name that says "this is a URL".
 _URL_NAME = re.compile(r"^(url|uri|href)$|_(url|ref|uri|href)$")
 
 _REGISTRAR = re.compile(r"^(add|register)_\w*routes$")
 
-#: ``Model.field``: why a URL-named plain ``str`` is not a URL this tier requests.
 NOT_REQUESTED: dict[str, str] = {
     "NormEntry.citation_url": "a RIS citation link the norm registry stores and the UI shows; never requested here",
     "NormEntry.full_law_url": "a RIS full-text link the norm registry stores and the UI shows; never requested here",
     "NormEntry.source_url": "a publisher's link (wien.gv.at, oib.or.at) stored and shown; never requested here",
 }
 
-#: URLs this tier requests through the public-source gate instead (ADR-0162): only on the named configured
-#: source's hosts, at every redirect hop, from a public address, GET only (``public_sources.capture``). Not an
-#: object-store URL, and no SSRF: the gate is the source's host list, checked before anything is sent.
 GATED_BY_SOURCE: dict[str, str] = {
     "CaptureRequest.url": "a public source's page, fetched only through public_sources source_transport (ADR-0170)",
     "CorpusTextRequest.url": "a public source's PDF, fetched by the same capture through source_transport (ADR-0165)",
 }
 
-#: Fields the walk must reach, or it is walking the wrong thing.
 _KNOWN_GATED = {"IngestRequest.file_ref", "ArchiveRef.url"}
 
 
 def _mounted_routes() -> list[APIRoute]:
-    """Every route a router-level registrar under ``routes/`` mounts."""
     router = APIRouter()
     for info in pkgutil.iter_modules(routes_package.__path__):
         module = importlib.import_module(f"agent_host.routes.{info.name}")
@@ -78,7 +56,6 @@ def _mounted_body_models() -> Iterator[type[BaseModel]]:
 
 
 def _request_shaped_models() -> Iterator[type[BaseModel]]:
-    """Every model named ``*Request`` that a module of this package defines, mounted or not."""
     for info in pkgutil.walk_packages(agent_host.__path__, "agent_host."):
         module = importlib.import_module(info.name)
         for _, member in inspect.getmembers(module, inspect.isclass):
@@ -98,16 +75,10 @@ def _models_in(annotation: object) -> Iterator[type[BaseModel]]:
         yield from _models_in(argument)
 
 
-#: What makes a ``str`` an ``ObjectStoreUrl``: its constraints and its validator.
 _GATE = typing.get_args(ObjectStoreUrl)[1:]
 
 
 def _is_gated(field: FieldInfo) -> bool:
-    """The field is an ``ObjectStoreUrl``, alone or inside ``| None``, a list or another wrapper.
-
-    pydantic lifts a top-level ``Annotated`` off the annotation into the
-    field's ``metadata``; one nested in a union stays where it was written.
-    """
     return all(part in field.metadata for part in _GATE) or _annotates_gate(field.annotation)
 
 
@@ -126,7 +97,6 @@ def _says_str(annotation: object) -> bool:
 
 
 def _url_fields() -> dict[str, FieldInfo]:
-    """``Model.field`` to its field, for every URL-named field reachable from a request model."""
     found: dict[str, FieldInfo] = {}
     seen: set[type[BaseModel]] = set()
     pending = [*_mounted_body_models(), *_request_shaped_models()]
@@ -161,7 +131,6 @@ def test_every_url_a_request_names_is_an_object_store_url():
 
 
 def test_no_route_takes_a_url_as_a_plain_query_path_header_or_body_parameter():
-    """The same rule for a URL that arrives outside a model: ``?url=…``, a path segment, a header."""
     plain = sorted(
         f"{sorted(route.methods)[0]} {route.path}: {parameter.name}"
         for route in _mounted_routes()
@@ -180,7 +149,6 @@ def test_no_route_takes_a_url_as_a_plain_query_path_header_or_body_parameter():
 
 
 def test_the_walk_reaches_the_gated_fields():
-    """A walk that found nothing would pass the test above; it must see the fields we know."""
     fields = _url_fields()
 
     assert _KNOWN_GATED <= fields.keys()
@@ -188,6 +156,5 @@ def test_the_walk_reaches_the_gated_fields():
 
 
 def test_every_exemption_still_names_a_field():
-    """An exemption whose field was renamed or removed would excuse the next one to take its name."""
     assert set(NOT_REQUESTED) <= _url_fields().keys()
     assert set(GATED_BY_SOURCE) <= _url_fields().keys()

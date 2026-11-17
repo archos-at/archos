@@ -9,8 +9,6 @@ vi.mock('next/navigation', () => ({
   usePathname: () => '/app/projects',
 }))
 
-// The create dialog pulls in a server action via its form; grid behaviour
-// under test does not depend on it.
 vi.mock('./create-project-form', () => ({
   CreateProjectForm: () => <div data-testid="create-project-form" />,
 }))
@@ -72,8 +70,6 @@ describe('ProjectsGrid', () => {
 
     expect(screen.getByText('Start your first project')).toBeInTheDocument()
     expect(screen.queryByRole('textbox', { name: /search projects/i })).not.toBeInTheDocument()
-    // One way to create it: a header „New project" beside „Create your first
-    // project" read as two different actions in a pilot onboarding.
     expect(screen.getByRole('button', { name: 'Create your first project' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'New project' })).not.toBeInTheDocument()
   })
@@ -99,7 +95,6 @@ describe('ProjectsGrid', () => {
 
     expect(screen.getByRole('heading', { level: 2, name: 'Pick up where you left off' })).toBeInTheDocument()
 
-    // The rail is the only place with headings; the list is <li> rows.
     expect(screen.getAllByRole('heading', { level: 3 }).map((node) => node.textContent)).toEqual([
       'Grinzing',
       'Seestadt',
@@ -126,7 +121,6 @@ describe('ProjectsGrid', () => {
       'Newer',
       'Older',
     ])
-    // Fewer projects than rail slots — no list section at all.
     expect(screen.queryByRole('listitem')).not.toBeInTheDocument()
   })
 
@@ -148,7 +142,6 @@ describe('ProjectsGrid', () => {
 
     expect(screen.getByRole('heading', { level: 2, name: 'Matches' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Pick up where you left off' })).not.toBeInTheDocument()
-    // Both matches are rows, including the one that was on the rail a moment ago.
     expect(screen.getAllByRole('listitem')).toHaveLength(2)
     expect(screen.queryByRole('heading', { level: 3 })).not.toBeInTheDocument()
   })
@@ -209,8 +202,6 @@ describe('ProjectsGrid', () => {
     render(<ProjectsGrid projects={[createProject()]} docCounts={{}} />)
 
     const header = screen.getByRole('heading', { level: 1, name: 'Projects' }).parentElement
-    // The action cannot be clipped by a full-width search beside it: they are
-    // placed in different grid rows below `sm`.
     expect(header).toHaveClass('grid')
     const search = screen.getByRole('textbox', { name: /search projects/i }).closest('.col-span-2')
     expect(search).toHaveClass('row-start-2', 'sm:col-start-2', 'sm:row-start-1')
@@ -272,8 +263,6 @@ describe('ProjectsGrid', () => {
 
       expect(screen.getByTestId('project-status-filter-paused')).toBeInTheDocument()
       await userEvent.click(screen.getByTestId('project-status-filter-all'))
-      // The viewer worked in the paused and the closed project last, and still
-      // the rail is the active one alone: it is for work in progress.
       const rail = screen.getByRole('region', { name: 'Your projects' })
       expect(within(rail).getByRole('link', { name: 'Open Seestadt' })).toBeInTheDocument()
       expect(within(rail).queryByRole('link', { name: 'Open Hotel Semmering' })).not.toBeInTheDocument()

@@ -1,20 +1,5 @@
 'use client'
 
-/**
- * One file of an upload, as its summary shows it: the name (a link into the
- * project's Files view, opened on it), the status badge the Files view shows,
- * the detected document type and the other tags, the summary Piloti wrote, and
- * whatever the reader has to know about how it ended: the screening's note when
- * the content was only partly checked, the reasons a file waits in quarantine
- * (and the sentence the Files view says for it), or why its reading failed.
- *
- * Every one of those sentences is the shared one: reasons through
- * `QuarantineFindings`, failures through `IngestFailureNotice`
- * (`classifyIngestFailure` + `ingestFailureSentence`), the screening notes
- * from `files.screening.*`. A file reads the same here as in the quarantine
- * queue and the Files preview.
- */
-
 import type { JSX } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -34,13 +19,8 @@ import { documentTypeOf, tagLabel } from '@/lib/documents/tag-vocabulary'
 import { displayNameOf, otherTags } from '../lib/upload-summary'
 import { FacetChip, useTallyLabel } from './upload-atoms'
 
-/** Lines of a file's summary shown before it asks for the space. */
 const SUMMARY_LINES = 2
 
-/**
- * „Trotzdem zulassen" for whoever may decide, „Prüfung anfragen" for the
- * uploader who may not (ADR-0086), as the tray and the Files preview offer it.
- */
 function HeldFileDecision({ documentId, name, href }: { documentId: string; name: string; href: string | null }): JSX.Element {
   const router = useRouter()
   return (
@@ -62,9 +42,7 @@ export function UploadedFileRow({
   shelf,
 }: {
   document: UploadSummaryDocument
-  /** Where the name links; `null` renders it as text. */
   href: string | null
-  /** The shelf the link opens, which its title names. */
   shelf: UploadSummary['scope']
 }): JSX.Element {
   const t = useTranslations(uploadBatchesCopy)
@@ -163,14 +141,10 @@ export function UploadedFileRow({
           />
         )}
         {document.outcome === 'failed' && document.screening === null && (
-          // Its reading ended before the check had a verdict, so colleagues do
-          // not see it until a reviewer releases it (ADR-0086); a retry of an
-          // IFC too large to read fails the same way.
           <HeldFileDecision documentId={document.id} name={name} href={href} />
         )}
 
         {partlyChecked && document.outcome !== 'quarantined' && (
-          // A sentence, not a label: it wraps instead of truncating on a phone.
           <ItemDescription className="whitespace-normal" data-testid={`upload-file-screening-${document.id}`}>
             {tFiles('screening.partial')}
           </ItemDescription>

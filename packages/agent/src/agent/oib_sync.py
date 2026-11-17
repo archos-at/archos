@@ -92,7 +92,15 @@ SYNC_LOCK_KEY = "oib-sync"
 #    chunks addressed ``clause_id = "Tabelle N"``. Removing them also drops the 12
 #    table rows version 3 accepted as Punkte (OIB-RL 2 13-15, OIB-RL 2.1 6.1-6.3,
 #    and their Änderungen twins): 1645 Punkt ids become 1633, plus 104 table chunks.
-CHUNK_FORMAT_VERSION = 4
+# 5: a released text (``<manifestationKey>-<hash>.pdf``, a base-corpus job carrying
+#    ``knowledge_edition_id``) is cut on its Punkte first, where the heading chunker cut
+#    it and cited 5.1.1 to 5.1.4 of a Richtlinie as "5.1"; the footer of any edition
+#    month (not May alone) is furniture, so every chunk of a 2015 or 2019 copy changes
+#    its breadcrumb from the file name to "OIB-Richtlinie N — Subject"; the annex the
+#    contents page lists after the last Punkt leaves that Punkt. Without this bump the
+#    released texts would keep their heading-cut chunks until someone re-ingested each
+#    by hand, on every environment. Stored marks survive the rebuild (``begin_job``).
+CHUNK_FORMAT_VERSION = 5
 
 
 @dataclass(frozen=True)
@@ -411,6 +419,9 @@ def mark_for_reingest(name: str, mark: corpus_store.FileMark | None = None) -> b
     A ``mark`` (the country and edition the platform recorded, ADR-0173) is stored for the job to carry.
     A job left alone was prepared before this mark, a generation behind (``corpus_store.set_mark``): when it
     finishes, :func:`settle` does not record it, drops it, and the next cycle queues one that carries the mark.
+    The same mark again over a job in flight is no new mark: the job already carries it, so its generation stays
+    and its work counts. A retried indexing run asks for exactly that, and each new generation used to throw away
+    an ingest that was nearly done (prod, 2026-11-14).
     Under the file's lock, as preparing a job is, so a job is prepared wholly before a mark or wholly after it.
     """
     if not corpus_store.is_valid_name(name):
@@ -419,9 +430,10 @@ def mark_for_reingest(name: str, mark: corpus_store.FileMark | None = None) -> b
         row = corpus_store.get_file(name)
         if row is None:
             return False
-        if progress_of(row) not in (JobProgress.WAITING, JobProgress.RUNNING):
+        in_flight = progress_of(row) in (JobProgress.WAITING, JobProgress.RUNNING)
+        if not in_flight:
             _drop_job(row)
-        if mark is not None:
+        if mark is not None and not (in_flight and corpus_store.get_mark(name) == mark):
             corpus_store.set_mark(name, mark)
         corpus_store.forget_ingested(name)
     return True
@@ -464,7 +476,7 @@ def _forget_everything_if_the_index_was_reset(rows: dict[str, corpus_store.FileR
 
 #: Sets payload fields on every chunk of each named base-corpus file; the API tier hands it in
 #: (``agent_host.jobs.corpus_payloads``), since this package does not reach the vector store itself.
-MarkCorpusChunks = Callable[[dict[str, dict[str, str]]], None]
+MarkCorpusChunks = Callable[[dict[str, dict[str, str | bool]]], None]
 
 
 def backfill_legacy_marks(mark_chunks: MarkCorpusChunks | None) -> int:
@@ -474,7 +486,7 @@ def backfill_legacy_marks(mark_chunks: MarkCorpusChunks | None) -> int:
     deploy finds unmarked are the Austria pack's. Each row gets the mark (a later ingest job carries
     it) and its chunks get ``country_id``, so nothing turns unreadable once the filter reads unmarked
     chunks as nobody's. Then the backfill records that it ran, and never runs again: a file uploaded
-    later carries the mark its release gives it, or ``ZZ``. Without ``mark_chunks``, or with a store
+    later carries the mark its release gives it, or none. Without ``mark_chunks``, or with a store
     that refuses, it waits for the next cycle, with nothing half-written in the table.
     """
     if mark_chunks is None:
@@ -482,13 +494,13 @@ def backfill_legacy_marks(mark_chunks: MarkCorpusChunks | None) -> int:
     names = corpus_store.legacy_unmarked()
     try:
         if names:
-            mark_chunks({name: {"country_id": corpus_store.LEGACY_CORPUS_COUNTRY} for name in names})
+            mark_chunks({name: {"country_id": corpus_store.LEGACY_CORPUS_COUNTRY, "released": True} for name in names})
     except Exception:  # noqa: BLE001 - the next cycle tries again; nothing below has run
         logger.warning(
             "The legacy country backfill could not reach the vector store; it runs next cycle", exc_info=True
         )
         return 0
-    mark = corpus_store.FileMark(country_id=corpus_store.LEGACY_CORPUS_COUNTRY)
+    mark = corpus_store.FileMark(country_id=corpus_store.LEGACY_CORPUS_COUNTRY, released=True)
     for name in names:
         corpus_store.set_mark(name, mark)
     corpus_store.record_legacy_backfill()

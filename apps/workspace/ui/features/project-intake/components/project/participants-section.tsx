@@ -1,26 +1,5 @@
 'use client'
 
-/**
- * Step 1's Beteiligte: everyone on the project in one card, and the two ways to
- * add someone. Colleagues from the office get a role in Piloti (the members
- * route, WorkOS); everyone else, the Statiker, the Bauherrschaft, a Fachplaner
- * without an account, is a Steckbrief row with a Funktion (ADR-0091). Both
- * records exist already; this card only shows them side by side.
- *
- * The card is a list and nothing else (the approved mockup `Projekt.dc.html`):
- * a row is a disc, the name and one line of what the person does. Everything a
- * row can be asked to do is folded behind its one quiet control: „Rolle" for a
- * colleague whose role the reader may change, a „…" for anyone else the reader
- * may describe or remove. Adding or describing someone opens a sheet; former
- * members fold under the list.
- *
- * What the reader may do is the server's answer, never guessed here: the
- * Steckbrief says whether people may be added or erased (`canEdit`,
- * `canErase`), and the roster answers only whoever may manage the members, so
- * without it there is no role to change and no colleague to add. Nobody
- * changes their own access in the setup.
- */
-
 import { useState, type JSX } from 'react'
 import { ChevronDown, Ellipsis, Plus } from 'lucide-react'
 import { toast } from 'sonner'
@@ -49,7 +28,6 @@ import { colleagueCandidates, participantRows, type ParticipantRow } from './par
 import { PersonForm, type PersonDraft } from './person-form'
 import { PersonDisc, StepCard, StepCardRow } from './step-card'
 
-/** What the sheet holds: a colleague to add, someone from outside to add, or a row to describe. */
 type SheetTask = { kind: 'colleague' } | { kind: 'external' } | { kind: 'describe'; row: ParticipantRow } | null
 
 export interface ParticipantsSectionProps {
@@ -70,7 +48,6 @@ const personInput = (person: Pick<ProjectPersonView, 'startedOn' | 'endedOn' | '
   userId: person?.userId ?? null,
 })
 
-/** The quiet bordered button at the card's foot, 34px on a desk and 44px under a finger. */
 const ADD_CLASS = 'h-[34px] gap-1.5 px-3 text-[13px] font-normal pointer-coarse:h-11'
 
 export function ParticipantsSection({ projectId, client, peopleRecord, roster, loading, reload }: ParticipantsSectionProps): JSX.Element {
@@ -84,11 +61,6 @@ export function ParticipantsSection({ projectId, client, peopleRecord, roster, l
 
   const roleLabel = (role: ProjectMemberRoleSlug): string => tMembers(`roles.${role}`)
 
-  /**
-   * One write, then a fresh read, also after a failure: adding a colleague is
-   * two writes, and the first may have gone through. Says what went wrong, the
-   * last admin by name.
-   */
   const run = async (key: string, work: () => Promise<void>, done: string): Promise<boolean> => {
     setPending(key)
     let ok = false
@@ -119,7 +91,7 @@ export function ParticipantsSection({ projectId, client, peopleRecord, roster, l
         ) : (
           <StepCardRow className="flex-wrap justify-between">
             <p className="text-sm">{t('people.loadFailed')}</p>
-            <Button type="button" size="sm" variant="outline" className={ADD_CLASS} onClick={() => void reload()}>
+            <Button type="button" size="sm" variant="secondary" className={ADD_CLASS} onClick={() => void reload()}>
               {t('people.retry')}
             </Button>
           </StepCardRow>
@@ -245,7 +217,7 @@ export function ParticipantsSection({ projectId, client, peopleRecord, roster, l
           {canAddColleague && (
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               size="sm"
               className={ADD_CLASS}
               onClick={() => setTask({ kind: 'colleague' })}
@@ -257,7 +229,7 @@ export function ParticipantsSection({ projectId, client, peopleRecord, roster, l
             </Button>
           )}
           {peopleRecord.canEdit && (
-            <Button type="button" variant="outline" size="sm" className={ADD_CLASS} onClick={() => setTask({ kind: 'external' })}>
+            <Button type="button" variant="secondary" size="sm" className={ADD_CLASS} onClick={() => setTask({ kind: 'external' })}>
               <Plus aria-hidden />
               {t('people.addExternal')}
             </Button>
@@ -353,7 +325,6 @@ function ParticipantItem({
   row: ParticipantRow
   canEdit: boolean
   canErase: boolean
-  /** A write is in flight: the controls stay where they are and wait. */
   busy: boolean
   roleLabel: (role: ProjectMemberRoleSlug) => string
   onDescribe: () => void

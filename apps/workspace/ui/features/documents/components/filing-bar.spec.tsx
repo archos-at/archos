@@ -109,7 +109,6 @@ function renderView(listed: ListedProposal[], { view = 'grid', minFiles }: { vie
   return onSettled
 }
 
-/** The ids of the tiles outlined right now. */
 const litCards = () =>
   FILES.filter((entry) => screen.getByTestId(`card-${entry.id}`).closest('[class*="rounded-surface"]')?.className.includes('outline-strong')).map(
     (entry) => entry.id
@@ -225,7 +224,6 @@ describe('InlineSuggestion', () => {
         return statSync(path).isDirectory() ? walk(path) : /\.(ts|tsx)$/.test(name) ? [path] : []
       })
     const callers = walk(src).filter(
-      // Specs may name it to assert it is absent; code may not.
       (path) => !/\.spec\.tsx?$/.test(path) && /InlineSuggestion|inline-suggestion/.test(readFileSync(path, 'utf8'))
     )
     expect(callers).toEqual([])

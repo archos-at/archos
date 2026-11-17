@@ -1,14 +1,3 @@
-"""Cards as a field of the answer envelope: one validator, one contract, no round.
-
-``emit_card`` is a tool call and a tool call ends a message, so every
-card-bearing answer paid one more full-context call to write the prose after
-its cards, and a third on a wrong shape. The envelope's ``cards`` field
-carries the same objects in the same message as the answer. What these tests
-pin is that the field buys a card no softer standard than the tool would, and
-that the contract the model is taught is rendered from the catalog, shapes
-included, rather than hand-written beside it.
-"""
-
 from __future__ import annotations
 
 import json
@@ -33,7 +22,6 @@ class TestTheOneValidator:
         assert validated is not None and validated["type"] == "calculation"
 
     def test_a_shape_miss_names_the_type_the_clauses_and_the_full_shape(self):
-        """What a retry or a repair needs, and nothing a reader must not see."""
         validated, refusal = validate_model_card({"type": "stair_diagram", "title": "Treppe", "riser_count": 17})
         assert validated is None
         assert refusal is not None and refusal.kind == REFUSED_SHAPE
@@ -64,7 +52,6 @@ class TestTheOneValidator:
 
 class TestTheArrayTheModelWrites:
     def test_objects_pass_through_and_json_strings_are_parsed(self):
-        """A model that learned `emit_card` writes a card as a JSON string; same card."""
         objects = envelope_card_objects([BASIS, json.dumps(BASIS)])
         assert objects == [BASIS, BASIS]
 
@@ -84,8 +71,6 @@ class TestTheTaughtContract:
         assert "Card types:" in contract
         for card_type in ENVELOPE_SHAPE_TYPES:
             assert f'"{card_type}"' in contract or f"{card_type}:" in contract
-        # A shape the envelope does not teach is index-only: the whole
-        # catalog's shapes stay on demand.
         assert '"stair_diagram":' in contract
         assert "Steigung" not in contract.split('"stair_diagram":')[1].split("\n")[0]
         assert contract.count("Example:") <= len(ENVELOPE_SHAPE_TYPES) + 1
@@ -103,8 +88,6 @@ class TestTheTaughtContract:
         assert "CARDS (the `cards` field):" in schema
 
     def test_the_strict_schema_omits_the_field_it_cannot_express(self):
-        """Strict mode cannot hold the 40-way union; the truncated turn ships
-        without cards rather than with a schema that lies about them."""
         from agent.common.answer_envelope import render_envelope_response_format
 
         properties = render_envelope_response_format()["json_schema"]["schema"]["properties"]

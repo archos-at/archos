@@ -61,10 +61,8 @@ import {
   SupersededMark,
 } from './search-atoms'
 
-/** Columns whose values are figures: right-aligned, as a register reads them. */
 const NUMERIC: ReadonlySet<RegisterColumn> = new Set(['pages'])
 
-/** How each column sets its values, which is what its width is estimated from (`register-fit.ts`). */
 const SETTING: Readonly<Record<RegisterColumn, Exclude<CellSetting, 'header'>>> = {
   planNumber: 'code',
   planIndex: 'code',
@@ -80,13 +78,8 @@ const SETTING: Readonly<Record<RegisterColumn, Exclude<CellSetting, 'header'>>> 
   status: 'text',
 }
 
-/** Room „Ersetzt“ takes beside a replaced Fassung's name. */
 const SUPERSEDED_REM = 5.5
 
-/**
- * What each column claims on this page: its header's width, and the width of
- * its longest value among the rows shown, by the same text each cell draws.
- */
 function useColumnFits(columns: readonly RegisterColumn[], hits: readonly DocumentHit[]): ColumnFit[] {
   const t = useTranslations(searchCopy)
   const labels = useSearchLabels()
@@ -118,8 +111,6 @@ function useColumnFits(columns: readonly RegisterColumn[], hits: readonly Docume
         return documentReadFamily(hit.status) === 'readable' ? null : labels.readState(documentReadFamily(hit.status))
     }
   }
-  // A name that runs on into empty cells after it (`titleSpan`) has their room
-  // too, so only the names kept to their own column say what it should be.
   const ownColumn = hits.filter((hit) => titleSpan(columns, hit) === 1)
   return columns.map((column) => {
     const min = headerRem(t(`register.columns.${column}`))
@@ -134,20 +125,12 @@ export interface SearchRegisterProps {
   section: SectionView<DocumentHit> | undefined
   onStateChange: (next: SearchUrlState) => void
   onLoadMore: () => void
-  /** Leave out the Projekt column where the scope is one project. */
   hideProject?: boolean
-  /** The row the arrow keys are on (`document:id`). */
   activeKey: string | null
-  /** The table's id and each row's, which the search field's combobox names. */
   listId?: string
   optionId?: (hit: DocumentHit) => string
 }
 
-/**
- * Above the register, whether or not it has rows: „Nur aktuelle Fassung“, on
- * by default here (the Jour fixe reads the current plans), and the column
- * menu; on a phone, where there are no headers to click, the order too.
- */
 export function SearchRegisterBar({
   state,
   onStateChange,
@@ -180,10 +163,8 @@ export function SearchRegisterBar({
   )
 }
 
-/** Which columns show: a check per column, kept open while the reader picks several. */
 function ColumnMenu({ state, onStateChange, hideProject }: { state: SearchUrlState; onStateChange: (next: SearchUrlState) => void; hideProject: boolean }): JSX.Element {
   const t = useTranslations(searchCopy)
-  // On a phone there are no columns, only the fields of each entry: the button says so.
   const isMobile = useIsMobile()
   const visible = new Set(visibleRegisterColumns(state.columns))
   const offered = REGISTER_COLUMNS.filter((column) => !(hideProject && column === 'project'))
@@ -222,7 +203,6 @@ function ColumnMenu({ state, onStateChange, hideProject }: { state: SearchUrlSta
   )
 }
 
-/** The order on a phone: the visible columns as choices; the active one again turns it round. */
 function SortMenu({ state, onStateChange, hideProject }: { state: SearchUrlState; onStateChange: (next: SearchUrlState) => void; hideProject: boolean }): JSX.Element {
   const t = useTranslations(searchCopy)
   const columns = visibleRegisterColumns(state.columns, { hideProject })
@@ -263,12 +243,6 @@ function SortMenu({ state, onStateChange, hideProject }: { state: SearchUrlState
   )
 }
 
-/**
- * The register, the Planliste: one row per document, the columns a Jour fixe
- * reads, each header a sort control. The page scrolls it, and its header row
- * stays put. On a phone it is a stack of entries, the number over the name.
- * It is a view of what Piloti read, not a list anyone maintains.
- */
 export function SearchRegister({ state, section, onStateChange, onLoadMore, hideProject = false, activeKey, listId, optionId }: SearchRegisterProps): JSX.Element {
   const t = useTranslations(searchCopy)
   const isMobile = useIsMobile()
@@ -333,12 +307,6 @@ export function SearchRegister({ state, section, onStateChange, onLoadMore, hide
   )
 }
 
-/**
- * The read state, only where it is news: a document Piloti has read says
- * nothing, so the column (and a phone card's corner) shows the exceptions
- * alone, „Wird gelesen“, „Nicht lesbar“. „Ersetzt“ is not a read state: it
- * sits on the name's line in every view.
- */
 function useReadException(hit: DocumentHit): string | null {
   const labels = useSearchLabels()
   const family = documentReadFamily(hit.status)
@@ -351,7 +319,6 @@ function RegisterLine({ hit, columns, active, id }: { hit: DocumentHit; columns:
   const menus = useHitMenus()
   const labels = useSearchLabels()
   const exception = useReadException(hit)
-  // The name runs on into the empty cells after it, as a spreadsheet's text does.
   const span = titleSpan(columns, hit)
   const at = columns.indexOf('title')
   const shown = columns.filter((_, index) => index <= at || index >= at + span)
@@ -378,7 +345,6 @@ function RegisterLine({ hit, columns, active, id }: { hit: DocumentHit; columns:
         return <RegisterCell key={column} title={type ?? undefined}>{type}</RegisterCell>
       }
       case 'author':
-        // „Atelier Lindner“, as the office says it; the tooltip keeps the legal form.
         return <RegisterCell key={column} title={hit.author ?? undefined}>{hit.author ? withoutLegalForm(hit.author) : null}</RegisterCell>
       case 'project':
         return (
@@ -416,7 +382,6 @@ function RegisterLine({ hit, columns, active, id }: { hit: DocumentHit; columns:
   )
 }
 
-/** On a phone: the number and Index over the name; the other chosen columns on one muted line. */
 function RegisterStackLine({ hit, columns, active, id }: { hit: DocumentHit; columns: readonly RegisterColumn[]; active: boolean; id?: string }): JSX.Element {
   const from = useSearchReturn()
   const t = useTranslations(searchCopy)
@@ -455,7 +420,6 @@ function RegisterStackLine({ hit, columns, active, id }: { hit: DocumentHit; col
       title={hit.title ?? hit.name}
       meta={columns.map(meta)}
       where={
-        // Its own line under the meta, never a part of it (`RegisterStackRow`).
         !shown.has('project') ? undefined : hit.shelf === 'office_shelf' ? (
           <ShelfMark shelf="office_shelf" label={t('where.officeShelf')} wrap />
         ) : hit.projectName ? (

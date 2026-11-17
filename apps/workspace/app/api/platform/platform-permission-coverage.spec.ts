@@ -2,21 +2,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Which `platform:*` permission each platform route requires — asserted, not
- * assumed.
- *
- * `platformApiRoute` will not compile without a `permission`, and
- * `authz-coverage.spec.ts` checks that a route goes through the factory. Neither
- * checks WHICH permission is passed, so swapping `settingsManage` for
- * `settingsView` on a PUT — handing every write to the read-only Platform
- * Support role, which is the exact defect the permission split was introduced to
- * fix — was a green change. An adversarial pass found that gap; this closes it.
- *
- * The table below is the intended access model, written down once. Editing a
- * route's permission means editing this file too, which is the point: it turns a
- * silent widening into a diff a reviewer reads.
- */
 import { describe, expect, it } from 'vitest'
 import { readdirSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
@@ -24,22 +9,11 @@ import { dirname, join, relative } from 'node:path'
 
 const PLATFORM_DIR = dirname(fileURLToPath(import.meta.url))
 
-/**
- * route file (relative to `app/api/platform/`) + method → required permission.
- *
- * The rule the table follows: data ABOUT tenant organizations is
- * `platform:organizations:*`; platform-owned configuration and the platform-owned
- * knowledge base are `platform:settings:*`; reads take `*:view` and writes take
- * `*:manage`.
- */
 const EXPECTED: Record<string, string> = {
   'audit-portal/route.ts POST': 'organizationsView',
   'cards/route.ts GET': 'settingsView',
   'citation-health/export/route.ts GET': 'organizationsView',
   'citation-health/route.ts GET': 'organizationsView',
-  // Product feedback (bugs, ideas) sent TO the platform. Filed with lessons,
-  // not with organization data: it is the platform's own work queue, read on
-  // view and triaged on manage.
   'feedback/[reportId]/route.ts GET': 'settingsView',
   'feedback/[reportId]/route.ts PATCH': 'settingsManage',
   'feedback/route.ts GET': 'settingsView',
@@ -50,7 +24,6 @@ const EXPECTED: Record<string, string> = {
   'knowledge/documents/[fileName]/route.ts GET': 'settingsView',
   'knowledge/documents/route.ts GET': 'settingsView',
   'knowledge/documents/route.ts POST': 'knowledgeWrite',
-  // The platform's base knowledge (ADR-0165): read on settings:view; drafting on knowledge:write, review and release on knowledge:review.
   'knowledge/route.ts GET': 'settingsView',
   'knowledge/change-requests/route.ts GET': 'settingsView',
   'knowledge/change-requests/route.ts POST': 'knowledgeWrite',
@@ -62,11 +35,15 @@ const EXPECTED: Record<string, string> = {
   'knowledge/change-requests/[changeRequestId]/texts/route.ts POST': 'knowledgeWrite',
   'knowledge/change-requests/[changeRequestId]/texts/upload/route.ts POST': 'knowledgeWrite',
   'knowledge/texts/route.ts GET': 'settingsView',
+  'knowledge/countries/[countryId]/works/route.ts GET': 'settingsView',
+  'knowledge/countries/[countryId]/documents/route.ts POST': 'knowledgeWrite',
+  'knowledge/countries/[countryId]/documents/upload/route.ts POST': 'knowledgeWrite',
   'knowledge/sources/route.ts GET': 'settingsView',
-  // A POST that can fetch live: the operator's permission, as the change requests' writes.
   'knowledge/sources/[sourceKey]/test/route.ts POST': 'knowledgeWrite',
   'knowledge/sources/[sourceKey]/credential/route.ts PUT': 'knowledgeWrite',
   'knowledge/change-requests/[changeRequestId]/validation/route.ts GET': 'settingsView',
+  'knowledge/releases/[countryId]/route.ts GET': 'knowledgeReview',
+  'knowledge/releases/route.ts POST': 'knowledgeWrite',
   'knowledge/schemas/route.ts GET': 'settingsView',
   'knowledge/change-requests/[changeRequestId]/submit/route.ts POST': 'knowledgeWrite',
   'knowledge/change-requests/[changeRequestId]/review/route.ts POST': 'knowledgeReview',
@@ -74,19 +51,18 @@ const EXPECTED: Record<string, string> = {
   'knowledge/change-requests/[changeRequestId]/publish/route.ts POST': 'knowledgeReview',
   'knowledge/change-requests/[changeRequestId]/rollback/route.ts POST': 'knowledgeReview',
   'knowledge/change-requests/[changeRequestId]/index-status/route.ts GET': 'settingsView',
-  // Which countries an office is entitled to, and its seat: an organization's platform settings.
+  'knowledge/golden-runs/route.ts POST': 'knowledgeWrite',
+  'knowledge/golden-runs/[runId]/advance/route.ts POST': 'knowledgeWrite',
+  'knowledge/golden-runs/[runId]/route.ts GET': 'settingsView',
   'organizations/[organizationId]/countries/route.ts POST': 'organizationsManage',
   'organizations/countries/route.ts GET': 'organizationsView',
   'organizations/[organizationId]/home-country/route.ts PUT': 'organizationsManage',
   'knowledge/reingest/route.ts POST': 'knowledgeWrite',
   'knowledge/sync/route.ts POST': 'knowledgeWrite',
-  // The lesson register (platform failure learning). Reads take view; the
-  // sweep and every curation mutation take manage.
   'lessons/[lessonId]/route.ts GET': 'settingsView',
   'lessons/[lessonId]/route.ts PATCH': 'settingsManage',
   'lessons/route.ts GET': 'settingsView',
   'lessons/route.ts POST': 'settingsManage',
-  // Kills every running deep research in every organization.
   'maintenance/kill-runs/route.ts POST': 'settingsManage',
   'maintenance/reconcile-vectors/route.ts POST': 'settingsManage',
   'model-defaults/models/route.ts GET': 'settingsView',
@@ -94,9 +70,6 @@ const EXPECTED: Record<string, string> = {
   'model-defaults/route.ts PUT': 'settingsManage',
   'norms/route.ts GET': 'settingsView',
   'norms/route.ts PUT': 'settingsManage',
-  // A read, gated on manage, and deliberately: it is a step inside the norms
-  // EDITING flow and it spends an outbound RIS lookup. The one exception to the
-  // reads-take-view rule, recorded here so it reads as a decision.
   'norms/verify/route.ts POST': 'settingsManage',
   'organizations/[organizationId]/storage/route.ts GET': 'organizationsView',
   'organizations/[organizationId]/storage/route.ts PUT': 'organizationsManage',
@@ -105,22 +78,15 @@ const EXPECTED: Record<string, string> = {
   'organizations/[organizationId]/budgets/route.ts PUT': 'organizationsManage',
   'organizations/[organizationId]/usage/route.ts GET': 'usageView',
   'overview/route.ts GET': 'organizationsView',
-  // The price list (ADR-0053): platform-owned configuration.
   'pricing/route.ts GET': 'settingsView',
   'pricing/route.ts PUT': 'settingsManage',
   'profiler/conversations/[conversationId]/route.ts GET': 'organizationsView',
   'profiler/conversations/route.ts GET': 'organizationsView',
-  // The quality scope bar's organizations and projects: data about tenants.
   'quality/scope-options/route.ts GET': 'organizationsView',
   'reasoning-efforts/route.ts GET': 'settingsView',
   'reasoning-efforts/route.ts PUT': 'settingsManage',
   'retrieval-settings/route.ts GET': 'settingsView',
   'retrieval-settings/route.ts PUT': 'settingsManage',
-  // Platform skill categories: the shelves the curated catalogue is filed on,
-  // so platform-owned configuration like the skills themselves, and gated the
-  // same way. Reading the shelves is `settingsView`; creating, renaming and
-  // deleting one is `settingsManage` — a Platform Support reader can see how
-  // the catalogue is organized and cannot reorganize it.
   'skill-categories/[categoryId]/route.ts PATCH': 'settingsManage',
   'skill-categories/[categoryId]/route.ts DELETE': 'settingsManage',
   'skill-categories/route.ts GET': 'settingsView',
@@ -132,13 +98,6 @@ const EXPECTED: Record<string, string> = {
   'storage/route.ts GET': 'organizationsView',
 }
 
-/**
- * The routes that authorize in their SERVICE rather than the factory
- * (`getAnswerFeedbackHealth`, `getAnswerFeedbackDigest`, `getAnswerFeedbackExport`
- * and `getAnswerFeedbackFilterOptions` call `requirePlatformPermission
- * platform:organizations:view` themselves), so they declare `enforcedBy`
- * instead. `authz-coverage.spec.ts` already exempts them by prefix.
- */
 const SERVICE_ENFORCED = new Set([
   'answer-feedback/route.ts',
   'answer-feedback/digest/route.ts',
@@ -146,12 +105,6 @@ const SERVICE_ENFORCED = new Set([
   'answer-feedback/options/route.ts',
 ])
 
-/**
- * The platform door (ADR-0126), the operator console's MCP server. It requires
- * no permission of its own beyond platform staff (checked when its caller is
- * resolved, `lib/agent-api/principal.ts`): it is a door, and every operation it
- * runs is one of the routes in {@link EXPECTED}, whose permission still decides.
- */
 const DOORS = new Set(['mcp/route.ts'])
 
 const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] as const
@@ -181,7 +134,6 @@ function collect(): Declaration[] {
     for (const method of HTTP_METHODS) {
       const start = source.indexOf(`export const ${method} =`)
       if (start < 0) continue
-      // Isolate this export so a sibling's declaration cannot vouch for it.
       const rest = source.slice(start + 1)
       const next = rest.search(/\nexport const [A-Z]+\s*=/)
       const segment = next >= 0 ? rest.slice(0, next) : rest
@@ -224,16 +176,11 @@ describe('platform route permissions', () => {
   })
 
   it('no route that WRITES is gated on a view permission', () => {
-    // The read-only Platform Support role holds every `*:view` and no `*:manage`.
-    // This is the invariant that keeps "read-only" true as routes are added.
     const mutating = DECLARATIONS.filter(
       (d) => !SERVICE_ENFORCED.has(d.file) && /(POST|PUT|PATCH|DELETE)$/.test(d.key)
     )
     const readGated = mutating
       .filter((d) => d.permission?.endsWith('View'))
-      // Two documented exceptions, both of which write nothing: audit-portal
-      // mints a read/export-only WorkOS portal link (the org-tier equivalent is
-      // gated on `org:audit:view`), and norms/verify only queries RIS.
       .filter((d) => !['audit-portal/route.ts POST', 'norms/verify/route.ts POST'].includes(d.key))
       .map((d) => d.key)
 

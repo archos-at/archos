@@ -1,10 +1,3 @@
-"""``page_image.load_page_jpeg``: a stored document's page as JPEG bytes, outside a chat turn.
-
-The Fassung comparison reads two pages this way. Real PDF bytes are rendered by PDFium; the
-BFF lookup and the object store are doubles, since what is pinned is the order of the steps
-and that every failure is a ``PageImageUnavailable`` with a reason, never another exception.
-"""
-
 from __future__ import annotations
 
 import io
@@ -21,7 +14,6 @@ LOCATION = ("proj_a/doc/Grundriss.pdf", "bucket-a")
 
 @pytest.fixture
 def store(monkeypatch):
-    """The BFF lookup and the object store, with a record of what they were asked."""
     state = {
         "location": LOCATION,
         "bytes": build_pdf([[("R", 12, "Seite eins")], [("R", 12, "Seite zwei")]]),

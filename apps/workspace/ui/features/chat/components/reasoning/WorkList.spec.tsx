@@ -1,9 +1,3 @@
-/**
- * The work list as the Herleitung draws it (ADR-0132): one row per call, the
- * verb muted before its object and the result beside it; status as a shape and
- * a word, never a colour; a tap that links a row to its cards; a row stored
- * before call ids opening its document as it did; no time anywhere.
- */
 import type { ReactElement } from 'react'
 import { render as renderPlain, screen, within } from '@/test-utils'
 import { I18nProvider } from '@/i18n/context'
@@ -36,7 +30,6 @@ const state = vi.hoisted((): FakePdfState => ({
 }))
 vi.mock('@/features/knowledge/lib/pdfjs-runtime', () => fakePdfjsRuntime(state))
 
-/** The Herleitung in German, as the office reads it. */
 const render = (ui: ReactElement) =>
   renderPlain(
     <I18nProvider initialLocale="de" fixedLocale>
@@ -46,7 +39,6 @@ const render = (ui: ReactElement) =>
 
 const rounds = (steps: ReturnType<typeof foldScene>) => workRounds(steps)
 
-/** The no-break space the copy binds a number to its noun with. */
 const NB = '\u00A0'
 
 describe('RoundCalls', () => {
@@ -101,7 +93,6 @@ describe('RoundCalls', () => {
     ])
     render(<RoundCalls round={rounds(steps)[0]} />)
     const result = screen.getByTestId('work-row-result')
-    // The right edge holds the word alone; what it means sits under the object.
     expect(result.textContent).toBe('fehlgeschlagen')
     expect(result.querySelector('svg')).not.toBeNull()
     expect(result.querySelector('svg')!.getAttribute('class')).toMatch(/inline-block/)
@@ -195,7 +186,6 @@ describe('RoundCalls', () => {
     ])
     render(<RoundCalls round={rounds(steps)[0]} />)
     const look = screen.getAllByTestId('work-row').find((row) => row.dataset.verb === 'look')!
-    // toHaveTextContent reads a no-break space as a space.
     expect(look).toHaveTextContent('Betrachtet Schnitt A-A.pdf, S. 3, oben rechts')
     expect(look.textContent).toContain(`S.${NB}3`)
     expect(screen.queryByTestId('look-step-row')).toBeNull()
@@ -215,7 +205,6 @@ describe('RoundCalls', () => {
       'nicht alles durchsucht – es kann weitere Treffer geben'
     )
     expect(within(incomplete[1]).getByTestId('work-row-note')).toHaveTextContent('das ist kein Nein')
-    // Never the failure note: most of it WAS searched.
     expect(screen.queryByTestId('work-row-failed-note')).toBeNull()
   })
 
@@ -262,7 +251,6 @@ describe('RoundCalls', () => {
       'aria-pressed',
       'true'
     )
-    // a second tap clears it
     await userEvent.click(screen.getByRole('button', { name: /^Sucht wörtlich/ }))
     expect(onSelect).toHaveBeenLastCalledWith(null)
   })
@@ -276,7 +264,6 @@ describe('RoundCalls', () => {
     restore()
     const restoreSecond = installLayoutObservers()
     render(<RoundCalls round={rounds(old)[1]} />)
-    // Its name is the row's own sentence, then what a tap does.
     await userEvent.click(
       screen.getAllByRole('button', { name: /^Liest Einreichplan EG\.pdf, S\.\u00A02–3.* – öffnen$/ })[0]
     )
@@ -295,7 +282,6 @@ describe('the calls inside the graph', () => {
     expect(
       roundNodes.map((node) => (node.data as { calls?: { rows: unknown[] } }).calls?.rows.length)
     ).toEqual([3, 2])
-    // the looks are drawn by their round, so the bare look rows have nothing left
     expect(placedLookIds(workRounds(steps)).size).toBe(1)
   })
 
@@ -317,7 +303,6 @@ describe('the calls inside the graph', () => {
         citations={mockupCitations()}
       />
     )
-    // The row names the document as its card does, not by its file name.
     const read = screen.getByRole('button', { name: /^Liest Einreichplan EG, S\./ })
     await userEvent.click(read)
     const cards = screen
@@ -348,7 +333,6 @@ describe('the calls inside the graph', () => {
         (el) =>
           el.hasAttribute('data-source-card') && /Brandschutzkonzept/.test(el.textContent ?? '')
       )!
-    // The preview chip inside is the button; the tap bubbles to the card.
     await userEvent.click(concept)
     expect(screen.getByRole('button', { name: /^Sucht wörtlich/ })).toHaveAttribute(
       'aria-pressed',

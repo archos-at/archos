@@ -1,11 +1,3 @@
-"""The evals that run the agent in their own processes bring a public-source fetcher with them.
-
-Every backend role reads public sources only through the fetcher (ADR-0162
-amendment). ``task be:eval:answer-suite`` and the census run the agent with no
-deployment around it, so without one every Austrian law lookup in them would be
-refused: ``scripts/turn_census/local_fetcher.py`` starts one for them.
-"""
-
 from __future__ import annotations
 
 import sys
@@ -31,7 +23,6 @@ def test_a_run_without_a_fetcher_gets_one_that_answers(fresh):
 
     url = env[local_fetcher.ENV_FETCHER_URL]
     assert httpx.get(f"{url}/healthz", timeout=5, trust_env=False).json() == {"ok": True}
-    # Started once: the next run shares it.
     assert local_fetcher.fetcher_env(sys.executable, REPO_ROOT) == env
 
 

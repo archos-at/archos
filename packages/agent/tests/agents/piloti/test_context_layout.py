@@ -1,11 +1,3 @@
-"""The conversation layout (ADR-0177): a stable head after the system prompt, the turn's note before the question.
-
-What it has to hold: the head is the same bytes on every turn of a project
-(so the provider's cache carries it), every template value is in exactly one of
-the two parts (so a new value cannot land in the head unseen and rewrite it each
-turn), and ``CHAT_CONTEXT_LAYOUT=turn`` is the layout from before.
-"""
-
 from __future__ import annotations
 
 from datetime import datetime
@@ -66,11 +58,9 @@ def _render(monkeypatch, day: int, state: ResearchAgentState) -> TurnPrompt:
 
 
 def test_every_template_value_is_in_exactly_one_part():
-    """A value in neither set would be rendered into both; in both, it is ambiguous."""
     template = system_prompt_template()
     read = jinja2.meta.find_undeclared_variables(jinja2.Environment().parse(template))
     read -= {"context_text", "product_name"}  # set inside the template; injected for every prompt
-    # Read by ``render_prompt_template`` to build ``document_inventory``, not by the template.
     classified = (TURN_VALUES | CONVERSATION_VALUES) - {"available_documents", "in_flight_documents"}
     assert TURN_VALUES.isdisjoint(CONVERSATION_VALUES)
     assert read == classified, read ^ classified
@@ -105,7 +95,6 @@ class TestTheHeadHoldsAcrossTurns:
             assert value not in prompt.conversation, value
 
     def test_the_memory_digest_ranked_for_the_question_is_the_turns(self, monkeypatch):
-        """The BFF picks and orders memory notes by the question: in the head they would rewrite it every turn."""
         profile = "PROJECT_CONTEXT v1\n\nconfirmed:\n- name=Wohnbau"
         notes = ["- [fact | high | unverified] GK 4", "- [fact | high | unverified] Tiefgarage geplant"]
 
@@ -123,11 +112,9 @@ class TestTheHeadHoldsAcrossTurns:
         for text in ("GK 4", "Tiefgarage", "PROJECT_MEMORY v1", "ÖNORM B 1600"):
             assert text not in one.conversation, text
             assert text in one.context, text
-        # The template's own note on what a memory note is rides with the notes.
         assert "is what you concluded in earlier conversations" in one.context
 
     def test_a_listing_of_one_shelf_shows_no_other_shelf_anywhere(self, monkeypatch):
-        """With every shelf in view the model read OIB filenames out as the Büroablage (``focus_shelf``)."""
         from agent.knowledge.inventory import set_listing_shelf
 
         state = ResearchAgentState(

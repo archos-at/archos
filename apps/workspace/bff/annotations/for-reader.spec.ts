@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * „Für Sie“ is one predicate (`isForReader`): the review's filter lists what
- * it holds, and the live ones among them are Dateien's „N für Sie“. The cases
- * are the ones the SQL tally is held to (`repository.integration.spec.ts`).
- */
 import { describe, expect, it } from 'vitest'
 import { FOR_READER_CASES, type MarkPerson } from '@/test-utils/marks-for-reader'
 import { isForReader, isLive } from './types'

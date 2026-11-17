@@ -1,72 +1,24 @@
-/**
- * Wire-shaped sample cards, one per type, for the platform card gallery.
- *
- * The catalog endpoint (`/api/platform/cards`) can describe a card's fields but
- * not what it LOOKS like, and a platform owner deciding whether Grid can
- * present their question is answering a visual question. These fixtures let the
- * gallery render each type through the real `AnswerCards` dispatcher — the same
- * path chat uses — so the page shows the actual component, not a mock of it.
- *
- * Deliberately in wire shape (`AnswerCard`, straight off the generated Zod
- * schema) rather than component props: a fixture that stops matching the schema
- * is a type error here, so the gallery cannot drift into showing a card the
- * agent could never emit.
- *
- * `preview-fixtures.spec.ts` fails when a card type has neither a fixture nor
- * an entry in {@link PREVIEW_EXCLUDED}, so a type added to the union is a
- * failing test rather than a silent hole in the gallery.
- *
- * Not shared with the `/dev/cards` gallery, which keeps its own inline
- * fixtures as frozen visual-regression baselines. These exist to be READ by a
- * platform owner, so they carry the hard states (a failing check, an unanswered
- * value) rather than a uniformly green picture.
- */
-
 import { z } from 'zod'
 import { answerCardSchema, validateAnswerCards, type AnswerCard } from '@/shared/cards/schemas'
 
-/**
- * Fixtures are authored in the schema's INPUT shape — the generated schemas
- * `.default(null)` every optional field, so an authored card may omit them
- * while a parsed one carries them. They are then run through the app's own
- * `validateAnswerCards`, so a fixture that no longer matches the union is
- * dropped and warned about exactly like a bad card off the wire, rather than
- * throwing on import and taking the whole page down.
- */
 type CardInput = z.input<typeof answerCardSchema>
 
 const OIB2 = { document: 'OIB-Richtlinie 2', section: 'Pkt. 3.1', edition: 'Ausgabe Mai 2023' }
 const OIB3 = { document: 'OIB-Richtlinie 3', section: 'Pkt. 9.1.1', edition: 'Ausgabe Mai 2023' }
 const OIB4 = { document: 'OIB-Richtlinie 4', section: 'Pkt. 2.2', edition: 'Ausgabe Mai 2023' }
 
-/**
- * Card types the gallery describes but does not render, with the reason. Each
- * one needs data the gallery has no honest way to invent: the four IFC cards
- * carry GlobalIds resolved against a loaded model, and `document_grid` resolves
- * file names to real document rows. A fabricated preview of either would show a
- * platform owner a building that does not exist.
- */
 export const PREVIEW_EXCLUDED: Record<string, 'needsModel' | 'needsDocuments'> = {
   ifc_viewer: 'needsModel',
   ifc_compliance: 'needsModel',
   ifc_schedule: 'needsModel',
   ifc_element: 'needsModel',
   ifc_diff: 'needsModel',
-  // The picker lists the project's real models from the live list — a gallery
-  // with no project has none to draw, the same reason the other IFC cards are
-  // here.
   ifc_model_picker: 'needsModel',
   document_grid: 'needsDocuments',
 }
 
-/** One sample card per renderable type, in authoring (schema-input) shape. */
 const RAW_FIXTURES: CardInput[] = [
   {
-    // Carries a MEASURED operand with its band, because that is the hard state:
-    // the sum the card computes is 1.442,0 m² ±2,0, which sits under OIB-RL 2's
-    // 1.600 m² for Büronutzung at every point of the band. The gallery reader
-    // should see that the card decided that itself. Not the Schrittmaßregel: a
-    // named rule is a `formula` (below), which owns its bounds.
     type: 'calculation',
     title: 'Netto-Grundfläche Brandabschnitt BA 2',
     steps: [
@@ -96,9 +48,6 @@ const RAW_FIXTURES: CardInput[] = [
     },
   },
   {
-    // The hard state for a what-if card: one input the source does not give.
-    // The Auftritt is missing, so the Schrittmaß cannot be judged until the
-    // reader enters an assumption, while the Stufenhöhe already can.
     type: 'formula',
     title: 'Stiege Haus B',
     formula: {
@@ -124,10 +73,6 @@ const RAW_FIXTURES: CardInput[] = [
     confidence: 'high',
   },
   {
-    // The state a draft is usually met in: written more than once, because the
-    // reader asked for a change and the tool edited the same path again, and
-    // not yet filed — so the card offers to ASK the agent to file it rather than
-    // claiming a project document that does not exist.
     type: 'document_draft',
     title: 'Aktenvermerk – Abweichung Fluchtweglänge',
     path: '/entwuerfe/aktenvermerk-fluchtweg.md',
@@ -135,8 +80,6 @@ const RAW_FIXTURES: CardInput[] = [
     version: 3,
   },
   {
-    // The same draft after `file_draft`: it names a project document and an
-    // open version, which is what turns the card's two controls on.
     type: 'document_draft',
     title: 'Aktenvermerk – Abweichung Fluchtweglänge',
     path: '/entwuerfe/aktenvermerk-fluchtweg.md',
@@ -147,9 +90,6 @@ const RAW_FIXTURES: CardInput[] = [
     version_state: 'draft',
   },
   {
-    // Delegation, in the shape it is usually met in: a deadline the person named
-    // and a thread the run is writing into, because those are the two facts the
-    // card can offer beyond „angelegt".
     type: 'task_created',
     task_id: '00000000-0000-4000-8000-0000000000f1',
     kind: 'submission_check',
@@ -159,8 +99,6 @@ const RAW_FIXTURES: CardInput[] = [
     conversation_id: 's_00000000_0000_4000_8000_0000000000f2',
   },
   {
-    // The state the card is usually met in: a tidying turn that proposed more
-    // than one move, so the batch and the „from → to" row both have to render.
     type: 'file_operation_proposal',
     title: 'Drei Dateien in „Einreichung/Pläne“ verschieben',
     operation: 'move',
@@ -187,8 +125,6 @@ const RAW_FIXTURES: CardInput[] = [
     note: 'Vorschlag — es wurde noch nichts verschoben.',
   },
   {
-    // An action the agent proposed through the MCP surface (ADR-0122): the
-    // summary as the title, the action's name, and its inputs.
     type: 'operation_proposal',
     title: 'Rename a folder (name: Pläne, folderId: f_1)',
     operation: 'folder-rename',
@@ -196,8 +132,6 @@ const RAW_FIXTURES: CardInput[] = [
     proposal_id: '00000000-0000-4000-8000-0000000000b1',
   },
   {
-    // Both origins: a whole-page look, a region read with a question, and the
-    // box the agent showed the room.
     type: 'look',
     document: { id: '00000000-0000-4000-8000-0000000000c1', name: 'Grundriss EG.pdf' },
     items: [
@@ -221,7 +155,6 @@ const RAW_FIXTURES: CardInput[] = [
     ],
   },
   {
-    // Two Fassungen of one page, two changes boxed on each (ADR-0128, V10).
     type: 'revision_compare',
     older_id: '00000000-0000-4000-8000-0000000000d1',
     newer_id: '00000000-0000-4000-8000-0000000000d2',
@@ -233,8 +166,6 @@ const RAW_FIXTURES: CardInput[] = [
     summary: ['Plankopf: Index B statt A', 'Treppe: Laufbreite 1,10 m statt 1,00 m'],
   },
   {
-    // Both kinds of row: two marks to take over or discard, a box and a
-    // point, and an answer in an existing thread.
     type: 'canvas_activity',
     document: { id: '00000000-0000-4000-8000-0000000000c1', name: 'Grundriss EG.pdf' },
     items: [
@@ -290,9 +221,6 @@ const RAW_FIXTURES: CardInput[] = [
     type: 'stair_diagram',
     title: 'Treppenlauf – Steigungsverhältnis',
     riser_count: 17,
-    // Measured off the model rather than typed by the user, so the gallery
-    // shows the state that actually reaches a reviewer: our number, our band,
-    // and „gemessen" beside it — never mistakable for the architect's own.
     riser_height: {
       label: 'Steigung',
       value: 17.6,
@@ -312,8 +240,6 @@ const RAW_FIXTURES: CardInput[] = [
       status: 'warning',
       provenance: 'computed',
       tolerance: 0.5,
-      // Exactly on the limit with a 5 mm band: the honest state, and the one
-      // the old card drew as a clean pass.
     },
     width: { label: 'Nutzbare Laufbreite', value: 110, required: 120, unit: 'cm', comparator: '>=', status: 'fail' },
     comfort_note: 'Schrittmaß 2×17,6 + 28 = 63,2 cm — innerhalb der Komfortregel (59–65 cm).',
@@ -326,9 +252,6 @@ const RAW_FIXTURES: CardInput[] = [
     dimensions: [
       { label: 'Neigung', value: 7.2, required: 6, unit: '%', comparator: '<=', status: 'fail', provenance: 'computed', tolerance: 0.1 },
       { label: 'nutzbare Breite', value: 120, required: 120, unit: 'cm', comparator: '>=', status: 'pass', provenance: 'declared' },
-      // The third state, which the gallery had no example of at all: the export
-      // cannot answer, and the card says what to change rather than showing a
-      // blank the reader takes for a fact about the building.
       {
         label: 'Handlauf beidseitig',
         value: null,
@@ -439,8 +362,6 @@ const RAW_FIXTURES: CardInput[] = [
     building_class: 'GK 4',
     reference: { document: 'TRVB F 134', section: 'Pkt. 4' },
   },
-  // A composition (ADR-0065): two variants of one question as tabs, each a
-  // run of Markdown. Values show the form, not the Richtlinie.
   {
     type: 'surface',
     title: 'Zweiter Fluchtweg — zwei Varianten',
@@ -475,17 +396,10 @@ const RAW_FIXTURES: CardInput[] = [
   },
 ]
 
-/**
- * The validated fixtures, keyed by card type. Anything the union no longer
- * accepts is absent here (and warned about by `validateAnswerCards`), so the
- * gallery degrades to "described but not previewed" instead of rendering a
- * card shape the agent could never emit.
- */
 export const CARD_PREVIEW_FIXTURES: Partial<Record<AnswerCard['type'], AnswerCard>> = Object.fromEntries(
   validateAnswerCards(RAW_FIXTURES).flatMap((card) => (card ? [[card.type, card] as const] : []))
 )
 
-/** The sample card for a type, or `undefined` when the gallery cannot preview it. */
 export function previewFixtureFor(type: string): AnswerCard | undefined {
   return CARD_PREVIEW_FIXTURES[type as AnswerCard['type']]
 }

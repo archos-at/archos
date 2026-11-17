@@ -1,7 +1,3 @@
-"""Deep-research checkpoint retention: a finished run's durable checkpoint rows
-are purged (thread_id == job_id), and the helper is a safe no-op when durable
-checkpointing is not configured."""
-
 import inspect
 
 from sqlalchemy import text
@@ -38,18 +34,8 @@ def test_purge_is_noop_without_dsn(monkeypatch):
 
 
 def test_purge_swallows_missing_tables(tmp_path, monkeypatch):
-    # DSN set but no checkpoint tables yet (durability on, no run) -> no raise.
     monkeypatch.setenv("DEEP_CHECKPOINT_DB", f"sqlite:///{tmp_path / 'empty.db'}")
     _purge_deep_checkpoint("job-x")
-
-
-# ---------------------------------------------------------------------------
-# A reclaimed loser must not purge the new owner's checkpoint.
-#
-# The rows are keyed by job id, so after a reclaim they are the winner's resume
-# point. worker.py skipped its purge on claim loss; the runner's `finally` did
-# not, and deleted them from under the winner.
-# ---------------------------------------------------------------------------
 
 
 def _checkpoint_db(tmp_path, monkeypatch):
@@ -70,6 +56,5 @@ def _rows_left(engine) -> int:
 
 
 def test_every_run_purges_its_checkpoint_once_terminal():
-    """``run_agent_job``'s ``finally`` purges; a lost worker never reaches it, so a retry resumes."""
     source = inspect.getsource(agent_job.run_agent_job)
     assert "_purge_deep_checkpoint, request.job_id" in source

@@ -23,6 +23,7 @@ import { conversationSourceProjects } from '@/lib/db/schema/conversation-source-
 import { conversations, type Conversation } from '@/lib/db/schema/conversations'
 import { DELETION_LIFECYCLE, deletionQueue } from '@/lib/db/schema/deletion-queue'
 import { messages, type Message, type NewMessage } from '@/lib/db/schema/messages'
+import { mergeMetadataEntries } from './metadata-merge'
 import { projects } from '@/lib/db/schema/projects'
 import { resourceShares, type ShareableResourceType, type ResourceVisibility } from '@/lib/db/schema/resource-shares'
 
@@ -395,9 +396,9 @@ export async function insertConversation(values: {
   jobId?: string | null
   subjectResourceType?: ShareableResourceType | null
   subjectResourceId?: string | null
+  temporary?: boolean
 }): Promise<Conversation | null> {
-  const db = getDb()
-  const [row] = await db.insert(conversations).values(values).onConflictDoNothing().returning()
+  const [row] = await getDb().insert(conversations).values(values).onConflictDoNothing().returning()
   return row ?? null
 }
 
@@ -832,15 +833,7 @@ export async function mergeMessageMetadata(
     const current = (existing.metadata ?? {}) as Record<string, unknown>
     const entries = typeof patch === 'function' ? patch(current) : patch
     if (!entries) return existing
-    const merged: Record<string, unknown> = { ...current, ...entries }
-
-    for (const key of deepMergeKeys) {
-      const before = current[key]
-      const after = entries[key]
-      if (isPlainObject(before) && isPlainObject(after)) {
-        merged[key] = { ...before, ...after }
-      }
-    }
+    const merged = mergeMetadataEntries(current, entries, deepMergeKeys)
 
     // Stripped of NUL bytes before the write: Postgres `jsonb` rejects U+0000
     // outright, and the merged payload re-writes stored agent content (cards,
@@ -931,9 +924,6 @@ export async function reviseMessage(
     return row ?? null
   })
 }
-
-const isPlainObject = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /**
  * Move one person's read high-water mark on a conversation (spec CC-18).

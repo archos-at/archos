@@ -1,16 +1,5 @@
 'use client'
 
-/**
- * „Wer war dabei": the Steckbrief in the close dialog's „Was bleibt" step
- * (ADR-0091, ADR-0098). Closing makes the project read-only (ADR-0090), so
- * this is the moment to complete the record: the period so far, the members
- * Piloti lists on its own, and whoever worked on it without an account.
- *
- * It reads the Steckbrief from its route and reloads it after each change.
- * Nothing here blocks closing; a Steckbrief that fails to load is said, and
- * the dialog goes on.
- */
-
 import { useCallback, useEffect, useState, type JSX } from 'react'
 import { useRouter } from 'next/navigation'
 import { SectionLabel } from '@/components/ui/section-label'

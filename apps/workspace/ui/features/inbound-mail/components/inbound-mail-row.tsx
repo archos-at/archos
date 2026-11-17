@@ -1,33 +1,5 @@
 'use client'
 
-/**
- * One mail in the E-Mail-Eingang's list (`InboundMailRow`, DECISION §9).
- *
- * Connected, never a pill: an `Item`, so the list owns the hairlines and the
- * corners, and the open row (`data-current`) and the keyboard's row
- * (`data-cursor`) take the kit's marks rather than a bar down the edge. A
- * leading checkbox for bulk work, visible on hover and focus and always under
- * a finger; then the sender's disc, the subject with its „AW:“/„WG:“ chain
- * stripped (and, under a thread group, the thread's name; the full subject is
- * in the title), the time, and one muted line:
- * who, from which domain, how many attachments. While a mail waits, a third
- * line names the E-Mail-Verlauf it would continue (only one the reader may
- * read; not under a thread group's header, which says it already, nor once a
- * follow appended the text) and a glyph says when the sender is not confirmed.
- *
- * A waiting mail is „Bereit“ or needs the person (`isReady`, the server's
- * `incompleteReason`). A ready row outside a thread group carries „Wie
- * vorgeschlagen ablegen“, one press through the same rule and request as the
- * bulk bar; a row that needs the person says what, in a few plain words. A
- * mail that names a member whose domain did not confirm it is phrased for its
- * reader (`mailClaimOf`): the member is asked „Haben Sie sie gesendet?“, a
- * colleague reads whom it waits for. A verified writer's mail direct filing
- * left says so, beside what it still needs. A handled mail says what became
- * of it and until when it can be restored.
- *
- * Metadata only: the list never carries a mail's text (D22).
- */
-
 import type { JSX } from 'react'
 import Link from 'next/link'
 import { Bot, CircleAlert, FileInput, LoaderCircle, Mails, Paperclip, ShieldAlert } from 'lucide-react'
@@ -52,21 +24,14 @@ import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
 export interface InboundMailRowProps {
   mail: InboundMailSummaryView
   href: string
-  /** This mail is open in the detail. */
   open: boolean
-  /** The keyboard's row (J/K). */
   focused: boolean
-  /** Checked for a bulk action. */
   checked: boolean
   onCheckedChange: (checked: boolean) => void
-  /** The list is selecting. The boxes are drawn in every waiting row anyway (no hover reveal), so it changes nothing here. */
   selecting: boolean
   onFocusRow?: () => void
-  /** Under a thread group's header: the header names the thread, so the row does not. */
   inGroup?: boolean
-  /** „Wie vorgeschlagen ablegen“ for this one mail; offered only on a ready row outside a group. */
   onFileAsSuggested?: () => void
-  /** That press is in flight. */
   filingAsSuggested?: boolean
 }
 
@@ -84,22 +49,16 @@ export function InboundMailRow({
 }: InboundMailRowProps): JSX.Element {
   const t = useTranslations(inboundMailCopy)
   const { locale } = useLocale()
-  // Under its thread's heading, the part of the subject that tells the thread's mails apart.
   const shown = displaySubject(mail.subject)
   const subject = (inGroup && mail.thread ? subjectWithinThread(shown, mail.thread.name) : shown) ?? t('row.noSubject')
   const who = mail.senderName?.trim() || mail.senderDomain || '—'
   const waiting = mail.status === 'waiting'
   const outcomes = (['filed', 'dismissed', 'expired'] as const).filter((outcome) => mail.outcomes[outcome] > 0)
-  // A follow appended the text; its attachments still wait for a person (D31).
   const textFollowed = waiting && mail.followedBy !== null
-  // A mail posing as someone is said in words on its row, and never joins a bulk decision.
   const impersonating = mail.riskLevel === 'impersonation'
-  // Every part is decided and on its way (`filing`): the row says so, and offers nothing a second press would repeat.
   const filingNow = waiting && mail.waitingParts === 0 && !impersonating
-  // Why it is not „Bereit“, the server's reason; null when one press files it as suggested.
   const reason = waiting && !filingNow ? fileableReason(mail) : null
   const claim = mailClaimOf(mail)
-  // The reason line in the reader's terms: the claimed member's question, whom a colleague waits for, or what it needs.
   const reasonLine = filingNow
     ? { key: 'filing', text: t('row.filing') }
     : claim === 'colleague'
@@ -112,25 +71,18 @@ export function InboundMailRow({
             ? { key: reason, text: t(`row.needs.${reason}`) }
             : null
   const offerFile = waiting && !filingNow && reason === null && !inGroup && onFileAsSuggested !== undefined
-  // Weight is state (paper on a desk, the type scale): 600 for a mail that needs the reader, 500 for one that waits on
-  // a press, 440 for a handled one. Every waiting subject at 600 left weight saying nothing.
   const needsReader = waiting && !filingNow && reason !== null && claim !== 'colleague'
 
   return (
     <Item
       as="li"
-      // The open row is a fill, not a drawn box: the selected hairline the kit's `Item` gives it is turned off here.
-      // Picked holds the state grey as the open row does, as a picked tile does; what sits on it turns white.
-      // A run of picked rows is one region: where two meet, their corners are square (no notch at the seam).
-      // The hairline under it is the one inset rule (`ROW_HAIRLINE`): from the subject's edge, past the box and the disc.
-      className={cn('group/row items-start rounded-control px-3 py-2.5 [--row-end:12px] hover:bg-hairline pointer-coarse:min-h-11 data-current:bg-sheet data-current:shadow-sm data-current:inset-ring-0', ROW_HAIRLINE, waiting ? '[--row-text:80px]' : '[--row-text:52px]', checked && 'bg-selected hover:bg-selected [&:has(+[data-checked])]:rounded-b-none [[data-checked]+&]:rounded-t-none', open && !checked && '[&:has(+[data-checked])]:mb-1 [[data-checked]+&]:mt-1' /* 4px between the open row's sheet and a picked run: three fills fused into one block */)}
+      className={cn('group/row items-start rounded-control px-3 py-2.5 [--row-end:12px] hover:bg-hover pointer-coarse:min-h-11 data-current:bg-sheet data-current:shadow-sm data-current:inset-ring-0', ROW_HAIRLINE, waiting ? '[--row-text:80px]' : '[--row-text:52px]', checked && 'bg-selected hover:bg-hover [&:has(+[data-checked])]:rounded-b-none [[data-checked]+&]:rounded-t-none', open && !checked && '[&:has(+[data-checked])]:mb-1 [[data-checked]+&]:mt-1' /* 4px between the open row's sheet and a picked run: three fills fused into one block */)}
       data-checked={checked || undefined}
       data-filled={checked || open || undefined}
       data-mail-id={mail.id}
       data-testid={`inbound-mail-row-${mail.id}`}
       data-open={open || undefined}
       data-focused={focused || undefined}
-      // The open row lifts to the card with the selected hairline; the keyboard's row wears its ring (`Item`).
       data-current={open || undefined}
       data-cursor={(focused && !open) || undefined}
     >
@@ -143,7 +95,6 @@ export function InboundMailRow({
             onCheckedChange={(value) => onCheckedChange(value === true)}
             aria-label={t('row.select', { subject })}
             data-testid="inbound-mail-row-checkbox"
-            // Always drawn in the waiting list: a box shown only on hover left a 28px column that read as a thread's indent.
           />
         )}
       </div>
@@ -194,7 +145,6 @@ export function InboundMailRow({
                 {filingNow ? (
                   <LoaderCircle className="size-3 shrink-0 animate-spin motion-reduce:animate-none" aria-hidden />
                 ) : (
-                  // Ochre: a person is needed here (a dashed circle read as „still loading“).
                   <CircleAlert className="text-warning size-3 shrink-0" aria-hidden />
                 )}
                 <span className="min-w-0 truncate">{reasonLine.text}</span>
@@ -202,7 +152,6 @@ export function InboundMailRow({
             )}
             {waiting && mail.thread && !inGroup && !textFollowed && (
               <p
-                // Wraps rather than cut „wird Fassung 3“ at its end: a clause drops whole or stays whole.
                 className="text-muted-foreground min-w-0 text-xs text-pretty [overflow-wrap:anywhere]"
                 data-testid="inbound-mail-row-thread"
                 title={t('row.thread', { name: mail.thread.name, version: mail.thread.nextVersion })}
@@ -226,15 +175,11 @@ export function InboundMailRow({
           </div>
         </Link>
         {offerFile && (
-          // Above the link's full-row press area, like the checkbox; aligned with the text column, past the disc.
-          // Offered where the reader is: on the open row, under the pointer or the keyboard, and always under a finger.
-          // Nine rows with nine buttons was a column of competing presses beside the detail's one primary.
           <div className="relative z-10 hidden pl-10 group-hover/row:block group-focus-within/row:block group-data-[current]/row:block pointer-coarse:block">
             <BusyButton
               type="button"
               size="sm"
               variant="secondary"
-              // The kit's 32px on a mouse; under a finger its 44px, as the row's link sits right behind it.
               className="px-2.5 text-xs"
               busy={filingAsSuggested}
               busyLabel={t('bulk.fileSuggestedBusy')}

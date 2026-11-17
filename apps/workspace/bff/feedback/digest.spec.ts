@@ -9,7 +9,6 @@ import type { FeedbackHealth } from './repository'
 import { getFeedbackDigest } from './digest'
 import { NO_RATINGS_FILTERS, type FeedbackQuery, type RatingsFilters } from './filters'
 
-/** Every vote of the 30 days the health fixture describes. */
 const Q: FeedbackQuery = {
   scope: { from: '2026-09-10', to: '2026-10-09', organizationIds: [], projectIds: [] },
   ratings: NO_RATINGS_FILTERS,
@@ -19,7 +18,6 @@ const narrowed = (ratings: Partial<RatingsFilters>, scope: Partial<FeedbackQuery
   ratings: { ...NO_RATINGS_FILTERS, ...ratings },
 })
 
-/** A real store, so cache behaviour is exercised rather than mocked away. */
 class MemoryStore implements CacheStore {
   entries = new Map<string, string>()
   async get(key: string): Promise<string | null> {
@@ -91,11 +89,6 @@ describe('getFeedbackDigest — when there is nothing to say', () => {
     expect(globalThis.fetch).not.toHaveBeenCalled()
   })
 
-  /**
-   * A paragraph about six votes reads exactly as confidently as a paragraph
-   * about six hundred, and that confidence is the problem. Refused outright
-   * rather than hedged in the prompt — a hedge is still a paragraph.
-   */
   it('refuses a window too thin to summarise, without asking', async () => {
     backendReply({})
     const result = await getFeedbackDigest(
@@ -113,12 +106,6 @@ describe('getFeedbackDigest — what leaves the process', () => {
     backendReply({ headline: 'Mostly fine.', strengths: ['a'], concerns: ['b'], recommendation: 'c' })
   })
 
-  /**
-   * The privacy line of this feature. The digest needs the SHAPE of the
-   * distribution — "one tenant accounts for most of it" — and never the
-   * identity; the table under it names them on screen anyway. Stripped at this
-   * boundary so no later edit to the rollup can widen what is sent.
-   */
   it('sends organization vote counts without organization identifiers', async () => {
     await getFeedbackDigest(health(), Q)
 
@@ -154,12 +141,10 @@ describe('getFeedbackDigest — what leaves the process', () => {
     const serialised = JSON.stringify(sentBody())
     expect(serialised).toContain('Wie lang darf ein Fluchtweg sein?')
     expect(serialised).not.toContain('A LONG GENERATED ANSWER')
-    // …and no user, conversation or message identifiers either.
     expect(serialised).not.toContain('org_loud')
     expect(serialised).not.toContain('m1')
   })
 
-  /** ADR-0064 use 9: a down-vote's comment is what its cause is read from; an up-vote's is not sent. */
   it('sends a down-vote comment with its question, and carries the decided causes back', async () => {
     const turn = {
       id: 'f1',
@@ -192,10 +177,6 @@ describe('getFeedbackDigest — what leaves the process', () => {
     expect(result.digest?.causes).toEqual([{ cause: 'wrong_value', count: 1 }])
   })
 
-  /**
-   * Both directions are sampled separately, so the newest of one cannot crowd
-   * out the other, and under the same filters as the figures.
-   */
   it('samples both directions, each under the request’s filters', async () => {
     const query = narrowed({ topics: ['fire_safety'] }, { organizationIds: ['org_loud'] })
     await getFeedbackDigest(health(), query)
@@ -219,11 +200,6 @@ describe('getFeedbackDigest — caching', () => {
     expect(second.digest?.generatedAt).toBe(first.digest?.generatedAt)
   })
 
-  /**
-   * The filters narrow the FIGURES now (a reason or a search changes the
-   * headline), so each set of filters is its own digest; the same set in a
-   * different order is not.
-   */
   it('keys on the range, the organizations and every filter', async () => {
     await getFeedbackDigest(health(), narrowed({ reasons: ['inaccurate', 'other'] }))
     await getFeedbackDigest(health(), narrowed({ reasons: ['inaccurate', 'other'] }))
@@ -245,13 +221,7 @@ describe('getFeedbackDigest — caching', () => {
     expect(keys.some((k) => k.includes(':org_a,org_b:'))).toBe(true)
   })
 
-  /**
-   * A digest cached before the sampled turns left out restricted conversations
-   * may restate one of their comments. It must not be served after the deploy
-   * that leaves them out, for the rest of its six hours.
-   */
   it('does not serve a digest cached before restricted votes were left out', async () => {
-    // The key this query has today, then the same key one version back.
     await getFeedbackDigest(health(), Q)
     const [current] = [...store.entries.keys()]
     expect(current).toContain(':v4:')
@@ -259,7 +229,6 @@ describe('getFeedbackDigest — caching', () => {
     vi.mocked(globalThis.fetch).mockClear()
     const stale = { headline: 'Zimmerer-Honorar 48.000 EUR falsch.', strengths: [], concerns: [] }
     await store.set(current.replace(':v4:', ':v2:'), JSON.stringify(stale))
-    // v3 left out votes by conversation only; 0124's marks reach more (ADR-0093).
     await store.set(current.replace(':v4:', ':v3:'), JSON.stringify(stale))
 
     const result = await getFeedbackDigest(health(), Q)
@@ -298,11 +267,6 @@ describe('getFeedbackDigest — failure', () => {
     })
   })
 
-  /**
-   * A failure must not be remembered for the digest's full TTL. Without the
-   * short negative TTL one timeout leaves the card empty for the rest of the
-   * working day, and the refresh button becomes the only way out of it.
-   */
   it('does not cache a failure for the success TTL', async () => {
     backendReply({}, false)
     await getFeedbackDigest(health(), Q)
@@ -311,8 +275,6 @@ describe('getFeedbackDigest — failure', () => {
     expect(cached).toEqual(['null'])
 
     backendReply({ headline: 'Now it works.', strengths: [], concerns: [] })
-    // A minute later the entry is gone; simulated by dropping it, since the
-    // memory store here does not implement expiry.
     store.entries.clear()
     const second = await getFeedbackDigest(health(), Q)
     expect(second.digest?.headline).toBe('Now it works.')

@@ -70,10 +70,6 @@ describe('requireInternalSignature', () => {
     })
   })
 
-  // The Worker signs with WebCrypto, not with this library. Building the
-  // signature base by hand from RFC 9421 §2.5 and MACing it with node:crypto is
-  // that second, independent implementation: if the library and the RFC's text
-  // disagreed, one of these two specs would fail.
   it('agrees with a signature built by hand from the RFC 9421 §2.5 signature base', async () => {
     const created = Math.floor(NOW.getTime() / 1000)
     const params = `("@method" "@target-uri" "content-digest" "content-length" "x-envelope-to" "x-envelope-from");created=${created};expires=${created + 300};keyid="${TEST_KEY_ID}";alg="hmac-sha256"`
@@ -151,7 +147,6 @@ describe('requireInternalSignature', () => {
   it('refuses a signature that leaves a required component uncovered', async () => {
     const withoutDigest = options({ components: ['@method', '@target-uri', 'content-length', 'x-envelope-to', 'x-envelope-from'] })
     expect(await refusal(await signedRequest(withoutDigest))).toBe('malformed')
-    // The route's own components are required as well.
     const withoutEnvelope = options({ components: ['@method', '@target-uri', 'content-digest', 'content-length'] })
     expect(await refusal(await signedRequest(withoutEnvelope))).toBe('malformed')
   })
@@ -179,7 +174,6 @@ describe('requireInternalSignature', () => {
   it('binds @target-uri to the pinned app origin, not to the URL the request arrived on', async () => {
     vi.stubEnv('WORKOS_REDIRECT_URI', 'https://app.example.test/api/auth/callback')
     const headers = await signedHeaders(options())
-    // TLS ends at the gateway: Node sees http and the pod's own host.
     const behindGateway = new Request('http://10.0.0.7:3000/api/internal/signed/probe', { method: 'POST', body: BODY, headers })
     await expect(requireInternalSignature(behindGateway, 'probe', REQUIREMENT)).resolves.toMatchObject({ keyId: TEST_KEY_ID })
   })

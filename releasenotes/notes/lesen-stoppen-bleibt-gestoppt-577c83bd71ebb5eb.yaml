@@ -1,0 +1,7 @@
+---
+# area: general
+fixes:
+  - >
+    When you stop a document that is being read, it now stays stopped: it no
+    longer briefly shows as being read again, and starting it again right away
+    begins a fresh read.

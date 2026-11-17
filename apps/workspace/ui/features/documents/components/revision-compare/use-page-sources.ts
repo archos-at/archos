@@ -15,14 +15,6 @@ export type SideState =
   | { status: 'not-comparable' }
   | { status: 'failed' }
 
-/**
- * Open one Fassung for drawing, and release it when the comparison closes or
- * the file changes. A load that resolves after the cleanup ran destroys its
- * own result, or a closed dialog would keep a pdf.js worker and its page cache.
- *
- * `attempt` is how a reader's „Erneut versuchen" reaches here: a new number
- * opens the file again.
- */
 export function usePageSource(file: CompareFile, loadSource: SourceLoader, attempt = 0): SideState {
   const { id, filename } = file
   const [state, setState] = useState<SideState>({ status: 'loading' })
@@ -53,7 +45,6 @@ export function usePageSource(file: CompareFile, loadSource: SourceLoader, attem
   return state
 }
 
-/** The natural size of `page` in `source`, or null while unknown or when the source has no such page. */
 export function usePageSize(source: PageSource | null, page: number): PageSize | null {
   const [sized, setSized] = useState<{ source: PageSource; page: number; size: PageSize } | null>(
     null,

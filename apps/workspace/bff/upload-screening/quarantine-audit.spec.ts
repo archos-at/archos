@@ -83,11 +83,7 @@ describe('auditQuarantineDecision', () => {
         uploadedBy: 'uploader',
         jobId: 'job-7',
       },
-      // Where it was filed: the trail withholds the name under a folder not
-      // every project member may read.
       filedIn: { projectId: 'proj-1', folderId: 'folder-personal' },
-      // The decision's time, and a key per decision: a second send is the
-      // same event, and WorkOS answers it with the first.
       occurredAt: DECIDED_AT,
       idempotencyKey: 'document.quarantined:decision-1',
     })
@@ -195,8 +191,6 @@ describe('sweepOwedQuarantines', () => {
   })
 })
 
-// Retention (0118): a decision holds personal data (the file's name, the
-// uploader, the matched terms) and is kept only to reach the trail.
 describe('pruneSpentQuarantines', () => {
   it('deletes what the trail has and what is past the window in which it is sent', async () => {
     const now = new Date('2026-10-08T12:00:00Z')

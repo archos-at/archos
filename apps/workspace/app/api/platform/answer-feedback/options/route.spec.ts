@@ -40,7 +40,6 @@ const OPTIONS = {
   withExpectedAnswer: 4,
 }
 
-// The reads are mocked; the gate runs as the real service runs it.
 vi.mock('@/lib/feedback/export-service', () => ({
   getAnswerFeedbackFilterOptions: vi.fn().mockImplementation(async (session: unknown) => {
     const { requirePlatformPermission } = await import('@/lib/authz/platform')

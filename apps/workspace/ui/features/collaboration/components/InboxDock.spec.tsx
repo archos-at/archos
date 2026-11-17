@@ -14,7 +14,6 @@ vi.mock('next/link', () => ({
 import { useStartDock } from '@/components/shell/start-dock'
 import { InboxDock } from './InboxDock'
 
-/** The door the dock was opened from: any focusable element carrying `data-dock-door`, as the header's bell does. */
 const Door = () => (
   <button type="button" data-dock-door="inbox" data-testid="door">
     Postfach
@@ -37,7 +36,6 @@ describe('InboxDock — a disclosure the reader opened', () => {
     act(() => useStartDock.getState().open('inbox'))
     render(<InboxDock />)
     expect(screen.getByTestId('inbox-dock')).toHaveFocus()
-    // Taken once: a later render does not pull the focus back from the page.
     expect(useStartDock.getState().takesFocus).toBe(false)
   })
 

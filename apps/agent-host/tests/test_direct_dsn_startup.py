@@ -1,14 +1,3 @@
-"""A process on Postgres refuses to start without the direct DSNs it uses (ADR-0083).
-
-Behind the transaction pooler a missing ``LISTEN_DB_URL`` or ``LOCK_DB_URL``
-is not an error anywhere downstream, it is every SSE stream quietly polling or a
-lock that is never taken. So each process that uses them checks once, at start:
-the ``api`` role needs both (it serves the streams and takes locks); the ``chat`` role,
-the research worker and the ingest worker only take locks. These tests drive each entry point with a
-Postgres database and no direct DSN and expect the boot to fail naming the
-variable, before anything else is built.
-"""
-
 from __future__ import annotations
 
 from pathlib import Path
@@ -44,7 +33,6 @@ def test_the_ingest_worker_will_not_boot_without_the_lock_dsn():
 
 
 def _web(role: WebRole) -> AgentHostWorker:
-    """A worker of this role, without the agent runtime's front end: the check runs ahead of ``super().build_app()``."""
     web = AgentHostWorker.__new__(AgentHostWorker)
     web._role = role
     return web
@@ -62,7 +50,6 @@ def test_the_api_role_needs_the_listen_dsn_even_with_the_lock_dsn(monkeypatch):
 
 
 def test_the_chat_role_needs_the_lock_dsn_and_not_the_listen_dsn(monkeypatch):
-    """It serves no job stream (its stream is the socket, over Dragonfly), but it does take locks."""
     with pytest.raises(RuntimeError, match=r"LOCK_DB_URL is not set, but"):
         _web(WebRole.CHAT).build_app()
 
@@ -78,7 +65,6 @@ def test_the_chat_role_needs_the_lock_dsn_and_not_the_listen_dsn(monkeypatch):
 
 
 def test_the_workers_do_not_ask_for_the_listen_dsn(monkeypatch):
-    """They never serve a stream: the lock DSN alone gets past the check."""
     monkeypatch.setenv("LOCK_DB_URL", DIRECT)
     sentinel = RuntimeError("past the check")
 

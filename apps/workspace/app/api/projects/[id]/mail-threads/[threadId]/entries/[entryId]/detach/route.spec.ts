@@ -1,10 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Detach: the route parses the body with the wire's schema and hands it to the
- * service, which authorizes, renders both Fassungen and moves the message.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ConflictError } from '@/lib/api/errors'
 

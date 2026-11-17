@@ -1,17 +1,9 @@
-/**
- * The Fokusbereich of the document open over the chat: the box a person drew or
- * the mark they selected. The chat's own turns carry it as `focus_region`, the
- * field a canvas question uses (`canvas-turn-client.ts`), so "here" resolves to
- * the same place whichever box the question is typed in.
- */
-
 import type { CanvasFocus } from '@/features/chat/lib/canvas-bridge'
 import type { AnnotationView } from '@/lib/annotations/types'
 import { regionAround } from '@/lib/annotations/types'
 import type { ReviewDraft } from '../hooks/use-document-review'
 import type { UseCanvasAskOptions } from '../hooks/use-canvas-ask'
 
-/** The draft box if one is being placed, else the selected mark; null when neither is a place. */
 export function reviewFocusOf({
   documentId,
   draft,

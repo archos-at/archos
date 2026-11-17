@@ -2,30 +2,6 @@
  * @vitest-environment node
  */
 
-/**
- * The browser runs no work loop over items (ADR-0121). A bulk move, a sort, an
- * import or a reindex is a server run on `bff_job_queue`: the browser starts
- * it, reads it, and asks for its next step. This is the ratchet that keeps that
- * true for the next writer.
- *
- * It counts, per browser file, three signatures of a loop the browser drives,
- * read through the TypeScript parser so a comment that names one is not counted:
- *
- * - a `const` whose name ends in `CONCURRENCY` (the width of a pool),
- * - a function named `pooled`, `workerPool`, `runPool` or `withConcurrency`,
- * - `Promise.all(Array.from({ length: … }, worker))` (the pool itself).
- *
- * Browser code is the feature and component trees, the app's pages (not its
- * API) and any other file that opens with `'use client'`.
- *
- * A ratchet, not a ban, as `english-names.spec.ts` is: `ci/browser_work_loops.json`
- * holds each file's count and the reason it is there. A count may fall, never
- * rise, and a new file may not appear. A hit that is not a loop over server
- * items (the browser holds the bytes it sends, a local upload) is baselined with
- * that reason. After a cleanup, rerun with UPDATE_BROWSER_WORK_LOOPS=1 to lower
- * the counts; a new entry is written by hand, with its reason.
- */
-
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
@@ -50,7 +26,6 @@ interface BaselineEntry {
 }
 type Baseline = Record<string, BaselineEntry>
 
-/** Browser code: features, components, hooks, the app's pages (not its API), and any file that opts in with 'use client'. */
 function isBrowserPath(file: string): boolean {
   if (/\.(spec|test)\.tsx?$/.test(file)) return false
   if (/^app\/api\//.test(file)) return false
@@ -81,7 +56,6 @@ function hasLengthKey(property: ts.ObjectLiteralElementLike): boolean {
   return ts.isShorthandPropertyAssignment(property) && property.name.text === 'length'
 }
 
-/** `Promise.all(Array.from({ length: … }, worker))`: a pool of workers, awaited together. */
 function isPoolCall(node: ts.Node): boolean {
   if (!ts.isCallExpression(node)) return false
   const callee = node.expression
@@ -91,7 +65,6 @@ function isPoolCall(node: ts.Node): boolean {
   return pool !== undefined && isArrayFromWithLength(pool)
 }
 
-/** How many loop signatures the file carries (see the header). */
 function countIn(source: ts.SourceFile): number {
   let count = 0
   const visit = (node: ts.Node): void => {
@@ -111,17 +84,14 @@ function countIn(source: ts.SourceFile): number {
 
 function sourceOf(file: string, text: string): ts.SourceFile {
   const kind = file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS
-  // Parent pointers are needed: a declaration's `const` lives on its list.
   return ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, kind)
 }
 
-/** Every tracked or not-yet-tracked TypeScript file under the source directories (a new file is seen before it is committed). */
 function sourceFiles(): string[] {
   const listed = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '--', 'app', 'bff', 'ui', 'i18n', 'shared', 'types', 'utils'], {
     cwd: UI_ROOT,
     encoding: 'utf8',
   })
-  // A tracked file deleted in the working tree is listed by git until it is staged; it has no source to read.
   return listed.split('\n').filter((file) => /\.tsx?$/.test(file) && existsSync(path.join(UI_ROOT, file)))
 }
 

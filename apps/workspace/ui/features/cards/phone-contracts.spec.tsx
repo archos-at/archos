@@ -1,18 +1,4 @@
 // @disk-inputs: ui/features/cards/**
-/**
- * What the chat cards keep on a phone, held where the source shows it.
- *
- * Pixels belong to the browser (`/dev/cards` on an iPhone 15 Pro); these are the
- * class-of-defect rules that are visible in the source and invisible on a
- * desktop, the same shape as `components/ui/mobile-affordances.spec.ts`:
- *
- *  1. Text is never cut with only a `title` to read it: a touch screen shows no
- *     tooltip. A clamp goes through `ClampedText`, which opens on a tap.
- *  2. The buttons of a proposal's decision row are all `DECISION_BUTTON`, so the
- *     row stacks, full width and one height, with „Übernehmen" first.
- *  3. The one openable row in the card set grows to 44px under a finger.
- *  4. A check's label wraps instead of truncating.
- */
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -41,7 +27,6 @@ describe('a cut text always has a way to read it on touch', () => {
   it('no element truncates while holding its text in a `title`', () => {
     const offenders: string[] = []
     for (const file of sources(ROOT)) {
-      // One JSX opening tag, allowing one level of `{…}` inside an attribute.
       for (const tag of code(file).matchAll(/<[A-Za-z][\w.]*\b(?:[^<>{}]|\{[^{}]*\})*>/g)) {
         if (/(?<![\w:-])truncate\b/.test(tag[0]) && /\btitle=/.test(tag[0])) offenders.push(name(file))
       }

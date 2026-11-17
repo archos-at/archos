@@ -17,7 +17,6 @@ describe('the repo’s decisions on top of z.toJSONSchema', () => {
   it('requires exactly what the object cannot parse without', () => {
     const geocode = z.preprocess((value) => value, z.object({ label: z.string() }))
     const node = toJsonSchema(z.object({ value: z.unknown(), location: geocode.nullable() }))
-    // `z.unknown()` parses a missing key; a nullable preprocess does not.
     expect(node.required).toEqual(['location'])
   })
 

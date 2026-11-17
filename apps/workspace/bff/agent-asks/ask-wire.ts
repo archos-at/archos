@@ -15,6 +15,9 @@ import { z } from 'zod'
 import { defineLifecycle } from '@/shared/lifecycle/define-lifecycle'
 import { conversationIdSchema } from '@/lib/session-documents/conversation-id'
 import { PRODUCT_NAME } from '@/lib/brand'
+import type { SOURCE_KINDS } from '@/shared/vocabularies.generated'
+
+type SourceKind = (typeof SOURCE_KINDS)[number]
 
 export const ASK_STATES = ['submitted', 'working', 'completed', 'canceled', 'failed', 'rejected'] as const
 export type AskState = (typeof ASK_STATES)[number]
@@ -70,8 +73,9 @@ export const CHAT_TURN_DEADLINE_SECONDS = 2_700
 const OUTCOME_NOTICE_GRACE_SECONDS = 120
 
 /**
- * How long an ask may stay open before it is ended `failed` when it is next read:
- * the turn's outcome notice was lost (a replica died mid-turn). The turn's own
+ * How long an ask may stay open before it is ended `failed`, by the `agent-ask-expiry`
+ * sweep or by its next read, whichever comes first: the turn's outcome notice was lost
+ * (a replica died mid-turn, or exited before it sent the notice). The turn's own
  * deadline and the notice's grace, so an ask is never ended while its turn may
  * still answer, and never outlives it; `AGENT_ASK_MAX_SECONDS` overrides it.
  */
@@ -141,13 +145,20 @@ export interface AskDocument {
  * one. `documentId` is the answer's own document identity (what its citations
  * group on), not a workspace document id. `url` opens the cited page in Piloti
  * for the asker (the UI's `?cite=` link on their conversation), or is the
- * outbound address of a web or RIS source.
+ * outbound address of a web or RIS source. `kind` says which it is, so a caller
+ * tells law read at its source from a web page without parsing an id.
  */
 export interface AskSource {
   documentId: string
   name: string
   page?: number
+  /** The clause within the document the citation names, when it names one. */
+  clause?: string
+  /** What kind of source it is: building law, the office's or the project's own document, a web page, or a measurement. */
+  kind: SourceKind
   url: string
+  /** The reference line in the citation form of the office's country (`citation-style-get`). */
+  citation: string
 }
 
 /** How far the answer rests on its sources, as the answer stored it (ADR-0125). */

@@ -62,7 +62,7 @@ SERVER_TOOLS = {
     "report_missing": "report-missing-operation",
 }
 
-# Everything the model reads from these tools is English, one word per concept (AGENTS.md, "Industry
+# Everything the model reads from these tools is English, one word per concept (working-style.md, "Industry
 # standard first"; the terms are in docs/glossary.md, "Agent surface and standard terms"). The model
 # answers the person in their language; it does not quote these sentences.
 
@@ -148,10 +148,11 @@ async def run_workspace(step: str, arguments: dict[str, Any], outcome: ActionOut
             "not retry in the same answer."
         )
     text = result.text
-    # `structured` is None for a tool-level refusal (`isError`): the call did not run.
-    outcome.failed = result.structured is None
+    # A tool-level refusal (`isError`) did not run. A capped read did, though it carries no `structured`
+    # (the server keeps the shape off an answer it cut): its action row reads ok, not error (dev QC 2026-11-12).
+    outcome.failed = result.is_error
     observed: dict[str, Any] = {"chars": len(text)}
-    if result.structured is None and _ROUTE_RATE_LIMITED.search(text):
+    if result.is_error and _ROUTE_RATE_LIMITED.search(text):
         _observe(step, {"tool": SERVER_TOOLS[step], "operation": arguments.get("name")}, {"status": 429})
         return RATE_LIMITED
     if step == "call":
@@ -171,7 +172,7 @@ def _record_read(result: Any, arguments: dict[str, Any], outcome: dict[str, Any]
 
     Only a read. A proposal is no reading (its card stands for it), and a refusal read nothing.
     """
-    if "proposed" in outcome or result.structured is None:
+    if "proposed" in outcome or result.is_error:
         return
     operation = str(arguments.get("name") or "").strip()
     if operation:

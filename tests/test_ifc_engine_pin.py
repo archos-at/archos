@@ -1,13 +1,3 @@
-"""The agent image runs the IfcOpenShell the engine's suite ran on.
-
-CI tests `packages/ifc-spatial-py` against its own `uv.lock`. The agent image
-installs the package with `uv pip install -e` (`apps/agent-host/Dockerfile`),
-which reads the requirements in `pyproject.toml` and never that lock. With a
-range there, the image took IfcOpenShell 0.9.0.post1 while the suite stayed on
-0.8.5, and `clearHeight` raises AttributeError on 0.9.0.post1 with every test
-green. These tests read the real files and fail when the two can differ again.
-"""
-
 import tomllib
 from pathlib import Path
 
@@ -18,7 +8,6 @@ ENGINE = Path(__file__).resolve().parents[1] / "packages" / "ifc-spatial-py"
 
 def _declared() -> list[str]:
     project = tomllib.loads((ENGINE / "pyproject.toml").read_text(encoding="utf-8"))["project"]
-    # `ids` is the extra the image installs: `ifc-spatial-py[ids]`.
     return [*project["dependencies"], *project["optional-dependencies"]["ids"]]
 
 

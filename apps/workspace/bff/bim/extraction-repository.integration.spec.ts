@@ -45,7 +45,6 @@ const element = (globalId: string): BimElement => ({
   properties: {},
   quantities: {},
 })
-// Only what `completeBimModel` reads of a summary; the rest is the parser's and not under test.
 const summary = { schema: 'IFC4', truncatedAt: null } as unknown as BimModelSummary
 
 describe('the extraction-run suite is not silently skipped in CI', () => {

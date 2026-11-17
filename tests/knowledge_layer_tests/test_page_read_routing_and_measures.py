@@ -1,5 +1,3 @@
-"""A page read carries a cache key and keeps sticky routing; a file's stages and coverage reach its job status."""
-
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -80,7 +78,6 @@ class TestThePromptCacheKey:
         assert "extra_body" not in request
 
     def test_a_zdr_page_read_is_eu_only_and_keeps_sticky_routing(self, monkeypatch):
-        """Decided 2026-11-03: `only` the EU slugs, no fallback, no `order` (which turns sticky routing off)."""
         built = {}
         monkeypatch.setattr(openrouter, "openai_client", lambda **kwargs: built.update(kwargs) or Client())
         monkeypatch.delenv(openrouter.PREFERRED_PROVIDERS_ENV, raising=False)
@@ -130,8 +127,6 @@ class _Recorder:
 
 
 class TestNoAllowedEuEndpoint:
-    """An EU-only page read the provider cannot place now waits, like the in-flight 402."""
-
     class NoProvider(Exception):
         def __init__(self, status: int) -> None:
             super().__init__(f"Error code: {status} - No allowed providers are available for the selected model.")
@@ -202,7 +197,6 @@ class TestAnUnreadImageIsCounted:
 
 
 def test_a_page_read_in_the_vision_pool_nests_under_its_files_trace(monkeypatch):
-    """The pool's threads copy the job's context, the file's trace included (12% were orphans on 2026-11-02)."""
     from knowledge_layer.ingest import adapter
     from knowledge_layer.ingest import processing
     from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
@@ -240,8 +234,6 @@ def test_a_page_read_in_the_vision_pool_nests_under_its_files_trace(monkeypatch)
 
 
 class TestAnImageIsScreenedByWhatTheModelRead:
-    """Without a Qdrant: the image branch alone, on a real ingestor's screen (the job harness skips without one)."""
-
     TERMS = {"content_terms": ["Gehaltsabrechnung"], "detectors": []}
 
     @pytest.fixture

@@ -9,7 +9,6 @@ import {
   type ComposerCapabilityInput,
 } from './composer-capabilities'
 
-/** A signed-in owner of a private thread, mid-idle: everything permitted. */
 const PERMITTED: ComposerCapabilityInput = {
   isAuthenticated: true,
   canCollaborate: true,
@@ -35,16 +34,10 @@ describe('roleMayContribute', () => {
   })
 
   test('a role this client does not recognise is not trusted', () => {
-    // The regression the name comparison allowed: `!== 'viewer'` waved through
-    // anything unrecognised, including a role the server ranks below
-    // collaborator. Ranking denies it instead.
     expect(roleMayContribute('commenter' as ResourceRole)).toBe(false)
   })
 
   test('the local ladder still matches the server ladder', () => {
-    // `@/lib/sharing/registry` owns roleSatisfies but is `server-only`, so the
-    // client mirrors the order. If RESOURCE_ROLES ever gains a rank, this fails
-    // here rather than silently in a permission check.
     expect([...RESOURCE_ROLES]).toEqual(['viewer', 'collaborator', 'owner'])
   })
 })
@@ -80,9 +73,6 @@ describe('composerCapabilities', () => {
   })
 
   describe('a denial of contribution always denies composing', () => {
-    // InputArea guarded write controls on `cannotContribute` and submit on
-    // `disabled`, which was only correct because the first implies the second.
-    // Nothing stated or tested that. Now it is a property of one function.
     for (const patch of [
       { isAuthenticated: false },
       { sharing: 'shared' as const, myRole: 'viewer' as ResourceRole },
@@ -153,17 +143,11 @@ describe('composerCapabilities', () => {
     })
 
     test('CURRENTLY still permits contribution — see the module header', () => {
-      // Pins today's behaviour rather than endorsing it. useThreadRole is
-      // published by a sibling component, so this window lasts for the access
-      // round-trip and forever if that sibling never mounts. Flipping this to a
-      // denial is a deliberate product change; when it happens, this assertion
-      // is the one that should fail first.
       expect(caps.canContribute).toBe(true)
       expect(caps.deniedBy).toBeNull()
     })
 
     test('a private thread with no role is not "unknown"', () => {
-      // Absent role on a private thread is normal, not a pending read.
       expect(withInput({ sharing: 'private', myRole: null }).roleUnknown).toBe(false)
     })
   })
@@ -191,10 +175,6 @@ describe('composerCapabilities', () => {
 })
 
 describe('project chat permission', () => {
-  // The composer's affordance for the project tier's `project:chat` gate. Before
-  // it, a Viewer could type a question into a project they may read but not
-  // chat in, and only learn on send — the enforcement was right and the surface
-  // lied about it.
   const base = {
     isAuthenticated: true,
     canCollaborate: false,
@@ -218,9 +198,6 @@ describe('project chat permission', () => {
   })
 
   test('outranks the thread role: it denies a thread OWNER too', () => {
-    // Deliberately the broader fact. Owning a conversation inside a project you
-    // may not chat in does not let you chat in it, and reporting the denial as
-    // `read-only-role` would send the reader to the wrong remedy.
     const capabilities = composerCapabilities({
       ...base,
       canCollaborate: true,

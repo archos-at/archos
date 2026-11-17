@@ -365,7 +365,9 @@ flowchart TB
 
   Project roles map onto resource roles under `project` visibility as: project
   viewer → `viewer`; project editor → `collaborator`; project admin → `collaborator`
-  (an admin can escalate themselves to `owner`, which is auditable — see SH-14).
+  (an admin can escalate themselves to `owner`, which is auditable — see SH-14 —
+  on a resource they can already read; the owners are told, ADR-0032 amendment
+  2026-11-11).
   *Rationale: a project admin silently holding owner rights on every private chat in
   the project would make "private" a lie. Escalation is legitimate; silent
   escalation is not.*

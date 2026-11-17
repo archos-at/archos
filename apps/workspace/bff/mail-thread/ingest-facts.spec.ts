@@ -1,12 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The two ingest records of a filed mail (`./ingest-facts`) are what the
- * backend's forbid-extra models accept: the send time clamped as the heading
- * clamps it, a display name and domains only, never an address. The files
- * eval's fixture pins the bytes; this pins the edges.
- */
 import { describe, expect, it } from 'vitest'
 import {
   mailOriginIngestFacts,
@@ -63,7 +57,6 @@ describe('mail_origin', () => {
         senderDomain: 'buero.at',
         signerDomain: 'buero.at',
         senderTrust: 'member_verified',
-        // Written six weeks before it was forwarded: no receipt window applies to the author's date.
         author: { name: 'Mag. Anna Huber', address: 'huber@ma37.wien.gv.at', sentAt: new Date('2026-09-01T08:00:00Z') },
       }),
       { threadDocumentId: null, locale: 'de' }

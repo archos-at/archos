@@ -1,12 +1,3 @@
-"""One run of a research job at a time, and a timeout that ends as FAILURE (ADR-0150).
-
-Hatchet delivers at least once: a copy of a run can start while another is
-alive. ``run_ownership`` lets exactly one run the agent; the job store is real
-(SQLite), so the compare-and-set runs as it does in production. And a run that
-Hatchet stops at its execution timeout is told apart from a person's cancel by
-what the cancel route wrote.
-"""
-
 from __future__ import annotations
 
 from datetime import UTC
@@ -71,7 +62,6 @@ async def test_a_waiting_job_is_taken_once_and_the_second_copy_loses(db_url):
 
 
 async def test_a_running_job_whose_run_went_silent_is_taken_over_once(db_url):
-    """A retry after a worker died: the previous attempt never finished and has been silent past the window."""
     await _job(db_url, "running", silent_for=timedelta(seconds=run_ownership.STALE_SECONDS + 5))
 
     rescue = await run_ownership.try_take(_store(db_url), "job-1")
@@ -88,7 +78,6 @@ async def test_a_recent_event_keeps_a_quiet_job_alive(db_url):
 
 
 async def test_the_ghost_reaper_leaves_a_job_a_retry_just_took_over(db_url):
-    """The rescue writes no event until its workflow is built; the reaper must read the takeover as life."""
     from sqlalchemy import text
 
     from agent_host.routes import job_reaper
@@ -107,7 +96,6 @@ async def test_the_ghost_reaper_leaves_a_job_a_retry_just_took_over(db_url):
 
 
 def test_a_waiting_retry_takes_a_dead_run_before_the_reaper_fails_it():
-    """One window, and a retry that waits past it: the reaper may not call a run dead before a retry may take it."""
     from agent_host.routes import job_reaper
 
     assert run_ownership.STALE_SECONDS == job_reaper.GHOST_JOB_TIMEOUT_SECONDS
@@ -123,7 +111,6 @@ async def test_a_finished_job_is_never_taken(db_url, status):
 
 
 async def test_the_losing_copy_returns_without_running_the_agent(db_url, monkeypatch):
-    """The duplicate Hatchet delivered: another copy is running the job, so this one runs nothing."""
     await _job(db_url, "running")
     monkeypatch.setattr(run_ownership, "WAIT_SECONDS", 0)
     ran: list[dict] = []
@@ -137,9 +124,6 @@ async def test_the_losing_copy_returns_without_running_the_agent(db_url, monkeyp
     assert await worker_mod.run_stored_job(db_url, "job-1", stored, attempt=1) is False
     assert ran == []
     assert await worker_mod.run_stored_job(db_url, "job-2", stored, attempt=1) is False  # no such job
-
-
-# ---------------------------------------------------------------- the timeout verdict
 
 
 def _request(db_url: str) -> JobRequest:

@@ -1,11 +1,3 @@
-/**
- * The model's facts in the file preview's metadata rail.
- *
- * The rail used to describe a 148 MB building with the passage count of the
- * prose written about it. What it must say instead is what the model contains —
- * and, just as importantly, must NOT say anything the export did not publish.
- */
-
 import { describe, expect, it, beforeEach, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { IfcFileFacts } from './ifc-file-facts'
@@ -14,7 +6,6 @@ import type { BimModelSummary } from '@/lib/bim/types'
 
 const state: {
   models: BimModelHeaderView[] | null
-  /** The document-scoped lookup the Archiv resolves through. */
   documentModel: BimModelHeaderView | null
 } = { models: null, documentModel: null }
 
@@ -29,7 +20,6 @@ vi.mock('../hooks/use-bim-model', () => ({
       : IDLE,
 }))
 
-/** A summary with only the fields this rail reads; the rest is real shape. */
 function summary(overrides: Partial<BimModelSummary> = {}): BimModelSummary {
   return {
     schema: 'IFC4',
@@ -99,8 +89,6 @@ describe('IfcFileFacts', () => {
 
     expect(screen.getByText('Storeys')).toBeInTheDocument()
     expect(screen.getByText('5')).toBeInTheDocument()
-    // Grouped like the area beneath it, and by the INTERFACE locale — an
-    // English rail must not print the Austrian `1.842`, which reads as 1.842.
     expect(screen.getByText('1,842')).toBeInTheDocument()
     expect(screen.getByText('41')).toBeInTheDocument()
     expect(screen.getByText('IFC4')).toBeInTheDocument()
@@ -123,10 +111,8 @@ describe('IfcFileFacts', () => {
     ]
     renderFacts()
 
-    // The row is gone; nothing anywhere claims this building has no floor area.
     expect(screen.queryByText('Net floor area')).not.toBeInTheDocument()
     expect(screen.queryByText(/0 m²/)).not.toBeInTheDocument()
-    // The rest of the model is still stated.
     expect(screen.getByText('Storeys')).toBeInTheDocument()
   })
 
@@ -134,8 +120,6 @@ describe('IfcFileFacts', () => {
     state.models = [model({ status: 'extracting', summary: null })]
     const { container } = render(<IfcFileFacts documentId="doc-1" projectId="proj-1" />)
 
-    // The viewport in the same pane already says so; a second empty panel
-    // repeating it is noise.
     expect(container).toBeEmptyDOMElement()
   })
 
@@ -147,8 +131,6 @@ describe('IfcFileFacts', () => {
   })
 
   it('states the same facts in the org Archiv, where there is no project to list', () => {
-    // The project list stays empty on purpose: reading it here would mean this
-    // rail asked a question the Archiv cannot answer.
     state.documentModel = model({ projectId: null })
     render(<IfcFileFacts documentId="doc-1" />)
 

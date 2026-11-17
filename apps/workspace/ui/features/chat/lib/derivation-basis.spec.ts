@@ -18,14 +18,12 @@ describe('basisLines', () => {
     const basis = basisLines(t, buildCitationModel({ citations: mockupCitations() }))
     expect(basis.law[0]).toEqual({
       numbers: [1],
-      // The Punkt as the dictionary typesets it (a no-break space after „Sec.“).
       text: `OIB-Richtlinie 2, Ausgabe Mai 2023, ${t('thinking.node.basis.clause', { clause: '3.1.1' })}`,
     })
     expect(basis.evidence[0]).toEqual({
       numbers: [2],
       text: `Einreichplan EG, ${t('thinking.node.basis.page', { page: 2 })}`,
     })
-    // No „[N]“ is baked into the text any more.
     for (const line of [...basis.law, ...basis.evidence]) expect(line.text).not.toMatch(/\[\d+\]/)
   })
 })
@@ -58,7 +56,6 @@ describe('openPoints name a document as its card does', () => {
 
   test('a Richtlinie of another edition is another document, never renamed to the card', () => {
     expect(cardForTarget('OIB-RL 2, Ausgabe 2019', cards)).toBeUndefined()
-    // The explanatory notes to the same Richtlinie are not the Richtlinie.
     const notesOnly: CitedDocument[] = cards.filter((doc) => doc !== oib)
     expect(cardForTarget('OIB-RL 2, Ausgabe 2023', notesOnly)).toBeUndefined()
   })

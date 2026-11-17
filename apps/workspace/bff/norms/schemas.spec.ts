@@ -164,8 +164,6 @@ describe('verifyNormResponseSchema', () => {
 
 describe('backend null contract (regression: Register konnte nicht geladen werden)', () => {
   it('parses an entry whose verify seed is null (pydantic VerifySeed | None)', () => {
-    // The backend serializes a seedless entry as `verify: null`; `.optional()`
-    // alone would reject it and fail the whole registry load.
     const parsed = normEntrySchema.parse({
       id: 'ma37-merkblaetter',
       title: 'MA 37 Merkblätter',

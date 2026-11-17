@@ -2,23 +2,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The content screen's contract with its Python twin
- * (`agent.common.content_screen`): every case in the shared fixture gives
- * the same matches, the same masked text and the same findings here as there,
- * and the placeholders are the ones Python defines. Python's half is
- * `packages/agent/tests/common/test_content_screen.py`.
- *
- * ONE fixture, at the repo root, read from disk at run time: vitest runs in
- * `apps/workspace` with the whole repository checked out (CI's workspace jobs
- * check out the full tree). Not an `import`, so `tsc` never has to resolve a
- * path outside `apps/workspace` (`Dockerfile.typecheck` copies only that).
- *
- * The fixture also holds the character tables Python computed (whitespace,
- * decimal digits, letter/number/mark classes, the fold of every code point, the
- * IBAN registry). This spec checks its own against them for every code point,
- * so the twins agree beyond the cases listed.
- */
 import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -54,7 +37,6 @@ interface Fixture {
     version: string
     whitespace: number[]
     decimal_zeros: number[]
-    /** `[first, last]` code points the fixture's Unicode version assigns. */
     assigned_ranges: [number, number][]
     classes_sha256: string
     fold_sha256: string
@@ -102,7 +84,6 @@ describe('content screen: chat rules', () => {
     const rules = chatScreeningRules(SUGGESTED_SCREENING_POLICY)
     expect(rules?.terms).toEqual(SUGGESTED_SCREENING_POLICY.contentTerms)
     expect(rules?.detectors).toEqual(['iban', 'at_svnr', 'credit_card', 'de_svnr', 'de_tax_id'])
-    // „Rechnung" is a NAME term: a question about a Schlussrechnung is not masked.
     expect(maskText('Bitte prüfe die Schlussrechnung', rules).findings).toEqual([])
   })
 
@@ -149,12 +130,6 @@ function sha256(text: string): string {
 describe('content screen: the character tables Python is held to too', () => {
   const codePoints = allCodePoints()
 
-  // The fixture is Python's Unicode version. Node may be newer (CI follows the
-  // latest 22.x), and a newer version only ASSIGNS characters: Unicode's
-  // stability policy keeps the class and case mapping of assigned ones. So the
-  // tables compare over the fixture version's assigned code points, and a
-  // newer runtime may add digits only among code points that version left
-  // unassigned. An OLDER runtime would miss characters Python knows.
   const assigned: number[] = fixture.unicode.assigned_ranges.flatMap(
     ([start, end]: [number, number]) => Array.from({ length: end - start + 1 }, (_, i) => start + i)
   )
@@ -246,7 +221,6 @@ describe('content screen: every match in one pass, and masking is a fixpoint', (
   })
 
   it('masks any generated text to a fixpoint', () => {
-    // mulberry32: a seeded generator, so a failure names the seed that reproduces it.
     const seeded = (seed: number) => () => {
       seed = (seed + 0x6d2b79f5) | 0
       let t = Math.imul(seed ^ (seed >>> 15), 1 | seed)
@@ -264,7 +238,6 @@ describe('content screen: every match in one pass, and masking is a fixpoint', (
         () => grouped(pick(IBANS), pick(SEPARATORS)),
         () => pick(IBANS).toLowerCase(),
         () =>
-          // one IBAN, printed again and again
           Array<string>(2 + Math.floor(random() * 11))
             .fill(grouped(pick(IBANS), ' '))
             .join(' '),

@@ -1,19 +1,3 @@
-"""Every tool the chat binds is either a data source or knowingly not one.
-
-A tool result is captured as a citable source only when the tool resolves to a
-configured data source (`get_source_id_for_tool`, `piloti/agent.py
-::_capture_sources`). A tool that returns passages but is missing from the
-`data_sources` registry is silently uncitable. Its passages never reach the
-registry, its sources never become chips, and a turn whose only finding came
-from it is replaced by the canned "search unavailable" reply, because the
-answer pipeline sees a lookup with nothing captured. `project_lookup` shipped
-exactly like that, and the precedent eval found it
-(docs/roadmap/office-experience.md, step A).
-
-So a new chat tool has to be put in one of two places, and this test is
-what makes that a decision instead of an accident.
-"""
-
 from __future__ import annotations
 
 from pathlib import Path
@@ -22,12 +6,8 @@ import yaml
 
 CONFIG = Path(__file__).resolve().parents[5] / "configs" / "config_oib_openrouter.yml"
 
-#: The tools that render passages a reader cites: a grounding block
-#: (`render_grounding_block`) or a registered source parser. Each must be a data source.
-PASSAGE_TOOLS = {"knowledge_search", "read_passage", "ris_lookup_tool", "project_lookup"}
+PASSAGE_TOOLS = {"knowledge_search", "read_passage", "law_lookup", "project_lookup"}
 
-#: Chat tools that are deliberately NOT data sources, and why. Adding a tool
-#: here says its result is never evidence an answer cites.
 NOT_SOURCES = {
     "remember": "writes project memory; its confirmation is not evidence",
     "surface_documents": "shows documents as a card; the documents are read through knowledge_search",
@@ -91,10 +71,6 @@ def test_nothing_is_both():
 
 
 def test_every_record_tool_is_a_chat_data_source():
-    """`RECORD_TOOLS` names tools by string.
-
-    A renamed tool would silently lose its exemption from the empty-registry refusal.
-    """
     from agent.agents.piloti.answer_pipeline import RECORD_TOOLS
 
     config = _config()

@@ -1,11 +1,3 @@
-"""Per-run SkillRuntime (ADR-0135): the catalog SkillsMiddleware renders, the
-read that activates, the pinned shortcut, and the events activation emits.
-
-A skill is activated when its body reached the model: a ``read_file`` of its
-``SKILL.md`` through the run's backend, or a pinned body the answer envelope
-names in ``skills_applied``. Listing it in the catalog activates nothing.
-"""
-
 from __future__ import annotations
 
 import pytest
@@ -39,8 +31,6 @@ TITLED_TWO = Skill(
     metadata={"grid-title": "Fluchtwegprüfung"},
     origin="org",
 )
-# A hidden skill WITH a title: hidden demotes the live line even when a
-# perfectly good title exists — the voice-skill case.
 HIDDEN = Skill(
     name="piloti-voice",
     description="Hausstimme, auf jeder Antwort.",
@@ -51,7 +41,6 @@ HIDDEN = Skill(
 
 
 def _read(runtime: SkillRuntime, name: str, source: str = "office") -> str:
-    """What ``read_file`` hands the model for ``name``: the backend's read, as the tool calls it."""
     result = runtime.mounted().read(f"/skills/{source}/{name}/SKILL.md", 0, 1000)
     assert result.error is None, result.error
     return result.file_data["content"]
@@ -70,18 +59,15 @@ class TestTheCatalog:
         assert runtime.activated == ()
 
     def test_the_catalog_is_skillsmiddlewares_own_rendering(self) -> None:
-        """Name, description and path per skill, under our heading, rendered by the middleware."""
         block = _runtime().catalog_block() or ""
         assert block.startswith(SKILLS_PROMPT.split("\n", 1)[0])
         assert "- **alpha**: Erster Skill." in block
         assert "Read `/skills/office/alpha/SKILL.md` for full instructions" in block
         assert "read_file" in block
-        # Progressive disclosure: bodies NEVER leak into the catalog.
         assert "alpha body" not in block
         assert "beta body" not in block
 
     def test_a_stored_auto_invoke_off_no_longer_hides_a_skill(self) -> None:
-        """The catalog is the model's inventory, not a list a person edits (ADR-0060)."""
         silent = Skill(
             name="submission-check",
             description="Was diesem Bauansuchen noch fehlt.",
@@ -96,7 +82,6 @@ class TestTheCatalog:
         assert "Preferred cards" not in (_runtime(S1, CARDS).prompt_block() or "")
 
     def test_a_later_source_wins_a_name_clash(self) -> None:
-        """The middleware's own layering: the office's copy of a name shadows a collection's."""
         office_copy = Skill(name="alpha", description="Die Fassung des Büros.", body="office alpha")
         runtime = SkillRuntime({"synthesis": (S1,), "office": (office_copy,)})
         block = runtime.catalog_block() or ""
@@ -114,7 +99,6 @@ class TestActivation:
         assert runtime.activated == ("beta",)
 
     def test_loading_the_catalog_activates_nothing(self) -> None:
-        """The middleware downloads every SKILL.md to list it; that is not a delivery."""
         runtime = _runtime()
         runtime.mounted().download_files(["/skills/office/alpha/SKILL.md", "/skills/office/beta/SKILL.md"])
         runtime.catalog_block()
@@ -140,7 +124,6 @@ class TestActivation:
         assert second.activated == ()
 
     def test_the_runtime_offers_and_cannot_require(self) -> None:
-        """No constructor argument or property can put a skill in front of the model as an order."""
         runtime = _runtime()
         for gone in ("forced", "forced_block", "force_names", "inline_also", "build_tools"):
             assert not hasattr(runtime, gone), gone
@@ -176,18 +159,14 @@ class TestPreferredCards:
 
 
 class TestPinned:
-    """The turn-start decision's pick rides the prompt (ADR-0063, ADR-0064), still an offer."""
-
     def test_a_pinned_body_rides_in_the_middlewares_skill_shape(self) -> None:
         runtime = _runtime(S1, CARDS)
         assert runtime.pin("gamma")
         block = runtime.prompt_block() or ""
         assert '<skill name="gamma" path="/skills/office/gamma/SKILL.md">\ngamma body' in block
         assert "skills_applied" in block
-        # Names only in the prompt; the full shapes travel with a read.
         assert "Preferred cards: `stair_diagram`, `calculation`" in block
         assert "## Preferred cards" not in block
-        # The catalog still lists it, so a read is never refused.
         assert "- **gamma**" in block
 
     def test_an_unknown_name_pins_nothing(self) -> None:
@@ -221,7 +200,6 @@ class TestPinned:
         assert runtime.activated == ("alpha",)
 
     def test_the_old_name_of_a_renamed_builtin_pins_the_new_one(self) -> None:
-        """A schedule's stored prompt says `/einreichcheck` (migration 0169)."""
         renamed = Skill(name="submission-check", description="Was noch fehlt.", body="renamed body")
         runtime = _runtime(renamed)
         assert runtime.pin("einreichcheck")
@@ -229,8 +207,6 @@ class TestPinned:
 
 
 class TestActivationEvents:
-    """What leaves the process while the skills are in play: typed ``skill`` steps."""
-
     def test_each_activation_emits_exactly_one_step_for_its_skill(self, emitted) -> None:
         runtime = _runtime(S1, S2, TITLED)
         _read(runtime, "titel")
@@ -287,7 +263,6 @@ class TestActivationEvents:
 
 
 def test_a_standard_marker_on_the_payload_is_ignored() -> None:
-    """The wire may still carry it; nothing in the backend may act on it."""
     from agent.skills.resolver import _build_org_skills
 
     (skill,) = _build_org_skills(

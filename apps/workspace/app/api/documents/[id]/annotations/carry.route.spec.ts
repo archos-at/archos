@@ -1,22 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * „Gilt weiter": carrying an open mark to the document's current Fassung,
- * driven through the TYPED CLIENT and the real route, service and inbox
- * emitters (ADR-0055). The document reader, the repository, the Fassung facts
- * and the inbox's writes are faked.
- *
- * What is pinned: under the same name the mark moves in place, compared and
- * swapped on its status and the Fassung it was read on, and tells nobody;
- * only an open mark goes on, and nothing else changes with it; a document
- * another one replaced hands its mark to that one as a linked mark, its own
- * closed in the same write, the Zuständige asked again on the new mark only
- * while they may still answer there; a second carry, a delegated mark and a
- * colleague's earlier move are refused; a link names only a document the
- * reader may open; and the list names, per mark, where this reader's carry
- * lands (the end of the chain), or nothing where the carry would be refused.
- */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -127,9 +111,7 @@ const doc = (id: string, fields: Partial<Document> = {}) =>
     ...fields,
   }) as Partial<Document> as Document
 
-/** The document under its own name, with a newer Fassung published. */
 const SAME = doc('doc_a')
-/** Index B, replaced by Index C under another name. */
 const B = doc('doc_b', { filename: 'Grundriss EG Index B.pdf' })
 const C = doc('doc_c', { filename: 'Grundriss EG Index C.pdf' })
 const DOCS = new Map([SAME, B, C].map((entry) => [entry.id, entry]))
@@ -306,11 +288,9 @@ describe('carrying a mark of a document another one replaced', () => {
     expect(sent.map((row) => [row.type, row.recipientUserId, row.resourceId, row.anchorId])).toEqual([
       ['annotation.assigned_to_you', 'user_anna', 'doc_c', 'ann_c'],
     ])
-    // A carry, counted once as one; the source's closing is its bookkeeping, not a close of its own.
     expect(vi.mocked(captureServer).mock.calls.map(([capture]) => [capture.event, capture.properties])).toEqual([
       ['annotation_carried', { document_id: 'doc_b', way: 'across', by: 'person' }],
     ])
-    // What B's mark asked of people is settled: it is closed.
     expect(resolveInboxItemsAnchoredOn).toHaveBeenCalledWith(
       expect.objectContaining({ anchorId: 'ann_b', types: expect.arrayContaining(['annotation.assigned_to_you']) })
     )

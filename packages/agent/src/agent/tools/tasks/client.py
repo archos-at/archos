@@ -31,7 +31,7 @@ in ``packages/agent/src/agent/tools/AGENTS.md``, not in a function.
 holding the same two strings would be two types the type checker keeps apart for
 no reason. It is safe to import across the plugin boundary that the entry points
 draw: that module is stdlib-only, so it drags in no optional dependency — which
-is the whole of what the "own entry point" rule in ``packages/agent/src/agent/AGENTS.md``
+is the whole of what the "own entry point" rule in ``packages/AGENTS.md``
 protects against.
 """
 

@@ -1,7 +1,3 @@
-/**
- * „Wer war dabei" in the close dialog: the Steckbrief read from its route,
- * editable before the project locks, and never in the way of closing.
- */
 import { render, screen } from '@/test-utils'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import type { ProjectRecordView } from '@/lib/projects/project-record-types'

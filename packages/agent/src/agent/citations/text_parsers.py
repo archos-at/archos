@@ -10,6 +10,8 @@ from agent.citations.entries import SourceEntry
 from agent.citations.entries import is_look_tool
 from agent.citations.grounding_text import parse_knowledge_layer
 from agent.citations.grounding_text import parse_look
+from agent.citations.web_results import is_web_search_tool
+from agent.citations.web_results import parse_web_results
 
 SourceParser = Callable[[str, str], list[SourceEntry]]
 
@@ -41,18 +43,25 @@ def parser_for(tool_name: str) -> SourceParser | None:
 
 # --- The built-in parsers, in the order they are tried ------------------------
 
-# Register knowledge layer as the only special-case parser.
-# All other tools (Tavily, paper search, etc.) use the generic URL fallback.
+# The knowledge layer's grounding grammar. A tool with no parser here (paper search, the older RIS
+# tools) falls to the generic URL extractor.
 register_source_parser(lambda name: "knowledge" in name, parse_knowledge_layer)
 
 
-# ``ris_lookup`` emits the SAME grounding grammar (``ris_adapter.lookup``), so
-# it gets the same parser rather than a second one: a RIS passage carries a
+# A web search states its hits as records, and only a record names a source: the generic extractor
+# registered every address in the text, a page's outbound links and the provider's summary included.
+register_source_parser(is_web_search_tool, parse_web_results)
+
+
+# ``law_lookup`` emits the SAME grounding grammar (``agent.knowledge.law_lookup``),
+# so it gets the same parser rather than a second one: a law passage carries a
 # Citation key, a Punkt (``§63Abs1``) and ``Dokumentart: gesetz``, and every one
 # of those dies in the generic URL extractor — which is what the three older RIS
 # tools still fall through to, correctly, because their output is references and
 # a 40 000-character blob, not passages. One grammar, one parser, two producers.
-register_source_parser(lambda name: "ris_lookup" in name, parse_knowledge_layer)
+# ``ris_lookup`` is the name a turn stored before the rename carries: a replay
+# reads its text, so the old name keeps its parser.
+register_source_parser(lambda name: "law_lookup" in name or "ris_lookup" in name, parse_knowledge_layer)
 
 
 # ``read_passage`` is the third producer of that grammar: it renders through the

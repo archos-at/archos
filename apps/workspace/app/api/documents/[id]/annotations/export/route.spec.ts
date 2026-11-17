@@ -1,13 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The Protokoll download route. What the file says and who may have it is
- * `lib/annotations/export.spec.ts`; here: the query reaches the service as
- * parsed (defaults included), a bad one is a 400 before anything is read, the
- * response presents as a FILE under the document's own name, and the
- * service's 404 for a reader without access stays a 404.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 

@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The platform MCP gateway's admission for a token of another organization
- * (ADR-0154, amendment of 2026-11-05): live membership of the platform
- * organization with an admitted role, from a token AuthKit really signed.
- */
 
 import { SignJWT, createLocalJWKSet, exportJWK, generateKeyPair } from 'jose'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -52,7 +47,6 @@ beforeEach(() => {
   vi.mocked(resolvePinnedRequesterSession).mockResolvedValue(owner)
 })
 
-/** An office token, as a person who picked their office at sign-in holds it. */
 async function bearer(options: { iss?: string; sub?: string; key?: CryptoKey } = {}): Promise<string> {
   const jwt = new SignJWT({ org_id: 'org_office', roles: ['admin'] })
     .setProtectedHeader({ alg: 'RS256', kid: KID })

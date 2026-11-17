@@ -1,5 +1,4 @@
 import { findProjectCollectionName } from '@/lib/projects/repository'
-import { loadProjectSiteCountry } from '@/lib/project-profile/prompt-view'
 import { findUserPreferencesForSession } from '@/lib/user-preferences/repository'
 import { requireProjectAccess } from '@/lib/authz/projects'
 import { CHAT_PERMISSIONS } from '@/lib/authz/chat'
@@ -11,12 +10,13 @@ import {
   computeCollectionScope,
   sessionCollectionName,
   type CollectionShelf,
+  resolveBaseCollectionName,
   type ScopeContext,
   type ScopedCollection,
 } from '@/lib/retrieval-scope/collection-scope'
 import { officeShelfCollectionName } from '@/lib/office-shelf/collection'
 import type { AuthorizedSession, UserSession } from '@/lib/auth/types'
-import { corpusCountriesFor } from '@/lib/base-knowledge/context/corpus-countries'
+import { baseCorpusCountries, projectCorpusCountries } from './base-entry'
 
 export interface RequestContext {
   projectId?: string
@@ -50,9 +50,6 @@ export type { CollectionShelf, ScopedCollection } from '@/lib/retrieval-scope/co
  * literal mirrors `collection-scope.ts`'s fallback; passing it through means
  * only one of the two values is ever live at runtime.
  */
-function resolveBaseCollectionName(): string {
-  return process.env.BASE_COLLECTION_NAME || 'oib_knowledge'
-}
 
 /**
  * `base64url(JSON.stringify(ScopedCollection[]))` — same header name, same
@@ -295,10 +292,6 @@ export async function buildCollectionScopeFromRequest(
         )
       : []
 
-  // The Austrian corpus is Austria's law: a project placed elsewhere, or not
-  // placed at all, does not search it (ADR-0158). A turn with no project does.
-  const includeBase = !projectId || (await loadProjectSiteCountry(projectId, session?.organizationId)) === 'at'
-
   const shelfByCollection = new Map<string, CollectionShelf>()
   // The base knowledge corpus, and nothing else, is `base`.
   shelfByCollection.set(baseCollection, 'base')
@@ -316,20 +309,27 @@ export async function buildCollectionScopeFromRequest(
     officeShelfCollectionName: officeShelfCollection,
     baseCollection,
     restrictedCollections,
-    includeBase,
   } satisfies ScopeContext)
 
-  // The countries the office may read of the base corpus (ADR-0173), signed onto its entry;
-  // an office entitled to nothing reads none of it (ADR-0175).
-  const corpusCountries =
-    scope.includes(baseCollection) && session?.organizationId && !anonymous
-      ? await corpusCountriesFor(session.organizationId)
-      : undefined
+  // The countries this request may read of the base corpus (ADR-0173), signed onto its entry; an office
+  // entitled to nothing reads none of it (ADR-0175). The entry is in every scope, a project's too, whatever
+  // its site; for a project it carries the office's countries its knowledge context reads
+  // (`projectCorpusCountries`), so a door or proxy read that binds no context is narrowed like a turn. An
+  // unplaced project reads the office's countries as information (gate `site_unknown`); leaving the entry out
+  // made its answer say a released text could not be read (2026-11-12). A request with no organization (an
+  // anonymous deployment) is signed an empty list, never no field: the agent tier reads a base entry without
+  // `countries` as "says nothing" and refuses it too, but the signature should say it out loud.
+  const signsBase = scope.includes(baseCollection) && !anonymous
+  const corpusCountries = !signsBase
+    ? []
+    : projectId
+      ? await projectCorpusCountries(session?.organizationId, projectId)
+      : await baseCorpusCountries(session?.organizationId)
   const scopedCollections: ScopedCollection[] = scope.map((collection) => {
     const shelf = shelfByCollection.get(collection)
     // No shelf → omit the field. Unknown stays unknown; it is never defaulted.
     const entry: ScopedCollection = shelf ? { collection, shelf } : { collection }
-    if (collection === baseCollection && corpusCountries) entry.countries = corpusCountries
+    if (collection === baseCollection) entry.countries = corpusCountries
     return entry
   })
 

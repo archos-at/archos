@@ -165,7 +165,7 @@ function HeaderRow({
           {drawing ? 'DXF · Maßstab 1:500 · Bereit' : 'PDF · Bereit'}
         </p>
       </div>
-      <Button type="button" variant="outline" size="sm" className="h-8 shrink-0 gap-1.5 px-3">
+      <Button type="button" variant="secondary" size="sm" className="h-8 shrink-0 gap-1.5 px-3">
         <Download className="size-3.5" aria-hidden />
         Herunterladen
       </Button>

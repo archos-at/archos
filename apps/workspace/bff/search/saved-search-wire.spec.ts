@@ -1,10 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The saved-search contract: the question is checked in full by the route's
- * parse, though its JSON Schema stays a bare object for the agent's tool list.
- */
 import { describe, expect, it } from 'vitest'
 import { toJsonSchema } from '@/lib/api/zod-json-schema'
 import { createSavedSearchSchema, SAVED_SEARCH_QUERY_MAX_BYTES, updateSavedSearchSchema } from './saved-search-wire'

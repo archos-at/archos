@@ -1,20 +1,3 @@
-/**
- * The review against MSW and a scripted room: the hook both surfaces share, the
- * page layer, the thread card and the panel, through the real typed client.
- *
- * What is pinned: a person sets a point or a region where the pointer went,
- * through the API; Piloti's marks arrive as proposals a person takes over or
- * dismisses; a change somebody else made is read again even while pointers are
- * moving (each pointer re-renders the review, and a listener that re-subscribed
- * on every render cancelled the read: the bug this suite caught); colleagues'
- * pointers are drawn on their page; and a reader who may not write gets no tools.
- *
- * And Piloti on the canvas, through the real canvas client on a scripted
- * socket: a box drawn with the Piloti tool opens its card, the question goes
- * out with the box, the answer streams into the card and can be taken over as
- * an Anmerkung at the box, and @Piloti in a thread asks for a reply there.
- */
-
 import { act, useEffect } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
@@ -39,8 +22,6 @@ import { DraftCard, ThreadCard } from './thread-card'
 import { useChatStore } from '@/features/chat/store'
 import { PRODUCT_NAME } from '@/lib/brand'
 
-// The real chat store, signed in as `user_me`: the review reads who is looking
-// from it, and `use-canvas-ask` subscribes to it.
 beforeEach(() => useChatStore.setState({ currentUserId: 'user_me' }))
 
 const view = (overrides: Partial<AnnotationView>): AnnotationView => ({
@@ -81,7 +62,6 @@ const view = (overrides: Partial<AnnotationView>): AnnotationView => ({
   ...overrides,
 })
 
-/** The „@" picker's row for one person (or Piloti), as the chat's picker draws it. */
 const pickerOption = (scope: HTMLElement, targetId: string): HTMLElement => {
   const row = within(scope)
     .getAllByTestId('mention-option')
@@ -90,7 +70,6 @@ const pickerOption = (scope: HTMLElement, targetId: string): HTMLElement => {
   return row
 }
 
-/** A room the test plays: frames go to the hook, posts are recorded. */
 function scriptedRoom() {
   let deliver: ((frame: RoomFrame) => void) | null = null
   const posts: RoomPost[] = []
@@ -110,7 +89,6 @@ function scriptedRoom() {
 
 const ANNA = { peerId: 'peer_anna_0001', userId: 'user_anna', name: 'Anna Berger', kind: 'person' as const }
 
-/** Piloti's socket, played by the test: what the canvas sends, and the answer's frames on cue. */
 function scriptedAgent() {
   const sent: ClientMessage[] = []
   let options: TurnSocketOptions | null = null
@@ -145,7 +123,6 @@ function scriptedAgent() {
   }
 }
 
-/** The pane's join, without the viewer: page 1's layer in a sized box, the open thread, and the panel. */
 function Harness({
   transport,
   onReady,
@@ -165,7 +142,6 @@ function Harness({
     revision,
     piloti: piloti ? { projectId: 'proj_1', fileName: 'Grundriss.pdf', createClient: piloti.createClient } : undefined,
   })
-  // As the review wires it: „Piloti prüfen lassen, was behoben ist" under the earlier Fassungen' marks.
   const checkFixed = useCheckFixed(review, { documentName: 'Grundriss Index C.pdf', revisionLabel: 'Revision 3' })
   useEffect(() => {
     onReady?.(review)
@@ -211,7 +187,6 @@ function Harness({
 const serve = (annotations: AnnotationView[], canAnnotate = true, pilotiWakes = false) =>
   server.use(
     http.get('/api/documents/:id/annotations', () => HttpResponse.json({ annotations, canAnnotate, pilotiWakes })),
-    // One mark, as a room hint has it read again.
     http.get('/api/documents/:id/annotations/:annotationId', ({ params }) => {
       const found = annotations.find((annotation) => annotation.id === params.annotationId)
       return found
@@ -225,7 +200,6 @@ beforeEach(() => {
   window.sessionStorage.clear()
 })
 
-/** The page's capture surface, measured as an 800 × 600 sheet. */
 function captureSurface() {
   const capture = within(screen.getByTestId('sheet')).getByTestId('review-capture')
   vi.spyOn(capture, 'getBoundingClientRect').mockReturnValue({
@@ -235,11 +209,9 @@ function captureSurface() {
   return capture
 }
 
-/** The conversation and its question rows, as the BFF answers them; what was posted is recorded. */
 function serveConversation() {
   const posted: Array<{ path: string; body: unknown }> = []
   server.use(
-    // The person's own thread about the document (ADR-0106), which the canvas asks in.
     http.post('/api/documents/:id/thread', async ({ request }) => {
       posted.push({ path: 'thread', body: await request.json() })
       return HttpResponse.json({ conversationId: 's_thread_doc_1' })
@@ -256,7 +228,6 @@ function serveConversation() {
   return posted
 }
 
-/** Draw a box with the Piloti tool, ask about it, and let Piloti answer. */
 async function askAboutABox(piloti: ReturnType<typeof scriptedAgent>) {
   await userEvent.click(screen.getByRole('button', { name: 'piloti tool' }))
   const capture = captureSurface()
@@ -277,9 +248,7 @@ describe('the review', () => {
       view({ id: 'a', number: 1 }),
       view({ id: 'b', number: 2 }),
       view({ id: 'p', number: 3, authorKind: 'piloti', status: 'proposed' }),
-      // Open on an earlier Fassung of this document: a ghost, drawn and listed under Offen.
       view({ id: 'ghost', number: 4, onCurrentRevision: false }),
-      // Closed on an earlier Fassung: listed under Erledigt, not drawn.
       view({ id: 'gone', number: 5, onCurrentRevision: false, status: 'resolved' }),
       view({ id: 'done', number: 6, status: 'resolved' }),
     ])
@@ -333,7 +302,6 @@ describe('the review', () => {
     const region = within(screen.getByTestId('sheet')).getByTestId('review-region')
     expect(region.style.left).toBe('10%')
     expect(region.style.width).toBe('30%')
-    // The mark set on an earlier Fassung is listed, not drawn.
     expect(screen.getAllByTestId('review-row')).toHaveLength(3)
   })
 
@@ -402,7 +370,6 @@ describe('the review', () => {
 
     await userEvent.click(within(thread).getByTestId('thread-accept'))
 
-    // The status the card showed goes with the move: a stale tab gets a 409, never a blind change.
     await waitFor(() => expect(patched).toEqual([{ status: 'open', expectedStatus: 'proposed' }]))
     await waitFor(() => expect(within(screen.getByTestId('review-thread')).queryByTestId('thread-accept')).toBeNull())
   })
@@ -428,7 +395,6 @@ describe('the review', () => {
       kind: 'event',
       event: { kind: 'annotations.changed', annotationIds: ['theirs'], change: 'created', actor: { ...ANNA } },
     })
-    // A pointer every 30ms for half a second: none of them cancels the read.
     for (let index = 0; index < 16; index += 1) {
       room.send({ kind: 'event', event: { kind: 'cursor', peer: ANNA, cursor: { page: 1, x: index / 20, y: 0.5 } } })
       await act(() => new Promise((resolve) => setTimeout(resolve, 30)))
@@ -547,7 +513,6 @@ describe('the review', () => {
       })
       await waitFor(() => expect(sent).toHaveLength(1))
 
-      // „Wieder öffnen" while the resolve is in flight goes to the server, not into the void.
       let reopened: Promise<unknown> = Promise.resolve()
       act(() => {
         reopened = result.current.update('m', { status: 'open', expectedStatus: 'resolved' })
@@ -575,7 +540,6 @@ describe('the review', () => {
       http.get('/api/documents/:id/annotations/:annotationId', async () => {
         reads += 1
         if (reads === 1) {
-          // The first read is slow, and answers with the mark as it was.
           await new Promise<void>((resolve) => answers.push(resolve))
           return HttpResponse.json({ annotation: view({ id: 'm', body: 'Wird gelöscht' }) })
         }
@@ -654,7 +618,6 @@ describe('the review', () => {
 
     await askAboutABox(piloti)
 
-    // The person's own thread about the document, which the server creates (ADR-0106).
     expect(posted[0]).toEqual({ path: 'thread', body: { title: 'Grundriss.pdf · Review' } })
     expect(posted.some((entry) => entry.path === 'conversation')).toBe(false)
     expect(piloti.questions()[0].conversation_id).toBe('s_thread_doc_1')
@@ -770,13 +733,11 @@ describe('the review', () => {
     await userEvent.click(await screen.findByTestId('review-row'))
     const thread = await screen.findByTestId('review-thread')
     const box = within(thread).getByTestId('thread-reply')
-    // The chat's own picker, gesture for gesture: „@" opens it, a pick writes the name.
     await userEvent.type(box, `@${PRODUCT_NAME.slice(0, 3).toLowerCase()}`)
     await userEvent.click(pickerOption(thread, 'agent:piloti'))
     expect(box).toHaveValue(`@${PRODUCT_NAME} `)
     await userEvent.type(box, 'Stimmt die Breite?{Enter}')
 
-    // The mention is what was picked, sent beside the text and never read out of it.
     await waitFor(() =>
       expect(replies).toEqual([
         {
@@ -788,14 +749,12 @@ describe('the review', () => {
     )
     await waitFor(() => expect(piloti.questions()).toHaveLength(1))
     expect(piloti.questions()[0]).toMatchObject({
-      // The id a server wake of the same reply would use: the two can never both run.
       message_id: wakeTurnId('r1'),
       conversation_id: 's_thread_doc_1',
       text: `@${PRODUCT_NAME} Stimmt die Breite?`,
       reply_in_thread: true,
       focus_region: { page: 1, x: 0.1, y: 0.2, w: 0.3, h: 0.25, annotation_id: 'ann_1' },
     })
-    // No card: Piloti answers in the thread, and the thread says it is on it.
     expect(screen.queryByTestId('agent-answer-card')).toBeNull()
     expect(within(screen.getByTestId('review-thread')).getByTestId('thread-agent-pending')).toBeInTheDocument()
 
@@ -852,15 +811,12 @@ describe('the review', () => {
     await userEvent.click(pickerOption(thread, 'agent:piloti'))
     await userEvent.type(box, 'Stimmt die Breite?{Enter}')
 
-    // The mark's own view says Piloti is on it, for whom: the same line everyone in the room
-    // reads, after a reload too. Nothing runs in this tab: no thread, no socket, no question.
     const work = await within(screen.getByTestId('review-thread')).findByTestId('thread-agent-work')
     expect(work).toHaveAttribute('data-state', 'queued')
     expect(work).toHaveTextContent('Miriam Hofer')
     expect(piloti.questions()).toEqual([])
     expect(posted).toEqual([])
 
-    // Piloti's reply arrives through the room, as the wake job's turn writes it.
     const answered = {
       ...mark,
       replies: [
@@ -988,7 +944,6 @@ describe('marking on a touch screen', () => {
     const capture = captureSurface()
 
     fireEvent.pointerDown(capture, { button: 0, clientX: 80, clientY: 120, pointerId: 1 })
-    // Pressed, not released: no draft yet.
     expect(screen.queryByTestId('review-draft')).toBeNull()
     fireEvent.pointerMove(capture, { clientX: 260, clientY: 300, pointerId: 1 })
     fireEvent.pointerUp(capture, { clientX: 260, clientY: 300, pointerId: 1 })
@@ -1040,17 +995,10 @@ describe('marking on a touch screen', () => {
   })
 })
 
-/**
- * Mentioning a colleague on a mark, the way the chat does: „@" opens the chat's
- * own picker, its rows are the people who may open the document (the Zuständige
- * picker's list), a pick writes the name and sends whom it means beside the
- * text, and the mark shows the mention as the chat's chip.
- */
 describe('mentioning a colleague on a mark', () => {
   const ANNA_PERSON = { userId: 'user_anna', name: 'Anna Berger', email: 'anna@buero.at', profilePictureUrl: null }
   const ANNA_MENTION = { targetId: 'user_anna', display: 'Anna Berger' }
 
-  /** Who may open the document, as the Zuständige picker reads it; the paths asked are recorded. */
   const serveCandidates = () => {
     const asked: string[] = []
     server.use(
@@ -1103,7 +1051,6 @@ describe('mentioning a colleague on a mark', () => {
     await waitFor(() =>
       expect(replies).toEqual([{ body: '@Anna Berger bitte die Breite prüfen', mentions: [ANNA_MENTION] }])
     )
-    // The name, drawn as the chat's chip, never the id.
     const chip = await within(screen.getByTestId('review-thread')).findByTestId('mention-chip')
     expect(chip).toHaveTextContent('@Anna Berger')
     expect(chip).toHaveAttribute('data-mention-target', 'user_anna')
@@ -1118,7 +1065,6 @@ describe('mentioning a colleague on a mark', () => {
       http.post('/api/documents/:id/annotations/:annotationId/replies', async ({ request }) => {
         const sent = (await request.json()) as { body: string; mentions?: unknown }
         replies.push(sent)
-        // Anna lost the folder between the pick and the send: the server keeps nobody.
         return HttpResponse.json({
           annotation: view({ id: 'ann_1', replies: [replyView(sent.body, [])] }),
           replyId: 'r1',
@@ -1132,7 +1078,6 @@ describe('mentioning a colleague on a mark', () => {
     const thread = await screen.findByTestId('review-thread')
     const box = within(thread).getByTestId('thread-reply')
 
-    // Typed by hand, never picked: text, not a mention, and the picker says who can be.
     await userEvent.type(box, '@Max')
     expect(await within(thread).findByTestId('mention-no-results-hint')).toHaveTextContent(
       'You can mention anyone who can open this document.'
@@ -1141,12 +1086,10 @@ describe('mentioning a colleague on a mark', () => {
     await waitFor(() => expect(replies).toEqual([{ body: '@Max schau mal' }]))
     expect(within(screen.getByTestId('review-thread')).queryByTestId('mention-chip')).toBeNull()
 
-    // Picked, and dropped by the server: the box says so.
     await userEvent.type(box, '@an')
     await userEvent.click(await waitFor(() => pickerOption(thread, 'user_anna')))
     await userEvent.type(box, 'bitte{Enter}')
     await waitFor(() => expect(replies[1]).toEqual({ body: '@Anna Berger bitte', mentions: [ANNA_MENTION] }))
-    // Said without a reason it cannot know, and in the singular for one name.
     expect(await within(screen.getByTestId('review-thread')).findByTestId('thread-reply-untold')).toHaveTextContent(
       /^Anna Berger was not told\.$/
     )
@@ -1185,12 +1128,10 @@ describe('mentioning a colleague on a mark', () => {
 
     await waitFor(() => expect(posted).toHaveLength(1))
     expect(posted[0]).toMatchObject({ body: '@Anna Berger Brüstung prüfen', mentions: [ANNA_MENTION] })
-    // The list shows the new mark with the same chip.
     const row = await screen.findByTestId('review-row')
     expect(within(row).getByTestId('mention-chip')).toHaveTextContent('@Anna Berger')
   })
 
-  /** A thread whose reply POSTs are recorded and answered with what was sent, kept as sent. */
   const serveReplies = (respond?: (sent: { body: string; mentions?: AnnotationView['mentions'] }) => Response) => {
     const sent: Array<{ body: string; mentions?: AnnotationView['mentions'] }> = []
     server.use(
@@ -1327,7 +1268,6 @@ describe('mentioning a colleague on a mark', () => {
   it('marks a mention of the reader as the room knows them, and keeps line breaks only in the thread', async () => {
     const me = { targetId: 'user_room', display: 'Rita Raum' }
     serve([view({ id: 'ann_1', body: '@Rita Raum bitte\nprüfen', mentions: [me] })])
-    // The room names this tab's person; the chat knows nobody here.
     const transport: RoomTransport = {
       connect({ onFrame, onOpen }) {
         onOpen()
@@ -1350,16 +1290,9 @@ describe('mentioning a colleague on a mark', () => {
   })
 })
 
-/**
- * The loop a mark runs through: whoever is made responsible can answer it, an
- * answer to Piloti reaches Piloti, the reader can take a mark themselves, set
- * and clear its date, find their own marks with the room down, and reword
- * what they wrote.
- */
 describe('closing the loop on a mark', () => {
   const ANNA_MENTION = { targetId: 'user_anna', display: 'Anna Berger' }
 
-  /** The PATCHes the thread sends; each answers the mark as given, with the change applied. */
   const servePatches = (mark: AnnotationView) => {
     const patched: Array<Record<string, unknown>> = []
     server.use(
@@ -1372,7 +1305,6 @@ describe('closing the loop on a mark', () => {
     return patched
   }
 
-  /** A room that never welcomes this tab: what the review knows of who reads comes from the page. */
   const silentRoom = (): RoomTransport => ({
     connect: ({ onOpen }) => {
       onOpen()
@@ -1381,9 +1313,6 @@ describe('closing the loop on a mark', () => {
     post: () => {},
   })
 
-  // With wakes off, an answer to Piloti's own Rückfrage met the thread_reply
-  // rule, and the server said so (`off`): this tab asks Piloti, though nobody
-  // wrote @Piloti. Without it the answer reached nobody.
   it('asks Piloti itself when an answer to its open Rückfrage meets a rule the switch keeps off', async () => {
     const question = view({ id: 'ann_1', kind: 'question', authorKind: 'piloti', acceptedBy: 'user_me', createdBy: 'user_me' })
     serve([question])
@@ -1450,7 +1379,6 @@ describe('closing the loop on a mark', () => {
     await userEvent.click(await screen.findByTestId('assign-pick-self'))
 
     await waitFor(() => expect(patched).toEqual([{ assigneeUserId: 'user_me' }]))
-    // The Zuständige must answer and close the mark: the list is of who may write it.
     expect(asked).toEqual(['?access=write'])
   })
 
@@ -1484,7 +1412,6 @@ describe('closing the loop on a mark', () => {
     serve([
       view({ id: 'ann_1', number: 1, createdBy: 'user_anna', assigneeUserId: 'user_me', body: 'Mir zugewiesen' }),
       view({ id: 'ann_2', number: 2, createdBy: 'user_anna', body: 'Nicht meins' }),
-      // Set by the reader for a colleague: the colleague's, as Dateien counts it.
       view({ id: 'ann_3', number: 3, createdBy: 'user_me', assigneeUserId: 'user_anna', body: 'Für Anna' }),
     ])
     render(<Harness transport={silentRoom()} />)
@@ -1518,7 +1445,6 @@ describe('closing the loop on a mark', () => {
       expect(patched).toEqual([{ body: '@Anna Berger Brüstung prüfen auf 1,00 m', mentions: [ANNA_MENTION] }])
     )
     expect(within(screen.getByTestId('review-thread')).queryByTestId('thread-edit')).toBeNull()
-    // Saved, the box goes: the focus goes back to the menu it came from, not to the page.
     expect(within(screen.getByTestId('review-thread')).getByRole('button', { name: 'More' })).toHaveFocus()
   })
 
@@ -1727,7 +1653,6 @@ describe('one’s own reply in the thread', () => {
     await userEvent.type(box, 'Stimmt die Breite?{Enter}')
     await waitFor(() => expect(piloti.questions()).toHaveLength(1))
 
-    // Piloti is reading it in this tab: the server would let a delete through, and Piloti would answer a reply that is gone.
     const asking = screen.getByTestId('review-thread')
     expect(within(asking).getByTestId('thread-agent-pending')).toBeInTheDocument()
     expect(within(asking).getAllByTestId('thread-reply-entry')).toHaveLength(1)
@@ -1735,7 +1660,6 @@ describe('one’s own reply in the thread', () => {
 
     piloti.deliver(1, { type: 'RUN_STARTED', message_id: 'a-1' })
     piloti.deliver(2, { type: 'RUN_ERROR', code: 'workflow_error', message: 'The connection closed.', details: null })
-    // Piloti broke off without answering: nothing took the reply up, so it is its author's again.
     await waitFor(() => expect(within(screen.getByTestId('review-thread')).getByTestId('thread-reply-more')).toBeInTheDocument())
   })
 
@@ -1757,7 +1681,6 @@ describe('one’s own reply in the thread', () => {
       serve([mark])
       let review: ReturnType<typeof useDocumentReview> | null = null
       const { unmount } = render(<Harness transport={scriptedRoom().transport} onReady={(next) => (review = next)} />)
-      // A closed mark is not on the open list: it is opened as a link to it opens it.
       await waitFor(() => expect(review?.load).toBe('ready'))
       act(() => review?.select('ann_1'))
       const thread = await screen.findByTestId('review-thread')
@@ -1769,10 +1692,8 @@ describe('one’s own reply in the thread', () => {
 })
 
 describe('a mark goes on with the current Fassung', () => {
-  /** Where the server says this reader's carry lands: this document, in place or as a linked mark. */
   const HERE = { documentId: 'doc_1', documentName: 'Grundriss EG.pdf' }
 
-  /** The marks of each document, as its own list answers them; what was patched, with the document it went to. */
   function serveDocuments(lists: Record<string, AnnotationView[]>, { failingReads = {} }: { failingReads?: Record<string, number> } = {}) {
     const patched: Array<{ documentId: string; annotationId: string; change: Record<string, unknown> }> = []
     const failing = { ...failingReads }
@@ -1792,12 +1713,10 @@ describe('a mark goes on with the current Fassung', () => {
         patched.push({ documentId, annotationId, change })
         const mark = (lists[documentId] ?? []).find((annotation) => annotation.id === annotationId) as AnnotationView
         if (documentId === 'doc_1') {
-          // Under its own name the mark moves in place: same id, same number, now on the sheet.
           const moved = { ...mark, onCurrentRevision: true, revisionNumber: 3, carryTarget: null }
           lists.doc_1 = lists.doc_1.map((annotation) => (annotation.id === annotationId ? moved : annotation))
           return HttpResponse.json({ annotation: moved })
         }
-        // From the replaced document: a linked mark of this one, the original closed.
         const copy = view({
           ...mark,
           id: `${annotationId}_on_doc_1`,
@@ -1841,7 +1760,6 @@ describe('a mark goes on with the current Fassung', () => {
       doc_1: [
         view({ id: 'ann_closed', number: 1, onCurrentRevision: false, status: 'resolved', closedBy: 'user_me', closedAt: '2026-10-02T08:00:00.000Z' }),
         view({ id: 'ann_ro', number: 2, onCurrentRevision: false, canEdit: false }),
-        // Open and editable, and still no carry: the server named no target (a replacing document this reader may not write).
         view({ id: 'ann_refused', number: 3, onCurrentRevision: false, carryTarget: null }),
       ],
     })
@@ -1873,10 +1791,6 @@ describe('a mark goes on with the current Fassung', () => {
     await waitFor(() => expect(screen.queryByTestId('review-earlier-bar')).toBeNull())
   })
 
-  /**
-   * Thirty marks, the PATCHes counted, how many are in flight at once, and
-   * every list read after the first: „Alle übernehmen" reads each list once.
-   */
   function serveThirty({ from, failing = new Set<string>() }: { from: 'doc_1' | 'doc_b'; failing?: ReadonlySet<string> }) {
     const marks = Array.from({ length: 30 }, (_, index) =>
       view({
@@ -1927,7 +1841,6 @@ describe('a mark goes on with the current Fassung', () => {
     await waitFor(() => expect(screen.queryByTestId('review-earlier-bar')).toBeNull())
     expect(counts.patches).toBe(30)
     expect(counts.mostInFlight).toBe(CARRY_AT_ONCE)
-    // Moved in place: each PATCH answers the mark as it now stands.
     expect(counts.reads).toEqual(readsBefore)
   })
 
@@ -1968,7 +1881,6 @@ describe('a mark goes on with the current Fassung', () => {
       doc_b: [
         view({ id: 'ann_b4', documentId: 'doc_b', number: 4, body: 'Brüstung unter 1,00 m', carryTarget: HERE }),
         view({ id: 'ann_b5', documentId: 'doc_b', number: 5, status: 'resolved', closedBy: 'user_me', closedAt: '2026-10-02T08:00:00.000Z' }),
-        // Piloti works it: listed, and not offered, since the server would refuse it.
         view({
           id: 'ann_b6',
           documentId: 'doc_b',
@@ -1994,10 +1906,8 @@ describe('a mark goes on with the current Fassung', () => {
     expect(rows[0]).toHaveTextContent('Brüstung unter 1,00 m')
     expect(within(rows[1] as HTMLElement).queryByTestId('review-carry-from')).toBeNull()
     expect(within(group).queryByTestId('review-carry-all-from')).toBeNull()
-    // Read-only: a row there opens no thread here.
     expect(within(group).queryByTestId('review-row')).toBeNull()
 
-    // Each row's button names its mark for a screen reader.
     await userEvent.click(within(group).getByRole('button', { name: 'Carry annotation 4 to the current revision' }))
 
     await waitFor(() =>
@@ -2052,7 +1962,6 @@ describe('a mark goes on with the current Fassung', () => {
   it('offers to carry an open mark of a replaced document to where the carry lands, and says where a carried mark came from', async () => {
     serveDocuments({
       doc_1: [
-        // C was replaced by D in turn: the carry lands at the end of the chain, and the button says so.
         view({ id: 'ann_1', number: 1, carryTarget: { documentId: 'doc_d', documentName: 'Grundriss Index D.pdf' } }),
         view({
           id: 'ann_2',
@@ -2085,7 +1994,6 @@ describe('a mark goes on with the current Fassung', () => {
 describe('Piloti checks what is fixed in the current Fassung', () => {
   const HERE = { documentId: 'doc_1', documentName: 'Grundriss Index C.pdf' }
 
-  /** Each document's list as its own read answers it, and every PATCH, with the document it went to. */
   function serveLists(lists: Record<string, AnnotationView[]>) {
     const patched: Array<{ documentId: string; annotationId: string; change: Record<string, unknown> }> = []
     server.use(
@@ -2126,7 +2034,6 @@ describe('Piloti checks what is fixed in the current Fassung', () => {
     expect(question.text).toContain('open annotations 1 and 2 from an earlier revision are fixed in Revision 3')
     expect(question.text).toContain('“Fixed in Revision 3:” or “Still open:”')
     expect(question.text).toContain('Do not resolve or otherwise change any annotation')
-    // The whole document, as the review's own Piloti review asks: no box, no single thread.
     expect(question).toMatchObject({ focus_document_id: 'doc_1' })
     expect(question.focus_region ?? null).toBeNull()
     expect(question).not.toHaveProperty('reply_in_thread')
@@ -2137,7 +2044,6 @@ describe('Piloti checks what is fixed in the current Fassung', () => {
     piloti.deliver(2, { type: 'RUN_FINISHED', outcome: 'answered', result: { message_id: 'a-1', text: 'Erledigt.' } })
     await waitFor(() => expect(within(bar).getByTestId('review-check-fixed-earlier')).toBeEnabled())
     expect(within(bar).getByTestId('review-check-fixed-earlier')).toHaveTextContent(`Have ${PRODUCT_NAME} check what is fixed`)
-    // Closing a mark stays the person's: the check wrote nothing.
     expect(patched).toEqual([])
   })
 
@@ -2176,7 +2082,6 @@ describe('Piloti checks what is fixed in the current Fassung', () => {
     )
     expect(piloti.questions()[0].text).toContain('answer in its thread on “Grundriss Index B.pdf”')
 
-    // Piloti answers in B's threads, which this review's room does not hear: the group is read again once the turn ends.
     const verdict = (annotationId: string, body: string) => ({
       id: `${annotationId}-piloti`,
       annotationId,
@@ -2219,7 +2124,6 @@ describe('a mark of an earlier Fassung on the sheet', () => {
     serve([
       view({ id: 'ann_1', number: 1 }),
       view({ id: 'ann_4', number: 4, x: 0.6, onCurrentRevision: false, revisionNumber: 2, carryTarget: HERE }),
-      // Closed on an earlier Fassung: nothing left to carry, nothing drawn.
       view({ id: 'ann_5', number: 5, onCurrentRevision: false, status: 'resolved', closedBy: 'user_me', closedAt: '2026-10-02T08:00:00.000Z' }),
     ])
     render(<Harness transport={scriptedRoom().transport} />)
@@ -2229,7 +2133,6 @@ describe('a mark of an earlier Fassung on the sheet', () => {
     expect(ghost).toHaveTextContent('4')
     expect(ghost).toHaveAttribute('data-ghost', 'true')
     expect(ghost.getAttribute('aria-label')).toBe('Annotation 4: Defect · from revision 2')
-    // Its own pin, never one of this sheet's.
     expect(within(screen.getByTestId('sheet')).getAllByTestId('review-pin')).toHaveLength(1)
 
     await userEvent.click(ghost)
@@ -2259,7 +2162,6 @@ describe('a mark of an earlier Fassung on the sheet', () => {
       />
     )
     await screen.findByTestId('review-carried-group')
-    // Only this document's own: Index B's sheet is another drawing.
     expect(within(screen.getByTestId('sheet')).getAllByTestId('review-ghost-pin')).toHaveLength(1)
 
     await userEvent.click(screen.getByTestId('review-filter-closed'))

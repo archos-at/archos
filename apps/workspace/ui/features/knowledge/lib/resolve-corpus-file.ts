@@ -1,17 +1,7 @@
-/**
- * Map a human citation label ("OIB-Richtlinie 2.1", "OIB RL 4 Leitfaden",
- * "OIB Begriffsbestimmungen") to the matching base-corpus PDF filename.
- *
- * Chat cards carry only display strings — no file ids — so this heuristic
- * bridges citations to the source viewer. It only ever *adds* a view option:
- * unresolvable labels simply keep their existing external link.
- */
-
 import { canonicalOibFileName } from '@/features/chat/lib/document-names'
 
 export interface CorpusFileCandidate {
   fileName: string
-  /** A 'removed' file is indexed but not in the corpus: it has no source PDF to open. */
   state: string
 }
 
@@ -21,10 +11,7 @@ export function resolveCorpusFileName(label: string, files: CorpusFileCandidate[
   const norm = label.trim().toLowerCase()
   if (!norm || !/(oib|richtlinie)/.test(norm)) return null
 
-  // Only files the corpus holds are viewable.
   const viewable = files.filter((f) => f.state !== 'removed').map((f) => f.fileName)
-  // Match on the canonical spelling (OIB-RL 2.2 ships as `oib-richtlinie_2.2_…`),
-  // but hand back the name the file actually has on this server.
   const canonical = new Map(viewable.map((f) => [canonicalOibFileName(f), f]))
   const pick = (name: string | undefined): string | null => (name === undefined ? null : (canonical.get(name) ?? null))
 

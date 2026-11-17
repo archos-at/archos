@@ -1,10 +1,3 @@
-"""The agent's read tools over HTTP, for the BFF's MCP server (ADR-0122).
-
-The route must run a tool only for the person a signed, current envelope names,
-only when the tool is on the read allowlist, and with the turn context the tools
-read laid from that VERIFIED envelope.
-"""
-
 from __future__ import annotations
 
 import base64
@@ -38,8 +31,6 @@ class _SearchInput(BaseModel):
 
 
 class _FakeFunction:
-    """An agent-runtime function: an input model and an ``ainvoke`` that records the context it ran in."""
-
     input_schema = _SearchInput
 
     def __init__(self) -> None:
@@ -217,7 +208,6 @@ def test_it_refuses_a_caller_without_the_internal_token(client: TestClient, fake
 
 
 def test_it_refuses_a_tool_that_is_not_on_the_allowlist(client: TestClient):
-    # `write_file` IS bound in the fake workflow: the allowlist, not the builder, decides.
     for name in ("write_file", "file_draft", "does_not_exist"):
         response = _post(client, name, {"arguments": {"query": "x"}}, _headers())
         assert response.status_code == 404, name
@@ -225,7 +215,7 @@ def test_it_refuses_a_tool_that_is_not_on_the_allowlist(client: TestClient):
 
 
 def test_an_allowlisted_tool_the_config_does_not_bind_is_not_found(client: TestClient):
-    response = _post(client, "ris_lookup_tool", {"arguments": {"question": "x"}}, _headers())
+    response = _post(client, "law_lookup", {"arguments": {"question": "x"}}, _headers())
 
     assert response.status_code == 404
     assert response.json()["detail"]["error"] == "tool_not_configured"
@@ -276,7 +266,6 @@ def test_the_workflow_not_being_ready_is_a_503(client: TestClient, monkeypatch: 
 
 
 def test_every_allowlisted_tool_is_a_read():
-    """The list is a promise to the MCP clients that none of these changes anything."""
     forbidden = ("write", "edit", "file_draft", "propose", "remember", "create", "delete", "submit", "emit")
     assert [name for name in BACKEND_READ_TOOLS if any(word in name for word in forbidden)] == []
 
@@ -284,7 +273,6 @@ def test_every_allowlisted_tool_is_a_read():
 def test_a_door_call_is_booked_to_the_envelopes_person_and_may_render_one_look(
     client: TestClient, fake_function: _FakeFunction, monkeypatch: pytest.MonkeyPatch
 ):
-    """A ``document-look`` with a question makes a vision call: it lands on the ledger, and it is one look."""
     from agent.common import cost_tracking
     from agent.common.image_view_budget import try_consume_image_view
 

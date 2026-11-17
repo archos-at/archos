@@ -3,7 +3,6 @@ import { act, fireEvent, render, screen } from '@/test-utils'
 
 import { Toggletip, Tooltip, TooltipContent, TooltipTrigger } from './tooltip'
 
-/** jsdom counts every focus as keyboard focus; the pointer case has to be stated. */
 function focusVisible(visible: boolean) {
   const matches = Element.prototype.matches
   vi.spyOn(Element.prototype, 'matches').mockImplementation(function (this: Element, selector: string) {
@@ -57,7 +56,6 @@ describe('Tooltip', () => {
   })
 })
 
-/** A tap: the press, then the click a touch screen sends after it. */
 function tap(element: Element, pointerType: 'touch' | 'mouse' = 'touch') {
   fireEvent.pointerDown(element, { pointerType, button: 0, pointerId: 1 })
   fireEvent.pointerUp(element, { pointerType, button: 0, pointerId: 1 })
@@ -116,7 +114,6 @@ describe('Toggletip', () => {
   it('closes on a tap anywhere else', async () => {
     focusVisible(false)
     tap(renderToggletip())
-    // Radix starts listening for outside presses one task after the layer mounts.
     await act(() => new Promise((resolve) => setTimeout(resolve, 0)))
     tap(screen.getByText('Anderswo'))
 
@@ -131,12 +128,6 @@ describe('Toggletip', () => {
   })
 })
 
-/*
- * One timing chain for the whole app. The first tooltip waits the delay and
- * scales in from its trigger; the next one within the skip window opens at
- * once and with no entrance. A provider per tooltip broke the chain, so every
- * hover waited and animated.
- */
 describe('Tooltip timing', () => {
   afterEach(() => {
     vi.useRealTimers()
@@ -173,12 +164,10 @@ describe('Tooltip timing', () => {
     act(() => vi.advanceTimersByTime(1000))
     const first = document.querySelector('[data-slot="tooltip-content"]')
     expect(first).toHaveAttribute('data-state', 'delayed-open')
-    // The entrance is gated on that state, never unconditional.
     expect(first?.className).toContain('data-[state=delayed-open]:animate-in')
     expect(first?.className.split(' ')).not.toContain('animate-in')
 
     unhover(copy)
-    // Out of the grace area Radix keeps between a trigger and its bubble.
     fireEvent.pointerMove(document, { clientX: 5000, clientY: 5000 })
     hover(share)
     const second = document.querySelector('[data-slot="tooltip-content"][data-state="instant-open"]')

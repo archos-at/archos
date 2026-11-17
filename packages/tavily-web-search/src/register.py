@@ -2,6 +2,7 @@ import asyncio
 import functools
 import logging
 import os
+import re
 from typing import Any
 
 from pydantic import Field
@@ -95,8 +96,45 @@ def _screened(results: list) -> tuple[list, str, bool]:
         from agent.common.web_sources import screen
     except ImportError:
         return results, "", False
+    from agent.common.web_sources import score_withheld
+
     kept, withheld = screen(doc for doc in results if isinstance(doc, dict))
+    score_withheld(len(withheld))
     return kept, preamble(withheld), bool(withheld)
+
+
+#: The tags of a result record. A page's own text that spells one would forge a record (a second
+#: ``<Document href>``, a source the search never returned), so it is made inert before it is printed.
+_RECORD_TAG_RE = re.compile(r"<(/?(?:Document|title|source_note|Answer)\b)", re.IGNORECASE)
+
+
+def _inert(text: str) -> str:
+    """``text`` with every result-record tag in it defused: a page cannot write a record of its own."""
+    return _RECORD_TAG_RE.sub(r"&lt;\1", text)
+
+
+def _address(url: str) -> str:
+    """The address a record states: without a signed query (``agent.common.url_safety``), safe inside ``href``."""
+    try:
+        from agent.common.url_safety import strip_signed_query
+    except ImportError:
+        return url.replace('"', "%22")
+    return strip_signed_query(url).replace('"', "%22")
+
+
+def _record(doc: dict, content: str) -> str:
+    """One hit as the record the citation reader parses: its address and title, a note when it is a copy, its text.
+
+    The record header is the search's own statement; only it names a source. The text is the page's, and a
+    link inside it is not a source (``agent.citations.web_results``).
+    """
+    note = doc.get("source_note")
+    note_block = f"<source_note>\n{_inert(str(note))}\n</source_note>\n" if note else ""
+    return (
+        f'<Document href="{_address(str(doc.get("url") or ""))}">\n'
+        f"<title>\n{_inert(str(doc.get('title')))}\n</title>\n"
+        f"{note_block}{_inert(content)}\n</Document>"
+    )
 
 
 def _client_kwargs(tool_config: TavilyWebSearchToolConfig) -> dict:
@@ -268,15 +306,10 @@ async def tavily_web_search(tool_config: TavilyWebSearchToolConfig, builder: Bui
 
                 answer_text = header  # no provider summary when it was written from a withheld hit too
                 if search_docs.get("answer") and not withheld:
-                    answer_text += f"<Answer>\n{search_docs['answer']}\n</Answer>\n\n---\n\n"
+                    answer_text += f"<Answer>\n{_inert(str(search_docs['answer']))}\n</Answer>\n\n---\n\n"
 
                 web_search_results = "\n\n---\n\n".join(
-                    [
-                        f'<Document href="{doc.get("url", "")}">\n'
-                        f"<title>\n{doc.get('title')}\n</title>\n"
-                        f"{_truncate_content(doc.get('content') or '')}\n</Document>"
-                        for doc in results
-                    ]
+                    _record(doc, _truncate_content(doc.get("content") or "")) for doc in results
                 )
                 combined = answer_text + web_search_results
                 return combined if combined else "Search returned no results"

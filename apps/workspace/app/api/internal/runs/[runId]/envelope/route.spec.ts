@@ -1,18 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The run-envelope route with its real service behind it (ADR-0108).
- *
- * The worker names a run and gets back a credential that acts as a person for
- * six hours, so the assertions that matter are the refusals: an unknown run, an
- * ended run, a requester who left, lost the right, or whose organization lost
- * the capability, and a conversation they may no longer view. Each answers in
- * the contract's `{error, message}` shape (`run-envelope-types.ts`), parsed
- * here with the same schema the worker's client is generated from. The success
- * case verifies the envelope with the BFF's own verifier, so „it signs" means
- * „a write route would accept it", not „it returned a string".
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -20,8 +8,6 @@ vi.mock('@/lib/tasks/repository', () => ({ findRunById: vi.fn() }))
 vi.mock('@/lib/auth/pinned-session', () => ({ resolvePinnedRequesterSession: vi.fn() }))
 vi.mock('@/lib/authz/projects', () => ({ requireProjectAccess: vi.fn() }))
 vi.mock('@/lib/retrieval-scope/collection-scope-request', () => ({ authorizeConversationScope: vi.fn() }))
-// Partial: the input the envelope is signed from is the real one, so the
-// success case proves the renewal signs what the submission signs.
 vi.mock('@/lib/jobs/run-context', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/jobs/run-context')>()),
   resolveRunContext: vi.fn(),
@@ -104,7 +90,6 @@ function call(runId: string = RUN, init: { body?: string; token?: string | null 
   )
 }
 
-/** A refusal, parsed with the contract's own schema: status and code. */
 async function refusalOf(response: Response) {
   return { status: response.status, ...runEnvelopeErrorSchema.parse(await response.json()) }
 }
@@ -130,7 +115,6 @@ describe('POST /api/internal/runs/[runId]/envelope', () => {
 
     expect(envelope.issuedAt).toBeGreaterThanOrEqual(before)
     expect(envelope.issuedAt).toBeLessThanOrEqual(Date.now())
-    // What a write route would read: the BFF's own verifier, the same secret.
     const verified = verifyRequestContextEnvelope(envelope.header, envelope.signature, SECRET)
     expect(verified).toEqual({
       organizationId: 'org_1',
@@ -140,8 +124,6 @@ describe('POST /api/internal/runs/[runId]/envelope', () => {
       issuedAt: envelope.issuedAt,
       collectionScope: ['oib_base', 'proj_x'],
     })
-    // The run's context rides along: the agent reads a signed envelope
-    // wholesale, so a renewal without it would drop the models and the budget.
     const payload = JSON.parse(Buffer.from(envelope.header, 'base64url').toString('utf8'))
     expect(payload).toMatchObject({
       modelOverrides: { deep_research: 'model-b' },
@@ -149,11 +131,8 @@ describe('POST /api/internal/runs/[runId]/envelope', () => {
       federalState: 'vienna',
       memoryReflectionEnabled: true,
       orgInstructions: 'Antworte knapp.',
-      // Who the run acts as, by name, read afresh at every renewal: nobody is
-      // signed in, so no token can say it.
       requester: { name: 'Anna Weber', email: 'r@example.test', organizationName: 'Atelier Nord' },
     })
-    // Inside the window for its whole six hours, and not one millisecond more.
     const end = envelope.issuedAt + REQUEST_CONTEXT_MAX_AGE_MS
     expect(verifyRequestContextEnvelope(envelope.header, envelope.signature, SECRET, end)).not.toBeNull()
     expect(verifyRequestContextEnvelope(envelope.header, envelope.signature, SECRET, end + 1)).toBeNull()
@@ -206,7 +185,6 @@ describe('POST /api/internal/runs/[runId]/envelope', () => {
     expect(await refusalOf(await call())).toMatchObject({ status: 404, error: 'unknown-run' })
 
     expect(await refusalOf(await call('not-a-uuid'))).toMatchObject({ status: 404, error: 'unknown-run' })
-    // Refused before the database: a uuid column would have thrown, not answered.
     expect(findRunById).toHaveBeenCalledTimes(1)
   })
 

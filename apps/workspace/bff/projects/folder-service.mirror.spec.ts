@@ -101,8 +101,6 @@ describe('mirrorFolderPathRewrite', () => {
   })
 
   it('sends null when the subtree lands at the project root', async () => {
-    // What a folder delete does to its direct children. `''` is not a folder
-    // name, and sending it as one would file documents under an empty label.
     await mirrorFolderPathRewrite('proj-1', 'org-1', 'Brandschutz', '')
 
     expect(body()).toEqual({ from_path: 'Brandschutz', to_path: null })

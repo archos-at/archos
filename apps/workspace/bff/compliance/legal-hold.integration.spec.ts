@@ -1,19 +1,3 @@
-/**
- * Opt-in integration test: what a legal hold covers, and that the database
- * refuses to delete a covered row (migration 0093), against a REAL Postgres
- * with every migration applied, as the restricted runtime role.
- *
- * The unit suites double `isCoveredByActiveHold` and prove the delete paths
- * ask before they erase. Only this can prove the answer: the predicate is a
- * plpgsql function (`legal_hold_blocks`) that joins documents,
- * conversations and holds, and it runs under row-level security.
- *
- *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \
- *     npx vitest run bff/compliance/legal-hold.integration.spec.ts
- *
- * `task db:test:rls` (scripts/rls-test-db.sh) builds that database and runs it.
- */
-
 import { sql } from 'drizzle-orm'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -163,7 +147,6 @@ describe.skipIf(!url)('legal holds against live Postgres (migration 0093)', () =
 
     expect(await covered('document', OTHER_DOC)).toBe(true)
     expect(await covered('document', SESSION_DOC)).toBe(true)
-    // The chat is USER's, but erasing it erases COLLEAGUE's attachment.
     expect(await covered('conversation', CHAT)).toBe(true)
     expect(await covered('document', PROJECT_DOC)).toBe(false)
   })
@@ -211,9 +194,6 @@ describe.skipIf(!url)('legal holds against live Postgres (migration 0093)', () =
   it("refuses a cascade that would take a held attachment with its chat's project", async () => {
     await hold('document', SESSION_DOC)
 
-    // The purger's last step, as the platform role: the project row cascades
-    // into the chat and from there into the attachment, and the attachment's
-    // trigger stops the whole statement.
     const refusal = await withPlatformAccess('test: purge a project', () =>
       db.execute(sql`delete from projects where id = ${PROJECT}`),
     ).then(

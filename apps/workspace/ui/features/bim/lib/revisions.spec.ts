@@ -1,15 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Revision series.
- *
- * Two failure modes matter here and both are silent. Merging two buildings into
- * one series produces deltas between unrelated models — "−340 elements" for a
- * building nobody touched. Failing to merge a real series produces no timeline
- * at all, which is the state the product is trying to leave. So the assertions
- * are mostly about which names group and which deliberately do not.
- */
 
 import { describe, expect, it } from 'vitest'
 import type { BimModelHeaderView } from '../hooks/use-bim-model'
@@ -108,8 +99,6 @@ describe('revisionSeriesKey', () => {
   })
 
   it('does NOT merge a bare trailing number', () => {
-    // `Bauteil 2` and `Bauteil 3` are two buildings. Merging them would report
-    // one as a 340-element deletion of the other.
     expect(revisionSeriesKey('Bauteil 2.ifc')).not.toBe(revisionSeriesKey('Bauteil 3.ifc'))
   })
 
@@ -159,8 +148,6 @@ describe('groupModelRevisions', () => {
   })
 
   it('reports no delta rather than zeros when a revision has no summary', () => {
-    // A failed extraction has no numbers. Subtracting it from its predecessor
-    // would print "−100 elements" for a file we simply could not read.
     const series = groupModelRevisions([
       model('Haus-A.ifc', '2026-01-08T09:00:00.000Z'),
       model('Haus-A_V2.ifc', '2026-02-11T09:00:00.000Z', null),

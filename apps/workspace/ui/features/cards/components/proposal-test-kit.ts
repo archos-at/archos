@@ -1,8 +1,3 @@
-/**
- * What the specs of the three proposal receipts share: the stored proposal as
- * the API returns it, a recorder of the requests the card made, and the tab's
- * one live stream, scripted. Specs only; nothing here ships.
- */
 import { waitFor } from '@/test-utils'
 import { http, HttpResponse } from 'msw'
 import { expect, vi } from 'vitest'
@@ -15,7 +10,6 @@ export const CHANNEL = `proposal:${PROPOSAL_ID}`
 
 type Base = Omit<ProposedChangeView, 'kind' | 'payload'>
 
-/** The fields every kind has; a spec adds `kind` and `payload`. */
 export const proposalBase = (patch: Partial<Base> = {}): Base => ({
   id: PROPOSAL_ID,
   projectId: 'proj-1',
@@ -34,7 +28,6 @@ export const proposalBase = (patch: Partial<Base> = {}): Base => ({
   ...patch,
 })
 
-/** A colleague's decision, to lay over a proposal. */
 export const decidedByAnna = (
   status: Base['status'],
   results: Base['results'] = null
@@ -47,7 +40,6 @@ export const decidedByAnna = (
   canDecide: false,
 })
 
-/** Every request the card made, as `METHOD path`. */
 export const requests: string[] = []
 const record = ({ request }: { request: Request }) => {
   requests.push(`${request.method} ${new URL(request.url).pathname}`)
@@ -60,14 +52,12 @@ export const startRecording = () => {
 
 export const gets = () => requests.filter((line) => line.startsWith('GET'))
 
-/** The proposal the server holds; a spec reassigns `current` to move it on. */
 export const serve = (initial: ProposedChangeView) => {
   const state = { current: initial }
   server.use(http.get(`/api/proposals/${PROPOSAL_ID}`, () => HttpResponse.json({ proposal: state.current })))
   return state
 }
 
-/** The tab's one live stream, scripted: the specs open it and say what the server says. */
 export class FakeEventSource {
   static instances: FakeEventSource[] = []
   onopen: ((event: Event) => void) | null = null
@@ -94,7 +84,6 @@ export const hint = (status: string, proposalId = PROPOSAL_ID) => ({
   event: { kind: 'proposal.decided', proposalId, status },
 })
 
-/** The stream the card opens for its channel, once the connection's debounce has passed. */
 export const openStream = async (): Promise<FakeEventSource> => {
   await waitFor(() => expect(FakeEventSource.instances).toHaveLength(1))
   const stream = FakeEventSource.instances[0]
@@ -104,7 +93,6 @@ export const openStream = async (): Promise<FakeEventSource> => {
 
 export const useFakeStream = () => vi.stubGlobal('EventSource', FakeEventSource)
 
-/** Put everything back after a spec. */
 export const resetKit = () => {
   server.events.removeAllListeners()
   __resetRealtimeConnection()

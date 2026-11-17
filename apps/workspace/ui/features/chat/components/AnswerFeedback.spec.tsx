@@ -5,7 +5,6 @@ import { capturePosthog } from '@/lib/analytics/posthog'
 import { AnswerFeedback } from './AnswerFeedback'
 import { __clearAnswerFeedbackCache } from '../hooks/use-answer-feedback'
 
-// Mock the chat store (projectId for the persistence payload).
 vi.mock('../store', () => ({
   useChatStore: vi.fn((selector?: (s: { projectId: string | null }) => unknown) => {
     const state = { projectId: 'proj_1' }
@@ -24,7 +23,6 @@ beforeEach(() => {
   vi.mocked(capturePosthog).mockClear()
   __clearAnswerFeedbackCache()
   mockFetch.mockReset()
-  // Default: hydration finds nothing, writes succeed.
   mockFetch.mockResolvedValue(okJson({ feedback: [] }))
   vi.stubGlobal('fetch', mockFetch)
 })
@@ -50,7 +48,6 @@ describe('AnswerFeedback', () => {
       expect(upThumb()).toHaveAttribute('aria-pressed', 'false')
       expect(downThumb()).toHaveAttribute('aria-pressed', 'false')
 
-      // No confirmation, no reasons, no note: the transaction has not started.
       expect(screen.queryByText('Rating saved.')).not.toBeInTheDocument()
       expect(screen.queryByText('What was the problem?')).not.toBeInTheDocument()
       expect(screen.queryByRole('radiogroup')).not.toBeInTheDocument()
@@ -90,11 +87,8 @@ describe('AnswerFeedback', () => {
 
       expect(upThumb()).toHaveAttribute('aria-pressed', 'true')
       expect(screen.getByRole('status')).toHaveTextContent('Rating saved.')
-      // The vote IS the transaction: nothing is left pending beside the thanks.
       expect(screen.queryByRole('radiogroup')).not.toBeInTheDocument()
       expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
-      // The answered question steps aside for the answer: it fades out of the
-      // slot the receipt fades into, so the thumbs beside it never move.
       expect(screen.getByText('Was this helpful?')).toHaveAttribute('aria-hidden', 'true')
       expect(screen.getByText('Was this helpful?').parentElement).toBe(
         screen.getByRole('status').parentElement
@@ -148,7 +142,6 @@ describe('AnswerFeedback', () => {
 
       await user.click(downThumb())
 
-      // Step 1: the vote is committed and said so.
       expect(screen.getByRole('status')).toHaveTextContent('Rating saved.')
       await waitFor(() => expect(postCalls()).toHaveLength(1))
       expect(JSON.parse((postCalls()[0] as [string, RequestInit])[1].body as string)).toMatchObject({
@@ -156,14 +149,11 @@ describe('AnswerFeedback', () => {
         reason: null,
       })
 
-      // Step 2: the reasons, as an exclusive radiogroup.
       const group = screen.getByRole('radiogroup')
       expect(group).toHaveAccessibleName('What was the problem?')
       for (const label of ['Inaccurate', 'Too slow', 'Wrong source', 'Other']) {
         expect(screen.getByRole('radio', { name: label })).toBeInTheDocument()
       }
-      // The note does not wait for a reason: a voter who skips the chips
-      // still gets the box.
       expect(screen.getByLabelText('Anything else?')).toBeInTheDocument()
 
       await user.click(screen.getByRole('radio', { name: 'Wrong source' }))
@@ -176,7 +166,6 @@ describe('AnswerFeedback', () => {
         comment: null,
       })
 
-      // Choosing a reason keeps the note open.
       expect(screen.getByLabelText('Anything else?')).toBeInTheDocument()
     })
 
@@ -289,11 +278,9 @@ describe('AnswerFeedback', () => {
         comment: 'Missed OIB RL 4.',
       })
 
-      // The note is done; the vote and its reason stay on screen.
       await waitFor(() => expect(screen.queryByRole('textbox')).not.toBeInTheDocument())
       expect(screen.getByRole('radio', { name: 'Inaccurate' })).toHaveAttribute('aria-checked', 'true')
       expect(screen.getByRole('status')).toHaveTextContent('Rating saved.')
-      // The form folded away under the focus; the receipt holds it now.
       expect(screen.getByRole('status')).toHaveFocus()
     })
 
@@ -306,7 +293,6 @@ describe('AnswerFeedback', () => {
 
       await user.click(downThumb())
 
-      // The disclosure folds away before it unmounts.
       await waitFor(() => expect(screen.queryByRole('radiogroup')).not.toBeInTheDocument())
       expect(screen.getByRole('status')).toHaveTextContent('')
       expect(screen.getByText('Was this helpful?')).toBeInTheDocument()
@@ -335,7 +321,6 @@ describe('AnswerFeedback', () => {
       await user.click(screen.getByRole('radio', { name: 'Inaccurate' }))
       assertClean('down')
 
-      // The selected thumb is still unmistakable: ink fill, not a tint.
       expect(downThumb().className).toMatch(/bg-foreground/)
     })
   })
@@ -366,7 +351,6 @@ describe('AnswerFeedback', () => {
         }),
       )
 
-      // The note saves the same vote again: no second event, and the words stay home.
       await user.type(screen.getByLabelText('Anything else?'), 'Brüstungshöhe nicht gefunden.')
       await user.click(screen.getByRole('button', { name: 'Send note' }))
       await waitFor(() => expect(postCalls()).toHaveLength(3))
@@ -464,7 +448,6 @@ describe('AnswerFeedback', () => {
       for (const name of ['Mark this answer as helpful', 'Mark this answer as not helpful']) {
         const thumb = screen.getByRole('button', { name })
         expect(thumb).toHaveClass('pointer-coarse:size-11')
-        // An overhanging catchment would hand a tap on one thumb to the other.
         expect(thumb.className).not.toMatch(/touch-target/)
       }
     })

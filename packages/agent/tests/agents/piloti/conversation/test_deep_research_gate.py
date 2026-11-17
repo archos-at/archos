@@ -1,18 +1,3 @@
-"""Withdrawing deep research from a tenant that does not have the flag.
-
-The defect these guard: `FEATURE_FLAGS.deepResearch` was read in exactly one
-place, the `submit` branch of the async-jobs route. That closes the job queue,
-and nothing upstream of it knew the flag — so the agent still escalated, the
-clarifier still put a plan in front of the reader, and the approval button
-answered 403. The feature was disabled and still advertised.
-
-The seam that matters is `_finalize_answer`, not the routing edge: by the time
-the edge runs, `_escalation_update` has already replaced the message with the
-ASK and dropped everything the answer knew about itself. Suppressing there ends
-the turn on a promise. So the tests below care about two things at once —
-that no hand-off happens, and that the reader is left holding an answer.
-"""
-
 import pytest
 from agent_testing.conversation import turn
 from langchain_core.messages import AIMessage
@@ -39,8 +24,6 @@ def _signals(**fields) -> ResearchAgentState:
 
 class TestFinalizeAnswerWithoutDeepResearch:
     def test_the_partial_answer_survives_and_says_no_run_is_coming(self):
-        """The insufficiency case: the prompt asks for the best partial answer
-        alongside the ask, so there is something to keep."""
         update = _finalize_answer(
             AIMessage(content="Nach OIB 2 gilt X [1]."),
             _signals(answer_citation_grounded=True),
@@ -48,17 +31,11 @@ class TestFinalizeAnswerWithoutDeepResearch:
         )
 
         assert update["escalate_to_deep"] is False
-        # `kind` is not "handoff" here, so the answer survives and the note is
-        # appended to it rather than replacing it.
         assert update["messages"][0].content.startswith("Nach OIB 2 gilt X [1].")
         assert DEEP_RESEARCH_UNAVAILABLE_NOTE in update["messages"][0].content
-        # It is an ANSWER now, so it carries what an answer carries.
         assert "answer_confidence" in update
 
     def test_a_hand_off_sentence_is_replaced_rather_than_contradicted(self):
-        """The commissioned case. The envelope says `kind: "handoff"`, so the
-        prose is the hand-off and nothing else — appending the note to it would
-        ship the promise AND its retraction in one message."""
         update = _finalize_answer(
             AIMessage(content="Dafür starte ich eine Tiefenrecherche zu den Brandschutzanforderungen."),
             _signals(answer_is_handoff=True),
@@ -70,16 +47,13 @@ class TestFinalizeAnswerWithoutDeepResearch:
         assert update["escalate_to_deep"] is False
 
     def test_an_empty_hand_off_becomes_the_note(self):
-        """The same case taken to its limit: a hand-off with nothing in it."""
         update = _finalize_answer(AIMessage(content="   "), _signals(), deep_research_allowed=False)
 
         assert update["escalate_to_deep"] is False
         assert update["messages"][0].content == DEEP_RESEARCH_UNAVAILABLE_NOTE
-        # Emphatically not the error branch: nothing failed.
         assert update.get("routing_decision") != "error"
 
     def test_an_empty_answer_with_no_ask_is_still_an_error_turn(self):
-        """The guard must not turn a generation failure into a polite note."""
         update = _finalize_answer(
             AIMessage(content="   "), _signals(escalation_requested=False), deep_research_allowed=False
         )
@@ -103,7 +77,6 @@ class TestFinalizeAnswerWithoutDeepResearch:
         assert DEEP_RESEARCH_UNAVAILABLE_NOTE not in update["messages"][0].content
 
     def test_a_confined_turn_says_why_instead_of_blaming_the_workspace(self):
-        """ADR-0087: the capability exists; this conversation may not use it."""
         update = _finalize_answer(
             AIMessage(content="Dafür starte ich eine Tiefenrecherche."),
             _signals(answer_is_handoff=True),
@@ -120,8 +93,6 @@ class TestFinalizeAnswerWithoutDeepResearch:
 
 
 class TestShouldEscalate:
-    """The backstop on the only door into the clarifier."""
-
     def test_the_bit_set_without_the_capability_ends_the_turn(self):
         state = ConversationState(messages=[], escalate_to_deep=True, deep_research_allowed=False)
         assert ConversationGraph._should_escalate(state) == "END"
@@ -132,8 +103,6 @@ class TestShouldEscalate:
 
 
 class TestEndToEnd:
-    """Through the compiled graph: the hand-off never runs."""
-
     @pytest.fixture
     def deep_fn(self):
         async def deep(state):
@@ -176,8 +145,6 @@ class TestEndToEnd:
         assert result.messages[-1].content != "Deep report."
         assert DEEP_RESEARCH_UNAVAILABLE_NOTE in result.messages[-1].content
         assert result.escalate_to_deep is False
-        # It reached the agent too, which is what lets the prompt say so before
-        # the model ever writes the ask.
         assert seen["deep_research_allowed"] is False
 
     @pytest.mark.asyncio
@@ -191,8 +158,6 @@ class TestEndToEnd:
 
 
 class TestCommissionRefusal:
-    """A refused commission must not be answered by doing it anyway."""
-
     @staticmethod
     def _graph(refusal: CommissionRefused, deep_fn):
         async def commission(_state):
@@ -216,9 +181,6 @@ class TestCommissionRefusal:
 
     @pytest.mark.asyncio
     async def test_forbidden_never_falls_back_to_running_it_in_process(self, deep_fn):
-        """The bypass this closes: the route refuses the run as a capability the
-        tenant does not have, and the inline fallback ran it anyway — in
-        process, with no second check."""
         graph = self._graph(CommissionRefused("forbidden", "not for this tenant"), deep_fn)
 
         update = await graph._commission_run(ConversationState(messages=[HumanMessage(content="Bericht?")]))
@@ -229,7 +191,6 @@ class TestCommissionRefusal:
 
     @pytest.mark.asyncio
     async def test_a_confined_conversation_is_told_why_and_never_run_in_process(self, deep_fn):
-        """ADR-0087: the BFF refused a run out of a thread that drew on a restricted folder."""
         graph = self._graph(CommissionRefused("confined", "Aus dieser Unterhaltung …"), deep_fn)
 
         update = await graph._commission_run(ConversationState(messages=[HumanMessage(content="Bericht?")]))
@@ -239,7 +200,6 @@ class TestCommissionRefusal:
 
     @pytest.mark.asyncio
     async def test_a_transport_failure_still_falls_back(self, deep_fn):
-        """The fallback is kept for what it was for: no worker, not no right."""
         graph = self._graph(CommissionRefused("unreachable", "the task API did not answer"), deep_fn)
 
         await graph._commission_run(ConversationState(messages=[HumanMessage(content="Bericht?")]))

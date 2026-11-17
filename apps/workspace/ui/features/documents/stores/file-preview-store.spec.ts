@@ -111,8 +111,6 @@ describe('file-preview-store', () => {
     it('adopts the remembered width on the next mount, and reports it back', () => {
       window.localStorage.setItem(FILE_PEEK_WIDTH_STORAGE_KEY, '640')
 
-      // The caller needs the value returned, not just stored: it sizes the panel
-      // in the same commit, before anything renders at the default.
       expect(useFilePreviewStore.getState().restorePeekWidth()).toBe(640)
       expect(useFilePreviewStore.getState().peekWidth).toBe(640)
     })
@@ -135,8 +133,6 @@ describe('file-preview-store', () => {
     })
 
     it('lets the pane past the old 560px ceiling', () => {
-      // The cap used to sit at 560, which is narrower than an A3 plan at any
-      // readable zoom: the seam hit a wall a third of the way across the window.
       useFilePreviewStore.getState().setPeekWidth(700)
 
       expect(useFilePreviewStore.getState().peekWidth).toBe(700)
@@ -157,8 +153,6 @@ describe('file-preview-store', () => {
       window.localStorage.setItem(FILE_PEEK_WIDTH_STORAGE_KEY, 'wide-ish')
       expect(readStoredPeekWidth()).toBeNull()
 
-      // `Number('')` is 0, which would restore as the minimum rather than as
-      // "nothing stored" — the pane would open narrow for no stated reason.
       window.localStorage.setItem(FILE_PEEK_WIDTH_STORAGE_KEY, '')
       expect(readStoredPeekWidth()).toBeNull()
     })

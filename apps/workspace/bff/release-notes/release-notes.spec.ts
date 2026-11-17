@@ -41,7 +41,6 @@ describe('release notes for members (ADR-0156)', () => {
     const second = listReleaseNotes({ cursor: first.nextCursor ?? undefined }, SOURCE)
     expect(second.weeks.map((w) => w.id)).toEqual(['2026-W37', '2026-W36'])
     expect(second.nextCursor).toBeNull()
-    // A cursor that names no week starts from the newest.
     expect(listReleaseNotes({ cursor: '1999-W01' }, SOURCE).weeks[0].id).toBe('2026-W45')
   })
 

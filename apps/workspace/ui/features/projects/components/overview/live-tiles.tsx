@@ -1,10 +1,5 @@
 'use client'
 
-/**
- * The tiles that load in the browser, from the endpoints their sections read,
- * so a tile and its section can never disagree about a count.
- */
-
 import type { JSX } from 'react'
 import { useEffect, useState } from 'react'
 import { Brain, Pin, Users } from 'lucide-react'
@@ -20,13 +15,6 @@ import { settingsCopy } from '@/i18n/namespaces/settings'
 
 type Load<T> = { state: 'loading' } | { state: 'error' } | { state: 'ready'; value: T }
 
-/**
- * The loading tile, drawn in the loaded tile's shape so the overview does not
- * jump when the numbers land: the figure's line boxes (`text-3xl` over a
- * `text-sm` caption, as `BentoFigure` sets them) and then what sits under it,
- * two clamped note lines or the avatar stack. The old two-bar skeleton was
- * about half the height of either body, so every tile grew on arrival.
- */
 function TileSkeleton({ under }: { under: 'lines' | 'avatars' }): JSX.Element {
   return (
     <>
@@ -46,7 +34,6 @@ function TileSkeleton({ under }: { under: 'lines' | 'avatars' }): JSX.Element {
   )
 }
 
-/** The project's memory, every page, read once on mount; ignored if the tile unmounts first. */
 function useMemoryNotes(projectId: string): Load<ProjectMemoryEntry[]> {
   const [load, setLoad] = useState<Load<ProjectMemoryEntry[]>>({ state: 'loading' })
   useEffect(() => {
@@ -65,7 +52,6 @@ function useMemoryNotes(projectId: string): Load<ProjectMemoryEntry[]> {
   return load
 }
 
-/** How much Piloti has noted, how much a person still has to look at, and the pinned notes. */
 export function MemoryTile({
   projectId,
   href,
@@ -131,7 +117,6 @@ function MemoryBody({ notes }: { notes: readonly ProjectMemoryEntry[] }): JSX.El
   )
 }
 
-/** The project's role holders, read once on mount; ignored if the tile unmounts first. */
 function useRoster(projectId: string): Load<ProjectMember[]> {
   const [load, setLoad] = useState<Load<ProjectMember[]>>({ state: 'loading' })
   useEffect(() => {
@@ -150,7 +135,6 @@ function useRoster(projectId: string): Load<ProjectMember[]> {
   return load
 }
 
-/** Who is assigned to the project: the faces and the count. */
 export function MembersTile({
   projectId,
   href,

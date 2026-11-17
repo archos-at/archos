@@ -1,13 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The three agent routes of the cross-project lookups (ADR-0094) are thin
- * adapters, and what is theirs to hold is the identity: the acting person is
- * the signed envelope's (a pinned session), never anything the body says; a
- * request without an envelope gets nothing; the conversation and the project
- * are the envelope's; the tenant is the envelope's.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 

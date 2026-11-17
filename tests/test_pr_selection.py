@@ -1,10 +1,3 @@
-"""A pull request runs only the tests its change reaches, unless the selection cannot see the change.
-
-`ci/pr_selection.py` is the one place that decides, for the Python suites and
-the UI suite. A wrong "select" is a change that merges with the tests it broke
-never run, so every rule that forces the full suite is pinned here.
-"""
-
 from __future__ import annotations
 
 import importlib.util
@@ -20,7 +13,6 @@ TESTS = {
     "tests/test_decisions_eval.py": "CASES = sorted((ROOT / 'tests' / 'fixtures' / 'decisions').rglob('*.json'))",
     "tests/test_visual_eval.py": "SHAPES = list((ROOT / 'tests' / 'fixtures' / 'visual').iterdir())",
     "tests/test_project_yaml.py": "load('project.yaml')",
-    # A helper, not a test file: its docstring cites a document, and it reads a fixture.
     "packages/agent/tests/judge_stub.py": (
         '"""Imported by path, as ``packages/AGENTS.md`` asks."""\n'
         "STORED = ROOT / 'fixtures' / 'answers' / 'stored.json'"
@@ -29,7 +21,6 @@ TESTS = {
     "packages/knowledge-layer/tests/test_schema.py": "read('schemas.json')",
 }
 READERS = {"bff/authz/authz-coverage.spec.ts": None}
-#: One reader that declares its inputs, one that does not.
 DECLARED = {
     "app/api/authz-coverage.spec.ts": ("apps/workspace/app/api/**",),
     "bff/skills/legacy-names.spec.ts": ("packages/agent/src/agent/skills/builtin.py",),
@@ -45,9 +36,6 @@ def mod():
     assert spec.loader is not None
     spec.loader.exec_module(module)
     return module
-
-
-# --- Python ------------------------------------------------------------------------
 
 
 def test_a_change_to_tested_python_selects(mod):
@@ -89,12 +77,10 @@ def test_what_changes_how_every_python_test_runs_forces_the_full_suite(mod, path
     ["scripts/release_notes.py", "packages/ifc-spatial-py/x.py", "deploy/migration/chroma_export.py"],
 )
 def test_python_outside_the_tested_packages_forces_the_full_suite(mod, path):
-    # Tests load these by path or in a subprocess, where testmon records nothing.
     assert mod.decide_python([path], TESTS, recorded=True)[0] == "full"
 
 
 def test_an_eval_harness_is_python_testmon_sees(mod):
-    # evals/ runs in the core suite with its harnesses installed editable.
     changed = ["evals/oib-retrieval/src/oib_retrieval/metrics.py", "evals/oib-retrieval/tests/test_x.py"]
 
     assert mod.decide_python(changed, TESTS, recorded=True)[0] == "select"
@@ -132,23 +118,18 @@ def test_a_fixture_read_through_its_directory_selects_that_test(mod):
 
 
 def test_a_fixture_selects_the_directory_reader_even_when_its_name_matches_another_test(mod):
-    # `project.yaml` is a common name; the test that reads the whole `visual`
-    # directory must still run.
     selected = mod.decide_python(["tests/fixtures/visual/project.yaml"], TESTS, recorded=True)[1]
 
     assert {"tests/test_visual_eval.py", "tests/test_project_yaml.py"} <= set(selected)
 
 
 def test_a_file_only_a_helper_reads_forces_the_full_suite(mod):
-    # Nothing says which tests load the helper.
     changed = ["tests/fixtures/answers/stored.json"]
 
     assert mod.decide_python(changed, TESTS, recorded=True)[0] == "full"
 
 
 def test_a_file_a_support_package_reads_selects_the_tests_that_import_it(mod):
-    # ADR-0145 row 5: a `<package>_testing` module has one importable name, so
-    # its importers are known, and a full run is not needed.
     tests = {
         "packages/agent/tests/testing/agent_testing/exposure.py": "EXPOSURE = ROOT / 'tests/fixtures/exposure.json'",
         "packages/agent/tests/tools/test_exposure_config.py": "from agent_testing.exposure import EXPOSURE",
@@ -185,7 +166,6 @@ def test_a_fixture_no_test_names_forces_the_full_suite(mod):
 
 
 def test_an_eval_fixture_no_test_names_forces_the_full_suite(mod):
-    # The harness reads its recordings through its own code, not by a name a test spells out.
     changed = ["evals/oib-retrieval/fixtures/vector_channel_recorded.json"]
 
     assert mod.decide_python(changed, TESTS, recorded=True)[0] == "full"
@@ -198,9 +178,6 @@ def test_a_lookup_failure_answers_no_database(mod):
     assert mod.recorded_database(broken) is False
     assert mod.recorded_database(lambda _path: {"actions_caches": []}) is False
     assert mod.recorded_database(lambda _path: {"actions_caches": [{"key": "testmon-x"}]}) is True
-
-
-# --- UI ----------------------------------------------------------------------------
 
 
 def test_a_ui_change_selects_its_files_and_every_disk_reader(mod):
@@ -236,7 +213,6 @@ def test_a_config_the_bff_reads_still_runs_the_disk_readers(mod):
 
 
 def test_a_backend_fixture_runs_the_ui_specs_that_read_it(mod):
-    # `skills/resolve-payload-contract.spec.ts` reads one from disk.
     changed = ["tests/fixtures/skills_resolve/resolve_payload.json"]
 
     assert mod.decide_ui(changed, READERS)[:2] == ("select", list(READERS))
@@ -253,7 +229,6 @@ def test_the_disk_readers_are_found_by_what_they_do(mod):
     assert all(not path.startswith("node_modules/") for path in readers)
     for path in list(readers)[:20]:
         assert mod.READS_DISK.search((ROOT / mod.UI / path).read_text(encoding="utf-8"))
-    # Top-level specs too: fnmatch's `**/` needs a directory, vitest's does not.
     assert "tests/english-names.spec.ts" in readers
 
 
@@ -268,7 +243,6 @@ def test_a_declaring_reader_runs_only_when_its_inputs_change(mod):
 
 
 def test_a_declared_input_outside_the_ui_selects_its_reader(mod):
-    """Before declarations, a change to a Python file a UI spec reads ran no UI spec at all."""
     mode, files, _ = mod.decide_ui(["packages/agent/src/agent/skills/builtin.py"], DECLARED)
 
     assert mode == "select"
@@ -280,16 +254,11 @@ def test_the_declaration_is_read_relative_to_the_ui(mod):
 
     assert mod.declared_inputs(source) == ("apps/workspace/app/api/**", "contracts/wire/v2/**")
     assert mod.declared_inputs("import x from 'y'\n") is None
-    # A Next route's brackets are literal, not an fnmatch character class.
     (route,) = mod.declared_inputs("// @disk-inputs: app/api/v1/[...path]/route.ts\n")
     assert mod._matches("apps/workspace/app/api/v1/[...path]/route.ts", [route])
     assert not mod._matches("apps/workspace/app/api/v1/p/route.ts", [route])
-    # What a child process reads, no recorder sees: such a spec never counts as declared.
     spawning = "// @disk-inputs: app/**\nimport { execFileSync } from 'node:child_process'\n"
     assert mod.declared_inputs(spawning) is None
-
-
-# --- The reference ------------------------------------------------------------------
 
 
 def test_the_newest_green_run_on_an_ancestor_is_the_reference(mod):

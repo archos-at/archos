@@ -1,13 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Lists are lean pages (ADR-0131, rule 3). A list without a limit and a cursor
- * answers everything at once: the scouts met 3.5 MB from one memory list and a
- * project list cut mid-JSON at the 40,000-character cap, with nothing to page
- * by. Every catalog operation named `*-list` takes `limit` and `cursor` in its
- * query, except those in the baseline, which only shrinks.
- */
 import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
@@ -24,7 +17,6 @@ function unpaged(): string[] {
     .sort()
 }
 
-/** Unpaged when ADR-0131 was written. Remove a line when its list pages; never add one. */
 const BASELINE: readonly string[] = [
   'annotation-list',
   'answer-feedback-list',

@@ -1,16 +1,3 @@
-"""Every description the model reads from a bound tool is English (AGENTS.md, "Industry standard first").
-
-Tool names, descriptions and parameter descriptions are read by the model on
-every call, and by outside agents over MCP. German is for people (i18n) and for
-domain data, so German appears here only inside a quoted span (a user phrasing
-given as an example, a citation, a card label) or as a glossary word.
-
-The tools are built from the shipped config exactly as the workflow builds them,
-in a clean interpreter (the agent runtime's registry is process-global; see
-``test_backend_tools_schema``). A tool that fails to build is a failure here, so
-a new tool cannot slip past the scan by being unbuildable.
-"""
-
 from __future__ import annotations
 
 import json
@@ -22,23 +9,18 @@ from agent_testing.tool_payloads import built_tools
 
 ROOT = Path(__file__).resolve().parents[3]
 
-#: Function words that are German and not English. Two distinct ones outside a
-#: quoted span make a sentence German; domain nouns (Fassung, Büroablage) are
-#: not function words and need no entry.
 GERMAN_FUNCTION_WORDS = frozenset(
     "der die das und oder nicht ist sind wird werden ein eine einen einem einer kein keine für mit von zum zur dem "
     "den des wenn wurde kann nur bitte nach bei aus über noch auch dieser diese dieses konnte ohne sich als im wie "
     "hat haben dass aber alle welche".split()
 )
 
-#: Glossary phrases that contain a function word and are domain data.
 ALLOWED_PHRASES = ("Antrag auf",)
 
 _QUOTED = re.compile(r"„[^“]*“|“[^”]*”|\"[^\"]*\"|`[^`]*`|(?<!\w)'[^']*'(?!\w)")
 
 
 def german_words(text: str) -> set[str]:
-    """The German function words in ``text`` outside quoted spans and allowed phrases."""
     for phrase in ALLOWED_PHRASES:
         text = text.replace(phrase, "")
     bare = _QUOTED.sub(" ", text)
@@ -90,7 +72,6 @@ def test_tool_and_parameter_descriptions_are_english(texts: list[tuple[str, str]
 
 
 def _builtin_skill_bodies() -> list[tuple[str, str]]:
-    """Each builtin ``SKILL.md`` split into lines, so a failure names file and line."""
     rows: list[tuple[str, str]] = []
     for path in sorted((ROOT / "packages" / "agent" / "src" / "agent" / "skills" / "builtin").rglob("SKILL.md")):
         rel = path.relative_to(ROOT).as_posix()
@@ -110,18 +91,14 @@ def test_builtin_skills_are_scanned() -> None:
 
 
 def test_builtin_skill_instructions_are_english() -> None:
-    """The model loads these bodies as instructions (``load_skill``); quoted user phrasings stay German."""
     german = [(where, line.strip()[:80]) for where, line in _builtin_skill_bodies() if is_german(line)]
     assert german == [], f"German instruction prose in a builtin skill (translate it): {german[:10]}"
 
 
-#: German prose that had no function word for the detector to catch (noun lists, a bare noun phrase).
-#: Each was found by reading, so each is pinned here: a second occurrence is caught by the test.
 FORMER_GERMAN_PROSE = ("Fluchtweglängen", "Geländerhöhen", "Brandabschnittsgrößen", "Nutzbare Laufbreite")
 
 
 def test_card_schema_descriptions_are_english() -> None:
-    """The generated card schema is what the model is taught; docstrings and Field descriptions land in it."""
     schema = json.loads((ROOT / "contracts" / "cards" / "schemas.json").read_text(encoding="utf-8"))
     texts = list(_described(schema, "cards"))
     assert len(texts) > 100
@@ -135,11 +112,6 @@ PROMPTS = ROOT / "packages" / "agent" / "src" / "agent" / "agents" / "piloti" / 
 
 
 def _prompt_lines(text: str, name: str) -> list[tuple[str, str]]:
-    """Instruction lines of a prompt file: not fenced code, not the ``<examples>`` block.
-
-    Examples are whole German exchanges (a user turn and the envelope the model
-    answers with), so they are data the model imitates, not instructions to it.
-    """
     rows: list[tuple[str, str]] = []
     in_fence = in_examples = False
     for number, line in enumerate(text.splitlines(), 1):
@@ -169,7 +141,6 @@ def test_prompt_files_are_scanned() -> None:
 
 
 def test_prompt_instructions_are_english() -> None:
-    """The static prompt is read on every turn; German stays in quoted phrasings, examples and glossary words."""
     german = [
         row for path in _prompt_files() for row in _german_prompt_lines(path.read_text(encoding="utf-8"), path.name)
     ]

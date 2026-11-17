@@ -96,7 +96,7 @@ export interface EditionRef {
  * pays for every character of `z.iso.date()`'s leap-year pattern) and the
  * calendar checked by zod's own date parser.
  */
-const queryDay = z
+export const queryDay = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, 'an ISO date, YYYY-MM-DD')
   .refine((value) => isoDate.safeParse(value).success, 'not a calendar day')

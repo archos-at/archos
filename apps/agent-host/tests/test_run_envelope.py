@@ -1,14 +1,3 @@
-"""A background run acts as the person who commissioned it, by echo (ADR-0108).
-
-The job API keeps the envelope the BFF signed for the submit, only when it
-verifies for the run's requester; it travels in the encrypted payload; the
-worker injects the same bytes at claim, renews them through the BFF once they
-are an hour old, and drops them on any refusal or failure. Python never signs.
-
-The envelopes below are signed by the TEST, standing in for the BFF. The code
-under test only ever verifies.
-"""
-
 from __future__ import annotations
 
 import ast
@@ -76,7 +65,6 @@ def _sign(
     marker: str = "submit",
     requester: dict[str, str] | None = None,
 ) -> dict[str, str]:
-    """What the BFF puts on the wire (the test plays the BFF; nothing under test signs)."""
     payload: dict[str, Any] = {"organizationId": organization_id, "userId": user_id, "projectId": "proj-1"}
     if scope is not None:
         payload["collectionScope"] = scope
@@ -134,8 +122,6 @@ class _Response:
 
 
 class _BFF:
-    """A stand-in for ``httpx.AsyncClient`` answering the renewal route."""
-
     calls: list[dict[str, Any]] = []
     answers: list[tuple[int, Any]] = []
 
@@ -168,9 +154,6 @@ def _renewal(*, user_id: str = "user-1", scope: list[dict[str, str]] | None = SC
     return {**_carried(headers), "issuedAt": issued}
 
 
-# --- carry: only an envelope that speaks for the run's requester is kept -----
-
-
 class TestCapture:
     def test_a_verified_envelope_is_kept_byte_for_byte(self):
         headers = _sign()
@@ -196,9 +179,6 @@ class TestCapture:
     def test_without_the_shared_secret_nothing_is_carried(self, monkeypatch):
         monkeypatch.delenv("INTERNAL_API_TOKEN")
         assert capture_request_envelope(Headers(_sign()), user_id="user-1") is None
-
-
-# --- carry: submit route -> encrypted payload -> worker -> injected headers ----
 
 
 def _skill_body(**overrides: Any) -> dict[str, Any]:
@@ -248,7 +228,6 @@ def skills_client():
 
 @pytest.fixture
 def replayed(monkeypatch) -> list[dict[str, Any]]:
-    """``run_agent_job`` with its real signature, recording what the worker replays."""
     calls: list[dict[str, Any]] = []
     signature = inspect.signature(run_agent_job)
 
@@ -273,8 +252,6 @@ class _Slot:
 
 
 class _Attrs:
-    """The request metadata a worker writes into: ``headers`` follows ``_request.headers``."""
-
     def __init__(self) -> None:
         self._request = SimpleNamespace(headers=Headers(headers={}))
 
@@ -316,7 +293,6 @@ class TestCarriedThroughHatchet:
         sent = _sign()
         claim = await _submit_and_replay(skills_client, db_url, sent)
 
-        # In Hatchet it is inside the encrypted payload, never readable in the input.
         stored = claim["stored"]
         assert stored.startswith("enc:")
         assert sent[REQUEST_CONTEXT_ENVELOPE_SIG_HEADER] not in stored
@@ -346,8 +322,6 @@ class TestCarriedThroughHatchet:
 
 
 class TestThePublicSubmitRoute:
-    """``/v1/jobs/async/submit`` keeps an envelope only for the bearer token's own subject."""
-
     @pytest.mark.parametrize("signed_for, kept", [("user-1", True), ("someone-else", False)])
     async def test_it_carries_what_was_signed_for_the_caller(self, submit_app, signed_for, kept):  # noqa: F811
         app, submitted_job, _builder = submit_app
@@ -360,9 +334,6 @@ class TestThePublicSubmitRoute:
         assert response.status_code == 200
         carried = submitted_job.await_args.kwargs["request_envelope"]
         assert carried == (_carried(sent) if kept else None)
-
-
-# --- inject and renew ---------------------------------------------------------
 
 
 class TestRenewal:
@@ -419,8 +390,6 @@ class TestRenewal:
         assert stale[REQUEST_CONTEXT_ENVELOPE_SIG_HEADER] not in caplog.text
 
     async def test_an_unreachable_bff_keeps_the_carried_envelope_inside_its_window(self, bff):
-        # No verdict on the requester: the carried envelope still verifies, and
-        # the BFF judges every echoed call on the requester's current rights.
         bff.answers = [(503, None)]
         stale = _sign(issued_at=_now_ms() - 2 * HOUR_MS)
         headers = await envelope_headers_for_run(_carried(stale), run_id="run-1", job_id="job-1")
@@ -467,8 +436,6 @@ class TestRenewal:
 
 
 class TestTheWireContract:
-    """The client reads exactly what the BFF's zod exports, and nothing else."""
-
     def test_the_fixture_is_where_the_contract_lives(self, schema):
         assert {"RunEnvelopeRequest", "RunEnvelopeResponse", "RunEnvelopeError"} <= set(schema["$defs"])
 
@@ -495,7 +462,6 @@ class TestTheWireContract:
         assert (parsed.header, parsed.signature) == ("h", "s")
 
     def test_the_renewal_age_is_the_bffs(self):
-        """One decision in two languages: when the worker asks is when the BFF expects to be asked."""
         source = (REPO / "apps/workspace/bff/runs/run-envelope-types.ts").read_text(encoding="utf-8")
         match = re.search(r"export const RUN_ENVELOPE_RENEW_AFTER_MS = ([\d *]+)\n", source)
         assert match, "RUN_ENVELOPE_RENEW_AFTER_MS moved; point this test at it"
@@ -509,10 +475,6 @@ class TestTheWireContract:
         assert refusal_reason({"error": "something-else", "message": "x"}) is None
 
 
-# --- echo, never sign ------------------------------------------------------------
-
-#: Every place in this tier that computes an HMAC, and why it may. A new one is a
-#: new answer to "who signs here?", and the answer for an envelope is: nobody.
 _HMAC_SITES = {
     ("packages/agent/src/agent/project_context.py", "from_envelope"),  # verifies, compare_digest
     ("apps/agent-host/src/agent_host/auth/utils.py", "_build_pseudonymous_trace_user_id"),  # trace ids
@@ -560,7 +522,6 @@ class TestNothingIsSignedInPython:
         assert not imported & {"hmac", "hashlib", "secrets"}
 
     async def test_what_is_injected_is_only_ever_bytes_the_bff_produced(self, bff):
-        """Byte identity is the proof of echo: a re-encode or a re-sign would differ."""
         sent = _sign()
         assert await envelope_headers_for_run(_carried(sent), run_id="run-1", job_id="job-1") == sent
 
@@ -572,8 +533,6 @@ class TestNothingIsSignedInPython:
 
 
 class TestTheRunKnowsWhoItIsFor:
-    """A scheduled fire submits no ``user_info``: the run's signed envelope names the person."""
-
     ANNA = {"name": "Anna Weber", "email": "anna@example.at", "organizationName": "Atelier Nord"}
 
     def test_a_run_without_user_info_is_named_from_its_envelope(self):

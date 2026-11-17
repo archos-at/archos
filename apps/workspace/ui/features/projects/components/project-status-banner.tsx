@@ -1,20 +1,5 @@
 'use client'
 
-/**
- * The line every page of a project that is not active opens with (ADR-0098,
- * ADR-0090), saying what its state means where the reader meets it, and the
- * one move out of it for whoever may make it.
- *
- *   - **Paused**: since when, that it stays editable, that its scheduled tasks
- *     wait. „Fortsetzen".
- *   - **Closed**: since when and how it ended, read-only, chat still open.
- *     Someone who reads the project only because it is closed is told why they
- *     see it, and that folders with their own access list stay hidden from
- *     them. „Wieder öffnen".
- *
- * Renders nothing for an active project, so the layout mounts it everywhere.
- */
-
 import type { JSX } from 'react'
 import { Lock, LockOpen, PauseCircle, PlayCircle } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -71,8 +56,6 @@ function StatusBanner({
       ? new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'long', year: 'numeric' }).format(at)
       : null
 
-  // A closed project leads with when its work ended, not with the day someone
-  // clicked: a project finished in 2019 and closed today ended in 2019.
   const closing = lifecycle.endedOn
     ? new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(
         new Date(`${lifecycle.endedOn}-01T00:00:00Z`)
@@ -105,7 +88,7 @@ function StatusBanner({
           {canChangeStatus && (
             <Button
               size="sm"
-              variant="outline"
+              variant="secondary"
               disabled={controls.pending}
               onClick={paused ? controls.resume : controls.requestReopen}
             >

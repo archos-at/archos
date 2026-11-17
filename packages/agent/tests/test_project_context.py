@@ -1,5 +1,3 @@
-"""Tests for request-context header getters in agent.project_context."""
-
 import base64
 import json
 from pathlib import Path
@@ -13,7 +11,6 @@ FIXTURE_PATH = (
     Path(__file__).resolve().parents[3] / "apps" / "workspace" / "tests" / "fixtures" / "request_context.json"
 )
 
-# Camel-case JSON fixture field name -> RequestContext attribute name.
 _INPUT_FIELD_MAP = {
     "organizationId": "organization_id",
     "userId": "user_id",
@@ -21,31 +18,20 @@ _INPUT_FIELD_MAP = {
     "collectionScope": "collection_scope",
     "projectContext": "project_context",
     "projectMemory": "project_memory",
-    # The office's standing instructions. Mapped BEFORE the fixture carries a
-    # case for it on purpose: with no key on either side both read None, and
-    # the day the TS builder starts sending `X-Grid-Org-Instructions` without
-    # this side parsing it (or the reverse), this map is what fails.
     "orgInstructions": "org_instructions",
     "modelOverrides": "model_overrides",
     "budget": "budget",
     "disabledSources": "disabled_sources",
     "memoryReflectionEnabled": "memory_reflection_enabled",
     "federalState": "federal_state",
-    # ADR-0054: the chat turn the envelope belongs to, and when it was minted.
-    # Both envelope-only, so they appear here and not in the individual-header
-    # cases — which is exactly what the map's `.get(...)` default asserts: a
-    # case without them must parse to None.
     "conversationId": "conversation_id",
     "issuedAt": "issued_at",
     "contextTransport": "context_transport",
-    # Who `userId` is, by name: envelope-only, signed from the BFF's session.
     "requester": "requester",
 }
 
 
 class TestUserMessageId:
-    """The turn half of a post-answer stage's identity."""
-
     class _Ctx:
         def __init__(self, user_message_id):
             self.user_message_id = user_message_id
@@ -60,9 +46,6 @@ class TestUserMessageId:
         assert pc.get_user_message_id_from_context() == "msg_1755600000000_3"
 
     def test_nats_placeholder_is_not_an_identity(self, monkeypatch):
-        """ "default_id" is the agent runtime's unset sentinel, shared by every turn of every
-        conversation. Treating it as a turn id would collapse them onto one
-        idempotency key and silence every turn after the first."""
         self._patch(monkeypatch, "default_id")
         assert pc.get_user_message_id_from_context() is None
 
@@ -89,11 +72,6 @@ class TestMemoryReflectionFlag:
         assert pc.get_memory_reflection_enabled_from_context() is False
 
     def test_reads_the_expected_header(self, monkeypatch):
-        # get_memory_reflection_enabled_from_context() now delegates to
-        # RequestContext.from_context(), which reads every X-Grid-*
-        # header in one pass (backlog T3-9) — so _read_header is called
-        # several times per invocation, not just once. Record every name
-        # seen instead of asserting on a single overwritten value.
         seen = []
 
         def fake(name):
@@ -120,11 +98,6 @@ class TestComposeProjectContext:
 
 
 class TestRequestContextFromContext:
-    """`RequestContext.from_context()` reads every X-Grid-* header from
-    agent-runtime Context metadata in one pass; drive it via the same `_read_header`
-    monkeypatch seam the rest of this file uses.
-    """
-
     def test_full_context(self, monkeypatch):
         headers = {
             pc.ORGANIZATION_ID_HEADER: "org_1",
@@ -170,12 +143,6 @@ class TestRequestContextFromContext:
         assert pc.RequestContext.from_context() == pc.RequestContext()
 
     def test_a_blank_collection_name_is_dropped_not_projected(self, monkeypatch):
-        """A blank name authorizes nothing, so it is skipped — and the payload
-        around it survives. Emitting ``""`` here would put an entry in
-        ``collection_scope`` that the resolver
-        (``agent.knowledge.scoping._parse_scope_payload``) skips, which is
-        exactly the seam disagreement this rule removes.
-        """
         scope = [{"collection": "proj_proj_1", "shelf": "project"}, {"collection": "  "}, ""]
         headers = {
             pc.COLLECTION_SCOPE_HEADER: base64.urlsafe_b64encode(json.dumps(scope).encode("utf-8"))
@@ -187,8 +154,6 @@ class TestRequestContextFromContext:
         ctx = pc.RequestContext.from_context()
 
         assert ctx.collection_scope == ["proj_proj_1"]
-        # The entries keep their raw shape (the shelf travels with them); only
-        # the names-only projection drops the blanks.
         assert ctx.collection_scope_entries == scope
 
     def test_malformed_json_headers_degrade_to_none_not_an_exception(self, monkeypatch):
@@ -200,11 +165,6 @@ class TestRequestContextFromContext:
         assert ctx.disabled_sources is None
 
     def test_accessors_delegate_to_from_context(self, monkeypatch):
-        """get_project_id_from_context / get_organization_id_from_context /
-        get_memory_reflection_enabled_from_context / get_profile_context_from_context
-        / get_memory_digest_from_context must all agree with the equivalent
-        RequestContext field for the same underlying headers.
-        """
         headers = {
             pc.ORGANIZATION_ID_HEADER: "org_9",
             pc.PROJECT_ID_HEADER: "proj_9",
@@ -224,13 +184,6 @@ class TestRequestContextFromContext:
 
 
 class TestRequestContextContractFixture:
-    """Cross-language wire contract (backlog T3-9): parsing the fixture's
-    `headers` must reproduce the fixture's `input`-equivalent values. The TS
-    side (`apps/workspace/bff/request-context.spec.ts`) asserts the
-    opposite direction — building `input` reproduces `headers` — from the
-    same file.
-    """
-
     @staticmethod
     def _load_fixture() -> dict:
         with FIXTURE_PATH.open(encoding="utf-8") as fh:
@@ -242,8 +195,6 @@ class TestRequestContextContractFixture:
 
     @staticmethod
     def _as_received(headers: dict[str, str]) -> dict[str, str]:
-        """The headers as a reader here sees them: through `LegacyHeaderNamesMiddleware`, which
-        copies each new name onto the old one the readers still read (until the contract step)."""
         pairs = [(name.lower().encode("ascii"), value.encode("utf-8")) for name, value in headers.items()]
         return {name.decode("ascii"): value.decode("utf-8") for name, value in with_legacy_names(pairs)}
 
@@ -262,15 +213,6 @@ class TestRequestContextContractFixture:
 
 
 class TestRequestContextEnvelopeContractFixture:
-    """Cross-language wire contract for the signed envelope (T3-9 follow-up,
-    2026-07-16). `envelopeCases` in the fixture carries {secret, input,
-    envelopeJson, header, signature}; the TS side
-    (`buildRequestContextEnvelope`) asserts building `input` with
-    `secret` reproduces `header`/`signature`. This asserts the opposite
-    direction: verifying+parsing `header`/`signature` with `secret`
-    reproduces the `input`-equivalent fields.
-    """
-
     @staticmethod
     def _load_fixture() -> dict:
         with FIXTURE_PATH.open(encoding="utf-8") as fh:
@@ -295,9 +237,6 @@ class TestRequestContextEnvelopeContractFixture:
                 )
 
     def test_each_envelope_case_json_matches_decoded_header(self):
-        """`envelopeJson` is documentation of the exact bytes header/signature
-        were derived from — assert the header actually decodes to it, so the
-        fixture cannot silently drift from its own documentation."""
         fixture = self._load_fixture()
         for case in fixture["envelopeCases"]:
             decoded = pc._base64url_decode_text(case["header"])
@@ -305,12 +244,6 @@ class TestRequestContextEnvelopeContractFixture:
 
 
 class TestRequestContextFromEnvelope:
-    """Unit tests for `RequestContext.from_envelope` — the single
-    verify+parse function the enforcement middleware in
-    `agent_host.context_envelope` and `from_context`/`from_headers` (envelope
-    precedence) all delegate to.
-    """
-
     SECRET = "unit-test-secret"  # noqa: S105 - test fixture value, not a real credential
 
     @staticmethod
@@ -362,8 +295,6 @@ class TestRequestContextFromEnvelope:
 
     def test_no_secret_configured_skips_signature_check_but_still_requires_header(self):
         header, _sig = self._envelope({"organizationId": "org_1"})
-        # No secret (dev, INTERNAL_API_TOKEN unset) -> shape-only check;
-        # signature is ignored entirely (even garbage/missing).
         ctx = pc.RequestContext.from_envelope(header, "garbage-signature", None)
         assert ctx is not None
         assert ctx.organization_id == "org_1"
@@ -383,16 +314,9 @@ class TestRequestContextFromEnvelope:
     def test_defaults_missing_fields_to_none_or_false(self):
         header, sig = self._envelope({})
         ctx = pc.RequestContext.from_envelope(header, sig, self.SECRET)
-        # Every PARSED field defaults; the two raw-envelope fields are what was
-        # received, so they are compared against the input rather than to None.
         assert ctx == pc.RequestContext(envelope_header=header, envelope_signature=sig)
 
     def test_the_raw_envelope_is_retained_byte_for_byte(self):
-        """A tool that calls back into the BFF echoes these; it never re-signs.
-
-        Re-encoding the parsed payload would reorder keys and drop whitespace,
-        and the signature covers the bytes, not the meaning.
-        """
         header, sig = self._envelope({"organizationId": "org_1", "userId": "user_1", "conversationId": "conv_1"})
         ctx = pc.RequestContext.from_envelope(header, sig, self.SECRET)
         assert ctx is not None
@@ -401,12 +325,10 @@ class TestRequestContextFromEnvelope:
         assert ctx.conversation_id == "conv_1"
 
     def test_an_unverified_envelope_leaves_nothing_to_echo(self):
-        """A wrong signature is an ABSENT envelope, so there are no bytes to echo."""
         header, _ = self._envelope({"organizationId": "org_1"})
         assert pc.RequestContext.from_envelope(header, "deadbeef", self.SECRET) is None
 
     def test_issued_at_is_read_as_an_int_and_never_from_a_bool(self):
-        """`isinstance(True, int)` is true in Python; `issuedAt: true` is not a time."""
         header, sig = self._envelope({"issuedAt": 1_757_500_000_000})
         assert pc.RequestContext.from_envelope(header, sig, self.SECRET).issued_at == 1_757_500_000_000
         header, sig = self._envelope({"issuedAt": True})
@@ -422,10 +344,6 @@ class TestRequestContextFromEnvelope:
 
 
 class TestRequestContextEnvelopePrecedence:
-    """`from_context`/`from_headers` prefer a valid envelope over the
-    individual headers; an invalid envelope falls back to them.
-    """
-
     SECRET = "precedence-secret"  # noqa: S105 - test fixture value, not a real credential
 
     def _envelope_headers(self, payload: dict) -> dict[str, str]:
@@ -450,7 +368,6 @@ class TestRequestContextEnvelopePrecedence:
     def test_from_context_falls_back_to_individual_headers_when_envelope_invalid(self, monkeypatch):
         monkeypatch.setenv("INTERNAL_API_TOKEN", self.SECRET)
         envelope_headers = self._envelope_headers({"organizationId": "org_from_envelope"})
-        # Tamper the signature.
         sig = envelope_headers[pc.REQUEST_CONTEXT_ENVELOPE_SIG_HEADER]
         envelope_headers[pc.REQUEST_CONTEXT_ENVELOPE_SIG_HEADER] = ("0" if sig[0] != "0" else "1") + sig[1:]
         individual_headers = {pc.ORGANIZATION_ID_HEADER: "org_from_individual_header"}
@@ -518,13 +435,6 @@ class TestRequestContextEnvelopePrecedence:
 
 
 class TestFederalStateField:
-    """`federal_state` (backlog T3-9 follow-up, 2026-07-16, user-mandated):
-    ENVELOPE-ONLY structured jurisdiction field — no individual
-    `X-Grid-Bundesland` header exists, so it can only ever come from
-    `from_envelope`/the fixture's `envelopeCases`, never from the individual
-    header parsing path.
-    """
-
     SECRET = "bundesland-test-secret"  # noqa: S105 - test fixture value, not a real credential
 
     def _envelope(self, payload: dict) -> tuple[str, str]:
@@ -548,9 +458,6 @@ class TestFederalStateField:
         assert pc.RequestContext.from_envelope(header, sig, self.SECRET).federal_state == "tyrol"
 
     def test_outside_austria_token_round_trips_literally(self):
-        # project_context.py only validates against the vocabulary; mapping
-        # "outside_austria" to "no state prioritized" (None) is
-        # ris_catalog.resolve_federal_state's job, not the parser's.
         header, sig = self._envelope({"federalState": "outside_austria"})
         ctx = pc.RequestContext.from_envelope(header, sig, self.SECRET)
         assert ctx is not None
@@ -583,8 +490,6 @@ class TestFederalStateField:
         assert ctx.federal_state is None
 
     def test_from_context_legacy_individual_headers_never_populate_federal_state(self, monkeypatch):
-        # No envelope at all -- from_context falls back to individual
-        # headers, which have no federal_state source whatsoever.
         headers = {pc.ORGANIZATION_ID_HEADER: "org_1"}
         monkeypatch.setattr(pc, "_read_header", lambda name: headers.get(name))
         ctx = pc.RequestContext.from_context()
@@ -596,15 +501,6 @@ class TestFederalStateField:
 
 
 class TestOrgInstructions:
-    """The office's standing instructions: one header, bounded at the door.
-
-    They replaced the two ways a skill could be FORCED onto a turn. A standing
-    instruction is prompt text — always present, costing no tool call, and
-    impossible to half-apply — so what arrives here lands in every turn's
-    system prompt for this organization, which is exactly why the cap is
-    enforced on this side rather than trusted from the sender.
-    """
-
     @staticmethod
     def _encoded(text: str) -> str:
         return base64.urlsafe_b64encode(text.encode("utf-8")).decode("ascii").rstrip("=")
@@ -617,8 +513,6 @@ class TestOrgInstructions:
         assert pc.ORG_INSTRUCTIONS_HEADER == "x-grid-org-instructions"
 
     def test_a_multi_line_block_decodes_verbatim(self, monkeypatch):
-        """Base64url for the reason the other two text headers use it: Node
-        rejects newlines in a header value, and an office writes a list."""
         text = "Antworten kurz halten.\nImmer die Wiener Bauordnung zuerst prüfen."
         ctx = self._read(monkeypatch, self._encoded(text))
         assert ctx.org_instructions == text
@@ -628,8 +522,6 @@ class TestOrgInstructions:
         assert self._read(monkeypatch, self._encoded("   \n  ")).org_instructions is None
 
     def test_a_block_past_the_cap_is_cut_and_says_so(self, monkeypatch):
-        """Truncating silently would hand the model a complete-looking set of
-        instructions that is not the set the office wrote."""
         text = "A" * (pc.ORG_INSTRUCTIONS_MAX_CHARS + 500)
         value = self._read(monkeypatch, self._encoded(text)).org_instructions
 
@@ -647,8 +539,6 @@ class TestOrgInstructions:
         assert pc.ORG_INSTRUCTIONS_MAX_CHARS == 1500
 
     def test_the_signed_envelope_carries_it_too(self):
-        """The envelope WINS over the individual headers wherever it is present,
-        so a field it cannot carry is a field the chat path never sees."""
         payload = {"organizationId": "org_1", "orgInstructions": "Kurz antworten."}
         header = base64.urlsafe_b64encode(json.dumps(payload).encode("utf-8")).decode("ascii").rstrip("=")
 

@@ -117,7 +117,7 @@ describe.skipIf(!url)('editions in time against Postgres', () => {
       )
     }
     await published('Austria: territories for time', [
-      { type: 'territory', id: 'AT', kind: 'country', name: 'Österreich' },
+      { type: 'territory', id: 'AT', kind: 'country', name: 'Österreich', zone: 'Europe/Vienna' },
       { type: 'territory', id: 'AT-3', kind: 'state', name: 'Niederösterreich', parents: [{ id: 'AT' }] },
       {
         type: 'territory',
@@ -205,6 +205,7 @@ describe.skipIf(!url)('editions in time against Postgres', () => {
       work: read.work,
       rulesets: rules.rulesets,
       chain,
+      zones: await repository.readTerritoryZones(organizationId, chain),
       procedure: procedureSchema.parse(procedure),
       now: NOW,
     })
@@ -225,7 +226,6 @@ describe.skipIf(!url)('editions in time against Postgres', () => {
       ['LGBl. 1/2015', '2015-02-01', '2023-01-01', false],
       ['LGBl. 2023/1', '2023-01-01', null, true],
     ])
-    // `EU` follows `AT` where another spec in the same database published the Austria pack's dated parent.
     expect((await repository.readTerritoryChain(ORG, NODE, '2026-11-10')).slice(0, 3)).toEqual([NODE, 'AT-3', 'AT'])
   })
 
@@ -237,10 +237,29 @@ describe.skipIf(!url)('editions in time against Postgres', () => {
       referenceDate: { date: '2022-10-01', territoryId: NODE },
       transitions: [{ outcome: 'old_law' }],
     })
-    // Positive control: filed after the boundary, the new edition.
     expect(await answerFor(ORG, { filedOn: '2023-02-01', decidedOn: 'pending' })).toMatchObject({
       edition: { label: 'LGBl. 2023/1' },
     })
+  })
+
+  it('reads the zone a day is in from the territory record, through the office’s entitlement', async () => {
+    expect(await repository.readTerritoryZones(ORG, [NODE, 'AT-3', 'AT'])).toEqual({ AT: 'Europe/Vienna' })
+    expect(await repository.readTerritoryZones(OUTSIDER, ['AT'])).toEqual({})
+    const read = await repository.readWorkInTime(ORG, workId())
+    const chain = await repository.readTerritoryChain(ORG, NODE, '2026-11-10')
+    const rules = await rulesets.readRulesetsInForce(ORG, { purpose: 'reference_date', territoryIds: chain })
+    const { procedureSchema } = await import('@/lib/base-knowledge/wire/time')
+    const open = (zones: Record<string, string>) =>
+      asOf.editionForProcedure({
+        work: read!.work,
+        rulesets: rules.rulesets,
+        chain,
+        zones,
+        procedure: procedureSchema.parse({ filedOn: '2023-02-01', decidedOn: 'pending' }),
+        now: NOW,
+      })
+    expect(open(await repository.readTerritoryZones(ORG, chain))).toMatchObject({ status: 'determined' })
+    expect(open({})).toEqual(open(await repository.readTerritoryZones(ORG, chain)))
   })
 
   it('asks for the filing day it does not have, and refuses a day before the history held', async () => {

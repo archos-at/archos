@@ -1,11 +1,5 @@
 'use client'
 
-/**
- * A sortable column header for a data table (the platform directories, the search register): the label as a
- * button, an arrow for the active direction, and `aria-sort` on the cell so a
- * screen reader hears the order rather than inferring it from a glyph.
- */
-
 import type { FC } from 'react'
 import { ChevronDown, ChevronsUpDown, ChevronUp } from 'lucide-react'
 import { TableHead } from '@/components/ui/table'
@@ -32,8 +26,6 @@ export const SortableHead: FC<{
         onClick={onSort}
         aria-label={ariaLabel}
         className={cn(
-          // A column header is text-height by design; `touch-target` makes it
-          // tappable without turning the header row into a row of buttons.
           'hover:text-foreground focus-visible:ring-ring/60 touch-target inline-flex items-center gap-1 text-balance rounded-control focus-visible:outline-none focus-visible:ring-2',
           active && 'text-foreground'
         )}

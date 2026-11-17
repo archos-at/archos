@@ -1,11 +1,3 @@
-"""Environment, release, observation type and trace name on every exported span (ADR-0089).
-
-Langfuse ignores an attribute it does not recognise without a word, so each of
-these mappings is invisible when it breaks: the trace still arrives, filed as
-"default", with no release and every observation a plain span. Only a test
-notices.
-"""
-
 import pytest
 
 from agent.observability.langfuse_trace_attributes import TAGS_ATTRIBUTE
@@ -140,12 +132,6 @@ class TestProcessor:
         assert "error:workflow_error" in span.attributes[TAGS_ATTRIBUTE]
 
     async def test_a_chat_root_needs_no_incoming_trace_context(self):
-        """The BFF registers no trace provider, so no request carries a ``traceparent``.
-
-        A root is an agent-runtime span with no agent-runtime parent, not a span that continues a W3C
-        context, so the chat turn must still name its trace and carry its outcome
-        with nothing ambient and nothing upstream.
-        """
         from opentelemetry import trace as otel_trace
 
         from nat.data_models.span import Span
@@ -196,7 +182,6 @@ class TestPipelineWiring:
         assert positions["trace_context"] < positions["header_redaction"]
 
     async def test_tool_contributions_reach_the_trace_with_identity_off(self, monkeypatch):
-        """The privacy switch must not also switch off cost and quality reporting."""
         from agent.observability.langfuse_trace_attributes import IDENTITY_ATTRIBUTES_ENV
         from agent.observability.otel_header_redaction_exporter import OtelCollectorRedactionTelemetryExporter
         from agent.observability.otel_header_redaction_exporter import otelcollector_redaction_telemetry_exporter

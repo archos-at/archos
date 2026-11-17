@@ -1,13 +1,3 @@
-/**
- * A conversation whose messages this browser never loaded, across a reload.
- *
- * The server lists a conversation without its messages; its empty list means
- * "not here", and the upload-only cleanup must not read it as "none". The flag
- * that says so lived only in memory, and the next write stored the empty list
- * as `[]`: after a reload the key was present, the flag was gone, and opening
- * the conversation and leaving it before the history arrived deleted it on the
- * server (regression from the per-conversation storage, 2026-09).
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/features/layout/store', () => ({
@@ -75,13 +65,11 @@ const serverListing = [
   },
 ]
 
-/** A reload: the in-memory flag is gone, and the store reads storage again. */
 const reload = async (id: string) => {
   clearAwaitingServerMessages(id)
   await useChatStore.persist.rehydrate()
 }
 
-/** Open `id`, and leave it for `s_open` before its history arrives. */
 const openAndLeaveBeforeTheHistory = async (id: string) => {
   let resolve!: (rows: unknown[]) => void
   client.listMessages.mockReturnValue(new Promise((r) => (resolve = r)))
@@ -111,10 +99,8 @@ describe('a conversation the server listed without its messages', () => {
   it('stays awaiting across a reload, and is never deleted on the server', async () => {
     await useChatStore.getState().loadServerConversations()
     expect(isAwaitingServerMessages('s_srv')).toBe(true)
-    // Any later write: storage writes every conversation it has not written.
     useChatStore.getState().updateConversationTitle('s_open', 'renamed')
 
-    // Not loaded is not empty: no `[]` is stored for it, and the index names it.
     expect(localStorage.getItem(chatMessagesKey(STORE, 's_srv'))).toBeNull()
     const index = JSON.parse(localStorage.getItem(chatIndexKey(STORE))!)
     expect(index.state.awaitingServerMessages).toEqual(['s_srv'])
@@ -132,7 +118,6 @@ describe('a conversation the server listed without its messages', () => {
   it('reads a stored empty list as not loaded (storage the regression already wrote)', async () => {
     await useChatStore.getState().loadServerConversations()
     useChatStore.getState().updateConversationTitle('s_open', 'renamed')
-    // What the bug left behind: `[]` for it, and an index that does not name it.
     localStorage.setItem(chatMessagesKey(STORE, 's_srv'), '[]')
     const index = JSON.parse(localStorage.getItem(chatIndexKey(STORE))!)
     delete index.state.awaitingServerMessages
@@ -156,7 +141,6 @@ describe('a conversation the server listed without its messages', () => {
     expect(isAwaitingServerMessages('s_srv')).toBe(false)
     useChatStore.getState().selectConversation('s_open')
 
-    // Known to be empty now, on the server's word: the upload-only cleanup runs.
     await flush()
     expect(client.delete).toHaveBeenCalledWith('s_srv')
   })

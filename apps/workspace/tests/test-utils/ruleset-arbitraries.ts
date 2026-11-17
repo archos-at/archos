@@ -1,9 +1,3 @@
-/**
- * Generators for the evaluator's property specs: conditions in the subset over
- * one fixed set of typed inputs, and facts for them with any subset unknown.
- * Test-only; imported by `bff/base-knowledge/rulesets/*.spec.ts`.
- */
-
 import fc from 'fast-check'
 import type { FactType } from '@/lib/base-knowledge/wire/vocab'
 
@@ -32,19 +26,16 @@ const valueOf: Record<FactType, fc.Arbitrary<unknown>> = {
   codes: fc.subarray([...CODES]),
 }
 
-/** Every input known. */
 export const knownFacts: fc.Arbitrary<Record<string, unknown>> = fc.record(
   Object.fromEntries(INPUTS.map((input) => [input.key, valueOf[input.type]]))
 )
 
-/** Any input may be unknown (`null`). */
 export const partialFacts: fc.Arbitrary<Record<string, unknown>> = fc.record(
   Object.fromEntries(
     INPUTS.map((input) => [input.key, fc.option(valueOf[input.type], { nil: null, freq: 3 })])
   )
 )
 
-/** A value for each of `keys`, to complete facts where they are unknown. */
 export function completion(keys: readonly string[]): fc.Arbitrary<Record<string, unknown>> {
   return fc.record(
     Object.fromEntries(keys.map((key) => [key, valueOf[DECLARED.get(key) as FactType]]))
@@ -89,7 +80,6 @@ const leaf = fc.oneof(
     .map(([op, list]) => ({ [op]: [variable('l1'), { in: [{ var: '' }, list] }] }))
 )
 
-/** A boolean condition in the subset over {@link INPUTS}. */
 export const condition: fc.Arbitrary<unknown> = fc.letrec<{ condition: unknown }>((tie) => ({
   condition: fc.oneof(
     { depthSize: 'small', withCrossShrink: true },

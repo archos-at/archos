@@ -6,11 +6,6 @@ import type { z } from 'zod'
 import { CARD_PREVIEW_FIXTURES } from '@/features/cards/preview-fixtures'
 import { cardComponentApi, cardTypeOf, catalogCardSchemas } from './catalog'
 
-/**
- * A2UI 0.14 reads a component schema as Zod 3 (`catalog.tsx`, the seam). A
- * card's schema is Zod 4, so it reaches A2UI wrapped; these hold the wrapper to
- * the two things A2UI asks of it.
- */
 describe('a card schema as A2UI reads it', () => {
   const [type, fixture] = Object.entries(CARD_PREVIEW_FIXTURES)[0]
   const schema = catalogCardSchemas().find((candidate) => cardTypeOf(candidate) === type)
@@ -28,7 +23,6 @@ describe('a card schema as A2UI reads it', () => {
     if (result.success) return
     const own = (schema as z.ZodObject).omit({ type: true }).safeParse({})
     expect(own.success).toBe(false)
-    // `payload-validator.js` maps `error.errors`, which a Zod 4 error does not have.
     expect(result.error.errors.map((issue) => issue.message)).toEqual(own.error?.issues.map((issue) => issue.message))
   })
 })

@@ -27,18 +27,11 @@ export const DocumentPreviewChip: FC<{
   label: string
   authority?: string
   className?: string
-  /** The marker(s) this source carries in the answer prose. */
   index?: string
   variant?: CitationVariant
-  /** The reference this chip stands for — powers the dialog's "copy citation". */
   citation?: CitationRef
   trailing?: ReactNode
   detail?: CitationDetail
-  /**
-   * The document turned out to have no viewer after all — an office file whose
-   * rendition the BFF could not make. The owner re-renders the chip as the
-   * download it now is.
-   */
   onUnrenderable?: () => void
 }> = ({
   target,
@@ -59,11 +52,7 @@ export const DocumentPreviewChip: FC<{
   const showBusy = useDelayedFlag(isResolving)
 
   const open = (): void => {
-    // Ignored, not refused, while the presign is in flight: a second click
-    // must not race a second fetch (see `aria-busy` on the face below).
     if (isResolving) return
-    // The dialog supersedes the peek — the peek's question is "what is this?",
-    // and the document answers it far better than a panel floating over it.
     peek.dismiss()
     void openPreview().then((outcome) => {
       if (outcome === 'downloaded') onUnrenderable?.()
@@ -77,17 +66,9 @@ export const DocumentPreviewChip: FC<{
       style={faceStyle(variant, signal)}
       {...peek.triggerProps}
       onClick={open}
-      // BUSY, NOT DISABLED. `disabled` on the button the reader just pressed
-      // dropped their keyboard focus to <body> (a disabled element cannot hold
-      // it) and flashed the chip to 70% for a presign that usually answers in
-      // under a tenth of a second. It stays focusable and pressable; `open`
-      // ignores the press, and only a wait past the Doherty threshold
-      // (`useDelayedFlag`) shows — as a spinner in the icon's own slot.
       aria-busy={isResolving || undefined}
       aria-haspopup="dialog"
       aria-label={t('sourcePreview.chipAria', { label })}
-      // A native `title` only where there is no peek: with one, the browser's
-      // tooltip arrived ~1s in and sat on top of the panel saying less.
       title={citation ? undefined : t('sourcePreview.chipAria', { label })}
     >
       <CitationFace
@@ -104,8 +85,6 @@ export const DocumentPreviewChip: FC<{
     </button>
   )
 
-  // The face is always the first child, and the peek is its sibling rather than
-  // its wrapper — see `HoverPeekPanel` for why the button must never move.
   return (
     <>
       {face}

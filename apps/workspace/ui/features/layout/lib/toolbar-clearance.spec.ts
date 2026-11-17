@@ -24,9 +24,6 @@ describe('toolbar clearance', () => {
   })
 
   it('is the only place the transcript decides how far down the toolbar reaches', () => {
-    // The phone toolbar is two rows, and three while the link is gone: a clearance
-    // written into a class list is the guess that put the first message under it.
-    // The transcript is the message list the column renders, now in its own module.
     const area = source('ChatArea.tsx') + source('chat-area/chat-message-list.tsx')
     expect(area).not.toMatch(/pt-\[max\(5rem,calc\(env\(safe-area-inset-top\)\+4rem\)\)\]/)
     expect(area).not.toMatch(/scroll-mt-\[max\(5rem/)

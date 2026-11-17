@@ -1,13 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * DRY-RUN NOTE: OpenRouter is not reachable from CI; these fixtures replay
- * the catalog shape documented at openrouter.ai/docs (GET /api/v1/models:
- * `context_length`, `supported_parameters`, `architecture.input_modalities`,
- * string-encoded `pricing`). Live verification happens operationally; the
- * PUT route re-validates against the live catalog on every save.
- */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -81,9 +74,7 @@ describe('validateModelForGroup', () => {
 
   it('ingest_vlm accepts a vision model and rejects a text-only one', () => {
     const ingestVlm = getAgentGroup('ingest_vlm')!
-    // A vision model (input_modalities includes image) passes.
     expect(validateModelForGroup(model({ inputModalities: ['text', 'image'] }), ingestVlm).ok).toBe(true)
-    // A text-only model is rejected — it could not see the page/drawing.
     const textOnly = validateModelForGroup(model({ inputModalities: ['text'] }), ingestVlm)
     expect(textOnly.ok).toBe(false)
     expect(textOnly.reasons.map((r) => r.code)).toEqual(['no_image_input'])
@@ -111,10 +102,8 @@ describe('reasoning-off enforcement (follow_ups group runs reasoning_effort:none
     })
     const forFollowUps = validateModelForGroup(grok, followUps)
     expect(forFollowUps.ok).toBe(false)
-    // A code, not prose: this used to be hard-coded German for every reader.
     expect(forFollowUps.reasons.map((r) => r.code)).toEqual(['reasoning_mandatory'])
 
-    // shallow_research does not disable reasoning, so the same model is fine.
     expect(validateModelForGroup(grok, shallow).ok).toBe(true)
   })
 
@@ -124,8 +113,6 @@ describe('reasoning-off enforcement (follow_ups group runs reasoning_effort:none
   })
 
   it('hybrid reasoning model (declares reasoning, not denylisted) now PASSES for follow_ups', () => {
-    // The common modern case: the model advertises reasoning but accepts
-    // reasoning-off. We fail open, so it is selectable for the follow_ups group.
     const hybrid = model({
       id: 'anthropic/claude-sonnet-4.5',
       supportedParameters: ['tools', 'temperature', 'reasoning'],
@@ -153,15 +140,10 @@ describe('reasoning-off enforcement (follow_ups group runs reasoning_effort:none
 describe('searchModelsForGroup', () => {
   it('filters to appropriate models only', () => {
     const results = searchModelsForGroup(CATALOG, 'deep_research', '')
-    // vendor/full-model and x-ai/grok-4.5 both satisfy deep_research (tools +
-    // 200k context); deep_research does not disable reasoning, so grok's
-    // declared reasoning is fine here (same as the shallow_research case above).
     expect(results.map((m) => m.id)).toEqual(['vendor/full-model', 'x-ai/grok-4.5'])
   })
 
   it('applies the text query', () => {
-    // 'no-tools' passes follow_ups (no tool requirement, big context) but the
-    // query narrows the passing set to it alone.
     expect(searchModelsForGroup(CATALOG, 'follow_ups', 'no-tools').map((m) => m.id)).toEqual(['vendor/no-tools'])
   })
 
@@ -249,13 +231,6 @@ describe('fetchModelCatalog', () => {
   })
 })
 
-/**
- * One entry of `GET /api/v1/endpoints/zdr` in its LIVE shape (captured
- * 2026-09-30; `name`, `tag` and `provider_name` are exactly what the listing
- * carries). `tag` values like `azure/eu` and names like
- * `Reka | deepseek/deepseek-v4-pro-20260423` look like model ids and are not:
- * the old recursive scan collected them as ZDR models.
- */
 const zdrEntry = (
   modelId: string,
   overrides: Record<string, unknown> = {},
@@ -295,8 +270,6 @@ describe('ZDR matching is exact', () => {
   })
 
   it('does NOT let a :free / :extended / :thinking variant ride on its base model', () => {
-    // Different offerings with their own endpoints. The old matcher stripped
-    // the suffix, so `foo/bar:free` counted as ZDR when only the paid one was.
     for (const variant of ['free', 'extended', 'thinking', 'online', 'beta']) {
       expect(hasZdrEndpoint(`vendor/full-model:${variant}`, zdr)).toBe(false)
     }
@@ -316,7 +289,6 @@ describe('ZDR matching is exact', () => {
     expect(hasZdrEndpoint('vendor/full-model', noTools)).toBe(true)
     expect(hasZdrEndpoint('vendor/full-model', noTools, deepResearch)).toBe(false)
 
-    // One tool-capable ZDR endpoint among several is enough.
     const mixed = index(
       { modelId: 'vendor/full-model', supportedParameters: ['max_tokens'] },
       { modelId: 'vendor/full-model', supportedParameters: ['tools'] },
@@ -361,7 +333,6 @@ describe('validation under zero data retention', () => {
   })
 })
 
-/** An in-memory `CacheStore` whose entries a test can seed or inspect. */
 const memoryCacheStore = (): { store: CacheStore; entries: Map<string, string> } => {
   const entries = new Map<string, string>()
   return {
@@ -382,8 +353,6 @@ const memoryCacheStore = (): { store: CacheStore; entries: Map<string, string> }
 }
 
 describe('fetchZdrEndpoints', () => {
-  // Every test in here drives the cache directly, so each starts on its own
-  // store — a swap left behind by one test must not leak into the next.
   beforeEach(() => {
     setCacheStore(memoryCacheStore().store)
   })
@@ -411,7 +380,6 @@ describe('fetchZdrEndpoints', () => {
       'qwen/qwen3.8-27b:free',
       'xiaomi/mimo-v2.6-flash',
     ])
-    // `tag` values (`azure/eu`, `novita/fp8`) and the dated `name` slug are not models.
     expect(zdr.has('azure/eu')).toBe(false)
     expect(zdr.has('novita/fp8')).toBe(false)
     expect(zdr.has('deepseek/deepseek-v4-pro-20260423')).toBe(false)
@@ -420,16 +388,10 @@ describe('fetchZdrEndpoints', () => {
       supportedParameters: ['tools', 'tool_choice', 'response_format', 'structured_outputs', 'max_tokens'],
       contextLength: 1048576,
     })
-    // cached
     await fetchZdrEndpoints()
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
-  /**
-   * Regression (issue #242): the cache round-trips through JSON, so caching a
-   * `Set`/`Map` itself returned a prototype-less `{}` on every HIT. The index
-   * must be rebuilt on the way OUT of the cache.
-   */
   it('returns a real index on a cache HIT, not the JSON-flattened shape', async () => {
     const fetchMock = listing(zdrEntry('anthropic/claude-sonnet-4.5'), zdrEntry('vendor/full-model'))
     vi.stubGlobal('fetch', fetchMock)
@@ -449,7 +411,6 @@ describe('fetchZdrEndpoints', () => {
   })
 
   it('fails CLOSED when the cached payload is an older shape', async () => {
-    // What a pre-:v3 replica could leave under a reused key: bare ids, or `{}`.
     for (const payload of ['{}', JSON.stringify(['anthropic/claude-sonnet-4.5'])]) {
       const { store, entries } = memoryCacheStore()
       setCacheStore(store)

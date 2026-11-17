@@ -117,6 +117,8 @@ def first_message(instruction: str, needs_body: dict[str, Any]) -> str:
     previous = " ".join(str(needs_body.get("previousSummary") or "").split())[: client.MAX_SUMMARY_CHARS]
     if previous:
         lines.append(f"What the last reading found (its own summary): {previous}")
+    if needs_body.get("setupPublished") is False:
+        lines.append("The country data for this project is not published yet: no questions or classes follow from it.")
     lines.append("")
     lines.append(render_needs(needs_body))
     return "\n".join(lines)

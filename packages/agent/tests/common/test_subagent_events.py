@@ -1,10 +1,3 @@
-"""Subagent invocations on the chat wire (AG-UI 1.0 ``SUBAGENT_*``), from ``common/turn_status.py``.
-
-Every test goes through a compiled graph under ``astream(stream_mode="custom")``,
-because the writer and the ContextVar both reach a producer only through the
-tasks LangGraph starts: a unit call outside a graph would pass with neither.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -39,7 +32,6 @@ def _status(slot: str) -> StatusStep:
 
 
 async def _bodies(node: Any) -> list[Any]:
-    """What ``node`` writes to the custom stream when it runs as a graph's only node."""
     graph = StateGraph(_State)
     graph.add_node("work", node)
     graph.set_entry_point("work")
@@ -86,7 +78,6 @@ async def test_a_subagent_brackets_its_steps_and_a_nested_one_names_its_parent()
 
 
 async def test_parallel_subagents_each_keep_their_own_steps() -> None:
-    """``asyncio.gather`` copies the context per task: two researchers never share an id."""
 
     async def worker(label: str) -> None:
         async with subagent_run("researcher-agent", description=f"Frage {label}"):
@@ -118,7 +109,6 @@ async def test_a_failure_is_reported_without_its_text_and_raised_to_the_caller()
 
 
 async def test_a_pause_is_not_a_failure() -> None:
-    """``GraphBubbleUp`` (an ``interrupt()``) leaves the subagent open: suspending it is ADR-0140's."""
 
     async def node(state: _State) -> _State:
         with pytest.raises(GraphInterrupt):
@@ -131,7 +121,6 @@ async def test_a_pause_is_not_a_failure() -> None:
 
 
 async def test_outside_a_graph_run_nothing_is_written_and_nothing_breaks() -> None:
-    """A deep-research job worker has no stream: the binding still scopes, the emits are no-ops."""
     async with subagent_run("deep_researcher") as frame:
         emit_step(_status("job"))
         assert current_subagent() == frame
@@ -139,7 +128,6 @@ async def test_outside_a_graph_run_nothing_is_written_and_nothing_breaks() -> No
 
 
 async def test_the_tool_call_that_spawns_a_subagent_is_its_parents_row() -> None:
-    """deepagents' ``task`` runs the subagent inside the tool, so the tool's own row must be handed up."""
 
     async def node(state: _State) -> _State:
         callback = ToolStepCallback()

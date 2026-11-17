@@ -32,6 +32,12 @@
  *   know. Nothing reads an undeclared key, so `.passthrough()` would only carry
  *   them untyped. Unions still discriminate on their literal (`type`, `name`,
  *   `kind`), which stripping does not touch.
+ * - **Unknown values as null, where a field says so.** Stripping covers a new
+ *   key, not a new value of a known one: an old bundle's `z.enum` refuses a
+ *   value added later, the frame does not parse and the turn never settles. A
+ *   field whose schema carries `x-unknown-as-null` (set in `wire_v2.py`) is
+ *   emitted with `.catch(null)`, so a value this bundle does not know reads as
+ *   absent. Only on what the client receives; what it sends stays strict.
  */
 
 import { jsonSchemaToZod } from 'json-schema-to-zod'
@@ -101,8 +107,19 @@ const isOpenRecord = (node) =>
   node.additionalProperties === true &&
   !node.properties
 
-/** The wire's parser override: unions, open records, then the card generator's `$ref` rule. */
+/** The marker a server-to-client field carries when an unknown value must read as null. */
+export const UNKNOWN_AS_NULL = 'x-unknown-as-null'
+
+/** The field without its marker, as zod, with `.catch(null)`: a value this bundle does not know is null. */
+export function unknownAsNullExpr(node) {
+  const { [UNKNOWN_AS_NULL]: _marker, ...field } = node
+  const expr = jsonSchemaToZod(field, { module: false, zodVersion: 4, parserOverride: wireParserOverride })
+  return `${expr}.catch(null)`
+}
+
+/** The wire's parser override: lenient values, unions, open records, then the card generator's `$ref` rule. */
 export const wireParserOverride = (node) => {
+  if (node && typeof node === 'object' && node[UNKNOWN_AS_NULL] === true) return unknownAsNullExpr(node)
   if (node && typeof node === 'object' && Array.isArray(node.oneOf) && node.discriminator) {
     return discriminatedUnionExpr(node)
   }
@@ -115,6 +132,9 @@ export function buildWireSchemaModule(root) {
   const defs = root.$defs ?? {}
   const clientBound = defClosure(defs, CLIENT_ROOT)
   const declarations = topologicallyOrderedDefNames(root).map((defName) => {
+    if (clientBound.has(defName) && JSON.stringify(defs[defName]).includes(UNKNOWN_AS_NULL)) {
+      throw new Error(`${defName} is sent by the client, read strictly by the server: drop ${UNKNOWN_AS_NULL}`)
+    }
     const def = clientBound.has(defName) ? defs[defName] : tolerateUnknownKeys(defs[defName])
     const zodExpr = jsonSchemaToZod(def, {
       module: false,

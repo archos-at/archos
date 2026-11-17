@@ -1,12 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Which aiq-agent address a chat socket dials (`server.js`, ADR-0028 / ADR-0080).
- *
- * With `CHAT_AFFINITY` on the route is the conversation-id hash it has
- * always been, byte for byte; with it off every socket goes to the Service.
- */
 import { describe, expect, it } from 'vitest'
 import { affinityEnabled, createBackendTargetPicker, hashToIndex } from './backend-target.js'
 
@@ -18,7 +12,6 @@ const picker = (over: Partial<Parameters<typeof createBackendTargetPicker>[0]> =
 
 describe('CHAT_AFFINITY', () => {
   it.each([undefined, '', '1', 'true', 'on', 'yes'])('reads %j as on, so an unset variable keeps today\'s routing', (v) => {
-    // An empty string is not an off value: only an explicit one switches affinity off.
     expect(affinityEnabled(v)).toBe(true)
   })
 
@@ -36,8 +29,6 @@ describe('with affinity on', () => {
   })
 
   it('keeps the FNV-1a mapping fixed, so a deploy does not move live conversations', () => {
-    // Pinned from the function as it stood in server.js before it moved here:
-    // changing the hash remaps every open conversation at once.
     expect([hashToIndex('conv-1', 3), hashToIndex('conversation-42', 5), hashToIndex('abc', 1000)]).toEqual([1, 1, 331])
     expect(hashToIndex('', 7)).toBe(0x811c9dc5 % 7)
   })

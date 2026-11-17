@@ -1,11 +1,3 @@
-/**
- * Tests for ThumbnailWithFallback — the file-card thumbnail loader. Focus: the
- * three honest states the P1 audit demanded are distinct — a skeleton while the
- * request is in flight, a WARM placeholder (with a format chip) when no
- * thumbnail exists, and a distinct "couldn't load" treatment ONLY on a genuine
- * failure — plus the module-level de-dup cache (one fetch per file id).
- */
-
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@/test-utils'
 import { http, HttpResponse } from 'msw'
@@ -46,7 +38,6 @@ describe('ThumbnailWithFallback', () => {
 
     const { container } = render(<ThumbnailWithFallback file={file('i1', 'Foto.png', 'image/png')} />)
 
-    // In-flight: a skeleton, never a jump straight to the fallback glyph.
     expect(screen.getByTestId('thumbnail-skeleton')).toBeInTheDocument()
 
     await waitFor(() => expect(container.querySelector('img')).toBeInTheDocument())
@@ -54,7 +45,6 @@ describe('ThumbnailWithFallback', () => {
   })
 
   it('falls back to a WARM image placeholder with a format chip when no thumbnail exists', async () => {
-    // 200 with a null url = "no thumbnail available" — NOT a failure.
     server.use(http.get('/api/documents/:id/thumbnail', () => HttpResponse.json({ url: null })))
 
     render(<ThumbnailWithFallback file={file('i2', 'Fassade.png', 'image/png')} />)
@@ -64,7 +54,6 @@ describe('ThumbnailWithFallback', () => {
       expect(tile).toHaveAttribute('data-state', 'placeholder')
       expect(tile).toHaveAttribute('data-kind', 'photo')
     })
-    // The format chip carries an icon + label (never a lone glyph).
     expect(screen.getByText('PNG')).toBeInTheDocument()
   })
 
@@ -135,13 +124,10 @@ describe('ThumbnailWithFallback', () => {
     )
 
     await waitFor(() => expect(screen.getAllByTestId('document-kind-thumbnail')).toHaveLength(2))
-    // Two cards for the same id → a single network fetch.
     expect(hits).toHaveBeenCalledTimes(1)
   })
 
   it('re-asks once the cached signed url has expired, instead of replaying it (#366)', async () => {
-    // A tab left open replayed urls whose signature had run out days earlier;
-    // the route answered 403 and the image optimizer logged it as an error.
     const nowS = Math.floor(Date.now() / 1000)
     const urls = [
       `/api/documents/i9/image?org=o&v=thumb&exp=${nowS + 30}&sig=a`,
@@ -159,7 +145,6 @@ describe('ThumbnailWithFallback', () => {
     const first = render(<ThumbnailWithFallback file={f} />)
     await waitFor(() => expect(hits).toHaveBeenCalledTimes(1))
     first.unmount()
-    // The first url is inside its last minute: a new card must not be handed it.
     render(<ThumbnailWithFallback file={f} />)
     await waitFor(() => expect(hits).toHaveBeenCalledTimes(2))
   })
@@ -183,9 +168,6 @@ describe('ThumbnailWithFallback', () => {
   })
 
   it('re-asks after ingestion finishes when the document had no preview yet', async () => {
-    // A document uploaded a moment ago: the page renders while the backend is
-    // still reading it, so the first ask legitimately finds no thumbnail. The
-    // second ask — the one the status transition triggers — finds it.
     let hits = 0
     server.use(
       http.get('/api/documents/:id/thumbnail', () => {
@@ -201,7 +183,6 @@ describe('ThumbnailWithFallback', () => {
       expect(screen.getByTestId('document-kind-thumbnail')).toHaveAttribute('data-state', 'placeholder')
     )
 
-    // Ingestion finished — the card must not stay on the placeholder until a reload.
     rerender(<ThumbnailWithFallback file={{ ...uploading, status: 'ready' }} />)
 
     await waitFor(() => expect(container.querySelector('img')).toBeInTheDocument())
@@ -209,8 +190,6 @@ describe('ThumbnailWithFallback', () => {
   })
 
   it('does not re-ask a settled document that genuinely has no thumbnail', async () => {
-    // The counterpart to the case above: for a terminal status "no thumbnail"
-    // is the final word, so the cached miss must still suppress the refetch.
     let hits = 0
     server.use(
       http.get('/api/documents/:id/thumbnail', () => {
@@ -241,30 +220,18 @@ describe('ThumbnailWithFallback', () => {
 
     render(<ThumbnailWithFallback file={file('d1', 'Zeichnung.dwg', 'application/acad')} />)
 
-    // Non-thumbnailable → the content sketch, no skeleton, no fetch.
     expect(screen.getByTestId('document-kind-thumbnail')).toHaveAttribute('data-state', 'placeholder')
     expect(screen.queryByTestId('thumbnail-skeleton')).not.toBeInTheDocument()
     expect(hits).not.toHaveBeenCalled()
   })
 })
 
-/**
- * A tile's anatomy (paper on a desk): the sheet, the name, one meta line right
- * under it. A document still being read has no summary yet, and a tile shows
- * none anyway; only the chat's card without a meta line keeps the summary, and
- * holds its slot with skeleton lines while it is on its way.
- *
- * jsdom does no layout, so what is asserted is the mechanism rather than the
- * pixels. The rendered result is pinned by the `/dev/files-page` capture.
- */
 describe('FileCard while the document is still being read', () => {
   const unsettled: FileItem = { ...file('c1', 'Schnitt.pdf', 'application/pdf'), status: 'processing' }
 
   it('sets the meta line right under the name, not at the foot of the cell', () => {
     render(<FileCard file={unsettled} isSelected={false} onSelect={() => {}} locale="de" />)
 
-    // The footer is the button's sibling, since it holds the filing chip. It no longer grows to the cell's foot: a row
-    // of tiles with one two-line name opened a 24px hole under every one-line name to hold the meta lines level.
     const card = screen.getByTestId('file-card')
     const footer = screen.getByTestId('file-card-footer')
     expect(card.nextElementSibling).toBe(footer)
@@ -273,8 +240,6 @@ describe('FileCard while the document is still being read', () => {
   })
 
   it('carries no description on a Dateien tile: the sheet, the name and one meta line', () => {
-    // Paper on a desk, principle 8: a two-line summary on every tile made seven documents fill a 900px screen. The
-    // summary is the list view's and the preview's; a tile with a meta line shows neither it nor its skeleton.
     const summarized: FileItem = { ...unsettled, status: 'ready', summary: 'Perspektivischer Schnitt, Bauteil A.' }
     const { unmount } = render(<FileCard file={summarized} isSelected={false} onSelect={() => {}} locale="de" />)
     expect(screen.queryByText('Perspektivischer Schnitt, Bauteil A.')).not.toBeInTheDocument()
@@ -287,7 +252,6 @@ describe('FileCard while the document is still being read', () => {
 
   it('keeps the summary as the second line of a card without a meta line (the chat), holding its slot while it is read', () => {
     const { unmount } = render(<FileCard file={unsettled} isSelected={false} onSelect={() => {}} locale="de" hideFooter />)
-    // Decorative — the status badge already says "Processing" in words.
     expect(screen.getByTestId('file-card-summary-skeleton')).toHaveAttribute('aria-hidden')
     unmount()
 
@@ -303,8 +267,6 @@ describe('FileCard while the document is still being read', () => {
     render(<FileCard file={failed} isSelected={false} onSelect={() => {}} locale="de" />)
 
     expect(screen.queryByTestId('file-card-summary-skeleton')).not.toBeInTheDocument()
-    // An unclassified message says the generic sentence; the stored text is
-    // the tooltip, since the card is one click target and has no disclosure.
     const line = screen.getByTestId('file-card-failure')
     expect(line).toHaveTextContent(new RegExp(`${PRODUCT_NAME} (couldn't read|konnte dieses Dokument nicht lesen)`))
     expect(line).toHaveAttribute('title', 'Verschlüsseltes PDF')
@@ -353,7 +315,6 @@ describe('FileCard while the document is still being read', () => {
 
     expect(screen.getByText('Einreichplan EG.pdf')).toBeInTheDocument()
     expect(screen.queryByText('plan.pdf')).not.toBeInTheDocument()
-    // The chip is a claim about the bytes, not about the label.
     expect(screen.getByText('PDF')).toBeInTheDocument()
   })
 })
@@ -371,8 +332,6 @@ describe('FileCard for a report Piloti wrote', () => {
 
     const byline = screen.getByText(`Created by ${PRODUCT_NAME}`)
     expect(byline.tagName).toBe('P')
-    // In the BODY, under the name — not in the footer, which is the assignment
-    // slot where the faces and the word `Unvergeben` live.
     expect(screen.getByTestId('file-card')).toContainElement(byline)
     expect(screen.getByTestId('file-card-footer')).not.toContainElement(byline)
   })
@@ -388,9 +347,6 @@ describe('FileCard for a report Piloti wrote', () => {
   it('badges `stored` as neither citable nor failed', () => {
     render(<FileCard file={generated} isSelected={false} onSelect={() => {}} locale="de" />)
 
-    // The word the badge shows is the neutral one: a green "Citable" would
-    // promise a citation the retrieval path cannot make, because the report was
-    // deliberately never indexed.
     expect(screen.getByText('Filed')).toBeInTheDocument()
     expect(screen.queryByText('Citable')).not.toBeInTheDocument()
   })
@@ -413,7 +369,6 @@ describe('FileCard headlines carry no version numbers', () => {
     const footer = screen.getByTestId('file-card-footer')
     expect(card.textContent).not.toMatch(/\bv\d+\b/i)
     expect(footer.textContent).not.toMatch(/\bv\d+\b/i)
-    // The footer keeps what it measures: size · time.
     expect(footer.textContent).toMatch('1 kB')
     expect(footer.querySelector('time')).toBeInTheDocument()
   })
@@ -428,17 +383,12 @@ describe('FileCard headlines carry no version numbers', () => {
       />,
     )
 
-    // Exactly one state word, never a counter beside it.
     expect(screen.getAllByTestId('document-version-badge')).toHaveLength(1)
     expect(screen.getByTestId('document-version-badge')).toHaveTextContent('In review')
     expect(screen.getByTestId('file-card').textContent).not.toMatch(/\bv\d+\b/i)
   })
 })
 
-/**
- * A folder of two thousand documents asked for two thousand thumbnails the
- * moment it opened. A card asks once it has been on screen, and not before.
- */
 describe('FileCard asks for its thumbnail once it has been seen', () => {
   let restoreObservers: (() => void) | null = null
   afterEach(() => {
@@ -486,8 +436,6 @@ describe('FileCard and the version state badge', () => {
   const uploaded = file('u1', 'Einreichplan.pdf', 'application/pdf')
 
   it('says nothing on a plain upload', () => {
-    // One version, born published, a person put it there. A badge here would
-    // appear on every row of every folder and distinguish nothing.
     render(
       <FileCard
         file={{ ...uploaded, versionState: 'published', versionCount: 1 }}
@@ -529,8 +477,6 @@ describe('FileCard and the version state badge', () => {
       />,
     )
 
-    // The byline still says who wrote it; the badge waits for a second
-    // version, when there is something to distinguish.
     expect(screen.queryByTestId('document-version-badge')).not.toBeInTheDocument()
     expect(screen.getByText(`Created by ${PRODUCT_NAME}`)).toBeInTheDocument()
   })

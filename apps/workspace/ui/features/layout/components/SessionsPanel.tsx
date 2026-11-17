@@ -1,32 +1,3 @@
-/**
- * SessionsPanel Component
- *
- * The history sheet: this project's chats AND its deep-research runs, newest
- * first, grouped by day. Opened from „Chats“ in the toolbar or „Alle Chats“ in the rail, it rises
- * as a page sheet over the chat — the History page it replaced is gone, and
- * this one surface is the whole record of the project's past.
- *
- * It reads as a sibling of the Inbox and Archiv sheets: the same wide sheet,
- * the same centred `max-w-3xl` reading column, the same `bg-card` divided
- * lists. Anatomy, top to bottom — the order is the sheet's argument about what
- * it is for:
- *
- *   header       "Chat history · N chats" — the sheet names itself and its size.
- *   pinned block New chat, the search field, and (in a project) the All /
- *                Chats / Deep Research scope filter. All stay put while the list
- *                scrolls: a search field that scrolls away is unusable exactly
- *                when the list is long enough to need it. The search covers
- *                runs as well as chats — one query over the whole past — and
- *                the filter composes with it rather than replacing it.
- *   list         the ONLY scrolling region, with sticky day headings and a
- *                bottom scroll fade; the Deep-research block leads, always
- *                open, with honest loading and error states of its own.
- *   footer       what "saved" means here (chats live in the workspace, not
- *                this browser), and delete-all — the destructive bulk action,
- *                parked at the far end of the sheet rather than one row above
- *                the list it destroys.
- */
-
 'use client'
 
 import {
@@ -85,6 +56,7 @@ import { listResearchRuns, type ResearchRun } from '@/adapters/api/research-runs
 import { useLayoutStore } from '../store'
 import { useChatStore } from '@/features/chat/store'
 import { DeleteSessionConfirmationModal } from './DeleteSessionConfirmationModal'
+import { SessionTemporaryMark, TEMPORARY_LABEL } from './session-temporary-mark'
 import { DeleteAllSessionsConfirmationModal } from './DeleteAllSessionsConfirmationModal'
 import { StopResearchConfirmationModal } from './StopResearchConfirmationModal'
 import { cancelJob } from '@/adapters/api/deep-research-client'
@@ -93,19 +65,12 @@ interface Session {
   id: string
   title: string
   date: Date
-  /** A run is still going in this thread (read off its stored ledger). */
   hasActiveDeepResearch?: boolean
-  /** A run in this thread finished with a report. */
   hasCompletedReport?: boolean
-  /** The reader may no longer read this chat (ADR-0088): a neutral title, no rename. */
   contentLocked?: boolean
+  temporary?: boolean
 }
 
-/**
- * Which half of the record the list shows. Only rendered (and only meaningful)
- * when the deep-research section is enabled — without it the panel is chats
- * only and needs no filter.
- */
 type HistoryScope = 'all' | 'chats' | 'research'
 
 const HISTORY_SCOPES: readonly HistoryScope[] = ['all', 'chats', 'research']
@@ -120,33 +85,16 @@ const SCOPE_LABEL_KEY: Record<HistoryScope, string> = {
 }
 
 interface SessionsPanelProps {
-  /** List of sessions to display */
   sessions?: Session[]
-  /** Currently selected session ID */
   selectedSessionId?: string
-  /** Callback when a session is selected */
   onSelectSession?: (sessionId: string) => void
-  /** Callback when new session is clicked */
   onNewSession?: () => void
-  /** Callback when a session is deleted */
   onDeleteSession?: (sessionId: string) => void
-  /** Callback when all sessions are deleted */
   onDeleteAllSessions?: () => void
-  /** Callback when a session is renamed */
   onRenameSession?: (sessionId: string, newTitle: string) => void
-  /**
-   * Active project id — scopes the research-runs fetch (FB-10), which the job
-   * proxy checks and signs, and builds the `?job=` deep links for its runs.
-   * The server-backed "Deep Research" section and its scope filter render only
-   * with one, since the runs belong to a project.
-   */
   projectId?: string
 }
 
-/**
- * Chat-history panel with the project's chats grouped by day.
- * Opens from the left side of the screen.
- */
 export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel({
   sessions = [],
   selectedSessionId,
@@ -166,9 +114,6 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
 
   const isSessionBusy = useChatStore((s) => s.isSessionBusy)
   const anySessionBusy = useChatStore((s) => s.hasAnyBusySession())
-  // Navigation-specific busy check: only shallow thinking (WebSocket) and HITL prompts
-  // block session switching. Deep research runs server-side and can be reconnected,
-  // so it should NOT prevent navigation.
   const { isStreaming, hasPendingInteraction } = useChatStore(
     useShallow((s) => ({
       isStreaming: s.isStreaming,
@@ -182,29 +127,13 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
   const [deleteAllModalOpen, setDeleteAllModalOpen] = useState(false)
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
-  // The run whose stop awaits confirmation. Stopping cancels server-side work
-  // that cannot be resumed, so the row's button only ARMS this — the shared
-  // ConfirmDialog fires it, and owns the pending state of its confirm button.
   const [pendingStop, setPendingStop] = useState<ResearchRun | null>(null)
 
-  // FB-10: server-truth deep-research runs for the "Deep Research" section.
-  // Fetched on panel open (like the status refresh above) so the list includes
-  // headless/CLI jobs that never touched local storage. Null = not yet loaded;
-  // [] = loaded, empty.
   const [deepResearchRuns, setDeepResearchRuns] = useState<ResearchRun[] | null>(null)
-  // A failed fetch must not masquerade as "no runs": the flag switches the
-  // section to an inline error line with a retry, instead of silence.
   const [deepResearchError, setDeepResearchError] = useState(false)
   const deepResearchFetchInFlightRef = useRef(false)
-  // Tracks the project the current fetch belongs to. Only an identity change (a
-  // different project) invalidates an in-flight result — closing the panel must
-  // NOT, because the component stays mounted and the data is still valid on
-  // reopen.
   const deepResearchProjectRef = useRef<string | null>(null)
 
-  // A query — or a scope filter — left behind from last time is a filtered list
-  // the user did not ask for, and one that can hide the chat they came back
-  // for. Reset both on close.
   useEffect(() => {
     if (!isSessionsPanelOpen) {
       setSearchQuery('')
@@ -212,13 +141,6 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
     }
   }, [isSessionsPanelOpen])
 
-  // FB-10: load the project's research runs.
-  //
-  // The in-flight ref is purely a concurrent-dedup guard; it does NOT discard
-  // resolved data. Crucially, a quick close→reopen while the fetch is pending
-  // must still populate the section once it resolves — the component stays
-  // mounted, so the result is never stale. We therefore always set state on
-  // settle and only ignore a result whose project has since changed.
   const fetchDeepResearchRuns = useCallback(() => {
     if (!projectId) return
     if (deepResearchFetchInFlightRef.current) return
@@ -228,10 +150,7 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
     setDeepResearchError(false)
     listResearchRuns({ projectId: requestedProject, limit: 50 })
       .then((response) => {
-        // Only a project (identity) change invalidates this result; panel
-        // visibility does not.
         if (deepResearchProjectRef.current !== requestedProject) return
-        // Newest-first: the panel surfaces the most recent runs at the top.
         const sorted = [...response.jobs].sort(
           (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         )
@@ -245,7 +164,6 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
       })
   }, [projectId])
 
-  // Fetch on panel open — and again from the retry button below.
   useEffect(() => {
     if (!isSessionsPanelOpen || !projectId) return
     fetchDeepResearchRuns()
@@ -293,10 +211,6 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
     searchInputRef.current?.focus()
   }, [])
 
-  // Fires the armed stop from the confirm dialog: the backend's own cancel,
-  // then the list re-read so the row says what the server now says. A cancel
-  // the server refuses (the run already ended) is the same outcome, and the
-  // re-read shows it.
   const handleConfirmStop = useCallback(async () => {
     if (!pendingStop) return
     try {
@@ -312,10 +226,6 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
   const isSearching = trimmedQuery !== ''
 
   const filteredSessions = useMemo(() => {
-    // Show ALL sessions, including brand-new ones with an empty title — they
-    // render with the "untitled" placeholder in the row so they stay findable.
-    // A query matches the stored title, and for untitled chats the placeholder
-    // the user actually SEES, so what is on screen is what is searchable.
     if (!trimmedQuery) return sessions
     const query = trimmedQuery.toLowerCase()
     return sessions.filter((s) => {
@@ -340,10 +250,6 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
   const hasSessions = sessions.length > 0
   const isEmptyState = filteredSessions.length === 0
 
-  // FB-10: map a run's originating conversation to the local session title so a
-  // run reads as its chat rather than an opaque job hash. Falls back to the
-  // shared "untitled run" label when the job is headless/CLI or its session
-  // isn't in local storage.
   const sessionTitleById = useMemo(() => {
     const map: Record<string, string> = {}
     for (const s of sessions) {
@@ -361,15 +267,6 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
     [sessionTitleById, t]
   )
 
-  // A run opens the thread it was commissioned in, whatever became of it: its
-  // report, its progress and, on a failure, what it tried are one message there
-  // now (ADR-0062). The `?job=` links this used to build — plus `&tab=thinking`
-  // for a failed run — addressed the deep-research side panel, so they read as
-  // live links and land on a chat that does nothing with them.
-  //
-  // Null when the run names no conversation, which a headless or CLI job does
-  // not: this list has the backend job id and nothing that resolves it to a
-  // thread, so the row says what the run became and offers no door.
   const runHref = useCallback(
     (run: ResearchRun): string | null =>
       run.conversation_id
@@ -378,7 +275,6 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
     [projectId]
   )
 
-  // The search covers runs as well as chats: one query over the whole past.
   const filteredRuns = useMemo(() => {
     const runs = deepResearchRuns ?? []
     if (!trimmedQuery) return runs
@@ -391,16 +287,11 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
   const showChats = !deepResearchEnabled || scopeFilter !== 'research'
   const isResearchLoading = deepResearchRuns === null && !deepResearchError
 
-  // The section stays quiet when there is nothing to say (zero runs under the
-  // "All" scope) but never lies: a pending fetch shows skeletons and a failed
-  // one shows the error line — and under the Deep Research scope the section is
-  // the whole list, so it always renders, empty state included.
   const showResearchSection =
     deepResearchEnabled &&
     scopeFilter !== 'chats' &&
     (researchScopeSelected || isResearchLoading || deepResearchError || filteredRuns.length > 0)
 
-  // Stop one run from the Deep Research section. Arms the confirm dialog.
   const handleStopRun = useCallback((run: ResearchRun) => {
     setPendingStop(run)
   }, [])
@@ -412,8 +303,6 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
         if (!next) handleClose()
       }}
       title={t('sessionsPanel.title')}
-      // The sheet states its own size, so "is this all of them?" is answered
-      // before it is asked.
       subtitle={
         hasSessions
           ? sessions.length === 1
@@ -422,9 +311,6 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
           : undefined
       }
       closeLabel={t('sessionsPanel.close')}
-      // Finding a past chat is why this sheet gets opened, so the search field
-      // is where focus belongs — except on mobile, where it would throw up the
-      // on-screen keyboard over the very list the user came to read.
       initialFocusRef={isMobile ? undefined : searchInputRef}
       bodyClassName="flex min-h-0 flex-col"
     >
@@ -453,7 +339,7 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
           )}
 
           <Button
-            variant="outline"
+            variant="secondary"
             className="h-9 w-full justify-start gap-2 pointer-coarse:h-11"
             onClick={handleNewSession}
             disabled={isNavigationBlocked}
@@ -511,8 +397,6 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
               size="sm"
               value={scopeFilter}
               onValueChange={(value) => {
-                // type=single can emit "" when the pressed item is clicked
-                // again; the list always has a scope, so ignore a clear.
                 if (isHistoryScope(value)) setScopeFilter(value)
               }}
               aria-label={t('sessionsPanel.filterAria')}
@@ -521,10 +405,6 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
                 <ToggleGroupItem key={scope} value={scope}>
                   {t(SCOPE_LABEL_KEY[scope])}
                   {scope === 'research' && (
-                    // Always mounted: appearing only when there are runs would
-                    // grow the segment and shove its neighbours sideways.
-                    // Invisible at zero keeps the slot; `aria-hidden` so the
-                    // radio does not read "Deep Research 0".
                     <CountPill
                       className={cn((deepResearchRuns?.length ?? 0) === 0 && 'invisible')}
                       aria-hidden={(deepResearchRuns?.length ?? 0) === 0 || undefined}
@@ -566,8 +446,6 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
               </SectionLabel>
 
               {isResearchLoading ? (
-                // Skeletons shaped like the real rows (media disc + title +
-                // badge), never a spinner — the inbox's loading treatment.
                 <ItemList
                   as="ul"
                   aria-busy="true"
@@ -587,19 +465,15 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
                   ))}
                 </ItemList>
               ) : deepResearchError ? (
-                // A failed fetch must never read as "no runs": one quiet line
-                // with the way to try again, beside the lists that still work.
-                <div className="border-border bg-card flex min-h-11 flex-wrap items-center justify-between gap-2 rounded-surface border px-4 py-2.5  shadow-xs">
+                <div className="bg-card flex min-h-11 flex-wrap items-center justify-between gap-2 rounded-surface px-4 py-2.5 shadow-xs">
                   <p className="text-muted-foreground text-xs">
                     {t('sessionsPanel.researchLoadFailed')}
                   </p>
-                  <Button variant="outline" size="sm" onClick={fetchDeepResearchRuns}>
+                  <Button variant="secondary" size="sm" onClick={fetchDeepResearchRuns}>
                     {tCommon('actions.retry')}
                   </Button>
                 </div>
               ) : filteredRuns.length === 0 ? (
-                // Only reachable under the Deep Research scope (the section is
-                // hidden when "All" has nothing to show).
                 isSearching ? (
                   <EmptyState
                     variant="bare"
@@ -607,7 +481,7 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
                     title={t('sessionsPanel.noMatching')}
                     description={t('sessionsPanel.noMatchingDescription', { query: trimmedQuery })}
                     action={
-                      <Button variant="outline" size="sm" onClick={handleClearSearch}>
+                      <Button variant="secondary" size="sm" onClick={handleClearSearch}>
                         {t('sessionsPanel.clearSearch')}
                       </Button>
                     }
@@ -621,7 +495,7 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
                   />
                 )
               ) : (
-                <ItemList as="ul" className="bg-card  shadow-xs">
+                <ItemList as="ul" className="border-0 bg-card shadow-xs">
                   {filteredRuns.map((run) => {
                     const status = run.status
                     const href = runHref(run)
@@ -715,8 +589,6 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
 
           {showChats &&
             groupedSessions.map(([dateLabel, dateSessions]) => (
-              // `last:mb-0` — the trailing group used to add 16px of dead scroll
-              // below the final row.
               <div key={dateLabel} className="mb-4 flex flex-col gap-1.5 last:mb-0">
                 {/* Sticky so the day you are scrolling through stays named. The
                     scroller is the offset parent, hence `top-0`; `-mx-2 px-2`
@@ -725,7 +597,7 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
                 <SectionLabel className="bg-background sticky top-0 z-10 -mx-2 px-2 pb-1.5 pt-1">
                   {dateLabel}
                 </SectionLabel>
-                <ItemList as="ul" className="border-border bg-card shadow-xs">
+                <ItemList as="ul" className="border-0 bg-card shadow-xs">
                   {/*Deleting a row removes it, so the list needs an exit —
                       which CSS cannot give it — and `layout` so the rows below
                       close the gap instead of jumping. The inbox's pattern,
@@ -738,9 +610,6 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
                         isSelected={selectedSessionId === session.id}
                         isBusy={isNavigationBlocked}
                         isSessionActive={isSessionBusy(session.id)}
-                        // The day is already on the group heading, so the row carries
-                        // the part it does not: the time. Except under "Today", where
-                        // "12 minutes ago" is the more useful reading of recency.
                         showRelativeTime={dateLabel === todayLabel}
                         onSelect={handleSessionClick}
                         onDelete={handleDeleteClick}
@@ -761,15 +630,12 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
                   title={t('sessionsPanel.noMatching')}
                   description={t('sessionsPanel.noMatchingDescription', { query: trimmedQuery })}
                   action={
-                    <Button variant="outline" size="sm" onClick={handleClearSearch}>
+                    <Button variant="secondary" size="sm" onClick={handleClearSearch}>
                       {t('sessionsPanel.clearSearch')}
                     </Button>
                   }
                 />
               ) : (
-                // No CTA here: "New chat" is pinned two rows above and never
-                // scrolls away, so a second identical button would only make the
-                // reader decide which of the two to press.
                 <EmptyState
                   variant="bare"
                   icon={MessageSquare}
@@ -839,28 +705,11 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
   )
 })
 
-/**
- * SessionItem Component
- *
- * One chat row inside the day group's card: status icon in a media disc, title,
- * timestamp, and hover/focus-revealed rename + delete actions.
- *
- * The row's one control is a BUTTON stretched over the whole row (the inbox's
- * stretched-link pattern), and the two actions are its SIBLINGS overlaid on
- * top — never children, which would be interactive content inside a widget.
- * The row owns its own <li> so it is the element that animates: exit + layout
- * under the list's `AnimatePresence`, so deleting a chat slides it out and the
- * rows below close the gap.
- */
 interface SessionItemProps {
   session: Session
   isSelected: boolean
-  /** Navigation block: true when shallow thinking (WS) or HITL prompt is pending.
-   *  Deep research does NOT block navigation since it runs server-side. */
   isBusy?: boolean
-  /** Per-session block: true when the socket is mid-turn in this session. */
   isSessionActive?: boolean
-  /** Relative ("3 hours ago") vs. clock time ("14:32") — see the call site. */
   showRelativeTime?: boolean
   onSelect?: (sessionId: string) => void
   onDelete?: (sessionId: string) => void
@@ -888,22 +737,15 @@ const SessionItem = forwardRef<HTMLLIElement, SessionItemProps>(function Session
   const [editValue, setEditValue] = useState(session.title)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Brand-new chats persist with an empty title — show a placeholder so the row
-  // stays legible and the session remains findable in the history.
   const tCollab = useTranslations(collaborationCopy)
-  // A chat the reader may no longer read has no title for them: the real one is
-  // model-written from content they cannot see (ADR-0088).
   const displayTitle = session.contentLocked
     ? tCollab('rightsLost.neutralTitle')
     : session.title.trim() || t('sessionsPanel.untitledSession')
 
-  // Persistent timestamp from the session's date. Guard against unparseable
-  // dates so a bad value never throws.
   const sessionDate = session.date instanceof Date ? session.date : new Date(session.date)
   const sessionIso = Number.isNaN(sessionDate.getTime()) ? '' : sessionDate.toISOString()
   const showResearchChip = session.hasActiveDeepResearch || session.hasCompletedReport
 
-  // Focus input when entering edit mode
   useEffect(() => {
     if (isEditing && inputRef.current) {
       inputRef.current.focus()
@@ -930,9 +772,6 @@ const SessionItem = forwardRef<HTMLLIElement, SessionItemProps>(function Session
     [startRename]
   )
 
-  // The row menu (touch) closes by handing focus back to its trigger, which is
-  // gone by then: the editor took the trigger's place. Take focus for the
-  // editor here, after the menu has let go of the page, instead of racing it.
   const renameFromMenuRef = useRef(false)
   const handleMenuCloseAutoFocus = useCallback((e: Event) => {
     if (!renameFromMenuRef.current) return
@@ -981,24 +820,19 @@ const SessionItem = forwardRef<HTMLLIElement, SessionItemProps>(function Session
     [handleSaveRename, handleCancelRename]
   )
 
-  const handleInputBlur = useCallback(() => {
-    handleSaveRename()
-  }, [handleSaveRename])
-
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setEditValue(e.target.value)
   }, [])
 
   const showActions = (isHovered || isFocused) && !isEditing
 
-  // One control, one name — the row's label carries the title AND the state its
-  // icon depicts, so nothing on the row is visual-only.
   const statusKey = statusKeyFor(session, isSessionActive)
-  const rowLabel = isBusy
+  const stateLabel = isBusy
     ? t('sessionsPanel.sessionLabelBusy', { title: displayTitle })
     : statusKey
       ? t('sessionsPanel.sessionLabelWithStatus', { title: displayTitle, status: t(statusKey) })
       : t('sessionsPanel.sessionLabel', { title: displayTitle })
+  const rowLabel = session.temporary ? t(TEMPORARY_LABEL, { label: stateLabel }) : stateLabel
 
   return (
     <Item
@@ -1007,14 +841,9 @@ const SessionItem = forwardRef<HTMLLIElement, SessionItemProps>(function Session
         'relative min-h-11 gap-3',
         showResearchChip ? 'items-start' : 'items-center',
         isBusy ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
-        // Selected reads one surface step ABOVE hover (`accent` > `muted`), plus
-        // an inset hairline ring — so the row the reader is IN stays
-        // distinguishable from the row they are merely over. `focus-within`
-        // mirrors hover so the revealed actions always sit on the same surface
-        // their fade-out gradient names.
         isSelected
-          ? 'bg-accent ring-border ring-1 ring-inset hover:bg-accent'
-          : 'hover:bg-muted focus-within:bg-muted'
+          ? 'bg-selected ring-border ring-1 ring-inset hover:bg-selected'
+          : 'hover:bg-hover focus-within:bg-hover'
       )}
     >
       <motion.li
@@ -1024,8 +853,6 @@ const SessionItem = forwardRef<HTMLLIElement, SessionItemProps>(function Session
         transition={motionQuick}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
-        // Keyboard parity with hover: reveal the rename/delete actions while
-        // focus is anywhere inside the row (focus/blur bubble in React).
         onFocus={() => setIsFocused(true)}
         onBlur={(e) => {
           if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
@@ -1041,7 +868,7 @@ const SessionItem = forwardRef<HTMLLIElement, SessionItemProps>(function Session
               value={editValue}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
-              onBlur={handleInputBlur}
+              onBlur={handleSaveRename}
               className="h-8 min-w-0 flex-1 px-2.5 pointer-coarse:h-11"
               aria-label={t('sessionsPanel.editTitle')}
             />
@@ -1068,9 +895,6 @@ const SessionItem = forwardRef<HTMLLIElement, SessionItemProps>(function Session
               disabled={isBusy}
               aria-current={isSelected ? 'true' : undefined}
               aria-label={rowLabel}
-              // Stretched over the whole row via the ::after overlay, the
-              // inbox's pattern — so the row stays ONE control without nesting
-              // the icon disc inside it.
               className="flex min-w-0 flex-1 flex-col gap-0.5 rounded-control text-left outline-none pointer-coarse:mr-9 after:absolute after:inset-0 after:content-[''] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
             >
               {/* Two-line content block: title + persistent time on line 1, the
@@ -1084,6 +908,7 @@ const SessionItem = forwardRef<HTMLLIElement, SessionItemProps>(function Session
                 >
                   {displayTitle}
                 </span>
+                {session.temporary && <SessionTemporaryMark />}
                 {sessionIso && (
                   <span
                     className="text-muted-foreground shrink-0 text-xs tabular-nums"
@@ -1164,56 +989,54 @@ const SessionItem = forwardRef<HTMLLIElement, SessionItemProps>(function Session
             permanent column that taxes every title's width. Overlaying is
             reflow-free (the row never resizes) and the resting row spends its
             full width on the title. The action block is a solid fill in the
-            colour of the surface the row is actually on (`accent` for the
-            selected row, `muted` for the hovered/focused one), so a long title
-            slides under it instead of colliding. No gradient: the brand has none. */}
+            colour of the surface the row is actually on, so a long title
+            slides under it instead of colliding: the selected grey on the
+            selected row, else the sheet with the pointer's wash over it (two
+            layers: the wash alone lets the title through). No gradient. */}
         {showActions && (
-          <div
-            className={cn(
-              'absolute inset-y-0 right-2 z-10 flex items-center gap-1 pl-6 pointer-coarse:hidden animate-in fade-in-0 duration-snap ease-out motion-reduce:animate-none',
-              isSelected ? 'bg-accent' : 'bg-muted'
-            )}
-          >
-            {!session.contentLocked && (
+          <div className={cn('absolute inset-y-0 right-2 z-10 pointer-coarse:hidden animate-in fade-in-0 duration-snap ease-out motion-reduce:animate-none', isSelected ? 'bg-selected' : 'bg-card')}>
+            <div className={cn('flex h-full items-center gap-1 pl-6', !isSelected && 'bg-hover')}>
+              {!session.contentLocked && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-7"
+                  onClick={handleEditClick}
+                  disabled={isBusy || isSessionActive}
+                  aria-label={
+                    isBusy || isSessionActive
+                      ? t('sessionsPanel.renameDisabled')
+                      : t('sessionsPanel.rename')
+                  }
+                  title={
+                    isBusy || isSessionActive
+                      ? t('sessionsPanel.cannotRenameBusy')
+                      : t('sessionsPanel.rename')
+                  }
+                >
+                  <Pencil className="size-4" aria-hidden="true" />
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="icon"
-                className="size-7"
-                onClick={handleEditClick}
+                className="text-destructive hover:text-destructive size-7"
+                onClick={handleDeleteClick}
                 disabled={isBusy || isSessionActive}
                 aria-label={
                   isBusy || isSessionActive
-                    ? t('sessionsPanel.renameDisabled')
-                    : t('sessionsPanel.rename')
+                    ? t('sessionsPanel.deleteDisabled')
+                    : t('sessionsPanel.deleteSession')
                 }
                 title={
                   isBusy || isSessionActive
-                    ? t('sessionsPanel.cannotRenameBusy')
-                    : t('sessionsPanel.rename')
+                    ? t('sessionsPanel.cannotDeleteBusy')
+                    : t('sessionsPanel.deleteSession')
                 }
               >
-                <Pencil className="size-4" aria-hidden="true" />
+                <Trash2 className="size-4" aria-hidden="true" />
               </Button>
-            )}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-destructive hover:text-destructive size-7"
-              onClick={handleDeleteClick}
-              disabled={isBusy || isSessionActive}
-              aria-label={
-                isBusy || isSessionActive
-                  ? t('sessionsPanel.deleteDisabled')
-                  : t('sessionsPanel.deleteSession')
-              }
-              title={
-                isBusy || isSessionActive
-                  ? t('sessionsPanel.cannotDeleteBusy')
-                  : t('sessionsPanel.deleteSession')
-              }
-            >
-              <Trash2 className="size-4" aria-hidden="true" />
-            </Button>
+            </div>
           </div>
         )}
       </motion.li>
@@ -1221,18 +1044,9 @@ const SessionItem = forwardRef<HTMLLIElement, SessionItemProps>(function Session
   )
 })
 
-/**
- * Whether a server-listed run is still in flight. Mirrors `runStatusKey`:
- * anything the badge does not name as completed/failed/cancelled reads as
- * running — including `submitted` and anything unrecognised.
- */
 const isRunActive = (status: string): boolean =>
   status !== 'completed' && status !== 'failed' && status !== 'cancelled'
 
-/**
- * A run's status as a translation key. The backend's `submitted`/`running` (and
- * anything unrecognised) are all "still working" from the reader's side.
- */
 const runStatusKey = (status: string): string => {
   if (status === 'completed') return 'sessionsPanel.runStatus.completed'
   if (status === 'failed') return 'sessionsPanel.runStatus.failed'
@@ -1240,10 +1054,6 @@ const runStatusKey = (status: string): string => {
   return 'sessionsPanel.runStatus.running'
 }
 
-/**
- * The design language's status-badge mapping: completed = success,
- * running/submitted = info, failed = destructive, cancelled = neutral.
- */
 const runBadgeVariant = (status: string): 'success' | 'info' | 'destructive' | 'secondary' => {
   if (status === 'completed') return 'success'
   if (status === 'failed') return 'destructive'
@@ -1251,13 +1061,6 @@ const runBadgeVariant = (status: string): 'success' | 'info' | 'destructive' | '
   return 'info'
 }
 
-/**
- * Status icon for a research run row (FB-10), drawn inside the row's media
- * disc. The disc supplies the colour (neutral ink; destructive tint for failed
- * runs), so the icon only carries shape — plus the spinner's motion for a run
- * still in flight. The row's Link carries the accessible name, so the icon
- * itself is decorative.
- */
 const RunStatusIcon: FC<{ status: string }> = ({ status }) => {
   if (status === 'completed') {
     return <FileCheck2 className="size-4 shrink-0" aria-hidden="true" />
@@ -1268,13 +1071,6 @@ const RunStatusIcon: FC<{ status: string }> = ({ status }) => {
   return <Loader2 className="size-4 shrink-0 animate-spin motion-reduce:animate-none" aria-hidden="true" />
 }
 
-/**
- * The chat row's leading icon, inside the media disc. Purely DECORATIVE: the
- * row is a single button whose `aria-label` already carries the same state in
- * words (see `statusKeyFor`), so labelling the icon too would either be ignored
- * (the button's explicit label wins) or announced twice. It also may not nest a
- * live region inside a button.
- */
 const SessionStatusIcon: FC<{
   session: Session
   isSessionActive: boolean
@@ -1293,24 +1089,12 @@ const SessionStatusIcon: FC<{
   return <MessageSquare className={cn(base, 'text-muted-foreground')} aria-hidden="true" />
 }
 
-/**
- * The one piece of row state the icon conveys, as a translation key — so the
- * row's accessible name says in words what the icon says in colour and shape.
- * Null for an ordinary chat, which needs no qualifier.
- */
 const statusKeyFor = (session: Session, isSessionActive: boolean): string | null => {
   if (isSessionActive || session.hasActiveDeepResearch) return 'sessionsPanel.sessionActive'
   if (session.hasCompletedReport) return 'sessionsPanel.reportCompleted'
   return null
 }
 
-/**
- * Groups sessions by relative date labels (Today, Yesterday, or date string).
- *
- * Returns an ORDERED list of [label, sessions] tuples sorted newest-first
- * (Today → Yesterday → older), so the panel always emits date groups
- * chronologically regardless of the incoming session order.
- */
 const groupSessionsByDate = (
   sessions: Session[],
   labels: { today: string; yesterday: string },

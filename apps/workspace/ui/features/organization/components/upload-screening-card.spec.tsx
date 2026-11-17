@@ -44,7 +44,6 @@ describe('UploadScreeningCard', () => {
     stubApi({ policy: SUGGESTED_SCREENING_POLICY, suggested: true })
     render(<UploadScreeningCard canEdit />)
     expect(await screen.findByTestId('upload-screening-suggested')).toHaveTextContent(/suggestion applies/i)
-    // Saving the suggestion unchanged is allowed: it makes it the office's own.
     expect(screen.getByTestId('upload-screening-save')).toBeEnabled()
   })
 

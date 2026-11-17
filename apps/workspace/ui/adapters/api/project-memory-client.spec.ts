@@ -12,6 +12,8 @@ import {
   addProjectMemoryItem,
   extractProjectExperience,
   listProjectMemory,
+  moveProjectMemoryNote,
+  renameProjectMemoryTopic,
   updateProjectMemoryItem,
 } from './project-memory-client'
 
@@ -77,6 +79,52 @@ describe('updateProjectMemoryItem', () => {
       method: 'PATCH',
       headers: JSON_HEADERS,
       body: JSON.stringify({ status: 'dismissed' }),
+    })
+  })
+})
+
+describe('renameProjectMemoryTopic', () => {
+  it('PATCHes the topic route with the from and to names, and answers how many notes moved', async () => {
+    fetchMock.mockResolvedValueOnce(Response.json({ moved: 2 }))
+
+    await expect(renameProjectMemoryTopic('p-1', { from: 'Brandschutz', to: 'Feuerschutz' })).resolves.toEqual({ moved: 2 })
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/projects/p-1/memory/topics', {
+      method: 'PATCH',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ from: 'Brandschutz', to: 'Feuerschutz' }),
+    })
+  })
+
+  it('throws the typed error with the status when the shelf refuses the rename', async () => {
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 403 }))
+
+    await expect(renameProjectMemoryTopic('p-1', { from: 'Bauherr', to: null })).rejects.toMatchObject({ status: 403 })
+  })
+})
+
+describe('moveProjectMemoryNote', () => {
+  it('PATCHES a project note at the project route with its new topic', async () => {
+    fetchMock.mockResolvedValueOnce(Response.json({ item: { id: 'm-1' } }))
+
+    await moveProjectMemoryNote('p-1', { id: 'm-1', scope: 'project' }, 'Stellplätze')
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/projects/p-1/memory/m-1', {
+      method: 'PATCH',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ topic: 'Stellplätze' }),
+    })
+  })
+
+  it('PATCHES an office note at the organization route, and a null topic clears it', async () => {
+    fetchMock.mockResolvedValueOnce(Response.json({ item: { id: 'o-1' } }))
+
+    await moveProjectMemoryNote('p-1', { id: 'o-1', scope: 'organization' }, null)
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/organization/memory/o-1', {
+      method: 'PATCH',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ topic: null }),
     })
   })
 })

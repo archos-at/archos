@@ -49,6 +49,8 @@ import {
   type ProposeEntryBody,
   type RecordCheckBody,
 } from '../wire'
+import { readSetupRecords } from '@/lib/project-intake/setup-records'
+import { subdivisionTerritories } from '@/lib/project-intake/setup-scope'
 import { projectTerritory } from './authority'
 import { freshnessOf } from './freshness'
 import { markCopyPoints } from './mark'
@@ -60,6 +62,14 @@ import { licenceMarkOf, termsAfter, textUseOf } from './text-use'
 import { renderBaseKnowledgeBlock } from './turn-block'
 import { officeAnswerLabel, type OfficeAnswerLabel } from './answer-label'
 import { platformKnowledge } from '../platform'
+import { loadOrganizationDirectory } from '@/lib/sharing/directory'
+import { territoryChoices } from './territory-choices'
+import { isStandardsFolder, standardsFolderRows, standardsRoot } from './folders'
+import { editionOnDay, editionsByWork, editionsOf } from './work-editions'
+import { workDesignation } from './work-designation'
+import { referenceDayOfProfile } from '../time/profile-procedure'
+import { insertEditionOfWork, deleteWorkIfUnused } from '../store/office-editions'
+import { byAttention, countByFolder, countEntries, matchesQuery, subtreeOf } from './listing'
 
 
 function requireManage(session: AuthorizedSession): void {
@@ -68,9 +78,20 @@ function requireManage(session: AuthorizedSession): void {
 
 const reader = (session: AuthorizedSession) => shelfReaderFor(session, { scope: 'office_shelf', projectId: null })
 
-function toEntry(stored: StoredEntry, document: EntryDocument, now: Date): BaseKnowledgeEntry {
+/** Display names by user id; empty when the directory cannot be read, which costs names and nothing else. */
+type Names = ReadonlyMap<string, { name: string }>
+const NO_NAMES: Names = new Map()
+
+type Works = ReadonlyMap<string, StoredEntry[]>
+const NO_WORKS: Works = new Map()
+const dayOf = (now: Date) => now.toISOString().slice(0, 10)
+
+function toEntry(stored: StoredEntry, document: EntryDocument, now: Date, names: Names = NO_NAMES, works: Works = NO_WORKS): BaseKnowledgeEntry {
+  const confirmedBy = stored.confirmed ? (stored.provenance.confirmedBy ?? null) : null
   return {
-    id: stored.workId,
+    // An entry is one edition: a standard's editions share their work (`store/office-editions.ts`).
+    id: stored.editionId,
+    workId: stored.workId,
     editionId: stored.editionId,
     copyId: stored.copyId,
     documentId: stored.documentId,
@@ -78,54 +99,81 @@ function toEntry(stored: StoredEntry, document: EntryDocument, now: Date): BaseK
     status: stored.confirmed ? 'confirmed' : 'proposed',
     values: stored.values,
     proposedBy: stored.provenance.proposedBy ?? 'reading',
-    confirmedBy: stored.confirmed ? (stored.provenance.confirmedBy ?? null) : null,
+    confirmedBy,
+    confirmedByName: confirmedBy ? (names.get(confirmedBy)?.name ?? null) : null,
     textUse: textUseOf(stored.values.licenceClass, stored.terms),
     aiProcessingAttestedAt: stored.terms.aiProcessingAttestedAt ?? null,
     freshness: freshnessOf(stored.values.kind, stored.confirmed ? stored.lastCheck : null, now),
+    folderId: document.folderId,
+    editions: editionsOf(stored, works, dayOf(now)),
     createdAt: stored.createdAt.toISOString(),
   }
 }
 
-function matches(entry: BaseKnowledgeEntry, query: Partial<ListEntriesQuery>): boolean {
-  if (query.status && entry.status !== query.status) return false
-  if (!query.designation) return true
-  const wanted = query.designation.toLocaleLowerCase('de')
-  return (entry.values.designation ?? entry.values.title).toLocaleLowerCase('de').includes(wanted)
-}
-
-/** The office's entries the session may see, newest first. */
+/**
+ * The office's entries the session may see: in the folder asked for (with its
+ * subfolders), counted before the other filters narrow them, and those the
+ * filters keep in the order a person works through them (`listing.ts`).
+ */
 export async function listBaseKnowledge(
   session: AuthorizedSession,
   query: Partial<ListEntriesQuery> = {}
 ): Promise<BaseKnowledgeList> {
   const canManage = canManageOfficeShelf(session)
   const stored = await readOfficeEntries(session.organizationId)
-  const documents = await visibleOfficeDocuments(
-    session.organizationId,
-    stored.map((entry) => entry.documentId),
-    await reader(session)
-  )
+  const [documents, names, folders, territories] = await Promise.all([
+    visibleOfficeDocuments(session.organizationId, stored.map((entry) => entry.documentId), await reader(session)),
+    loadOrganizationDirectory(session.organizationId),
+    query.folderId ? standardsFolderRows(session) : null,
+    territoryChoices(session.organizationId).catch(() => []),
+  ])
+  const inFolder = folders && query.folderId ? subtreeOf(query.folderId, [...(folders.root ? [folders.root] : []), ...folders.folders]) : null
   const now = new Date()
-  const entries = stored.flatMap((entry) => {
+  // An edition the reader may not see (an upload still in screening, ADR-0086) adds nothing to another's history.
+  const works = editionsByWork(stored.filter((entry) => documents.has(entry.documentId)))
+  const visible = stored.flatMap((entry) => {
     const document = documents.get(entry.documentId)
-    return document ? [toEntry(entry, document, now)] : []
+    return document ? [toEntry(entry, document, now, names, works)] : []
   })
-  const matching = entries.filter((entry) => matches(entry, query))
+  const entries = inFolder ? visible.filter((entry) => entry.folderId !== null && inFolder.has(entry.folderId)) : visible
+  const matching = entries.filter((entry) => matchesQuery(entry, query)).sort(byAttention)
   const start = query.cursor ? Number(query.cursor) : 0
   const end = start + (query.limit ?? ENTRY_PAGE)
-  return { canManage, entries: matching.slice(start, end), nextCursor: end < matching.length ? String(end) : null }
+  return {
+    canManage,
+    counts: countEntries(entries),
+    territories,
+    folderCounts: countByFolder(visible),
+    entries: matching.slice(start, end),
+    nextCursor: end < matching.length ? String(end) : null,
+  }
 }
 
 async function findEntry(
   session: AuthorizedSession,
   entryId: string
 ): Promise<{ stored: StoredEntry; entry: BaseKnowledgeEntry; document: EntryDocument }> {
-  const stored = (await readOfficeEntries(session.organizationId)).find((entry) => entry.workId === entryId)
+  const all = await readOfficeEntries(session.organizationId)
+  // By its edition; an id from before editions shared a work is the work's, whose first edition it was.
+  const stored = all.find((entry) => entry.editionId === entryId) ?? all.find((entry) => entry.workId === entryId && !entry.workStandsAlone)
   if (!stored) throw new NotFoundError('No base-knowledge entry with this id; list the entries first.')
-  const documents = await visibleOfficeDocuments(session.organizationId, [stored.documentId], await reader(session))
+  const editions = all.filter((entry) => entry.workId === stored.workId)
+  const [documents, names] = await Promise.all([
+    visibleOfficeDocuments(session.organizationId, editions.map((entry) => entry.documentId), await reader(session)),
+    loadOrganizationDirectory(session.organizationId),
+  ])
   const document = documents.get(stored.documentId)
   if (!document) throw new NotFoundError('No base-knowledge entry with this id; list the entries first.')
-  return { stored, entry: toEntry(stored, document, new Date()), document }
+  const now = new Date()
+  // Its history holds only the editions this reader may see (ADR-0086).
+  const works = editionsByWork(editions.filter((entry) => documents.has(entry.documentId)))
+  return { stored, entry: toEntry(stored, document, now, names, works), document }
+}
+
+/** The stored records of an entry the session may see, for a caller that builds on them (a newer edition). */
+export async function storedEntryOf(session: AuthorizedSession, entryId: string): Promise<{ stored: StoredEntry; entry: BaseKnowledgeEntry }> {
+  const { stored, entry } = await findEntry(session, entryId)
+  return { stored, entry }
 }
 
 export async function getBaseKnowledgeEntry(session: AuthorizedSession, entryId: string): Promise<BaseKnowledgeEntry> {
@@ -136,14 +184,25 @@ export async function getBaseKnowledgeEntry(session: AuthorizedSession, entryId:
 function merged(base: EntryValues, given: Partial<EntryValues>): EntryValues {
   const defined = Object.fromEntries(Object.entries(given).filter(([, value]) => value !== undefined))
   const values = { ...base, ...defined } as EntryValues
+  // An edition starts on its in-force date, else its issue date; an end on or before that leaves it in force on no day.
+  const start = values.inForceFrom ?? values.issuedOn
+  if (start && values.inForceTo && values.inForceTo <= start) {
+    throw new UnprocessableError(`inForceTo (${values.inForceTo}) is not after the edition's start (${start}); an edition ends after it starts.`)
+  }
   // Only a directive addresses an authority.
   return values.kind === 'authority_directive' ? values : { ...values, addressees: [] }
 }
 
 /** The entry values a body states; a body's other fields (its statements, its document) are not values. */
 function valuesOf(body: Partial<EntryValues>): Partial<EntryValues> {
-  const { kind, title, designation, editionLabel, issuedOn, territoryIds, issuer, addressees, licenceClass } = body
-  return { kind, title, designation, editionLabel, issuedOn, territoryIds, issuer, addressees, licenceClass }
+  const { kind, title, designation, editionLabel, issuedOn, inForceFrom, inForceTo, territoryIds, issuer, addressees, licenceClass } = body
+  return { kind, title, designation, editionLabel, issuedOn, inForceFrom, inForceTo, territoryIds, issuer, addressees, licenceClass }
+}
+
+/** The values that are an edition's own: what changes from one edition of a standard to the next. */
+function editionValues(values: EntryValues): Pick<EntryValues, 'editionLabel' | 'issuedOn' | 'inForceFrom' | 'inForceTo' | 'designation'> {
+  const { editionLabel, issuedOn, inForceFrom, inForceTo, designation } = values
+  return { editionLabel, issuedOn, inForceFrom, inForceTo, designation }
 }
 
 /**
@@ -162,31 +221,44 @@ export async function proposeBaseKnowledge(
   requireManage(session)
   const document = await readShelfDocument(session.organizationId, body.documentId, await reader(session))
   if (!document) throw new NotFoundError('No Archiv document with this id; list the Archiv first.')
-  const workId = await recordProposal(session, body, document.fileName, proposedBy)
-  await withholdText(session, body.documentId)
-  return (await findEntry(session, workId)).entry
+  return proposeDocument(session, body, document.fileName, proposedBy)
 }
 
-/** The proposed records for one document, from its file name and the given values; the work's id. */
+async function proposeDocument(
+  session: AuthorizedSession,
+  body: ProposeEntryBody,
+  fileName: string,
+  proposedBy: KnowledgeProvenance['proposedBy'],
+  editionOf?: StoredEntry
+): Promise<BaseKnowledgeEntry> {
+  const entryId = await recordProposal(session, body, fileName, proposedBy, editionOf)
+  await withholdText(session, body.documentId)
+  return (await findEntry(session, entryId)).entry
+}
+
+/**
+ * The proposed records for one document, from its file name and the given
+ * values; the entry's id. With `editionOf`, a newer edition of that entry's
+ * work: the work's values are kept, the edition is read from the file name.
+ */
 async function recordProposal(
   session: AuthorizedSession,
   body: ProposeEntryBody,
   fileName: string,
-  proposedBy: KnowledgeProvenance['proposedBy']
+  proposedBy: KnowledgeProvenance['proposedBy'],
+  editionOf?: StoredEntry
 ): Promise<string> {
   if (await documentHasEntry(session.organizationId, body.documentId)) {
     throw new ConflictError('This document is already recorded as base knowledge; edit that entry instead.')
   }
   const given = valuesOf(body)
-  const values = merged(proposeFromReading({ fileName }), given)
+  const values = merged(proposeFromReading({ fileName }, subdivisionTerritories(await readSetupRecords(session.organizationId))), given)
   const source = Object.values(given).some((value) => value !== undefined) ? proposedBy : 'reading'
-  const ids = await insertProposedEntry(body.documentId, values, {
-    organizationId: session.organizationId,
-    createdBy: session.userId,
-    provenance: { proposedBy: source },
-    terms: {},
-  })
-  return ids.workId
+  const context = { organizationId: session.organizationId, createdBy: session.userId, provenance: { proposedBy: source }, terms: {} }
+  const ids = editionOf
+    ? await insertEditionOfWork(body.documentId, editionOf, { ...editionOf.values, ...editionValues(values), licenceClass: editionOf.values.licenceClass }, context)
+    : await insertProposedEntry(body.documentId, values, context)
+  return ids.editionId
 }
 
 /**
@@ -194,12 +266,14 @@ async function recordProposal(
  * before the dispatch, so the dispatch finds the copy held and reads nothing:
  * no embedding, no summary, no facets until a person confirms it public or
  * attested. A re-upload of bytes the shelf already holds proposes that document.
+ * It lands in the standards folder asked for, or in the standards root
+ * („Grundlagen des Büros“, created on first use).
  */
 export async function uploadBaseKnowledge(
   session: AuthorizedSession,
   file: File,
   request: Request,
-  { folderId = null, ...given }: Omit<ProposeEntryBody, 'documentId'> & { folderId?: string | null } = {}
+  { folderId = null, editionOf, ...given }: Omit<ProposeEntryBody, 'documentId'> & { folderId?: string | null; editionOf?: StoredEntry } = {}
 ): Promise<BaseKnowledgeEntry> {
   requireManage(session)
   // Before any bytes are written: an upload under an existing name replaces that
@@ -208,15 +282,19 @@ export async function uploadBaseKnowledge(
   if (await shelfNameHasEntry(session.organizationId, documentNameKey(file.name), await reader(session))) {
     throw new ConflictError('A document with this name is already recorded as base knowledge; remove that entry first, or upload the new edition under its own name.')
   }
-  let workId: string | null = null
+  if (folderId && !(await isStandardsFolder(session, folderId))) {
+    throw new UnprocessableError('folderId is not a base-knowledge folder; take one from base-knowledge-folder-list, or omit it.')
+  }
+  const target = folderId ?? (await standardsRoot(session.organizationId)).id
+  let entryId: string | null = null
   const uploaded = await uploadOfficeShelfDocument(session, file, request, {
-    folderId,
+    folderId: target,
     beforeDispatch: async (documentId) => {
-      workId = await recordProposal(session, { ...given, documentId }, file.name, 'person')
+      entryId = await recordProposal(session, { ...given, documentId }, file.name, 'person', editionOf)
     },
   })
-  if (workId) return (await findEntry(session, workId)).entry
-  return proposeBaseKnowledge(session, { ...given, documentId: uploaded.documentId }, 'person')
+  if (entryId) return (await findEntry(session, entryId)).entry
+  return proposeDocument(session, { ...given, documentId: uploaded.documentId }, file.name, 'person', editionOf)
 }
 
 function requireAttestation(values: EntryValues, body: ConfirmEntryBody): void {
@@ -240,7 +318,9 @@ async function writeValues(
   firstCheck: boolean
 ): Promise<void> {
   const terms = termsAfter(stored.terms, body, session.userId, new Date())
-  await writeConfirmedValues(stored, values, {
+  // A work its editions share is cited without one edition's date; each edition's own is its label.
+  const written = stored.workStandsAlone ? { ...values, designation: workDesignation(values.designation) } : values
+  await writeConfirmedValues(stored, written, {
     organizationId: session.organizationId,
     createdBy: session.userId,
     provenance: { proposedBy: stored.provenance.proposedBy ?? 'reading', confirmedBy: session.userId },
@@ -329,6 +409,8 @@ export async function removeBaseKnowledge(session: AuthorizedSession, entryId: s
   requireManage(session)
   const { stored } = await findEntry(session, entryId)
   const stores = await deleteOfficeShelfDocument(session, stored.documentId, request)
+  // The work goes with the last of its editions; while another edition names it, it stays.
+  if (stored.workStandsAlone) await deleteWorkIfUnused(session.organizationId, stored.workId)
   const caches = (await forgetKeysFor(session.organizationId, [entryId, stored.documentId])) ? 'removed' : 'failed'
   return {
     removed: stores.search !== 'failed' && stores.objects === 'removed' && caches === 'removed',
@@ -357,15 +439,28 @@ export interface BaseKnowledgeTurn {
 
 export async function baseKnowledgeForTurn(organizationId: string, projectId: string | null): Promise<BaseKnowledgeTurn | null> {
   // Confirmed copies, and licensed ones still proposals: those are named as held and never read (ADR-0164).
-  const stored = (await readOfficeEntries(organizationId)).filter((entry) => entry.confirmed || entry.values.licenceClass === 'licensed')
-  const held = stored.flatMap((entry) => (entry.confirmed && entry.values.designation ? [entry.values.designation] : []))
-  const [documents, profile, listed] = await Promise.all([
-    visibleOfficeDocuments(organizationId, stored.map((entry) => entry.documentId), SCREENED_ONLY),
+  const [all, profile] = await Promise.all([
+    readOfficeEntries(organizationId),
     projectId ? findProjectProfileInOrg(projectId, organizationId) : Promise.resolve(null),
-    platformKnowledge().listedNotHeld(organizationId, held),
   ])
   const facts = profile?.profile?.facts ?? {}
-  const territory = projectTerritory({ federalState: facts.federal_state?.value, country: facts.country?.value })
+  // Of a standard's editions, the one the platform's rule puts in force on the project's reference day.
+  const day = referenceDayOfProfile(facts, dayOf(new Date()))
+  // The edition in force is chosen among those the model may read, so a held upload never displaces a readable one.
+  const documents = await visibleOfficeDocuments(organizationId, all.map((entry) => entry.documentId), SCREENED_ONLY)
+  const readable = all.filter((entry) => documents.has(entry.documentId))
+  const works = editionsByWork(readable)
+  const stored = readable.filter((entry) =>
+    entry.confirmed ? editionOnDay(works.get(entry.workId) ?? [entry], day) === entry : entry.values.licenceClass === 'licensed'
+  )
+  // Held is every confirmed copy the model may read, in force on the day or not: an office holding only a later
+  // edition still holds the standard, and the turn must not call the platform's listing of it „not held“.
+  const held = readable.flatMap((entry) => (entry.confirmed && entry.values.designation ? [entry.values.designation] : []))
+  const [listed, setupRecords] = await Promise.all([
+    platformKnowledge().listedNotHeld(organizationId, held),
+    readSetupRecords(organizationId),
+  ])
+  const territory = projectTerritory({ federalState: facts.federal_state?.value, country: facts.country?.value }, subdivisionTerritories(setupRecords))
   const directives = await platformKnowledge().directivesFor(organizationId, territory.territoryId)
   const now = new Date()
   const entries = stored.flatMap((entry) => {

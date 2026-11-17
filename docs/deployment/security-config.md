@@ -7,14 +7,14 @@
 The `REQUIRE_AUTH` environment variable controls whether WorkOS AuthKit login is required:
 
 ```bash
-# Disabled (default): app uses "Default User", no login required
+# Disabled (default): no session at all, only the /dev previews render
 REQUIRE_AUTH=false
 
 # Enabled: users must log in via WorkOS AuthKit
 REQUIRE_AUTH=true
 ```
 
-When auth is disabled, the system runs with a default unauthenticated user context. The Python backend receives no JWT tokens and operates in anonymous mode.
+When auth is disabled there is no session: every page behind a session answers 500 and every session route under `/api` answers 403 (`SessionRequiredError`), so only the `/dev` previews are usable. The Python backend receives no JWT tokens and operates in anonymous mode. To run the app signed in without a WorkOS account, use the [local stack](../contributing/local-stack.md).
 
 The backend reads the same variable. With `REQUIRE_AUTH=true` it enforces:
 

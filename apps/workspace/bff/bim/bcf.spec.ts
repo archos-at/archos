@@ -1,19 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The BCF export.
- *
- * The archive leaves this product and is opened by software nobody here
- * controls, so the assertions are about the things a reader will refuse or
- * silently mis-handle: an unescaped ampersand in a wall name, a topic GUID
- * that changes between exports and duplicates the whole issue list, a
- * selection that names an element the rule never flagged, and a confirmation
- * that travels without saying it was made about a different revision.
- *
- * The archive is read back through the zip parser rather than asserted on as
- * bytes — see `zip.spec.ts` for why that reader is independent of the writer.
- */
 
 import { describe, expect, it } from 'vitest'
 import { buildComplianceBcf, type BcfModelRef } from './bcf'
@@ -91,22 +78,16 @@ describe('buildComplianceBcf', () => {
     expect(files.get('bcf.version')).toContain('VersionId="2.1"')
     expect(paths.filter((path) => path.endsWith('/markup.bcf'))).toHaveLength(1)
     expect(paths.filter((path) => path.endsWith('/viewpoint.bcfv'))).toHaveLength(1)
-    // The folder name IS the topic guid — readers key on it. `paths[1]` is the
-    // folder entry itself, so the markup is the one after it.
     const folder = paths[1].replace(/\/$/, '')
     expect(folder).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
     expect(files.get(`${folder}/markup.bcf`)).toContain(`<Topic Guid="${folder}"`)
   })
 
   it('names the file after the project and the revision it was run against', () => {
-    // `Grüngasse` → `Gruengasse`: umlauts are spelled out rather than stripped
-    // to a bare vowel. See the transliteration test at the bottom of this file.
     expect(build([result()]).filename).toBe('compliance-checks-Wohnhaus-Gruengasse-2026-05-04.bcfzip')
   })
 
   it('keeps the topic guid stable across revisions of the same project', () => {
-    // The whole point of a derived guid: re-exporting after Rev.4 must UPDATE
-    // the topics a BCF server already holds, not duplicate the issue list.
     const rev3 = [...readZipEntries(build([result()]).bytes).keys()][1]
     const rev4 = [
       ...readZipEntries(
@@ -153,7 +134,6 @@ describe('buildComplianceBcf', () => {
     expect(markup).toContain('Ergebnis: 12 erfüllt, 1 nicht erfüllt, 2 nicht entscheidbar.')
     expect(markup).toContain('- Aussenwand Nord (EG): REI 30 — gefordert REI 60')
     expect(markup).toContain('- Pset_WallCommon.FireRating (2 Bauteile)')
-    // The element with no name still has to be findable.
     expect(markup).toContain('- 0RSwXnbbzCWw8lcMd1dR9z: kein FireRating veröffentlicht')
   })
 
@@ -183,8 +163,6 @@ describe('buildComplianceBcf', () => {
   })
 
   it('strips control characters XML cannot represent at all', () => {
-    // `&#x0;` is as illegal as a raw NUL, so escaping is not an option — and a
-    // property value from an unknown exporter can contain anything.
     const files = readZipEntries(
       build([
         result({
@@ -246,9 +224,6 @@ describe('buildComplianceBcf', () => {
   })
 
   it('leaves a topic open when the confirmation was made about another revision', () => {
-    // A signature that outlives the drawing it was made about is the failure
-    // mode the whole confirmation model exists to prevent; it must not survive
-    // a trip through an export either.
     const files = readZipEntries(
       build([
         result({
@@ -305,15 +280,6 @@ describe('buildComplianceBcf', () => {
   })
 
   it('lists at most twelve verdicts in a topic, and counts the rest', () => {
-    /*
-      The row cap and the remainder, both of which were dead in every test.
-
-      Every fixture here carries two verdicts against a `DESCRIPTION_ROWS` of
-      twelve, so the `slice(0, 12)` and the `Math.min` were never exercised:
-      replacing `shown` with `verdicts.length`, or dropping the slice, kept the
-      suite green while shipping a four-hundred-row topic description — in a
-      file that leaves the product and is opened in ArchiCAD.
-    */
     const failures = Array.from({ length: 15 }, (_, index) => ({
       globalId: `2O2Fr$t4X7Zf8NOew3FLK${index}`,
       name: `Wand ${index}`,
@@ -343,8 +309,6 @@ describe('buildComplianceBcf', () => {
   })
 
   it('omits the viewpoint when the rule flagged no element it can name', () => {
-    // A `<Viewpoints>` pointing at a file that is not in the archive makes
-    // some readers reject the topic outright.
     const files = readZipEntries(
       build([result({ failed: 3, failures: [], undecidable: 0, unknowns: [] })]).bytes
     )
@@ -355,9 +319,6 @@ describe('buildComplianceBcf', () => {
   })
 
   it('omits IfcProject rather than writing an empty Guid', () => {
-    // `IfcProject` is typed Guid in the 2.1 schema; `IfcProject=""` makes the
-    // whole markup schema-invalid, so a model that published no project id
-    // produced an archive a validating reader refuses outright.
     const files = readZipEntries(
       buildComplianceBcf({
         projectId: 'project-1',
@@ -374,10 +335,6 @@ describe('buildComplianceBcf', () => {
   })
 
   it('selects only ids a CAD can resolve', () => {
-    // An element the extractor could not identify carries a synthesised
-    // `express:1234`. BCF types IfcGuid as a 22-character IFC GlobalId, so
-    // emitting that invalidated the viewpoint. The element still appears in
-    // the description; it just cannot be selected.
     const files = readZipEntries(
       build([
         result({
@@ -402,8 +359,6 @@ describe('buildComplianceBcf', () => {
   })
 
   it('carries a folder entry per topic, as the encoding guide requires', () => {
-    // A reader that enumerates topics by walking DIRECTORY entries finds none
-    // in a flat archive and imports it as empty — without reporting an error.
     const paths = [...readZipEntries(build([result()]).bytes).keys()]
     const folder = paths.find((p) => p.endsWith('/'))
 
@@ -434,10 +389,6 @@ describe('buildComplianceBcf', () => {
   })
 
   it('spells an Austrian project name instead of punching holes in it', () => {
-    // `ß` has NO Unicode decomposition, so NFKD left it for the
-    // `[^A-Za-z0-9]` pass to turn into a hyphen: `Beispielstraße` downloaded
-    // as `Beispielstra-e`. Roughly half of Viennese project names contain
-    // *straße*, so nearly every real download carried a hole in its name.
     const named = (projectName: string) =>
       buildComplianceBcf({
         projectId: 'project-1',
@@ -448,20 +399,11 @@ describe('buildComplianceBcf', () => {
       }).filename
 
     expect(named('Beispielstraße 14')).toBe('compliance-checks-Beispielstrasse-14-2026-05-04.bcfzip')
-    // Umlauts are spelled the way the office spells them on a form that
-    // refuses one — `ue`, not the bare `u` NFKD would have left behind.
     expect(named('Grünanger Höfe')).toBe('compliance-checks-Gruenanger-Hoefe-2026-05-04.bcfzip')
     expect(named('ÖBB Ärztezentrum')).toBe('compliance-checks-OeBB-Aerztezentrum-2026-05-04.bcfzip')
-    // Arrives decomposed from a macOS filesystem: same output, or the table
-    // would be silently bypassed for exactly the users who hit it most.
     expect(named('Grünanger'.normalize('NFD'))).toBe('compliance-checks-Gruenanger-2026-05-04.bcfzip')
-    // Everything NFKD DOES decompose still goes through it — no table per
-    // language, and a name with no Latin letters at all still gets a filename.
     expect(named('Rezidence Dvořák')).toBe('compliance-checks-Rezidence-Dvorak-2026-05-04.bcfzip')
     expect(named('日本橋')).toBe('compliance-checks-project-2026-05-04.bcfzip')
-    // Letters with a stroke or a ligature have no Unicode decomposition
-    // either, so they used to be punched out the same way `ß` was:
-    // `Øresund Łódź` downloaded as `resund-odz`.
     expect(named('Øresund Łódź')).toBe('compliance-checks-Oeresund-Lodz-2026-05-04.bcfzip')
   })
 })

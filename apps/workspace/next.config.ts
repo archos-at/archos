@@ -48,6 +48,10 @@ export const nextConfig: NextConfig = {
       ...LEGACY_ROUTES.map(({ from, to }) => ({ source: from, destination: to, permanent: true })),
       { source: '/app/archiv', destination: '/app/office-shelf', permanent: true },
       { source: '/app/archiv/:path*', destination: '/app/office-shelf/:path*', permanent: true },
+      // The norm catalog and the base-knowledge page became one place per country, and the corpus upkeep
+      // without a country moved to maintenance.
+      { source: '/app/platform/norms', destination: '/app/platform/countries', permanent: true },
+      { source: '/app/platform/knowledge', destination: '/app/platform/maintenance', permanent: true },
     ]
   },
 

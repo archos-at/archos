@@ -12,8 +12,6 @@ describe('Button loading', () => {
     await user.click(button)
     expect(onClick).toHaveBeenCalledTimes(1)
 
-    // Disabling a focused button blurs it in Chrome: the keyboard reader lands
-    // on <body>. Loading must not do that.
     rerender(
       <Button onClick={onClick} loading>
         Speichern
@@ -67,8 +65,6 @@ describe('Button loading', () => {
 })
 
 describe('Button inline', () => {
-  // `link` is ink like the sentence around it and underlines only on hover, so
-  // „In der Prüfansicht öffnen" inside the approve confirm read as more text.
   it('is underlined at rest, and takes the sentence’s size and line whatever size it is given', () => {
     render(
       <p>
@@ -87,12 +83,6 @@ describe('Button inline', () => {
   })
 })
 
-/*
- * A loading button never moves its label or changes its width. With a leading
- * icon the spinner takes the icon's slot; without one there is no slot, so the
- * spinner centres over a transparent label that still holds the width and the
- * accessible name.
- */
 describe('Button loading layout', () => {
   it('keeps the label in one span that decides, in CSS, where the spinner goes', () => {
     render(<Button loading>Speichern</Button>)
@@ -103,7 +93,6 @@ describe('Button loading layout', () => {
     expect(label).toHaveTextContent('Speichern')
     expect(label?.className).toContain('[&>svg:first-of-type]:hidden')
     expect(label?.className).toContain('[&:not(:has(>svg))]:opacity-0')
-    // Placed after the label in the DOM so the label can be its `peer`, drawn first.
     expect(label?.nextElementSibling).toBe(spinner)
     expect(spinner?.className).toContain('order-first')
     expect(spinner?.className).toContain('peer-[:not(:has(>svg))]/label:absolute')

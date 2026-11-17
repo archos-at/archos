@@ -1,14 +1,3 @@
-/**
- * The Stundenplan, as a reader meets it.
- *
- * The geometry has its own spec (`lib/timetable.spec.ts`); what is asserted
- * here is that the grid makes the three claims only a laid-out week can make —
- * a collision is visible, the labels are on the blocks so colour is never the
- * only carrier, and a schedule the parser cannot place is NAMED rather than
- * quietly missing. Plus the one interaction the surface owes: a block is a way
- * into the schedule it belongs to.
- */
-
 import { render, screen, waitFor, within } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, test, vi } from 'vitest'
@@ -35,7 +24,6 @@ const job = (overrides: Partial<Job> = {}): Job => ({
   ...overrides,
 })
 
-/** The grid expands cron asynchronously; nothing is on screen until it lands. */
 async function blocks(): Promise<HTMLElement[]> {
   await waitFor(() => expect(screen.getAllByTestId('timetable-block').length).toBeGreaterThan(0))
   return screen.getAllByTestId('timetable-block')
@@ -65,7 +53,6 @@ describe('what the grid shows', () => {
     )
     const found = await blocks()
     expect(found).toHaveLength(2)
-    // Half a column each, and offset — the collision is a shape, not a label.
     const widths = found.map((block) => block.style.width)
     expect(new Set(widths).size).toBe(1)
     expect(new Set(found.map((block) => block.style.left)).size).toBe(2)

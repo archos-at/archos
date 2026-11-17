@@ -97,6 +97,7 @@ def _pattern(spec: str) -> re.Pattern[str]:
 
 
 class HttpEli(AccessType):
+    served_operations = ("expression",)
     name = "http_eli"
     config_model = ElIConfig
 

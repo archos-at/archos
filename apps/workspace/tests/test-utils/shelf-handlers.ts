@@ -1,10 +1,3 @@
-/**
- * MSW handlers for one shelf of the `/api/documents` routes (ADR-0131 rule 5):
- * the project's and the office shelf's requests share a path and differ by
- * `scope` (`?scope=office_shelf`, or `scope` in the JSON body). A handler for
- * the other shelf passes the request on to the next handler.
- */
-
 import { http, type DefaultBodyType, type HttpResponseResolver, type PathParams } from 'msw'
 
 type Shelf = 'project' | 'office_shelf'

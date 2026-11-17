@@ -1,8 +1,3 @@
-/**
- * The container: what reaches the composer and when it is re-read. Spend lands
- * after a turn, so the notice must be read again then; a dismissal holds for
- * its key and no further; a spent budget is never hidden.
- */
 import { act, render, screen, waitFor } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
@@ -90,7 +85,6 @@ describe('ChatUsageNotice', () => {
     answer(notice())
     const first = render(<ChatUsageNotice isAuthenticated />)
     await userEvent.click(await screen.findByRole('button', { name: 'Dismiss' }))
-    // It folds away, then is gone.
     await waitFor(() => expect(screen.queryByTestId('usage-notice')).toBeNull())
     expect(capturePosthog).toHaveBeenCalledWith('usage_notice_dismissed', { level: 'warning', scope: 'organization', window: 'day' })
     first.unmount()
@@ -114,8 +108,6 @@ describe('ChatUsageNotice', () => {
   })
 
   test('re-reads once the named window renews, however far out that is', async () => {
-    // A spent day with 20 h left: further than one timer step (6 h). The read
-    // waits for renewal, and a step in between must not end the countdown.
     vi.useFakeTimers({ shouldAdvanceTime: true })
     vi.setSystemTime(new Date('2026-10-21T04:00:00Z'))
     fetchMock.mockImplementation(async () =>

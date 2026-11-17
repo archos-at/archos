@@ -1,12 +1,3 @@
-"""What a filed mail says about a document, and how it is printed (ADR-0137, RT-S2).
-
-Pinned here: a record keeps only what it may (no address, no unknown key, no
-trust outside the vocabulary); the line names a sender's domain only when a
-signature confirmed it, in the Verlauf's own words; the Verlauf's newest
-message is its date; the metadata row stores and reads both records back; and
-the words and the trust vocabulary agree with the BFF's, which owns them.
-"""
-
 from __future__ import annotations
 
 import os
@@ -60,7 +51,6 @@ class TestTheLineNamesADomainOnlyWhenASignatureConfirmedIt:
         )
 
     def test_a_signature_is_not_enough_without_a_verified_trust(self):
-        """A signer domain on an unverified mail (a DKIM fail, a misaligned pass) proves nothing."""
         claimed = {**FORGER, "signer_domain": "ma37.wien.gv.at"}
         label = mail_origin_label(claimed)
         assert label is not None and "(ma37-wien.at, Domain nicht bestätigt)" in label
@@ -92,7 +82,6 @@ class TestTheLineNamesADomainOnlyWhenASignatureConfirmedIt:
         assert label is not None and " von Unbekannt (" in label
 
 
-#: A colleague forwarded the Behörde's letter; the colleague's office domain signed the forward.
 FORWARDED = {
     "sent_at": "2026-05-12T07:12:00Z",
     "received_at": "2026-05-14T08:00:00Z",
@@ -198,13 +187,11 @@ _BACKENDS = [
 
 
 def test_the_postgres_branch_ran_where_it_is_required():
-    """CI's ``task be:test:postgres`` sets the guard: there a missing database fails instead of skipping green."""
     if os.environ.get("TEST_POSTGRES_REQUIRED"):
         assert _POSTGRES, "TEST_POSTGRES_URL is unset while REQUIRED is set"
 
 
 def _fresh_database(backend: str, tmp_path: Path) -> str:
-    """A SQLite file per test, or the throwaway Postgres (``task be:test:postgres``) with the store's tables gone."""
     from sqlalchemy import text
 
     if backend == "sqlite":
@@ -213,14 +200,11 @@ def _fresh_database(backend: str, tmp_path: Path) -> str:
     with DocumentMetadataStore._get_or_create_sync_engine(_POSTGRES).begin() as conn:
         for table in ("document_metadata", "document_revision_retained"):
             conn.execute(text(f"DROP TABLE IF EXISTS {table}"))
-    # The store remembers a database whose schema it ensured; this one has none again.
     DocumentMetadataStore._tables_initialized.discard(_POSTGRES)
     return _POSTGRES
 
 
 class TestTheMetadataRowStoresBoth:
-    """On every backend production runs: SQLite in a dev checkout, Postgres in a deployment."""
-
     @pytest.fixture(params=_BACKENDS)
     def database_url(self, request, tmp_path):
         url = _fresh_database(request.param, tmp_path)
@@ -232,14 +216,12 @@ class TestTheMetadataRowStoresBoth:
         return DocumentMetadataStore(database_url)
 
     def test_a_table_from_before_the_columns_gets_them_on_first_open(self, database_url):
-        """The add-column path: a deployment's existing ``document_metadata`` lacks both columns."""
         from sqlalchemy import text
 
         engine = DocumentMetadataStore._get_or_create_sync_engine(database_url)
         with engine.begin() as conn:
             conn.execute(
                 text(
-                    # The table as `_create_table` made it before any optional column existed.
                     "CREATE TABLE document_metadata (collection VARCHAR(256) NOT NULL, filename VARCHAR(512) NOT NULL, "
                     "summary TEXT NOT NULL, tags TEXT, doc_class TEXT, display_title TEXT, folder_path TEXT, "
                     "provenance TEXT, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, "
@@ -294,8 +276,6 @@ class TestTheMetadataRowStoresBoth:
 
 
 class TestTheBffOwnsTheWordsAndTheVocabulary:
-    """The words and tokens are the BFF's (``render-copy.ts``, ``inbound-mail-vocabulary.ts``); this is a mirror."""
-
     def test_the_trust_words_are_the_verlaufs(self):
         source = RENDER_COPY.read_text(encoding="utf-8")
         for locale, copy in MAIL_COPY.items():

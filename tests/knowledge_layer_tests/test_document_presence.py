@@ -1,11 +1,3 @@
-"""Asking the BFF whether a dispatched document still exists.
-
-Only a definite answer counts: ``True``/``False`` from a 200 whose body says so.
-Everything else is ``None``, which the ingestor reads as "present", because a
-BFF it cannot reach must never cost a live document its chunks. The ingest
-side of this contract is in ``test_reingest_replaces_versions.py``.
-"""
-
 from __future__ import annotations
 
 import httpx
@@ -63,7 +55,6 @@ def test_no_organization_is_not_sent(configured, monkeypatch):
 @pytest.mark.parametrize(
     "response",
     [
-        # A BFF that predates the route answers 404: that is not "gone".
         _Response(404, {"error": "not found"}),
         _Response(500, {"exists": False}),
         _Response(403, {"exists": False}),

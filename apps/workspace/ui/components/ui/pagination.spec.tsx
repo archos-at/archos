@@ -13,7 +13,6 @@ const base = {
 
 describe('Pagination', () => {
   test('renders nothing when everything fits on one page', () => {
-    // The range label would only restate the row count already on screen.
     const { container } = render(<Pagination {...base} offset={0} total={7} />)
     expect(container).toBeEmptyDOMElement()
   })

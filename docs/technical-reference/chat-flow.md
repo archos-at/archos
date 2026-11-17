@@ -24,7 +24,7 @@ the contract in [`websocket-protocol.md`](../api/websocket-protocol.md)).
 4. Every server event carries `turn_id` and `seq`. The driver in
    `features/chat/hooks/use-websocket-chat.ts` hands them to the store's
    `applyTurnEvents`, which folds them with `foldTurnEvent`
-   (`features/chat/lib/turn-fold.ts`) and draws the view into the thread
+   (`bff/turns/turn-fold.ts`) and draws the view into the thread
    (`features/chat/lib/turn-projection.ts`). Answer deltas wait for a 100 ms
    flush; anything else is folded at once.
 5. `RUN_STARTED` acknowledges the question; until it arrives the question is

@@ -1,11 +1,5 @@
 'use client'
 
-/**
- * The notice as the app frame mounts it: held back while a product tour is on screen (NextStep's
- * own state), and recorded silently on "Neuerungen" itself, where the reader is already reading
- * every change. Inside the frame's `ProductTour`, which provides NextStep's context.
- */
-
 import type { JSX } from 'react'
 import { usePathname } from 'next/navigation'
 import { useNextStep } from 'nextstepjs'

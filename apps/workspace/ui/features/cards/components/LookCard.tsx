@@ -1,28 +1,5 @@
 'use client'
 
-/**
- * LookCard — where Piloti looked on one document in this turn (ADR-0128).
- *
- * System-emitted once the answer is final (`agent/tools/look/cards.py`):
- * one card per document, an item per look the answer relies on and a
- * `reference` item per box or pointer Piloti showed the room. An item is an
- * ADDRESS (page, region, Fassung), never pixels.
- *
- * Each item is the page clip with the place marked (`PagePlaceButton`, drawn
- * from the document's own routes, so only a reader who may open the document
- * sees it) and the page and the place in words. Pressing an item opens the
- * document at the place with the box glowing. A look is in the document's
- * tint; a reference in Piloti's ink, the colour its box has on the canvas.
- *
- * The explanation, what Piloti looked for and what it read there (marked as a
- * reading: read off the page, never a measurement), is folded under the
- * places and opens on a press (Notion #38, topic 10): open, it made every
- * answer that looked at a drawing a screen longer, and the reader who wants
- * it is the one checking a value, who asks for it. The honesty note sits in
- * the same fold, beside the readings it qualifies, so a reading is never on
- * screen without it.
- */
-
 import { useState, type FC } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { Card } from '@/components/ui/card'
@@ -45,14 +22,11 @@ type LookItem = LookCardData['items'][number]
 interface LookCardProps {
   document: LookCardData['document']
   items: LookCardData['items']
-  /** For a dev preview: draw the thumbnails at once, not when on screen. */
   eager?: boolean
 }
 
-/** The tallest a thumbnail is drawn, in CSS pixels: a portrait page in a card stays a thumbnail. */
 const THUMBNAIL_MAX_HEIGHT = 180
 
-/** The place an item addresses, as the thumbnail and the viewer take it. */
 export const lookItemPlace = (document: LookCardData['document'], item: LookItem): PagePlace => ({
   document: { id: document.id ?? null, name: document.name, shelf: document.shelf ?? 'stored' },
   page: item.page,
@@ -64,20 +38,16 @@ export const lookItemPlace = (document: LookCardData['document'], item: LookItem
   label: item.origin === 'reference' ? (item.label ?? null) : null,
 })
 
-/** The colour of a place: the document's source tint for a look, Piloti's ink for what it showed. */
 export const lookItemColor = (shelf: 'stored' | 'base' | undefined, origin: LookItem['origin']): string =>
   origin === 'reference' ? 'var(--paper-ink)' : `var(--source-${shelf === 'base' ? 'law' : 'project'})`
 
-/** „ganze Seite“, „oben rechts“, „Bild 2“: where on the page, in words; null when nothing says. */
 const placeWords = (t: Translator, item: LookItem): string | null => {
   if (item.frame === 'image' && item.image_index != null) return t('cards.look.embeddedImage', { index: item.image_index + 1 })
   return item.where ?? (item.scope === 'overview' ? t('cards.look.wholePage') : null)
 }
 
-/** What an item explains: a look's question and its reading. A reference names its box on the place itself. */
 const hasExplanation = (item: LookItem): boolean => item.origin !== 'reference' && Boolean(item.question || item.reading)
 
-/** „S. 2 · oben rechts“: the address line under a thumbnail, and the lead of its explanation. */
 const addressLine = (t: Translator, item: LookItem): string => {
   const place = placeWords(t, item)
   const page = t(item.origin === 'reference' ? 'cards.look.shown' : 'cards.look.looked', { page: item.page })

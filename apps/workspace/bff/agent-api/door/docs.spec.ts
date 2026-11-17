@@ -2,16 +2,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The door's guide, glossary and prompts are Markdown files beside this spec,
- * written and reviewed as text. The server cannot read files at run time in
- * every build (webpack, turbopack and vitest each load differently), so their
- * text is embedded in `docs.generated.ts`, which this spec writes and checks:
- *
- *   UPDATE_FIXTURES=1 bunx vitest run bff/agent-api/door/docs.spec.ts
- *
- * Edit the Markdown, never the generated module.
- */
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { describe, expect, it } from 'vitest'

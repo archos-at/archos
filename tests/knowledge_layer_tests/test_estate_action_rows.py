@@ -1,20 +1,3 @@
-"""The Herleitung rows of ``ls``, ``glob``, ``grep`` and ``read_file`` on the estate (ADR-0132 × ADR-0133).
-
-One row per call, emitted by the estate backend itself from its own typed values.
-What is pinned, per outcome:
-
-* a row names a place (``mount``) and the folder inside it, never a path; a name
-  pattern is the row's ``query``;
-* counts are what the folder holds, not what the listing had room for;
-* a literal search that could not search everything carries ``incomplete``, and
-  one that found nothing in what it did search is ``empty``, never a failure;
-* a folder or document that is not there is ``empty`` with the name asked for,
-  and a restricted one answers with exactly the same row (ADR-0088);
-* a read names the pages it served; a folder card is the folder's listing;
-* the rows of reads and of a ``content`` grep share their ``call_id`` with the
-  ``sources`` step of the passages they returned.
-"""
-
 from __future__ import annotations
 
 import pytest
@@ -27,7 +10,6 @@ from knowledge_layer_testing import estate_read as read_suite
 from agent.common import grounding_block
 from agent.common import turn_status
 
-# The three suites' own autouse fixtures: the grep's retriever seam, no files in flight, the grounding capture.
 _setup = grep_suite._setup
 _no_in_flight = listing_suite._no_in_flight
 _capture = read_suite._capture
@@ -48,7 +30,6 @@ def steps(monkeypatch):
 
 
 def _row(steps) -> dict:
-    """The one settled row of the call, as the wire carries it (no id, no time)."""
     rows = [s for s in steps if s.kind == "action" and s.status != "running"]
     assert len(rows) == 1, rows
     return rows[0].model_dump(exclude_none=True, exclude={"id", "call_id", "elapsed_ms", "scope", "kind", "round"})
@@ -129,7 +110,6 @@ class TestList:
         }
 
     async def test_an_empty_project_is_there_and_empty_never_not_found(self, steps) -> None:
-        """A new project, without a file yet: it was found, it holds nothing, and „Offen“ owes nothing."""
         office_only = [row for row in listing_suite.ROWS if row.shelf != "project"]
         await listing_suite._backend(office_only).ls("/project/")
         assert _row(steps) == {"verb": "list", "status": "ok", "mount": "project", "counts": {"files": 0, "folders": 0}}
@@ -139,7 +119,6 @@ class TestList:
         assert _row(steps) == {"verb": "list", "status": "ok", "mount": "chat", "counts": {"files": 0, "folders": 0}}
 
     async def test_a_folder_counts_everything_it_holds_as_its_tree_and_card_do(self, steps) -> None:
-        """One folder, one count: what `ls`, `ls(depth=2)` and its README.md say it holds (ADR-0132)."""
         await listing_suite._backend().ls("/project/Einreichung/")
         flat = _row(steps)["counts"]["files"]
         steps.clear()
@@ -151,7 +130,6 @@ class TestList:
         assert flat == tree == card == 3
 
     async def test_a_folder_counts_its_own_subfolders_at_any_depth(self, steps) -> None:
-        """Depth 2 draws a card for every folder below; the row still counts the folder's own subfolders."""
         rows = [
             *listing_suite.ROWS,
             listing_suite.FileRow(
@@ -168,7 +146,6 @@ class TestList:
         assert counts == [1, 1, 1] == [_row(steps)["counts"]["folders"]] * 3
 
     async def test_the_places_count_what_a_grep_everywhere_searches(self, steps) -> None:
-        """„3 Ablagen, N Dateien“ and „kein Treffer in N Dateien“ are one N when nothing failed."""
         await grep_suite._backend(grep_suite.Retriever({grep_suite.COLLECTION: grep_suite._chunks()})).ls("/")
         places = _row(steps)["counts"]["files"]
         steps.clear()
@@ -176,7 +153,6 @@ class TestList:
         assert _row(steps)["counts"]["searched"] == places
 
     async def test_a_path_that_names_no_place_is_a_failed_listing_of_no_named_folder(self, steps) -> None:
-        """`/drafts/../project/` never reaches the row as „drafts › .. › project“."""
         await listing_suite._backend().ls("/drafts/../project/")
         assert _row(steps) == {"verb": "list", "status": "error"}
 
@@ -265,7 +241,6 @@ class TestRead:
         assert _row(steps) == {"verb": "read", "status": "empty", "missing": True, "target": "Gehalt.pdf"}
 
     async def test_a_guessed_restricted_path_reads_exactly_like_a_miss(self, steps) -> None:
-        """Nothing on the row confirms the file: no shelf, no count, the asked name only (ADR-0088)."""
         await read_suite._backend(restricted=()).read_file("/project/Personal/Vertrag.pdf.md")
         guessed = _row(steps)
         steps.clear()
@@ -278,7 +253,6 @@ class TestRead:
         ("path", "place"),
         [
             ("/project/Gutachten/README.md", {"mount": "project", "target": "Gutachten"}),
-            # A place's root card: the row names the place, never „README“ as if it were a folder.
             ("/project/README.md", {"mount": "project"}),
         ],
     )

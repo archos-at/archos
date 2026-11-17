@@ -1,17 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The upload boundary, where the same caller-supplied `conversationId` decides
- * more than the listing's does: it is the conversation row that may be CREATED,
- * the id the document is filed against, and — through `sessionCollectionName` —
- * the retrieval collection the bytes are ingested into. It used to be checked
- * for being a non-empty string.
- *
- * Deliberately not validated as a UUID: an id is `s_<uuid-with-underscores>`,
- * both columns are `text` on purpose, and a `uuid()` rule would refuse every
- * real upload. See `lib/session-documents/conversation-id`.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -75,8 +64,6 @@ describe('POST /api/session/documents/upload', () => {
     const response = await upload(id)
 
     expect(response.status).toBe(400)
-    // Nothing is uploaded to SeaweedFS, no conversation row is created, no
-    // collection is written to: the refusal happens before the service runs.
     expect(uploadSessionDocument).not.toHaveBeenCalled()
   })
 

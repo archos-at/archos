@@ -18,8 +18,6 @@ decision is superseded rather than rewritten. Their status is metadata, not the
 decision: since 2026-10 every record, old or new, carries it as frontmatter
 `status:` and nowhere else, and `scripts/check_adrs.py` refuses any other form.
 
-Working in here: [`AGENTS.md`](AGENTS.md).
-
 ## Why ADRs
 
 Piloti is a small team rapidly evolving a workspace for planning offices, built on
@@ -48,6 +46,13 @@ python3 scripts/check_adrs.py           # what `task lint:repo` runs
 An accepted ADR is superseded, not rewritten; clarifications and typo fixes are
 fine. Fill in **Confirmation** before accepting: the gate that keeps the decision
 true, or an explicit statement that nothing enforces it yet.
+
+One decision per record: "and we will also" is almost always a second ADR. A
+rejected option names the premise it rests on, as a fact that can turn false (a
+version, a measurement, a property of one tool), so a later reader re-checks the
+premise rather than re-arguing the option. ADR-0046 and ADR-0127 each rejected an
+option on a premise that later stopped holding
+([the case](../contributing/working-style.md#a-rejection-names-its-premise)).
 
 ## Status legend
 
@@ -244,6 +249,8 @@ Consequences, where a reader looks for them.
 | [0177](0177-what-the-project-and-the-office-set-goes-at-the-head-of-a-chat-request.md) | What the project and the office set goes at the head of a chat request, and history is edited in steps | Accepted |
 | [0178](0178-an-edition-states-which-buildings-it-applies-to.md) | An edition states which buildings it applies to, and the chain runs that scope per building | Proposed |
 | [0179](0179-lifecycles-are-declared-as-statechart-tables.md) | A record's lifecycle is declared once, as a statechart table | Proposed |
+| [0180](0180-personal-memory-is-its-own-table-keyed-to-the-person.md) | A note has one home that says who reads it: personal memory is its own table, keyed to the person | Proposed |
+| [0181](0181-a-reviewed-dev-release-may-be-carried-to-production-once-by-the-promotion.md) | A reviewed dev release may be carried to production once by the promotion | Accepted |
 
 > Note: 0027, 0039, 0044 and 0047 were each independently used twice, every
 > time because two people read the next number off this index instead of off

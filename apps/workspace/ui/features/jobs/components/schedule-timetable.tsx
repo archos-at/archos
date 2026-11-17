@@ -1,35 +1,5 @@
 'use client'
 
-/**
- * The Stundenplan — this project's week, as a grid.
- *
- * A list of schedules can only ever tell you about one schedule at a time.
- * „Wöchentlich, Montag 06:00 · Europe/Vienna" is a fact a reader has to hold in
- * their head and compare against six other facts they are also holding, which
- * is how three things nobody wants stay invisible:
- *
- *   - **Collisions.** Four schedules at Monday 06:00 is one load spike and one
- *     morning of four notifications. On a grid it is four boxes side by side —
- *     seen, not deduced.
- *   - **Dead zones.** A week with nothing after Wednesday says the automation
- *     is doing less than its owner thinks.
- *   - **Density.** Whether this project runs twice a week or forty times.
- *
- * All three are properties of the ARRANGEMENT, so the arrangement has to be
- * drawn. That is the whole argument for this component.
- *
- * Two shapes for two viewports, from one model. Seven columns need roughly
- * 90px each to carry a name; below `md` that is not available, so the same
- * `Timetable` renders as an agenda — day headings and a time per firing. A
- * grid crushed to 45px columns is a picture of a grid, not a timetable.
- *
- * Colour is a GROUPING cue and never the only carrier of meaning: every block
- * is labelled with its schedule's name, the legend repeats the pairing, and the
- * validated categorical palette (`components/charts/palette`) is reused rather
- * than a ninth private set of hexes. Past the eight slots a schedule folds to
- * the neutral "other" step — the legend still names it.
- */
-
 import type { JSX } from 'react'
 import { useEffect, useMemo, useState } from 'react'
 import { CalendarOff, ChevronLeft, ChevronRight, TriangleAlert } from 'lucide-react'
@@ -60,20 +30,10 @@ import {
   type TimetableBlock,
 } from '../lib/timetable'
 
-/** Pixels per hour inside a segment. One firing is a 28px block at this scale. */
 const HOUR_PX = 56
 
-/**
- * Height of the marked break between two segments.
- *
- * Deliberately not to scale — that is the whole point of a break — and
- * deliberately small enough that it can never be mistaken for an hour of the
- * day: it carries a dashed rule and the gap's own duration, so what was skipped
- * is stated rather than implied.
- */
 const BREAK_PX = 28
 
-/** How many weeks forward or back the arrows reach. */
 const WEEK_RANGE = 8
 
 interface ScheduleTimetableProps {
@@ -94,22 +54,15 @@ export function ScheduleTimetable({
   const [occurrences, setOccurrences] = useState<readonly Occurrence[] | null>(null)
   const [invalid, setInvalid] = useState<readonly string[]>([])
 
-  // The week's left edge, recomputed only when the offset moves. `new Date()`
-  // inside a render would make every re-render a new week boundary at midnight.
   const weekStart = useMemo(
     () => addDays(startOfWeek(new Date()), weekOffset * 7),
     [weekOffset],
   )
 
-  // Which tasks land on the week, and in what colour, is one rule — shared with
-  // the list beside this grid so the swatch on a card and the block it names
-  // cannot be different colours (`lib/timetable.ts`).
   const placeable = useMemo(() => placeableSchedules(schedules), [schedules])
 
   const colorOf = useMemo(() => {
     const slots = seriesColorsFor(schedules, SERIES_SLOT_COUNT)
-    // The grid draws only placeable tasks, so a miss here is a task it is not
-    // drawing; the shared „other" tone is the honest answer rather than a hole.
     return (jobId: string): string => slots.get(jobId) ?? 'var(--chart-series-other)'
   }, [schedules])
 
@@ -153,7 +106,6 @@ export function ScheduleTimetable({
   const expanding = loading || timetable === null
 
   return (
-    // `usage-viz` is what resolves `--chart-series-N` (ui/styles/data-palette.css).
     <section className="usage-viz" aria-label={t('timetable.title')} data-testid="schedule-timetable">
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -181,7 +133,7 @@ export function ScheduleTimetable({
           {weekOffset === 0 ? `${t('timetable.thisWeek')} · ${weekLabel}` : weekLabel}
         </p>
         {weekOffset !== 0 && (
-          <Button variant="outline" size="sm" onClick={() => setWeekOffset(0)}>
+          <Button variant="secondary" size="sm" onClick={() => setWeekOffset(0)}>
             {t('timetable.today')}
           </Button>
         )}
@@ -285,14 +237,6 @@ function isEmpty(timetable: Timetable | null): boolean {
   return !timetable || timetable.days.every((day) => day.blocks.length === 0)
 }
 
-/**
- * Where a minute of the day sits, in pixels from the top of the body.
- *
- * Segments are stacked in order with a fixed-height break between each pair, so
- * an offset is the sum of everything above it plus the position inside its own
- * segment. Returns null for a minute the grid is not drawing — which cannot
- * happen for a placed block, since the segments were built from the blocks.
- */
 function offsetFor(segments: readonly BandSegment[], minute: number): number | null {
   const index = segmentIndexFor(segments, minute)
   if (index < 0) return null
@@ -303,7 +247,6 @@ function offsetFor(segments: readonly BandSegment[], minute: number): number | n
   return offset + ((minute - segments[index].start) / 60) * HOUR_PX
 }
 
-/** Total body height: every segment drawn to scale, plus one break per gap. */
 function bodyHeight(segments: readonly BandSegment[]): number {
   const drawn = segments.reduce(
     (total, segment) => total + (segmentMinutes(segment) / 60) * HOUR_PX,
@@ -312,7 +255,6 @@ function bodyHeight(segments: readonly BandSegment[]): number {
   return drawn + BREAK_PX * Math.max(0, segments.length - 1)
 }
 
-/** Where each break sits, and how long a gap it stands for. */
 function breaksFor(
   segments: readonly BandSegment[],
 ): { top: number; minutes: number; key: number }[] {
@@ -334,7 +276,6 @@ interface ShapeProps {
   onSelect: (jobId: string) => void
 }
 
-/** Seven columns and an hour gutter. Desktop only — see the module docstring. */
 function WeekGrid({ timetable, locale, colorOf, nameOf, onSelect }: ShapeProps): JSX.Element {
   const t = useTranslations(jobsCopy)
   const { segments, days } = timetable
@@ -447,7 +388,6 @@ function ScheduleBlock({
   onSelect,
 }: {
   block: TimetableBlock
-  /** Pixels from the top of the body — the segment stack already folded in. */
   top: number
   locale: string
   color: string
@@ -462,19 +402,13 @@ function ScheduleBlock({
       onClick={() => onSelect(block.jobId)}
       title={`${time} · ${name}`}
       data-testid="timetable-block"
-      className="focus-visible:ring-ring/60 absolute overflow-hidden rounded-[5px] border px-1.5 py-0.5 text-left transition-shadow duration-quick ease-out hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 motion-reduce:transition-none"
+      className="focus-visible:ring-ring/60 absolute overflow-hidden rounded-[5px] border px-1.5 py-0.5 text-left transition-[filter] duration-quick ease-out hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 motion-reduce:transition-none"
       style={{
         top: `${top + 1}px`,
         height: `${(BLOCK_MINUTES / 60) * HOUR_PX - 2}px`,
         left: `calc(${block.lane * width}% + 2px)`,
         width: `calc(${width}% - 4px)`,
-        // A full hairline in the series colour, not an edge of its own: the
-        // tint below already groups, the border only firms the chip's shape.
         borderColor: `color-mix(in oklab, ${color} 55%, transparent)`,
-        // A tint rather than the series colour itself: the label sits on this
-        // surface, and the palette's own notes record that three of the eight
-        // light steps do not clear 3:1 on a near-white ground. Ink stays
-        // `--foreground`; the colour only groups.
         backgroundColor: `color-mix(in oklab, ${color} 16%, var(--card))`,
       }}
     >
@@ -488,10 +422,6 @@ function ScheduleBlock({
   )
 }
 
-/**
- * The same week as a list. Below `md` only — seven columns cannot carry a name
- * at phone width, and a grid that cannot be read is worse than no grid.
- */
 function Agenda({
   timetable,
   locale,

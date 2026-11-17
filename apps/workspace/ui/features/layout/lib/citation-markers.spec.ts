@@ -28,21 +28,18 @@ const parse = (markdown: string, numbers: number[], anchorPrefix?: string): Node
 
 const isParent = (node: Node): node is Parent => Array.isArray((node as Parent).children)
 
-/** Every node of a type, in document order. */
 const collect = (node: Node, type: string): Node[] => {
   const found = node.type === type ? [node] : []
   if (isParent(node)) for (const child of node.children) found.push(...collect(child, type))
   return found
 }
 
-/** `[N] → #anchor` for every citation link in the tree. */
 const links = (node: Node): Array<[string, string]> =>
   collect(node, 'link').map((link) => {
     const { url, children } = link as LinkNode
     return [children.map(text).join(''), url]
   })
 
-/** The document's text, links flattened back to their labels. */
 const text = (node: Node): string =>
   isParent(node) ? node.children.map(text).join('') : value(node)
 
@@ -58,9 +55,6 @@ describe('remarkCitationMarkers', () => {
     ])
   })
 
-  // The defect: two sources behind one claim is `[2][3]` — what the report
-  // writers are instructed to emit — and the old source-text rewrite read the
-  // pair as reference-link syntax, leaving BOTH markers as literal text.
   test('links adjacent markers separately', () => {
     const tree = parse('Anforderungen an Feuerwiderstand [2][3].', [1, 2, 3])
 
@@ -113,9 +107,6 @@ describe('remarkCitationMarkers', () => {
     ])
   })
 
-  // Everything below is decided by the parser rather than by this module — the
-  // point of moving off the source text. They are asserted because they are the
-  // guarantees the old rewrite hand-rolled and could get wrong.
   test('leaves markers in fenced code and code spans alone', () => {
     const markdown = ['Siehe [1].', '```ts', 'const x = array[2]', '```', 'Auch `items[3]`.'].join(
       '\n'
@@ -131,16 +122,12 @@ describe('remarkCitationMarkers', () => {
     const tree = parse('[1](https://example.com) and [see [2]](https://example.com)', [1, 2])
 
     expect(links(tree)).toEqual([
-      // The label is `1`, not `[1]` — the brackets were link syntax, which is
-      // exactly the distinction a rewrite over source text cannot make.
       ['1', 'https://example.com'],
       ['see [2]', 'https://example.com'],
     ])
   })
 
   test('does not touch a resolved reference link, but does link a bare pair', () => {
-    // `[label][1]` with a definition is a linkReference; `[1][2]` with no
-    // definition is what it renders as — two literal markers.
     const defined = parse('[label][1]\n\n[1]: https://example.com', [1, 2])
     expect(collect(defined, 'linkReference')).toHaveLength(1)
     expect(links(defined)).toEqual([])

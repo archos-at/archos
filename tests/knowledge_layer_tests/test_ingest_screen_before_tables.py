@@ -1,18 +1,3 @@
-"""The upload screen runs before the table pass: a held file never pays for its tables.
-
-The PDF pipeline is text extraction, then the table pass, then everything a
-model reads. The screen used to run last, so a file it was going to hold paid
-the whole table pass (measured on production: 125 s of a 133-page PDF) for
-output nothing would index. Here the text layer is screened first, the tables
-only after it passes, and the tables are screened themselves — still before any
-model call — so a match that only a lost page's table carries still holds the
-file.
-
-Offline and model-free, so it runs without the Qdrant server the fuller
-``test_upload_screening_ingestion`` needs: a hand-built PDF, a stub store,
-recording call sites, and the same rules the shipped screen uses.
-"""
-
 from __future__ import annotations
 
 import time
@@ -52,14 +37,12 @@ def summary_db(tmp_path):
 
 @pytest.fixture
 def store(monkeypatch):
-    """A Qdrant stub, so this module needs no server: scrolls nothing, writes nothing."""
     from knowledge_layer.vector_store import store as store_module
     from knowledge_layer.vector_store import writes as writes_module
 
     fake = MagicMock()
     fake.scroll.return_value = []
     monkeypatch.setattr(store_module, "get_store", lambda *args, **kwargs: fake)
-    # ``writes`` bound ``get_store`` at import, so it needs the same stub.
     monkeypatch.setattr(writes_module, "get_store", lambda *args, **kwargs: fake)
     monkeypatch.setattr(writes_module, "write_chunks", lambda *args, **kwargs: None)
     return fake
@@ -67,7 +50,6 @@ def store(monkeypatch):
 
 @pytest.fixture
 def calls(tmp_path, monkeypatch, summary_db, store):
-    """The ingestor, and a recorder for the call sites that leave the pod (none do here)."""
     record: dict[str, list] = {"ocr": [], "vlm": [], "indexed": []}
     cred = ResolvedCredential(api_key="", base_url="", model="", source="env")
     monkeypatch.setattr(adapter, "resolve_vlm_credential", lambda organization_id=None: cred)
@@ -122,14 +104,12 @@ class TestAHeldFileNeverExtractsTables:
 
         assert detail.status == FileStatus.FAILED
         assert detail.screening == "quarantined"
-        # The same reason, from the same locally extracted text, as before the split.
         assert _reasons(detail.error_message)["reasons"] == [
             {"kind": "term", "term": "Gehaltsabrechnung", "count": 1, "pages": [1]}
         ]
         assert calls["ocr"] == [] and calls["vlm"] == []
 
     def test_a_term_in_the_text_layer_and_a_table_never_reaches_the_table_pass(self, tmp_path, calls, monkeypatch):
-        """A table the file also carries is read only after the text layer passes."""
         path = _pdf_with_table_page(tmp_path, monkeypatch, [["Posten", "Betrag"], ["Gehaltsabrechnung", "4200"]])
         seen: list[str] = []
         real = adapter._extract_tables_from_pdf
@@ -149,10 +129,6 @@ class TestAHeldFileNeverExtractsTables:
 
 class TestTheTablesAreStillScreened:
     def test_a_term_only_in_a_lost_page_table_still_holds_the_file(self, tmp_path, calls, monkeypatch):
-        # One page of five is within the failed-page tolerance, so the file
-        # stands; only the table pass reads page 2, and only its table carries
-        # the term. The text screen passes, the tables are read and screened,
-        # and the file is held — the same finding as before the split.
         path = _pdf_with_table_page(tmp_path, monkeypatch, [["Posten", "Betrag"], ["Gehaltsabrechnung", "4200"]])
         _text_pass_loses_page(monkeypatch, 2)
         seen: list[str] = []
@@ -174,7 +150,6 @@ class TestTheTablesAreStillScreened:
         assert seen == ["tables"]
 
     def test_a_clean_file_with_a_table_is_ingested_and_its_table_indexed(self, tmp_path, calls, monkeypatch):
-        """A passing file extracts the table exactly as before: same rows, same page, same Markdown."""
         rows = [["Posten", "Betrag"], ["Estrich", "4200"]]
         path = _pdf_with_table_page(tmp_path, monkeypatch, rows)
 
@@ -182,8 +157,6 @@ class TestTheTablesAreStillScreened:
 
         assert detail.status == FileStatus.SUCCESS
         assert detail.screening == "clean"
-        # The function's own output, read directly from the same file, is what
-        # the job indexed — the extraction path is untouched by the reorder.
         taken = {}
         extracted = adapter._extract_tables_from_pdf(str(path), taken)
         assert len(extracted) == 1
@@ -199,13 +172,6 @@ class TestTheTablesAreStillScreened:
 
 
 def test_the_screen_runs_before_the_table_pass(tmp_path, calls, monkeypatch):
-    """The order itself: the text layer is screened, the tables read, the tables screened.
-
-    Screening runs twice on purpose. The first pass covers the text layer and
-    its companions and decides whether the table pass is worth its cost; the
-    second screens the table Documents the first pass let through, still before
-    any model call.
-    """
     events: list[str] = []
     real_screen = screening.screen_pages
     real_tables = adapter._extract_tables_from_pdf
@@ -228,8 +194,6 @@ def test_the_screen_runs_before_the_table_pass(tmp_path, calls, monkeypatch):
 
 
 class TestTheTablePassLeavesTheDrawingsToVision:
-    """A vector drawing is all edges to the table finder: 0.68 s a page for no table. Vision reads it whole."""
-
     def _triage(self, *drawings: int):
         from knowledge_layer.ingest import PageKind
         from knowledge_layer.ingest import PdfTriage

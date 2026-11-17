@@ -1,13 +1,3 @@
-"""PDFium is entered by one thread at a time.
-
-PDFium is not thread-safe, and this process calls it from the ingest pool's
-workers (the route no longer renders a thumbnail itself: the job draws it after
-the file's screening, ADR-0086). Every call site goes
-through ``knowledge_layer.ingest.pdfium_lock``; these tests run the call
-sites concurrently over a fake PDFium that records how many threads are inside
-it at once.
-"""
-
 from __future__ import annotations
 
 import contextlib
@@ -25,8 +15,6 @@ pdfium = pytest.importorskip("pypdfium2")
 
 
 class _Occupancy:
-    """How many threads were inside the fake PDFium at the same time, at most."""
-
     def __init__(self) -> None:
         self._guard = threading.Lock()
         self._inside = 0
@@ -112,7 +100,6 @@ def _every_call_site():
 
 
 def _run_concurrently(calls) -> list[BaseException]:
-    """Each call twice, all threads released at once."""
     runs = calls * 2
     errors: list[BaseException] = []
     start = threading.Barrier(len(runs))
@@ -143,7 +130,6 @@ def test_concurrent_call_sites_never_overlap_inside_pdfium(monkeypatch):
 
 
 def test_the_fake_does_see_overlap_without_the_lock(monkeypatch):
-    """The check above can fail: with the lock gone, the same run overlaps."""
     occupancy = _Occupancy()
     _install_fake_pdfium(monkeypatch, occupancy)
     for module in (processing, adapter):
@@ -160,7 +146,6 @@ def test_the_lock_is_reentrant():
 
 
 def test_a_detached_image_outlives_its_bitmap():
-    """Rendered for real: the image owns its pixels after the bitmap is closed."""
     doc = pdfium.PdfDocument.new()
     doc.new_page(200, 300)
     buf = io.BytesIO()
@@ -179,7 +164,6 @@ def test_a_detached_image_outlives_its_bitmap():
 
 
 def test_close_bitmap_frees_a_foreign_bitmap_without_the_unsafe_close_warning(caplog) -> None:
-    """An embedded image's get_bitmap() is pdfium-allocated; pypdfium2 warns on every explicit close of one."""
     bitmap = pdfium.PdfBitmap.new_foreign(8, 8, pdfium.raw.FPDFBitmap_BGRA)
     assert bitmap.warn_on_close  # the warning this helper exists to switch off
 

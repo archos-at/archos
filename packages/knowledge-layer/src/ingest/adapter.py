@@ -29,6 +29,7 @@ import base64
 import contextlib
 import dataclasses
 import hashlib
+import itertools
 import json
 import logging
 import os
@@ -82,6 +83,9 @@ from . import revisions
 from . import row_facts
 from .chunk_metadata import provenance_from_config
 from .chunk_metadata import stamp_chunk_metadata
+from .chunking_choice import is_released_text as _released
+from .chunking_choice import text_documents_for_pages
+from .chunking_choice import text_documents_for_pages as _chunk
 from .measures import INGEST_TRACE_NAME  # noqa: F401 - re-exported, the trace's name
 from .measures import file_trace as _file_trace
 from .measures import finish_file as _finish_file_trace
@@ -998,55 +1002,6 @@ def text_chunks_for_pages(
     documents = text_documents_for_pages(text_pages, file_name, file_size)
     stamp_chunk_metadata(documents, doc_class=doc_class, provenance={}, chunk_size=chunk_size, file_name=file_name)
     return split_documents(documents, chunk_size=chunk_size, chunk_overlap=chunk_overlap)
-
-
-def text_documents_for_pages(text_pages: list[dict[str, Any]], file_name: str, file_size: int) -> list[Any]:
-    """Build the text Documents for one PDF, structure-aware where the document allows it.
-
-    A numbered corpus cut on its own outline yields one requirement per chunk instead of
-    roughly fifteen blended into a 1024-token block, and gives every chunk a Punkt to
-    cite rather than only a page. ``clause_documents`` returns ``None`` for anything
-    without a usable outline -- a glossary, a list of standards, any tenant upload.
-
-    A tenant PDF (anything not published by the OIB) is cut on its own headings FIRST
-    (``section_chunking``): sections that span pages, chunks with a breadcrumb and a page
-    each, overlap across page breaks, headings read from type as well as numbering. The
-    Punkt chunker used to claim any tenant report numbered ``1``, ``1.1``, ``2`` … by
-    numbering alone, and filed every piece of a long section under its first page; it
-    stays the path for the OIB's own files and the fallback after this one. Whatever
-    has no usable structure keeps the per-page path: one Document per page, its
-    captioned tables put back as Markdown after the text they were cut out of
-    (``page_text_with_tables``).
-
-    Extracted from ``_run_ingestion`` so the choice between the strategies is
-    testable without a job, a vector store or an embedder.
-    """
-    from knowledge_layer.ingest.clause_chunking import clause_documents
-    from knowledge_layer.ingest.section_chunking import section_documents
-    from llama_index.core import Document
-
-    from agent.common.norm_registry import oib_doc_class
-
-    sectioned = None if oib_doc_class(file_name) else section_documents(text_pages, file_name, file_size)
-    if sectioned is not None:
-        return sectioned
-    structured = clause_documents(text_pages, file_name, file_size)
-    if structured is not None:
-        return structured
-    from knowledge_layer.ingest.captioned_tables import page_text_with_tables
-
-    return [
-        Document(
-            text=page_text_with_tables(page["text"], page.get("tables") or []),
-            metadata={
-                "file_name": file_name,
-                "file_size": file_size,
-                "page_label": str(page["page_number"]),
-                "content_type": "text",
-            },
-        )
-        for page in text_pages
-    ]
 
 
 def page_texts_for_visual_heuristic(text_pages: list[dict[str, Any]]) -> dict[int, str]:
@@ -2296,11 +2251,9 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
     def _heartbeat_loop(self) -> None:
         self._settle_stranded_jobs()
         ingest_status_store.prune_expired(FILE_TRACKING_RETENTION_SECONDS)
-        beats = 0
-        while True:
+        for beats in itertools.count(1):
             time.sleep(ingest_status_store.HEARTBEAT_INTERVAL_SECONDS)
             self._beat()
-            beats += 1
             if beats % _PRUNE_EVERY_BEATS == 0:
                 ingest_status_store.prune_expired(FILE_TRACKING_RETENTION_SECONDS)
 
@@ -2334,11 +2287,20 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
         starts, so a retry can never put an older status over a newer one.
         Lock order: ``_persist_lock`` then ``_lock``, so never call this while
         holding ``_lock``. ``_persist_lock`` also guards ``_unpersisted``.
+
+        A run that was told to stop writes no live or failed status again
+        (``_told_to_stop``): whoever stopped it settled the row, and this write,
+        or the heartbeat's re-write of a row it no longer owns, would turn a
+        person's ``cancelled`` back into ``processing``. The skip counts as
+        stored, so the heartbeat does not try it again. ``completed`` is still
+        written: past the last ownership check the chunks are indexed, and the
+        row must say so (the BFF heals a stopped document from it).
         """
         with self._persist_lock:
             with self._lock:
                 snapshot = job.model_copy(deep=True)
-            if ingest_status_store.put(snapshot):
+            stopped = snapshot.status != JobState.COMPLETED and self._told_to_stop(job.job_id)
+            if stopped or ingest_status_store.put(snapshot):
                 self._unpersisted.discard(job.job_id)
             else:
                 self._unpersisted.add(job.job_id)
@@ -2877,18 +2839,27 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
         finally:
             self._claim_guards.pop(prepared.job_id, None)
 
+    def _told_to_stop(self, job_id: str) -> bool:
+        """Whether the job's run was cancelled; a job this process's own pool runs has no guard and never is."""
+        guard = self._claim_guards.get(job_id)
+        return guard is not None and not guard()
+
     def _assert_still_owner(self, job_id: str) -> None:
         """Raise ``_ClaimLost`` when the job's run was stopped."""
-        guard = self._claim_guards.get(job_id)
-        if guard is not None and not guard():
+        if self._told_to_stop(job_id):
             raise _ClaimLost(job_id)
 
     def _abandon(self, job_id: str) -> None:
-        """Forget a job whose run was stopped: no status write, no heartbeat; whoever stopped it has the row."""
+        """Forget a job whose run was stopped: no status write and no heartbeat from here on.
+
+        Whoever stopped it has the row, and between the stop and this call
+        ``_persist`` already wrote nothing live over it. The run's own last
+        word is the workflow's (``ingest_workflow._stopped``). A write of it
+        still waiting for a retry is dropped by the next beat, as for any job
+        no longer tracked (``_retry_unpersisted``).
+        """
         with self._lock:
             self._jobs.pop(job_id, None)
-        with self._persist_lock:
-            self._unpersisted.discard(job_id)
         logger.warning("Ingestion job %s was stopped; this run ends without writing", job_id)
 
     def _job_config(self, prepared: PreparedIngestJob) -> dict[str, Any]:
@@ -4107,7 +4078,7 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                             self._update_file_status(job, i, FileStatus.FAILED, error=error)
                             logger.warning("Scanned PDF not ingested (VLM not configured): %s", file_name)
                             continue
-                        text_documents = text_documents_for_pages(text_pages, file_name, file_size)
+                        text_documents = _chunk(text_pages, file_name, file_size, _released(config, collection_name))
                     elif is_image:
                         # Standalone image: read by the vision model (a hard requirement:
                         # no text to fall back on), that reading screened, then its

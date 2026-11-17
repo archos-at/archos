@@ -1,0 +1,8 @@
+---
+# area: building-law
+fixes:
+  - >
+    A paragraph of a law that an answer read in the legal database now shows
+    whether it binds at your site, from the published records, and its source
+    chip opens the law at its official address. Before, such a chip showed no
+    status and opened nothing.

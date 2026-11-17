@@ -1,17 +1,3 @@
-/**
- * GuardrailCheckCard — OIB 4 Absturzsicherung: a railing elevation to scale.
- *
- * Front elevation of the railing: two posts, a top rail, and explicit vertical
- * balusters spaced at the ACTUAL max opening, so a wide opening is visibly
- * wide and the opening arrow measures a real gap between two bars. Dimension
- * arrows read rail height, max opening and bottom gap, each coloured by its
- * check status. The ~15–60 cm no-climb band (Kletterschutzbereich) is shaded —
- * danger-tinted when the model reports climbable horizontals inside it. Below
- * the deck a dashed break + arrow surfaces the Absturzhöhe, because it decides
- * whether 100 cm or 110 cm applies; the applicable minimum is echoed next to
- * it. Unknown values render as "fehlende Angabe", never a guessed number.
- */
-
 import { type FC } from 'react'
 import { Fence } from 'lucide-react'
 import {
@@ -58,7 +44,6 @@ const contextLabel = (context: GuardrailCheckCardProps['context'], t: Translator
   }
 }
 
-/** Neutral drawing geometry when a value is unknown (labels stay "missing"). */
 const FALLBACK_RAIL_CM = 100
 const FALLBACK_OPENING_CM = 10
 const FALLBACK_GAP_CM = 4
@@ -95,21 +80,18 @@ export const GuardrailCheckCard: FC<GuardrailCheckCardProps> = ({
   const postW = 3.2 * k
   const railT = 3 * k
 
-  // No-climb band 15–60 cm, clipped to the railing height.
   const bandLo = Math.min(15, railH)
   const bandHi = Math.min(60, railH)
   const bandColor = climbables
     ? 'var(--text-color-feedback-danger)'
     : 'var(--text-color-feedback-warning)'
 
-  // Explicit balusters: bars spaced so each clear gap IS the max opening.
   const infillX0 = x0 + postW
   const infillW = runW * k - 2 * postW
   const barW = 1.8 * k
   const openPx = opening * k
   const barCount = Math.max(Math.floor((infillW - openPx) / (openPx + barW)), 0)
   const barXs = Array.from({ length: barCount }, (_, i) => infillX0 + (i + 1) * openPx + i * barW)
-  // Opening arrow between two adjacent bars near the middle of the run.
   const openIdx = Math.max(Math.floor(barCount / 2) - 1, 0)
   const openX1 = barCount > 1 ? barXs[openIdx] + barW : infillX0
   const openX2 = barCount > 1 ? barXs[openIdx + 1] : infillX0 + openPx

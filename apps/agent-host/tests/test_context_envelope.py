@@ -1,12 +1,3 @@
-"""Tests for agent_host.context_envelope (signed X-Grid-Request-Context envelope enforcement).
-
-Follows the same raw-ASGI-middleware testing pattern as test_auth.py
-(TestAuthMiddleware*): call the middleware's __call__ directly with a
-hand-built ASGI scope and record what it sends, rather than going through a
-full FastAPI TestClient — this middleware, like AuthMiddleware, never
-buffers a response body and is trivially exercised without HTTP plumbing.
-"""
-
 from __future__ import annotations
 
 import base64
@@ -86,15 +77,12 @@ class TestPathMatching:
         assert _path_matches("/v1/collections/proj_abc/documents", ENVELOPE_EXEMPT_HTTP_PATH_PREFIXES)
 
     def test_unrelated_path_not_prefix_polluted(self):
-        # "/v1/collections-admin" must NOT match the "/v1/collections" prefix.
         assert not _path_matches("/v1/collections-admin", ENVELOPE_EXEMPT_HTTP_PATH_PREFIXES)
 
     def test_job_submit_is_not_covered_by_the_agent_listing(self):
         assert not _path_matches("/v1/jobs/async/submit", ENVELOPE_EXEMPT_HTTP_PATH_PREFIXES)
 
     def test_job_reads_and_controls_authorize_by_themselves(self):
-        # Without an envelope they let a caller reach only its own jobs (ADR-0084),
-        # so a frontend from before it keeps working while a rollout runs both.
         for path in ("/v1/jobs/async/jobs", "/v1/jobs/async/job/abc", "/v1/jobs/async/job/abc/cancel"):
             assert _path_matches(path, ENVELOPE_EXEMPT_HTTP_PATH_PREFIXES), path
 
@@ -149,15 +137,10 @@ class TestExemptPaths:
 
 
 class TestDenyByDefault:
-    """Every workflow endpoint the agent runtime mounts, and any path nobody listed."""
-
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
         "path",
         [
-            # The agent runtime's default workflow routes — these ran full agent turns for a
-            # signed-in member with no envelope, reached through the BFF's v1
-            # proxy with nothing but a cookie.
             "/chat",
             "/chat/stream",
             "/v1/chat",
@@ -169,7 +152,6 @@ class TestDenyByDefault:
             "/generate/stream",
             "/v1/jobs/async/submit",
             "/v1/internal/skills/submit",
-            # A path a future release adds is closed until someone decides.
             "/v1/some/new/workflow",
             "/v1/admin/oib/sync",
         ],
@@ -343,7 +325,6 @@ class TestHttpEnforcement:
             messages.append(msg)
 
         headers = _envelope_headers({"organizationId": "org_1"})
-        # Tamper the signature (last header appended by _envelope_headers).
         name, sig = headers[-1]
         tampered = (b"0" if sig[:1] != b"0" else b"1") + sig[1:]
         headers[-1] = (name, tampered)
@@ -357,8 +338,6 @@ class TestHttpEnforcement:
 
     @pytest.mark.asyncio
     async def test_dev_mode_no_secret_still_requires_envelope_presence(self, capture_asgi):
-        # INTERNAL_API_TOKEN unset (autouse fixture clears it): signature
-        # verification is skipped, but presence is still enforced.
         assert not os.environ.get("INTERNAL_API_TOKEN")
         app, calls = capture_asgi
         mw = RequestContextEnvelopeMiddleware(app, require_auth=True)
@@ -444,7 +423,6 @@ class TestWebSocketEnforcement:
 
         await mw(scope, AsyncMock(), AsyncMock())
 
-        # No auth header -> detect_internal_caller() -> type "internal" -> exempt.
         assert calls == ["/websocket"]
 
     @pytest.mark.asyncio
@@ -484,10 +462,6 @@ class TestWebSocketEnforcement:
 
 
 class TestNatRouteCoverage:
-    """Every path the agent runtime's front end mounts a workflow on stays enforced, read from
-    the agent runtime's own endpoint config so a path a runtime release adds (1.9 added
-    `routes/v1_chat_completions.py`) is checked without anyone listing it."""
-
     def test_no_nat_workflow_path_is_exempt(self):
         from nat.front_ends.fastapi.fastapi_front_end_config import FastApiFrontEndConfig
 

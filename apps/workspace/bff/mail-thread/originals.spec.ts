@@ -1,12 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * A filed message's original (D6): the move to the entry's own key loses no
- * byte at any step and finishes on a retry; the download is scanned whole on
- * every request and served only clean, to whoever may read the thread, and is
- * recorded either way.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))

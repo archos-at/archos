@@ -1,0 +1,8 @@
+---
+operators:
+  - >
+    The staging stack no longer sets the Chroma migration flag. While it was
+    set, the base-corpus sync and the weekly vector reconcile never ran on
+    staging, so a changed chunk format was not rebuilt there. The next deploy
+    resumes both; run the vector reconcile once afterwards (Platform, Vector
+    maintenance), as the Qdrant runbook's last migration step says.

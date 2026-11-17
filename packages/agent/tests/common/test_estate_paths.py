@@ -1,5 +1,3 @@
-"""The paths Piloti reads the office's documents by (ADR-0133, agent-filesystem.md §1)."""
-
 from __future__ import annotations
 
 import pytest
@@ -19,7 +17,6 @@ from agent.common.estate_paths import reaches_drafts_only
 
 class TestTheLeaf:
     def test_a_pdf_is_served_as_its_text(self) -> None:
-        """A `.pdf` path that returns text becomes a base64 file block in the stock tool (prototype p2)."""
         assert leaf_for("Brandschutzkonzept.pdf") == "Brandschutzkonzept.pdf.md"
 
     def test_a_text_file_keeps_its_name(self) -> None:
@@ -103,8 +100,6 @@ class TestMounts:
 
 
 class TestTheRowsPlace:
-    """A Herleitung row names a place and the folder inside it, never a path (ADR-0132, ADR-0133)."""
-
     @pytest.mark.parametrize(
         ("path", "place"),
         [
@@ -125,13 +120,11 @@ class TestTheRowsPlace:
 
     @pytest.mark.parametrize("path", ["/nirgends/", "../project/", "project/x", "/drafts/", "/drafts/../project/"])
     def test_a_path_that_names_no_place_gives_the_row_nothing_to_print(self, path) -> None:
-        """The row then reads „… einen Ordner“, never „drafts › .. › project“."""
         assert action_place(path) == {}
 
     def test_the_document_a_read_asked_for_is_its_leaf_without_the_text_suffix(self) -> None:
         assert asked_document("/project/Personal/Vertrag.pdf.md") == "Vertrag.pdf"
         assert asked_document("/project/Notiz.txt") == "Notiz.txt"
-        # A stem without an extension is a file served as its text: the row names it without the suffix.
         assert asked_document("/project/Notiz.md") == "Notiz"
         assert asked_document("/project/Plan.pdf") == "Plan.pdf"
         assert asked_document("/project/Gutachten/") == ""

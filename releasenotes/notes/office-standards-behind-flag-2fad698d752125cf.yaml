@@ -1,0 +1,9 @@
+---
+# area: office-knowledge
+operators:
+  - >
+    The office's own standards (Grundlagen des Büros) are behind a new WorkOS
+    entitlement, office-standards: its place, its routes, the Büroablage mark
+    and what a turn is told about them are off until an operator targets the
+    organization. Create it in both environments: on for every organization
+    in Staging, off in Production until an office is targeted.

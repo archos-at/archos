@@ -1,5 +1,3 @@
-"""The four per-turn registries: bound for the turn, unbound after it, however it ends."""
-
 from __future__ import annotations
 
 import asyncio
@@ -48,8 +46,20 @@ class TestTurnRegistries:
         await _settle()
         assert persisted == ["conv-1"]
 
+    async def test_the_notes_the_turn_created_and_its_answer_are_on_the_log(self, persisted):
+        from agent.knowledge import project_memory as pm
+
+        payload = {"scope": "project", "kind": "decision", "content": "Flachdach."}
+        async with turn_registries("conv-6", SourceRegistry(), answer_message_id="answer-1") as registries:
+            assert pm.turn_answer_message() == "answer-1"
+            pm._record_write({"item": {"id": "n-1"}, "created": True}, payload)
+        assert pm.turn_answer_message() is None
+        assert registries.memory_notes == (
+            pm.TurnMemoryNote(id="n-1", kind="decision", content="Flachdach.", scope="project"),
+        )
+        await _settle()
+
     async def test_the_registrys_collections_are_read_back_at_exit(self, persisted):
-        """ADR-0087: the memory restriction decision reads what the conversation read."""
         from agent.citations.entries import SourceEntry
 
         session = SourceRegistry()
@@ -88,9 +98,6 @@ class TestTurnRegistries:
 
 
 class TestLoadSessionRegistry:
-    """The registry hydration is a blocking cache round-trip: it rides a
-    thread, and any failure yields a fresh registry — never a failed turn."""
-
     async def test_passthrough_on_success(self, monkeypatch):
         registry = SourceRegistry()
         monkeypatch.setattr(registries_mod, "get_or_create_session_registry", lambda _cid: registry)
@@ -110,5 +117,4 @@ class TestLoadSessionRegistry:
         fallback = await load_session_registry("conv-1")
 
         assert isinstance(fallback, SourceRegistry)
-        # Off the event loop even on the failing path.
         assert seen_threads and seen_threads[0] != calling_thread

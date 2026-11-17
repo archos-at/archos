@@ -32,23 +32,13 @@ import {
   type SnapshotStore,
 } from '@/features/realtime/use-channel'
 
-/** How a room reaches the server: the tab's live connection, or a stand-in (the specs, the `/dev` preview). */
 export interface RoomTransport {
-  /** Open the stream. Returns the close. */
   connect(handlers: { onFrame: (frame: RoomFrame) => void; onOpen: () => void; onDrop: () => void }): () => void
-  /** `motion`: a pointer or a scroll, which the connection sheds while the server refuses it. */
   post(post: RoomPost, options?: ChannelPostOptions): void
 }
 
-/** The live channel key of a document's room. */
 export const documentRoomChannel = (documentId: string) => `doc:${documentId}`
 
-/**
- * The production transport: the document's `doc:<id>` channel on the tab's one
- * `GET /api/realtime` stream, and `POST /api/realtime/send` up
- * (`features/realtime`, ADR-0110). Kept under its old name for the callers
- * that name it.
- */
 export function sseRoomTransport(documentId: string): RoomTransport {
   const link = realtimeLink<RoomPost>(documentRoomChannel(documentId))
   return {
@@ -66,44 +56,30 @@ export function sseRoomTransport(documentId: string): RoomTransport {
   }
 }
 
-/** What Piloti is doing on the document, while it works on it. */
 export interface RoomActivityState {
   state: AgentActivityState
-  /** The region it is reading, when it reads one. */
   box: RoomBox | null
   label: string | null
 }
 
-/** A box Piloti shows for a moment; draw it until `expiresAt`. */
 export interface RoomHighlightState {
   box: RoomHighlight['box']
   label: string | null
-  /** ms since the epoch. */
   expiresAt: number
 }
 
-/** One other viewer, as this tab knows them now. */
 export interface RoomPeerState {
   peer: RoomPeer
-  /** Where their pointer is on the pages; null when it is off them. */
   cursor: RoomCursor | null
-  /** When their pointer last moved, ms since the epoch: a pointer still for long reads as idle. */
   movedAt: number | null
   tool: RoomTool
   viewport: RoomViewport | null
-  /** The region they are dragging out, on their cursor's page; null when none. */
   draft: RoomDraft | null
-  /** Their cursor chat; null when none. */
   chat: string | null
-  /** The words beside their pointer (Piloti saying what it points at); null when none. */
   label: string | null
-  /** The Anmerkung they have selected; null when none. */
   selected: string | null
-  /** Piloti's activity, for a peer of kind `piloti`; null for a person. */
   activity: RoomActivityState | null
-  /** Piloti's latest highlight; null when none. Stale once past `expiresAt`. */
   highlight: RoomHighlightState | null
-  /** When their presence claim runs out, ms since the epoch. */
   expiresAt: number
 }
 
@@ -124,10 +100,8 @@ const NOBODY: PeerFields = {
   highlight: null,
 }
 
-/** While nobody else is here, the pointer and the view go up at most this often, and only when they moved on. */
 const ALONE_INTERVAL_MS = 1_000
 
-/** Fold one of a peer's events into what this tab knows of them; null takes them out of the room. */
 export function reduceRoomPeer(state: PeerFields, event: RoomEvent): PeerFields | null {
   switch (event.kind) {
     case 'cursor':
@@ -169,7 +143,6 @@ const parseRoomEvent = (value: unknown): RoomEvent | null => {
 
 type AnnotationsChanged = Extract<RoomEvent, { kind: 'annotations.changed' }>
 
-/** A box Piloti points out on a page, with what it says about it. */
 export interface AgentHighlight {
   page: number
   x: number
@@ -179,13 +152,8 @@ export interface AgentHighlight {
   label: string | null
 }
 
-/** How long a box Piloti pointed out stays on the page, unless it points out the next one first. */
 export const HIGHLIGHT_MS = 6_000
 
-/**
- * What Piloti points out, read off its peer: its latest highlight while it
- * lasts, else the region its activity says it is reading.
- */
 export function agentHighlightOf(state: RoomPeerState, now = Date.now()): AgentHighlight | null {
   if (state.peer.kind !== 'piloti') return null
   if (state.highlight && state.highlight.expiresAt > now) {
@@ -197,19 +165,12 @@ export function agentHighlightOf(state: RoomPeerState, now = Date.now()): AgentH
 
 export type ShownHighlight = AgentHighlight & { key: string; peerId: string }
 
-/**
- * The boxes Piloti pointed out, each shown until it points out the next or
- * {@link HIGHLIGHT_MS} passes: a highlight is a gesture, not a mark. Kept once
- * per room, not per page drawn: one timer per box, however many pages and
- * viewers show it.
- */
 export function createHighlightTracker() {
   const store = createSnapshotStore<readonly ShownHighlight[]>([])
   const timers = new Map<string, ReturnType<typeof setTimeout>>()
   let signature = ''
   return {
     store: store as SnapshotStore<readonly ShownHighlight[]>,
-    /** Read the peers again; only a different set of boxes changes anything. */
     update(peers: readonly RoomPeerState[]) {
       const arrived = peers.flatMap((state) => {
         const highlight = agentHighlightOf(state)
@@ -247,11 +208,6 @@ export function createHighlightTracker() {
   }
 }
 
-/**
- * The roster as the room reads it: each entry flattened into a
- * {@link RoomPeerState}, and a peer that did not change keeps the object it
- * had, so a selector over the peers of one page compares them by identity.
- */
 export function roomPeersOf(
   roster: SnapshotStore<readonly RosterEntry<PeerFields>[]>
 ): SnapshotStore<readonly RoomPeerState[]> {
@@ -276,21 +232,6 @@ export function roomPeersOf(
   }
 }
 
-/**
- * This tab in a document's room: who else is looking, where their pointers
- * are and what they are dragging out, where they are scrolled to, what Piloti
- * is reading, and that the Anmerkungen changed (`lib/annotations/room-types.ts`).
- *
- * A thin adapter over the `doc:<id>` live channel (`features/realtime`): the
- * presence gossip, the connection and the throttling are the channel's. What is
- * the room's own: pointers go up at most every 80ms with the dragged region and
- * the cursor chat riding along, viewports every 200ms, the selection when it
- * changes. While no other person is in the room the motion is not sent at all:
- * only where the pointer and the view are (page, draft, roughly where on the
- * page), at most once a second, for the server's snapshot that Piloti reads
- * (`roomSnapshot`). A receiver glides between pointer updates (`LiveCursor`),
- * so twelve a second read as continuous motion.
- */
 export function useDocumentRoom(
   documentId: string,
   { enabled, transport }: { enabled: boolean; transport?: RoomTransport }
@@ -326,7 +267,6 @@ export function useDocumentRoom(
 
   const { roster } = channel
   const peers = useMemo(() => roomPeersOf(roster), [roster])
-  // Piloti's highlights, once for the room: every page and both viewers read the same boxes.
   const [highlights] = useState(createHighlightTracker)
   useEffect(() => {
     const update = () => highlights.update(peers.get())
@@ -339,9 +279,7 @@ export function useDocumentRoom(
   }, [peers, highlights])
 
   const { peerCount } = channel
-  /** Whether a person besides this tab is here: Piloti reads the server's snapshot, not the pointer stream. */
   const company = useCallback(() => peerCount((peer) => peer.kind === 'person') > 0, [peerCount])
-  /** What was last sent while alone, so moving within one page alone sends nothing. */
   const aloneSent = useRef({ pointer: '', viewport: '' })
   const view = useRef<{ viewport: RoomViewport | null; selected: string | null }>({ viewport: null, selected: null })
 
@@ -353,14 +291,12 @@ export function useDocumentRoom(
       send(message, { throttleMs: CURSOR_INTERVAL_MS, lane: 'cursor' })
       return
     }
-    // Alone: no motion, only where the pointer is (its page, the draft, the chat), for the server's snapshot.
     const summary = JSON.stringify([cursor?.page ?? null, tool, draft, chat])
     if (summary === aloneSent.current.pointer) return
     aloneSent.current.pointer = summary
     send(message, { throttleMs: ALONE_INTERVAL_MS, lane: 'cursor-alone' })
   }, [company, send])
 
-  /** Say where this tab's pointer is on the pages (null: off them), and what it is doing. */
   const sendCursor = useCallback(
     (cursor: RoomCursor | null, tool: RoomTool = pointer.current.tool) => {
       pointer.current = { ...pointer.current, cursor, tool, draft: cursor ? pointer.current.draft : null }
@@ -369,7 +305,6 @@ export function useDocumentRoom(
     [pushPointer]
   )
 
-  /** Show the others the region this tab is dragging out, on the pointer's page; null when it is done. */
   const sendDraft = useCallback(
     (draft: RoomDraft | null) => {
       pointer.current = { ...pointer.current, draft }
@@ -378,7 +313,6 @@ export function useDocumentRoom(
     [pushPointer]
   )
 
-  /** Show a line of cursor chat beside this tab's pointer; null or empty clears it. */
   const sendChat = useCallback(
     (text: string | null) => {
       const chat = text?.trim().slice(0, CURSOR_CHAT_MAX) || null
@@ -396,7 +330,6 @@ export function useDocumentRoom(
         send({ viewport }, { throttleMs: VIEWPORT_INTERVAL_MS, lane: 'viewport' })
         return
       }
-      // Alone: the page and roughly where on it, for the snapshot; not every scroll step.
       const summary = `${viewport.page}:${Math.round(viewport.y * 10)}`
       if (summary === aloneSent.current.viewport) return
       aloneSent.current.viewport = summary
@@ -405,7 +338,6 @@ export function useDocumentRoom(
     [company, send]
   )
 
-  /** Say which Anmerkung this tab has selected (null: none). Rare, so never throttled, and sent alone too. */
   const sendSelection = useCallback(
     (annotationId: string | null) => {
       if (view.current.selected === annotationId) return
@@ -415,7 +347,6 @@ export function useDocumentRoom(
     [send]
   )
 
-  /** Hear about changes to the Anmerkungen; returns the unsubscribe. */
   const onAnnotationsChanged = useCallback((listener: (event: AnnotationsChanged) => void) => {
     listeners.current.add(listener)
     return () => {
@@ -429,9 +360,7 @@ export function useDocumentRoom(
       peerId,
       status,
       self,
-      /** Who else is here, as a store: read it with {@link useRoomPeers} or {@link useRoomSelector}, never in the host's render. */
       peers,
-      /** The boxes Piloti points out now; see {@link createHighlightTracker}. */
       highlights: highlights.store,
       sendCursor,
       sendViewport,
@@ -446,16 +375,13 @@ export function useDocumentRoom(
 
 export type DocumentRoom = ReturnType<typeof useDocumentRoom>
 
-/** Everyone in the room, re-rendering whenever anyone moves: for what draws pointers. */
 export const useRoomPeers = (room: Pick<DocumentRoom, 'peers'>): readonly RoomPeerState[] => useSnapshot(room.peers)
 
-/** What `select` reads of the room's peers, re-rendering only when that changed by `equal`. */
 export const useRoomSelector = <R,>(
   room: Pick<DocumentRoom, 'peers'>,
   select: (peers: readonly RoomPeerState[]) => R,
   equal?: (a: R, b: R) => boolean
 ): R => useStoreSelector(room.peers, select, equal)
 
-/** The peers whose pointer or box is on one page, compared by identity: a pointer on another page re-renders nothing here. */
 export const usePeersOnPage = (room: Pick<DocumentRoom, 'peers'>, page: number): readonly RoomPeerState[] =>
   useStoreSelector(room.peers, (peers) => peers.filter((state) => state.cursor?.page === page), sameItems)

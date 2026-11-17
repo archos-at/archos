@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Reading messages shaped like the clients that send them: Apple Mail's inline
- * PDFs and photos, Outlook's pasted images and Thread-Index, forwards as
- * attachments, S/MIME and PGP/MIME, scanners without names.
- */
 import { describe, expect, it } from 'vitest'
 import {
   attachment,
@@ -146,9 +141,7 @@ describe('deliveryKey', () => {
     const key = deliveryKey(bytes(signed('c2lnbmVk\r\n\tLXZhbHVl')), 'mail-1')
     expect(deliveryKey(bytes(message()), 'mail-2')).not.toBe(key)
     expect(deliveryKey(bytes(signed('YnJva2Vu')), 'mail-2')).not.toBe(key)
-    // The same signature, folded otherwise by a relay, is the same mail.
     expect(deliveryKey(bytes(signed('c2lnbmVkLXZhbHVl')), 'mail-2')).toBe(key)
-    // The body hash tag is not the signature.
     expect(deliveryKey(bytes(signed('c2lnbmVkLXZhbHVl').replace('bh=AAAA', 'bh=BBBB')), 'mail-2')).toBe(key)
   })
 

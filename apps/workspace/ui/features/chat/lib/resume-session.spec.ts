@@ -41,8 +41,6 @@ describe('resumableSessionId', () => {
   })
 
   test('a stale newest session blocks resume even when an older one is recent', () => {
-    // Rule 1 is absolute: we resume the newest or nothing. Reaching past it
-    // would open a session the user did not touch last.
     const id = resumableSessionId(
       [
         session({ id: 'stale-newest', updatedAt: new Date(NOW - RESUME_WINDOW_MS - 60_000) }),

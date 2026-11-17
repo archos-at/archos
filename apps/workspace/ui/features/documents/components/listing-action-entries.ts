@@ -1,9 +1,3 @@
-/**
- * Right-click on empty canvas in the file listing: New folder / Upload, then
- * View and Sort — the Finder/Explorer empty-space menu, mapped onto operations
- * this workspace already has.
- */
-
 import { FolderPlus, FolderUp, Upload } from 'lucide-react'
 import type { ActionMenuEntry } from '@/components/ui/action-menu'
 import type { FileSort, FileSortKey } from '../lib/file-sort'

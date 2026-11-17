@@ -1,18 +1,12 @@
-"""Tests for the shared message-content normalization helper."""
-
 from agent.common import content_to_text
 
 
 class _TextBlock:
-    """A content block exposing ``.text`` as an attribute (not a dict)."""
-
     def __init__(self, text):
         self.text = text
 
 
 class TestContentToText:
-    """content_to_text flattens the several shapes ``message.content`` can take."""
-
     def test_string_content_unchanged(self):
         assert content_to_text("plain answer") == "plain answer"
 
@@ -49,8 +43,6 @@ class TestContentToText:
 
 
 class TestResponseText:
-    """#653: the text of a model reply, whether its content is a string or a list of blocks."""
-
     BLOCKS = [
         {"type": "reasoning", "summary": []},
         {"type": "text", "text": '{"items": ['},

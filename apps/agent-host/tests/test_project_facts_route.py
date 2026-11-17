@@ -1,9 +1,3 @@
-"""`PUT /v1/collections/{c}/project-facts`: authorized by the signed scope, a no-op where Qdrant is not written.
-
-The write itself runs against a real Qdrant in ``test_grouped_search_on_qdrant.py``;
-here the store is stood in for, so the refusals are checked without one.
-"""
-
 from __future__ import annotations
 
 import base64
@@ -27,7 +21,6 @@ BODY = {
 
 @pytest.fixture
 def written(monkeypatch):
-    """The store's write, recorded instead of sent."""
     from knowledge_layer.vector_store import retrieval
 
     calls: list[tuple[str, dict, str]] = []
@@ -71,7 +64,6 @@ async def test_writes_the_facts_of_a_collection_in_the_signed_scope(client, writ
     assert res.status_code == 200 and res.json() == {"collection": "proj_a_r0123456789ab", "applied": True}
     [(scope, facts, status)] = written
     assert scope == "proj_a_r0123456789ab" and status == "closed"
-    # The vector store holds the English names and tokens: the route writes the facts as sent.
     assert facts == {
         "federal_state": "vienna",
         "building_class": [4],

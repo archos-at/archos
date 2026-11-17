@@ -4,8 +4,6 @@ import { render, screen } from '@/test-utils'
 import type { ResourceAccessEntry } from '@/lib/sharing/types'
 import { AccessChip, namedAudienceCount } from './AccessChip'
 
-/** Default locale in an unprovided test tree is `en`. */
-
 const person = (userId: string, name: string) => ({
   userId,
   name,
@@ -40,8 +38,6 @@ describe('AccessChip', () => {
     const chip = screen.getByTestId('access-chip')
     expect(chip).toHaveTextContent('Shared with 3')
     expect(chip).toHaveAttribute('data-state', 'shared')
-    // A shared thread wearing a padlock would be a lie the reader has to click
-    // to discover.
     expect(chip.querySelector('svg.lucide-lock')).toBeNull()
   })
 

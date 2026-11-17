@@ -1,5 +1,3 @@
-"""The builder end to end on a real agent DB: the hooks mark, a run climbs, skips, stops and stays in budget."""
-
 from __future__ import annotations
 
 import pytest
@@ -17,7 +15,6 @@ ORG = "org_1"
 
 @pytest.fixture
 def quiet(monkeypatch):
-    """No debounce: a mark is due at once."""
     monkeypatch.setattr(queue, "QUIET_SECONDS", 0)
 
 
@@ -219,7 +216,6 @@ class TestBuildCollection:
         assert ("delete", "proj", "Gutachten/Behörde", None) in project.points
 
     async def test_a_folder_this_collection_does_not_own_is_dropped_without_a_model_call(self, project):
-        # "Pläne" has one file; add more so only ownership, not size, decides.
         for name in ("Schnitt.pdf", "Ansicht.pdf", "Detail.pdf"):
             _file(name, "Pläne")
         project.folders.discard(("proj", "Pläne"))
@@ -255,7 +251,6 @@ class TestBuildCollection:
         assert _paths() == ["Gutachten", "Pläne"]
 
     async def test_a_folder_marked_again_while_it_is_built_is_not_built_twice_in_one_run(self, project):
-        """With no debounce a re-marked folder is due at once; a run still meets each folder once and ends."""
 
         def reply(prompt):
             queue.mark("proj", ["Gutachten/Behörde"], ORG)
@@ -270,8 +265,6 @@ class TestBuildCollection:
 
 
 class TestAFailedFolder:
-    """What the claim's attempt counter did: tried again, then given up, and never in the way of the others."""
-
     @staticmethod
     def _failing(folder: str, error: Exception | None = None):
         def reply(prompt):
@@ -387,14 +380,12 @@ class TestSweep:
         assert _paths() == ["Gutachten", "Gutachten/Behörde", "Pläne"]
 
     def test_a_build_that_dies_on_every_attempt_is_not_tried_for_ever(self, project, caplog):
-        """Each run that failed for good is a round; after the last the folders wait for the nightly reconcile."""
         rounds = [worker.give_up_run("proj") for _round in range(queue.GIVE_UP_ROUNDS)]
 
         assert rounds[-1] == {"deferred": 0, "dropped": 3}
         assert _paths() == []
         (logged,) = [record.getMessage() for record in caplog.records if record.name == worker.__name__]
         assert "3 folder(s) of proj left the dirty set" in logged and "Behörde" not in logged
-        # Tomorrow's run: the reconcile marks the two that deserve a card and have none.
         assert worker.reconcile_collection("proj", ORG) == 2
 
 

@@ -1,18 +1,3 @@
-/**
- * The decision a person is making about one held mail, before they press the
- * button, and the request it becomes (`inbound-mail-file`, D26).
- *
- * The draft starts as the agent's suggestion, the server's candidates and the
- * server's defaults (`preselected` on each part, `initialDraft`), so pressing
- * „Ablegen“ IS taking the suggestion over
- * (CONTEXT: the agent's findings are Vorschläge until a person takes them over);
- * every field the person edits stops being the agent's (`suggested`). The button
- * label, the bulk confirmation and the request are all read off the same
- * draft (`draftSummary`, `decisionOf`), so what the bar says is what is sent.
- *
- * Pure. Each function returns a new draft; nothing here mutates.
- */
-
 import type { DocumentTypeTag } from '@/lib/documents/tag-vocabulary'
 import type {
   InboundMailDecision,
@@ -25,17 +10,14 @@ import { displaySubject } from '@/lib/inbound-mail/subject'
 import { attachmentCase, type AttachmentCase } from './attachment-case'
 import { readSuggestion, type PartSuggestion } from './suggestion'
 
-/** A folder of the project the person may see, with its full path and whether they may file into it. */
 export interface FolderOption {
   id: string
   parentId: string | null
   name: string
-  /** The path as the project names it, segments joined by `/`. */
   path: string
   writable: boolean
 }
 
-/** Where something is filed: a folder that exists (null id: the project root), or a path filing creates. */
 export type FolderTarget = { kind: 'existing'; folderId: string | null; path: string } | { kind: 'new'; path: string }
 
 export const ROOT_TARGET: FolderTarget = { kind: 'existing', folderId: null, path: '' }
@@ -44,33 +26,18 @@ export interface AttachmentDraft {
   partId: string
   checked: boolean
   name: string
-  /** Null until a folder is chosen: the agent suggested none, and filing waits for the person. */
   folder: FolderTarget | null
   documentType: DocumentTypeTag | null
-  /** File as the next Fassung of this document. */
   revisionOf: string | null
-  /** „Trotzdem ablegen“ on a name the name check stopped. */
   releaseName: boolean
-  /** The person accepted the part's risk flag (macro, type mismatch, an unconfirmed Fassung). */
   acknowledgeRisk: boolean
-  /** Which fields still hold the agent's value. */
   suggested: { folder: boolean; name: boolean; documentType: boolean }
 }
 
 export type MessageTarget =
   | { kind: 'append'; threadId: string }
-  /**
-   * `folderSuggested`: the folder is the agent's stored suggestion for the text
-   * (D14), not the rule's correspondence folder (`defaultThreadFolder`) nor the
-   * person's pick. Only then may the folder wear the agent's mark.
-   */
   | { kind: 'create'; name: string; folder: FolderTarget; folderSuggested: boolean; releaseName: boolean }
 
-/**
- * What to do with a text the content check found something in (D13): file it
- * with the findings made unrecognizable (the default), as a thread of its own,
- * or whole into the thread, which holds the thread until someone checks it.
- */
 export type ContentFindingChoice = 'masked' | 'own_thread' | 'full'
 
 export interface MessageDraft {
@@ -78,7 +45,6 @@ export interface MessageDraft {
   checked: boolean
   target: MessageTarget
   findingChoice: ContentFindingChoice | null
-  /** The person accepted appending to a thread the sender could not vouch for (`unverified_thread`). */
   acknowledgeThread: boolean
 }
 
@@ -87,19 +53,15 @@ export interface MailDraft {
   ifMatch: string
   attachments: AttachmentDraft[]
   message: MessageDraft | null
-  /** „Domain nicht bestätigt. Trotzdem ablegen“. */
   acknowledgeSender: boolean
 }
 
 export interface DraftCopy {
-  /** The name a nameless attachment is filed under, by its position. */
   unnamedAttachment: (position: number) => string
-  /** The name of a new thread when the mail has no subject. */
   untitledThread: string
 }
 
 
-/** The target a suggested path resolves to: the folder that has it, or a folder filing creates. */
 export function targetForPath(path: string, folders: readonly FolderOption[], folderId: string | null = null): FolderTarget {
   const normalized = path.split('/').map((part) => part.trim()).filter(Boolean).join('/')
   if (normalized === '') return ROOT_TARGET
@@ -135,17 +97,11 @@ function attachmentDraft(entry: AttachmentCase, folders: readonly FolderOption[]
   }
 }
 
-/** The folder a new thread goes to by default: a correspondence folder the person may write, else the root. */
 export function defaultThreadFolder(folders: readonly FolderOption[]): FolderTarget {
   const folder = folders.find((option) => option.writable && CORRESPONDENCE_FOLDER.test(option.path))
   return folder ? { kind: 'existing', folderId: folder.id, path: folder.path } : ROOT_TARGET
 }
 
-/**
- * A new thread for the text: named after the subject (the person confirms it),
- * in the folder the agent suggested for the text where it did (D14: only when no
- * thread matched), else a correspondence folder, else the root.
- */
 export function newThreadTarget(view: Pick<InboundMailView, 'subject' | 'parts'>, folders: readonly FolderOption[], copy: DraftCopy): MessageTarget {
   const suggested = readSuggestion(view.parts.find((part) => part.kind === 'message')?.suggestion)
   const fromAgent = suggested?.folder != null
@@ -153,7 +109,6 @@ export function newThreadTarget(view: Pick<InboundMailView, 'subject' | 'parts'>
   return { kind: 'create', name: displaySubject(view.subject) ?? copy.untitledThread, folder, folderSuggested: fromAgent, releaseName: false }
 }
 
-/** Whether the mail's own text can be filed at all: waiting, read, its raw message scanned clean, and the project open. */
 export function messageSelectable(view: InboundMailView): boolean {
   const part = view.parts.find((candidate) => candidate.kind === 'message')
   return !!part && partMessageSelectable(part, view)
@@ -178,8 +133,6 @@ export function initialDraft(view: InboundMailView, folders: readonly FolderOpti
   return { mailId: view.id, ifMatch: view.ifMatch, attachments, message, acknowledgeSender: false }
 }
 
-// ------------------------------------------------------------ edits
-
 function sameTarget(a: FolderTarget | null, b: FolderTarget | null): boolean {
   if (a === null || b === null) return a === b
   return a.kind === b.kind && a.path === b.path && (a.kind === 'new' || b.kind === 'new' || a.folderId === b.folderId)
@@ -194,7 +147,6 @@ export function updateAttachment(draft: MailDraft, partId: string, change: Parti
         : {
             ...attachment,
             ...change,
-            // A field stays the agent's until the person gives it another value.
             suggested: {
               folder: attachment.suggested.folder && (change.folder === undefined || sameTarget(change.folder, attachment.folder)),
               name: attachment.suggested.name && (change.name === undefined || change.name === attachment.name),
@@ -210,7 +162,6 @@ export function updateMessage(draft: MailDraft, change: Partial<Omit<MessageDraf
   return draft.message ? { ...draft, message: { ...draft.message, ...change } } : draft
 }
 
-/** The content-check choice also decides the target: „Getrennt ablegen (eigener E-Mail-Verlauf)“ makes a new one. */
 export function chooseFinding(
   draft: MailDraft,
   choice: ContentFindingChoice,
@@ -224,24 +175,15 @@ export function chooseFinding(
   return updateMessage(draft, { findingChoice: choice, target })
 }
 
-// ------------------------------------------------------------ what it needs and says
-
-/** The candidate a draft's text appends to, when it appends. */
 export function appendCandidate(view: Pick<InboundMailView, 'threadCandidates'>, draft: MailDraft): InboundMailThreadCandidateView | null {
   const target = draft.message?.target
   return target?.kind === 'append' ? (view.threadCandidates.find((candidate) => candidate.threadId === target.threadId) ?? null) : null
 }
 
-/**
- * Whether appending to this candidate needs the `unverified_thread` yes: any
- * block but a weak match (a subject match from a confirmed sender is merely
- * not pre-selected; everything else is the sender failing to vouch, D11).
- */
 export function appendNeedsAcknowledgement(candidate: InboundMailThreadCandidateView): boolean {
   return candidate.blocks.some((block) => block !== 'weak_match')
 }
 
-/** Why the button cannot file yet, in the order the reader resolves them. */
 export type DraftBlocker =
   | { kind: 'project_closed' }
   | { kind: 'folder_missing'; count: number }
@@ -249,18 +191,14 @@ export type DraftBlocker =
   | { kind: 'risk'; count: number }
   | { kind: 'thread_name_missing' }
   | { kind: 'sender' }
-  /** The mail claims another member as its sender: only they may file it (`sender_only`); the reader may dismiss it. */
   | { kind: 'sender_only' }
 
 export interface DraftSummary {
   files: number
   text: boolean
-  /** The text appends to this thread and becomes its Fassung N. */
   thread: { name: string; nextVersion: number } | null
-  /** Nothing is filed, so the original is erased when the mail settles (D6). */
   originalErased: boolean
   needsSenderAcknowledgement: boolean
-  /** The mail claims the reader as its sender and their signature did not hold: their yes is „I sent this“. */
   ownClaimedMail: boolean
   blockers: DraftBlocker[]
 }
@@ -298,7 +236,6 @@ export function draftSummary(view: InboundMailView, draft: MailDraft): DraftSumm
   }
 }
 
-/** Whether filing this attachment as drafted needs its risk accepted. */
 export function attachmentNeedsAcknowledgement(
   view: Pick<InboundMailView, 'sender' | 'projectClosed'>,
   attachment: AttachmentDraft,
@@ -310,19 +247,11 @@ export function attachmentNeedsAcknowledgement(
   return attachment.revisionOf !== null && revision?.kind === 'revision' && !revision.verified
 }
 
-// ------------------------------------------------------------ the request
-
 function folderFields(target: FolderTarget | null): { folderId: string | null; newFolderPath: string | null } {
   if (!target) return { folderId: null, newFolderPath: null }
   return target.kind === 'existing' ? { folderId: target.folderId, newFolderPath: null } : { folderId: null, newFolderPath: target.path }
 }
 
-/**
- * The request for one mail. Unchecked parts are not named, so the server
- * dismisses them (D26). Acknowledgements ride only where the draft has them
- * and the mail needs them; `bulk` leaves every one out (RT-S5), which is why a
- * bulk decision is only offered for complete mails.
- */
 export function decisionOf(view: InboundMailView, draft: MailDraft, options: { bulk?: boolean } = {}): InboundMailDecision {
   const cases = new Map(view.parts.map((part) => [part.id, attachmentCase(part, view)]))
   const acknowledged: string[] = []

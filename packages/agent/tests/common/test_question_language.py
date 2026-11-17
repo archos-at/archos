@@ -1,10 +1,3 @@
-"""The detector's call on short office questions: confident non-German writes the line, everything else does not.
-
-The cases are the measurement behind ``MIN_CONFIDENCE`` and ``MIN_WORDS``
-(2026-10-28). A failure here after a py3langid upgrade means the thresholds are
-measured again, not that the case is dropped.
-"""
-
 from __future__ import annotations
 
 import pytest

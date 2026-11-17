@@ -16,11 +16,6 @@ vi.mock('@/lib/db', () => ({
 }))
 
 vi.mock('@/lib/db/schema/documents', () => ({
-  // `documents` and `projects` are reached transitively — this module re-parents
-  // documents when a folder goes, and `@/lib/projects/repository` reads projects.
-  // A mock that names only the table the spec asserts on leaves the others
-  // undefined at import time, which fails as a module error rather than as an
-  // assertion.
   documents: { folderId: 'folder_id', projectId: 'project_id', id: 'id' },
 }))
 vi.mock('@/lib/db/schema/project-folders', () => ({
@@ -66,17 +61,8 @@ const row = (id: string) => ({
   updatedAt: new Date('2026-08-20T00:00:00Z'),
 })
 
-/** What the service answers for {@link row}: an inheriting folder has no own list. */
 const { accessMode: _accessMode, ...folderOf } = row('folder-new')
 
-/**
- * Get-or-create is two statements, and migration 0063's
- * `uniq_project_folders_parent_name` is what turns the loser of a race into a
- * 23505 instead of into a second `Berichte` folder nobody can tell from the
- * first. The index is what makes the recovery correct; these tests are about
- * the recovery being graceful — a concurrent run must not 500 somebody's
- * finished report.
- */
 describe('getOrCreateProjectFolderByName', () => {
   const select = vi.fn()
   const insert = vi.fn()
@@ -119,8 +105,6 @@ describe('getOrCreateProjectFolderByName', () => {
   })
 
   it('recovers the concurrent writer’s folder from a unique violation', async () => {
-    // First select finds nothing, the insert loses the race, the second select
-    // finds the winner. Nothing about this is visible to the caller.
     stubSelect([], [row('folder-winner')])
     stubInsert(async () => {
       throw Object.assign(new Error('duplicate key'), { code: '23505' })
@@ -140,14 +124,10 @@ describe('getOrCreateProjectFolderByName', () => {
     await expect(getOrCreateProjectFolderByName('proj-1', 'Berichte', 'org-1')).rejects.toThrow(
       'deadlock detected',
     )
-    // One lookup: a non-race failure must not be answered by pretending to look
-    // for a winner that was never created.
     expect(select).toHaveBeenCalledTimes(1)
   })
 
   it('re-throws the unique violation when the re-select still finds nothing', async () => {
-    // Cannot happen against the real index, and swallowing it would return
-    // `undefined` as a folder — so it stays an error rather than a guess.
     stubSelect([], [])
     stubInsert(async () => {
       throw Object.assign(new Error('duplicate key'), { code: '23505' })

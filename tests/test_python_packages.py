@@ -1,14 +1,3 @@
-"""The Python packages under packages/ are listed the same way in the three places that name them.
-
-`packages/` also holds packages that are not part of this Python workspace:
-`ifc-spatial-py` keeps its own `uv.lock` so IfcOpenShell stays out of the main
-one, and `brand` is not Python. So nothing globs
-`packages/*`, and each workspace package is named in the root `pyproject.toml`
-(the uv workspace and pytest's `testpaths`) and in `taskfiles/backend.yml`
-(`PY_PACKAGES`, the suite `be:test:sources` runs; the agent's own suite is in the core
-suite instead). A package added to one and not the others is installed but never tested, or tested but never installed.
-"""
-
 from __future__ import annotations
 
 import tomllib
@@ -18,7 +7,6 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGES = "packages/"
-#: Runs in the core suite beside `tests/` (`be:test`, with the coverage gate), not in `be:test:sources`.
 CORE_SUITE = ["packages/agent"]
 
 
@@ -41,7 +29,6 @@ def test_every_workspace_package_is_in_testpaths_and_in_the_taskfile():
 
 
 def test_every_python_package_under_packages_is_a_member_or_keeps_its_own_lock():
-    """A new package with a pyproject.toml either joins the workspace or says why not, with its own uv.lock."""
     members = set(_members())
     stray = [
         f"{PACKAGES}{path.parent.name}"

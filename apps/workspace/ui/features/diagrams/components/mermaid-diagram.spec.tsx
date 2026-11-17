@@ -1,12 +1,3 @@
-/**
- * A mermaid fence in an answer, and the three things it can be.
- *
- * The failure modes are the interesting cases and they are the ones a reader
- * meets most often: the model writes broken mermaid regularly, and an answer is
- * a stream, so the fence spends its first seconds looking complete without being
- * complete. Both must cost the reader nothing they did not already have — which
- * is the source text, exactly as it rendered before this component existed.
- */
 import { render, screen, waitFor } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -40,14 +31,9 @@ afterEach(() => {
 
 describe('while the answer is still arriving', () => {
   it("holds the drawing's place and does not try to draw it", async () => {
-    // CommonMark runs an unclosed fence to the end of the text, so an
-    // in-flight mermaid block LOOKS complete on every token. Handing that to
-    // mermaid renders a parse error per token.
     render(<MermaidDiagram source={SOURCE} isStreaming />)
     expect(screen.getByTestId('mermaid-diagram')).toHaveAttribute('data-state', 'streaming')
     expect(renderer).not.toHaveBeenCalled()
-    // Not the source: a code block turning into a picture when its fence
-    // closed was the largest jump a streamed answer made (ADR-0066).
     expect(screen.queryByText(/graph TD/)).not.toBeInTheDocument()
     expect(screen.getByTestId('mermaid-diagram')).toHaveAttribute('aria-busy', 'true')
   })
@@ -81,9 +67,6 @@ describe('the frame a fence waits in', () => {
 
 describe('while its source is being parsed', () => {
   it('holds a placeholder and claims nothing about a drawing it has not chosen yet', () => {
-    // Which picture it becomes, this product's view or mermaid's SVG, is not
-    // known until the parse settles; mermaid's frame and its „Schematisch"
-    // line flashed here before the view replaced them.
     clearDiagramModelCache()
     render(<MermaidDiagram source={'graph LR\n  Parse --> Pending'} />)
     const figure = screen.getByTestId('mermaid-diagram')
@@ -97,8 +80,6 @@ describe('while its source is being parsed', () => {
 
 describe('when the model writes broken mermaid', () => {
   it('falls back to the source rather than to an error', async () => {
-    // Never a red box, never a thrown error inside somebody's answer: the
-    // reader sees the code they would have seen anyway, plus one quiet line.
     renderer.mockRejectedValue(new Error('Parse error on line 2'))
     render(<MermaidDiagram source={'graph TD\n  A -->'} />)
     await waitFor(() =>
@@ -109,10 +90,6 @@ describe('when the model writes broken mermaid', () => {
   })
 
   it('swaps the held place for the source inside the same frame, fading the source in', async () => {
-    // The skeleton held a drawing's place until the render failed, and the
-    // source is a different height. Replaced in one paint, everything below
-    // moved by the difference; through one frame, the frame glides between
-    // the two heights (`useHeightGlide`) while the source fades in.
     let fail: (reason: Error) => void = () => {}
     renderer.mockReturnValue(new Promise<string>((_, reject) => (fail = reject)))
     render(<MermaidDiagram source={'graph TD\n  A -->'} />)
@@ -129,8 +106,6 @@ describe('when the model writes broken mermaid', () => {
       },
       { interval: 5 }
     )
-    // Caught mid-crossfade (the fade is 240ms): the source is still arriving,
-    // and the held place is still there, leaving, in the same frame.
     expect(Number(fallback.parentElement!.style.opacity)).toBeLessThan(1)
     expect(frame.querySelector('[data-state="drawing"]')).toBeInTheDocument()
     expect(fallback.closest('.flow-root')).toBe(frame)
@@ -140,8 +115,6 @@ describe('when the model writes broken mermaid', () => {
   })
 
   it('does not throw out of the component', async () => {
-    // A throw here would take the whole answer down with it, and the answer is
-    // the thing the reader asked for.
     renderer.mockRejectedValue(new Error('boom'))
     expect(() => render(<MermaidDiagram source={SOURCE} />)).not.toThrow()
     await waitFor(() =>
@@ -152,32 +125,23 @@ describe('when the model writes broken mermaid', () => {
 
 describe('when it draws', () => {
   it('shows the drawing and says it claims no dimensions', async () => {
-    // The doctrine, where the reader is. Fifteen schematic cards in this product
-    // compute their geometry so they cannot disagree with their own numbers; a
-    // model-authored diagram has no such guarantee, so it says so.
     render(<MermaidDiagram source={SOURCE} />)
     await waitFor(
       () => expect(screen.getByTestId('mermaid-diagram')).toHaveAttribute('data-state', 'drawn'),
       { timeout: 8000 }
     )
     expect(screen.getByText(/no dimensions are claimed/i)).toBeInTheDocument()
-    // This product's own view when the parser reads a model, mermaid's SVG
-    // otherwise: either way, a drawing and not the source.
     const figure = screen.getByTestId('mermaid-diagram')
     expect(figure.hasAttribute('data-view') || figure.querySelector('svg') !== null).toBe(true)
   })
 
   it('offers no filing action outside a project', async () => {
-    // Absence is a normal answer. A chat outside a project has nowhere to file
-    // to, and a dead action is worse than silence.
     render(<MermaidDiagram source={SOURCE} />)
     await waitFor(() => expect(screen.getByText(/no dimensions are claimed/i)).toBeInTheDocument())
     expect(screen.queryByRole('button', { name: /file in project/i })).toBeNull()
   })
 
   it('files the bytes on screen, under the diagram’s own run id', async () => {
-    // Not a re-render: a second render is a second chance for the file to
-    // disagree with the picture, and nobody can spot that before signing.
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ svg: { documentId: 'doc-1' }, pdf: { documentId: 'doc-2' } }),
@@ -200,8 +164,6 @@ describe('when it draws', () => {
       runId: diagramRunId('msg_42', SOURCE),
       sourceKind: 'mermaid',
       source: SOURCE,
-      // The bytes that go into the project, which in light mode are the very
-      // bytes on screen.
       svg: DRAWN,
     })
     expect(await screen.findByRole('link', { name: /open in project/i })).toHaveAttribute(
@@ -211,8 +173,6 @@ describe('when it draws', () => {
   })
 
   it('shows the server’s own refusal rather than a generic failure', async () => {
-    // The route names the rule in the reader's language, and that message is
-    // the only debugging surface a browser has.
     vi.stubGlobal(
       'fetch',
       vi
@@ -232,17 +192,6 @@ describe('when it draws', () => {
   })
 })
 
-/**
- * Half a diagram, said out loud.
- *
- * The route answers 201 with `pdf: null` when the SVG landed and the PDF did
- * not. Before that existed, the same case arrived as a 500 and read „Internal
- * server error" in a German figcaption, while the `partial` state below was set
- * only for a 2xx body missing `svg.documentId` — an answer the route never
- * produces. So the copy for it was unreachable and the real half-filed diagram
- * was reported as a failure, which is the one message that makes a reader stop
- * looking for a file that exists.
- */
 describe('when only half of it is filed', () => {
   const partialFetch = () =>
     vi.fn().mockResolvedValue({
@@ -268,8 +217,6 @@ describe('when only half of it is filed', () => {
   })
 
   it('links to the half that is in the project', async () => {
-    // A reader told half of it is filed and not told where has to hunt through
-    // Berichte for a file they are not sure exists.
     vi.stubGlobal('fetch', partialFetch())
     await fileIt()
 
@@ -280,9 +227,6 @@ describe('when only half of it is filed', () => {
   })
 
   it('offers the retry that files only the missing half', async () => {
-    // Filing is idempotent per (run, producer): pressing this finds the SVG
-    // already filed and files only the PDF, which is why it is labelled for the
-    // PDF and not for the diagram.
     const fetchMock = partialFetch()
     vi.stubGlobal('fetch', fetchMock)
     await fileIt()
@@ -295,9 +239,6 @@ describe('when only half of it is filed', () => {
   })
 
   it('does not call an answer it cannot read a partial filing', async () => {
-    // The route never answers 2xx without `svg.documentId`. If it ever does,
-    // the honest reading is "something went wrong", not a sentence claiming a
-    // file was written.
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) }))
     await fileIt()
 
@@ -308,9 +249,6 @@ describe('when only half of it is filed', () => {
 
 describe('the diagram’s identity', () => {
   it('is stable for the same source in the same answer, so filing twice files once', () => {
-    // A render-time counter would hand the same diagram a different identity on
-    // a re-render, and file it again — exactly the duplicate migration 0065's
-    // index exists to prevent.
     expect(diagramRunId('msg_1', SOURCE)).toBe(diagramRunId('msg_1', SOURCE))
   })
 
@@ -320,14 +258,6 @@ describe('the diagram’s identity', () => {
   })
 })
 
-/**
- * The two grounds a diagram lands on, and the one that is filed.
- *
- * A file that only reads correctly inside the dark app is broken — the SVG is
- * previewed on a paper surface and the PDF is a white page. So the filing
- * button sends the paper render whatever theme the reader is in, and this is
- * the assertion that keeps a dark-theme drawing out of an Einreichung.
- */
 describe('filed on paper, whatever the reader is looking at', () => {
   beforeEach(() => {
     renderer.mockImplementation(({ theme }: { theme: string }) =>
@@ -360,19 +290,10 @@ describe('filed on paper, whatever the reader is looking at', () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalled())
     const body = JSON.parse((fetchMock.mock.calls[0][1] as { body: string }).body)
     expect(body.svg).toContain('data-theme="light"')
-    // …and the reader is looking at the charcoal one.
     expect(screen.getByTestId('mermaid-diagram').innerHTML).toContain('data-theme="dark"')
   })
 })
 
-/**
- * A filed artifact opens beside the conversation, not instead of it.
- *
- * Still a real link underneath: a modified click, "copy link address" and a
- * phone all reach the Files route, because `FilePreviewHost` refuses to peek
- * below the `md` breakpoint and a control that did nothing there would be worse
- * than one that navigates.
- */
 describe('once it is in the project', () => {
   const fileIt = async () => {
     vi.stubGlobal(

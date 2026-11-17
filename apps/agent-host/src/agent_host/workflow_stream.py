@@ -38,6 +38,22 @@ running for them. Past the bound the teardown is logged and left to finish in
 its own task, where it still unwinds in its own Context and its outcome is
 still read; the turn ends without it.
 
+The turn ends without its admission slots too. The workflow takes them inside
+the producer (``agent.turn.admission.answer_turn``), so a teardown left behind
+would hold them, and renew them, for as long as it runs: the organization was
+refused "several answers in progress" by answers that had already ended. The
+producer records them in a :class:`~agent.common.turn_admission.TurnSlots`
+this stream owns, and the stream gives back whatever is still held once it
+stops waiting, a second cancel included, with a warning and a
+``turn-slots-stranded`` score on the turn's trace (``agent.common.turn_admission``,
+"The slot is the turn's").
+
+The trade: the slot goes back when the turn ends, not when its work does. A
+producer that swallows its cancel and keeps calling models runs on without a
+slot, so for that while the organization may run one more turn than its limit.
+That is the lesser fault (a stuck teardown is the usual case, and it calls
+nothing), and ``turn-slots-stranded`` names every turn it happens on.
+
 No intermediate step is read here: the chat wire carries what the turn's
 ``_run`` yields (wire bodies, ADR-0068), and steps go only to the exporters.
 
@@ -54,6 +70,12 @@ import logging
 from collections.abc import AsyncIterator
 from typing import TYPE_CHECKING
 from typing import Any
+
+from agent.common.turn_admission import TurnSlots
+from agent.common.turn_admission import bind_turn_slots
+from agent.common.turn_admission import return_turn_slots
+from agent.observability.langfuse_scores import RuntimeScore
+from agent.observability.langfuse_scores import emit_scores
 
 if TYPE_CHECKING:
     from nat.runtime.session import Session
@@ -78,7 +100,8 @@ async def stream_workflow(payload: Any, *, session: Session) -> AsyncIterator[An
     in its own task, before this generator returns.
     """
     items: asyncio.Queue[Any] = asyncio.Queue()
-    producer = asyncio.create_task(_produce(items, payload, session=session))
+    slots = TurnSlots()
+    producer = asyncio.create_task(_produce(items, payload, session=session, slots=slots))
     producer.add_done_callback(lambda _: items.put_nowait(_END))
     producer.add_done_callback(_read_outcome)
     try:
@@ -86,11 +109,17 @@ async def stream_workflow(payload: Any, *, session: Session) -> AsyncIterator[An
             yield item
         await producer
     finally:
-        await _stop(producer)
+        try:
+            await _stop(producer)
+        finally:
+            # A second cancel (a Stop pressed again, a supersede republished every 2 s) ends the wait
+            # above with CancelledError; the slots go back all the same.
+            await _return_slots(slots)
 
 
-async def _produce(items: asyncio.Queue[Any], payload: Any, *, session: Session) -> None:
+async def _produce(items: asyncio.Queue[Any], payload: Any, *, session: Session, slots: TurnSlots) -> None:
     """Run the workflow in this task, handing each item over without waiting on the consumer."""
+    bind_turn_slots(slots)  # this task's own context: every admission the workflow takes is recorded in it
     async with session.run(payload) as runner:
         async for item in runner.result_stream():
             items.put_nowait(item)
@@ -110,6 +139,18 @@ async def _stop(producer: asyncio.Task[None]) -> None:
             "The workflow's teardown did not finish within %.0fs of the stop; the turn ends without waiting for it",
             PRODUCER_TEARDOWN_SECONDS,
         )
+
+
+async def _return_slots(slots: TurnSlots) -> None:
+    """The turn is over: give back the admission slots its workflow still holds. Never raises."""
+    try:
+        stranded = await return_turn_slots(slots)
+    except Exception:  # noqa: BLE001 - the lease still bounds a slot this could not give back
+        logger.warning("Could not give back the admission slots of a stopped workflow", exc_info=True)
+        return
+    if stranded:
+        logger.warning("The turn ended while its workflow still held %d admission slot(s); given back", stranded)
+        emit_scores([RuntimeScore("turn-slots-stranded", float(stranded))], writer="chat")
 
 
 def _read_outcome(producer: asyncio.Task[None]) -> None:

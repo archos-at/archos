@@ -2,7 +2,7 @@
 
 """Every environment variable the queue workers read has a row in the env reference.
 
-``AGENTS.md`` asks for a row in ``docs/deployment/environment-variables.md`` for
+``docs/contributing/obligations.md`` asks for a row in ``docs/deployment/environment-variables.md`` for
 every variable a change adds, and nothing checked it, so an operator tuning a
 worker found the knob only by reading its source. This checks the files that
 claim, heartbeat, reap and purge (``SCOPE``); a wider scope joins once it passes.

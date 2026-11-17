@@ -20,16 +20,6 @@ import {
   storageKeySegment,
 } from './s3'
 
-/**
- * The only parts of an object key that are not machine-generated ids.
- *
- * `assertUploadTypeAllowed` inspects the substring after the last dot and
- * nothing else, so a multipart part named `../../../../org/<other>/…/x.ifc`
- * passes every gate on the way here. Per-org buckets are off by default, which
- * makes the `org/<id>/` prefix the only separation there is — and the key is
- * persisted and reused afterwards, including by the recursive prefix delete
- * that removes a model's derived objects.
- */
 describe('storageKeySegment', () => {
   it('cannot climb out of the segment it was given', () => {
     expect(storageKeySegment('../../../../org/victim/doc/x.ifc')).toBe(
@@ -43,8 +33,6 @@ describe('storageKeySegment', () => {
   it('leaves an ordinary name — including a leading dot — alone', () => {
     expect(storageKeySegment('Haus-Mayr_V3.ifc')).toBe('Haus-Mayr_V3.ifc')
     expect(storageKeySegment('.hidden.ifc')).toBe('.hidden.ifc')
-    // Not ASCII-folded: Austrian filenames are full of them, and an object key
-    // is UTF-8.
     expect(storageKeySegment('Grundriss Erdgeschoß.pdf')).toBe('Grundriss Erdgeschoß.pdf')
   })
 
@@ -62,11 +50,6 @@ describe('storageKeySegment', () => {
     expect(storageKeySegment(' .. ')).toBe('_..')
   })
 
-  /**
-   * A file may not take the name of a sibling the pipelines derive from it. A
-   * `_render.pdf` upload was its own rendition, and a `_thumb.jpg` upload was
-   * overwritten by its own thumbnail.
-   */
   it('never produces the name of a derived sibling or prefix', () => {
     expect(storageKeySegment('_render.pdf')).toBe('__render.pdf')
     expect(storageKeySegment('_thumb.jpg')).toBe('__thumb.jpg')
@@ -74,17 +57,10 @@ describe('storageKeySegment', () => {
     expect(storageKeySegment('_bim')).toBe('__bim')
     expect(storageKeySegment('_Render.PDF')).toBe('__Render.PDF')
     expect(storageKeySegment(' _thumb.jpg ')).toBe('__thumb.jpg')
-    // Only the exact names: a file that merely resembles one is left alone.
     expect(storageKeySegment('_render.pdf.docx')).toBe('_render.pdf.docx')
     expect(storageKeySegment('render.pdf')).toBe('render.pdf')
   })
 
-  /**
-   * The Outlook import stages its archive at `<project>/mail-imports/<import
-   * id>/archive` (`lib/mail-import/staging.ts`). A person's folder of that name
-   * would file documents inside the stage, where a sweep of staged archives by
-   * prefix would take them with it.
-   */
   it('never files a document under the import’s staging prefix', () => {
     expect(storageKeySegment('mail-imports')).toBe('_mail-imports')
     expect(storageKeySegment('Mail-Imports')).toBe('_Mail-Imports')
@@ -101,13 +77,6 @@ describe('storageKeySegment', () => {
     )
   })
 
-  /**
-   * A mail sent to the project waits at `<project>/_inbound-mail/<mail id>/`,
-   * and a filed message's original is kept at `<project>/_mail-originals/<entry
-   * id>.eml` (ADR-0137, `lib/inbound-mail/inbound-mail-vocabulary.ts`). A
-   * person's folder or file of either name would put the office's documents
-   * among a stranger's unreviewed mail, or among evidence no model may read.
-   */
   it('never files a document under the inbound mail or originals prefixes', () => {
     const mailId = '1a000000-0000-4000-8000-000000000184'
     const entryId = 'e1000000-0000-4000-8000-000000000184'
@@ -121,7 +90,6 @@ describe('storageKeySegment', () => {
     expect(storageKeySegment('_Inbound-Mail')).toBe('__Inbound-Mail')
     expect(storageKeySegment('_mail-originals')).toBe('__mail-originals')
     expect(storageKeySegment('_MAIL-ORIGINALS')).toBe('__MAIL-ORIGINALS')
-    // Only the exact names.
     expect(storageKeySegment('inbound-mail')).toBe('inbound-mail')
     expect(storageKeySegment('_inbound-mail-2026')).toBe('_inbound-mail-2026')
 
@@ -171,9 +139,6 @@ describe('buildStorageKey', () => {
   })
 
   it('keeps a folder NAME inside the project, while keeping the path a path', () => {
-    // Folder names are person-chosen too, and the path arrives already joined
-    // — so the separators between segments have to survive while a `..` inside
-    // one of them does not.
     const key = buildStorageKey('org-1', 'proj-1', 'doc-1', 'plan.pdf', 'Plans/../../elsewhere')
     expect(key).toBe('org/org-1/project/proj-1/Plans/_../_../elsewhere/doc/doc-1/plan.pdf')
   })
@@ -207,10 +172,6 @@ describe('buildThumbnailStorageKey', () => {
     )
   })
 
-  // A key with no directory has no sibling slot. Returning `_thumb.jpg` — a
-  // real, shared, bucket-root path — would mean a malformed or hand-edited row
-  // could presign a WRITE there, and every such row would collide on one
-  // object. Null instead, and the callers treat it as "no thumbnail".
   it('returns null rather than a bucket-root path for a key with no directory', () => {
     expect(buildThumbnailStorageKey('plan.pdf')).toBeNull()
     expect(buildThumbnailStorageKey('/plan.pdf')).toBeNull()
@@ -222,11 +183,6 @@ describe('buildThumbnailStorageKey', () => {
   })
 })
 
-/**
- * The office rendition (ADR-0070). Its existence is the only state it has — no
- * column records it — so the key must be derivable from the row alone, and the
- * same row must always derive the same key.
- */
 describe('buildRenditionStorageKey', () => {
   it('is a sibling of the file, beside the thumbnail', () => {
     const key = buildStorageKey('org-1', 'proj-1', 'doc-1', 'Bericht.docx', 'Plans/Fire Safety')
@@ -267,9 +223,6 @@ describe('buildImageStorageKey', () => {
     expect(buildImageStorageKey(key, 3)?.startsWith(prefix as string)).toBe(true)
   })
 
-  // The index is the ONLY free variable; everything else is the document's own
-  // key. An unbounded index would let one ingest mint an unbounded number of
-  // objects under the tenant's prefix.
   it('refuses an index outside the per-document ceiling, or one that is not an integer', () => {
     expect(buildImageStorageKey(key, MAX_STORED_IMAGES_PER_DOCUMENT - 1)).not.toBeNull()
     expect(buildImageStorageKey(key, MAX_STORED_IMAGES_PER_DOCUMENT)).toBeNull()
@@ -324,8 +277,6 @@ describe('buildBaseCorpusStorageKey', () => {
 
 describe('presignForBackend', () => {
   it('signs against the in-network endpoint, never the browser-facing one', async () => {
-    // The clients read the endpoints at import, so this imports a fresh copy
-    // with the two set apart, the way Compose and Kubernetes set them.
     const saved = { internal: process.env.SEAWEED_ENDPOINT, browser: process.env.SEAWEED_PUBLIC_ENDPOINT }
     process.env.SEAWEED_ENDPOINT = 'http://seaweedfs:8333'
     process.env.SEAWEED_PUBLIC_ENDPOINT = 'http://localhost:8333'

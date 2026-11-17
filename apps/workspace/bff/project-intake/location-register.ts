@@ -36,8 +36,8 @@ export interface LocationRegisterInput {
   mode: IntakeMode
   /** The project's needs (`computeNeeds`): a request carries the open ones among its keys. */
   needs: readonly Need[]
-  /** The setup records to read; the shipped pack by default. */
-  records?: readonly StoredRuleset[]
+  /** The released setup records to read. */
+  records: readonly StoredRuleset[]
 }
 
 /** What the register reads off the profile and the records. */

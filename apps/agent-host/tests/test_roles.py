@@ -1,20 +1,3 @@
-"""The backend's two web roles serve disjoint routes, and between them every route (ADR-0082 step B).
-
-``PROCESS_ROLE=chat`` and ``PROCESS_ROLE=api`` are the same image and the same plugin.
-What keeps them two jobs and not one is that no route is mounted by both, and
-what keeps the split from losing a route is that none is mounted by neither. A
-route that goes missing from a Service's pods is a 404 the BFF sees only when a
-reader reaches it, so the property is held here, on the routes the real worker
-mounts for each role, and not on the lists the plugin keeps.
-
-The baseline is built from the ingredients instead of from the plugin: every
-router registrar found under ``agent_host/routes/`` by name, the agent runtime's own routes, the
-job routes and the chat socket, mounted on one app the way
-the single process did. A router added under ``routes/`` and assigned to no role
-is in the baseline and in neither role; one assigned to both is in both roles.
-Either fails here.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -50,7 +33,6 @@ from nat.front_ends.fastapi.fastapi_front_end_config import FastApiFrontEndConfi
 from nat.front_ends.fastapi.fastapi_front_end_plugin_worker import FastApiFrontEndPluginWorker
 from nat.runtime.session import SessionManager
 
-#: What both roles answer: `/health` (the runtime's own handler, mounted on each) and FastAPI's documentation routes.
 SHARED = {
     ("GET", "/health"),
     ("GET", "/openapi.json"),
@@ -61,13 +43,10 @@ SHARED = {
 
 _REGISTRAR = re.compile(r"^(add|register)_\w*routes$")
 
-#: The roles whose ``ready`` boot reading the ``apps`` fixture's builds recorded, in build order.
 _READY: list[str] = []
 
 
 class _RecordingBootClock:
-    """Stands in for ``BootClock``: notes which role declared itself ready."""
-
     def __init__(self, role: str) -> None:
         self.role = role
 
@@ -76,8 +55,6 @@ class _RecordingBootClock:
 
 
 class _Schema(BaseModel):
-    """What an agent-runtime session manager answers for its workflow's input and output."""
-
     text: str = ""
 
 
@@ -86,9 +63,6 @@ def _route_keys(app: FastAPI) -> set[tuple[str, str]]:
 
 
 def _routes_under(routes: list, prefix: str) -> set[tuple[str, str]]:
-    # FastAPI 0.143 keeps an included router as one lazy `_IncludedRouter` entry
-    # instead of copying its routes onto the app, so descend into it, or every
-    # route mounted through `include_router` reads as missing.
     keys: set[tuple[str, str]] = set()
     for route in routes:
         if isinstance(route, APIWebSocketRoute):
@@ -109,7 +83,6 @@ def _session_manager() -> MagicMock:
     return manager
 
 
-#: One entry per role whose ``add_routes`` asked for the PostHog exception handler.
 POSTHOG_INSTALLS: list[int] = []
 
 
@@ -120,7 +93,6 @@ def _worker(role: str) -> plugin.AgentHostWorker:
 
 
 def _discovered_registrars() -> dict[str, object]:
-    """Every public ``add_*_routes`` / ``register_*_routes`` function a module under ``routes/`` defines."""
     found: dict[str, object] = {}
     for info in pkgutil.iter_modules(routes_package.__path__):
         module = importlib.import_module(f"agent_host.routes.{info.name}")
@@ -142,7 +114,6 @@ async def _build(worker: plugin.AgentHostWorker) -> FastAPI:
 
 
 async def _baseline(worker: plugin.AgentHostWorker) -> FastAPI:
-    """The routes the single process mounted, from the registrars and the pieces and not from the plugin's lists."""
     app = FastAPI()
     router = APIRouter()
     app_level = []
@@ -166,7 +137,6 @@ async def _baseline(worker: plugin.AgentHostWorker) -> FastAPI:
 
 @pytest.fixture(scope="module")
 def apps(tmp_path_factory: pytest.TempPathFactory) -> dict[str, FastAPI]:
-    """The chat role's app, the api role's and the baseline, each built on its own."""
     root: Path = tmp_path_factory.mktemp("roles")
     config_file = root / "config.yml"
     config_file.write_text("{}")
@@ -174,7 +144,6 @@ def apps(tmp_path_factory: pytest.TempPathFactory) -> dict[str, FastAPI]:
         env.setenv("NAT_JOB_STORE_DB_URL", f"sqlite+aiosqlite:///{root}/jobs.db")
         env.setenv("NAT_CONFIG_FILE", str(config_file))
         env.setenv("REQUIRE_AUTH", "false")
-        # No handshake with a BFF, no handlers installed on the test process.
         stack.enter_context(patch.object(plugin.AgentHostWorker, "_schedule_internal_api_check", lambda self: None))
         stack.enter_context(patch.object(plugin.AgentHostWorker, "_install_signal_handlers", lambda self: None))
         stack.enter_context(patch.object(plugin, "install_presigned_url_scrubbing", lambda: None))
@@ -195,12 +164,10 @@ def apps(tmp_path_factory: pytest.TempPathFactory) -> dict[str, FastAPI]:
 
 @pytest.fixture(scope="module")
 def route_sets(apps: dict[str, FastAPI]) -> dict[str, set[tuple[str, str]]]:
-    """The route keys of each app."""
     return {name: _route_keys(app) for name, app in apps.items()}
 
 
 def test_both_roles_install_the_posthog_exception_handler(apps):
-    # `apps` built the chat and the api role; each must report its caught exceptions (ADR-0100).
     assert len(POSTHOG_INSTALLS) == 2
 
 
@@ -226,13 +193,10 @@ def test_each_role_serves_what_its_deployment_is_there_for(route_sets):
         ("POST", "/v1/jobs/async/submit"),
         ("GET", "/v1/jobs/async/job/{job_id}/stream"),
         ("POST", "/v1/maintenance/housekeeping/ghost-jobs"),
-        # The base corpus (ADR-0082 step A2): its upload, sync and status routes, and the
-        # housekeeping cycle that queues one ingest-queue job per file.
         ("POST", "/v1/admin/oib/sync"),
         ("GET", "/v1/oib/status"),
         ("POST", "/v1/maintenance/housekeeping/base-corpus"),
     } <= api
-    # The blueprint's debug console was removed with its package; nothing mounts it again.
     assert not any(path == "/debug" for _, path in api | chat)
     assert not any(path.startswith(("/v1/jobs", "/v1/ingest", "/v1/oib", "/v1/admin/oib")) for _, path in chat)
     assert not any(path in (plugin.CHAT_SOCKET_PATH, CHAT_OCCUPANCY_PATH, "/generate") for _, path in api)
@@ -256,13 +220,6 @@ def test_every_router_registrar_under_routes_is_assigned_to_exactly_one_role():
     assert unknown == [], f"mounted but not a registrar under routes/: {unknown}"
 
 
-# ---------------------------------------------------------------------------
-# A turn runs on the chat socket alone (ADR-0068)
-# ---------------------------------------------------------------------------
-
-#: The agent runtime's HTTP turn routes, read off its own defaults rather than listed here, so
-#: a path the runtime adds to the defaults is covered the day the pin moves. Each base
-#: path is also served with the suffixes the runtime's generate routes add.
 _NAT_DEFAULTS = FastApiFrontEndConfig()
 _TURN_BASES = [
     getattr(_NAT_DEFAULTS.workflow, name) for name in plugin.WORKFLOW_ROUTE_FIELDS if name != "websocket_path"
@@ -272,10 +229,6 @@ NAT_TURN_PATHS = sorted(
     | {"/chat", "/chat/stream", "/generate", "/generate/stream", "/v1/chat/completions", _NAT_DEFAULTS.evaluate.path}
 )
 
-#: Every POST the chat role answers. None of them runs the workflow: the
-#: execution store answers an HTTP interaction nothing can start any more, and
-#: `/evaluate/item` scores an answer it is handed. A new POST on chat is named
-#: here on purpose, or this fails.
 CHAT_POST_ROUTES = {
     "/executions/{execution_id}/interactions/{interaction_id}/response",
     "/evaluate/item",
@@ -301,8 +254,6 @@ def test_the_chat_socket_is_the_one_websocket(route_sets):
 
 
 async def test_no_http_turn_route_is_mounted_even_with_a_dask_scheduler(monkeypatch, tmp_path):
-    # The agent runtime's own add_default_route mounts its async generate route whenever Dask
-    # is reachable, whatever the config says: as `None/async` with no path.
     config_file = tmp_path / "config.yml"
     config_file.write_text("{}")
     monkeypatch.setenv("NAT_CONFIG_FILE", str(config_file))
@@ -419,7 +370,6 @@ def test_each_role_mounts_one_health_route_that_names_the_build_and_the_role(app
 
 @pytest.mark.parametrize("role", ["chat", "api"])
 def test_a_role_without_its_fetcher_says_so_in_health_and_stays_in_rotation(apps, monkeypatch, role):
-    """A missing fetcher is visible from outside, not only as failed RIS calls; it is no reason to stop serving."""
     from fastapi.testclient import TestClient
 
     monkeypatch.delenv("PUBLIC_SOURCE_FETCHER_URL", raising=False)
@@ -431,5 +381,4 @@ def test_a_role_without_its_fetcher_says_so_in_health_and_stays_in_rotation(apps
 
 
 def test_each_role_records_its_ready_reading_once_its_routes_are_mounted(apps):
-    """Both tiers' cold starts are series of their own (ADR-0082): chat's went missing once."""
     assert _READY == ["chat", "api"]

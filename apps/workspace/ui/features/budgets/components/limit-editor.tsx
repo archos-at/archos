@@ -1,17 +1,5 @@
 'use client'
 
-/**
- * Setting a scoped LLM limit (ADR-0015): the dialog the organization's budget
- * card opens per member and per project, and the one a project's own usage
- * section opens for itself. One editor, so the rule about what a blank field
- * means is written once.
- *
- * A dialog, not a popover: two fields and a Save are a short form, and the
- * design language gives a form a `Dialog`. That is also what makes it a
- * bottom sheet with a full-width field and a reachable Save on a phone, where
- * a 256px popover hung off a 32px icon button.
- */
-
 import { type FC, type ReactNode, useEffect, useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -34,7 +22,6 @@ import { commonCopy } from '@/i18n/namespaces/common'
 import { organizationCopy } from '@/i18n/namespaces/organization'
 import { parseDecimalInput } from '@/lib/text/parse-decimal'
 
-/** A budget policy as `/api/organization/budgets` sends it. Limits are decimal strings. */
 export interface PolicyDto {
   id: string
   scope: 'organization' | 'member' | 'project'
@@ -43,14 +30,6 @@ export interface PolicyDto {
   monthlyLimit: string | null
 }
 
-/**
- * A limit field: blank is "no limit", a non-negative number is the limit, and
- * anything else is invalid.
- *
- * This used to be one function returning `null` for both blank and garbage,
- * and `null` is what the route stores as NO LIMIT: an admin who typed "fünf"
- * or "-5" into the daily limit silently removed it. Invalid now blocks Save.
- */
 export type LimitInput = { ok: true; value: number | null } | { ok: false }
 
 export const readLimit = (value: string, locale: string): LimitInput => {
@@ -60,16 +39,11 @@ export const readLimit = (value: string, locale: string): LimitInput => {
   return { ok: false }
 }
 
-/** Dialog editor for one subject's daily/monthly limit (used per member row
- * and for existing project policies). */
 export const LimitEditor: FC<{
   scope: 'member' | 'project'
   subjectId: string
-  /** The subject's limit today, or undefined when it has none (Remove is then hidden). */
   current: Pick<PolicyDto, 'dailyLimit' | 'monthlyLimit'> | undefined
-  /** The unit word for the field labels ("credits" / "tokens"). */
   unitWord: string
-  /** Who the limit is for (name or email), shown under the title. */
   subjectLabel?: string
   onSaved: () => Promise<void>
   trigger: ReactNode
@@ -116,8 +90,6 @@ export const LimitEditor: FC<{
       await onSaved()
     } catch (error) {
       if (error instanceof ApiRequestError && error.status === 422) {
-        // The server's validation text is English and technical; the reader
-        // gets the sentence in their language, as the organization limits do.
         toast.error(t('budgets.limitsRejected'))
         return
       }

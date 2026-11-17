@@ -28,30 +28,15 @@ const repo = vi.hoisted(() => ({
   deleted: [] as string[],
   confirmed: [] as Array<{ bindingId: string; confidence: string; source: string }>,
   documentInProject: true,
-  /**
-   * Documents filed in a folder the session is not cleared for (ADR-0087). The
-   * fake answers "hidden" for these whenever the reader names any hidden
-   * folder, which is what the real SQL does for a document filed in one.
-   */
   hiddenDocumentIds: [] as string[],
-  /**
-   * Documents held by their upload screening and uploaded by somebody else
-   * (ADR-0086): a member's reader does not see them, as the real SQL does not.
-   */
   heldDocumentIds: [] as string[],
-  // A project whose intake was never saved: the column holds `{}`, which
-  // `findProjectProfile` hands out as this empty profile (never `null` for an
-  // existing project). The implicit first building (`bldg1`) is the only one.
-  // Modelling it as `null` here is how the 500 on the real value went unseen.
   profile: emptyProfile() as ProjectProfile | null,
 }))
 
-// How the session reads the project's held files (ADR-0086): a member here.
 vi.mock('@/lib/upload-screening/quarantine-reviewers', () => ({
   shelfReaderFor: vi.fn(async () => ({ kind: 'member', userId: 'user-1' })),
 }))
 vi.mock('@/lib/projects/repository', () => ({
-  // Read under the project's row lock, inside the binding's own transaction.
   lockProjectProfile: vi.fn(async () => repo.profile),
 }))
 
@@ -69,18 +54,12 @@ vi.mock('./repository', () => ({
     async (documentId: string, _projectId: string, reader: { hiddenFolderIds: string[] }) =>
       repo.documentInProject && (reader.hiddenFolderIds.length === 0 || !repo.hiddenDocumentIds.includes(documentId))
   ),
-  // The replacement is ONE call now, not a delete followed by an insert: the
-  // two separate statements could leave a single-holder slot empty when the
-  // insert failed. The double bookkeeping here mirrors that both still happen,
-  // inside one transaction.
   replaceSlotBinding: vi.fn(
     async (
       input: Record<string, unknown>,
       displacedIds: readonly string[],
       guard?: (tx: never) => Promise<void>
     ) => {
-      // The real one runs the guard first in its transaction; a refusal there
-      // writes nothing.
       if (guard) await guard(undefined as never)
       const matched = repo.bindings.filter((b) => displacedIds.includes(b.id)).map((b) => b.id)
       repo.deleted.push(...matched)
@@ -111,10 +90,6 @@ vi.mock('./repository', () => ({
     }
   ),
   deleteBindings: vi.fn(async (_projectId: string, ids: readonly string[]) => {
-    // Count what actually matched, as the real repository does via
-    // `.returning()`. Returning `ids.length` unconditionally made the
-    // "binding not found" case impossible to reach, so the test that
-    // asserts it was testing this mock rather than the service.
     const matched = repo.bindings.filter((b) => ids.includes(b.id)).map((b) => b.id)
     repo.deleted.push(...matched)
     repo.bindings = repo.bindings.filter((b) => !ids.includes(b.id))
@@ -276,9 +251,6 @@ describe('revokeDocumentRole', () => {
     expect(repo.deleted).toEqual(['binding-7'])
   })
 
-  // The binding is answered the way its document is: a colleague's held upload
-  // (ADR-0086) and a file in a folder this session is not cleared for
-  // (ADR-0087) are not there for it, to list or to remove.
   it('answers 404 for a binding to a held file the session may not see, and removes nothing', async () => {
     repo.bindings = [binding({ id: 'binding-held', documentId: 'doc-held' })]
     repo.heldDocumentIds = ['doc-held']
@@ -313,9 +285,6 @@ describe('declareDocumentRole — a repeat can confirm', () => {
       session
     )
 
-    // The "already bound" early return handed back the old row untouched, so
-    // the prompt kept marking it [nicht bestätigt] however often the user
-    // confirmed it.
     expect(repo.confirmed).toEqual([
       { bindingId: 'binding-1', confidence: 'declared', source: 'user' },
     ])
@@ -347,7 +316,6 @@ describe('declareDocumentRole — a repeat can confirm', () => {
       session
     )
 
-    // A later classifier pass must not un-confirm what a human decided.
     expect(repo.confirmed).toEqual([])
   })
 })
@@ -376,10 +344,6 @@ describe('declareDocumentRole — the building has to exist', () => {
       )
     ).rejects.toThrow(/bldg9/)
 
-    // The vocabulary can only check the SHAPE of an instance id. An accepted
-    // string that names no building produced a binding matching no generated
-    // slot — invisible in the checklist, invisible to the agent, and impossible
-    // for the user to find and remove.
     expect(repo.inserted).toEqual([])
   })
 
@@ -430,7 +394,6 @@ describe('bauwerkIds', () => {
   })
 
   it('names exactly the buildings the profile has', () => {
-    // building 1 was removed in the wizard; 2 and 3 remain.
     const saved: ProjectProfile = {
       facts: { 'building_name@bldg2': fact('Hoftrakt'), 'building_name@bldg3': fact('Garage') },
       goals: {},
@@ -479,8 +442,6 @@ describe('restricted folders (ADR-0087)', () => {
   })
 
   it('does not name a hidden holder it displaced', async () => {
-    // The slot holds one document and cardinality counts every holder, so the
-    // hidden one is displaced; the answer must not hand its filename over.
     repo.bindings = [binding({ id: 'fee', documentId: 'doc-fee', filename: 'Honorarnote.pdf' })]
     const result = await declareDocumentRole(
       { projectId: 'proj-1', documentId: 'doc-new', role: 'development_plan' },

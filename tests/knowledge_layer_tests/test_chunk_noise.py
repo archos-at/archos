@@ -1,11 +1,3 @@
-"""OCR debris in the ranked search (``chunk_noise``), and the switch that keeps it out.
-
-The fixtures in ``tests/fixtures/ocr_noise`` are passages captured from a live
-``knowledge_search`` for "Brandabschnitt Gebäudeklasse 5 Wohngebäude" over the
-OIB corpus (2026-10): the drawing debris of the Erläuterungen zu OIB-RL 2, the
-chunks it sits in, and ordinary passages, lists and tables as text.
-"""
-
 from __future__ import annotations
 
 from pathlib import Path
@@ -38,7 +30,6 @@ def _fixture(name: str) -> str:
     return (FIXTURES / f"{name}.txt").read_text(encoding="utf-8")
 
 
-# The two strings the search returned as hits of their own weight, verbatim.
 ROTATED_WALL_LABELS = "06\nIE\n/\n06\nIER\ndnaW\n06\nIE\n/"
 SPACED_CAPITALS = "2 i n n A sg n e z s . a W m H t G s . 4 / 0 0 B E m 2 · : c < C > : U : l , l"
 
@@ -81,8 +72,6 @@ class TestTheScorer:
         "name", ["mixed_wall_labels_then_prose", "mixed_building_class_figures", "mixed_prose_then_drawing_debris"]
     )
     def test_debris_around_a_real_paragraph_keeps_the_passage(self, name):
-        # The paragraph about Brandabschnitte in Wohnnutzung sits under forty lines of `06`/`IE`:
-        # glyph-weighted, the passage is what it says, not how many lines its drawing took.
         assert not judge_text(_fixture(name)).is_noise
 
     @pytest.mark.parametrize(
@@ -133,8 +122,6 @@ class TestWhichChunksAreJudged:
         assert not is_noise_chunk(_chunk("v", _fixture("noise_rotated_wall_labels"), content_type=kind))
 
     def test_a_passage_left_out_of_the_first_and_the_widened_pool_counts_once(self):
-        # A requery widens the pool: the debris left out of the first pool still
-        # counts though the fusion may drop it, and one left out of both counts once.
         shared = _chunk("n1", _fixture("noise_rotated_wall_labels"))
         first_only = _chunk("n2", _fixture("noise_shredded_building_class_labels"))
         widened_only = _chunk("n3", ROTATED_WALL_LABELS * 8)
@@ -179,10 +166,6 @@ class TestTheSwitch:
         assert noise_filter_enabled(False) is False
 
 
-# ---------------------------------------------------------------------------
-# Through the tool
-# ---------------------------------------------------------------------------
-
 PROJECT = "proj_1"
 
 
@@ -209,7 +192,6 @@ class _Retriever:
 
 
 def _pool() -> list[Chunk]:
-    # Debris ranked first, as on the live search, then the passages it pushed out.
     return [
         _chunk("noise-1", _fixture("noise_rotated_wall_labels"), page=10),
         _chunk("prose-1", _fixture("prose_clause_with_list"), page=11),

@@ -2,26 +2,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The second path by which a document's bytes reach the agent tier.
- *
- * `dispatchDocument` closes the chunk path: a machine-authored row is never
- * indexed, so retrieval cannot surface it. That is only half of what the design
- * claims. `findStorageKeyByCollectionAndFilename` resolves any
- * `(collection, filename)` pair for the service-token internal route, and
- * `look` in the knowledge layer calls that route with a file
- * name and collection the MODEL supplies — then renders the object with pdfium
- * and hands it back as "the actual page the retrieved chunk describes".
- *
- * Filing the report as a PDF is what made it reachable: a `.docx` was excluded
- * by extension and unrenderable by pdfium. And `generatedFilename` is
- * deterministic from the report's H1, which the writer agent wrote — so the
- * model does not guess the name of its own report, it derives it.
- *
- * These tests exist so that stays shut. The first asserts the predicate is in
- * the QUERY: filtering after the fact still resolves the row, and the point is
- * that a machine-authored row never becomes a storage key at all.
- */
 
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { readFileSync } from 'node:fs'
@@ -48,14 +28,6 @@ vi.mock('@/lib/db/tenant-context', () => ({
 
 import { findStorageKeyByCollectionAndFilename } from './repository'
 
-/**
- * Column names named by a drizzle condition tree.
- *
- * `JSON.stringify` cannot be used: a `PgColumn` holds a reference back to its
- * `PgTable`, so the condition is circular. This walks it with a seen-set and
- * collects the `name` of anything that carries one, which is enough to answer
- * the only question these tests ask — which columns the WHERE mentions.
- */
 const columnsIn = (node: unknown, seen = new Set<unknown>()): string[] => {
   if (node === null || typeof node !== 'object' || seen.has(node)) return []
   seen.add(node)
@@ -65,7 +37,6 @@ const columnsIn = (node: unknown, seen = new Set<unknown>()): string[] => {
   return [...here, ...Object.values(node).flatMap((child) => columnsIn(child, seen))]
 }
 
-/** Literal values bound into a drizzle condition tree, walked like {@link columnsIn}. */
 const valuesIn = (node: unknown, seen = new Set<unknown>()): unknown[] => {
   if (node === null || typeof node !== 'object' || seen.has(node)) return []
   seen.add(node)
@@ -83,8 +54,6 @@ describe('findStorageKeyByCollectionAndFilename', () => {
     expect(whereArg).toHaveBeenCalledTimes(1)
     const columns = columnsIn(whereArg.mock.calls[0][0])
     expect(columns).toContain('authored_by')
-    // Alongside the predicates that were always there, so this test fails if the
-    // where clause is rebuilt and the new one is quietly dropped.
     expect(columns).toContain('collection_name')
     expect(columns).toContain('filename')
   })
@@ -92,8 +61,6 @@ describe('findStorageKeyByCollectionAndFilename', () => {
   it('never resolves a quarantined document, whose bytes no model may read (ADR-0086)', async () => {
     await findStorageKeyByCollectionAndFilename('proj_abc', 'konten.pdf')
 
-    // The bound values, not the column names: every column reaches the tree
-    // through its table, so only the literal proves the predicate is there.
     expect(valuesIn(whereArg.mock.calls[0][0])).toContain('quarantined')
   })
 
@@ -106,17 +73,11 @@ describe('findStorageKeyByCollectionAndFilename', () => {
   })
 
   it("names 'user' rather than excluding one producer by name", () => {
-    // An allow-list, not a deny-list. `authored_by <> 'agent'` would admit every
-    // author kind added to the tuple after it — `system`, `import` — which is
-    // the failure mode the schema's own CHECK constraint was written to avoid.
     const source = readFileSync(
       new URL('./repository/storage.ts', import.meta.url),
       'utf8',
     )
     const fn = source.slice(source.indexOf('export async function findStorageKeyByCollectionAndFilename'))
-    // Comments stripped first: this file argues about `authored_by` at length
-    // in prose, and a test that cannot tell a statement from a sentence would
-    // pass on the documentation alone.
     const body = fn
       .slice(0, fn.indexOf('\n}'))
       .replace(/\/\*[\s\S]*?\*\//g, '')

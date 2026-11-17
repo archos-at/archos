@@ -1,17 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The hub against a real Redis-protocol server, because a mock never sees a
- * connection that is not up yet (docs/contributing/gotchas.md): the first
- * SUBSCRIBE is issued before the connection is up and still holds, another
- * replica's message arrives, our own echo does not arrive twice, and the
- * last release leaves no subscriber on the server.
- *
- * Runs only with `REALTIME_REDIS_URL` set, e.g. against a local server:
- *   redis-server --port 6390 --save '' &
- *   REALTIME_REDIS_URL=redis://127.0.0.1:6390 npx vitest run bff/realtime/hub.redis.spec.ts
- */
 
 import { afterAll, describe, expect, it, vi } from 'vitest'
 
@@ -47,7 +36,6 @@ describe.skipIf(!URL)('the hub on a real redis-server', () => {
     const remoteHeard: string[] = []
     const releaseRemote = await theirs.subscribe(topic, (payload) => remoteHeard.push(payload))
 
-    // Wait for our SUBSCRIBE to land, then another replica speaks.
     await until(() => {
       void theirs.publish(topic, JSON.stringify({ origin: 'another-replica', payload: { kind: 'probe' } }))
       return heard.length > 0
@@ -60,7 +48,6 @@ describe.skipIf(!URL)('the hub on a real redis-server', () => {
     await until(() => heard.length >= 4 && remoteHeard.length >= 2)
     await new Promise((resolve) => setTimeout(resolve, 100))
 
-    // Two listeners, each hears the other replica's message once and our own once.
     expect(heard.filter((payload) => (payload as { kind: string }).kind === 'viewport')).toHaveLength(2)
     expect(heard.filter((payload) => (payload as { kind: string }).kind === 'cursor')).toHaveLength(2)
     expect(remoteHeard.filter((payload) => payload.includes('"cursor"'))).toHaveLength(1)

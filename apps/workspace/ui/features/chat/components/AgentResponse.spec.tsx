@@ -1,4 +1,4 @@
-import { render, screen } from '@/test-utils'
+import { render, screen, waitFor } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { vi, describe, test, expect, beforeEach } from 'vitest'
 import { AgentResponse } from './AgentResponse'
@@ -10,30 +10,22 @@ import type { AnswerCard } from '@/shared/cards/schemas'
 import { CARD_PREVIEW_FIXTURES } from '@/features/cards/preview-fixtures'
 import { useAnswerFileReferences } from '../hooks/use-answer-file-references'
 import { resetDecidedProposals } from '@/features/cards/decided-proposals'
+import { resetTurnNotes } from '../stores/turn-notes-store'
 import { http, HttpResponse } from 'msw'
 import { server } from '@/mocks/server'
 import { proposalBase, PROPOSAL_ID, decidedByAnna } from '@/features/cards/components/proposal-test-kit'
 import { PRODUCT_NAME } from '@/lib/brand'
 
-/** A presentational card that draws its title, for placement tests. */
 const calculationCard = (title: string): AnswerCard => ({ ...CARD_PREVIEW_FIXTURES.calculation!, title } as AnswerCard)
 
-/**
- * A turn the post-answer reflection stage recorded something for. No hook is
- * stubbed: what the „Piloti noted" chip shows is now a property of the MESSAGE,
- * delivered by the stage's frame, rather than a poll of the project's memory
- * that every rendered answer fired for itself.
- */
 const NOTED: MessageStages = {
   memoryReflection: {
     items: [{ id: 'mem-1', kind: 'decision', content: 'Fluchtweg über den Innenhof' }],
   },
 }
 
-// The project the READER has open; null unless a test sets it.
 const storeFixture = vi.hoisted(() => ({ projectId: null as string | null }))
 
-// Mock the chat store
 vi.mock('../store', () => ({
   useChatStore: vi.fn((selector?: StoreSelector<ChatStoreWithHydration>) => {
     const state: DeepPartial<ChatStoreWithHydration> = {
@@ -45,23 +37,16 @@ vi.mock('../store', () => ({
   }),
 }))
 
-// Mock cancelJob API
 vi.mock('@/adapters/api', () => ({
   cancelJob: vi.fn(),
 }))
 
-// Mock useAuth
 vi.mock('@/adapters/auth', () => ({
   useAuth: () => ({
     accessToken: null,
   }),
 }))
 
-// The provenance chips render their tint as a CSS-var inline style, which
-// jsdom's CSS parser drops — so the hue-budget tests below read the signal
-// off a wrapper around the REAL chip instead of off the DOM. Rendering stays
-// real (links, badges, popovers), which is why every other test in this file
-// is unaffected.
 vi.mock('./SourcePreview', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./SourcePreview')>()
   return {
@@ -74,13 +59,11 @@ vi.mock('./SourcePreview', async (importOriginal) => {
   }
 })
 
-// The real hook, observed: a read-only answer must still resolve the files it names.
 vi.mock('../hooks/use-answer-file-references', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../hooks/use-answer-file-references')>()
   return { ...actual, useAnswerFileReferences: vi.fn(actual.useAnswerFileReferences) }
 })
 
-// Mock MarkdownRenderer to render content as plain text for testing
 vi.mock('@/shared/components/MarkdownRenderer', () => ({
   MarkdownRenderer: ({ content }: { content: string }) => <span>{content}</span>,
 }))
@@ -121,7 +104,6 @@ describe('AgentResponse', () => {
       serveProposal('applied')
       render(<AgentResponse content="Answer" messageId="m1" cards={[card]} />)
 
-      // On the meta row: no disclosure to open first.
       expect(await screen.findByText(`${PRODUCT_NAME} noted`)).toBeInTheDocument()
     })
 
@@ -131,6 +113,63 @@ describe('AgentResponse', () => {
 
       await screen.findByTestId('proposal-status')
       expect(screen.queryByText(`${PRODUCT_NAME} noted`)).not.toBeInTheDocument()
+    })
+  })
+
+  describe('the noted chip for a personal note (ADR-0180)', () => {
+    const CONVERSATION = 's-1'
+    const NOTE = 'Leitet die Einreichplanung.'
+    const stages: MessageStages = {
+      memoryReflection: { items: [{ id: 'n-1', kind: 'decision', content: 'Die Bauherrschaft will ein Flachdach.' }] },
+    }
+    const asked: string[] = []
+    const serveMyNotes = (items: unknown[]) =>
+      server.use(
+        http.get('/api/user/memory', ({ request }) => {
+          asked.push(new URL(request.url).search)
+          return HttpResponse.json({ items, nextCursor: null })
+        })
+      )
+
+    beforeEach(() => {
+      asked.length = 0
+      resetTurnNotes()
+    })
+
+    test('shows the owner the note that was saved under this answer, marked as theirs alone', async () => {
+      const user = userEvent.setup()
+      serveMyNotes([
+        { id: 'p-1', kind: 'profile', content: NOTE, provenanceType: 'distillation', sourceMessageId: 'm1' },
+        { id: 'p-2', kind: 'preference', content: 'Unter einer anderen Antwort gemerkt.', provenanceType: 'agent', sourceMessageId: 'm0' },
+      ])
+      render(<AgentResponse content="Answer" messageId="m1" conversationId={CONVERSATION} stages={stages} />)
+
+      await user.click(await screen.findByRole('button', { name: `${PRODUCT_NAME} noted 2 items` }))
+
+      const mine = screen.getAllByTestId('memory-item').find((row) => row.textContent?.includes(NOTE))
+      expect(mine).toHaveTextContent('Only you')
+      expect(screen.queryByText('Unter einer anderen Antwort gemerkt.')).not.toBeInTheDocument()
+      expect(asked).toEqual([`?sourceConversationId=${CONVERSATION}&limit=200`])
+    })
+
+    test('shows a colleague reading the same message the project’s note and no personal row', async () => {
+      const user = userEvent.setup()
+      serveMyNotes([])
+      render(<AgentResponse content="Answer" messageId="m1" conversationId={CONVERSATION} stages={stages} readOnly />)
+
+      await user.click(await screen.findByRole('button', { name: `${PRODUCT_NAME} noted 1 item` }))
+
+      expect(screen.getAllByTestId('memory-item')).toHaveLength(1)
+      expect(screen.queryByText(NOTE)).not.toBeInTheDocument()
+      expect(screen.queryByText('Only you')).not.toBeInTheDocument()
+    })
+
+    test('an answer nothing was saved under shows no chip (a temporary conversation keeps nothing)', async () => {
+      serveMyNotes([])
+      render(<AgentResponse content="Answer" messageId="m1" conversationId={CONVERSATION} />)
+
+      await waitFor(() => expect(asked).toHaveLength(1))
+      expect(screen.queryByTestId('memory-chip')).not.toBeInTheDocument()
     })
   })
 
@@ -158,8 +197,6 @@ describe('AgentResponse', () => {
 
     test('still resolves the files it names in the reader\'s project', () => {
       storeFixture.projectId = 'p1'
-      // Answered here, not by the network: the real hook would fetch the
-      // project's files and outlive this test.
       const hook = vi.mocked(useAnswerFileReferences)
       const real = hook.getMockImplementation()
       hook.mockImplementation(() => ({ fileNames: [], resolve: () => null }))
@@ -181,14 +218,12 @@ describe('AgentResponse', () => {
   test('returns null for empty content', () => {
     render(<AgentResponse content="" />)
 
-    // Component returns null for empty content - check that no markdown is rendered
     expect(screen.queryByTestId('markdown')).not.toBeInTheDocument()
   })
 
   test('returns null for whitespace-only content', () => {
     render(<AgentResponse content="   " />)
 
-    // Component returns null for whitespace-only content
     expect(screen.queryByTestId('markdown')).not.toBeInTheDocument()
   })
 
@@ -203,9 +238,6 @@ describe('AgentResponse', () => {
   })
 
   test('a cut-off marks the details trigger instead of opening it under the reader', () => {
-    // A warning behind a closed trigger is a warning nobody read, but the
-    // details opening themselves at the settle snapped 100-400px in under a
-    // reader who had just reached the end. The trigger says so instead.
     render(<AgentResponse content="Response" timestamp="2024-01-15T14:30:00Z" researchTruncated />)
     const trigger = screen.getByTestId('answer-details-trigger')
     expect(trigger).toHaveAttribute('aria-expanded', 'false')
@@ -226,10 +258,6 @@ describe('AgentResponse', () => {
     expect(screen.getByText(/\d{1,2}:\d{2}/)).toBeInTheDocument()
   })
 
-  // An answer card sends the reader nowhere. The report of a run is this same
-  // card drawn under the run's block in the thread that commissioned it
-  // (ADR-0062), so a control offering a second place to read it would be a door
-  // over the thing it points at.
   test('offers no way out of the thread', () => {
     render(<AgentResponse content="Response" />)
 
@@ -241,7 +269,6 @@ describe('AgentResponse', () => {
     render(<AgentResponse content="Response without timestamp" />)
 
     expect(screen.getByText('Response without timestamp')).toBeInTheDocument()
-    // No timestamp text should be present
     expect(screen.queryByText(/\d{1,2}:\d{2}/)).not.toBeInTheDocument()
   })
 
@@ -250,12 +277,10 @@ describe('AgentResponse', () => {
 
     const { container } = render(<AgentResponse content={longContent} />)
 
-    // Verify content is rendered (container should have content)
     expect(container.textContent).toContain('This is a very long response. ')
   })
 
   test('renders the confidence chip for each level', async () => {
-    // The chip lives behind the answer-details disclosure — open it first.
     const user = userEvent.setup()
     const { rerender } = render(<AgentResponse content="Answer" answerConfidence="high" />)
     await user.click(screen.getByTestId('answer-details-trigger'))
@@ -280,10 +305,6 @@ describe('AgentResponse', () => {
     expect(screen.getByText('Confidence: high')).toBeInTheDocument()
   })
 
-  // Cards used to open the answer, which is the one place they cannot help: two
-  // of them push the written answer — the thing that was asked for — below the
-  // fold. A card the answer did not place itself now follows the prose.
-  // (`MarkdownRenderer` is stubbed above, so nothing is placed inline here.)
   test('renders unplaced cards after the answer body, not before it', () => {
     const cards = [
       calculationCard('Nachgestellte Karte'),
@@ -296,8 +317,6 @@ describe('AgentResponse', () => {
     expect(body.indexOf('Nachgestellte Karte')).toBeGreaterThan(body.indexOf('Die Antwort.'))
   })
 
-  // A card the answer DID place is drawn by the marker plugin inside the
-  // markdown body, so the block after the prose must not draw it a second time.
   test('leaves a card the answer placed inline out of the block', () => {
     const cards = [
       calculationCard('Platzierte Karte'),
@@ -344,7 +363,6 @@ describe('AgentResponse', () => {
       expect(row).toBeInTheDocument()
       expect(screen.getByText('ris.bka.gv.at')).toBeInTheDocument()
       expect(screen.getByText('example.com')).toBeInTheDocument()
-      // Web citations link out.
       expect(screen.getByRole('link', { name: /example\.com/i })).toHaveAttribute(
         'href',
         'https://example.com/article'
@@ -368,9 +386,6 @@ describe('AgentResponse', () => {
     })
   })
 
-  // The provenance footer is ONE tinted zone with three parts: the sources
-  // block, the copy actions, and a single details disclosure (confidence +
-  // memory + skills + notes + full feedback + timestamp behind one trigger).
   describe('merged provenance footer (default card)', () => {
     const citations = [
       {
@@ -383,9 +398,6 @@ describe('AgentResponse', () => {
     ]
 
     test('shows the memory chip on the meta row, outside the details disclosure', async () => {
-      // A write to the project's memory changes every later answer, so the
-      // reader is told on the answer itself: the chip sits in the visible row
-      // beside the details trigger, and the closed disclosure does not hold it.
       const user = userEvent.setup()
       render(
         <AgentResponse
@@ -401,10 +413,8 @@ describe('AgentResponse', () => {
       const trigger = screen.getByTestId('answer-details-trigger')
       expect(trigger).toHaveAttribute('aria-expanded', 'false')
       expect(chip.closest('.min-h-6')).toContainElement(trigger)
-      // After the trigger, so a chip that arrives late moves nothing before it.
       expect(chip.compareDocumentPosition(trigger) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy()
 
-      // One tap opens what it was.
       await user.click(chip)
       expect(await screen.findByText('Fluchtweg über den Innenhof')).toBeInTheDocument()
     })
@@ -425,10 +435,6 @@ describe('AgentResponse', () => {
     })
 
     test('the meta row of a bare answer holds the copy action and nothing else', () => {
-      // No confidence level, no messageId for the thumbs row, no timestamp and
-      // no memory. A completed answer can always be copied, so the copy action
-      // is what keeps the row from being empty — and there is no details
-      // trigger, because the disclosure would hold nothing.
       render(<AgentResponse content="Answer" />)
 
       expect(screen.getByRole('button', { name: 'Copy answer' })).toBeInTheDocument()
@@ -439,8 +445,6 @@ describe('AgentResponse', () => {
     })
 
     test('renders no meta row at all while the answer is still streaming', () => {
-      // Streaming reserves the row's height but must not mount its content —
-      // an answer that is still arriving cannot be copied or rated.
       const { container } = render(<AgentResponse content="Answer" isStreaming />)
 
       expect(container.querySelector('[class*="animation-delay"]')).toBeNull()
@@ -452,15 +456,11 @@ describe('AgentResponse', () => {
 
       const reserved = container.querySelector('.min-h-6')
       expect(reserved).not.toBeNull()
-      // Empty reserve only — the fade starts once there is content.
       expect(reserved?.className).not.toContain('animation-delay')
     })
 
     test('holds confidence and the timestamp behind ONE disclosure — memory and feedback stay out', async () => {
       const user = userEvent.setup()
-      // Local-only, uncited turn: no conversationId means no Word export, so
-      // the plain-copy fallback keeps the row from going silent (AnswerActions
-      // shows it only when the turn has neither sources nor an export).
       render(
         <AgentResponse
           content="Answer"
@@ -471,10 +471,6 @@ describe('AgentResponse', () => {
         />
       )
 
-      // The visible row holds the copy action, the thumbs and the trigger —
-      // rating the answer costs no click, and the memory chip, because a write
-      // to the project's memory must be seen without asking. Confidence and
-      // time wait behind the disclosure.
       const metaRow = screen.getByRole('button', { name: 'Copy answer' }).closest('.min-h-6')
       expect(metaRow).not.toBeNull()
       expect(metaRow).toContainElement(screen.getByTestId('answer-details-trigger'))
@@ -486,22 +482,13 @@ describe('AgentResponse', () => {
 
       await user.click(screen.getByTestId('answer-details-trigger'))
 
-      // Opened: everything else the turn carries is in the document.
       expect(screen.getByText('Confidence: high')).toBeInTheDocument()
       expect(screen.getByText(`${PRODUCT_NAME} noted`)).toBeInTheDocument()
       expect(screen.getByText(/^\d{1,2}:\d{2}/)).toBeInTheDocument()
     })
 
     test("a down-vote opens its disclosure as the meta row's own next line", async () => {
-      // The layout defect this holds: the row is `items-center`, so one box
-      // holding both the thumbs and their open form made the row as tall as the
-      // form and centred the copy actions against it — two icons floating in
-      // the middle of an otherwise empty left half, with the reason chips and
-      // the note hanging off the row's right end. The row and the disclosure are
-      // therefore two ITEMS of the meta row, not one nested block.
       const user = userEvent.setup()
-      // The vote is persisted optimistically and reverted when the write fails,
-      // so the disclosure only stays open if the POST resolves.
       vi.stubGlobal(
         'fetch',
         vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ feedback: [] }) })
@@ -524,11 +511,8 @@ describe('AgentResponse', () => {
           .closest('.min-h-6')
         const disclosure = (await screen.findByText('What was the problem?')).closest('.w-full')
 
-        // Both hang off the meta row itself, so the row lays them out on two
-        // lines instead of centring its short items against a tall one.
         expect(disclosure?.parentElement).toBe(metaRow)
         expect(thumb.closest('.min-h-6')?.parentElement).toBe(metaRow)
-        // The thumbs keep their own 24px line — the form is not inside it.
         expect(disclosure).not.toContainElement(thumb)
       } finally {
         vi.unstubAllGlobals()
@@ -547,12 +531,9 @@ describe('AgentResponse', () => {
         />
       )
 
-      // A cited answer offers the with-sources copy (not the plain fallback).
       const copy = screen.getByRole('button', { name: 'Copy answer with full source references' })
       const trigger = screen.getByTestId('answer-details-trigger')
       const thumb = screen.getByRole('button', { name: 'Mark this answer as helpful' })
-      // All hang off the one wrapping row — the row breaks before any of
-      // them, never between copy and rating at phone width.
       const metaRow = copy.closest('.min-h-6')
       expect(metaRow).not.toBeNull()
       expect(metaRow).toContainElement(trigger)
@@ -578,15 +559,11 @@ describe('AgentResponse', () => {
       await user.click(screen.getByTestId('answer-details-trigger'))
 
       expect(screen.getByText('Confidence: high')).toBeInTheDocument()
-      // Still exactly one chip: opening the details does not mount a second.
       expect(screen.getAllByText(`${PRODUCT_NAME} noted`)).toHaveLength(1)
     })
 
     test('renders the feedback row in the open, beside the export actions', async () => {
       const user = userEvent.setup()
-      // Local-only, uncited turn with a timestamp: the fallback copy keeps the
-      // row from going silent, and the timestamp gives the disclosure something
-      // to hold so the trigger exists to prove feedback stays out of it.
       render(
         <AgentResponse
           content="Answer"
@@ -595,15 +572,12 @@ describe('AgentResponse', () => {
         />
       )
 
-      // No click needed: the question and both thumbs are in the visible row,
-      // next to the fallback copy of this sourceless answer.
       expect(screen.getByText('Was this helpful?')).toBeInTheDocument()
       expect(
         screen.getByRole('button', { name: 'Mark this answer as helpful' })
       ).toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Copy answer' })).toBeInTheDocument()
 
-      // And the disclosure holds none of it — only the details.
       await user.click(screen.getByTestId('answer-details-trigger'))
       expect(screen.getAllByText('Was this helpful?')).toHaveLength(1)
     })
@@ -623,9 +597,6 @@ describe('AgentResponse', () => {
     })
   })
 
-  // Consolidation: an answer that ends in a written sources section must state
-  // its sources ONCE — in the provenance block — not as dead markdown text AND
-  // a chip row that each carry half the information.
   describe('consolidated source list', () => {
     const answer = [
       'Garagen brauchen zwei Fluchtwege [1].',
@@ -647,12 +618,8 @@ describe('AgentResponse', () => {
       expect(
         screen.getByRole('list', { name: /sources this answer is backed by/i })
       ).toBeInTheDocument()
-      // The chip keeps its compact shape and carries the citation's [N] …
       expect(screen.getByText('1')).toBeInTheDocument()
-      // … and names the Richtlinie, never the corpus filename — even though
-      // the written entry the row was built from spells only the filename.
       expect(screen.getByText('OIB-Richtlinie 4, Ausgabe Mai 2023')).toBeInTheDocument()
-      // … and is the anchor its inline [1] marker scrolls to.
       expect(document.getElementById('answer-source-m1-1')).not.toBeNull()
     })
 
@@ -690,7 +657,6 @@ describe('AgentResponse', () => {
       )
 
       expect(screen.getAllByRole('listitem')).toHaveLength(1)
-      // The chip keeps the human title; the raw filename is gone from the UI.
       expect(screen.getByText('OIB-Richtlinie 4, Ausgabe Mai 2023')).toBeInTheDocument()
       expect(screen.queryByText('oib-rl_4_ausgabe_mai_2023.pdf')).not.toBeInTheDocument()
     })
@@ -711,7 +677,6 @@ describe('AgentResponse', () => {
         />
       )
 
-      // No numbers → no anchored rows, just the chips.
       expect(document.querySelector('[id^="answer-source-"]')).toBeNull()
       expect(
         screen.getByRole('list', { name: /sources this answer is backed by/i })
@@ -719,11 +684,6 @@ describe('AgentResponse', () => {
     })
   })
 
-  // The routingDecision-driven distinction: a substantive Baurecht answer
-  // (shallow/deep) is named "Result"; a conversational / clarifying meta reply
-  // is a quiet "Note" on a muted surface. The name is the article's, for a
-  // screen reader: no role tab draws it (Notion #38, topic 9). Fallback (no
-  // signal) must stay identical to a substantive answer.
   describe('response-kind distinction (routingDecision)', () => {
     test('draws no role mark over the answer: the kind is the article name alone', () => {
       const { container } = render(<AgentResponse content="Baurecht answer" routingDecision="shallow" />)
@@ -768,7 +728,6 @@ describe('AgentResponse', () => {
     test('fallback: absent routingDecision renders exactly as a substantive answer', () => {
       render(<AgentResponse content="Legacy answer" />)
 
-      // No discriminator → the "Result" treatment, never the meta "Note".
       expect(screen.getByRole('article', { name: 'Result' })).toBeInTheDocument()
       expect(screen.queryByRole('article', { name: 'Note' })).not.toBeInTheDocument()
     })
@@ -846,8 +805,6 @@ describe('AgentResponse', () => {
       'B'.repeat(320),
     ].join('\n\n')
 
-    // MarkdownRenderer is stubbed above, so there is no `.markdown-content` to
-    // hang off — look for the wrapper carrying the lede variant instead.
     const hasLede = (container: HTMLElement) =>
       Array.from(container.querySelectorAll('div')).some((el) => el.className.includes(LEDE))
 
@@ -857,10 +814,6 @@ describe('AgentResponse', () => {
       expect(hasLede(container)).toBe(true)
     })
 
-    // There is no length gate any more: length is the one thing not known at
-    // the first word, and a gate on it restyled the paragraph the reader was on
-    // mid-stream. The short reply that should not be enlarged is the NOTE (a
-    // direct reply, a conversational turn), and the kind says so up front.
     test('a note is never a lede, however it opens', () => {
       const { container } = render(<AgentResponse content={longAnswer} routingDecision="meta" />)
       expect(hasLede(container)).toBe(false)
@@ -878,8 +831,6 @@ describe('AgentResponse', () => {
     })
 
     test('a streaming answer decides its lede at its first words and never restyles it', () => {
-      // Decided once 600 characters had arrived, the first paragraph the
-      // reader was on grew from 16 to 17px mid-stream.
       const { container, rerender } = render(
         <AgentResponse content={longAnswer.slice(0, 20)} isStreaming />
       )
@@ -893,7 +844,6 @@ describe('AgentResponse', () => {
     })
 
     test('a streaming answer waits until its opening can be read before deciding', () => {
-      // `##` alone may yet be a heading.
       const { container, rerender } = render(<AgentResponse content="##" isStreaming />)
       expect(hasLede(container)).toBe(false)
 
@@ -912,7 +862,6 @@ describe('AgentResponse', () => {
 
       rerender(<AgentResponse content={longAnswer} answerMeta={meta} isStreaming />)
       rerender(<AgentResponse content={longAnswer} answerMeta={meta} />)
-      // Once in the masthead, it stays for this view (and the prose repeats it).
       expect(screen.getAllByText(summary).length).toBeGreaterThanOrEqual(1)
       expect(document.querySelector('header')?.textContent).toContain(summary)
     })
@@ -924,8 +873,6 @@ describe('AgentResponse', () => {
       expect(document.querySelector('header')?.textContent).not.toContain(summary)
     })
   })
-  // Getting the answer OUT: the copy actions live in the merged footer's meta
-  // row, next to the feedback thumbs — never in a band of their own.
   describe('answer copy actions', () => {
     const citations = [
       {
@@ -971,9 +918,6 @@ describe('AgentResponse', () => {
   })
 
   describe('the answer anatomy (answerMeta)', () => {
-    // Native answer fields, never cards: the verdict renders ABOVE the prose,
-    // the callout and the takeaways after it, in that fixed order — the model
-    // owns content, the frontend owns placement.
     const answerMeta = {
       v: 1,
       summary: 'In GK 4 gilt REI 60; maßgeblich ist das Fluchtniveau.',
@@ -996,8 +940,6 @@ describe('AgentResponse', () => {
       expect(text).toContain('REI 60')
       expect(text).toContain('Binnen sechs Wochen anzuberaumen.')
       expect(text).toContain('Maßgeblich ist das Fluchtniveau')
-      // Fixed order: verdict then summary (the masthead) before the prose,
-      // the callout and takeaways after it.
       expect(text.indexOf('REI 60')).toBeLessThan(text.indexOf('In GK 4 gilt REI 60'))
       expect(text.indexOf('In GK 4 gilt REI 60')).toBeLessThan(text.indexOf('REI 60 gilt,'))
       expect(text.indexOf('REI 60 gilt,')).toBeLessThan(text.indexOf('Binnen sechs Wochen'))
@@ -1007,13 +949,10 @@ describe('AgentResponse', () => {
     })
 
     test('a summary holds the lede alone — the first paragraph takes no lede', () => {
-      // Long enough to clear the lede threshold on its own; with a summary in
-      // the masthead the first paragraph must NOT also be set as a lede.
       const longBody = `${'Ein ausreichend langer erster Absatz. '.repeat(20)}\n\nZweiter Absatz.`
       const { container } = render(<AgentResponse content={longBody} answerMeta={answerMeta} />)
       expect(container.querySelector('[class*="first-child\\]:leading-"]')).toBeNull()
 
-      // Without a summary the lede styling still fires as before.
       const { verdict, callout, takeaways } = answerMeta
       const { container: plain } = render(
         <AgentResponse content={longBody} answerMeta={{ v: 1, verdict, callout, takeaways }} />
@@ -1050,10 +989,6 @@ describe('AgentResponse', () => {
     })
 
     test('a body that claims the callout with [[callout]] takes it out of the after-prose block', () => {
-      // `MarkdownRenderer` is stubbed here, so the SPLICE itself cannot be
-      // seen (card-markers.spec.tsx proves it against the real parser and
-      // DOM); what this surface owns is the other half of the contract — a
-      // claimed callout must not ALSO render after the prose.
       const { container } = render(
         <AgentResponse
           content={'Erster Absatz.\n\n[[callout]]\n\nZweiter Absatz.'}
@@ -1062,13 +997,10 @@ describe('AgentResponse', () => {
       )
       const text = container.textContent ?? ''
       expect(text).not.toContain('Binnen sechs Wochen')
-      // The takeaways still close the answer.
       expect(text).toContain('Maßgeblich ist das Fluchtniveau')
     })
 
     test('a summary that restates the body’s opening is dropped from the masthead', () => {
-      // The same statement twice: the body states it once, so the masthead —
-      // with no verdict and no topic — renders nothing at all.
       const { container } = render(
         <AgentResponse
           content="In GK 4 gilt REI 60."
@@ -1091,9 +1023,6 @@ describe('AgentResponse', () => {
     })
 
     test('the inline variant drops a restating summary from the masthead too', () => {
-      // The dedup gate is variant-independent: the inline rendering carries
-      // the same masthead, so a summary the body already states once must not
-      // headline it twice there either.
       const { container } = render(
         <AgentResponse
           content="In GK 4 gilt REI 60."
@@ -1142,8 +1071,6 @@ describe('AgentResponse', () => {
       container.querySelector('[data-signal]')?.getAttribute('data-signal') ?? null
 
     test('one chromatic accent keeps the chips tinted', async () => {
-      // Takeaways alone spend one hue — the Baurecht chip keeps its lane tint
-      // (the OIB accent, resolved off the fixture's filename).
       const { container } = render(
         <AgentResponse
           content="Maßgeblich ist das Fluchtniveau."
@@ -1155,7 +1082,6 @@ describe('AgentResponse', () => {
     })
 
     test('a frist callout plus takeaways keep the chips tinted', async () => {
-      // Same: a frist callout spends its alarm hue beside tinted chips.
       const { container } = render(
         <AgentResponse
           content="Maßgeblich ist das Fluchtniveau."
@@ -1172,8 +1098,6 @@ describe('AgentResponse', () => {
     })
 
     test('a hinweis callout plus takeaways keep the chips tinted', async () => {
-      // Hinweis rides the neutral tier — it spends no hue, so the spend stays
-      // at one and the chips keep their tint.
       const { container } = render(
         <AgentResponse
           content="Maßgeblich ist das Fluchtniveau."
@@ -1191,10 +1115,6 @@ describe('AgentResponse', () => {
   })
 
   describe('a streaming answer', () => {
-    // The client-side typewriter was removed: the full text paints as soon as
-    // it arrives, and `isStreaming` — the real socket window — is the only
-    // "still arriving" state left. Affordances that act on a whole answer
-    // still have to wait for it.
     test('an answer still streaming cannot be copied', () => {
       render(<AgentResponse content="Die Antwort ist ja, ab GK4." isStreaming />)
 
@@ -1202,10 +1122,6 @@ describe('AgentResponse', () => {
     })
 
     test('a card no marker claimed lands as soon as the streamed prose is complete', () => {
-      // A live frame carries cards only once the envelope's `answer` string
-      // closed (ADR-0066), so a streaming answer that holds cards has all of
-      // its prose: nothing can claim the card any more, and waiting for the
-      // terminal held it back until verification and the pipeline were done.
       const cards = [
         calculationCard('Nachgestellte Karte'),
       ]
@@ -1224,7 +1140,6 @@ describe('AgentResponse', () => {
   })
 })
 
-// L23: after Stop, nothing that was not on screen at the press arrives.
 describe('a stopped answer', () => {
   test('draws no card and no „without source" row that were not shown before the press', () => {
     const { rerender, container } = render(<AgentResponse content="Die Antwort so weit." isStreaming />)
@@ -1252,8 +1167,6 @@ describe('a stopped answer', () => {
   })
 })
 
-// L19: a turn that failed under its answer keeps the words, dimmed, and
-// offers nothing a finished answer would.
 describe('a failed answer', () => {
   test('keeps the words, dimmed, without the copy action or feedback', () => {
     const { rerender } = render(

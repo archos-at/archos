@@ -26,8 +26,6 @@ const PROJECT_ID = '4f9c1d2e-3b4a-4c5d-8e6f-7a8b9c0d1e2f'
 
 describe('POST /api/projects/[id]/experience', () => {
   it('declares its authorization on the factory, enforced by the service', () => {
-    // authz-coverage.spec.ts checks the factory is used; this checks the declared
-    // posture names the service that really asks for memory write access.
     const source = readFileSync(join(__dirname, 'route.ts'), 'utf8')
     expect(source).toMatch(/authz:\s*\{\s*enforcedBy:\s*'extractProjectExperience /)
   })

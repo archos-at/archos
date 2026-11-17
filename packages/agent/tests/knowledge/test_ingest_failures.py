@@ -1,11 +1,3 @@
-"""A failed file's category, from its reason and the exception that ended it.
-
-The category decides whether reading the file again is worth anything
-(``apps/workspace/bff/documents/retry-policy.ts``). The reasons the adapter
-writes on purpose are pinned in ``test_ingest_failure_prefix_parity.py``; these
-pin what the per-file catch meets: an exception and ``str(e)``.
-"""
-
 import json
 
 import pytest
@@ -15,8 +7,6 @@ from agent.knowledge.ingest_failures import classify_failure
 from agent.knowledge.ingest_failures import verdict_for
 
 
-# Stand-ins named as the SDKs name theirs: the classifier reads names, so a
-# test needs neither httpx nor openai nor pdfminer installed to say this.
 class ReadTimeout(Exception):
     pass
 
@@ -97,7 +87,6 @@ def test_a_refused_key_is_configuration():
 
 
 def test_a_missing_model_or_endpoint_is_configuration_not_the_bytes():
-    """A 404 is a misnamed model or base URL: fixing it lets the same file read."""
     assert _verdict(_StatusError(404)) == ("configuration", True)
     assert _verdict(HTTPStatusError(404)) == ("configuration", True)
 
@@ -110,7 +99,6 @@ class _NoAllowedProvider(_StatusError):
 
 @pytest.mark.parametrize("status", [404, 503])
 def test_no_allowed_eu_endpoint_now_is_transient(status):
-    """An EU-only page read (`DataPolicy.for_page_reads`) the provider cannot place passes when an endpoint is back."""
     assert _verdict(_NoAllowedProvider(status)) == ("transient", True)
     assert _verdict(RuntimeError("x"), "Error code: 404 - No allowed providers are available") == ("transient", True)
 
@@ -122,7 +110,6 @@ def test_a_model_without_a_zdr_endpoint_stays_configuration():
 
 
 def test_an_upstream_answer_that_fails_its_model_is_not_blamed_on_the_file():
-    """pydantic's ValidationError is a ValueError, and it is the answer's shape, not the bytes."""
     from pydantic import BaseModel
     from pydantic import ValidationError
 
@@ -140,7 +127,6 @@ def test_the_adapters_own_sentence_for_an_empty_file_is_deterministic():
 
 
 def test_a_garbled_upstream_answer_is_not_blamed_on_the_file():
-    """A JSONDecodeError is a ValueError, and almost always the provider's answer, not the bytes."""
     exc = json.JSONDecodeError("Expecting value", "<html>", 0)
     assert _verdict(exc) == ("unknown", True)
 
@@ -151,13 +137,11 @@ def test_what_nothing_recognises_stays_retryable():
 
 
 def test_a_reason_prefix_beats_the_exception():
-    """The adapter's deliberate reason is the more specific statement."""
     verdict = classify_failure("vlm_not_configured: image ingestion requires VLM_API_KEY", TimeoutError())
     assert verdict.category == "configuration"
 
 
 def test_the_image_paths_ambiguous_sentence_is_not_a_verdict_on_the_bytes():
-    """It says "corrupted file or VLM failure": retrying it must stay possible."""
     verdict = classify_failure("Image could not be decoded or captioned (corrupted file or VLM failure)")
     assert verdict.retryable is True
 
@@ -168,8 +152,6 @@ def test_only_lasting_categories_refuse_a_retry(category):
 
 
 class _PaymentRequired(Exception):
-    """OpenRouter's 402 as the openai SDK raises it: the status and the provider's sentence."""
-
     def __init__(self, message: str):
         super().__init__(f"Error code: 402 - {{'error': {{'message': '{message}', 'code': 402}}}}")
         self.status_code = 402
@@ -179,8 +161,6 @@ _IN_FLIGHT = "Request would exceed your available credits given your current in-
 
 
 def test_a_402_for_credits_held_by_requests_in_flight_is_capacity_not_the_file():
-    """2026-11: a burst of vision calls reserved the credits; the next call got 402
-    and its file was failed for good, though the same call passes once they finish."""
     assert _verdict(_PaymentRequired(_IN_FLIGHT)) == ("transient", True)
 
 

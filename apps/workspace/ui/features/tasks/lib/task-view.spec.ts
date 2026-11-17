@@ -1,13 +1,3 @@
-/**
- * The task view boundary: submission words never reach the row.
- *
- * The task vocabulary talks about WORK (`queued`/`running`/…), but a status
- * naming the submission (`submitted`, `pending`) can still arrive on the wire.
- * Rendered raw it would put a backend token in front of an architect, so the
- * panel folds both to the planner word `queued` ("accepted, not started").
- * Backend enums are untouched — this maps at the view boundary only.
- */
-
 import { describe, expect, test } from 'vitest'
 import {
   bucketFor,
@@ -18,16 +8,6 @@ import {
   type TaskRunView,
 } from './task-view'
 
-/**
- * Where a finished task's result lives.
- *
- * The order is the point: the filed DOCUMENT is the durable artefact the rest
- * of the product treats as real, and the THREAD at the run's own message is
- * everything else a run produced — its report, its account of the work and,
- * when it broke, what it tried (ADR-0062). There is no third place: the
- * `?job=` report and thinking URLs addressed the deep-research side panel,
- * which is gone, so a row with neither destination says so.
- */
 describe('taskResultTarget', () => {
   const row = (overrides: Partial<TaskRunView> = {}): TaskRunView => ({
     id: 't1',
@@ -63,13 +43,6 @@ describe('taskResultTarget', () => {
     expect(target).toEqual({ kind: 'conversation', href: '/app/projects/p1/chat?session=conv-1' })
   })
 
-  /**
-   * A run is one message in its thread (ADR-0062), and a standing task's thread
-   * holds every fire it has ever had — so „open the result" has to land on THIS
-   * run, not at the bottom of a year of them. `#message-<id>` is the anchor the
-   * inbox links already use, and `?run=` names the run for a surface that has
-   * only the thread.
-   */
   test('a run with its own message opens the thread AT that message', () => {
     const target = taskResultTarget(
       'p1',
@@ -81,12 +54,6 @@ describe('taskResultTarget', () => {
     })
   })
 
-  /**
-   * The status used to choose between three `?job=` URLs — the report, the
-   * thinking tab and the progress tab. Every one of them was read by the
-   * research panel and by nothing else, so all three now resolve to the run's
-   * message, and a run that has no thread has no destination at all.
-   */
   test('a finished run that filed nothing and has no thread points nowhere', () => {
     expect(taskResultTarget('p1', row({}))).toBeNull()
   })
@@ -125,11 +92,6 @@ describe('taskResultTarget', () => {
   })
 })
 
-/**
- * The filter row. `unreviewed` is the one that earns the row: a finished task
- * nobody judged is an open loop, and the count is the number a person wants at
- * zero.
- */
 describe('task filters', () => {
   const at = (overrides: Partial<TaskRunView>): TaskRunView => ({
     id: 'x',
@@ -156,7 +118,6 @@ describe('task filters', () => {
     expect(matchesFilter(at({ status: 'succeeded', review: null }), 'unreviewed')).toBe(true)
     expect(matchesFilter(at({ status: 'succeeded', review: 'accepted' }), 'unreviewed')).toBe(false)
     expect(matchesFilter(at({ status: 'succeeded', review: 'rejected' }), 'unreviewed')).toBe(false)
-    // Not finished is not unreviewed: there is nothing to judge yet.
     expect(matchesFilter(at({ status: 'running' }), 'unreviewed')).toBe(false)
   })
 
@@ -170,7 +131,6 @@ describe('task filters', () => {
       expect(matchesFilter(at({ status }), 'failed')).toBe(false)
       expect(matchesFilter(at({ status }), 'active')).toBe(false)
       expect(matchesFilter(at({ status }), 'unreviewed')).toBe(false)
-      // …but it is still in the list.
       expect(matchesFilter(at({ status }), 'all')).toBe(true)
     }
   })
@@ -185,11 +145,6 @@ describe('task filters', () => {
   })
 })
 
-/**
- * Recency buckets. Relative, not per-day: "Heute / Gestern / Diese Woche /
- * Früher" is how a person remembers when they asked, and it cannot degenerate
- * into forty groups of one.
- */
 describe('groupByRecency', () => {
   const now = new Date('2026-09-15T14:00:00.000Z')
   const at = (id: string, createdAt: string): TaskRunView => ({
@@ -213,9 +168,6 @@ describe('groupByRecency', () => {
   })
 
   test('buckets by local calendar day, not by a 24-hour subtraction', () => {
-    // 01:00 local today is 13 hours before `now` — a 24h window would call it
-    // "today" either way, but 23:00 local yesterday is only 15 hours before and
-    // must still read as Gestern.
     const today = new Date(now)
     today.setHours(1, 0, 0, 0)
     const yesterday = new Date(now)

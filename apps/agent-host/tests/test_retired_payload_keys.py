@@ -1,25 +1,3 @@
-"""A payload written by an earlier release still runs after the upgrade.
-
-Root cause: a research job's payload is the kwargs the worker replays with
-``run_agent_job(**payload)``. The release before #887 wrote ``scheduler_address``
-(its Dask scheduler) into every payload, and #887 removed that parameter; the
-release before ADR-0150 wrote ``claim_owner`` (the claim queue's worker id), and
-the move to Hatchet removed that one. A stored payload replayed after such an
-upgrade (a Hatchet retry, or the cutover's re-dispatch of the old queue's rows)
-died with a TypeError.
-
-Why missed: the worker tests stub ``run_agent_job`` with ``**kwargs``, which
-accepts anything, and no test replayed a payload written by an earlier release.
-
-The fix: ``worker.RETIRED_PAYLOAD_KEYS`` names the keys old releases wrote, and
-the worker drops exactly those after decryption. Anything else unknown still
-fails loudly.
-
-Ratchet: the stub below binds against the REAL ``run_agent_job`` signature, so a
-stale or misspelled key fails here as it would in production. The payloads go
-through the real payload encryption and the real ``research-run`` task body.
-"""
-
 from __future__ import annotations
 
 import inspect
@@ -31,7 +9,6 @@ from agent_host.jobs import research_workflow
 from agent_host.jobs import worker as worker_mod
 from agent_host.jobs.agent_job import run_agent_job
 
-#: What the claim-queue releases stored, with both keys they carried.
 OLD_PAYLOAD = {
     "configure_logging": False,
     "log_level": 20,
@@ -56,7 +33,6 @@ def db_url(tmp_path, monkeypatch):
 
 @pytest.fixture
 def replayed(monkeypatch) -> list:
-    """Stand in for ``run_agent_job`` with its real signature: a bad key raises as it would in production."""
     calls: list = []
     signature = inspect.signature(run_agent_job)
 
@@ -94,7 +70,6 @@ async def _run_and_collect_failure(payload: dict) -> BaseException:
 
 
 async def test_unknown_key_in_a_new_payload_still_fails(db_url, replayed):
-    """No general ignore-unknown filter: a typo or a stale key in a NEW payload must stay loud."""
     new_payload = {k: v for k, v in OLD_PAYLOAD.items() if k not in worker_mod.RETIRED_PAYLOAD_KEYS}
     new_payload.update(job_id="job-new", not_a_parameter=1)
 
@@ -124,7 +99,6 @@ def test_only_the_named_retired_keys_are_dropped():
 
 
 def test_no_retired_key_is_a_parameter_again():
-    """A retired name that comes back as a parameter would be silently dropped from every payload."""
     assert not worker_mod.RETIRED_PAYLOAD_KEYS & set(inspect.signature(run_agent_job).parameters)
 
 

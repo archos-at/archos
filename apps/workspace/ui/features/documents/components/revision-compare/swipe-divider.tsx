@@ -7,28 +7,11 @@ import { filesCopy } from '@/i18n/namespaces/files'
 import { percentAlong, swipeKeyTarget } from './lib/swipe'
 
 export interface SwipeDividerProps {
-  /** 0..100: how much of the width shows the older Fassung. */
   value: number
   onChange: (value: number) => void
-  /** The box the divider travels in; the pointer is measured against it. */
   trackRef: RefObject<HTMLElement | null>
 }
 
-/**
- * The draggable line of the swipe mode.
- *
- * A `role="slider"` rather than a range input, because it has to sit ON the
- * drawing and be grabbed anywhere along its height; the keyboard works through
- * the arrows (Shift for a big step, Home and End for the edges). Pointer
- * capture keeps the drag alive when the pointer leaves the thin line, which it
- * does constantly.
- *
- * It is drawn ON the paper, so it does not follow the theme: a fixed
- * near-black line with a white halo and a dark handle, findable on white paper
- * and over black walls alike, in light mode and dark (a theme token went
- * near-white in dark mode and vanished on the sheet). The hit area is 24 px,
- * 44 px under a finger.
- */
 export function SwipeDivider({ value, onChange, trackRef }: SwipeDividerProps): JSX.Element {
   const t = useTranslations(filesCopy)
 

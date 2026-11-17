@@ -16,7 +16,6 @@ import { SearchWorkspace } from './search-workspace'
 import { SearchWorkspaceView } from './search-workspace-view'
 import { PRODUCT_NAME } from '@/lib/brand'
 
-/** The URL the organism reads; a test sets it before rendering, the router writes it. */
 let currentSearch = ''
 const routerPush = vi.fn((href: string) => {
   currentSearch = href.split('?')[1] ?? ''
@@ -48,7 +47,6 @@ const SECTIONS = {
   conversation: sectionView(SEARCH_FIXTURE_RESPONSE.sections.conversation!),
 }
 
-/** The view over the fixture, its question held in memory and reported on every change. */
 function Harness({ initial, onChange }: { initial: SearchUrlState; onChange: (next: SearchUrlState) => void }): ReactElement {
   const [state, setState] = useState(initial)
   return (
@@ -71,7 +69,6 @@ function Harness({ initial, onChange }: { initial: SearchUrlState; onChange: (ne
   )
 }
 
-/** A document hit's link: its shelf preview at the passage's page, the passage to light up there. */
 const atPassage = (base: string, page: number, passage: string): string =>
   `${base}&${new URLSearchParams({ page: String(page), highlight: passage }).toString()}`
 const CONCEPT_AT_PASSAGE = atPassage(
@@ -85,17 +82,12 @@ describe('SearchWorkspaceView', () => {
     german(<Harness initial={{ ...EMPTY_SEARCH_STATE, text: 'Fluchtweg GK 4' }} onChange={() => {}} />)
     const concept = screen.getByTestId('search-hit-document-d0000000-0000-4000-8000-000000000001')
     expect(concept).toHaveTextContent('Brandschutzkonzept Wohnhaus Seestadt J7')
-    // Where it lives and what it is on one line: the project as its provenance mark, whole, the folder, the type.
     expect(concept).toHaveTextContent('Wohnhaus Seestadt Baufeld J7Ordner Brandschutz·Brandschutzkonzept')
     expect(concept).toHaveTextContent('S. 7')
-    // The passage shows what matched, so the row does not also say where it was found.
     expect(within(concept).queryByTestId('search-matched-on')).toBeNull()
-    // A row that shows nothing that matched says what it was found in.
     const earlier = screen.getByTestId('search-hit-document-d0000000-0000-4000-8000-000000000003')
     expect(within(earlier).getByTestId('search-matched-on')).toHaveTextContent(/^Gefunden in Zusammenfassung$/)
-    // The words searched for are set apart in the passage.
     expect(within(concept).getAllByText('Fluchtweg', { selector: 'mark' }).length).toBeGreaterThan(0)
-    // It opens at the passage's page, the passage to light up there.
     expect(concept).toHaveAttribute('href', CONCEPT_AT_PASSAGE)
     expect(screen.getByTestId('search-hit-document-d0000000-0000-4000-8000-000000000006')).toHaveAttribute(
       'href',
@@ -106,7 +98,6 @@ describe('SearchWorkspaceView', () => {
       `/app/projects/${PROJECT}/files?doc=d0000000-0000-4000-8000-000000000002&review=1&mark=a0000000-0000-4000-8000-000000000001`
     )
     expect(screen.getByTestId('search-section-conversation')).toHaveTextContent('Fluchtweglängen nach OIB-RL 2 für GK 4')
-    // The shelf still being read is said once, short, in the status line.
     expect(screen.getByTestId('search-status')).toHaveTextContent(/Treffer · eine Ablage wird noch gelesen$/)
   })
 
@@ -163,7 +154,6 @@ describe('SearchWorkspaceView', () => {
     )
     for (const kind of ['folder', 'project', 'conversation']) {
       expect(screen.getByTestId(`search-kind-${kind}`)).toBeDisabled()
-      // The greyed tab carries the whole sentence, so a phone's one-line note loses nothing.
       expect(screen.getByTestId(`search-kind-${kind}`)).toHaveAttribute(
         'title',
         'Die Filter gelten für Dokumente und ihre Anmerkungen. Ordner, Projekte und Chats werden so lange nicht durchsucht.'
@@ -173,7 +163,6 @@ describe('SearchWorkspaceView', () => {
     expect(screen.getByTestId('search-note-set-aside')).toHaveTextContent(
       'Die Filter gelten für Dokumente und ihre Anmerkungen. Ordner, Projekte und Chats werden so lange nicht durchsucht.'
     )
-    // The mark on the Einreichplan EP-03 stays: an annotation narrows through its document.
     expect(screen.getAllByTestId(/^search-hit-annotation-/)).toHaveLength(1)
     expect(searchFixtureAnswer({ ...state, filters: { documentTypes: ['fire_safety_concept'] } }).sections.annotation?.hits).toEqual([])
     expect(screen.queryByTestId(/^search-hit-folder-/)).toBeNull()
@@ -206,7 +195,6 @@ describe('SearchWorkspaceView', () => {
     expect(within(rail).queryByTestId('filter-cites')).toBeNull()
     expect(within(rail).queryByTestId('filter-file-type')).toBeNull()
     expect(within(rail).queryByTestId('filter-party-role')).toBeNull()
-    // A reference beyond the counted ones is typed inside its own group, as a party's name is.
     expect(within(screen.getByTestId('search-facet-cites')).getByTestId('search-facet-cites-more')).toBeInTheDocument()
     const parties = screen.getByTestId('search-facet-partyRole')
     await userEvent.type(within(parties).getByTestId('filter-party-name'), 'Haas{Enter}')
@@ -350,7 +338,6 @@ describe('SearchWorkspaceView', () => {
     await userEvent.keyboard('{ArrowDown}{ArrowDown}')
     const second = screen.getByTestId('search-hit-document-d0000000-0000-4000-8000-000000000002')
     expect(second).toHaveAttribute('aria-selected', 'true')
-    // Focus stays in the field; a screen reader follows the active option through it.
     expect(field).toHaveFocus()
     expect(field).toHaveAttribute('aria-activedescendant', second.id)
     await userEvent.keyboard('{ArrowUp}{Enter}')
@@ -448,7 +435,6 @@ describe('SearchWorkspaceView', () => {
     await userEvent.click(permit)
     expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ filters: { documentTypes: ['submission_drawing'] } }))
     expect(screen.getByTestId('search-facet-documentType-submission_drawing')).toHaveAttribute('aria-pressed', 'true')
-    // The chip over the results takes it off again.
     await userEvent.click(within(screen.getByTestId('search-active-filters')).getByRole('button', { name: /Einreichplan/ }))
     expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ filters: {} }))
   })
@@ -459,17 +445,14 @@ describe('SearchWorkspaceView', () => {
     const register = screen.getByTestId('search-register')
     expect(within(register).getAllByRole('row')).toHaveLength(1 + SEARCH_FIXTURE_RESPONSE.sections.document!.hits.length)
 
-    // The register reads by Plannummer from the start: the first click turns it round.
     await userEvent.click(within(register).getByRole('button', { name: 'Nach Plannummer sortieren' }))
     expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ sort: 'plan_number', dir: 'desc' }))
     await userEvent.click(within(register).getByRole('button', { name: 'Nach Plannummer sortieren' }))
     expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ sort: 'plan_number', dir: 'asc' }))
-    // Every column orders the search, Maßstab and Verfasser among them.
     await userEvent.click(within(register).getByRole('button', { name: 'Nach Maßstab sortieren' }))
     expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ sort: 'scale', dir: 'asc' }))
     await userEvent.click(within(register).getByRole('button', { name: 'Nach Verfasser sortieren' }))
     expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ sort: 'author', dir: 'asc' }))
-    // Ordner is a column the reader asks for.
     expect(within(register).queryByRole('button', { name: 'Nach Ordner sortieren' })).toBeNull()
     expect(within(register).getByText('Ersetzt')).toBeInTheDocument()
   })
@@ -479,7 +462,6 @@ describe('SearchWorkspaceView', () => {
     german(<Harness initial={{ ...EMPTY_SEARCH_STATE, view: 'register', filters: { currentOnly: true } }} onChange={onChange} />)
     const toggle = screen.getByRole('switch', { name: 'Nur aktuelle Fassung' })
     expect(toggle).toBeChecked()
-    // One switch for one setting: the rail leaves it to the bar above the table.
     expect(screen.queryByTestId('filter-current')).toBeNull()
     await userEvent.click(toggle)
     expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ filters: {} }))
@@ -493,7 +475,6 @@ describe('SearchWorkspaceView', () => {
     expect(onChange).toHaveBeenLastCalledWith(
       expect.objectContaining({ columns: ['planNumber', 'planIndex', 'title', 'planDate', 'scale', 'documentType', 'author', 'project', 'folder'] })
     )
-    // The menu stays open for the next pick; Escape closes it.
     expect(screen.getByRole('menuitemcheckbox', { name: 'Ordner' })).toBeChecked()
     await userEvent.keyboard('{Escape}')
     expect(within(screen.getByTestId('search-register')).getByRole('button', { name: 'Nach Ordner sortieren' })).toBeInTheDocument()
@@ -556,7 +537,6 @@ describe('SearchWorkspace', () => {
 
 describe('SearchWorkspaceView on a phone', () => {
   beforeEach(() => {
-    // Every layout query matches: below `md`, phone-sized.
     vi.spyOn(window, 'matchMedia').mockImplementation(
       (query: string) =>
         ({

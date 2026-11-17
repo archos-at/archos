@@ -10,11 +10,6 @@ import { AnswerFeedbackHealth } from './answer-feedback-health'
 const MONTH: QualityScope = { from: '2026-09-10', to: '2026-10-09', organizationIds: [], projectIds: [] }
 const WEEK: QualityScope = { ...MONTH, from: '2026-10-03' }
 
-/**
- * The workspace's part, in miniature: it owns the scope and the filters (in the
- * URL there, in state here) and hands them down. `scope` given from outside is
- * the page changing the range under the organism.
- */
 function Harness({
   scope: outerScope,
   initialFilters = NO_RATINGS_FILTERS,
@@ -48,7 +43,6 @@ const OPTIONS = {
   withExpectedAnswer: 1,
 }
 
-/** The two side reads every test stubs the same way; null for the health read itself. */
 const sideRead = (url: string): Response | null => {
   if (url.includes('/answer-feedback/digest')) {
     return new Response(JSON.stringify({ digest: null, error: 'no_feedback' }), { status: 200 })
@@ -85,11 +79,6 @@ const turn = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 })
 
-/**
- * The digest has its own route and its own component; every test here is about
- * the numbers, so it is stubbed to "nothing to summarise" and stays out of the
- * way. Its own behaviour is covered in `feedback-digest.spec.tsx`.
- */
 const stubFetch = (body: unknown, ok = true): void => {
   vi.stubGlobal(
     'fetch',
@@ -100,7 +89,6 @@ const stubFetch = (body: unknown, ok = true): void => {
 }
 
 const urls = (): string[] => vi.mocked(globalThis.fetch).mock.calls.map((call) => String(call[0]))
-/** URLs of the health reads only — the digest and the options are different questions. */
 const healthUrls = (): string[] => urls().filter((url) => !url.includes('/digest') && !url.includes('/options'))
 const digestUrls = (): string[] => urls().filter((url) => url.includes('/digest'))
 
@@ -109,23 +97,17 @@ afterEach(() => {
 })
 
 describe('AnswerFeedbackHealth — the figures', () => {
-  /**
-   * The headline used to be the negative rate, which made the surface a
-   * scoreboard you could only lose on. Same arithmetic, opposite reading.
-   */
   it('leads with the helpful rate, not the failure rate', async () => {
     stubFetch(health())
     render(<Harness />)
 
     const tile = await screen.findByTestId('feedback-kpi-helpful')
-    // 8 of 10 votes were helpful.
     expect(within(tile).getByText('80.0%')).toBeInTheDocument()
     expect(within(tile).getByText('8 of 10 votes')).toBeInTheDocument()
     expect(screen.queryByText('20.0%')).toBeNull()
   })
 
   it('withholds the headline rate below the vote floor', async () => {
-    // 1 of 2 is 50%, and 50% on two votes is a coin, not a rate.
     stubFetch(health({ totals: { up: 1, down: 1, voters: 2, downVoters: 1 } }))
     render(<Harness />)
 
@@ -136,7 +118,6 @@ describe('AnswerFeedbackHealth — the figures', () => {
   })
 
   it('publishes coverage, so the rate cannot be read as being about the product', async () => {
-    // 10 votes over 100 answers: the headline describes 10% of turns.
     stubFetch(health())
     render(<Harness />)
 
@@ -145,10 +126,6 @@ describe('AnswerFeedbackHealth — the figures', () => {
     expect(within(tile).getByText('10 votes on 100 answers')).toBeInTheDocument()
   })
 
-  /**
-   * Bug: `answers` counts persisted assistant messages, persistence is
-   * best-effort, so votes can outnumber them. Coverage printed 140%.
-   */
   it('clamps coverage at 100% when votes outnumber stored answers', async () => {
     stubFetch(health({ answers: 7 }))
     render(<Harness />)
@@ -158,7 +135,6 @@ describe('AnswerFeedbackHealth — the figures', () => {
     expect(within(tile).queryByText(/142/)).toBeNull()
   })
 
-  /** Bug: with no stored answers the coverage printed a confident "0.0%". */
   it('says coverage is unknown, not zero, when no answers were counted', async () => {
     stubFetch(health({ answers: 0 }))
     render(<Harness />)
@@ -190,11 +166,6 @@ describe('AnswerFeedbackHealth — the figures', () => {
     }
   })
 
-  /**
-   * Bug: a NULL reason and an explicit 'other' both land on 'other', and the
-   * bar list used `Map.set`, so whichever row came second overwrote the first
-   * and the bars no longer summed to the down-votes.
-   */
   it('adds a NULL reason to "other" rather than overwriting it', async () => {
     stubFetch(
       health({
@@ -240,8 +211,6 @@ describe('AnswerFeedbackHealth — states', () => {
     release(new Response(JSON.stringify(health())))
     await screen.findByTestId('feedback-kpis')
 
-    // A refetch keeps the figures on screen, marked busy, instead of
-    // collapsing the whole surface back into skeletons.
     rerender(<Harness scope={WEEK} />)
     await waitFor(() => expect(healthUrls().at(-1)).toContain('from=2026-10-03'))
     expect(screen.queryByTestId('answer-feedback-loading')).toBeNull()
@@ -252,10 +221,6 @@ describe('AnswerFeedbackHealth — states', () => {
     await waitFor(() => expect(screen.queryByText('Updating…')).toBeNull())
   })
 
-  /**
-   * Bug: filters change faster than the server answers, and the slower of two
-   * in-flight reads used to win by finishing last.
-   */
   it('drops a stale response that a newer request replaced', async () => {
     const pending: { url: string; resolve: (r: Response) => void; signal?: AbortSignal }[] = []
     vi.stubGlobal(
@@ -284,7 +249,6 @@ describe('AnswerFeedbackHealth — states', () => {
     expect(within(tile).getByText('10 votes on 50 answers')).toBeInTheDocument()
   })
 
-  /** A failed read is an error with a way out, not an empty state that reads as "no feedback". */
   it('surfaces a refusal as an alert with a retry', async () => {
     stubFetch({ error: 'Forbidden' }, false)
     const user = userEvent.setup()
@@ -299,10 +263,6 @@ describe('AnswerFeedbackHealth — states', () => {
     await waitFor(() => expect(healthUrls().length).toBe(before + 1))
   })
 
-  /**
-   * Bug: a filter that matched nothing said "No feedback yet", which reads as
-   * the platform having no feedback at all.
-   */
   it('says the filters match nothing, and offers to clear them', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
@@ -334,10 +294,6 @@ describe('AnswerFeedbackHealth — states', () => {
 })
 
 describe('AnswerFeedbackHealth — the drill-in', () => {
-  /**
-   * `answer_feedback.message_id` has no FK to `messages`, so a turn that was
-   * never persisted cannot be joined. It must still be listed, and say why.
-   */
   it('lists a rated turn that was never stored, and says so', async () => {
     stubFetch(health({ turns: [turn({ messageId: 'm-unpersisted' })] }))
     render(<Harness />)
@@ -345,7 +301,6 @@ describe('AnswerFeedbackHealth — the drill-in', () => {
     const row = await screen.findByTestId('feedback-turn')
     expect(within(row).getByText(/was not stored/i)).toBeInTheDocument()
     expect(within(row).getByText('Inaccurate')).toBeInTheDocument()
-    // No name from the server: the id, rather than nothing.
     expect(within(row).getByText('org_1')).toBeInTheDocument()
   })
 
@@ -358,7 +313,6 @@ describe('AnswerFeedbackHealth — the drill-in', () => {
     expect(within(row).queryByText('org_1')).toBeNull()
   })
 
-  /** Bug: the rows could not be opened, so the full answer and the voter's note were unreachable. */
   it('opens the whole case in a sheet: question, answer, comment, expected answer, trace', async () => {
     stubFetch(
       health({
@@ -495,7 +449,6 @@ describe('AnswerFeedbackHealth — breakdowns', () => {
     )
   })
 
-  /** Bug: the organization list printed raw ids (`org_arch_buero`) in mono. */
   it('lists organizations by name, with the id only as the fallback', async () => {
     stubFetch(
       health({
@@ -537,7 +490,6 @@ describe('AnswerFeedbackHealth — breakdowns', () => {
     expect(within(rows[1]).getByText('2 votes')).toBeInTheDocument()
   })
 
-  /** An organization row toggles that organization in the PAGE scope, so every tab follows. */
   it('narrows the page to an organization from its row, and back', async () => {
     stubFetch(
       health({
@@ -556,12 +508,6 @@ describe('AnswerFeedbackHealth — breakdowns', () => {
   })
 })
 
-/**
- * Filters go to the SERVER, for every read on the tab. The list is capped
- * server-side, so a client-side `.filter()` would search the 50 rows that
- * happened to arrive; and the figures used to ignore the reason and the search,
- * so the headline described different votes than the list under it.
- */
 describe('AnswerFeedbackHealth — filtering and export', () => {
   it('reads the scope it is handed and has no range control of its own', async () => {
     stubFetch(health())
@@ -636,7 +582,6 @@ describe('AnswerFeedbackHealth — filtering and export', () => {
     await waitFor(() => expect(healthUrls().at(-1)).toBe('/api/platform/answer-feedback?from=2026-09-10&to=2026-10-09'))
   })
 
-  /** Any filter makes the headline a claim about a selection, and it says so. */
   it('warns the headline is about a selection once anything narrows it', async () => {
     stubFetch(health())
     const user = userEvent.setup()
@@ -648,7 +593,6 @@ describe('AnswerFeedbackHealth — filtering and export', () => {
     await waitFor(() => expect(screen.getByText(/describe the current selection/)).toBeInTheDocument())
   })
 
-  /** The sentences describe the same votes as the figures beside them. */
   it('asks the digest about the same votes as the figures', async () => {
     stubFetch(health())
     const user = userEvent.setup()

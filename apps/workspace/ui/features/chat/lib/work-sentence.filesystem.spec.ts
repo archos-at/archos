@@ -1,12 +1,3 @@
-/**
- * The Herleitung rows of Piloti's filesystem verbs (ADR-0132 × ADR-0133), as an
- * architect reads them: a place and its folder, never a path; a folder Piloti
- * opens, a literal search that says where and how, a name search in words, a
- * read that says which pages; every count counts files; a search that could not
- * search everything says so; a folder or file that is not there is „nicht
- * gefunden“ (the same for a restricted one), and one that is there and empty is
- * „leer“.
- */
 import { describe, expect, test } from 'vitest'
 import { translatorFor } from '@/i18n/namespace'
 import { chatCopy } from '@/i18n/namespaces/chat'
@@ -33,7 +24,6 @@ const NB = ' '
 const sentence = (action: StoredAction, translator = t) =>
   workPartsText(workParts(translator, action))
 
-/** „Offen“ of a turn of this one settled call. */
 const open = (action: StoredAction): string[] => {
   const row: WorkRow = { id: 'r', running: false, callIds: ['r'], looks: [], action }
   const round: WorkRound = { round: 1, rows: [row], more: [], strayLooks: [], running: false }
@@ -84,7 +74,6 @@ describe('a filesystem row names a place, never a path', () => {
     expect(
       sentence({ verb: 'search', mode: 'exact', status: 'ok', query: 'x', mount: 'law', target: 'RL 2' })
     ).toBe(`Durchsucht die OIB-Richtlinien ›${NB}RL 2 wörtlich nach „x“`)
-    // The root keeps its own phrase.
     expect(sentence({ verb: 'list', status: 'ok', mount: 'chat', counts: { files: 0, folders: 0 } })).toBe(
       'Öffnet die Dateien dieses Chats: leer'
     )
@@ -152,7 +141,6 @@ describe('a filesystem row names a place, never a path', () => {
       .flatMap((round) => [...round.rows, ...round.more])
       .map((row) => workPartsText(workParts(t, row.action)))
     for (const row of rows) {
-      // What was looked for is the model's own words (a pattern may hold a slash); the rest is ours.
       expect(row.replace(/„[^“]*“/g, '„…“')).not.toMatch(
         /\/|\.md\b|\bproject\b|\boffice\b|\blaw\b|\bestate\b| : |Listet/
       )
@@ -231,9 +219,7 @@ describe('what a filesystem call found, or did not', () => {
       tone: 'incomplete',
       note: 'nicht alles durchsucht – das ist kein Nein',
     })
-    // A screen reader hears what the dashed shape means.
     expect(workPartsText(none)).toContain('das ist kein Nein')
-    // Without a count there is only the word.
     expect(
       workParts(t, { verb: 'search', mode: 'exact', status: 'ok', query: 'x', mount: 'estate', incomplete: true })
         .result
@@ -384,7 +370,6 @@ describe('a row stored before the wire carried `mount`', () => {
       query: '*.pdf',
     })
     expect(legacyPlace({ verb: 'list', status: 'ok', target: '/law/oib/' })).toEqual({ mount: 'law' })
-    // A knowledge_search folder and a name without a slash: untouched.
     expect(legacyPlace({ verb: 'search', status: 'ok', target: '03 Einreichung/Pläne' })).toBeNull()
     expect(legacyPlace({ verb: 'read', status: 'ok', target: 'Plan.pdf' })).toBeNull()
   })

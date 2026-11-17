@@ -1,16 +1,3 @@
-/**
- * StairDiagramCard — a stair flight drawn to scale, section + plan, with the
- * OIB step-geometry checks (Steigung / Auftritt / Laufbreite) annotated.
- *
- * The section shows the true stepped profile (riser_count × rise/going), a
- * dashed pitch line with the architectural "n Stg r/g" notation, and one rise
- * + one going dimensioned on a middle step. Below it a plan strip (Grundriss)
- * shows the flight width to the same scale with the Lauflinie walking line
- * and the width dimension. Unknown values fall back to a neutral geometry for
- * the drawing only — their dimension arrows read "fehlende Angabe" in muted
- * dashed style, never a fabricated number.
- */
-
 import { type FC } from 'react'
 import { TrendingUp } from 'lucide-react'
 import {
@@ -40,7 +27,6 @@ interface StairDiagramCardProps {
   reference?: NormReferenceData | null
 }
 
-/** Neutral drawing geometry when a value is unknown (labels stay "missing"). */
 const FALLBACK_RISE_CM = 17.5
 const FALLBACK_GOING_CM = 28
 const FALLBACK_WIDTH_CM = 100
@@ -72,7 +58,6 @@ export const StairDiagramCard: FC<StairDiagramCardProps> = ({
   const X = (cm: number): number => padL + cm * k
   const Y = (cm: number): number => baseY - cm * k
 
-  // Stepped profile polygon: up a riser, across a tread, n times; closed base.
   const profile: Point[] = [[X(0), Y(0)]]
   for (let i = 1; i <= n; i += 1) {
     profile.push([X((i - 1) * going), Y(i * rise)])
@@ -80,7 +65,6 @@ export const StairDiagramCard: FC<StairDiagramCardProps> = ({
   }
   profile.push([X(n * going), Y(0)])
 
-  // Pitch line through the nosings.
   const pitchX1 = X(0)
   const pitchY1 = Y(rise)
   const pitchX2 = X((n - 1) * going)
@@ -97,8 +81,6 @@ export const StairDiagramCard: FC<StairDiagramCardProps> = ({
       })
     : t('cards.schematics.stair.stepCount', { count: n })
 
-  // Dimension one rise + one going on a step in the lower quarter of the
-  // flight, clear of the pitch-line notation that runs through the middle.
   const mid = Math.min(Math.max(Math.round(n / 4), 1), n)
   const riseX = X((mid - 1) * going) - 12
   const riseTop = Y(mid * rise)
@@ -107,7 +89,6 @@ export const StairDiagramCard: FC<StairDiagramCardProps> = ({
   const goingX1 = X((mid - 1) * going)
   const goingX2 = X(mid * going)
 
-  // Plan strip (Grundriss) below the section, same scale.
   const planGap = 30
   const planTop = baseY + planGap
   const planH = flightWidth * k

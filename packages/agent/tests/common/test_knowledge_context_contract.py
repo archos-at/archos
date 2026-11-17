@@ -1,15 +1,3 @@
-"""The knowledge context's contract between the BFF and the agent (ADR-0175).
-
-The BFF sends one payload for the law of a site, ``knowledgeContext``; its zod
-schema is the source, exported to ``knowledge-context.schema.json``, and the
-BFF's own resolver writes what an entitled Austrian office's turn carries in
-every Land (``turn_law_austria.json``, ``turn-law.fixture.spec.ts``). Here the
-agent's side holds both: every fixture context is what the schema allows, and
-the agent's parser keeps every use of it. A field renamed on one side, an enum
-the other does not know, or a parser that silently drops uses fails here
-rather than in an answer.
-"""
-
 from __future__ import annotations
 
 import copy
@@ -36,7 +24,6 @@ def _context(land: str) -> dict[str, Any]:
     return TURN_LAW[land]["knowledgeContext"]
 
 
-#: A synthetic place nobody curated (open coverage): uncurated law, its label and a work bound by the office's seat.
 OPEN = "open:DE-NW"
 
 
@@ -71,13 +58,20 @@ def test_the_agent_parses_every_use_and_keeps_the_gate(land: str) -> None:
     assert parsed.text == raw["text"]
 
 
-def test_the_schema_refuses_a_qualifier_or_a_scheme_the_bff_never_sends() -> None:
+def test_the_schema_refuses_a_qualifier_or_a_malformed_scheme_the_bff_never_sends() -> None:
     raw = copy.deepcopy(_context("AT-9"))
     raw["uses"][0]["qualifier"] = "decisive"
     assert not VALIDATOR.is_valid(raw)
+    for scheme in ("Gesetzesnummer", "law-number", "1st"):
+        raw = copy.deepcopy(_context("AT-9"))
+        raw["uses"][0]["sourceRefs"] = [{"scheme": scheme, "value": "1"}]
+        assert not VALIDATOR.is_valid(raw), scheme
+
+
+def test_the_schema_takes_a_scheme_no_code_names() -> None:
     raw = copy.deepcopy(_context("AT-9"))
-    raw["uses"][0]["sourceRefs"] = [{"scheme": "gesetzesnummer", "value": "1"}]
-    assert not VALIDATOR.is_valid(raw)
+    raw["uses"][0]["sourceRefs"] = [{"scheme": "xa_gazette_number", "value": "42"}]
+    assert VALIDATOR.is_valid(raw)
 
 
 def test_vienna_names_its_building_code_by_its_ris_identifiers() -> None:

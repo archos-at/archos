@@ -39,8 +39,6 @@ beforeEach(() => {
 
 describe('openDraftForRevision', () => {
   it('writes into the version that was sent back, rather than forking a second', async () => {
-    // One open version per document is the DATABASE's rule (migration 0082), so
-    // a refused version IS the open one.
     vi.mocked(findOpenVersion).mockResolvedValue(version())
 
     const draft = await openDraftForRevision(session, 'doc-1')
@@ -50,8 +48,6 @@ describe('openDraftForRevision', () => {
   })
 
   it('forks from the published bytes when nothing is open', async () => {
-    // The reviewer rejected the draft outright, or somebody has since published
-    // over it.
     vi.mocked(findOpenVersion).mockResolvedValue(null)
     vi.mocked(forkDraftVersion).mockResolvedValue(version({ id: 'ver-9', state: 'draft' }))
 
@@ -62,8 +58,6 @@ describe('openDraftForRevision', () => {
   })
 
   it('takes the draft a concurrent fork opened, rather than failing the revision', async () => {
-    // Nothing was open at the probe; by the fork, somebody else had opened one.
-    // The fork's 409 names it, and it is where the revised bytes belong.
     vi.mocked(findOpenVersion)
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce(version({ id: 'ver-winner', state: 'draft' }))
@@ -103,15 +97,10 @@ describe('openDraftForRevision', () => {
     vi.mocked(listDocumentVersions).mockResolvedValue([version({ state: 'draft', reviewedBy: null })])
 
     const draft = await openDraftForRevision(session, 'doc-1')
-    // The lifecycle falls back to `resource_assignments` exactly as it does for
-    // a person's own submit.
     expect(draft.reviewers).toEqual([])
   })
 
   it('hands back an `in_review` version rather than forcing it', async () => {
-    // A version somebody is looking at right now must not be rewritten under
-    // them; `replaceVersionContent` refuses it with a 409, which says "a person
-    // has it" instead of quietly producing a second draft.
     vi.mocked(findOpenVersion).mockResolvedValue(version({ state: 'in_review' }))
 
     const draft = await openDraftForRevision(session, 'doc-1')

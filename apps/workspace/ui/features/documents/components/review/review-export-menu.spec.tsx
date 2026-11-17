@@ -1,11 +1,3 @@
-/**
- * „Protokoll exportieren" in the Prüfansicht: the choices reach the link, the
- * Fassung and proposal choices appear only where they mean something, the
- * file is saved under the server's name, and a refusal is a toast. „Im
- * Projekt ablegen" files the same export through the project's upload door,
- * into the document's folder, and the toast opens what it filed.
- */
-
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
 
@@ -28,7 +20,6 @@ beforeEach(() => {
   vi.clearAllMocks()
   downloads = captureDownloads()
   vi.stubGlobal('fetch', fetchMock)
-  // jsdom has no object URLs; this file's own environment, so nothing else sees them.
   Object.assign(URL, { createObjectURL: vi.fn(() => 'blob:protokoll'), revokeObjectURL: vi.fn() })
   fetchMock.mockResolvedValue(
     new Response(new Blob(['%PDF']), {
@@ -108,7 +99,6 @@ describe('ReviewExportMenu', () => {
 describe('filing the Protokoll in the project', () => {
   const FILING = { target: { projectId: 'proj_1', folderId: 'folder_plans' }, documentName: 'Grundriss EG.pdf' }
 
-  /** The export's bytes, then the upload door's answer; what the upload received. */
   function serveFiling(upload: { status?: number; body: unknown }, exportStatus = 200) {
     const uploads: FormData[] = []
     fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {

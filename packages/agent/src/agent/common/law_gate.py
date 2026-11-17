@@ -33,13 +33,25 @@ LAW_SOURCE_COUNTRIES: dict[str, str] = {"ris": "AT"}
 BUILDING_LAW_TAG = "<building_law>"
 
 
-def law_sources_withheld() -> frozenset[str]:
+def law_sources_withheld(*, reads_turn_sources: bool = False) -> frozenset[str]:
     """The legal-database sources this turn may not consult: each one whose country the gate does not allow.
 
     Joined to the switched-off sources, so a call is refused at the tools node with the same notice
     (the chat agent) or the tool is not offered (deep research), and the gate's note says why.
+
+    ``reads_turn_sources``: the caller's lookup reads the released source the turn carries for its country
+    (``agent.knowledge.law_lookup``, the chat binding), so it is not withheld where the turn carries one of a
+    country it may read; the lookup checks its fallback record's own country itself. Deep research's tools read
+    their database directly and stay gated by its country.
     """
+    if reads_turn_sources and turn_carries_readable_source():
+        return frozenset()
     return frozenset(source for source, country in LAW_SOURCE_COUNTRIES.items() if not law_tools_allowed(country))
+
+
+def turn_carries_readable_source() -> bool:
+    """Whether the turn carries a released law source of a country it may read (``KnowledgeContext.sources``)."""
+    return any(law_tools_allowed(source.country) for source in turn_knowledge_context().sources)
 
 
 def withheld_notice(source_id: str, label: str) -> str | None:
@@ -50,7 +62,12 @@ def withheld_notice(source_id: str, label: str) -> str | None:
     could not read and holds its confidence below high.
     """
     country = LAW_SOURCE_COUNTRIES.get(source_id.lower())
-    if country is None or law_tools_allowed(country):
+    return None if country is None else withheld_notice_for_country(country, label)
+
+
+def withheld_notice_for_country(country: str, label: str) -> str | None:
+    """:func:`withheld_notice` for a source known by its country (a source record's territory)."""
+    if law_tools_allowed(country):
         return None
     context = turn_knowledge_context()
     site = context.site_country or "a country"

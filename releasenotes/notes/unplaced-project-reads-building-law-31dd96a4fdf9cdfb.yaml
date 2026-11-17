@@ -1,0 +1,8 @@
+---
+# area: building-law
+fixes:
+  - >
+    In a project whose site is not set yet, the assistant now searches the
+    building-law texts your office holds, quotes them as information and asks
+    for the site before naming the edition that applies. It no longer says a
+    guideline's text could not be read when the text is there.

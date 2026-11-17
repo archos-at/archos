@@ -18,7 +18,7 @@ context and chain text from them (ADR-0173), and the agent reads nothing else.
 |---|---|---|
 | Which countries a turn may retrieve, the gate, coverage | `knowledgeContext` in the turn context, or `knowledge_context` in a research run's payload | `common/knowledge_context.py` |
 | Which edition binds at the site, and every edition's role | the same `knowledgeContext`: its `text` (the chain) and its `uses` (role, qualifier, `sourceRefs` as `{scheme, value}`), corrected for coverage, freshness and connecting factor. A use whose `applicability` is `check`, or has `open` building facts, gets no binding badge: the chain text says it neither binds nor does not bind until then (ADR-0178). There is no second answer: `buildingLaw` is gone | `citations/roles.py`, `common/law_gate.turn_building_law_block` |
-| Whether a legal-database adapter may run | the gate, and the adapter's own country (`law_gate.LAW_SOURCE_COUNTRIES`: `ris` is `AT`) | `common/law_gate.law_sources_withheld` |
+| Whether the law lookup may run | the gate, and the turn's released source of a country it may read (`law_sources_withheld(reads_turn_sources=True)`); without one, the country of the repository record it falls back to (`law_lookup.turn_source.withheld_note`). Deep research's three RIS tools by their adapter's country (`law_gate.LAW_SOURCE_COUNTRIES`: `ris` is `AT`) until they go (#1644) | `common/law_gate.law_sources_withheld` |
 | How to reason about building law anywhere | constant: `<legal_method>` in `chat_static.md`, `law_gate.LEGAL_METHOD` for deep research | |
 
 Absent or malformed, the context is `knowledge_unavailable`: no verdict, no
@@ -54,13 +54,29 @@ Phase 3 — vocabulary and language surfaces (scoped per country):
    (`country_name`, `legal_source_tools`) when country #2 ships.
 7. Corpus filenames: `agent/common/oib_file_names.py` and the OIB readers in
    `norm_registry` (`oib_doc_class`, `oib_family_member`, `guess_display_title`)
-   parse the OIB's filenames and tie a passage to its edition by name, from
+   parse the OIB's filenames for a file's lane, class and title (a passage's
+   edition and role no longer read them: `citations/roles.py` resolves by the
+   record id the hit carries), from
    `agent/common/`, which should be country-neutral. Country #2's texts get their
    class and edition from the pack's manifestations instead, which is also the
    fix the name mapping bridges to (retrieval reading the chunk's `edition_id`).
 8. Request envelope: its `federal_state` is AT-vocabulary. The agent no longer
    reads it for which law applies (the knowledge context's site does, ADR-0175);
    the RIS adapter still uses it to address a lookup to the right Land.
+
+## Deferred until a second country needs it
+
+- **A released text's document class from its records.** The base corpus files
+  a released text (`<manifestationKey>-<hash>.pdf`) as `other`: no filename
+  reader classes the name, and the records state no class (an OIB-Richtlinie,
+  its Begriffsbestimmungen and its list of cited standards are all
+  `model_code`, a Leitfaden and the Erläuterungen both `commentary`). For AT an
+  operator sets each text once per environment (`platform-knowledge-doc-class-update`;
+  rollover-to-prod step 8b). **Build when a second country's texts need a
+  class:** an optional `docClass` claim on the work record, stamped by the
+  indexing job beside the title (`platform/indexing.ts`), a class a person set
+  still winning (ADR-0064 Use 8). Costed 2026-11-12 at one migration and about
+  eight files; the unmerged draft is PR #1709's first commit.
 
 ## Known duplications (consolidate opportunistically, never let them drift)
 
@@ -185,6 +201,22 @@ OGD API v2.6 (`data.bka.gv.at`) and the fixture
   `source.yml`). Today's engine is named `ris_xml`, which is the publisher's
   name; the schema's own name is the neutral one to take.
 
+Status, 2026-11-11 (plan step 4a, #1624): the record carries its `lookup`
+block (the locus grammar, the applications as collections, the Bundesland
+filter, the words written back), a turn carries the released sources of its
+countries, Austria's record is a door payload
+(`configs/knowledge-packs/at-sources.json`), and the parity rig holds the
+country-neutral lookup to the RIS tool's requests and text on 26 recorded calls
+(`packages/agent/tests/knowledge/test_law_lookup_parity.py`). Step 4b, part
+one: the model tool is `law_lookup`, bound under that name and still under the
+`ris` data source and its switch: a second, country-neutral entry would be a box
+in the job wizard and the composer that no one can uncheck, and that deep
+research (which does not bind the lookup) refuses with a 422, until a
+country-neutral picker exists (#1644). A turn stored before the rename keeps its step label, its sources step and its
+citation parser under `ris_lookup_tool`. Part two deletes the package,
+`LAW_SOURCE_COUNTRIES` and the built-in class once Austria's record is
+published on stable in production; the repository file goes after that.
+
 The constraint (ADR-0162, kept by ADR-0175): **Austrian answers stay
 byte-identical.** `packages/ris-adapter/tests/test_source_record_parity.py`
 holds every request the record builds to the request the code built, and the
@@ -218,7 +250,7 @@ module names, routes, document classes and rule ids.
 |---|---|---|
 | `agent-host/routes/oib.py` (106), `agent/oib_status.py`, `agent/oib_sync.py`, the BFF's backend operations for them | `/v1/admin/oib/*`, `sync_oib_documents`, `OibFileState`: the base corpus named for its first publisher | The platform base corpus, per country: routes and modules named for the base corpus, the files a country's manifestations name |
 | `knowledge/doc_class_vocabulary.py`, `bff/knowledge/doc-class.ts`, `bff/source-kinds.ts`, `ui/.../citations/model.ts`, `common/norm_registry.py` (61) | Document classes and lanes `oib_guideline`, `building_law_oib_*`, their labels ("OIB-Richtlinie") and `isOibBinding` | A work's `kind` and `designation` from the records; whether it binds is the relation the chain resolves (ADR-0168), never the class name |
-| `bff/bim/rules.ts` (32), `packages/ifc-spatial-py` (9) | Rule ids `oib4-stair-rise-run-ratio`, `richtlinie: 'OIB 4'`, `appliesIn: 'AT'` | Rulesets run by the one evaluator (ADR-0166), selected by the site |
+| `bff/bim/rules.ts` (32), `packages/ifc-spatial-py` (9) | Rule ids `oib4-stair-rise-run-ratio`, `designation: 'OIB-Richtlinie 4'` with `edition: 'Ausgabe Mai 2023'`, the thresholds in code. Whether a rule judges at a site is read from the knowledge context (`bff/bim/rule-basis.ts`), not from a territory in code | Rulesets run by the one evaluator (ADR-0166), selected by the site |
 | The built-in skills under `skills/builtin/oib/` (23) and the prompts (50 in all), tool descriptions in `agent/tools` | OIB named in skill, prompt and tool text a model reads | Text that names the kind of source; the turn's knowledge context names the works |
 | `oib_knowledge` as the collection default (three YAMLs, `collection-scope.ts`) | A collection named for one publisher | One shared corpus under a neutral name, filtered by `country_id` |
 
@@ -281,8 +313,8 @@ consolidations: re-check each on RIS before quoting it.
   its edition: the publish's index run does, re-ingesting each manifestation's
   `corpusFile` with its release's mark (`base-knowledge/platform/indexing.ts`). A
   publish whose file is missing fails that run („upload it, then publish again"),
-  and a file uploaded after its release carries the unreleased mark `ZZ`
-  (`UNRELEASED_COUNTRY`, the same file), which no office is entitled to, until a
+  and a file uploaded after its release is ingested with no country and
+  `released: false` (`vector_store.writes.licence_mark`), which no office reads, until a
   later publish indexes it. So upload
   the eleven 2019, 2025 and 2015 texts first, under their published names, then
   publish the change request that carries their manifestations.

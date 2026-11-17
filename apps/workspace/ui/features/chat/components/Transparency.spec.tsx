@@ -1,10 +1,3 @@
-/**
- * Rendering tests for the WP-B transparency extras: the escalation narration in
- * the Herleitung, the mid-turn drop notice, and the queue-rejection
- * (research.queue_full) banner. These assert the real i18n
- * copy (English, the default test locale) and the real error registry.
- */
-
 import { render, screen } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { describe, test, expect } from 'vitest'
@@ -60,11 +53,8 @@ describe('research.queue_full rejection banner', () => {
       />
     )
 
-    // Localized title from the registry (research.queue_full → titleKey).
     expect(screen.getByText('Research is busy')).toBeInTheDocument()
-    // The caller-composed message including the retry hint.
     expect(screen.getByText(/Please try again in about 30 seconds\./)).toBeInTheDocument()
-    // It is an alert (banner), not a silent notice.
     expect(screen.getByRole('alert')).toBeInTheDocument()
   })
 })

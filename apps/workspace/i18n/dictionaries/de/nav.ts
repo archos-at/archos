@@ -7,6 +7,9 @@ export const nav: typeof en.nav = {
   /** The project's last chats under „Chat“ in the rail, and the way to all of them. */
   recentChats: 'Letzte Chats',
   allChats: 'Alle Chats',
+  // Ein temporärer Chat in der Liste der Leiste: das Zeichen, in Worten für Screenreader und Zeiger.
+  temporaryChat: '(temporärer Chat)',
+  temporaryChatTitle: '{title} (temporärer Chat: daraus wird nichts gemerkt)',
   allProjects: '{productName} — alle Projekte',
   collapseSidebar: 'Seitenleiste einklappen',
   expandSidebar: 'Seitenleiste ausklappen',
@@ -30,6 +33,8 @@ export const nav: typeof en.nav = {
     // Der führende Tab: an Piloti übergebene Arbeit, eine Karte je Aufgabe (ADR-0051).
     tasks: 'Aufgaben',
     officeShelf: 'Büroablage',
+    // Die Normen, Kommentare und Weisungen des Büros, ein Bereich mit Ordnern (ADR-0163).
+    baseKnowledge: 'Grundlagen',
     search: 'Suche',
     settings: 'Übersicht',
     // Der Intake-Assistent, im Produkt „Einrichtung" (nur ⌘K-Palette).
@@ -38,6 +43,8 @@ export const nav: typeof en.nav = {
     setup: 'Einrichtung',
   },
   sectionGroups: {
+    // Alles, was in einem Projekt geschieht; die Leiste zeigt es ohne Überschrift.
+    work: 'Dieses Projekt',
     org: 'Organisation',
   },
   sectionSubtitles: {
@@ -127,6 +134,7 @@ export const nav: typeof en.nav = {
     defaultUser: 'Standardbenutzer',
     authNotConfigured: 'Authentifizierung nicht konfiguriert',
     profile: 'Profil',
+    memory: 'Mein Gedächtnis',
     organization: 'Organisation',
     platform: 'Plattform',
     switchOrganization: 'Organisation wechseln',

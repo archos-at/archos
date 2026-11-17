@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * `/api/organization/office-conventions` — any member reads the lines, only an
- * `org:settings:manage` holder decides one: a decision changes what Piloti says
- * to everyone in the organization.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const session = {

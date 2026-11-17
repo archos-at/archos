@@ -1,22 +1,5 @@
 'use client'
 
-/**
- * One held mail, decided part by part (`InboundMailDetail`, DECISION §9).
- *
- * Top to bottom, in the order a person reads before deciding: who it is from
- * and how far that is confirmed, the text itself (plain, inert), what the
- * content check found in it and what to do about it, where the text goes
- * (its E-Mail-Verlauf), each attachment with its case and its target, and the
- * decision bar pinned to the bottom. After filing: what landed, what did not
- * and why, and the offer to follow the conversation.
- *
- * The draft starts as the agent's suggestion and the server's candidates; the
- * press is the takeover. A decision is sent with the mail's `ifMatch`, so a
- * colleague who decided first wins: the mail is read again and says so.
- * Filing runs as the person in a job; the detail follows the parts until none
- * is being filed any more, then reports.
- */
-
 import type { JSX, MutableRefObject, ReactNode } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -65,23 +48,14 @@ import { MailText, type MailTextState } from './mail-text'
 import { MessageRow } from './message-row'
 import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
 
-/** What the keyboard can ask of the open detail. */
 export interface DetailActions {
-  /** „Wie gezeigt ablegen“ (E): the primary action, exactly as the bar shows it. */
   file: () => void
-  /** „Verwerfen“ (⌫). */
   dismiss: () => void
-  /** „Anhang ansehen“ (Space): the first attachment that can be drawn. */
   preview: () => void
 }
 
 type ViewState = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; view: InboundMailView }
 
-/**
- * What filing left, read off the mail itself so it is true after a reload too:
- * attachments that wait again with a failure, against those filed, and
- * whether the office's storage was the reason.
- */
 export function filingOutcome(view: InboundMailView): { failed: number; total: number; quota: boolean } {
   const attachments = view.parts.filter((part) => part.kind === 'attachment')
   const failed = attachments.filter((part) => part.state === 'waiting' && part.lastFailure !== null)
@@ -92,24 +66,16 @@ export function filingOutcome(view: InboundMailView): { failed: number; total: n
 export interface InboundMailDetailProps {
   projectId: string
   mailId: string
-  /** The mail as the page read it; null reads it here. */
   initial: InboundMailView | null
-  /** The text, for a preview that pins it; omitted reads it here. */
   initialText?: InboundMailTextView | null
   folders: readonly FolderOption[]
   client: InboundMailClient
-  /** Something of this mail changed (decided, restored): the list and the counts read again. */
   onChanged: () => void
-  /** The way back to the list, where the detail is a page of its own (a phone). */
   back?: ReactNode
   actionsRef?: MutableRefObject<DetailActions | null>
-  /** Now, for the suggestion's „The agent liest noch …“; a preview pins it. */
   now?: number
-  /** How long to wait between reads while parts are being filed (a spec shortens it). */
   pollMs?: number
-  /** Start with „decided by someone else“ said (a preview of that state). */
   decidedByOther?: boolean
-  /** Mails are picked and the list's batch bar holds the pane's primary: the reader's primary steps back to the raised press. */
   yieldPrimary?: boolean
 }
 
@@ -140,12 +106,9 @@ export function InboundMailDetail({
   const [dismissing, setDismissing] = useState(false)
   const [restoring, setRestoring] = useState(false)
   const [decidedByOther, setDecidedByOther] = useState(decidedByOtherInitially)
-  /** The terms a `name_stop` refusal named for the new thread's name; null until one was refused. */
   const [threadNameStop, setThreadNameStop] = useState<string[] | null>(null)
   const [closedNoticeHidden, setClosedNoticeHidden] = useState(false)
-  // An impersonation is a stop: its filing controls stay folded until the person opens „Trotzdem ablegen …“.
   const [filingOpen, setFilingOpen] = useState(false)
-  // „Verwerfen …“ of a mail only another member may file asks first (`ClaimedMailBar`).
   const [claimConfirmOpen, setClaimConfirmOpen] = useState(false)
   useEffect(() => {
     setFilingOpen(false)
@@ -161,7 +124,6 @@ export function InboundMailDetail({
     [t]
   )
 
-  // An impersonation is drawn with nothing pre-selected and no suggestion, whatever the view says (`guardImpersonation`).
   const view = useMemo(() => (state.kind === 'ready' ? guardImpersonation(state.view) : null), [state])
 
   const load = useCallback(async () => {
@@ -185,7 +147,6 @@ export function InboundMailDetail({
     }
   }, [client, projectId, mailId])
 
-  // A new mail: read it (unless the page did) and its text.
   useEffect(() => {
     setDecidedByOther(decidedByOtherInitially)
     setThreadNameStop(null)
@@ -198,18 +159,15 @@ export function InboundMailDetail({
     }
     if (!initialText) void loadText()
     else setText({ kind: 'ready', text: initialText })
-    // `initial` and `initialText` are the page's first answer for this mail; a re-render with a new object is not a new mail.
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- keyed on the mail, see above
   }, [mailId, load, loadText])
 
-  // The draft follows the mail: a new mail, or the same mail changed (read again after a refusal).
   const ifMatch = view?.ifMatch
   useEffect(() => {
     if (view) setDraft(initialDraft(view, folders, copy))
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- re-drafted on a new ifMatch only, never on an edit
   }, [view?.id, ifMatch, folders, copy])
 
-  // A filed text may be followed: find its thread once, to name it and to know whether it is followed already.
   const messagePart = view?.parts.find((part) => part.kind === 'message')
   const messageDocumentId = messagePart?.state === 'filed' ? messagePart.documentId : null
   const offerFollow = !!view && followOffered(view) && !view.followedBy
@@ -229,7 +187,6 @@ export function InboundMailDetail({
 
   const summary = view && draft ? draftSummary(view, draft) : null
 
-  /** Read the mail until no part is being filed, then report what landed and where, Fassung by Fassung. */
   const follow = async (sent: InboundMailView, filedIds: string[]): Promise<void> => {
     let current = sent
     let delay = pollMs
@@ -251,7 +208,6 @@ export function InboundMailDetail({
     if (landed.length > 0) {
       const lines = filedLines(current.parts, filedIds, t('suggestion.root'))
       toast.success(files > 0 && text ? t('toast.filedBoth', { count: files }) : files > 0 ? t('toast.filed', { count: files }) : t('toast.textFiled'), {
-        // Where each part went, with the Fassung it became: the proof the filing did the right thing.
         description: lines.length > 0 ? <FiledLines lines={lines} /> : undefined,
         ...(firstDocument ? { action: { label: t('toast.view'), onClick: () => router.push(documentFilesHref(projectId, firstDocument)) } } : {}),
       })
@@ -260,7 +216,6 @@ export function InboundMailDetail({
   }
 
   const file = async (): Promise<void> => {
-    // Only its member files a mail that claims them (`sender_only`): the reader's one press is „Verwerfen …“.
     if (!view || !draft || !summary || filing || dismissing || view.onlySenderReleases) return
     if (summary.files === 0 && !summary.text) return dismiss()
     if (summary.blockers.length > 0) return
@@ -309,7 +264,6 @@ export function InboundMailDetail({
       const result = await client.dismiss(projectId, { mailIds: [view.id] })
       const next = result.mails.find((mail) => mail.id === view.id)
       if (next && alive.current) setState({ kind: 'ready', view: next })
-      // A colleague cannot restore what only its member may (`sender_only`): no „Rückgängig“ that would be refused.
       toast.success(t('toast.dismissed'), view.onlySenderReleases ? {} : { action: { label: t('toast.undo'), onClick: () => void restore() } })
       onChanged()
     } catch (error) {
@@ -357,7 +311,6 @@ export function InboundMailDetail({
   const previewEntry = attachments.find((entry) => entry.part.id === preview)
   const outcome = filingOutcome(view)
   const impersonation = impersonationWarningOf(view)
-  // One voice per reader: the member it claims is asked, a colleague may only dismiss it (`mailClaimOf`).
   const claim = mailClaimOf(view)
   const readOnly = claim === 'colleague'
   const stopped = impersonation !== null && !filingOpen
@@ -592,7 +545,6 @@ export function InboundMailDetail({
   )
 }
 
-/** A filing's confirmation, one line per part: „S-101_C.pdf → Tragwerk · Fassung 3“. */
 function FiledLines({ lines }: { lines: FiledLine[] }): JSX.Element {
   const t = useTranslations(inboundMailCopy)
   return (
@@ -607,7 +559,6 @@ function FiledLines({ lines }: { lines: FiledLine[] }): JSX.Element {
   )
 }
 
-/** The detail's shape while it loads: the header, the text and three attachment rows. */
 export function DetailSkeleton({ back }: { back?: ReactNode }): JSX.Element {
   return (
     <div className="flex flex-col gap-6 p-4 pt-1 sm:px-8 sm:pb-6 sm:pt-3" aria-busy="true" data-testid="inbound-mail-detail-loading">
@@ -639,9 +590,4 @@ export function DetailSkeleton({ back }: { back?: ReactNode }): JSX.Element {
   )
 }
 
-/**
- * A list of the reader (the attachments, the text's own row): on the reader's sheet, no box, its rows bleeding by their
- * 16px inset so their boxes stand on the text's edge, and between two of them the one inset hairline (`ROW_HAIRLINE`,
- * set on the rows, from the name past the box and the thumbnail). Paper on a desk: lines for lists, no grey box.
- */
 const DETAIL_PANEL = '-mx-4 rounded-none border-0 divide-y-0 bg-transparent'

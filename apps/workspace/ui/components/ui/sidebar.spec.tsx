@@ -1,11 +1,3 @@
-/**
- * The rail edge is a resize handle, not a toggle wearing a resize cursor.
- *
- * Every case here fails against the vendored shadcn rail this replaces: that
- * one had exactly one behaviour (click → toggle) behind a `w-resize` cursor, so
- * a drag moved nothing and the width was a constant nobody could reach.
- */
-
 import { useEffect } from 'react'
 import { render, screen, fireEvent } from '@/test-utils'
 import { describe, test, expect, beforeEach, vi } from 'vitest'
@@ -27,12 +19,10 @@ function Fixture(): React.JSX.Element {
   )
 }
 
-/** The `<button>` the reader grabs. */
 function rail(): HTMLElement {
   return screen.getByRole('separator', { name: 'Resize sidebar' })
 }
 
-/** The element the provider publishes `--sidebar-width` on. */
 function wrapper(): HTMLElement {
   return document.querySelector('[data-slot="sidebar-wrapper"]') as HTMLElement
 }
@@ -45,7 +35,6 @@ function sidebarState(): string | null {
   return document.querySelector('[data-slot="sidebar"]')!.getAttribute('data-state')
 }
 
-/** One press-drag-release, in page coordinates. */
 function drag(from: number, to: number): void {
   fireEvent.pointerDown(rail(), { button: 0, clientX: from })
   fireEvent.pointerMove(window, { clientX: to })
@@ -87,8 +76,6 @@ describe('SidebarRail - pointer', () => {
 
     render(<Fixture />)
 
-    // Not `NaNpx`, which resolves to nothing and leaves the gap and the rail
-    // disagreeing about where the page begins.
     expect(publishedWidth()).toBe('272px')
   })
 
@@ -130,8 +117,6 @@ describe('SidebarRail - pointer', () => {
 
     expect(sidebarState()).toBe('collapsed')
 
-    // Back out over the threshold in the same gesture: the rail returns to the
-    // width the drag is asking for, not to the default.
     fireEvent.pointerMove(window, { clientX: 260 })
     fireEvent.pointerUp(window, { clientX: 260 })
 
@@ -206,8 +191,6 @@ describe('SidebarRail - keyboard', () => {
 
     fireEvent.click(rail())
 
-    // From the icon column there is no width to change yet, only a rail to
-    // bring back — offering "resize" there is the same broken promise as before.
     expect(sidebarState()).toBe('collapsed')
     expect(rail()).toHaveAttribute('title', 'Drag or click to expand the sidebar')
   })
@@ -257,7 +240,6 @@ describe('SidebarRail - keyboard', () => {
 
     fireEvent.keyDown(rail(), { key: 'ArrowRight' })
     expect(sidebarState()).toBe('expanded')
-    // The width it had before the collapse, not the default.
     expect(publishedWidth()).toBe('200px')
   })
 
@@ -273,7 +255,6 @@ describe('SidebarRail - keyboard', () => {
     fireEvent.keyDown(rail(), { key: 'ArrowLeft' })
     expect(publishedWidth()).toBe('288px')
 
-    // And the drag: away from the edge is wider on both sides.
     fireEvent.pointerDown(rail(), { button: 0, clientX: 1000 })
     fireEvent.pointerMove(window, { clientX: 940 })
     fireEvent.pointerUp(window, { clientX: 940 })
@@ -292,8 +273,6 @@ describe('SidebarRail - keyboard', () => {
 
 describe('useSidebar width', () => {
   test('a controlled `open` still restores the dragged width', () => {
-    // The collapse restore returns early when `open` is a prop; the width the
-    // reader dragged is not the caller's to withhold.
     window.localStorage.setItem(WIDTH_KEY, '408')
 
     render(
@@ -331,9 +310,6 @@ describe('useSidebar width', () => {
   })
 })
 
-// The phone drawer had no door left in the product (nothing set it open), so
-// the primitive draws nothing below `md`: the phone's chrome is the top band
-// and the tab bar.
 describe('Sidebar - on a phone', () => {
   test('renders nothing, so no unreachable drawer stays in the tree', () => {
     mobile.value = true

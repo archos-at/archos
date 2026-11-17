@@ -1,13 +1,3 @@
-"""The chat entrypoint hands the reflection stage what the turn could take from
-restricted folders (ADR-0087).
-
-``_finished`` is the one call site for every post-answer stage. What is pinned:
-the restriction evidence on the stage facts comes from the conversation's
-citation registry (``TurnRegistries.source_collections``) and from the turn's
-UNCAPPED inventory rows — what ``list_files`` could show — not only from the
-prompt's capped rows.
-"""
-
 from __future__ import annotations
 
 from unittest.mock import MagicMock

@@ -1,43 +1,3 @@
-"""
-Tests for the async job API routes.
-
-Module under test: apps/agent-host/src/agent_host/routes/jobs.py
-
-API endpoints tested:
-    GET  /v1/jobs/async/agents                         - List available agent types
-    POST /v1/jobs/async/submit                         - Submit a new job
-    GET  /v1/jobs/async/job/{id}                       - Get job status
-    GET  /v1/jobs/async/job/{id}/stream                - SSE stream from beginning
-    POST /v1/jobs/async/job/{id}/cancel                - Cancel a running job
-    GET  /v1/jobs/async/job/{id}/state                 - Get artifacts from event store
-    GET  /v1/jobs/async/job/{id}/report                - Get final report
-
-Test coverage:
-    TestJobSubmitRequest:
-        - Valid request with defaults
-        - Custom job_id and expiry_seconds
-        - Empty input rejected (min_length=1)
-        - Expiry validation (ge=600, le=604800)
-
-    TestJobStatusResponse:
-        - Minimal response (job_id, status)
-        - Full response with error, created_at
-
-    TestJobStateResponse:
-        - Response without state (has_state=False)
-        - Response with artifacts
-
-    TestJobReportResponse:
-        - Response without report (has_report=False)
-        - Response with report content
-        - Cards omitted (the field is optional, so pre-cards callers still construct)
-        - Response with the run's cards attached
-
-    TestRegisterRoutes:
-        - Routes registered with no scheduler (the research queue is the only path)
-        - No job routes without a config file
-"""
-
 from unittest.mock import MagicMock
 
 import pytest
@@ -49,10 +9,7 @@ from agent_host.routes.job_models import JobSubmitRequest
 
 
 class TestJobSubmitRequest:
-    """Tests for the JobSubmitRequest model."""
-
     def test_valid_request(self):
-        """Test creating a valid submit request."""
         req = JobSubmitRequest(agent_type="deep_researcher", input="What is CUDA?")
 
         assert req.input == "What is CUDA?"
@@ -62,67 +19,54 @@ class TestJobSubmitRequest:
         assert req.data_sources is None
 
     def test_with_data_sources(self):
-        """Test submit request with selected data sources."""
         req = JobSubmitRequest(agent_type="deep_researcher", input="query", data_sources=["web_search"])
 
         assert req.data_sources == ["web_search"]
 
     def test_null_data_sources_defaults_to_all_sources(self):
-        """Test null data_sources preserves all-source behavior."""
         req = JobSubmitRequest(agent_type="deep_researcher", input="query", data_sources=None)
 
         assert req.data_sources is None
 
     def test_empty_data_sources_accepted(self):
-        """Test that empty data_sources is accepted as a deliberate 'no data-source tools' signal."""
         req = JobSubmitRequest(agent_type="deep_researcher", input="query", data_sources=[])
 
         assert req.data_sources == []
 
     def test_with_custom_job_id(self):
-        """Test submit request with custom job ID."""
         req = JobSubmitRequest(agent_type="deep_researcher", input="query", job_id="custom-123")
 
         assert req.job_id == "custom-123"
 
     def test_with_custom_expiry(self):
-        """Test submit request with custom expiry."""
         req = JobSubmitRequest(agent_type="deep_researcher", input="query", expiry_seconds=7200)
 
         assert req.expiry_seconds == 7200
 
     def test_empty_input_rejected(self):
-        """Test that empty input is rejected."""
         with pytest.raises(ValueError):
             JobSubmitRequest(agent_type="deep_researcher", input="")
 
     def test_input_at_max_length_accepted(self):
-        """Test that input at the 32000-char bound is accepted."""
         req = JobSubmitRequest(agent_type="deep_researcher", input="x" * 32000)
 
         assert len(req.input) == 32000
 
     def test_input_over_max_length_rejected(self):
-        """Test that input longer than 32000 chars is rejected."""
         with pytest.raises(ValueError):
             JobSubmitRequest(agent_type="deep_researcher", input="x" * 32001)
 
     def test_expiry_too_low_rejected(self):
-        """Test that expiry below 600 is rejected."""
         with pytest.raises(ValueError):
             JobSubmitRequest(agent_type="deep_researcher", input="query", expiry_seconds=300)
 
     def test_expiry_too_high_rejected(self):
-        """Test that expiry above 604800 is rejected."""
         with pytest.raises(ValueError):
             JobSubmitRequest(agent_type="deep_researcher", input="query", expiry_seconds=700000)
 
 
 class TestJobStatusResponse:
-    """Tests for the JobStatusResponse model."""
-
     def test_minimal_response(self):
-        """Test minimal job response."""
         resp = JobStatusResponse(job_id="123", status="running")
 
         assert resp.job_id == "123"
@@ -131,7 +75,6 @@ class TestJobStatusResponse:
         assert resp.created_at is None
 
     def test_full_response(self):
-        """Test full job response."""
         resp = JobStatusResponse(
             job_id="123",
             status="success",
@@ -146,10 +89,7 @@ class TestJobStatusResponse:
 
 
 class TestJobStateResponse:
-    """Tests for the JobStateResponse model."""
-
     def test_without_state(self):
-        """Test state response without state."""
         resp = JobStateResponse(job_id="123", has_state=False)
 
         assert resp.job_id == "123"
@@ -157,7 +97,6 @@ class TestJobStateResponse:
         assert resp.state is None
 
     def test_with_artifacts(self):
-        """Test state response with artifacts."""
         artifacts = {"tools": [], "outputs": []}
         resp = JobStateResponse(job_id="123", has_state=True, artifacts=artifacts)
 
@@ -166,10 +105,7 @@ class TestJobStateResponse:
 
 
 class TestJobReportResponse:
-    """Tests for the JobReportResponse model."""
-
     def test_without_report(self):
-        """Test report response without report."""
         resp = JobReportResponse(job_id="123", has_report=False)
 
         assert resp.job_id == "123"
@@ -177,30 +113,17 @@ class TestJobReportResponse:
         assert resp.report is None
 
     def test_with_report(self):
-        """Test report response with report."""
         resp = JobReportResponse(job_id="123", has_report=True, report="# Report\n\nContent here")
 
         assert resp.has_report is True
         assert resp.report == "# Report\n\nContent here"
 
     def test_cards_are_optional(self):
-        """`cards` is additive: a construction that predates it still validates.
-
-        The field carries an enhancement to the report, so it may not be the
-        reason a report fails to be returned — not on the way out of the handler
-        and not here either.
-        """
         resp = JobReportResponse(job_id="123", has_report=True, report="# Report")
 
         assert resp.cards is None
 
     def test_with_cards(self):
-        """The cards ride as the runner persisted them — opaque dicts, unfiltered.
-
-        Deliberately NOT re-validated against the `AnswerCard` union: they went
-        through `validate_cards` before the runner wrote them, and a second pass
-        on the read path could only turn a finished report into an error.
-        """
         cards = [{"type": "legal_basis", "title": "OIB-Richtlinie 2", "lane": "oib"}]
         resp = JobReportResponse(job_id="123", has_report=True, report="# Report", cards=cards)
 
@@ -208,17 +131,13 @@ class TestJobReportResponse:
 
 
 def _registered(app: MagicMock, method: str) -> int:
-    """How many routes ``app`` was given for ``method``, by decorator or by ``add_api_route``."""
     added = sum(1 for call in app.add_api_route.call_args_list if call.kwargs.get("methods") == [method])
     return added + getattr(app, method.lower()).call_count
 
 
 class TestRegisterRoutes:
-    """Tests for the register_routes function."""
-
     @pytest.mark.asyncio
     async def test_routes_registered_without_any_scheduler(self, tmp_path, monkeypatch):
-        """The research queue is the only execution path, so no scheduler gates the routes."""
         from agent_host.routes.jobs import register_job_routes
 
         monkeypatch.delenv("NAT_CONFIG_FILE", raising=False)
@@ -237,7 +156,6 @@ class TestRegisterRoutes:
 
     @pytest.mark.asyncio
     async def test_no_config_file_registers_no_job_routes(self, monkeypatch):
-        """Without a config file the worker cannot run a job, so only the data routes are mounted."""
         from agent_host.routes.jobs import register_job_routes
 
         monkeypatch.delenv("NAT_CONFIG_FILE", raising=False)
@@ -255,10 +173,7 @@ class TestRegisterRoutes:
 
 
 class TestArtifactHelpers:
-    """Tests for artifact extraction helper functions."""
-
     def test_extract_event_metadata_with_data(self):
-        """Test extracting metadata from event with data dict."""
         from agent_host.routes.job_artifacts import _extract_event_metadata
 
         event = {
@@ -273,7 +188,6 @@ class TestArtifactHelpers:
         assert metadata == {"workflow": "agent-1"}
 
     def test_extract_event_metadata_fallback_to_nested(self):
-        """Test extracting metadata from nested data.metadata."""
         from agent_host.routes.job_artifacts import _extract_event_metadata
 
         event = {
@@ -286,7 +200,6 @@ class TestArtifactHelpers:
         assert metadata == {"workflow": "nested"}
 
     def test_extract_event_metadata_handles_non_dict(self):
-        """Test extracting metadata handles non-dict data."""
         from agent_host.routes.job_artifacts import _extract_event_metadata
 
         event = {"type": "test", "data": "string_data"}
@@ -297,11 +210,8 @@ class TestArtifactHelpers:
         assert metadata == {}
 
     def test_process_tool_start(self):
-        """Test processing tool.start event."""
         from agent_host.routes.job_artifacts import _process_tool_start
 
-        # Shape produced by IntermediateStepEvent.to_sse_dict: id/name at the
-        # top level, tool input directly under data.
         event = {"type": "tool.start", "id": "tool-1", "name": "search", "timestamp": "2026-01-22T10:00:00"}
         data = {"input": "query"}
         metadata = {"workflow": "agent-1"}
@@ -314,11 +224,8 @@ class TestArtifactHelpers:
         assert tool_call_map["tool-1"]["status"] == "running"
 
     def test_process_tool_end_updates_existing(self):
-        """Test processing tool.end updates existing tool."""
         from agent_host.routes.job_artifacts import _process_tool_end
 
-        # tool.end events carry their own id; the running entry is matched
-        # by tool name, not by event id.
         event = {"type": "tool.end", "id": "event-9", "name": "search", "timestamp": "2026-01-22T10:00:01"}
         data = {"output": "result"}
         metadata = {"workflow": "agent-1"}
@@ -338,7 +245,6 @@ class TestArtifactHelpers:
         assert tool_call_map["tool-1"]["status"] == "completed"
 
     def test_process_tool_end_creates_new(self):
-        """Test processing tool.end creates new entry if missing."""
         from agent_host.routes.job_artifacts import _process_tool_end
 
         event = {"type": "tool.end", "id": "tool-2", "name": "other", "timestamp": "2026-01-22T10:00:01"}
@@ -352,7 +258,6 @@ class TestArtifactHelpers:
         assert tool_call_map["tool-2"]["status"] == "completed"
 
     def test_process_artifact_update(self):
-        """Test processing artifact.update event."""
         from agent_host.routes.job_artifacts import _process_artifact_update
 
         event = {"name": "output.md", "timestamp": "2026-01-22T10:00:00"}
@@ -370,7 +275,6 @@ class TestArtifactHelpers:
         assert outputs[0]["extra"] == "value"
 
     def test_process_artifact_update_skips_empty_content(self):
-        """Test that empty content is skipped."""
         from agent_host.routes.job_artifacts import _process_artifact_update
 
         event = {"name": "empty.md", "timestamp": "2026-01-22T10:00:00"}
@@ -385,7 +289,6 @@ class TestArtifactHelpers:
         assert len(outputs) == 0
 
     def test_process_artifact_update_tracks_citation_source(self):
-        """Test that citation_source events are tracked."""
         from agent_host.routes.job_artifacts import _process_artifact_update
 
         event = {"name": "https://example.com", "timestamp": "2026-01-22T10:00:00"}
@@ -402,7 +305,6 @@ class TestArtifactHelpers:
         assert len(sources_cited) == 0
 
     def test_process_artifact_update_tracks_citation_use(self):
-        """Test that citation_use events are tracked."""
         from agent_host.routes.job_artifacts import _process_artifact_update
 
         event = {"name": "https://example.com", "timestamp": "2026-01-22T10:00:00"}

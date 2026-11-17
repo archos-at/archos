@@ -1,47 +1,31 @@
-# Project memory: `packages/agent/src/agent/memory`
+# Memory: `packages/agent/src/agent/memory`
 
-The two agent-side writers of a project's durable findings: the in-turn
-`remember` tool (`register.py`) and the body of the post-answer reflection pass
-(`reflection.py`), plus the one decision both make about restricted folders
-(`restriction.py`). Not an agent — one agent tool and one stage handler.
+The two agent-side writers of durable findings: the `remember` tool and the
+reflection pass. Every rule below is explained in
+[`project-memory-design.md` §13](../../../../../docs/architecture/project-memory-design.md#13-the-agent-side-writers-packagesagentsrcagentmemory).
 
-Do not confuse it with `agent/knowledge/project_memory.py`, which is the
-HTTP client both use, or with `agent/stages/memory_reflection.py`, which
-declares when the stage runs. This package holds only what a memory *is*.
-
-## The invariants
-
-**The backend never writes the app database.** Every write goes through the
-token-guarded internal BFF endpoint, so `app` stays single-writer
-(ADR-0003). A new write path is a new call to that endpoint, not a new
-connection.
-
-**Reflection writes project scope only.** The tool may escalate a scopeless
-project write to the organization; reflection never does. A wrong firm-wide
-finding poisons every project in the org, and no human saw this one.
-
-**A memory from a turn with restricted folders in scope is decided in
-`restriction.py`, and nowhere else.** Both writers call
-`restriction_decisions` (the restriction `decide_restrictions` returns, plus the
-judge's verdict, sent with the write so the BFF audits it); every failure
-restricts to all of the scope's restricted collections. A
-restricted finding is project memory (never organization) and never a
-`memory_proposal` card, because accepting a card writes open memory
-(ADR-0087, `docs/architecture/project-memory-design.md` §3.6). Its evidence
-includes the restricted digest lines EARLIER turns were shown
-(`shown_notes.py`, recorded per conversation by `turn/registries.py`): a new
-reader of restricted evidence reads that record too, or a note that left the
-re-ranked digest is filed open.
-
-**A supersede must quote one COMPLETE entry of the digest the model was
-shown.** The frontend resolves supersedes fuzzily (≥0.7 Jaccard), so a
-truncated or paraphrased quote would retire an entry nobody named. Reflection
-drops the quote and keeps the finding.
-
-## Obligations
-
-| When you | You must | What fails you |
-|---|---|---|
-| Add a reason a finding is dropped | Drop it in `_finding_from_entry`, before the `MAX_NEW_ITEMS` slice | A rejected finding eats a slot, and the pass records fewer than it found |
-| Change what the tool returns to the model | Say plainly whether the item was saved; a card shown is not a write | The model tells the reader it remembered something that was never stored |
-| Change the reflection prompt or schema | Run `packages/agent/tests/memory/test_reflection.py`; the prompt and `_ReflectionFinding` must name the same fields | The pass parses nothing and silently records zero findings |
+- Every write goes through the token-guarded internal BFF endpoint, never a
+  database connection (ADR-0003).
+- Reflection never writes organization scope; only the tool escalates.
+- A finding about the person goes to personal memory (ADR-0180), or is dropped,
+  never moved to the project. A personal note is never restricted, never a
+  proposal card, never on the stage's frame.
+- A personal note is corrected by removing it (`supersedes`, the forget route),
+  never by a contradicting note; nothing is written unless the old note is gone.
+- A temporary conversation keeps nothing: the tool checks `turn_is_temporary`,
+  the stage skips with `temporary_conversation`.
+- Every restricted-folder decision is made in `restriction.py`; a restricted
+  finding is project memory and never a `memory_proposal` card (ADR-0087).
+- A supersede quotes one complete digest entry; the BFF matches it fuzzily.
+- Drop a finding in `_finding_from_entry`, before the `MAX_NEW_ITEMS` slice.
+- A new frame-item field goes in `TurnMemoryNote.frame_item`,
+  `MemoryReflectionItem` and `sanitizeMemoryReflectionStage`, absent for its
+  default (`test_memory_reflection_stage.py`, `message-stages.spec.ts`).
+- A new project or organization writer writes through `insert_memory_item` under
+  a bound memory log, or the note shows under no answer.
+- The reflection prompt and `_ReflectionFinding` name the same fields
+  (`test_reflection.py`); a mismatch silently records zero findings.
+- Before you change the reflection prompt, the tool's description or the
+  personal-data filter, run `task be:eval:memory-shelves` before and after.
+- A note states the preference itself, with no name or third person; a state of
+  the workspace is never a finding (`TestReflectionSystemPrompt`).

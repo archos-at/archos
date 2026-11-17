@@ -1,19 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Rewording and deleting one's own reply, driven through the TYPED CLIENT and
- * the real routes, service and inbox emitters (ADR-0055): only the document
- * reader, the repository, the wake record, who may open the document and the
- * inbox's writes are faked.
- *
- * What is pinned: only the person who wrote a reply changes it, never
- * Piloti's and never a colleague's; only while the mark is live; never once
- * Piloti took it up (it answered after it, or its wake is queued or ran); an
- * edit tells only whom it adds, withdraws whom it drops, keeps an @Piloti only
- * when the reply had one, and wakes nobody; a delete takes the rows that still
- * quote the reply with it; and both tell the room.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -266,9 +253,7 @@ describe('rewording one’s own reply', () => {
 
     expect(emitted.map((row) => [row.type, row.recipientUserId])).toEqual([['annotation.mentioned', 'user_ben']])
     expect(emitted[0].payload).toMatchObject({ excerpt: '@Ben Gruber bitte prüfen', replyId: 'rep_1' })
-    // An edit is not a reply: the thread hears nothing new.
     expect(emitted.some((row) => row.type === 'annotation.activity')).toBe(false)
-    // The rows that quote the reply quote its new words, in place: nobody's row resurfaces.
     expect(rewriteInboxPayloadsAnchoredOn).toHaveBeenCalledWith({
       organizationId: 'org_1',
       types: ['annotation.activity', 'annotation.mentioned'],
@@ -307,7 +292,6 @@ describe('rewording one’s own reply', () => {
 
   it('keeps an @Piloti the reply already had, while Piloti has not taken it up', async () => {
     withReplies([replyRow({ body: `@${PRODUCT_NAME} stimmt das?`, mentions: [AGENT], addressesAgent: true })])
-    // A cap held its wake: Piloti never read it.
     vi.mocked(findWake).mockResolvedValue(wake('suppressed'))
 
     await editReply('doc_1', 'ann_1', 'rep_1', { body: `@${PRODUCT_NAME} stimmt die Breite?`, mentions: [AGENT] }, { run })
@@ -336,7 +320,6 @@ describe('deleting one’s own reply', () => {
     expect(retractInboxOccurrenceAnchoredOn).toHaveBeenCalledWith(
       expect.objectContaining({ types: ['annotation.activity'], anchorId: 'ann_1', payloadHas: { replyId: 'rep_1' } })
     )
-    // Anna was mentioned only there: her mention goes too.
     expect(markInboxItemsInertAnchoredOn).toHaveBeenCalledWith(
       expect.objectContaining({ types: ['annotation.mentioned'], recipientUserId: 'user_anna' })
     )

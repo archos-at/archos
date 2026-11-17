@@ -1,11 +1,3 @@
-"""The topics a document is searched by: the prompt, the reply's parse, and the fail-open call.
-
-The model is the reader, so these tests pin the contract around it: the keys the
-prompt asks for are the keys the parser reads, the project's own spelling is
-offered back, and the stored result stays inside the rules the prompt states.
-Nothing here asserts the model's prose.
-"""
-
 from __future__ import annotations
 
 import json
@@ -108,7 +100,6 @@ class TestParseTopics:
         assert parse_topics(reply) == ["Attika", "Fenster"]
 
     def test_the_cap_counts_kept_topics_not_the_items_of_the_reply(self):
-        # Low-confidence and invalid items come first; the six that survive are still all kept.
         noise = [("Rauschen", 0.1), ("Viel zu viele Worte hier drin", 0.9)]
         kept = [(f"Thema{i}", 0.9) for i in range(MAX_TOPICS + 2)]
         result = parse_topics(_topics_json(*noise, *kept))

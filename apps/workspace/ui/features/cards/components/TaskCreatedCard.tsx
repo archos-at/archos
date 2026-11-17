@@ -1,44 +1,5 @@
 'use client'
 
-/**
- * TaskCreatedCard — work Piloti has taken on, as something a reader can go back to.
- *
- * System-emitted: `create_task` (`agent/tools/tasks/register.py`) pushes it
- * once the BFF has written the row, the same way the working directory pushes
- * `document_draft`. The model cannot fabricate one — which is the whole point,
- * because the sentence this card exists beside is „ich mache den Einreichcheck
- * bis Freitag", and until there was a row that sentence was a promise nothing
- * kept.
- *
- * ## Why it offers nothing
- *
- * The task is queued by the time this renders. An Accept would repeat the
- * delegation; a Cancel is a decision about work in flight and belongs where the
- * work is listed, not in the middle of a thread the reader is still reading. So
- * it is `presentational` (`CARD_INTERACTIVITY`) and its one control is a LINK to
- * the conversation the run writes into — a real `<a>`, so middle-click and „copy
- * link address" work, exactly as the draft card's „Im Projekt öffnen" does.
- *
- * ## Why there is no „Unterhaltung öffnen" any more
- *
- * A run is one message in the thread that commissioned it (ADR-0062), and it
- * appears right under this card as the run block. The link used to open the
- * run's own conversation; that conversation no longer exists, and a link to
- * the thread the reader is already in is a control that does nothing. The
- * `conversationId` still arrives on the wire (the tool result names the
- * thread) and is accepted so an older backend's payload stays valid; it is
- * not rendered.
- *
- * ## Why it no longer says „läuft"
- *
- * It used to, so that the answer beside it could not quietly overstate the
- * work. The run block directly beneath it now says the state — and keeps
- * saying it, which a card frozen at „läuft" cannot — so this card is the
- * COMMISSIONING RECEIPT and nothing more: what was handed over, of what kind,
- * and by when it is wanted. Two adjacent claims about one run's state are
- * how a thread starts disagreeing with itself the moment the run moves on.
- */
-
 import type { FC } from 'react'
 import { Card } from '@/components/ui/card'
 import { SectionLabel } from '@/components/ui/section-label'
@@ -48,7 +9,6 @@ import { cn } from '@/lib/utils'
 import { CARD_SHELL } from './card-chrome'
 import { ClampedText } from './ClampedText'
 
-/** The four delegatable kinds, as the dictionary names them. */
 const KIND_LABEL = {
   compliance_check: 'complianceCheck',
   submission_check: 'submissionCheck',
@@ -61,9 +21,7 @@ interface TaskCreatedCardProps {
   kind: keyof typeof KIND_LABEL
   title: string
   goal: string
-  /** ISO instant the work is wanted by, or absent when none was named. */
   dueAt?: string | null
-  /** The thread the run writes into; absent when it could not be created. */
   conversationId?: string | null
 }
 
@@ -77,9 +35,6 @@ export const TaskCreatedCard: FC<TaskCreatedCardProps> = ({
   const t = useTranslations(chatCopy)
   const { locale } = useLocale()
 
-  // An unparseable date renders as no date at all rather than „Invalid Date":
-  // the field is optional, and a broken one is indistinguishable from an absent
-  // one to a reader — but not to somebody who sees `NaN` in a Bauakt.
   const due = dueAt ? new Date(dueAt) : null
   const dueLabel =
     due && !Number.isNaN(due.getTime())

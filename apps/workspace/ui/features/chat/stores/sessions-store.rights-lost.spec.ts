@@ -1,12 +1,3 @@
-/**
- * A chat the reader may no longer read (ADR-0088), in the browser's store.
- *
- * The server sends the list row without its title and flagged `contentLocked`,
- * and answers a read of its messages with 403 `RESOURCE_RIGHTS_LOST`. What a
- * browser cached of the chat from when it could read it must not survive
- * either: the title, the messages, and the subject file are dropped, and
- * nothing is fetched for it.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/features/layout/store', () => ({
@@ -46,7 +37,6 @@ import { chatMessagesKey, isAwaitingServerMessages } from './chat-storage'
 const STORE = 'chat-store'
 const flush = () => new Promise((resolve) => setTimeout(resolve, 20))
 
-/** The error the adapter throws for a 403 `RESOURCE_RIGHTS_LOST`; the store knows it by name. */
 const rightsLost = () => Object.assign(new Error('rights lost'), { name: 'ConversationRightsLostError' })
 
 const secret: ChatMessage = {
@@ -57,7 +47,6 @@ const secret: ChatMessage = {
   messageType: 'user',
 }
 
-/** A chat this browser read while the reader still could: title, messages and subject cached. */
 const cached: Conversation = {
   id: 's_secret',
   userId: 'u1',
@@ -90,7 +79,6 @@ const row = (id: string, overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 })
 
-/** What the server lists for a locked chat: no title, no tags, no subject, and the flag. */
 const lockedRow = (id: string) =>
   row(id, { title: null, tags: [], subjectResourceType: null, subjectResourceId: null, contentLocked: true })
 
@@ -126,7 +114,6 @@ describe('the list says a chat is locked', () => {
       subjectResourceId: null,
     })
     expect(JSON.stringify(conversation('s_secret'))).not.toContain('Müller')
-    // The others are as they were.
     expect(conversation('s_other')?.contentLocked).toBeUndefined()
     expect(conversation('s_other')?.messages).toHaveLength(1)
   })

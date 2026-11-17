@@ -1,23 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Opt-in integration test: a chat marked deleting is queued for the purger, and
- * the purger's claim picks it up — or leaves it, under a legal hold — against a
- * REAL Postgres with every migration applied, as the restricted runtime role.
- *
- * The unit suites double the repository and the purger's transaction. Only this
- * can prove the SQL: that the mark and the queue row land together under
- * row-level security, that `deletion_queue_active_entity_idx` keeps one active
- * row per chat, that closing it leaves the purger's own claim alone, that the
- * claim query (`purger/db.js`) with its `legal_hold_blocks` guard treats a
- * conversation row the way it treats a project.
- *
- *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \
- *     npx vitest run bff/conversations/erasure-queue.integration.spec.ts
- *
- * `task db:test:rls` (scripts/rls-test-db.sh) builds that database and runs it.
- */
 
 import { sql } from 'drizzle-orm'
 import postgres from 'postgres'
@@ -72,11 +55,6 @@ describe.skipIf(!url)('chat erasure retry queue against live Postgres (migration
     )
   }
 
-  /**
-   * Every row the purger's claim would take right now, claimed one at a time
-   * exactly as `processOne` does — then rolled back, so the database (which
-   * other suites share) is left as it was.
-   */
   async function claimableIds(): Promise<string[]> {
     const { claimNext } = await import('../../purger/db.js')
     const client = postgres(url as string, { prepare: false, max: 1 })
@@ -145,13 +123,11 @@ describe.skipIf(!url)('chat erasure retry queue against live Postgres (migration
     const marked = await inOrg(() => repo.markConversationDeleting(CHAT, ORG, USER))
     expect(marked?.deletedAt).toBeInstanceOf(Date)
 
-    // A second DELETE re-stamps the mark and leaves the queued retry alone.
     await inOrg(() => repo.markConversationDeleting(CHAT, ORG, USER))
 
     const rows = await queueRows(CHAT)
     expect(rows).toHaveLength(1)
     expect(rows[0]).toMatchObject({ status: 'pending', requested_by: USER, display_name: 'Brandschutz', attempts: 0 })
-    // Not claimable while the request that marked it is still erasing.
     expect(rows[0].purge_after.getTime()).toBeGreaterThanOrEqual(
       before + repo.CONVERSATION_ERASURE_RETRY_DELAY_MS - 5_000,
     )
@@ -181,7 +157,6 @@ describe.skipIf(!url)('chat erasure retry queue against live Postgres (migration
     const claimable = await claimableIds()
     expect(claimable).toContain(CHAT)
     expect(claimable).not.toContain(HELD_CHAT)
-    // Surfaced, not lost: still pending in the admin deletions list.
     expect((await queueRows(HELD_CHAT))[0].status).toBe('pending')
   })
 
@@ -191,7 +166,6 @@ describe.skipIf(!url)('chat erasure retry queue against live Postgres (migration
         update deletion_queue set status = 'failed', attempts = 10
          where entity_type = 'conversation' and entity_id = ${HELD_CHAT}`),
     )
-    // A person deletes again after the purger gave up: a new pending row.
     await inOrg(() => repo.markConversationDeleting(HELD_CHAT, ORG, USER))
     expect((await queueRows(HELD_CHAT)).map((row) => row.status)).toEqual(['failed', 'pending'])
 
@@ -208,10 +182,6 @@ describe.skipIf(!url)('chat erasure retry queue against live Postgres (migration
   })
 
   it('a closed erasure stays closed when the purger answers late', async () => {
-    // The purger's writes used to match the row by id alone, so a failure it
-    // recorded after a request had closed the row made an erased chat read as
-    // pending, and as failed once its attempts were spent.
-    // The purger's own claim, as its token names it (`claimNext`): the status alone has to hold the row.
     const [claim] = Array.from(
       await withPlatformAccess('test: a closed row', () =>
         db.execute<{ id: string; claim_token: string }>(sql`

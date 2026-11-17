@@ -373,7 +373,7 @@ jobs:
             . ci/git_auth.sh
             task release:lint
           fi
-      # AGENTS.md: a change a customer can notice ships with its note. The
+      # docs/contributing/obligations.md: a change a customer can notice ships with its note. The
       # escape hatch is the `no-release-note` label, read from the PR as it is
       # NOW rather than from the event payload: a re-run replays the payload, so
       # a label added after the push used to need another commit. Add the
@@ -472,7 +472,11 @@ jobs:
         image: qdrant/qdrant:v1.19.2
         # Storage in memory: on the container disk every payload index is a
         # sync, and a test collection creates about forty (core suite with the
-        # server on 4 cores: 144 s on disk, 104 s on tmpfs, 2026-11-11).
+        # server on 4 cores: 144 s on disk, 104 s on tmpfs, 2026-11-11). The
+        # tmpfs is half the runner's memory and an empty test collection takes
+        # about 300 MiB of it, so the store fixture keeps one module's pair per
+        # process (knowledge_layer_testing/vector_store.py); full, Qdrant
+        # refuses every write with "WAL buffer size exceeds available disk space".
         options: --tmpfs /qdrant/storage
         # WARN, not the default INFO: the runner prints the service's log after the
         # job, and thousands of request lines buried the pytest failure out of reach.
@@ -870,8 +874,8 @@ jobs:
       # version and checksum together with that digest.
       - name: Install otelcol-contrib (config validation)
         env:
-          OTELCOL_VERSION: "0.163.2"
-          OTELCOL_SHA256: "cc19dd6a1b85ca694ef16655688e597f693d0e24d2baecdd50e2db597819eeff"
+          OTELCOL_VERSION: "0.165.0"
+          OTELCOL_SHA256: "bd6e73d94bf3359ad6fac25529a8ee308adb9b0b8a0e8af034ed3891fbe5aa33"
         run: |
           curl -sSfL -o "$RUNNER_TEMP/otelcol.tar.gz" \
             "https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v${OTELCOL_VERSION}/otelcol-contrib_${OTELCOL_VERSION}_linux_amd64.tar.gz"
@@ -1114,7 +1118,7 @@ jobs:
         with:
           cleanup: false # the runner is discarded; see build-image/action.yml
       - name: Log in to GHCR
-        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}

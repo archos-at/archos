@@ -1,18 +1,5 @@
 'use client'
 
-/**
- * The mail's own text as a part to file: a checkbox, and where it goes.
- *
- * A filed text is a section of an E-Mail-Verlauf, one document per
- * conversation, and each filed mail adds a Fassung. So the choice is which
- * thread: one the server recognised and pre-selected (D11: only a signed
- * reference from a confirmed domain earns that), another candidate offered
- * unchecked with the reason it is not pre-selected, or a new thread whose name
- * the person confirms. Appending where the sender could not vouch for the
- * reference needs the person's yes („Gehört trotzdem zu diesem
- * E-Mail-Verlauf“). Threads the viewer may not read are counted, never named.
- */
-
 import type { JSX } from 'react'
 import { useId, useMemo, useState } from 'react'
 import { AlertTriangle, CheckCircle2, FolderInput, Mail, MailCheck, ShieldAlert, ShieldQuestion, Timer } from 'lucide-react'
@@ -50,7 +37,6 @@ export interface MessageRowProps {
   draft: MessageDraft
   folders: readonly FolderOption[]
   copy: DraftCopy
-  /** The terms the name check stopped the thread name for (a `name_stop` refusal), offering „Trotzdem ablegen“; null when it did not. */
   threadNameStop: string[] | null
   onChange: (change: Partial<Omit<MessageDraft, 'partId'>>) => void
 }
@@ -73,7 +59,6 @@ export function MessageRow({ projectId, view, draft, folders, copy, threadNameSt
     [folders]
   )
 
-  // A text that is not waiting any more says what became of it.
   if (part && part.state !== 'waiting') {
     return (
       <Item className="items-start px-4" data-testid="message-row" data-status={part.state}>
@@ -131,7 +116,6 @@ export function MessageRow({ projectId, view, draft, folders, copy, threadNameSt
           </FactLine>
         )}
         {view.rawScan === 'pending' && (
-          // A still glyph, as the original's scan in the header: the detail's „Wird abgelegt …“ is its one spinner.
           <FactLine icon={Timer} testId="message-scan-pending">
             {t('message.rawScan.pending')}
           </FactLine>

@@ -1,14 +1,3 @@
-"""`POST /v1/ingest` carries the office's upload screening into the job (and the queue).
-
-The BFF sends ``screening`` for an organization that configured terms or
-detectors; the job screens the locally extracted text against it before any
-model call (``knowledge_layer.ingest.screening``). These pin the crossing:
-the request model's bounds, that ``_job_config`` copies a non-empty policy as
-plain data and drops an empty one, that it survives the durable queue's
-payload, and that the per-file outcome reaches the status response. The job
-side is ``tests/knowledge_layer_tests/test_upload_screening_ingestion.py``.
-"""
-
 from __future__ import annotations
 
 from datetime import datetime
@@ -57,7 +46,6 @@ class TestScreeningPolicy:
             ScreeningPolicy(content_terms=[term])
 
     def test_the_bounds_are_the_ones_the_job_applies(self):
-        # Two copies of one rule in two tiers; this is what holds them together.
         assert request_models.SCREENING_MAX_TERMS == job_screening.MAX_TERMS
         assert request_models.SCREENING_MIN_TERM_CHARS == job_screening.MIN_TERM_CHARS
         assert request_models.SCREENING_MAX_TERM_CHARS == job_screening.MAX_TERM_CHARS
@@ -83,7 +71,6 @@ class TestScreeningPolicy:
 class TestJobConfig:
     @pytest.fixture(autouse=True)
     def _object_store(self, monkeypatch):
-        # `_FILE_REF` is an ObjectStoreUrl only against a configured store.
         monkeypatch.setenv("SEAWEED_ENDPOINT", "http://seaweedfs.test")
 
     def test_a_policy_is_copied_as_plain_data(self):
@@ -130,11 +117,6 @@ def test_the_policy_survives_the_durable_queue(monkeypatch):
     decoded = ingest_dispatch.decode(ingest_dispatch.encode(prepared))
 
     assert decoded.config["screening"] == _POLICY
-
-
-# =============================================================================
-# Through the route
-# =============================================================================
 
 
 @pytest.fixture
@@ -197,6 +179,5 @@ def test_the_file_outcome_is_on_the_status_response():
     dumped = status.model_dump(mode="json")
 
     assert [detail["screening"] for detail in dumped["file_details"]] == ["quarantined", None]
-    # A row stored before the field existed still reads.
     del dumped["file_details"][0]["screening"]
     assert IngestionJobStatus.model_validate(dumped).file_details[0].screening is None

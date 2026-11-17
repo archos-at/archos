@@ -39,7 +39,6 @@ const graph = graphFromProposals([...euRecords, ...atRecords.map((record) => byI
 
 const SCOPED = ['oib-rl-2-1-2019', 'oib-rl-2-1-2023', 'oib-rl-2-2-2019', 'oib-rl-2-2-2023', 'oib-rl-2-3-2019', 'oib-rl-2-3-2023']
 
-/** What the chain says of OIB-RL 2.1, 2.2 and 2.3 in Vienna today for one building. */
 function inVienna(inputs: BuildingInputs['inputs']) {
   const uses = resolveChain(graph, 'AT-9', '2026-11-10', { buildings: [{ buildingId: 'bldg1', inputs }] }).uses
   return Object.fromEntries(

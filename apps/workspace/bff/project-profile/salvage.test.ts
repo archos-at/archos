@@ -6,7 +6,6 @@ import { describe, expect, it } from 'vitest'
 import { deriveIntakeEntry, salvageProjectProfile } from './salvage'
 import type { ProjectAssumption, ProjectFact } from './types'
 
-/** A well-formed confirmed fact for a given value. */
 function fact(value: ProjectFact['value']): ProjectFact {
   return {
     value,
@@ -16,7 +15,6 @@ function fact(value: ProjectFact['value']): ProjectFact {
   }
 }
 
-/** A well-formed unconfirmed assumption for a given value. */
 function assumption(value: ProjectAssumption['value']): ProjectAssumption {
   return {
     value,
@@ -46,7 +44,6 @@ describe('salvageProjectProfile', () => {
   it('treats the empty {} default as absent — no salvage, no banner', () => {
     const { profile, dropped } = salvageProjectProfile({})
     expect(dropped).toEqual([])
-    // An empty profile has no facts/goals/unknowns → the page treats it as create mode.
     expect(profile).not.toBeNull()
     expect(Object.keys(profile!.facts)).toHaveLength(0)
   })
@@ -71,9 +68,7 @@ describe('salvageProjectProfile', () => {
     expect(profile).not.toBeNull()
     expect(profile!.facts.main_use.value).toBe('residential')
     expect(profile!.facts.storeys_above_ground.value).toBe(3)
-    // The invalid fact is gone...
     expect(profile!.facts.broken).toBeUndefined()
-    // ...and reported so the wizard can warn.
     expect(dropped).toContain('facts.broken')
   })
 
@@ -105,7 +100,6 @@ describe('salvageProjectProfile', () => {
     })
 
     it('keeps the value of an assumption whose evidence or alternatives are malformed, fact by fact', () => {
-      // `broken` sends the profile down the per-part path rather than the fast one.
       const raw = {
         facts: {
           broken: { value: 'x', confidence: 'guessed' },
@@ -129,7 +123,6 @@ describe('salvageProjectProfile', () => {
       expect(profile!.assumptions.storeys_above_ground.value).toBe(3)
       expect(profile!.assumptions.storeys_above_ground.evidence).toBeUndefined()
       expect(profile!.assumptions.storeys_above_ground.alternatives).toBeUndefined()
-      // Well-formed evidence is not collateral damage.
       expect(profile!.assumptions.escape_level_m.evidence).toEqual(goodEvidence)
       expect(profile!.assumptions.escape_level_m.alternatives).toEqual([goodAlternative])
     })
@@ -165,8 +158,6 @@ describe('salvageProjectProfile', () => {
   it('drops a whole section whose container is the wrong type', () => {
     const raw = { facts: 'not an object', goals: {}, unknowns: [], assumptions: {} }
     const { profile, dropped } = salvageProjectProfile(raw)
-    // facts is unsalvageable, but a valid (empty) profile shell still results — and
-    // since nothing was salvaged, the page opens in create mode.
     expect(profile).toBeNull()
     expect(dropped).toContain('facts')
   })
@@ -203,7 +194,6 @@ describe('deriveIntakeEntry', () => {
     expect(entry.mode).toBe('edit')
     expect(entry.initialProfile).not.toBeNull()
     expect(entry.initialProfile?.assumptions.land_designation?.value).toBe('residential')
-    // Fully valid → nothing dropped → no banner.
     expect(entry.salvageNotice).toBeNull()
   })
 

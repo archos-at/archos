@@ -19,7 +19,6 @@ describe('PlatformNav', () => {
       })
       expect(links.length).toBeGreaterThan(0)
     }
-    // Both viewports render the full set; CSS decides which is visible.
     expect(screen.getAllByRole('link')).toHaveLength(PLATFORM_SECTIONS.length * 2)
   })
 
@@ -30,7 +29,6 @@ describe('PlatformNav', () => {
     for (const heading of ['Operate', 'Quality', 'Content', 'System']) {
       expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument()
     }
-    // Every section sits in exactly one group.
     const grouped = PLATFORM_SECTION_GROUPS.flatMap((group) =>
       group.sections.map((section) => section.key)
     )
@@ -38,9 +36,6 @@ describe('PlatformNav', () => {
   })
 
   test('labels every section from the dictionary, never with its raw key', () => {
-    // The label is `t(`nav.${key}`)`, a template the key-coverage spec cannot
-    // resolve, and a missing key renders as the key itself. A new section with
-    // no `platform.nav` entry used to ship as "platform.nav.feedback".
     pathname.value = '/app/platform'
     render(<PlatformNav />)
 
@@ -53,8 +48,6 @@ describe('PlatformNav', () => {
   })
 
   test('marks only the overview active at the bare platform path', () => {
-    // A prefix test would light up every section here — the overview owns the
-    // bare route, so it must match exactly.
     pathname.value = '/app/platform'
     render(<PlatformNav />)
 
@@ -64,27 +57,25 @@ describe('PlatformNav', () => {
   })
 
   test('marks the matching subsection active, not the overview', () => {
-    pathname.value = '/app/platform/knowledge'
+    pathname.value = '/app/platform/countries'
     render(<PlatformNav />)
 
     const current = screen.getAllByRole('link', { current: 'page' })
     expect(current).toHaveLength(2)
-    for (const link of current) expect(link.textContent).toContain('Base knowledge')
+    for (const link of current) expect(link.textContent).toContain('Countries')
   })
 
   test('stays active on a nested subsection route', () => {
-    pathname.value = '/app/platform/norms/some-detail'
+    pathname.value = '/app/platform/countries/AT'
     render(<PlatformNav />)
 
     const current = screen.getAllByRole('link', { current: 'page' })
     expect(current.length).toBeGreaterThan(0)
-    for (const link of current) expect(link.textContent).toContain('Norm catalog')
+    for (const link of current) expect(link.textContent).toContain('Countries')
   })
 
   test('does not mark a sibling route active on a shared prefix', () => {
-    // `/app/platform/norms-draft` is not under `/app/platform/norms`; matching
-    // must stop at a path boundary, not at any shared prefix.
-    pathname.value = '/app/platform/norms-draft'
+    pathname.value = '/app/platform/countries-draft'
     render(<PlatformNav />)
 
     expect(screen.queryAllByRole('link', { current: 'page' })).toHaveLength(0)
@@ -106,7 +97,6 @@ describe('PlatformNav', () => {
     const links = Array.from(strip!.querySelectorAll('a'))
     expect(links).toHaveLength(PLATFORM_SECTIONS.length)
     for (const link of links) expect(link).toHaveClass('pointer-coarse:min-h-11')
-    // The strip scrolls inside a named region, never the page body.
     expect(strip!.querySelector('[class*="overflow-x"]')).not.toBeNull()
     expect(strip!.querySelector('a[aria-current="page"]')).toHaveTextContent('Models')
   })

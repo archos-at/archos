@@ -1,11 +1,3 @@
-/**
- * One held mail, decided: the bar says what will happen and sends exactly
- * that; a sender who needs confirming is confirmed first; a colleague who
- * decided first wins and the detail says so; the text is never markup; the
- * content check's choice reaches the request; dismissing offers the undo; a
- * filed text offers the follow, only where it could ever hold.
- */
-
 import { PRODUCT_NAME } from '@/lib/brand'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
@@ -51,7 +43,6 @@ describe('InboundMailDetail', () => {
     const file = vi.spyOn(client, 'file')
     const { onChanged } = renderDetail('member-verified', client)
     const button = screen.getByTestId('decision-file')
-    // The press is the verb; the sentence beside it says what one press files, and is the press's description.
     expect(button).toHaveTextContent('File')
     expect(screen.getByTestId('decision-summary')).toHaveTextContent('File 1 file and the mail text')
     expect(button).toHaveAccessibleDescription('File 1 file and the mail text')
@@ -66,7 +57,6 @@ describe('InboundMailDetail', () => {
     })
     expect(body.mails[0]).not.toHaveProperty('acknowledgeSender')
     await waitFor(() => expect(onChanged).toHaveBeenCalled())
-    // One toast that says where each part went and which Fassung it became.
     expect(toast.success).toHaveBeenCalledTimes(1)
     const [title, options] = vi.mocked(toast.success).mock.calls[0] ?? []
     expect(title).toBe('Filed 1 file and the mail text')
@@ -84,7 +74,6 @@ describe('InboundMailDetail', () => {
     renderDetail('filed-outcome')
     expect(screen.getByTestId('message-filed')).toHaveTextContent('Filed in mail thread “Stellplatznachweis” · revision 7 · Open')
     expect(screen.getByTestId('status-filed')).toHaveTextContent('Filed in Behörde/Bescheide · revision 1 · Open')
-    // One part was dismissed, not the mail: the banner counts the part.
     expect(screen.getByTestId('detail-restorable')).toHaveTextContent('1 part dismissed · can be restored until')
     expect(screen.getByTestId('detail-restorable')).not.toHaveTextContent(/^Dismissed/)
   })
@@ -108,9 +97,7 @@ describe('InboundMailDetail', () => {
     const client = fixtureClient({ detail: DETAIL_VARIANTS.impersonation })
     const file = vi.spyOn(client, 'file')
     renderDetail('impersonation', client)
-    // Miriam reads her own address rejected by her domain: never „poses as Miriam Huber“ (B4).
     expect(screen.getByTestId('sender-trust')).toHaveTextContent('Your address · rejected by your domain')
-    // „Dringend: Kontoänderung Honorarnote“: filing is folded away; opening it is the first deliberate press.
     await userEvent.click(screen.getByTestId('impersonation-file-anyway'))
     expect(screen.getByTestId('message-checkbox')).not.toBeChecked()
     expect(screen.getByTestId('attachment-checkbox')).not.toBeChecked()
@@ -119,7 +106,6 @@ describe('InboundMailDetail', () => {
     expect(button).toBeDisabled()
     await userEvent.click(screen.getByTestId('acknowledge-sender'))
     expect(button).toBeEnabled()
-    // Her yes is that she sent it, and the fold says so: „Only if you sent this mail yourself“.
     expect(screen.getByTestId('acknowledge-sender').closest('div')).toHaveTextContent('Yes, I sent this mail. File it')
     expect(screen.getByTestId('inbound-mail-detail')).toHaveTextContent('Only if you sent this mail yourself.')
     expect(screen.getByTestId('impersonation-file-anyway')).toHaveTextContent('Close filing')
@@ -138,7 +124,6 @@ describe('InboundMailDetail', () => {
     const discard = screen.getByTestId('decision-dismiss')
     expect(discard.className).toContain('bg-primary')
     await userEvent.click(discard)
-    // The confirmation names the one person who can take it back.
     expect(await screen.findByRole('dialog')).toHaveTextContent('Afterwards only Miriam Huber ‹m.huber@huber-architektur.at› can restore it, for 7 days.')
     expect(dismiss).not.toHaveBeenCalled()
     await userEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
@@ -150,9 +135,7 @@ describe('InboundMailDetail', () => {
     const warning = screen.getByTestId('impersonation-warning')
     expect(warning).toHaveTextContent('Careful: the name Miriam Huber belongs to a member, the address miriam.huber@mail.example does not.')
     expect(warning).toHaveTextContent(`${PRODUCT_NAME} suggests nothing and nothing is preselected. Check payment or bank detail changes by phone, never by replying.`)
-    // Above the header, before anything can be checked.
     expect(warning.compareDocumentPosition(screen.getByTestId('mail-header')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    // A stop on its full hairline, never a rule down its leading edge (design language, „Emphasis without a stripe“).
     expect(warning.className).toMatch(/\bborder-danger\b/)
     expect(warning.className).not.toMatch(/border-l/)
     await userEvent.click(screen.getByTestId('impersonation-file-anyway'))
@@ -178,7 +161,6 @@ describe('InboundMailDetail', () => {
     expect(screen.getByTestId('message-checkbox')).toBeInTheDocument()
     expect(screen.getByTestId('decision-file')).toBeInTheDocument()
     await userEvent.click(screen.getByTestId('message-checkbox'))
-    // Opened, filing still needs the yes.
     expect(screen.getByTestId('decision-file')).toBeDisabled()
     expect(screen.getByTestId('acknowledge-sender')).toBeInTheDocument()
     await userEvent.click(screen.getByTestId('decision-dismiss'))
@@ -193,7 +175,6 @@ describe('InboundMailDetail', () => {
 
   it('wears the agent’s mark only on a folder the agent suggested, never on the rule’s correspondence folder', () => {
     renderDetail('external-unverified')
-    // A new thread for an unconfirmed stranger goes to the correspondence folder by rule: a plain folder chip.
     const chip = screen.getByTestId('detail-new-thread-folder')
     expect(chip.querySelector('[data-testid="filing-chip-folder"]')).not.toBeNull()
     expect(chip).not.toHaveAttribute('data-suggested')
@@ -286,7 +267,6 @@ describe('InboundMailDetail', () => {
     expect(own).toHaveTextContent('<img src=x onerror="alert(1)">')
   })
 
-  // ADR-0137, amendment of 2026-11-03: the approval view shows the extracted text and the list of attachments, never the rendered HTML.
   it('shows the extracted text and the attachment list, and no element of the mail’s markup anywhere', () => {
     const fixture = DETAIL_VARIANTS['external-unverified']
     const hostile = '<script>window.pwned = 1</script><style>body{display:none}</style><iframe src="https://evil.example"></iframe><img src="https://track.example/p.gif" width="1" height="1">'
@@ -306,13 +286,10 @@ describe('InboundMailDetail', () => {
         now={FIXTURE_NOW}
       />
     )
-    // Nothing the mail wrote became an element: not in the text, the quote's header, the invitation, or anywhere else in the view.
     expect(container.querySelector('script, style, iframe, object, embed, b')).toBeNull()
     expect(container.querySelector('img[src*="track.example"], img[src="x"], iframe[src*="evil.example"]')).toBeNull()
     expect((window as unknown as { pwned?: number }).pwned).toBeUndefined()
-    // The extracted text is printed as the text it is.
     expect(screen.getByTestId('mail-text-own')).toHaveTextContent('<script>window.pwned = 1</script>')
-    // And each attachment is listed by name, type and size.
     const attachment = screen.getByRole('checkbox', { name: /Angebot_2026\.pdf/ }).closest('li, div[class]')?.parentElement as HTMLElement
     expect(attachment).toHaveTextContent('Angebot_2026.pdf')
     expect(attachment).toHaveTextContent(/PDF · 1[.,]\d+ MB/)
@@ -399,7 +376,6 @@ describe('InboundMailDetail', () => {
   it('says the project is closed and files nothing there', () => {
     renderDetail('closed')
     expect(screen.getByTestId('detail-closed')).toBeInTheDocument()
-    // Nothing can be filed: the one press left is „Verwerfen“, once, as the primary.
     expect(screen.getByTestId('decision-file')).toHaveTextContent('Dismiss')
     expect(screen.queryByTestId('decision-dismiss')).not.toBeInTheDocument()
   })

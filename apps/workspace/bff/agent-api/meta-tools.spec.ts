@@ -2,16 +2,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The meta-tools are written once, here (`metaToolsFor` in `discovery.ts`), and
- * Piloti's own client reads them: `packages/agent/src/agent/tools/workspace/meta_tools.json`
- * is the in-product variant, which `tools/workspace/register.py` turns into its
- * four tools' descriptions. This spec REWRITES that file when
- * `UPDATE_FIXTURES=1` and otherwise compares, so a description changed here and
- * not regenerated fails in the commit that changed it, and the Python side never
- * keeps a second copy (`packages/agent/tests/tools/workspace/test_workspace_client.py`
- * holds the other half).
- */
 
 import { readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -47,7 +37,6 @@ describe('the meta-tools Piloti reads', () => {
 
   it('never claim a search the code does not do', () => {
     const words = JSON.stringify(metaToolsFor({ actor: 'external_agent' }))
-    // scorerFor matches plain words and never compiles the caller's text (ReDoS).
     expect(words).not.toMatch(/regular expression|regex/i)
   })
 })

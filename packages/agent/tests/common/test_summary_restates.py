@@ -1,10 +1,3 @@
-"""A standfirst earns its place by saying what the opening does not.
-
-Pinned on the three answers the September 2026 live census produced: every
-summary restated the prose's first paragraph, directly above it. The prompt's
-own consequence-summary („Danach ausschreiben …") must survive.
-"""
-
 from __future__ import annotations
 
 import pytest
@@ -63,12 +56,10 @@ def test_a_consequence_summary_survives():
 def test_the_gate_drops_it_from_the_wire_and_keeps_it_without_prose():
     meta = AnswerMeta(kind="walkthrough", summary=OIB2_SUMMARY)
     assert "summary" not in (gate_answer_meta(meta, prose_chars=len(OIB2_PROSE), prose=OIB2_PROSE) or {})
-    # A caller with no prose to give (the deep writer) keeps the old behaviour.
     assert gate_answer_meta(meta, prose_chars=len(OIB2_PROSE))["summary"] == OIB2_SUMMARY
 
 
 def test_an_envelope_without_its_opening_is_salvaged():
-    """Seen live: the reply began with the prose and switched into JSON half way."""
     from agent.common.answer_envelope import extract_answer_envelope
 
     reply = (

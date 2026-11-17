@@ -1,5 +1,3 @@
-"""Fixtures for the intake agent tests, defined in ``agent_testing.intake``."""
-
 from agent_testing.intake import decider  # noqa: F401 - fixture
 from agent_testing.intake import intake_schema  # noqa: F401 - fixture
 from agent_testing.intake import no_decision_model  # noqa: F401 - autouse fixture

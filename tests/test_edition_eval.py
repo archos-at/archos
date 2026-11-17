@@ -1,11 +1,3 @@
-"""The Austrian edition set holds to the Austria pack (``tests/fixtures/editions/at_edition_questions.yaml``).
-
-Every expected value is read off ``configs/knowledge-packs/at.json``: a pack change
-that moves an edition, an LGBl or an in-force day fails here until the set follows
-it. The checks are held to answers the 2026-11-10 review wrote by hand: each named the
-expected edition and said the opposite.
-"""
-
 from __future__ import annotations
 
 import sys
@@ -149,8 +141,6 @@ def _run(answer: str, cited: list[str] | None = None) -> SimpleNamespace:
 
 
 class _Judge:
-    """A judge that answers ``verdict`` and records what it was asked."""
-
     def __init__(self, verdict: bool | None) -> None:
         self.verdict, self.asked = verdict, []
 
@@ -215,8 +205,6 @@ class TestPatterns:
 
 
 class TestWhichEditionTheAnswerSaysBinds:
-    """The review's wrong answers (2026-11-10): each named the expected year and said the opposite."""
-
     def test_a_changeover_answer_that_names_the_right_year_as_the_future_one_fails(self):
         row = _row("r2-sbg-rl2-2026-09-01")
         wrong = (
@@ -295,8 +283,6 @@ class TestReport:
 
 
 class TestTheRealRunPath:
-    """The re-review (2026-11-10): rows that ``--set editions`` loads must reach the set's checks."""
-
     def test_a_row_the_suite_selects_is_checked_by_the_set(self, monkeypatch):
         monkeypatch.setattr(suite, "_judge", lambda: None)
         path = suite.NORM_QUESTIONS["editions"]
@@ -335,8 +321,6 @@ class TestAdversarialAnswers:
 
 
 class TestCitedEditions:
-    """The re-review of #1595: a passage of the wrong edition must count against the answer."""
-
     def test_an_answer_that_names_2019_but_cites_the_2023_text_fails(self):
         row = _row("r1-stmk-rl2")
         wrong = "In der Steiermark gilt die OIB-RL 2 Ausgabe April 2019.\n- [1] [KB] oib-rl_2_ausgabe_mai_2023.pdf, p.4"

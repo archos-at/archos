@@ -1,9 +1,3 @@
-"""The ``look`` card (ADR-0128): an address of where Piloti looked, never pixels.
-
-Its shape is checked here; how ``look``, ``highlight`` and ``point`` fill it and
-which looks the answer keeps is checked in ``packages/agent/tests/tools/look/test_visibility.py``.
-"""
-
 from __future__ import annotations
 
 import json

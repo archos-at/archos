@@ -181,7 +181,6 @@ describe('platform organization allowance editor', () => {
   })
 
   it('hides the write path when the shell says the viewer cannot manage organizations', async () => {
-    // The server still says canManage: the rendering hint is enough to withhold a Save that would 403.
     render(
       <PlatformAccessProvider permissions={[PLATFORM_PERMISSIONS.organizationsView]}>
         <PlatformOrgBudgetDialog organization={organization} onClose={onClose} />

@@ -36,7 +36,6 @@ import {
 } from './service'
 import { AUDIT_SCHEMAS } from './schemas.mjs'
 
-/** The parts of the WorkOS event this file asserts on. */
 interface EmittedEvent {
   action: string
   actor: { type: string; id: string; name?: string; metadata: Record<string, unknown> }
@@ -46,11 +45,6 @@ interface EmittedEvent {
   occurredAt: Date
 }
 
-/**
- * The one place the untyped mock is given a shape. `vi.fn()` records its calls
- * as `any[]`, so reading `.mock.calls` inline would spread that `any` through
- * every assertion below; naming the boundary once keeps the rest typed.
- */
 const lastEvent = (): EmittedEvent => createEvent.mock.calls[0][1] as unknown as EmittedEvent
 
 
@@ -58,7 +52,6 @@ describe('recordAuditEvent (WorkOS-native audit trail)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     createEvent.mockResolvedValue(undefined)
-    // The emission gate defaults OFF; these tests exercise the emit path.
     process.env.AUDIT_LOGS_ENABLED = 'true'
   })
 
@@ -82,9 +75,7 @@ describe('recordAuditEvent (WorkOS-native audit trail)', () => {
     expect(event.action).toBe('budget.policy.set')
     expect(event.actor).toEqual({ type: 'user', id: 'user_1', name: 'admin@acme.at', metadata: {} })
     expect(event.targets).toEqual([{ type: 'budget_policy', id: 'policy_1' }])
-    // First x-forwarded-for hop is the client.
     expect(event.context).toEqual({ location: '203.0.113.7', userAgent: 'vitest' })
-    // Nulls are stripped — WorkOS metadata allows flat primitives only.
     expect(event.metadata).toEqual({ scope: 'organization', unit: 'credit', dailyLimit: 1000 })
     expect(event.occurredAt).toBeInstanceOf(Date)
   })
@@ -102,8 +93,6 @@ describe('recordAuditEvent (WorkOS-native audit trail)', () => {
     expect(event.metadata).toEqual({})
   })
 
-  // An event an outbox sends again (the quarantine decisions, ADR-0086) must
-  // be the SAME event: its own key, and the decision's time rather than now.
   it('passes a fixed occurredAt and the idempotency key through, and mints neither when absent', async () => {
     const decidedAt = new Date('2026-10-01T08:00:00Z')
     await recordAuditEventOrThrow({
@@ -124,11 +113,6 @@ describe('recordAuditEvent (WorkOS-native audit trail)', () => {
     expect(createEvent.mock.calls[1][2]).toBeUndefined()
   })
 
-  // Issues #274/#277. WorkOS derives the validator from the registered schema
-  // and marks BOTH `metadata` and `actor.metadata` required for every action
-  // that registers a metadata map — so an omitted key is a 400, not a smaller
-  // event, and the emitter swallows that 400 by design. Both keys must
-  // therefore be present on every emit, whatever the caller passed.
   it.each([
     ['no metadata at all', undefined],
     ['metadata that is entirely null', { subject: null, role: undefined }],
@@ -161,8 +145,6 @@ describe('recordAuditEvent (WorkOS-native audit trail)', () => {
     consoleError.mockRestore()
   })
 
-  // Deployment gate (AUDIT_LOGS_ENABLED, default OFF): a suppressed emit
-  // must reach neither the WorkOS client nor the error log.
   describe('emission gate', () => {
     it.each([
       ['unset', undefined],
@@ -201,9 +183,6 @@ describe('agent-authored events', () => {
     createEvent.mockResolvedValue(undefined)
   })
 
-  // The enterprise question is "who authorized the creation of this
-  // AI-generated document", so the actor slot has to keep answering it. The
-  // run is the second fact, not a replacement for the first.
   it('keeps the authorizing human as the actor and names the run as a second target', async () => {
     await recordAuditEvent({
       organizationId: 'org_1',
@@ -228,11 +207,6 @@ describe('agent-authored events', () => {
     ])
   })
 
-  // The target TYPE is the reference's kind, not a constant. A diagram's
-  // reference is `{chat answer}-{hash of its source}` and was emitted as
-  // `agent_run` until migration 0066, so an auditor filtering the export for
-  // that run found a job that does not exist — and got the same empty answer a
-  // real but unvisited run gives, which is why nobody noticed.
   it('names the second target for what the reference actually is', async () => {
     await recordAuditEvent({
       organizationId: 'org_1',
@@ -265,9 +239,6 @@ describe('agent-authored events', () => {
     expect(lastEvent().targets).toEqual([{ type: 'document', id: 'doc_9' }])
   })
 
-  // A target type the action does not register is rejected exactly like an
-  // unregistered action (issues #255/#256) — and this emit path is the one that
-  // must not fail, so the two files are checked against each other here.
   it('emits only target types the action registers a schema for', async () => {
     await recordAuditEvent({
       organizationId: 'org_1',
@@ -282,8 +253,6 @@ describe('agent-authored events', () => {
   })
 })
 
-// An act of Piloti's is about a mark, the document it is on, the project and
-// the turn's conversation: each a target, so the viewer filters by each.
 describe('further targets', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -352,9 +321,6 @@ describe('recordAuditEventOrThrow (the events whose absence is the failure)', ()
     expect(lastEvent().targets).toContainEqual({ type: 'agent_run', id: 'run_7' })
   })
 
-  // The whole point of the opt-in: a record that silently does not exist is
-  // worse than none, because its absence is indistinguishable from the document
-  // never having been generated. The caller is expected to fail the write.
   it('throws AuditEmitError, carrying the WorkOS failure as the cause', async () => {
     const rejection = new Error('422 unknown action')
     createEvent.mockRejectedValue(rejection)
@@ -379,11 +345,7 @@ describe('recordAuditEventOrThrow (the events whose absence is the failure)', ()
   })
 })
 
-// Gap 10 of the upload-governance audit: the WorkOS audit portal opens with
-// `org:audit:view`, which roles that are not organization admins hold, so the
-// name of a document under a folder not every member may read stays out.
 describe('a restricted document is not named in the trail (ADR-0087)', () => {
-  /** The registry as the metadata maps these checks read. */
   const SCHEMAS: Readonly<
     Record<AuditAction, { readonly targets: readonly { readonly type: string }[]; readonly metadata?: Readonly<Record<string, string>> }>
   > = AUDIT_SCHEMAS
@@ -418,7 +380,6 @@ describe('a restricted document is not named in the trail (ADR-0087)', () => {
     const event = lastEvent()
     expect(event.metadata).toEqual({ collectionName: 'proj_1__f_folder_lohn', nameWithheld: true })
     expect(JSON.stringify(event)).not.toMatch(/Gehalt/)
-    // The target still says which document: someone cleared for the folder resolves it.
     expect(event.targets).toEqual([{ type: 'document', id: 'doc_9' }])
   })
 

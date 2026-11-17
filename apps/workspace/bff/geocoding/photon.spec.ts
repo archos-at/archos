@@ -63,7 +63,6 @@ describe('parsePhotonResponse', () => {
       kind: 'address',
     })
     expect(second?.label).toBe('Hauptstraße 1d, 6074 Rinn')
-    // a POI's name is not part of an address line
     expect(parsePhotonResponse(PHOTON_GRABEN).map((r) => r.label)).toEqual([
       'Graben 20, 1010 Wien',
       'Tiefer Graben 20, 1010 Wien',

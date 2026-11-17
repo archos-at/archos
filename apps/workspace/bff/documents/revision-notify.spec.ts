@@ -21,7 +21,6 @@ vi.mock('./reconcile-status', () => ({ readRevisionLinkNames: vi.fn(), refreshCo
 vi.mock('./version-repository', () => ({ findPublishedVersion: vi.fn(), findPreviousVersion: vi.fn() }))
 vi.mock('@/lib/revision-notice/queue', () => ({ planRevisionNotice: vi.fn(), insertRevisionNotice: vi.fn() }))
 vi.mock('@/lib/db/tenant-context', () => ({ withTenant: (_scope: unknown, fn: () => unknown) => fn() }))
-// A transaction that keeps what its callback wrote only when the callback returns.
 const committedClaims: string[] = []
 vi.mock('@/lib/db', () => ({
   getDb: () => ({
@@ -113,7 +112,6 @@ const link = {
   olderId: 'doc-a',
 } as const
 
-/** An open mark on the followed document, with the people its thread names. */
 const openMark = (fields: Partial<AnnotationRecord>): AnnotationRecord =>
   ({
     id: 'ann-1',
@@ -452,7 +450,6 @@ describe('notifyNewRevision — the people working on its marks', () => {
         revisionNumber: 2,
         versionId: 'v2',
       }),
-      // Set on the new Fassung already, or closed: nothing to check.
       openMark({ id: 'm3', createdBy: 'fresh', versionId: 'v3', revisionNumber: 3 }),
       openMark({ id: 'm4', createdBy: 'closer', status: 'resolved', versionId: 'v2' }),
     ])
@@ -492,8 +489,6 @@ describe('notifyNewRevision — the people working on its marks', () => {
     expect(emitted()[0].payload).not.toHaveProperty('openMarks')
   })
 
-  // Migration 0195: the next Fassung of an E-Mail-Verlauf is news only to the
-  // people whose open mark it leaves behind.
   it('reaches only the mark participants for `marks_only`: not the assignees, not the uploaders', async () => {
     assignedTo('anna')
     vi.mocked(listDocumentAnnotations).mockResolvedValue([
@@ -659,8 +654,6 @@ describe('announceSettledVersions', () => {
     expect(findBatchSettleEffects).not.toHaveBeenCalled()
   })
 
-  // Migration 0195 `runs_document_check`: the next Fassung of an E-Mail-Verlauf
-  // is filed by a batch that turns the check off; a mail's attachments keep it.
   it('checks only the documents whose batch keeps the document check', async () => {
     vi.mocked(findDocumentInOrg).mockImplementation(async (id) =>
       doc({ id, uploadBatchId: id === 'thread' ? 'batch-thread' : 'batch-attachments' }),
@@ -799,8 +792,6 @@ describe('announceSettledVersions — a link written at ingestion', () => {
     expect(claimRevisionAnnouncement).toHaveBeenCalledWith({ organizationId: 'org-1', documentId: 'doc-b', anchorId: 'doc-a' }, expect.anything())
     vi.mocked(emitInboxItems).mockClear()
 
-    // „Erneut lesen": the same document settles again. Bernd was assigned
-    // meanwhile and holds no row; the Fassung was announced already.
     vi.mocked(claimRevisionAnnouncement).mockResolvedValue(false)
     assignedTo('anna', 'bernd')
     await announceSettledVersions('org-1', ['doc-b'])

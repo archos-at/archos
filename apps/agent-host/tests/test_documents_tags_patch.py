@@ -1,11 +1,3 @@
-"""Tests for the document tag-edit endpoint.
-
-``PATCH /v1/collections/{collection}/documents/{file}/tags`` validates user
-edits against the controlled ingestion vocabulary (``ALLOWED_TAGS``), 404s when
-no summary row exists, and clears tags on an empty list — never touching the
-one-sentence summary.
-"""
-
 import asyncio
 import tempfile
 from pathlib import Path
@@ -28,16 +20,11 @@ from agent_host.routes.documents import add_document_routes
 
 @pytest.fixture
 def summary_db():
-    """Point the factory's summary store at a fresh temp SQLite DB."""
     with tempfile.TemporaryDirectory() as tmpdir:
         db_url = f"sqlite:///{Path(tmpdir) / 'tags.db'}"
         DocumentMetadataStore._tables_initialized.discard(db_url)
         configure_summary_db(db_url)
         yield db_url
-        # Windows teardown: the store's TTL-cached engines keep their SQLite
-        # connections open past this test, so the temp file stays locked and
-        # TemporaryDirectory cleanup raises PermissionError (WinError 32).
-        # Dispose the engines for this URL before the directory goes away.
         with DocumentMetadataStore._cache_lock:
             for cache in (
                 DocumentMetadataStore._sync_engine_cache,
@@ -91,7 +78,6 @@ async def test_patch_valid_tags(app, store):
     assert res.json()["tags"] == ["Schnitt", "Brandschutz"]
     docs = {d.file_name: d for d in store.get_all("proj_a")}
     assert docs["plan.pdf"].tags == ["Schnitt", "Brandschutz"]
-    # Summary untouched.
     assert docs["plan.pdf"].summary == "A floor plan."
 
 
@@ -108,7 +94,6 @@ async def test_patch_off_vocabulary_400_lists_values(app, store):
     assert res.status_code == 400
     detail = res.json()["detail"]
     assert detail["invalid_tags"] == ["Feuerschutz", "MadeUp"]
-    # The off-vocabulary edit did not mutate storage.
     docs = {d.file_name: d for d in store.get_all("proj_a")}
     assert docs["plan.pdf"].tags == ["Grundriss"]
 
@@ -143,11 +128,6 @@ async def test_patch_missing_summary_row_404(app, store):
 
 @pytest.mark.asyncio
 async def test_patch_too_many_tags_400(app, store):
-    """More than MAX_TAGS (5) valid, in-vocabulary tags after dedup → 400.
-
-    Mirrors the ingestion cap; the BFF zod already blocks this, so a normal user
-    never reaches it, but the route enforces it defensively.
-    """
     from agent.knowledge.document_classification import MAX_TAGS
 
     store.register("proj_a", "plan.pdf", "A floor plan.", tags=["Grundriss"])
@@ -165,7 +145,6 @@ async def test_patch_too_many_tags_400(app, store):
     detail = res.json()["detail"]
     assert detail["max_tags"] == MAX_TAGS
     assert detail["tag_count"] == 6
-    # Storage was not mutated by the rejected edit.
     docs = {d.file_name: d for d in store.get_all("proj_a")}
     assert docs["plan.pdf"].tags == ["Grundriss"]
 
@@ -186,7 +165,6 @@ async def test_patch_deduplicates_valid_tags(app, store):
 
 @pytest.mark.asyncio
 async def test_patch_marks_the_tags_as_a_persons_choice(app, store):
-    """The edit is stored as a person's, so the backfill and the re-ingest leave it alone."""
     store.register("proj_a", "plan.pdf", "A floor plan.", tags=["Grundriss"])
 
     async with _client(app) as client:
@@ -215,7 +193,6 @@ async def test_patch_empty_is_a_persons_choice_of_no_tags(app, store):
 
 @pytest.mark.asyncio
 async def test_a_patched_tag_set_survives_a_re_ingest_of_the_document(app, store):
-    """The classifier's guess for the re-read file does not undo the correction."""
     store.register("proj_a", "plan.pdf", "A floor plan.", tags=["Grundriss"])
 
     async with _client(app) as client:
@@ -229,11 +206,6 @@ async def test_a_patched_tag_set_survives_a_re_ingest_of_the_document(app, store
     doc = store.get_all("proj_a")[0]
     assert doc.summary == "A newer summary."
     assert doc.tags == ["Schnitt", "Brandschutz"]
-
-
-# ---------------------------------------------------------------------------
-# Topics (Themen) on the same route. Tags above are unchanged by them.
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
@@ -300,7 +272,6 @@ async def test_patch_too_many_topics_400(app, store):
 
 @pytest.mark.asyncio
 async def test_patch_topics_only_leaves_the_tags_alone(app, store):
-    """A topics-only edit must not clear the tags: an absent ``tags`` is not an empty one."""
     store.register("proj_a", "plan.pdf", "A floor plan.", tags=["Grundriss"])
 
     async with _client(app) as client:
@@ -329,7 +300,6 @@ async def test_patch_tags_only_leaves_the_topics_alone(app, store):
 
 @pytest.mark.asyncio
 async def test_patch_with_an_invalid_tag_writes_no_topics_either(app, store):
-    """Both fields are validated before either is written, so a 400 on one leaves the other untouched."""
     store.register("proj_a", "plan.pdf", "A floor plan.", topics=["Attika"])
 
     async with _client(app) as client:

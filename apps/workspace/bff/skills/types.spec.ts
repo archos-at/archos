@@ -83,7 +83,6 @@ describe('preferredCardsOf', () => {
     expect(
       preferredCardsOf({ [METADATA_CARDS]: 'calculation,memory_proposal,gibt_es_nicht' })
     ).toEqual(['calculation'])
-    // Retired types (ADR-0069) are Markdown now, never a card preference.
     expect(preferredCardsOf({ [METADATA_CARDS]: 'summary,verdict_header,legal_basis' })).toEqual([])
   })
 })
@@ -103,7 +102,6 @@ describe('createSkillSchema — grid-cards write boundary', () => {
     expect(() =>
       createSkillSchema.parse({ ...valid, metadata: { [METADATA_CARDS]: 'gibt_es_nicht' } })
     ).toThrow(/gibt_es_nicht/)
-    // A real union member, but tool-emitted: the model must never be asked for one.
     expect(() =>
       createSkillSchema.parse({ ...valid, metadata: { [METADATA_CARDS]: 'memory_proposal' } })
     ).toThrow(/memory_proposal/)
@@ -148,9 +146,6 @@ describe('isHiddenSkill (grid-hidden)', () => {
   })
 })
 
-// `grid-auto-invoke` is retired: no switch writes it and no reader honours it,
-// here or in the agent tier. The constant survives so a stored key has a name
-// the next reader can look up; this holds that nothing grew a reader back.
 describe('grid-auto-invoke is a name, not a decision', () => {
   it('exports the key and nothing that acts on it', async () => {
     const skillTypes = await import('./types')

@@ -29,8 +29,6 @@ describe('roles written before the English names', () => {
 
 describe('the role registry', () => {
   it('covers exactly the declared vocabulary, in the same order', () => {
-    // Two declarations of one list is how they drift. The tuple exists for the
-    // union type, the definitions for the data; this is what pins them.
     expect(DOCUMENT_ROLE_DEFINITIONS.map((d) => d.role)).toEqual([...DOCUMENT_ROLES])
   })
 
@@ -41,8 +39,6 @@ describe('the role registry', () => {
   })
 
   it('only makes a role single-holder when the project really has one', () => {
-    // A cardinality claim is about the world. The plan sets are many; the
-    // governing documents are one.
     const single = DOCUMENT_ROLE_DEFINITIONS.filter((d) => d.cardinality === 'one').map(
       (d) => d.role
     )
@@ -68,8 +64,6 @@ describe('the role registry', () => {
 describe('scope instances', () => {
   it('requires an instance for a building role and nothing else, for now', () => {
     expect(roleRequiresScopeInstance('existing_plans')).toBe(true)
-    // A project has one plot in v1 and mints no id for it, so demanding one
-    // here would make the Bebauungsplan unbindable. Flips when plots go plural.
     expect(roleRequiresScopeInstance('development_plan')).toBe(false)
     expect(roleRequiresScopeInstance('preliminary_decision')).toBe(false)
   })
@@ -110,8 +104,6 @@ describe('recommendedRoles', () => {
   })
 
   it('never pushes a role that states no condition', () => {
-    // Offerable is not the same as recommended: the checklist lists every role,
-    // but only a stated condition claims the project needs one.
     const everything = recommendedRoles({ B2: 'yes', A5: ['Abbruch'], 'C2@bldg1': 'existing' }, 'bldg1')
     expect(everything).not.toContain('preliminary_design_study')
     expect(everything).not.toContain('other_project_basis')

@@ -1,5 +1,3 @@
-"""Tests for LLM Provider."""
-
 from unittest.mock import MagicMock
 
 import pytest
@@ -9,10 +7,7 @@ from agent.common.llm_provider import LLMRole
 
 
 class TestLLMRole:
-    """Tests for the LLMRole enum."""
-
     def test_llm_role_values(self):
-        """Test that LLMRole has expected values."""
         assert LLMRole.ROUTER == "router"
         assert LLMRole.PLANNER == "planner"
         assert LLMRole.RESEARCHER == "researcher"
@@ -26,31 +21,24 @@ class TestLLMRole:
         assert LLMRole.REPORT_WRITER == "report_writer"
 
     def test_llm_role_is_string_enum(self):
-        """Test that LLMRole members are string-like."""
         assert isinstance(LLMRole.ROUTER, str)
         assert str(LLMRole.ROUTER) == "router"
 
 
 class TestLLMProvider:
-    """Tests for the LLMProvider class."""
-
     def test_init_empty_provider(self):
-        """Test that a new provider has no configured LLMs."""
         provider = LLMProvider()
         assert provider.configured_roles() == []
 
     def test_set_default(self):
-        """Test setting a default LLM."""
         provider = LLMProvider()
         mock_llm = MagicMock()
         provider.set_default(mock_llm)
 
-        # Default should be used for any role
         assert provider.get(LLMRole.ROUTER) is mock_llm
         assert provider.get(LLMRole.PLANNER) is mock_llm
 
     def test_configure_specific_role(self):
-        """Test configuring a specific LLM for a role."""
         provider = LLMProvider()
         default_llm = MagicMock(name="default")
         router_llm = MagicMock(name="router")
@@ -58,13 +46,10 @@ class TestLLMProvider:
         provider.set_default(default_llm)
         provider.configure(LLMRole.ROUTER, router_llm)
 
-        # Router should use specific LLM
         assert provider.get(LLMRole.ROUTER) is router_llm
-        # Other roles should use default
         assert provider.get(LLMRole.PLANNER) is default_llm
 
     def test_get_without_default_raises_error(self):
-        """Test that getting an unconfigured role without default raises ValueError."""
         provider = LLMProvider()
 
         with pytest.raises(ValueError) as exc_info:
@@ -74,20 +59,16 @@ class TestLLMProvider:
         assert "Call set_default() or configure() first" in str(exc_info.value)
 
     def test_get_with_only_role_configured(self):
-        """Test getting a role that is configured without a default."""
         provider = LLMProvider()
         router_llm = MagicMock(name="router")
         provider.configure(LLMRole.ROUTER, router_llm)
 
-        # Configured role should work
         assert provider.get(LLMRole.ROUTER) is router_llm
 
-        # Unconfigured role should raise error
         with pytest.raises(ValueError):
             provider.get(LLMRole.PLANNER)
 
     def test_has_role_true(self):
-        """Test has_role returns True for configured roles."""
         provider = LLMProvider()
         mock_llm = MagicMock()
         provider.configure(LLMRole.RESEARCHER, mock_llm)
@@ -95,20 +76,16 @@ class TestLLMProvider:
         assert provider.has_role(LLMRole.RESEARCHER) is True
 
     def test_has_role_false(self):
-        """Test has_role returns False for unconfigured roles."""
         provider = LLMProvider()
         assert provider.has_role(LLMRole.RESEARCHER) is False
 
     def test_has_role_false_even_with_default(self):
-        """Test has_role returns False even when default is set."""
         provider = LLMProvider()
         provider.set_default(MagicMock())
 
-        # has_role checks for specific configuration, not default fallback
         assert provider.has_role(LLMRole.RESEARCHER) is False
 
     def test_configured_roles_returns_only_explicit(self):
-        """Test configured_roles returns only explicitly configured roles."""
         provider = LLMProvider()
         provider.set_default(MagicMock())
         provider.configure(LLMRole.ROUTER, MagicMock())
@@ -120,7 +97,6 @@ class TestLLMProvider:
         assert len(roles) == 2
 
     def test_configure_overwrites_previous(self):
-        """Test that configuring a role twice overwrites the previous LLM."""
         provider = LLMProvider()
         llm1 = MagicMock(name="llm1")
         llm2 = MagicMock(name="llm2")
@@ -132,7 +108,6 @@ class TestLLMProvider:
         assert provider.get(LLMRole.ROUTER) is llm2
 
     def test_set_default_overwrites_previous(self):
-        """Test that setting default twice overwrites the previous default."""
         provider = LLMProvider()
         default1 = MagicMock(name="default1")
         default2 = MagicMock(name="default2")
@@ -144,7 +119,6 @@ class TestLLMProvider:
         assert provider.get(LLMRole.ROUTER) is default2
 
     def test_multiple_roles_configured(self):
-        """Test configuring multiple roles independently."""
         provider = LLMProvider()
         default_llm = MagicMock(name="default")
         router_llm = MagicMock(name="router")
@@ -164,17 +138,12 @@ class TestLLMProvider:
 
 
 class TestProviderWithZdr:
-    """Tests for the tenant-wide Zero-Data-Retention routing (with_zdr)."""
-
     def test_zdr_off_is_identity(self):
-        """zdr_only=False returns the same provider (no rebuild)."""
         provider = LLMProvider()
         provider.set_default(MagicMock(name="default"))
         assert provider.with_zdr(False) is provider
 
     def test_zdr_on_rebuilds_all_llms_via_apply_zdr_routing(self, monkeypatch):
-        """zdr_only=True returns a new provider whose every LLM went through
-        apply_zdr_routing, preserving the role topology and default fallback."""
         import agent.common.model_overrides as M
 
         wrapped = {}
@@ -195,13 +164,10 @@ class TestProviderWithZdr:
         derived = provider.with_zdr(True)
         assert derived is not provider
         assert derived.get(LLMRole.ROUTER) is wrapped[router_llm]
-        # Unconfigured role falls back to the ZDR-wrapped default.
         assert derived.get(LLMRole.PLANNER) is wrapped[default_llm]
-        # Original provider is never mutated.
         assert provider.get(LLMRole.ROUTER) is router_llm
 
     def test_shared_instances_deduped(self, monkeypatch):
-        """An LLM shared across roles is ZDR-wrapped exactly once."""
         import agent.common.model_overrides as M
 
         calls = []

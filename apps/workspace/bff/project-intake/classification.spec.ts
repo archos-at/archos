@@ -10,6 +10,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
+vi.mock('@/lib/project-intake/setup-records', async () => ({
+  readSetupRecords: async () => (await import('@/lib/project-intake/at-setup.fixtures')).AT_SETUP_RECORDS,
+}))
 vi.mock('@/lib/authz/projects', () => ({ requireProjectAccess: vi.fn() }))
 vi.mock('@/lib/projects/repository', () => ({ findProjectProfileInOrg: vi.fn() }))
 vi.mock('@/lib/base-knowledge/context/service', () => ({ contextForPage: vi.fn() }))
@@ -24,18 +27,16 @@ import type { GateState, KnowledgeContext } from '@/lib/base-knowledge/context/w
 import { findProjectProfileInOrg, type ProjectProfileState } from '@/lib/projects/repository'
 import { evaluateClassification, evaluateProjectClassification } from './classification'
 import { classificationEvaluationSchema } from './classification-wire'
-import { THREE_COUNTRIES, placedProfile } from './setup-countries.fixtures'
+import { GERMAN_RECORDS, THREE_COUNTRIES, placedProfile } from './setup-countries.fixtures'
 
 const ON = '2026-11-10'
 
 const evaluate = (facts: Record<string, ProjectPrimitiveValue>, request = {}) => {
   const result = evaluateClassification(placedProfile(facts), projectIntakeDefinitionV1, { on: ON, ...request }, THREE_COUNTRIES)
-  // Every answer is what the wire carries.
   expect(classificationEvaluationSchema.parse(result)).toEqual(result)
   return result
 }
 
-/** A Viennese Mehrparteienhaus as a Bestand: three storeys, escape level 6.5 m, GK 3. */
 const VIENNA_BESTAND = {
   country: 'at',
   federal_state: 'vienna',
@@ -57,10 +58,9 @@ describe('classification-evaluate', () => {
     const result = evaluate({ ...VIENNA_BESTAND, 'storeys_above_ground@bldg1': 5 })
     expect(result.status).toBe('evaluated')
     expect(result.site.chain).toEqual(['AT-9', 'AT'])
-    expect(result.classification).toMatchObject({ rulesetId: 'shipped:at-oib-2023-building-class' })
+    expect(result.classification).toMatchObject({ rulesetId: 'ruleset:at-oib-2023-building-class' })
     expect(result.existing).toMatchObject({ value: 3, missing: [] })
     expect(result.planned).toMatchObject({ value: null, missing: ['escape_level_m'] })
-    // Five storeys: GK 5 below 22 m, a high-rise above; never GK 3 again.
     expect(result.planned?.possible).toEqual([
       { value: null, highRise: true, applicable: true },
       { value: 5, highRise: false, applicable: true },
@@ -110,6 +110,15 @@ describe('classification-evaluate', () => {
       requests: [],
     })
     expect(evaluate({ 'building_type@bldg1': 'building' })).toMatchObject({ status: 'site_unknown', planned: null })
+  })
+
+  it('says "not published" for a country whose setup records are not published, never another country’s class', () => {
+    const profile = placedProfile({ country: 'at', federal_state: 'vienna', 'building_type@bldg1': 'building' })
+    const evaluateWith = (records: typeof THREE_COUNTRIES) =>
+      evaluateClassification(profile, projectIntakeDefinitionV1, { on: ON, buildingId: 'bldg1' }, records)
+    expect(evaluateWith([])).toMatchObject({ status: 'not_published', classification: null, planned: null, requests: [] })
+    expect(evaluateWith(GERMAN_RECORDS)).toMatchObject({ status: 'not_published', planned: null })
+    expect(evaluateWith(THREE_COUNTRIES).status).toBe('evaluated')
   })
 })
 

@@ -38,14 +38,14 @@ class IfcMeasureInput(BaseModel):
     global_id: str | list[str] = Field(
         default="",
         description=(
-            "The element's IFC GlobalId, from 'find_elements', from 'element', or from an ifc_query "
-            "result in THIS turn — an invented id is refused by name, not guessed at. Usually ONE id. "
+            "The element's IFC GlobalId, from 'find_elements', 'element' or an ifc_query result in THIS "
+            "turn; an invented id is refused. Usually ONE id. "
             "A list (or one comma-separated string) where the question is about a set: 'measure' over "
             f"an already-known selection (at most {MAX_BATCH}, each element keeping its own answer, "
             "tolerance and refusal), 'view' to mark several at once, 'fire' with kind='compartmentArea' "
-            "for the rooms of the compartment — and exactly two rooms for kind='separatingElements'. "
-            "'envelope' takes none: an envelope is not a property of an element. The selecting "
-            "operations ('find_elements', 'survey', 'draw') and the whole-model ones need none either."
+            "for the rooms of the compartment, exactly two rooms for kind='separatingElements'. "
+            "The selecting and whole-model operations ('find_elements', 'survey', 'draw', 'envelope') "
+            "take none."
         ),
     )
     other_global_id: str | list[str] = Field(
@@ -61,9 +61,7 @@ class IfcMeasureInput(BaseModel):
     relation: _literal(RELATIONS) | None = Field(
         default=None,
         description=(
-            "'relations' only — which topological question to ask about global_id:\n"
-            f"{_enum_lines(RELATIONS)}\n"
-            "The ones marked [geometry] cost seconds on a cold model — see COST."
+            f"'relations' only — which topological question to ask about global_id:\n{_enum_lines(RELATIONS)}"
         ),
     )
     measure: _literal(MEASURES) | None = Field(
@@ -78,9 +76,8 @@ class IfcMeasureInput(BaseModel):
             "Two vocabularies on one field, scoped by operation.\n"
             "  'distance' (default 'min'):\n"
             f"{_enum_lines(DISTANCE_MODES, indent='    ')}\n"
-            "  NONE of those four is a clear dimension. For a lichte Breite use measure='clearWidth' on "
-            "the opening, for a lichte Höhe measure='clearHeight' on the room, and for the smallest "
-            "surface-to-surface gap between two elements operation='clearance'.\n"
+            "  NONE of those four is a clear dimension: use operation='clearance' for the smallest "
+            "surface-to-surface gap.\n"
             "  'view' (default 'highlight'):\n"
             f"{_enum_lines(VIEW_MODES, indent='    ')}\n"
             "Unused by every other operation."
@@ -103,9 +100,7 @@ class IfcMeasureInput(BaseModel):
     storey: str = Field(
         default="",
         description=(
-            "'find_elements', 'survey', 'draw' and 'view' — the storey name EXACTLY as the briefing "
-            "spells it. A storey name you invented matches nothing, and an empty result reads like "
-            "'the building has none'."
+            "'find_elements', 'survey', 'draw' and 'view' — the storey name EXACTLY as the briefing spells it."
         ),
     )
     kind: _literal(KINDS, FIRE_ASPECTS, ENVELOPE_ASPECTS, PROFILE_KINDS) | None = Field(
@@ -126,10 +121,7 @@ class IfcMeasureInput(BaseModel):
     )
     room_kind: _literal(ROOM_KINDS) | None = Field(
         default=None,
-        description=(
-            "'room_inventory' only — which SUSPECTED use to group the rooms by. Inferred from their "
-            "names: a proposal for a human to confirm, never a finding."
-        ),
+        description=("'room_inventory' only — which SUSPECTED use to group the rooms by."),
     )
     model_name: str = Field(
         default="",
@@ -140,10 +132,7 @@ class IfcMeasureInput(BaseModel):
     )
     limit: int = Field(
         default=0,
-        description=(
-            "How many rows: 'find_elements' up to 500, 'survey' up to 50 — every row there is a real "
-            "geometric measurement and not an index lookup. 0 leaves the server's default."
-        ),
+        description=("How many rows: 'find_elements' up to 500, 'survey' up to 50. 0 leaves the server's default."),
     )
     # `None`, not `0.0`: „not given" must stay distinguishable from „zero
     # degrees". The bounds are the tool's own, so the schema refuses what the
@@ -154,9 +143,8 @@ class IfcMeasureInput(BaseModel):
         lt=90.0,
         description=(
             "'light_incidence' only — the Lichteinfallswinkel in degrees, strictly between 0 and 90. "
-            "It is a fact about the BESTIMMUNG and not about the model (OIB 3: 45, with swivel_deg 30). "
-            "This tool refuses without it rather than defaulting, because supplying it would be "
-            "applying the clause."
+            "It is a fact about the BESTIMMUNG, not the model (OIB 3: 45, with swivel_deg 30), so the "
+            "tool refuses without it rather than defaulting."
         ),
     )
     swivel_deg: float | None = Field(
@@ -172,9 +160,8 @@ class IfcMeasureInput(BaseModel):
         default="",
         description=(
             "'sun_position' only — an ISO 8601 instant WITH a time zone, e.g. "
-            "'2026-06-21T12:00:00+02:00' (Austrian summer time) or '2026-06-21T10:00:00Z'. A timestamp "
-            "without a zone is refused rather than read as UTC: Austria runs UTC+1 and UTC+2, so "
-            "reading 12:00 as UTC moves the sun 30° east of where it stood."
+            "'2026-06-21T12:00:00+02:00' or '2026-06-21T10:00:00Z'. A timestamp without a zone is "
+            "refused rather than read as UTC."
         ),
     )
 

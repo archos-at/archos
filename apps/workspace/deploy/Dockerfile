@@ -234,6 +234,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/workers ./workers
 COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
 COPY --from=builder --chown=nextjs:nodejs /app/dist-scripts ./dist-scripts
 COPY --from=builder --chown=nextjs:nodejs /app/dist-jobs ./dist-jobs
+# The knowledge releases the promotion carries (ADR-0181): `node dist-jobs/knowledge-carry.mjs` reads them.
+COPY --from=builder --chown=nextjs:nodejs /app/config/knowledge-releases ./config/knowledge-releases
 # The only source-tree files (besides those below) the runtime needs: the audit action+schema registry the
 # deploy-time provisioning script reconciles into WorkOS, `schemas.mjs` and the
 # family modules it imports (`schemas-*.mjs`). It is shared with the app (which

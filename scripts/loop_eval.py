@@ -150,7 +150,7 @@ class Observation:
     #: The turn read more than one family, or a family it was not asked for.
     family_overlap: str = ""
     #: RIS tool calls in the turn. Before the consolidation the shape was 2-3
-    #: (catalog → search → fetch); after it, one `ris_lookup` answers. This is
+    #: (catalog → search → fetch); after it, one law lookup answers. This is
     #: the whole claim of that change, as one integer.
     ris_calls: str = ""
     #: Did the answer cite a § the turn actually retrieved (or the § the row
@@ -436,14 +436,15 @@ def flag_cross_turn(payloads: Sequence[tuple[str, dict]]) -> str:
 # --- RIS consolidation columns -----------------------------------------------
 #
 # Read off the SAME telemetry the product emits: the round announcements name
-# the tools a round called, and `retrieve.ris_lookup` spans carry the citation
-# keys and § ids the call returned (`ris_adapter.lookup.telemetry`). No second
-# measuring channel, and nothing read out of anybody's prose.
+# the tools a round called, and `retrieve.law_lookup` spans carry the citation
+# keys and § ids the call returned (`agent.knowledge.law_lookup.telemetry`). A
+# turn recorded before the rename says `ris_lookup` and `retrieve.ris_lookup`,
+# so both names count. No second measuring channel, and nothing read out of
+# anybody's prose.
 
-#: Tool basenames belonging to RIS. The prefix, not a list of names, because
-#: `tool_calls._SEARCH_CORPORA` maps the same prefix to the `ris` corpus and
-#: two lists of RIS tool names would drift.
-_RIS_TOOL_PREFIX = "ris"
+#: Tool basenames that read a legal database (and so their ``retrieve.<tool>`` spans). Prefixes, not a list of
+#: names, because `tool_calls._SEARCH_CORPORA` maps the same prefixes to the `ris` corpus and two lists drift.
+_RIS_TOOL_PREFIXES = ("ris", "law_lookup")
 
 #: A § as an answer writes it ("§ 63", "§ 63 Abs 1", "Art 5", "§ 63a") and as
 #: the span records it ("§63Abs1" — one token, because the ``Punkt:`` line is
@@ -459,7 +460,7 @@ _PARAGRAPH_RE = re.compile(
 
 def count_ris_calls(tools: Sequence[str]) -> int:
     """How many RIS tool calls the turn made, over every announced round."""
-    return sum(1 for tool in tools if str(tool).lower().startswith(_RIS_TOOL_PREFIX))
+    return sum(1 for tool in tools if str(tool).lower().startswith(_RIS_TOOL_PREFIXES))
 
 
 def _paragraph_keys(text: object) -> list[str]:
@@ -488,7 +489,7 @@ def _retrieved_paragraphs(payloads: Sequence[tuple[str, dict]]) -> set[str]:
     """The § ids the turn's RIS spans say it returned."""
     found: set[str] = set()
     for name, body in payloads:
-        if not name.startswith("retrieve.ris"):
+        if not name.startswith(tuple(f"retrieve.{p}" for p in _RIS_TOOL_PREFIXES)):
             continue
         out = _as_payload_dict(body.get("output"))
         for value in out.get("clause_ids") or out.get("punkt_ids") or []:
@@ -523,7 +524,7 @@ def flag_ris_citation_resolved(answer: str, payloads: Sequence[tuple[str, dict]]
     keys = [
         str(key).strip()
         for name, body in payloads
-        if name.startswith("retrieve.ris")
+        if name.startswith(tuple(f"retrieve.{p}" for p in _RIS_TOOL_PREFIXES))
         for key in (_as_payload_dict(body.get("output")).get("citation_keys") or [])
         if str(key).strip()
     ]

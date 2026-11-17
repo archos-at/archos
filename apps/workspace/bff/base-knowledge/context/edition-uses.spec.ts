@@ -16,7 +16,7 @@ vi.mock('@/lib/db', () => ({
 }))
 vi.mock('@/lib/db/tenant-context', () => ({ withTenant: async (_scope: unknown, run: () => Promise<unknown>) => run() }))
 
-import { citedFiles, editionUsesOf, recordEditionUses } from './edition-uses'
+import { citedFiles, citedRecords, editionUsesOf, recordEditionUses } from './edition-uses'
 import { packsUpdatedSince } from './last-answer'
 import type { KnowledgeContext } from './wire'
 
@@ -34,8 +34,13 @@ const editionUse = (workId: string, editionId: string | null, corpusFiles: strin
   corpusFiles,
   designation: null,
   editionLabel: null,
+  issuer: null,
   sourceRefs: [],
   sourceUrl: null,
+  route: null,
+  roleSince: null,
+  language: null,
+  textStatus: null,
   applicability: null,
 })
 
@@ -71,6 +76,33 @@ describe('the editions an answer used', () => {
     expect(editionUsesOf(CONTEXT, new Set())).toEqual([])
   })
 
+  it('finds the use by the id of the record a source was read as, whatever its file is called', () => {
+    const live = editionUse('work:building-act', null, [])
+    const context = { ...CONTEXT, uses: [...CONTEXT.uses, live] }
+    const records = citedRecords({
+      sources: [
+        { file_name: 'renamed.pdf', work_id: 'work:oib-rl-6', edition_id: 'edition:oib-rl-6-2025' },
+        { citation_key: 'Building Act, § 12', work_id: 'work:building-act' },
+        'junk',
+      ],
+    })
+    expect(records).toEqual({ editionIds: new Set(['edition:oib-rl-6-2025']), liveWorkIds: new Set(['work:building-act']) })
+    expect(editionUsesOf(context, new Set(), records).map((use) => [use.workId, use.editionId])).toEqual([
+      ['work:oib-rl-6', 'edition:oib-rl-6-2025'],
+      ['work:building-act', null],
+    ])
+    expect(editionUsesOf(context, new Set(), { editionIds: new Set(), liveWorkIds: new Set(['work:oib-rl-6']) })).toEqual([])
+  })
+
+  it('records a law read live for an answer that cited no corpus file', async () => {
+    turnContextOf.mockResolvedValue({ ...CONTEXT, uses: [editionUse('work:building-act', null, [])] })
+    const written = await recordEditionUses('org_1', 'project_1', 'conv_1', [
+      { id: 'm1', role: 'assistant', metadata: { sources: [{ citation_key: 'Building Act, § 12', work_id: 'work:building-act' }] } },
+    ])
+    expect(written).toBe(1)
+    expect(insertValues).toHaveBeenCalledWith([expect.objectContaining({ messageId: 'm1', workId: 'work:building-act', editionId: null })])
+  })
+
   it('writes one row per used edition of each answer, with the role the BFF resolved', async () => {
     turnContextOf.mockResolvedValue(CONTEXT)
     const written = await recordEditionUses('org_1', 'project_1', 'conv_1', [
@@ -84,7 +116,6 @@ describe('the editions an answer used', () => {
   })
 
   it('records the pack sequences the turn was answered on, not a release that landed since (E42)', async () => {
-    // The turn read AT at 41; AT 42 was released before the answer persisted. The snapshot is the turn's.
     turnContextOf.mockResolvedValue(CONTEXT)
     await recordEditionUses('org_1', 'project_1', 'conv_1', [
       { id: 'm1', role: 'assistant', metadata: { sources: [{ file_name: 'OIB-RL6-2025.pdf' }] } },

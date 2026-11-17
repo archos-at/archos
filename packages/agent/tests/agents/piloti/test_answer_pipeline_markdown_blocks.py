@@ -1,14 +1,3 @@
-"""A Markdown-first answer comes out of the pipeline as the model wrote it.
-
-The answer carries its structure in Markdown now: a table with a Status column,
-a task list, a ```mermaid drawing. Every pass between the model and the reader
-(the envelope split, citation verification, quote verification, the reference
-brake) reads that Markdown, and each one has, at some point, rewritten or cut
-part of it. The envelope once ended at the drawing's opening fence and handed
-the reader raw JSON; quote verification once annotated a mermaid label inside
-its bracket. This runs the whole finalize path and holds the blocks byte-equal.
-"""
-
 from __future__ import annotations
 
 import json

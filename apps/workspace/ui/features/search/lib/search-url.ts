@@ -1,15 +1,3 @@
-/**
- * A search as the URL carries it, and the question it asks (`SearchBody`).
- *
- * The URL is the state: a search typed at 08:55 is a link a colleague can open,
- * Back walks the filters the reader set, and a reload asks the same question.
- * The organism never keeps a filter in React state that is not in the URL.
- *
- * Every parameter is read defensively: a link edited by hand, or written by an
- * older build, drops what it cannot name rather than sending a body the route's
- * schema refuses. The vocabulary is the contract's (`lib/search/search-wire.ts`).
- */
-
 import { DOSSIER_DOCUMENT_TYPES, DOSSIER_FACT_KEYS, DOSSIER_PARTY_ROLES, type DossierFactKey } from '@/lib/documents/dossier'
 import { ALLOWED_TAGS } from '@/lib/documents/tag-vocabulary'
 import {
@@ -24,24 +12,19 @@ import {
 } from '@/lib/search/search-wire'
 import { effectiveSort, normalizeRegisterColumns, REGISTER_COLUMNS, type RegisterColumn } from './search-sort'
 
-/** The two ways a result is read: what matched and where (list), or one row per document (register, the Planliste). */
 export const SEARCH_VIEWS = ['list', 'register'] as const
 export type SearchView = (typeof SEARCH_VIEWS)[number]
 
 export type SortDirection = 'asc' | 'desc'
 
-/** Everything a search surface holds, all of it in the URL. */
 export interface SearchUrlState {
   text: string
   view: SearchView
-  /** The kinds the reader narrowed to; null is every kind. */
   kinds: SearchKind[] | null
   sort: SearchSort | null
   dir: SortDirection | null
   filters: DocumentFilters
-  /** On the office-wide page: one project the reader narrowed to (the project facet). */
   projectId: string | null
-  /** The register's columns the reader chose, in the register's order; null is the default set. */
   columns: RegisterColumn[] | null
 }
 
@@ -56,10 +39,6 @@ export const EMPTY_SEARCH_STATE: SearchUrlState = {
   columns: null,
 }
 
-/**
- * The URL's names. Short, because a search is a link people paste; distinct
- * from the Dateien's own (`folder`, `doc`), which the scoped surfaces keep.
- */
 export const SEARCH_PARAMS = {
   text: 'q',
   view: 'view',
@@ -95,7 +74,6 @@ export const SEARCH_PARAMS = {
 
 const ALL_SEARCH_PARAM_NAMES: readonly string[] = Object.values(SEARCH_PARAMS)
 
-/** The facts whose value is a number, so the filter offers a range. The rest are matched by value. */
 export const NUMERIC_FACT_KEYS: ReadonlySet<DossierFactKey> = new Set<DossierFactKey>([
   'storeys_above_ground',
   'storeys_below_ground',
@@ -158,7 +136,6 @@ function finite(value: string): number | undefined {
   return Number.isFinite(number) ? number : undefined
 }
 
-/** `key=value` (equals) or `key:min..max` (a range, either end open). */
 export function parseFactParam(value: string): FactFilter | null {
   const equals = /^([a-z_]+)=(.+)$/.exec(value)
   if (equals) {
@@ -182,7 +159,6 @@ export function writeFactParam(fact: FactFilter): string {
 
 type PartyFilter = NonNullable<DocumentFilters['parties']>[number]
 
-/** `role:name`, either side empty: `architect:`, `:Huber`, `authority:MA 37`. */
 export function parsePartyParam(value: string): PartyFilter | null {
   const colon = value.indexOf(':')
   const rolePart = colon === -1 ? value : value.slice(0, colon)
@@ -197,7 +173,6 @@ export function writePartyParam(party: PartyFilter): string {
   return `${party.role ?? ''}:${party.name ?? ''}`
 }
 
-/** Drop the empty fields, so two filter sets that ask the same are equal and a body carries no `[]`. */
 export function compactFilters(filters: DocumentFilters): DocumentFilters {
   const out: Record<string, unknown> = {}
   for (const [key, value] of Object.entries(filters)) {
@@ -208,7 +183,6 @@ export function compactFilters(filters: DocumentFilters): DocumentFilters {
   return out as DocumentFilters
 }
 
-/** The search the URL names. */
 export function parseSearchParams(params: URLSearchParams): SearchUrlState {
   const P = SEARCH_PARAMS
   const text = (params.get(P.text) ?? '').slice(0, 500)
@@ -228,8 +202,6 @@ export function parseSearchParams(params: URLSearchParams): SearchUrlState {
     planIndex: list(params, P.planIndex, (value) => shortText(value) ?? null, 20),
     planDate: range(day(params.get(P.planFrom)), day(params.get(P.planTo))),
     scale: list(params, P.scale, (value) => shortText(value) ?? null, 20),
-    // The register shows the current Fassung unless the link says otherwise
-    // (`current=0`); the list shows every Fassung unless it says `current=1`.
     currentOnly: (view === 'register' ? current !== '0' : current === '1') ? true : undefined,
     parties: (() => {
       const parties = params.getAll(P.party).flatMap((value) => {
@@ -273,7 +245,6 @@ export function parseSearchParams(params: URLSearchParams): SearchUrlState {
   }
 }
 
-/** `cols=planNumber,title,folder`: the columns named, in the register's order; anything unknown is dropped. */
 export function parseColumnsParam(value: string | null): RegisterColumn[] | null {
   if (value === null) return null
   const named = value.split(',').flatMap((entry) => {
@@ -283,15 +254,10 @@ export function parseColumnsParam(value: string | null): RegisterColumn[] | null
   return named.length > 0 ? normalizeRegisterColumns(named) : null
 }
 
-/** Each view's own default for „Nur aktuelle Fassung“: the register reads the current plans, the list everything. */
 export function currentOnlyDefault(view: SearchView): boolean {
   return view === 'register'
 }
 
-/**
- * The search in another view. „Nur aktuelle Fassung“ follows the new view's
- * default while the reader left it at the old one's; a choice they made stays.
- */
 export function withView(state: SearchUrlState, view: SearchView): SearchUrlState {
   if (view === state.view) return state
   const current = Boolean(state.filters.currentOnly)
@@ -299,10 +265,6 @@ export function withView(state: SearchUrlState, view: SearchView): SearchUrlStat
   return { ...state, view, filters: compactFilters({ ...state.filters, currentOnly: currentOnly || undefined }) }
 }
 
-/**
- * The URL for `state`, on top of `base`: every search parameter of `base` is
- * replaced, every other one (`folder`, `mode`) is kept.
- */
 export function writeSearchParams(state: SearchUrlState, base: URLSearchParams = new URLSearchParams()): URLSearchParams {
   const P = SEARCH_PARAMS
   const params = new URLSearchParams(base.toString())
@@ -351,12 +313,10 @@ export function writeSearchParams(state: SearchUrlState, base: URLSearchParams =
   return params
 }
 
-/** Whether `params` carries any search parameter at all (the scoped surfaces open in search mode on one). */
 export function hasSearchParams(params: URLSearchParams): boolean {
   return ALL_SEARCH_PARAM_NAMES.some((name) => params.has(name))
 }
 
-/** `params` without the search's own parameters: what leaving search mode keeps. */
 export function withoutSearchParams(params: URLSearchParams): URLSearchParams {
   const kept = new URLSearchParams(params.toString())
   for (const name of ALL_SEARCH_PARAM_NAMES) kept.delete(name)
@@ -366,18 +326,14 @@ export function withoutSearchParams(params: URLSearchParams): URLSearchParams {
 export interface SearchBodyOptions {
   limit?: number
   cursor?: string
-  /** Ask one kind (a section's next page). */
   kinds?: SearchKind[]
   facets?: boolean
 }
 
-/** The question `state` asks of `POST /api/search`. */
 export function toSearchBody(state: SearchUrlState, options: SearchBodyOptions = {}): SearchBody {
   const text = state.text.trim()
   const filters = compactFilters(state.filters)
   const kinds = options.kinds ?? (state.view === 'register' ? ['document' as const] : state.kinds ?? undefined)
-  // Relevance is an order of text matches; without text the route would refuse
-  // it. The register without a column chosen reads by Plannummer.
   const order = state.view === 'register' ? effectiveSort(state) : null
   const sort = order && order.sort !== 'relevance' ? order.sort : state.sort === 'relevance' && text === '' ? null : state.sort
   const dir = order && order.sort !== 'relevance' ? order.dir : state.dir
@@ -393,10 +349,7 @@ export function toSearchBody(state: SearchUrlState, options: SearchBodyOptions =
   }
 }
 
-/** A saved question, back as a search to show (the inverse of {@link toSearchBody}). */
 export function fromSearchBody(body: SearchBody, projectId: string | null = null): SearchUrlState {
-  // Only the register asks for documents alone with a column order; a list of
-  // documents alone is a list narrowed to one kind.
   const documentsOnly = body.kinds?.length === 1 && body.kinds[0] === 'document'
   const registerOrder = body.sort !== undefined && body.sort !== 'relevance'
   return {
@@ -411,12 +364,6 @@ export function fromSearchBody(body: SearchBody, projectId: string | null = null
   }
 }
 
-/**
- * How many filters are set, for the phone's „Filter (3)“. A list counts once
- * per value. The Planliste's „Nur aktuelle Fassung“ is its own switch above
- * the table, with no chip, so it is not counted there either: „Filter (2)“
- * stood over a single chip.
- */
 export function activeFilterCount(state: SearchUrlState): number {
   let total = state.projectId ? 1 : 0
   for (const [key, value] of Object.entries(compactFilters(state.filters))) {
@@ -426,11 +373,6 @@ export function activeFilterCount(state: SearchUrlState): number {
   return total
 }
 
-/**
- * The filters answered from what Piloti read (`document_search_facets`), not
- * from the filing: on a shelf still being read they can miss a document that
- * matches. Name, folder, upload, status and file type are the filing's.
- */
 const READ_FILTER_FIELDS: ReadonlyArray<keyof DocumentFilters> = [
   'documentTypes',
   'tags',
@@ -449,13 +391,11 @@ const READ_FILTER_FIELDS: ReadonlyArray<keyof DocumentFilters> = [
   'documentDate',
 ]
 
-/** Whether the search narrows by something read from the documents, which a shelf still being read may not know yet. */
 export function filtersByReading(state: SearchUrlState): boolean {
   const f = compactFilters(state.filters)
   return READ_FILTER_FIELDS.some((field) => f[field] !== undefined)
 }
 
-/** The same question asked of the whole office: the office-wide page, every project. */
 export function officeSearchHref(state: SearchUrlState): string {
   const query = writeSearchParams({ ...state, projectId: null }).toString()
   return query ? `/app/search?${query}` : '/app/search'

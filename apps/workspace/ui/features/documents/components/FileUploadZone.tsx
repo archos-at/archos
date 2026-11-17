@@ -1,11 +1,3 @@
-/**
- * FileUploadZone Component
- *
- * Drag-and-drop file upload zone built on a hidden native file input
- * plus a styled drop target. Integrates with useFileUpload hook for
- * handling uploads.
- */
-
 'use client'
 
 import { type ChangeEvent, type FC, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
@@ -39,58 +31,29 @@ import {
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 
-// ============================================================================
-// Types
-// ============================================================================
-
-/**
- * What a row shows: the upload tray's phase of the same file (`uploadPhase`),
- * drawn with the same glyph (`ingestionMarkOfPhase`), so the zone and the tray
- * cannot name one file's state two ways. `held` (the content check, ADR-0086)
- * and `stored` (kept, not read) are at rest and neither green nor red;
- * `canceled` is the user's own decision.
- */
 interface UploadedFile {
   id: string
   file: File
   phase: UploadPhase
   errorMessage?: string
-  /** Failed while the server read it: `errorMessage` is the stored ingest failure, said through `IngestFailureNotice`. */
   failedReading: boolean
   replacesHeld?: TrackedFile['replacesHeld']
-  /** Why a held file is held (`quarantineVerdictOf`), read once where the row is mirrored. */
   verdict: QuarantineVerdict | null
 }
 
-/** In flight: the zone's one moving mark, since it has no header to carry the loop. */
 const IN_FLIGHT: ReadonlySet<UploadPhase> = new Set<UploadPhase>(['queued', 'uploading', 'processing'])
 
 interface FileUploadZoneProps {
-  /** Collection name for filtering displayed files */
   collectionName?: string
-  /** @deprecated use collectionName */
   sessionId?: string
-  /** Max file size in bytes (for display only) */
   maxFileSize?: number
-  /** Accepted file types (MIME types or extensions) */
   acceptedTypes?: string
-  /** Handler for uploading files (parent handles validation via hook) */
   onUpload?: (files: File[]) => void
-  /** Whether upload is in progress */
   isUploading?: boolean
-  /** Label for the form field */
   label?: string
 }
 
-/**
- * A queued file's row: the rise lands on `springDrawer`, the fade is the
- * `motionQuick` tween (opacity never springs). Instant under reduced motion.
- */
 const rowTransition: Transition = { ...springDrawer, opacity: motionQuick }
-
-// ============================================================================
-// Component
-// ============================================================================
 
 export const FileUploadZone: FC<FileUploadZoneProps> = ({
   collectionName,
@@ -104,23 +67,19 @@ export const FileUploadZone: FC<FileUploadZoneProps> = ({
   const t = useTranslations(filesCopy)
   const { locale } = useLocale()
   const row = useMotionToken(rowTransition)
-  // Check if current session is busy with operations
   const isBusy = useIsCurrentSessionBusy()
   const targetCollectionName = collectionName ?? sessionId
   const inputRef = useRef<HTMLInputElement>(null)
   const inputId = useId()
 
-  // Get files for current upload target collection
   const trackedFiles = useDocumentsStore((state) => state.trackedFiles)
   const collectionFiles = useMemo(
     () => (targetCollectionName ? trackedFiles.filter((f) => f.collectionName === targetCollectionName) : []),
     [trackedFiles, targetCollectionName]
   )
 
-  // Mirror tracked files into the upload value shape used for rendering file cards
   const [uploadValue, setUploadValue] = useState<UploadedFile[]>([])
 
-  // Sync collection files to uploadValue
   useEffect(() => {
     const mapped = collectionFiles
       .filter((tf) => tf.file) // Only include files with File object (can be displayed)
@@ -142,17 +101,12 @@ export const FileUploadZone: FC<FileUploadZoneProps> = ({
   const handleValueChange = useCallback(
     (selected: File[]) => {
       if (selected.length === 0) return
-      // A photo gets a name of its own before validation sees it: the name is
-      // the document's identity, and iOS calls a library or camera photo
-      // `image.jpg` (`site-photo.ts`). Validation happens in uploadFiles.
       void prepareSitePhotos(selected, {
         source: 'picker',
         prefix: tCapture('photos.fileNamePrefix'),
         taken: collectionFiles.map((file) => file.fileName),
         imagesAccepted: photoIntake({ acceptedTypes }).available,
       }).then(({ files, unconvertibleHeic }) => {
-        // An unconvertible HEIC goes on under its own name, for the hook's
-        // validation to report alongside every other refused file.
         const rest = selected.filter((file) => unconvertibleHeic.includes(file.name))
         if (files.length + rest.length > 0) onUpload?.([...files, ...rest])
       })
@@ -164,7 +118,6 @@ export const FileUploadZone: FC<FileUploadZoneProps> = ({
     (event: ChangeEvent<HTMLInputElement>) => {
       const files = Array.from(event.target.files ?? [])
       handleValueChange(files)
-      // Reset so selecting the same file again re-triggers onChange
       event.target.value = ''
     },
     [handleValueChange]
@@ -201,7 +154,7 @@ export const FileUploadZone: FC<FileUploadZoneProps> = ({
           'flex cursor-pointer flex-col items-center justify-center gap-2 rounded-control border-2 border-dashed px-6 py-10 text-center transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
           isDragging && isUnsupportedDrag && 'border-destructive bg-destructive/5',
           isDragging && !isUnsupportedDrag && 'border-ring bg-primary/5',
-          !isDragging && 'border-border bg-muted hover:border-ring hover:bg-primary/5',
+          !isDragging && 'border-border bg-muted hover:border-ring hover:bg-selected',
           uploadDisabled && 'pointer-events-none cursor-not-allowed opacity-50'
         )}
       >
@@ -240,7 +193,7 @@ export const FileUploadZone: FC<FileUploadZoneProps> = ({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.97 }}
             transition={row}
-            className="flex items-center gap-3 rounded-control border bg-card px-3 py-2 shadow-xs"
+            className="flex items-center gap-3 rounded-control bg-card px-3 py-2 shadow-xs"
           >
             <FileText className="size-4 shrink-0 text-muted-foreground" aria-hidden />
             <div className="min-w-0 flex-1">
@@ -255,19 +208,14 @@ export const FileUploadZone: FC<FileUploadZoneProps> = ({
                   testId="upload-zone-held"
                 />
               ) : item.phase === 'failed' && item.errorMessage && item.failedReading ? (
-                // The knowledge layer's stored text (`pdf_pages_unreadable: …`),
-                // said in the reader's language as the upload tray says it.
                 <IngestFailureNotice errorMessage={item.errorMessage} sentenceClassName="text-destructive" />
               ) : item.phase === 'failed' && item.errorMessage ? (
-                // An upload's own failure: a dictionary sentence (`lib/upload-failure.ts`).
                 <p className="text-xs text-destructive">{item.errorMessage}</p>
               ) : null}
             </div>
             {IN_FLIGHT.has(item.phase) ? (
               <Spinner size="sm" className="shrink-0 text-muted-foreground" />
             ) : (
-              // The tray's glyph and ink for the same phase; the word is for
-              // assistive tech, the row has no room for it.
               <IngestionStatusWord mark={ingestionMarkOfPhase(item.phase)} className="shrink-0">
                 <span className="sr-only" data-testid="upload-zone-state">
                   {t(`uploads.row.${item.phase}`)}

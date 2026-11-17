@@ -1,13 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The review service around the decision (ADR-0137): what a reader is shown
- * (masked, metadata only, no bytes until a clean scan), how a decision is
- * recorded (`via` from the call, never the body; one transaction with its
- * job; a refusal with its code), and what follows a commit (the trail, the
- * live hint, the waiting notice settled).
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
@@ -192,7 +185,6 @@ describe('what a reader is shown', () => {
 })
 
 describe('what a mail asks of the person, on the wire', () => {
-  /** A suggestion as the suggest job stores it. */
   const stored = { folderId: null, folderPath: 'Tragwerk', newFolder: false, documentType: null, reason: 'Wie S-101_B.pdf.' }
 
   it('offers a confirmed member’s mail with its suggestion, its attachment checked', async () => {
@@ -204,7 +196,6 @@ describe('what a mail asks of the person, on the wire', () => {
   })
 
   it('shows no suggestion and checks nothing of an impersonation, even with a suggestion stored before the rule', async () => {
-    // „Dringend: Kontoänderung Honorarnote“ from Miriam's address, its signature failed.
     store.mail = heldMail({ subject: 'Dringend: Kontoänderung Honorarnote', senderTrust: 'member_unverified', senderReason: 'dkim_fail' })
     store.parts = [textPart(), filePart({ suggestion: stored })]
     const view = await getInboundMail(session, PROJECT_ID, MAIL_ID)
@@ -236,7 +227,6 @@ describe('what a mail asks of the person, on the wire', () => {
       ['mail-later', null, 'none', null],
       ['mail-earlier', null, 'none', 'user_01JFOLLOWER0000000000000000'],
     ])
-    // Filed in the order they were written, whatever order the list shows them in: „wird Fassung 4–5“.
     expect(page.threadGroups).toEqual([
       {
         threadId: 'thread-1',

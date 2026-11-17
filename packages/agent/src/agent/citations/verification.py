@@ -85,7 +85,7 @@ def resolve_source_line(match_text: str, registry: SourceRegistry) -> _LineSourc
             return _LineSource(url=canonical, line_url=url)
         # A source cited by its key can still arrive with a link: the prompt
         # asks for ``Title - URL``, the model copies a link from a tool's
-        # source line (``ris_search`` prints ``Source: <url>``; ``ris_lookup``
+        # source line (``ris_search`` prints ``Source: <url>``; the law lookup
         # printed ``Source URL:`` beside ``Citation:`` until 2026-09-24), and
         # the registry deliberately files RIS by key. The key decides; the
         # link it cannot vouch for is dropped.

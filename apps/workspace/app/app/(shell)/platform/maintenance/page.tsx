@@ -1,5 +1,7 @@
 /**
- * Platform → maintenance. Vector-store upkeep and the deep-research kill switch.
+ * Platform → maintenance. The base corpus's indexing (no country owns it: texts
+ * enter it through a country's change request), vector-store upkeep and the
+ * deep-research kill switch.
  * Rarely needed, deliberately last.
  *
  * Owner gate, shell chrome and section nav live in the shared `layout.tsx`;
@@ -10,6 +12,7 @@ import type { JSX } from 'react'
 import { PageHeader } from '@/components/ui/page-header'
 import { getTranslations } from '@/i18n/server'
 import { platformCopy } from '@/i18n/namespaces/platform'
+import { BaseKnowledge } from '../base-knowledge'
 import { RunKillSwitch } from '../run-kill-switch'
 import { VectorMaintenance } from '../vector-maintenance'
 
@@ -19,6 +22,7 @@ export default async function PlatformMaintenancePage(): Promise<JSX.Element> {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title={t('sections.maintenance.title')} subtitle={t('sections.maintenance.subtitle')} />
+      <BaseKnowledge />
       <VectorMaintenance />
       <RunKillSwitch />
     </div>

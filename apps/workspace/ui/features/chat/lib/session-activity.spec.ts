@@ -1,10 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Tests for session-activity utility functions: what a thread's stored run
- * ledgers say about it.
- */
 
 import { describe, it, expect } from 'vitest'
 import { emptyRunLedger, failRun, finishRun, setRunStatus } from '@/lib/runs/run-ledger'
@@ -32,7 +28,6 @@ const runMessage = (id: string, status: RunStatus): ChatMessage =>
     runLedger: ledgerAt(`run-${id}`, status),
   })
 
-/** A ledger in `status`, reached the way a run reaches it: only a run that started can be cut short. */
 const ledgerAt = (runId: string, status: RunStatus) => {
   const created = emptyRunLedger(runId)
   return setRunStatus(status === 'interrupted' ? setRunStatus(created, 'running') : created, status)

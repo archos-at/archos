@@ -1,15 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * `GET /api/conversations/:id/frames`: the socket-less liveness probe, and
- * nothing else.
- *
- * Whether a thread is answering is a fact about the thread, so the probe is
- * gated exactly as reading the thread is, and the gate runs before the stream
- * is touched. Resume moved to the socket's `attach` (chat wire v2 §d): a
- * request for frames is refused, not served.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/auth/require-auth', () => ({

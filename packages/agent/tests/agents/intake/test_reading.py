@@ -1,9 +1,3 @@
-"""How the Erfassungs-Agent reads: ``read_document`` page by page, and every search hit logged.
-
-The read log holds exactly what the model was shown, so the quote check in
-``record_values`` cannot pass on text no tool returned.
-"""
-
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -23,7 +17,6 @@ from agent.common.grounding_block import render_grounding_block
 from agent.common.source_kinds import Shelf
 from agent.knowledge.schema import AvailableDocument
 
-# Every read of a project scope names the office it reads as (``vector_store.reading_office``, ADR-0163).
 pytestmark = pytest.mark.usefixtures("reads_as_an_office")
 
 
@@ -140,7 +133,6 @@ def _request(name: str) -> SimpleNamespace:
 class TestTheSharedToolsAreLogged:
     @pytest.mark.parametrize("captured", [True, False], ids=["records", "text-parsed"])
     async def test_a_search_hit_is_logged_but_does_not_count_as_read(self, read_log, captured):
-        """From the records the knowledge layer filed (a live run), or from the text when none were."""
         token = begin_grounding_capture() if captured else None
         middleware = IntakeToolMiddleware(max_steps=5, finish_tool="finish_intake")
         content = _search_result("knowledge_search", _hit("Einreichplan.pdf", 1, "Bundesland: Wien"))
@@ -200,8 +192,6 @@ class TestTheBudget:
 
 
 class TestReadsThePagesFromTheVectorStore:
-    """``fetch_document_pages`` against a real Qdrant: the pages in order, an absent file as None."""
-
     def test_a_document_reads_page_by_page_in_order(self, qdrant_store):  # noqa: ARG002
         from knowledge_layer_testing import vector_store as qt
 

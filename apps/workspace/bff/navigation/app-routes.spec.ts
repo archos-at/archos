@@ -1,17 +1,4 @@
 // @disk-inputs: app/app/**
-/**
- * URL invariance for the `/app` route tree.
- *
- * Walks `app/app` the way the Next.js router does — every `page.tsx` is a
- * URL, every `(group)` directory contributes nothing to it — and compares the
- * result against the checked-in {@link APP_ROUTE_URLS}.
- *
- * Written BEFORE the shell refactor moved seven segments into a `(shell)`
- * group, because that move is exactly the kind that cannot fail loudly on its
- * own: nothing imports a URL, so a group directory that loses its parentheses,
- * or a page that lands one level deeper than intended, breaks every bookmark in
- * the product while the build stays green.
- */
 
 import { readdirSync } from 'node:fs'
 import { join } from 'node:path'
@@ -20,19 +7,10 @@ import { APP_ROUTE_URLS } from './app-routes'
 
 const APP_DIR = join(process.cwd(), 'app', 'app')
 
-/** Route groups `(name)` are organizational only — they never reach the URL. */
 const isRouteGroup = (segment: string): boolean => segment.startsWith('(') && segment.endsWith(')')
 
-/** Private folders `_name` are opted out of routing entirely. */
 const isPrivateFolder = (segment: string): boolean => segment.startsWith('_')
 
-/**
- * Parallel-route slots `@name` never contribute a URL of their own: a slot's
- * pages (including `(.)…` interception dirs inside it) render INTO an existing
- * URL — the `@overlay` slot is how the Archiv/Postfach sheets rise above the
- * current page — so the walker skips the whole subtree, exactly as the router
- * resolves it.
- */
 const isParallelSlot = (segment: string): boolean => segment.startsWith('@')
 
 const isPageFile = (name: string): boolean => /^page\.(tsx|ts|jsx|js)$/.test(name)

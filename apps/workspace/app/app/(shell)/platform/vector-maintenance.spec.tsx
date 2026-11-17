@@ -19,7 +19,6 @@ const fetchMock = vi.fn()
 const trigger = () => screen.getByRole('button', { name: /reconcile orphaned vectors/i })
 const confirmButton = () => screen.getByTestId('reconcile-confirm')
 
-/** Open the confirm dialog and confirm it. */
 async function runSweep(user: ReturnType<typeof userEvent.setup>) {
   await user.click(trigger())
   await user.click(await screen.findByTestId('reconcile-confirm'))
@@ -40,7 +39,6 @@ describe('VectorMaintenance', () => {
   test('explains what the sweep does before it has ever been run', () => {
     render(<VectorMaintenance />)
 
-    // The "why/when" lives in the UI, not in tribal knowledge.
     expect(screen.getByText(/what reconciling does/i)).toBeInTheDocument()
     expect(screen.getByText(/when you need it/i)).toBeInTheDocument()
     expect(screen.getByText(/what it never touches/i)).toBeInTheDocument()
@@ -53,15 +51,12 @@ describe('VectorMaintenance', () => {
     const user = userEvent.setup()
     render(<VectorMaintenance />)
 
-    // Pressing the action only opens the confirm — nothing is deleted yet.
     await user.click(trigger())
     expect(await screen.findByRole('dialog')).toBeInTheDocument()
     expect(fetchMock).not.toHaveBeenCalled()
 
-    // The dialog names the stakes (cross-org, irreversible) before the confirm.
     expect(screen.getByText(/across all organizations/i)).toBeInTheDocument()
 
-    // Backing out leaves the store untouched.
     await user.click(screen.getByRole('button', { name: /cancel/i }))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     expect(fetchMock).not.toHaveBeenCalled()
@@ -87,7 +82,6 @@ describe('VectorMaintenance', () => {
     expect(fetchMock.mock.calls[0][0]).toBe('/api/platform/maintenance/reconcile-vectors')
     expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: 'POST' })
 
-    // The run survives as a table, not as a toast that vanishes.
     const result = await screen.findByTestId('reconcile-result')
     const rows = within(result).getAllByRole('row')
     expect(
@@ -117,7 +111,6 @@ describe('VectorMaintenance', () => {
     ).toBeInTheDocument()
     expect(toast.success).toHaveBeenCalled()
 
-    // The dialog closes once the sweep settles and the action is usable again.
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     expect(trigger()).toBeEnabled()
   })
@@ -178,8 +171,6 @@ describe('VectorMaintenance', () => {
 
     const error = await screen.findByTestId('reconcile-error')
     expect(error).toHaveTextContent(/reconcile failed/i)
-    // The client aborts at 120 s while the server may still finish the sweep, so
-    // the copy must not promise that nothing was deleted.
     expect(error).not.toHaveTextContent(/nothing was deleted/i)
     expect(error).toHaveTextContent(/may still have run/i)
     expect(toast.error).toHaveBeenCalled()
@@ -202,10 +193,8 @@ describe('VectorMaintenance', () => {
 
     await runSweep(user)
 
-    // The dialog stays open and locked so the sweep cannot be double-fired.
     await waitFor(() => expect(confirmButton()).toHaveAttribute('aria-disabled', 'true'))
     expect(screen.getByRole('button', { name: /cancel/i })).toBeDisabled()
-    // Queried by test id, not role: the open dialog aria-hides the page behind it.
     expect(screen.getByTestId('reconcile-trigger')).toBeDisabled()
     expect(screen.getByTestId('reconcile-trigger')).toHaveTextContent(/reconciling/i)
     expect(fetchMock).toHaveBeenCalledTimes(1)
@@ -236,8 +225,6 @@ describe('VectorMaintenance', () => {
   })
 
   test('a failed run clears the previous result instead of showing it under the error', async () => {
-    // Regression: the failure Alert and the PREVIOUS run's counts used to render
-    // together, so the old counts read as this press's outcome.
     fetchMock.mockResolvedValueOnce(jsonResponse({}, false, 502))
     const user = userEvent.setup()
     render(

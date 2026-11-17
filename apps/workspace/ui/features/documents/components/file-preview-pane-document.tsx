@@ -44,50 +44,20 @@ export function FilePreviewDocumentPanel({ controller }: { controller: FilePrevi
             <div
               ref={wellRef}
               data-testid="file-preview-well"
-              // The well scrolls on its own, so a keyboard user must be able to reach it (WCAG 2.1.1).
               tabIndex={0}
               className={cn(
                 'focus-visible:ring-ring/60 flex min-w-0 justify-center focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset',
-                // A PDF brings its own stage (the viewer's), so the well under it
-                // is no ground of its own: the document looks the same here as in
-                // every other place a PDF opens.
                 !peeking && !pdfInWell && 'bg-desk',
                 wellHostsViewer || (reader && (isModel || pdfInWell))
                   ? cn(
                       'h-full min-h-0 flex-1 overflow-hidden',
-                      // On its side the reader has no bar below the stage, so the
-                      // stage itself stops above the home indicator.
                       reader && sideways && 'pb-[env(safe-area-inset-bottom)]',
                     )
                   : reader
                   ? // The reader's well for what is not a viewer of its own (an
-                    // image, a text page, the page mock): the whole height, one
-                    // scroll, the document centred while it is shorter than that.
                     'min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 pb-[max(1rem,env(safe-area-inset-bottom))] [&>*]:my-auto'
                   : peeking
                   ? // THE GROUND IS THE DOCUMENT'S, and the document sits centred on
-                    // it. A drawing fitted to the width of a 320px pane is a quarter
-                    // of its height and the well cannot make it bigger — width is the
-                    // binding constraint, so the leftover vertical space exists
-                    // whatever this element does. Top-aligned, the document read as
-                    // having fallen to the top of a box. Handing the slack to the
-                    // summary below was worse: that block's content is four lines
-                    // whatever the pane's height, so the emptiness simply moved under
-                    // it and changed colour. Centred on its own ground, with the
-                    // summary as a footer band beneath, is the composition that reads
-                    // as deliberate at every height.
-                    //
-                    // The well is also the peek's document SCROLL container. The peek
-                    // body above is `overflow-hidden` and a text page only scrolls
-                    // horizontally, so a tall document used to clip here with no way
-                    // to reach the rest. Bounded by `flex-1 min-h-0` in the peek
-                    // column (the summary footer below is capped and shrink-0), in
-                    // the same `scroll-fade-bottom` language the summary speaks.
-                    // Centring is per-child `my-auto` rather than `items-center` on
-                    // purpose: a centred flex container clips the TOP of overflowing
-                    // content unreachably, while auto margins collapse to
-                    // top-aligned the moment the document outgrows the well — short
-                    // docs sit centred, tall ones scroll from the top.
                     'scroll-fade-bottom h-full min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain p-4 [&>*]:my-auto'
                     : pdfInWell
                       ? '@2xl:h-auto @2xl:min-h-0 @2xl:flex-1 @2xl:p-4 h-[50dvh] min-h-[50dvh] shrink-0 overflow-hidden p-3'
@@ -113,24 +83,12 @@ export function FilePreviewDocumentPanel({ controller }: { controller: FilePrevi
                   peeking={peeking}
                 />
               ) : canPreview && isLoading ? (
-                // Converting an office file can take seconds on first open, so the
-                // skeleton says what it is waiting for instead of looking stuck.
                 <PageMock
                   skeleton
                   caption={isOfficeRendition ? t('preview.renditionPending') : undefined}
                 />
               ) : canPreview && previewUrl ? (
                 shownType === 'application/pdf' ? (
-                  // THE APP'S OWN VIEWER, NOT THE BROWSER'S. A frame on the
-                  // presigned URL drew nothing on Android Chrome (no inline PDF
-                  // renderer: a blank box, or a download), little on iOS, and
-                  // navigated, zoomed and searched unlike the citation viewer
-                  // beside it. pdf.js renders it the same everywhere, fitted to the
-                  // well's width with pages rasterised only near the viewport. It
-                  // FETCHES the bytes, so it reads the same-origin stream, which
-                  // for an office file streams the rendition (ADR-0070). The
-                  // preview route above still decides whether there is anything
-                  // to show; this only decides how it is drawn.
                   inlineViewer ? (
                     <PdfDocumentView
                       key={file.id}
@@ -159,19 +117,6 @@ export function FilePreviewDocumentPanel({ controller }: { controller: FilePrevi
                     <PageMock skeleton />
                   )
                 ) : (
-                  // This is where the bytes actually were: the preview URL serves
-                  // the FULL-SIZE original into a column a few hundred pixels wide,
-                  // so a 4000px scan used to cross the wire whole. `previewImageUrl`
-                  // is the same-origin signed path the optimizer can resize; it is
-                  // null for the formats the optimizer would choke on (SVG and the
-                  // exotic ones), which then fall back to the object-store URL
-                  // unoptimized — the old behaviour, kept as the safe default.
-                  //
-                  // Sizing stays with CSS either way: the well is only bounded on
-                  // mobile (`h-[50dvh]`) and grows with its content at `@2xl`, where
-                  // a `fill` child would collapse the column to nothing. Hence 0/0
-                  // for the ratio next/image cannot know, plus an explicit `w-auto`
-                  // so the browser sizes to the image and not to the width="0".
                   <Image
                     src={previewImageUrl ?? previewUrl}
                     alt={actions.name}
@@ -179,12 +124,6 @@ export function FilePreviewDocumentPanel({ controller }: { controller: FilePrevi
                     height={0}
                     sizes="(min-width: 1536px) 720px, 90vw"
                     unoptimized={!isOptimizerEligible(previewImageUrl ?? previewUrl)}
-                    // Either URL can be expired or unreachable by the time the
-                    // browser fetches the bytes — a presigned link on its own TTL,
-                    // or a signed image path whose window has rolled over — and the
-                    // fetch above only proves the BFF handed one out. Fall back to
-                    // the same failed state the fetch path uses so the user gets the
-                    // caption and the retry button instead of a broken-image glyph.
                     onError={() => {
                       setPreviewUrl(null)
                       setPreviewImageUrl(null)
@@ -192,8 +131,6 @@ export function FilePreviewDocumentPanel({ controller }: { controller: FilePrevi
                     }}
                     className={cn(
                       'bg-sheet h-fit max-h-full w-auto max-w-full rounded-surface object-contain',
-                      // The reader's well is the screen: the image fits it whole,
-                      // on a phone on its side too (852px wide is past `@2xl`).
                       !reader && '@2xl:max-h-none',
                       'shadow-md' /* the page lies on the stage at elevation 2: elevation 3 is a dialog's, and drew a wide halo no token named */
                     )}
@@ -213,10 +150,6 @@ export function FilePreviewDocumentPanel({ controller }: { controller: FilePrevi
                   }
                   action={
                     previewGone ? (
-                      // The only move left. The document is not coming back, and
-                      // the conversation is still pointed at it — so the way out is
-                      // to stop asking about it, which is also the one thing the
-                      // reader cannot do from inside a viewer that will not load.
                       <Button
                         type="button"
                         variant="secondary"
@@ -245,12 +178,6 @@ export function FilePreviewDocumentPanel({ controller }: { controller: FilePrevi
                         {t('preview.tryAgain')}
                       </Button>
                     ) : (
-                      // "No inline preview for this file type" used to end there:
-                      // a sentence about a document, in the middle of the surface
-                      // that exists to show it, with nothing to do next. The
-                      // sentence already names the way out ("download it to view
-                      // the full document") — so the way out is here, rather than
-                      // an icon the reader has to go and find in the chrome.
                       <Button
                         type="button"
                         variant="secondary"

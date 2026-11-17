@@ -43,7 +43,6 @@ import { embedNote, embedNotes, enrichForEmbedding } from '@/lib/knowledge/embed
 import {
   countLessonsByStatus,
   createLessonFromReport,
-  evictActiveOverCapacity,
   expireStaleCandidates,
   flagIneffectiveActiveLessons,
   findLiveLessonByContent,
@@ -64,6 +63,7 @@ import {
   setLessonEmbedding,
   updateLessonWithEvent,
 } from './repository'
+import { activateLessonWithCapacity, evictActiveOverCapacity } from './capacity-repository'
 import {
   MAX_DISTILL_ANSWER_CHARS,
   MAX_DISTILL_COMMENT_CHARS,
@@ -640,7 +640,7 @@ export async function updateLesson(
     }
 
     if (input.status === 'active' && existing.status !== 'active') {
-      row = await updateLessonWithEvent(
+      const activated = await activateLessonWithCapacity(
         lessonId,
         {
           status: 'active',
@@ -656,9 +656,10 @@ export async function updateLesson(
           actor,
           actorEmail,
           detail: { automatic: false },
-        }
+        },
+        MAX_ACTIVE_LESSONS
       )
-      await evictActiveOverCapacity(MAX_ACTIVE_LESSONS, actor)
+      row = activated?.row ?? null
     } else if (input.status === 'retired' && existing.status !== 'retired') {
       row = await updateLessonWithEvent(
         lessonId,

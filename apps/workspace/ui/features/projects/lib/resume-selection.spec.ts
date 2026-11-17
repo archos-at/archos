@@ -56,8 +56,6 @@ describe('splitForResume', () => {
       { touched: '2026-08-01T09:00:00Z' }
     )
 
-    // 'touched' is the oldest project on record and still leads the rail — the
-    // viewer's own activity outranks project recency rather than merging with it.
     expect(resume.map((p) => p.id)).toEqual(['touched', 'fresh', 'stale'])
     expect(basis).toBe('activity')
   })
@@ -113,7 +111,6 @@ describe('splitForResume with a railable rule (ADR-0098)', () => {
       railable
     )
     expect(resume.map((p) => p.id)).toEqual(['a', 'b'])
-    // The list keeps the same recency order, the viewer's own work first.
     expect(rest.map((p) => p.id)).toEqual(['paused', 'closed'])
     expect(basis).toBe('activity')
   })

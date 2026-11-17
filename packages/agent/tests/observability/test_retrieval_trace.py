@@ -1,19 +1,3 @@
-"""The retrieval-picks observation (ADR-0044).
-
-Three things are pinned here:
-
-1. **The payload shape** - what the `retrieve.<tool>` span carries. The value
-   of the span is exactly its structured fields (query, collections, budgets,
-   picked chunk ids/scores); a field renamed or silently dropped makes
-   Langfuse queries return nothing without anything erroring.
-2. **Metadata-only content** - no chunk text may ride on the span. It adds no
-   information beyond ADR-0029's accepted posture and would widen the blast
-   radius of every trace consumer for nothing.
-3. **Fail-open emission** - the step pair is balanced (one END per START, same
-   UUID) so the agent runtime's span-stack bookkeeping survives, and any failure inside the
-   helper is absorbed rather than allowed to break a search.
-"""
-
 import json
 
 import pytest
@@ -25,8 +9,6 @@ from agent.observability.retrieval_trace import emit_retrieval_span
 
 
 class _Shelf:
-    """Stands in for ``agent.common.source_kinds.Shelf`` (a StrEnum)."""
-
     def __init__(self, value):
         self.value = value
 
@@ -38,8 +20,6 @@ class _ScopedCollection:
 
 
 class _Chunk:
-    """Stands in for ``agent.knowledge.schema.Chunk`` (attribute access)."""
-
     def __init__(self, *, chunk_id="c1", file_name="oib-rl-2.pdf", page_number=12, score=0.87, metadata=None):
         self.chunk_id = chunk_id
         self.file_name = file_name
@@ -76,7 +56,6 @@ class TestRetrievalInput:
         }
 
     def test_absent_facts_are_omitted_not_null(self):
-        """Langfuse renders whatever it is given; nulls read as real values."""
         payload = build_retrieval_input(
             query="q",
             retrieval_query=None,
@@ -87,7 +66,6 @@ class TestRetrievalInput:
             dropped_by_floor=0,
         )
         assert "retrieval_query" not in payload
-        # A one-shot search records no loop, rather than an empty one.
         assert "requery_queries" not in payload
 
 
@@ -102,8 +80,6 @@ class TestRetrievalOutput:
                     score=0.9134567,
                     metadata={"collection": "oib_knowledge", "shelf": "base", "doc_class": "oib_guideline"},
                 ),
-                # Chunk TEXT must never appear - only ids and scores. Fields
-                # the producer did not set stay absent rather than null.
                 _Chunk(chunk_id="chk_10", file_name=None, page_number=None, score=0.5),
             ]
         )
@@ -166,7 +142,6 @@ class TestEmission:
         body_out = json.loads(end.payload.data.output)
         assert body_in == {"query": "q", "top_k": 8}
         assert body_out == {"picked": [{"chunk_id": "c1"}]}
-        # The END closes with an output; the START opened with the input only.
         assert end.payload.data.output is not None
 
     def test_swallows_failures_instead_of_breaking_the_search(self, context_state):
@@ -178,5 +153,4 @@ class TestEmission:
         emit_retrieval_span(tool_name="knowledge_search", search_input={}, picks={})
 
     def test_no_context_at_all_is_absorbed(self):
-        """Outside an agent-runtime run (tests, ingest threads) there is nothing to push to."""
         emit_retrieval_span(tool_name="x", search_input={}, picks={})

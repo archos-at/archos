@@ -1,13 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Voice dictation needs the microphone, and the browser asks the
- * Permissions-Policy header before it asks the member. A policy of
- * `microphone=()` refuses `getUserMedia` with the same NotAllowedError a member
- * clicking "Block" produces, so the feature looks broken by the user, not by
- * us. This pins the header the server actually sends.
- */
 import { describe, expect, test } from 'vitest'
 import { nextConfig } from '../../next.config'
 

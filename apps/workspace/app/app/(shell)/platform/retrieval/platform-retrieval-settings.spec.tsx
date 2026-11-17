@@ -50,7 +50,6 @@ describe('PlatformRetrievalSettings', () => {
     const field = await screen.findByLabelText('Knowledge hits')
 
     await userEvent.clear(field)
-    // Before: the empty field snapped straight back to the default (10).
     expect(field).toHaveValue('')
     expect(screen.getByRole('alert').textContent).toContain('A whole number from 1 to 50')
     expect(screen.getByRole('button', { name: 'Save settings' })).toBeDisabled()

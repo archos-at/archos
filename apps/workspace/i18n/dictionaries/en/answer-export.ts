@@ -143,6 +143,7 @@ export const answerExport = {
     ungrounded: 'Capped: the answer is not backed by its sources.',
     quoteUnverified: 'Capped: a quote could not be verified verbatim against the source.',
     lawUnsettled: 'Capped: which edition of the building law binds at this site is not yet settled by reviewed records.',
+    openPoint: 'Capped by the answer itself: an open point it names, or its own lower assessment.',
   },
   /** Page locator in a reference-list entry. */
   page: 'p. {page}',

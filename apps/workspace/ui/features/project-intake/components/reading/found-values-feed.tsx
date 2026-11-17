@@ -7,13 +7,6 @@ import { useTranslations } from '@/i18n'
 import { intakeReadingStepCopy } from '@/i18n/namespaces/intake-reading-step'
 import type { FoundValue } from './found-values'
 
-/**
- * „Gerade gefunden": a few values the reading found, each with the document
- * and page it stands on. The heading says which kind of list it is: values
- * that arrived while the page was open („Gerade gefunden"), a sample while it
- * still reads („Bisher gefunden"), or a sample of a finished reading. The
- * rest are a link away, on the Steckbrief.
- */
 export function FoundValuesFeed({
   values,
   heading,
@@ -22,7 +15,6 @@ export function FoundValuesFeed({
 }: {
   values: readonly FoundValue[]
   heading: string
-  /** Every value found; more than shown makes the link to the Steckbrief. */
   total: number
   onShowAll: () => void
 }): JSX.Element {

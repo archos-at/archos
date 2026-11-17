@@ -1,9 +1,3 @@
-/**
- * The review's one live region: what the others did to the marks, gathered
- * and said as one line a few seconds later, and Piloti's answer to a question
- * this reader asked. Never this reader's own changes, from this tab or another.
- */
-
 import { act, render, renderHook, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useTranslations } from '@/i18n'
@@ -70,7 +64,6 @@ describe('ReviewAnnouncer', () => {
     expect(region).toHaveAttribute('aria-live', 'polite')
 
     hint({ annotationIds: ['a7'], change: 'created', actor: { ...ANNA } })
-    // This tab, and this reader in another tab: nothing to tell them.
     hint({ annotationIds: ['a7'], change: 'updated', actor: { ...ANNA, peerId: 'peer_me', userId: 'user_me', name: 'Miriam Hofer' } })
     hint({ annotationIds: ['a7'], change: 'replied', actor: { peerId: 'peer_other_tab', userId: 'user_me', name: 'Miriam Hofer', kind: 'person' } })
     hint({ annotationIds: ['p1', 'p2', 'p3'], change: 'created', actor: { ...AGENT } })
@@ -90,7 +83,6 @@ describe('ReviewAnnouncer', () => {
       act(() => vi.advanceTimersByTime(ANNOUNCE_AFTER_MS))
       said.push(region.textContent ?? '')
     }
-    // Each round changes the region's text, so each is announced; it reads the same.
     expect(said[0]).not.toBe(said[1])
     expect(said[1]).not.toBe(said[2])
     for (const line of said) expect(line.replace('\u200b', '')).toBe('Anna Berger: new reply on annotation 7')

@@ -1,20 +1,3 @@
-"""The write-side workspace tool: what it resolves, and what it refuses.
-
-Every test here drives the inner function the agent runtime yields, with the turn's inventory
-and a card registry bound the way a real turn binds them. Two properties are
-what this file exists to hold:
-
-* **Nothing is written.** There is no writer to mock, because there is none in
-  the module. What is asserted instead is the tool RESULT, which has to say so
-  in words the model cannot read as success.
-* **Nothing is guessed.** A name that resolves to two files, or to none, comes
-  back as a question — never as a proposal naming one of them.
-
-The server is faked in ``turn`` below (it stores every proposal), so these tests
-see the tool the way it behaves when the BFF answers. What happens when it does
-not is in ``test_proposals.py``.
-"""
-
 import uuid
 from unittest.mock import MagicMock
 
@@ -46,8 +29,6 @@ INVENTORY = [
     ),
     AvailableDocument(file_name="Grundriss OG.pdf", shelf="project", collection="proj_1", folder_path=None),
     AvailableDocument(file_name="Musterbescheid.pdf", shelf="office_shelf", collection="archiv_1"),
-    # Neither shelf is the reader's to organise: the platform corpus belongs to
-    # nobody here, and a session attachment is not a project document.
     AvailableDocument(file_name="OIB-RL2.pdf", shelf="base", collection="oib"),
     AvailableDocument(file_name="Anhang.pdf", shelf="session", collection="s_1"),
 ]
@@ -55,7 +36,6 @@ INVENTORY = [
 
 @pytest.fixture
 def registry():
-    """A bound card registry, the way a turn binds one."""
     registry = CardRegistry()
     token = set_card_registry(registry)
     yield registry
@@ -64,7 +44,6 @@ def registry():
 
 @pytest.fixture(autouse=True)
 def turn(monkeypatch):
-    """A project-scoped turn that can see the inventory above, with a server that stores every proposal."""
 
     async def store(kind, payload, *, card_index=None):
         return str(uuid.uuid4())
@@ -85,9 +64,6 @@ async def _move(**params) -> str:
     return await _propose("move", **params)
 
 
-# ── Resolution: the part that must never guess ──────────────────────────────
-
-
 class TestResolution:
     def test_an_exact_name_resolves_with_its_shelf_and_folder(self):
         hit = resolve.resolve_document("Brandschutzkonzept.pdf")
@@ -100,7 +76,6 @@ class TestResolution:
         assert hit.file_name == "Brandschutzkonzept.pdf"
 
     def test_a_partial_name_matching_two_files_is_a_question(self):
-        """The whole point: two Grundrisse are an ambiguity, not a ranking."""
         refused = resolve.resolve_document("Grundriss")
         assert isinstance(refused, resolve.Refusal)
         assert "Ambiguous" in refused.message
@@ -117,7 +92,6 @@ class TestResolution:
             assert isinstance(resolve.resolve_document(name), resolve.Refusal)
 
     def test_the_folder_tree_includes_the_ancestors_of_a_filed_path(self):
-        """`Einreichung` has no file of its own; it is still a folder."""
         assert resolve.known_folders() == ["Einreichung", "Einreichung/Pläne", "Nachweise"]
 
     def test_a_folder_can_be_named_by_its_last_segment(self):
@@ -131,9 +105,6 @@ class TestResolution:
         refused = resolve.resolve_folder("Fotos")
         assert isinstance(refused, resolve.Refusal)
         assert "Einreichung" in refused.message and "create_folder" in refused.message
-
-
-# ── The tools: a card, and a result that cannot be read as success ───────────
 
 
 class TestProposalsNeverWrite:
@@ -155,7 +126,6 @@ class TestProposalsNeverWrite:
         assert "do not say it is done" in result
 
     async def test_several_moves_are_several_cards(self, registry):
-        """A stored proposal cannot grow: „Räum die Einreichunterlagen zusammen" is one card per move."""
         await _move(document="Brandschutzkonzept.pdf", target_folder="Einreichung")
         await _move(document="Grundriss OG.pdf", target_folder="Einreichung")
 
@@ -165,7 +135,6 @@ class TestProposalsNeverWrite:
         assert first["proposal_id"] != second["proposal_id"]
 
     async def test_a_different_operation_opens_its_own_card(self, registry):
-        """A move and a rename are two decisions and must be answerable apart."""
         await _move(document="Grundriss OG.pdf", target_folder="Einreichung")
         await _propose("rename", document="Grundriss OG.pdf", new_name="Grundriss Obergeschoss")
 
@@ -182,7 +151,6 @@ class TestProposalsNeverWrite:
         assert "Ambiguous" in result
 
     async def test_a_missing_folder_is_refused_rather_than_created(self, registry):
-        """A move must never invent the folder it moves into."""
         result = await _move(document="Grundriss OG.pdf", target_folder="Fotos")
         assert registry.snapshot() == []
         assert "create_folder" in result
@@ -207,7 +175,6 @@ class TestProposalsNeverWrite:
         assert "already exists" in result
 
     async def test_an_assignment_carries_the_person_as_the_user_named_them(self, registry):
-        """This tier has no member roster; the reader's session resolves it."""
         result = await _propose("assign", document="Grundriss OG.pdf", member="Anna Berger")
         (card,) = registry.snapshot()
         assert card["operations"][0]["member"] == "Anna Berger"
@@ -222,7 +189,6 @@ class TestRefusals:
         assert "no project" in result and "Do not retry" in result
 
     async def test_a_run_with_no_card_channel_says_so_instead_of_succeeding(self):
-        """No registry bound (a CLI run, an eval): the proposal was never shown."""
         result = await _move(document="Grundriss OG.pdf", target_folder="Einreichung")
         assert "could not be created" in result
         assert "Nothing was changed" in result

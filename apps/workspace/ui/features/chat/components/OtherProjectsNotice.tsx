@@ -1,23 +1,3 @@
-/**
- * What the composer says while a chat is narrowed by other projects (ADR-0094):
- * a small chip, „2 andere Projekte", whose popover names them and says what
- * that closes. The list is the server's CURRENT record of the projects that
- * restrict the chat (`restrictingOtherProjects` on the conversation), not what
- * the answers' citations said when they were written: a project closed since
- * restricts nobody and is gone from it, one reopened is back, and a closed
- * project whose restricted folder the chat drew on is named.
- *
- * A chip, not an alert: the answers already name the projects they cite, so
- * the reader needs no second banner saying so. What the answers do NOT say is
- * the consequence — the chat stays with the people who may open them, and
- * nothing from it reaches what the whole project reads (memory, tasks, deep
- * research, filing) — and that is one click away, at the place the reader is
- * about to act, rather than first in a refused share. A closed project's open
- * folders restrict nobody, so a chat that only drew on those shows nothing.
- *
- * A molecule over the `Chip` and `Popover` atoms; the composer decides when it shows.
- */
-
 import { useId, type FC } from 'react'
 import { FolderSymlink } from 'lucide-react'
 import { Chip } from '@/components/ui/chip'

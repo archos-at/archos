@@ -137,7 +137,6 @@ describe('addRunDocument', () => {
       name: 'Einreichplan.pdf',
       title: 'Einreichplan EG',
       shelf: 'project',
-      // What the picker's inventory carries beside the plan document.
       file: { id: 'doc-1' },
       source: 'project',
     }

@@ -1,9 +1,3 @@
-"""The permit-records write: path, token header, exact body, and never an exception.
-
-Against a real local HTTP server, so the wire (JSON body, header casing, no redirect
-following) is what is asserted rather than a mocked ``httpx.post``.
-"""
-
 from __future__ import annotations
 
 import json
@@ -18,8 +12,6 @@ from agent.knowledge.permit_records_client import store_permit_record
 
 
 class _Bff:
-    """A stand-in BFF: records requests, answers with the configured status and body."""
-
     def __init__(self, status: int = 200, body: object = None, headers: dict[str, str] | None = None):
         self.requests: list[dict] = []
         self.status = status
@@ -168,9 +160,6 @@ def test_a_redirect_is_not_followed_and_does_not_carry_the_token(bff):
 
 
 def test_an_unreachable_bff_is_false(monkeypatch):
-    # What is under test is the answer once the connect has failed, not the
-    # retries before it (tests/knowledge_layer_tests/test_connect_retry.py holds
-    # those): with them this test slept through 15.5 seconds of real backoff.
     monkeypatch.setattr("agent.common.connect_retry.CONNECT_RETRIES", 0)
     server = _Bff()
     url = server.url

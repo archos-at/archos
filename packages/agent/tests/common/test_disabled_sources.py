@@ -1,5 +1,3 @@
-"""Tests for org-disabled data sources (ADR-0022, x-grid-disabled-sources)."""
-
 import base64
 import json
 from unittest.mock import MagicMock
@@ -62,7 +60,6 @@ class TestParseDisabledSources:
 class TestFilterWithDisabledSources:
     def test_disabled_subtracted_from_all_sources_request(self):
         tools = [_tool("web_search_tool"), _tool("knowledge_search"), _tool("think")]
-        # data_sources=None means "all" — the org-disabled source must STILL go.
         selected = filter_tools_by_sources(tools, None, disabled_sources={"web_search"})
         assert [t.name for t in selected] == ["knowledge_search", "think"]
 

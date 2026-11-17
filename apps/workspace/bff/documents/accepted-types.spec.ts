@@ -1,12 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The organization's accepted types without a session equal the session's own
- * upload allow-list (`assertUploadTypeAllowed`) for the same flags, VLM
- * capability, deployment list and authentication mode, row by row: the mail a
- * project receives is offered exactly what an upload of that office accepts.
- */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/workos/feature-flags', () => ({ enabledFlagsForOrganization: vi.fn() }))
@@ -32,7 +26,6 @@ const session = (featureFlags: string[]): AuthorizedSession => ({
   featureFlags,
 })
 
-/** What the session's allow-list accepts: the list its refusal of a type-less name carries. */
 async function sessionAccepted(featureFlags: string[]): Promise<readonly string[]> {
   const refusal = await assertUploadTypeAllowed(session(featureFlags), 'no-extension').catch((error: unknown) => error)
   if (!(refusal instanceof BadRequestError)) throw new Error('a name without an extension was not refused')

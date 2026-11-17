@@ -1,0 +1,7 @@
+---
+fixes:
+  - >
+    When you ask since when a guideline has been binding at your project's
+    site, the answer now gives the date from the platform's reviewed records,
+    the same date the citation shows. It no longer looks the date up on the
+    web and cites a newsletter for it.

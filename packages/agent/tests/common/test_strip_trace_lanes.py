@@ -1,14 +1,3 @@
-"""The fan-out JSON is for the Herleitung and the registry, never for the model.
-
-Every rendered grounding block ends in ``## Trace-Lanes`` and one line of JSON
-that the frontend groups sources by. It travelled in every ``ToolMessage`` too,
-so the model re-read a thousand tokens of ``{"lanes": …}`` per search on every
-later call of the turn, and again from the history on the next turn. These
-tests pin the one helper that takes the line out and leaves everything the
-model does read — the passages, the ``Citation:`` keys, the ``## Gliederung``
-trailer — byte-for-byte where it was.
-"""
-
 from __future__ import annotations
 
 from agent.common.grounding_block import TRACE_LANES_MARKER
