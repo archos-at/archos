@@ -2071,7 +2071,7 @@ The agent can now persist curated findings across turns. Full design:
   `project` (requires `projectId`) or `organization` (org-wide, requires
   `organizationId`, `projectId` null).
 - **Read path**: `buildProjectMemoryDigest()`
-  (`apps/workspace/bff/projects/memory-service.ts`) merges org-wide +
+  (`apps/workspace/bff/projects/memory-recall-digest.ts`) merges org-wide +
   project items (active only; the pinned ones, then the ones recalled for
   this turn's question, bounded) and tags each line with
   scope/kind/confidence/verification. A signed-in chat turn does not get the

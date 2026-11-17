@@ -275,7 +275,7 @@ absent**:
    no memory.
 2. **A 200-row recency window caps every quality mechanism.** Recall, dedup
    and supersede resolution all pre-slice `ORDER BY updated_at DESC LIMIT
-   200` (`memory-service.ts:105,624`). Past that, a relevant old note cannot
+   200` (`memory-matching.ts`, `memory-recall-digest.ts`). Past that, a relevant old note cannot
    be recalled, its duplicate cannot be detected, and a correction quoting it
    cannot resolve, silently.
 3. **Nothing closes.** `open_question` is a tag on a sentence; no writer ever
@@ -287,7 +287,7 @@ absent**:
    agent's correction cannot be seen or undone (`project-memory-panel.tsx:252`).
 5. **Reinforcement measures injection, not use.** `markMemoryRecalled` fires
    for everything that entered the digest, including the query-less handshake
-   build. Whatever is already winning compounds. `memory-service.ts:816`.
+   build. Whatever is already winning compounds. `memory-recall-digest.ts`.
 6. **Memory has one address and it is buried.** The panel lives second-to-last
    on Project Settings; org memory has no page at all; the per-turn chip is
    not a link.
@@ -502,9 +502,9 @@ Nothing new; each line joins two things that are built.
 | Two inbox types, `task.completed` and `task.failed` (today keyed on the job run) | `lib/inbox/registry.ts`, `schema/inbox.ts:45` |
 | A project-wide "Läufe" tab in Automation from the existing per-job run history | `automation-panel.tsx`, `job-run-history.tsx` |
 | Feed `cardInteractions` into the next turn's context so a rejected patch is not re-proposed | `websocket-scope/route.ts`, `project_context.py` |
-| Rank memory in SQL instead of pre-slicing 200 rows; reinforce only on the query-ranked build | `memory-service.ts:105,624,746,816` |
+| Rank memory in SQL instead of pre-slicing 200 rows; reinforce only on the query-ranked build | `memory-matching.ts`, `memory-recall-digest.ts` |
 | One PII filter for both writers, with date shapes excluded | `reflection.py:223-238` → `knowledge/project_memory.py` |
-| Show superseded notes with their replacement and an undo; persist a refused supersede as a conflict, not a `console.warn` | `project-memory-panel.tsx:252`, `memory-service.ts:429-438` |
+| Show superseded notes with their replacement and an undo; persist a refused supersede as a conflict, not a `console.warn` | `project-memory-panel.tsx:252`, `memory-create.ts` |
 | An organisation memory page; the panel gets a rail entry | `/app/organization/*`, `settings/memory-settings.tsx` |
 | Lift files filter and sort into the URL; one filter grammar for the three document shelves | `project-file-workspace.tsx:251-345`, `archiv-library-pane.tsx:231-260` |
 
