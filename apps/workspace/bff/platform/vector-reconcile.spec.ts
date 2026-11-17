@@ -124,6 +124,19 @@ describe('reconcileOrphanedVectors', () => {
     expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ file_ids: ['geloescht.pdf'] })
   })
 
+  it('keeps a document that was published between the scan and the re-read before the delete', async () => {
+    const filename = agentDocumentFilename('doc_2', 'Entwurf.md')
+    stubRows(
+      [{ collectionName: 'proj_a', filename, authoredBy: 'agent' }],
+      [{ collectionName: 'proj_a', filename, authoredBy: 'agent', publishedVersionId: 'ver_1' }],
+    )
+    fetchMock.mockResolvedValueOnce(listResponse([filename]))
+
+    await reconcileOrphanedVectors()
+
+    expect(fetchMock.mock.calls.some(([, init]) => (init as RequestInit | undefined)?.method === 'DELETE')).toBe(false)
+  })
+
   it('does not let an unpublished machine-authored row shield an orphan that shares its name', async () => {
     stubRows([{ collectionName: 'proj_a', filename: 'sicherheitskonzept.pdf', authoredBy: 'agent' }])
     fetchMock.mockResolvedValueOnce(listResponse(['sicherheitskonzept.pdf']))
