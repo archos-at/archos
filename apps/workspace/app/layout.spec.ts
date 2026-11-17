@@ -2,16 +2,13 @@ import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { getFileUploadConfigFromEnv } from '@/shared/config/file-upload'
 import { requestBodyLimitBytes } from '@/shared/config/request-body-limit'
 
-const originalEnv = process.env
-
 describe('File Upload Configuration', () => {
   beforeEach(() => {
     vi.resetModules()
-    process.env = { ...originalEnv }
   })
 
   afterEach(() => {
-    process.env = originalEnv
+    vi.unstubAllEnvs()
   })
 
   const buildFileUploadConfig = () => getFileUploadConfigFromEnv(process.env)
@@ -112,7 +109,7 @@ describe('File Upload Configuration', () => {
     })
 
     test('explicit env images without VLM → still excluded (closes the silent-failure hole)', () => {
-      process.env.FILE_UPLOAD_ACCEPTED_TYPES = '.pdf,.docx,.txt,.md,.png,.jpg,.jpeg'
+      vi.stubEnv('FILE_UPLOAD_ACCEPTED_TYPES', '.pdf,.docx,.txt,.md,.png,.jpg,.jpeg')
       const config = getFileUploadConfigFromEnv(process.env, { imageUploadEnabled: true, vlmAvailable: false, ifcUploadEnabled: false })
 
       expect(config.acceptedTypes).toBe('.pdf,.docx,.txt,.md')
@@ -121,7 +118,7 @@ describe('File Upload Configuration', () => {
     })
 
     test('explicit env images WITH VLM → included exactly once (no duplication)', () => {
-      process.env.FILE_UPLOAD_ACCEPTED_TYPES = '.pdf,.png'
+      vi.stubEnv('FILE_UPLOAD_ACCEPTED_TYPES', '.pdf,.png')
       const config = getFileUploadConfigFromEnv(process.env, { imageUploadEnabled: true, vlmAvailable: true, ifcUploadEnabled: false })
 
       expect(config.acceptedTypes.split(',').filter((e) => e === '.png')).toHaveLength(1)
@@ -139,14 +136,14 @@ describe('File Upload Configuration', () => {
     })
 
     test('flag off → excluded even when the env list names them', () => {
-      process.env.FILE_UPLOAD_ACCEPTED_TYPES = '.pdf,.ifc,.ifczip'
+      vi.stubEnv('FILE_UPLOAD_ACCEPTED_TYPES', '.pdf,.ifc,.ifczip')
       const config = getFileUploadConfigFromEnv(process.env, { ifcUploadEnabled: false })
 
       expect(config.acceptedTypes).toBe('.pdf')
     })
 
     test('env-listed .ifc with the flag on appears exactly once', () => {
-      process.env.FILE_UPLOAD_ACCEPTED_TYPES = '.pdf,.ifc'
+      vi.stubEnv('FILE_UPLOAD_ACCEPTED_TYPES', '.pdf,.ifc')
       const config = getFileUploadConfigFromEnv(process.env, { ifcUploadEnabled: true })
 
       expect(config.acceptedTypes.split(',').filter((ext) => ext === '.ifc')).toHaveLength(1)
@@ -162,7 +159,7 @@ describe('File Upload Configuration', () => {
 
   describe('environment variable overrides', () => {
     test('FILE_UPLOAD_ACCEPTED_TYPES overrides default accepted types', () => {
-      process.env.FILE_UPLOAD_ACCEPTED_TYPES = '.csv,.json'
+      vi.stubEnv('FILE_UPLOAD_ACCEPTED_TYPES', '.csv,.json')
 
       const config = buildFileUploadConfig()
 
@@ -173,7 +170,7 @@ describe('File Upload Configuration', () => {
     })
 
     test('FILE_UPLOAD_ACCEPTED_TYPES with .pptx resolves correct MIME type', () => {
-      process.env.FILE_UPLOAD_ACCEPTED_TYPES = '.pdf,.docx,.pptx,.txt,.md'
+      vi.stubEnv('FILE_UPLOAD_ACCEPTED_TYPES', '.pdf,.docx,.pptx,.txt,.md')
 
       const config = buildFileUploadConfig()
 
@@ -185,7 +182,7 @@ describe('File Upload Configuration', () => {
     })
 
     test('FILE_UPLOAD_MAX_SIZE_MB overrides default max size', () => {
-      process.env.FILE_UPLOAD_MAX_SIZE_MB = '50'
+      vi.stubEnv('FILE_UPLOAD_MAX_SIZE_MB', '50')
 
       const config = buildFileUploadConfig()
 
@@ -195,7 +192,7 @@ describe('File Upload Configuration', () => {
     })
 
     test('FILE_UPLOAD_MAX_FILE_COUNT overrides default max file count', () => {
-      process.env.FILE_UPLOAD_MAX_FILE_COUNT = '5'
+      vi.stubEnv('FILE_UPLOAD_MAX_FILE_COUNT', '5')
 
       const config = buildFileUploadConfig()
 
@@ -203,7 +200,7 @@ describe('File Upload Configuration', () => {
     })
 
     test('FILE_EXPIRATION_CHECK_INTERVAL_HOURS overrides default', () => {
-      process.env.FILE_EXPIRATION_CHECK_INTERVAL_HOURS = '12'
+      vi.stubEnv('FILE_EXPIRATION_CHECK_INTERVAL_HOURS', '12')
 
       const config = buildFileUploadConfig()
 
@@ -211,9 +208,9 @@ describe('File Upload Configuration', () => {
     })
 
     test('all env vars can be set together', () => {
-      process.env.FILE_UPLOAD_ACCEPTED_TYPES = '.pdf,.txt'
-      process.env.FILE_UPLOAD_MAX_SIZE_MB = '25'
-      process.env.FILE_UPLOAD_MAX_FILE_COUNT = '3'
+      vi.stubEnv('FILE_UPLOAD_ACCEPTED_TYPES', '.pdf,.txt')
+      vi.stubEnv('FILE_UPLOAD_MAX_SIZE_MB', '25')
+      vi.stubEnv('FILE_UPLOAD_MAX_FILE_COUNT', '3')
 
       const config = buildFileUploadConfig()
 
@@ -240,7 +237,7 @@ describe('File Upload Configuration', () => {
 
   describe('edge cases', () => {
     test('handles invalid number for max size (falls back to default)', () => {
-      process.env.FILE_UPLOAD_MAX_SIZE_MB = 'invalid'
+      vi.stubEnv('FILE_UPLOAD_MAX_SIZE_MB', 'invalid')
 
       const config = buildFileUploadConfig()
 
@@ -248,7 +245,7 @@ describe('File Upload Configuration', () => {
     })
 
     test('handles invalid number for max file count (falls back to default)', () => {
-      process.env.FILE_UPLOAD_MAX_FILE_COUNT = 'invalid'
+      vi.stubEnv('FILE_UPLOAD_MAX_FILE_COUNT', 'invalid')
 
       const config = buildFileUploadConfig()
 
@@ -256,7 +253,7 @@ describe('File Upload Configuration', () => {
     })
 
     test('handles extensions with spaces', () => {
-      process.env.FILE_UPLOAD_ACCEPTED_TYPES = '.pdf, .txt , .md'
+      vi.stubEnv('FILE_UPLOAD_ACCEPTED_TYPES', '.pdf, .txt , .md')
 
       const config = buildFileUploadConfig()
 
@@ -266,7 +263,7 @@ describe('File Upload Configuration', () => {
     })
 
     test('handles uppercase extensions', () => {
-      process.env.FILE_UPLOAD_ACCEPTED_TYPES = '.PDF,.TXT'
+      vi.stubEnv('FILE_UPLOAD_ACCEPTED_TYPES', '.PDF,.TXT')
 
       const config = buildFileUploadConfig()
 
@@ -275,7 +272,7 @@ describe('File Upload Configuration', () => {
     })
 
     test('unknown extensions do not add MIME types', () => {
-      process.env.FILE_UPLOAD_ACCEPTED_TYPES = '.xyz,.unknown'
+      vi.stubEnv('FILE_UPLOAD_ACCEPTED_TYPES', '.xyz,.unknown')
 
       const config = buildFileUploadConfig()
 
@@ -312,8 +309,7 @@ describe('an organization upload limit', () => {
 
 describe('the transport ceiling clears the largest file any route admits', () => {
   afterEach(() => {
-    delete process.env.FILE_UPLOAD_MAX_SIZE_MB
-    delete process.env.BIM_MAX_IFC_BYTES
+    vi.unstubAllEnvs()
   })
 
   test('defaults to the IFC ceiling, not the document limit', () => {
