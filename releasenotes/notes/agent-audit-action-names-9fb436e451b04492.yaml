@@ -1,0 +1,8 @@
+---
+# area: administration
+upgrade:
+  - >
+    New audit log entries for what the agent does now carry action names that
+    start with „agent.“, for example „agent.proposal.created“. Entries written
+    before keep their earlier names, so the audit log shows both. If you filter
+    or export the agent's actions, include both names.

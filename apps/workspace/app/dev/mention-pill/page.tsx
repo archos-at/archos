@@ -6,7 +6,7 @@ import { MentionText } from '@/features/collaboration/components/MentionText'
 import { PersonPeek } from '@/features/collaboration/components/PersonPeek'
 import { MentionPeopleProvider } from '@/features/collaboration/context/mention-people'
 import { I18nProvider } from '@/i18n'
-import { LEGACY_AGENT_MENTION_ID } from '@/lib/mentions/legacy-mention-ids'
+import { AGENT_MENTION_ID } from '@/lib/mentions/types'
 import { PRODUCT_NAME } from '@/lib/brand'
 import { SectionLabel } from '@/components/ui/section-label'
 
@@ -71,7 +71,7 @@ export default function MentionPillPreviewPage() {
             <Row label="Der Assistent">
               <MentionText
                 content={"@" + PRODUCT_NAME + " bitte auf dieser Grundlage weiterarbeiten."}
-                mentions={[{ targetId: LEGACY_AGENT_MENTION_ID, display: PRODUCT_NAME }]}
+                mentions={[{ targetId: AGENT_MENTION_ID, display: PRODUCT_NAME }]}
                 currentUserId={ME.userId}
               />
             </Row>
@@ -100,7 +100,7 @@ export default function MentionPillPreviewPage() {
                 <PersonPeek person={ME} isYou isParticipant />
               </div>
               <div className="bg-popover w-64 rounded-2xl border p-3 shadow-md">
-                <PersonPeek person={{ userId: LEGACY_AGENT_MENTION_ID, name: PRODUCT_NAME }} isAgent />
+                <PersonPeek person={{ userId: AGENT_MENTION_ID, name: PRODUCT_NAME }} isAgent />
               </div>
             </div>
           </div>

@@ -3,7 +3,6 @@ import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
 import type { PushCategory, PushUrgency } from './push-categories'
 import { IN_APP_ONLY, INBOUND_MAIL_TYPE_DEFINITIONS } from './inbound-mail-types'
 import { canonicalInboxType, isMarkAnchored } from './types'
-import { storedInboxType } from './legacy-agent-types'
 
 export { appendedGroupAnchor } from './inbound-mail-types'
 
@@ -345,7 +344,7 @@ export function inboxGroupKey(
   anchorId?: string | null,
 ): string {
   const definition = inboxTypeDefinition(type)
-  const base = `${storedInboxType(type)}:${resourceType}:${resourceId}`
+  const base = `${type}:${resourceType}:${resourceId}`
   if (definition.grouping === 'collapse') return base
   if (!anchorId) {
     throw new Error(`[inbox] type "${type}" groups per anchor but no anchorId was supplied`)

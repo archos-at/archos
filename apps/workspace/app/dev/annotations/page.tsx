@@ -11,8 +11,7 @@ import type { AnnotationReplyView, AnnotationView } from '@/lib/annotations/type
 import { assemblePdf, buildPdf, pdfString } from '../_fixtures/sample-pdf'
 import { PRODUCT_NAME } from '@/lib/brand'
 import { isAgentMentionId } from '@/lib/mentions/types'
-import { isAgentKind } from '@/lib/agent-kind'
-import { LEGACY_AGENT_KIND } from '@/lib/legacy-agent-kind'
+import { AGENT_KIND, isAgentKind } from '@/lib/agent-kind'
 
 const SHEET_WIDTH = 842
 const SHEET_HEIGHT = 595
@@ -181,7 +180,7 @@ const agentReply = (
   asker: { userId: string; name: string },
   id: string,
   body: string
-): AnnotationReplyView => ({ ...reply(annotationId, asker, 0, body), id, authorKind: LEGACY_AGENT_KIND })
+): AnnotationReplyView => ({ ...reply(annotationId, asker, 0, body), id, authorKind: AGENT_KIND })
 
 let annotations: AnnotationView[] = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('blank') ? [] : [
   {
@@ -272,7 +271,7 @@ let annotations: AnnotationView[] = typeof window !== 'undefined' && new URLSear
     shape: 'point',
     ...pt(640, 420),
     kind: 'question',
-    authorKind: LEGACY_AGENT_KIND,
+    authorKind: AGENT_KIND,
     body: 'Gilt die Brüstungshöhe ab Fertigfußboden oder ab Rohdecke?',
     acceptedBy: 'u-1',
     acceptedByName: ME.name,
@@ -345,7 +344,7 @@ const AGENT_PROPOSALS: AnnotationView[] = [
     kind: 'question',
     body: 'Gang als Fluchtweg: lichte Breite ist nicht kotiert. Mindestens 1,20 m nachweisen.',
     basis: 'OIB-RL 4, Pkt. 2.2.1',
-    authorKind: LEGACY_AGENT_KIND,
+    authorKind: AGENT_KIND,
     status: 'proposed',
     canDelete: false,
   },
@@ -358,7 +357,7 @@ const AGENT_PROPOSALS: AnnotationView[] = [
     kind: 'defect',
     body: 'Tür Technik in den Fluchtweg: Feuerwiderstand fehlt, Technikraum gilt als Raum mit erhöhter Brandgefahr.',
     basis: 'OIB-RL 2, Pkt. 3.4',
-    authorKind: LEGACY_AGENT_KIND,
+    authorKind: AGENT_KIND,
     status: 'proposed',
     canDelete: false,
   },
@@ -371,7 +370,7 @@ const AGENT_PROPOSALS: AnnotationView[] = [
     kind: 'hint',
     body: 'Belichtung Zimmer 1: Fensterfläche gegen 1/10 der Bodenfläche prüfen.',
     basis: 'OIB-RL 3, Pkt. 9.1.1',
-    authorKind: LEGACY_AGENT_KIND,
+    authorKind: AGENT_KIND,
     status: 'proposed',
     canDelete: false,
   },
@@ -385,7 +384,7 @@ const peer = (who: { userId: string; name: string }, peerId: string): RoomPeer =
 const annaPeer = peer(ANNA, 'peer-anna-0001')
 const jakobPeer = peer(JAKOB, 'peer-jakob-001')
 const lenaPeer = peer(LENA, 'peer-lena-0001')
-const agentPeer: RoomPeer = { peerId: 'agent-dev-conv', userId: ME.userId, name: PRODUCT_NAME, kind: LEGACY_AGENT_KIND }
+const agentPeer: RoomPeer = { peerId: 'agent-dev-conv', userId: ME.userId, name: PRODUCT_NAME, kind: AGENT_KIND }
 
 const WAKES = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('wakes')
 
@@ -404,7 +403,7 @@ const wakeReply = (annotationId: string) => {
     kind: 'annotations.changed',
     annotationIds: [annotationId],
     change: 'replied',
-    actor: { peerId: null, userId: ME.userId, name: PRODUCT_NAME, kind: LEGACY_AGENT_KIND },
+    actor: { peerId: null, userId: ME.userId, name: PRODUCT_NAME, kind: AGENT_KIND },
   })
 }
 
@@ -417,7 +416,7 @@ const proposeFindings = () => {
     kind: 'annotations.changed',
     annotationIds: proposed.map((proposal) => proposal.id),
     change: 'created',
-    actor: { peerId: null, userId: ME.userId, name: PRODUCT_NAME, kind: LEGACY_AGENT_KIND },
+    actor: { peerId: null, userId: ME.userId, name: PRODUCT_NAME, kind: AGENT_KIND },
   })
 }
 
@@ -696,7 +695,7 @@ const answerAboutBox = (turn: ScriptedTurn, box: FocusBox, replyInThread: boolea
             kind: 'annotations.changed',
             annotationIds: [thread.id],
             change: 'replied',
-            actor: { peerId: null, userId: ME.userId, name: PRODUCT_NAME, kind: LEGACY_AGENT_KIND },
+            actor: { peerId: null, userId: ME.userId, name: PRODUCT_NAME, kind: AGENT_KIND },
           })
         }
         finish(turn, text, thread ? [] : [OIB_RL_4])
@@ -794,7 +793,7 @@ const checkFixed = (turn: ScriptedTurn, question: string) => {
             kind: 'annotations.changed',
             annotationIds: checked.map((one) => one.id),
             change: 'replied',
-            actor: { peerId: null, userId: ME.userId, name: PRODUCT_NAME, kind: LEGACY_AGENT_KIND },
+            actor: { peerId: null, userId: ME.userId, name: PRODUCT_NAME, kind: AGENT_KIND },
           })
         }
         emit(turn, { type: 'STEP_FINISHED', step: replyStep })

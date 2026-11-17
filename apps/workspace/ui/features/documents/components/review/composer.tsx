@@ -23,8 +23,7 @@ import { filesCopy } from '@/i18n/namespaces/files'
 import { AnnotationRequestError } from '@/lib/annotations/client'
 import { MAX_ANNOTATION_BODY, type MarkMention } from '@/lib/annotations/types'
 import { MAX_MENTIONS_PER_MESSAGE } from '@/lib/limits/catalog'
-import { isAgentMentionId, MENTION_ERROR_REASONS, type MentionCandidate } from '@/lib/mentions/types'
-import { LEGACY_AGENT_MENTION_ID } from '@/lib/mentions/legacy-mention-ids'
+import { AGENT_MENTION_ID, isAgentMentionId, MENTION_ERROR_REASONS, type MentionCandidate } from '@/lib/mentions/types'
 import { cn } from '@/lib/utils'
 import { useMentionablePeople } from '../../hooks/use-mentionable-people'
 
@@ -118,8 +117,8 @@ export function Composer({
       ...(mentionAgent
         ? [
             {
-              targetId: LEGACY_AGENT_MENTION_ID,
-              person: { userId: LEGACY_AGENT_MENTION_ID, name: agentName, email: null, profilePictureUrl: null },
+              targetId: AGENT_MENTION_ID,
+              person: { userId: AGENT_MENTION_ID, name: agentName, email: null, profilePictureUrl: null },
               isAgent: true,
               isParticipant: true,
               needsInvite: false,
@@ -178,7 +177,7 @@ export function Composer({
       const token = `@${agentName} `
       pendingCaret.current = token.length + body.length
       setBody(`${token}${body}`)
-      setPicked((current) => [...current, { targetId: LEGACY_AGENT_MENTION_ID, display: agentName }])
+      setPicked((current) => [...current, { targetId: AGENT_MENTION_ID, display: agentName }])
     }
     ref.current?.focus()
   }

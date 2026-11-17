@@ -9,8 +9,7 @@ import type { UserMessageAuthor } from '@/features/chat/components/UserMessage'
 import type { Finding } from '@/lib/conversations/message-findings'
 import { useCommissionRun } from '@/features/runs/hooks/use-commission-run'
 import { continuationBrief, findingBrief } from '@/features/runs/lib/carry-forward'
-import { isAgentMentionId } from '@/lib/mentions/types'
-import { LEGACY_AGENT_MENTION_ID } from '@/lib/mentions/legacy-mention-ids'
+import { AGENT_MENTION_ID, isAgentMentionId } from '@/lib/mentions/types'
 import { useMessageAnchor } from '@/features/collaboration/hooks/use-message-anchor'
 import { useSharedThread } from '@/features/collaboration/hooks/use-shared-thread'
 import { useSpectatedTurn } from '@/features/collaboration/hooks/use-spectated-turn'
@@ -373,14 +372,14 @@ export function useChatAreaController({
     if (!handback) return
     const agentName = tCollaboration('mentions.picker.agentName')
     setComposerPrefill(`@${agentName} ${tCollaboration('mentions.handback.prefill')}`, [
-      { targetId: LEGACY_AGENT_MENTION_ID, display: agentName },
+      { targetId: AGENT_MENTION_ID, display: agentName },
     ])
     setHandbackDismissedFor(handback.anchorId)
   }, [handback, setComposerPrefill, tCollaboration])
 
   const handleAskAgent = useCallback(() => {
     const agentName = tCollaboration('mentions.picker.agentName')
-    setComposerPrefill(`@${agentName} `, [{ targetId: LEGACY_AGENT_MENTION_ID, display: agentName }])
+    setComposerPrefill(`@${agentName} `, [{ targetId: AGENT_MENTION_ID, display: agentName }])
   }, [setComposerPrefill, tCollaboration])
 
   const handleAskBack = useCallback(

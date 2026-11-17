@@ -48,7 +48,6 @@ describe.skipIf(!url || !ownerUrl)('the office read predicate against the row po
   let withTenant: typeof import('@/lib/db/tenant-context').withTenant
   let withPlatformAccess: typeof import('@/lib/db/tenant-context').withPlatformAccess
   let ORGANIZATION_SETTING: string
-  let LEGACY_ORGANIZATION_SETTING: string
   let db: ReturnType<typeof import('@/lib/db').getDb>
   let owner: postgres.Sql
 
@@ -65,7 +64,7 @@ describe.skipIf(!url || !ownerUrl)('the office read predicate against the row po
   async function throughPredicate(organizationId: string): Promise<string[]> {
     const ownerDb = drizzle(owner)
     return ownerDb.transaction(async (tx) => {
-      await tx.execute(sql`SELECT set_config(${ORGANIZATION_SETTING}, ${organizationId}, true), set_config(${LEGACY_ORGANIZATION_SETTING}, ${organizationId}, true)`)
+      await tx.execute(sql`SELECT set_config(${ORGANIZATION_SETTING}, ${organizationId}, true)`)
       const rows = await tx.execute<{ id: string }>(
         sql`SELECT r.id FROM knowledge_records r WHERE ${visibility.recordReadable('r', organizationId)} ORDER BY r.id`,
       )
@@ -79,7 +78,6 @@ describe.skipIf(!url || !ownerUrl)('the office read predicate against the row po
     withTenant = context.withTenant
     withPlatformAccess = context.withPlatformAccess
     ORGANIZATION_SETTING = context.ORGANIZATION_SETTING
-    LEGACY_ORGANIZATION_SETTING = (await import('@/lib/db/legacy-tenant-settings')).LEGACY_ORGANIZATION_SETTING
     db = (await import('@/lib/db')).getDb()
     wire = await import('../platform/wire')
     visibility = await import('./visibility')
@@ -155,7 +153,7 @@ describe.skipIf(!url || !ownerUrl)('the office read predicate against the row po
     const offices = OFFICES
     for (const organizationId of offices) {
       const disagreements = await drizzle(owner).transaction(async (tx) => {
-        await tx.execute(sql`SELECT set_config(${ORGANIZATION_SETTING}, ${organizationId}, true), set_config(${LEGACY_ORGANIZATION_SETTING}, ${organizationId}, true)`)
+        await tx.execute(sql`SELECT set_config(${ORGANIZATION_SETTING}, ${organizationId}, true)`)
         return tx.execute<{ id: string; walk: boolean }>(sql`
           SELECT r.id, knowledge_reached_by_relation(r.id) AS walk FROM knowledge_records r
           WHERE r.organization_id IS NULL
@@ -164,7 +162,7 @@ describe.skipIf(!url || !ownerUrl)('the office read predicate against the row po
       expect(disagreements, organizationId).toEqual([])
     }
     const reached = await drizzle(owner).transaction(async (tx) => {
-      await tx.execute(sql`SELECT set_config(${ORGANIZATION_SETTING}, ${AUSTRIAN}, true), set_config(${LEGACY_ORGANIZATION_SETTING}, ${AUSTRIAN}, true)`)
+      await tx.execute(sql`SELECT set_config(${ORGANIZATION_SETTING}, ${AUSTRIAN}, true)`)
       return (await tx.execute<{ id: string }>(sql`SELECT knowledge_reached_ids() AS id`)).map((row) => row.id)
     })
     expect(reached).toEqual(expect.arrayContaining([`work:sia-500-${RUN}`, `edition:sia-500-2009-${RUN}`]))
@@ -180,21 +178,21 @@ describe.skipIf(!url || !ownerUrl)('the office read predicate against the row po
     const offices = OFFICES
     for (const organizationId of offices) {
       const disagreements = await drizzle(owner).transaction(async (tx) => {
-        await tx.execute(sql`SELECT set_config(${ORGANIZATION_SETTING}, ${organizationId}, true), set_config(${LEGACY_ORGANIZATION_SETTING}, ${organizationId}, true)`)
+        await tx.execute(sql`SELECT set_config(${ORGANIZATION_SETTING}, ${organizationId}, true)`)
         return tx.execute<{ country: string }>(sql`
           SELECT c.country FROM (SELECT DISTINCT country_id AS country FROM knowledge_records UNION SELECT 'EU' UNION SELECT 'DE' UNION SELECT NULL) c
           WHERE knowledge_country_entitled(c.country) IS DISTINCT FROM coalesce(c.country IN (SELECT knowledge_entitled_countries()), false)`)
       })
       expect(disagreements, organizationId).toEqual([])
       const nulls = await drizzle(owner).transaction(async (tx) => {
-        await tx.execute(sql`SELECT set_config(${ORGANIZATION_SETTING}, ${organizationId}, true), set_config(${LEGACY_ORGANIZATION_SETTING}, ${organizationId}, true)`)
+        await tx.execute(sql`SELECT set_config(${ORGANIZATION_SETTING}, ${organizationId}, true)`)
         return tx.execute(sql`SELECT 1 FROM knowledge_entitled_countries() c WHERE c IS NULL`)
       })
       expect(nulls, organizationId).toHaveLength(0)
     }
     const entitled = async (organizationId: string) =>
       drizzle(owner).transaction(async (tx) => {
-        await tx.execute(sql`SELECT set_config(${ORGANIZATION_SETTING}, ${organizationId}, true), set_config(${LEGACY_ORGANIZATION_SETTING}, ${organizationId}, true)`)
+        await tx.execute(sql`SELECT set_config(${ORGANIZATION_SETTING}, ${organizationId}, true)`)
         return (await tx.execute<{ country: string }>(sql`SELECT knowledge_entitled_countries() AS country`)).map((row) => row.country).sort()
       })
     expect(await entitled(AUSTRIAN)).toEqual(['AT', 'EU'])

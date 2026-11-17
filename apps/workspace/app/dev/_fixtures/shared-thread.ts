@@ -1,6 +1,6 @@
 import { useChatStore } from '@/features/chat/store'
 import { PRODUCT_NAME } from '@/lib/brand'
-import { LEGACY_AGENT_MENTION_ID } from '@/lib/mentions/legacy-mention-ids'
+import { AGENT_MENTION_ID } from '@/lib/mentions/types'
 
 const ME = 'default-user'
 const ANNA = 'user_anna'
@@ -74,7 +74,7 @@ const MESSAGE_ROWS = [
       'Dann zählt der Innenhof nicht als zweiter Rettungsweg. @' + PRODUCT_NAME + ' wie wirkt sich das auf den Nachweis aus?',
     metadata: {
       messageType: 'user',
-      mentions: [{ targetId: LEGACY_AGENT_MENTION_ID, display: PRODUCT_NAME }],
+      mentions: [{ targetId: AGENT_MENTION_ID, display: PRODUCT_NAME }],
       addressees: { agent: true, users: [] },
     },
     createdAt: at(11),

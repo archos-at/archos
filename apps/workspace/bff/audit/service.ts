@@ -5,7 +5,6 @@ import { getWorkOS } from '@/lib/workos/client'
 import type { AuthoredRefKind } from '@/lib/documents/document-authors'
 import { AUDIT_ACTIONS } from './schemas.mjs'
 import { DOCUMENT_NAME_KEYS, type AuditDocumentPlacement, type DocumentNameAction } from './document-names'
-import { writtenAuditAction } from './legacy-agent-actions'
 
 export { AUDIT_ACTIONS }
 export {
@@ -148,7 +147,7 @@ async function emit(input: AuditEventInput): Promise<void> {
   const workos = getWorkOS()
   const options = input.idempotencyKey ? { idempotencyKey: input.idempotencyKey } : undefined
   await workos.auditLogs.createEvent(input.organizationId, {
-    action: writtenAuditAction(input.action),
+    action: input.action,
     occurredAt: input.occurredAt ?? new Date(),
     actor: {
       type: 'user',

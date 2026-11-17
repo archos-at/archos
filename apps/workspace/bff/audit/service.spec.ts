@@ -284,7 +284,7 @@ describe('further targets', () => {
     expect(lastEvent().metadata).toEqual({ op: 'update', markNumber: 4 })
   })
 
-  it('sends an agent action under the name WorkOS already holds, until the switch', async () => {
+  it('sends an agent action under its own name', async () => {
     await recordAuditEvent({
       organizationId: 'org_1',
       actor: { userId: 'user_1', email: 'anna@acme.at' },
@@ -294,7 +294,7 @@ describe('further targets', () => {
       metadata: { op: 'update', markNumber: 4, messageId: null },
     })
 
-    expect(lastEvent().action).toBe('piloti.change.applied')
+    expect(lastEvent().action).toBe('agent.change.applied')
   })
 
   it('come before what produced an agent-authored event', async () => {

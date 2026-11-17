@@ -106,8 +106,7 @@ import {
   type WakeOutcome,
 } from './types'
 import { PRODUCT_NAME } from '@/lib/brand'
-import { isAgentKind } from '@/lib/agent-kind'
-import { LEGACY_AGENT_KIND } from '@/lib/legacy-agent-kind'
+import { AGENT_KIND, isAgentKind } from '@/lib/agent-kind'
 
 export interface AnnotationActor {
   kind: AnnotationAuthor
@@ -115,7 +114,7 @@ export interface AnnotationActor {
 }
 
 const PERSON: AnnotationActor = { kind: 'person' }
-export const AGENT: AnnotationActor = { kind: LEGACY_AGENT_KIND }
+export const AGENT: AnnotationActor = { kind: AGENT_KIND }
 
 const mayDeleteMark = (record: Pick<AnnotationRecord, 'authorKind' | 'createdBy' | 'acceptedBy'>, userId: string) =>
   record.createdBy === userId && (record.authorKind === 'person' || record.acceptedBy === userId)
@@ -485,7 +484,7 @@ async function insertAgentMarks(
     organizationId: session.organizationId,
     documentId: doc.id,
     versionId: doc.publishedVersionId ?? null,
-    authorKind: LEGACY_AGENT_KIND,
+    authorKind: AGENT_KIND,
     createdBy: session.userId,
     acceptedBy,
     marks: parsed.map(toMark),
@@ -493,7 +492,7 @@ async function insertAgentMarks(
   const ids = rows.map((row) => row.id)
   announce(session, doc.id, ids, 'created', AGENT)
   for (const row of rows) {
-    markEvent(session, 'annotation_created', doc.id, { author_kind: LEGACY_AGENT_KIND, kind: row.kind, status: row.status })
+    markEvent(session, 'annotation_created', doc.id, { author_kind: AGENT_KIND, kind: row.kind, status: row.status })
   }
   if (acceptedBy) {
     traceSet(

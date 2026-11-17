@@ -849,7 +849,7 @@ def lane_for_hit(
     from agent.common.source_kinds import parse_shelf
 
     if is_agent_author(authored_by):
-        return (LEGACY_AGENT_AUTHORED_LANE, AGENT_AUTHORED_LANE_LABEL)
+        return (AGENT_AUTHORED_LANE, AGENT_AUTHORED_LANE_LABEL)
     known_shelf = parse_shelf(shelf) or legacy_shelf_for_collection_name(collection)
     if source_format == MAIL_SOURCE_FORMAT:
         return (OFFICE_MAIL_LANE if known_shelf is Shelf.OFFICE_SHELF else MAIL_LANE, MAIL_LANE_LABEL)
