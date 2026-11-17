@@ -524,6 +524,7 @@
   "deploy/compose/init-db.sql": 20,
   "deploy/migration/chroma_export.py": 2,
   "deploy/migration/tests/test_chroma_export.py": 6,
+  "deploy/posthog/alerts/platform-health.sql": 16,
   "deploy/posthog/support/reply-poke.hog": 1,
   "deploy/pulumi/Pulumi.dev.yaml": 144,
   "deploy/pulumi/Pulumi.prod.yaml": 152,
