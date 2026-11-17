@@ -347,6 +347,7 @@ def _setup_backend(config: KnowledgeRetrievalConfig, summary_llm_obj=None) -> tu
     return BACKEND, backend_config
 
 
+# Lazy search imports: folder_channel alone cost 136 ms on the first turn (measured 2026-10-27).
 _SEARCH_PATH_MODULES = (
     "knowledge_layer.browse.tool",
     "knowledge_layer.search.folder_channel",
