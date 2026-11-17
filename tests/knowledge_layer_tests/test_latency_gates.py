@@ -7,6 +7,7 @@ from unittest.mock import MagicMock
 import knowledge_layer.search.requery as requery_mod
 import pytest
 from knowledge_layer import register as register_module
+from knowledge_layer.search import _has_narrow_anchor
 from knowledge_layer.search import claim_requery_slot
 from knowledge_layer.search import is_known_entity_lookup
 from knowledge_layer.search import requery_already_fired
@@ -15,7 +16,6 @@ from knowledge_layer.search import reset_requery_slot_for_turn
 from knowledge_layer.search import results as results_module
 from knowledge_layer.search import scores_decisively_strong
 from knowledge_layer.search import should_skip_judge
-from knowledge_layer.search.requery import _has_narrow_anchor
 
 from agent.common.retrieval_settings import reset_retrieval_settings_cache
 

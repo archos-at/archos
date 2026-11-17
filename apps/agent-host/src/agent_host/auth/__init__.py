@@ -1,5 +1,3 @@
-"""Auth components for the AIQ API frontend."""
-
 from agent.auth.request_identity import get_current_user
 
 from .base import TokenValidator

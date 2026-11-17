@@ -180,7 +180,7 @@ describe('validateCollectionName', () => {
     organizationId: 'org-1',
     userId: 'user-1',
     role: 'member',
-    permissions: ['org:archiv:manage'],
+    permissions: ['org:office_shelf:manage'],
   } as unknown as UserSession
   const officeShelfMember = {
     organizationId: 'org-1',
@@ -331,7 +331,7 @@ describe('validateCollectionName — what the proxy never does', () => {
   const officeShelfManager = {
     organizationId: 'org-1',
     userId: 'user-1',
-    permissions: ['org:archiv:manage'],
+    permissions: ['org:office_shelf:manage'],
   } as unknown as UserSession
 
   it.each([

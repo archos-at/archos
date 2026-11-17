@@ -1,5 +1,3 @@
-"""Which data sources a job may ask for: the agent's tools, checked against the registry before a job is submitted."""
-
 from __future__ import annotations
 
 import asyncio
@@ -20,32 +18,11 @@ logger = logging.getLogger(__name__)
 
 
 def _source_ids_by_lowercase() -> tuple[list[str], dict[str, str]]:
-    """Return known source IDs and a lower-case lookup preserving canonical IDs.
-
-    Assumes registry IDs are unique under ``.lower()``. The data source registry
-    convention is snake_case (e.g. ``web_search``, ``knowledge_layer``); two IDs
-    differing only by case would collapse here.
-    """
     known_ids = sorted(source.id for source in get_all_sources())
     return known_ids, {source_id.lower(): source_id for source_id in known_ids}
 
 
 async def _get_agent_available_source_ids(builder: WorkflowBuilder, agent_config_name: str) -> list[str]:
-    """Return mapped source IDs with at least one effective tool for an agent config.
-
-    This mirrors the async job runner's effective tool resolution: explicit
-    `tools` wins and overrides registry refs, otherwise inherit all registry
-    refs, resolve LangChain wrappers through the builder, then apply exact
-    tool-name `exclude_tools`.
-
-    A source is reported as available if at least one of its tools survives
-    ``exclude_tools``; partial exclusion does not hide the source.
-
-    Assumes agent configs registered for async submission expose typed
-    ``tools`` and ``exclude_tools`` fields (see ``agent.agents.*.register``).
-    A registered agent without these fields is a registration-time bug, not a
-    runtime concern.
-    """
     fn_config = builder.get_function_config(agent_config_name)
     tool_refs = fn_config.tools if fn_config.tools is not None else get_all_tool_refs()
     tools = await builder.get_tools(tool_names=tool_refs, wrapper_type=LLMFrameworkEnum.LANGCHAIN)
@@ -72,7 +49,6 @@ async def validate_data_sources_for_agent(
     agent_config_name: str,
     data_sources: list[str] | None,
 ) -> None:
-    """Raise HTTP 422 if requested sources are unknown or unavailable to the selected agent."""
     if not data_sources:
         return
 

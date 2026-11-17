@@ -1,32 +1,3 @@
-"""
-Agent-runtime plugin registration for the unified API.
-
-One plugin, two web roles (``PROCESS_ROLE``, ``roles.WebRole``, ADR-0082 step B):
-
-* ``chat`` mounts the chat socket, the chat-occupancy route KEDA reads, and
-  what is left of the agent runtime's own routes once its HTTP turn routes are off (see
-  ``AgentHostConfig``), and drains running chat turns at shutdown.
-* ``api`` mounts the Knowledge API (collections/documents, the LLM utilities,
-  admin) and the Async Job API (agent jobs, SSE streaming, housekeeping), and
-  closes its SSE streams at shutdown.
-
-Both mount ``/health`` and the same auth and context-envelope middleware. A
-route belongs to exactly one role; ``apps/agent-host/tests/test_roles.py``
-holds that.
-
-Knowledge Layer Configuration:
-    The Knowledge API uses the same ingestor instance as the knowledge_retrieval tool.
-    Configure it via the knowledge_retrieval function in your workflow YAML:
-
-    functions:
-      knowledge_search:
-        _type: knowledge_retrieval
-        collection_name: oib_knowledge
-
-    The backend is llamaindex, the only one (ADR-0072). If no tool is
-    configured, the API falls back to KNOWLEDGE_INGESTOR_BACKEND or llamaindex.
-"""
-
 import asyncio
 import functools
 import logging
@@ -120,38 +91,10 @@ _validators: list = []
 
 
 def register_validator(validator) -> None:
-    """Register a token validator with the API server.
-
-    Call this before the server starts.  Validators are tried in order;
-    the first successful result wins.  At least one validator must be
-    registered when ``REQUIRE_AUTH=true``.
-
-    Example::
-
-        from agent_host.plugin import register_validator
-        from mypackage.auth import MyCustomValidator
-        register_validator(MyCustomValidator(...))
-    """
     _validators.append(validator)
 
 
 def _load_validators_from_entry_points() -> list:
-    """Discover validators registered via the ``agent_host.validators`` entry-point group.
-
-    Any installed package can contribute validators by declaring an entry point
-    that returns a list of validator instances::
-
-        # pyproject.toml (in the internal / deployment package)
-        [project.entry-points."agent_host.validators"]
-        my_provider = "mypackage.auth:get_validators"
-
-        # mypackage/auth.py
-        def get_validators() -> list:
-            return [MyValidator(...)]
-
-    This is the recommended way to add validators from a private package that
-    has the public API repo as a git submodule.
-    """
     from importlib.metadata import entry_points
 
     validators = []
@@ -181,17 +124,6 @@ WORKFLOW_ROUTE_FIELDS = (
 
 
 class AgentHostConfig(FastApiFrontEndConfig, name="agent_host"):
-    """
-    Configuration for unified API endpoints.
-
-    Knowledge API:
-        Automatically enabled when a knowledge_retrieval function is configured.
-        Backend settings are inherited from that function's config.
-
-    Async Job API:
-        Configure db_url and expiry_seconds for job persistence.
-    """
-
     db_url: str = Field(
         default="sqlite+aiosqlite:///./jobs.db",
         description="Database URL for job store and event store",
@@ -210,19 +142,6 @@ class AgentHostConfig(FastApiFrontEndConfig, name="agent_host"):
 
     @model_validator(mode="after")
     def _the_chat_socket_is_the_only_turn_route(self) -> AgentHostConfig:
-        """Refuse a config that puts an agent-runtime route in front of the workflow, rather than serve it.
-
-        The agent runtime's defaults put the workflow behind ``/v1/workflow*``, ``/generate*``,
-        ``/v1/chat*`` (its OpenAI-compatible completions among them), ``/chat*``
-        and ``/websocket``. Each of those skips what the chat socket does per
-        turn: admission, the conversation fence, cancel, replay, the persisted
-        answer, and the ``finally`` that always sends a terminal. They stream through the agent runtime's
-        ``generate_streaming_response``, whose early stop leaves the producer
-        running (``workflow_stream`` has the account), and with the step adaptor
-        off they carry none of the steps a reader is shown. ``/websocket`` is the
-        chat socket's own path. An extra ``endpoints`` entry mounts the same set
-        for another function.
-        """
         served = [f"workflow.{name}" for name in WORKFLOW_ROUTE_FIELDS if getattr(self.workflow, name)]
         served += ["evaluate.path"] if self.evaluate.path else []
         served += [f"endpoints[{endpoint.function_name}]" for endpoint in self.endpoints]
@@ -237,15 +156,6 @@ _shutdown_signal_received = False
 
 
 async def drain_owned_work(role: WebRole) -> None:
-    """The role's drain at shutdown: let what it holds finish, then close what it opened.
-
-    ``chat`` holds running chat turns, and waits for them: they keep publishing
-    to the conversation stream while the pod's grace period runs, which is what
-    lets a reader on another replica stream them to the end (ADR-0080). It holds
-    no SSE stream, so it closes none. ``api`` is the reverse: its long-lived
-    connections are the SSE job streams, closed on a short timeout, and it runs
-    no chat turn. Ingestion is claimed by its own tier and is held by neither.
-    """
     if role is WebRole.CHAT:
         await drain_chat_turns()
     else:
@@ -259,12 +169,6 @@ def _create_shutdown_signal_handler(
     original_handler: Callable | signal.Handlers | None,
     sig: signal.Signals,
 ) -> Callable:
-    """
-    Create a signal handler that signals SSE shutdown before calling the original handler.
-
-    This ensures SSE connections are notified of shutdown before uvicorn cancels tasks.
-    On second signal, force exits immediately.
-    """
 
     def handler(signum, frame):
         global _shutdown_signal_received
@@ -304,11 +208,6 @@ _INTERNAL_SERVICE_ROUTERS: tuple[Callable[[APIRouter], None], ...] = (
 
 
 def api_routers(llm_configs: Mapping[str, Any]) -> tuple[Callable[[APIRouter], None], ...]:
-    """The routers the ``api`` role mounts on its router.
-
-    A function and not a constant because one of them reads the loaded
-    workflow's ``llms`` (the org model-config UI's defaults, ADR-0014).
-    """
     return (
         add_collection_routes,
         add_document_routes,
@@ -342,16 +241,6 @@ def api_routers(llm_configs: Mapping[str, Any]) -> tuple[Callable[[APIRouter], N
 
 
 def _add_request_middleware(app: FastAPI, *, validators: list, require_auth: bool, role: WebRole) -> None:
-    """The request middleware, innermost first.
-
-    Starlette's add_middleware() makes each newly added middleware the new
-    OUTERMOST layer, so whichever is added LAST runs FIRST on the way in.
-    RequestContextEnvelopeMiddleware is added BEFORE AuthMiddleware so that
-    AuthMiddleware (added, and therefore outer, second) always resolves
-    scope["state"]["user"] before the envelope-enforcement middleware reads it
-    for HTTP requests. See agent_host.context_envelope's module docstring for the
-    full enforcement design (matrix, WebSocket handling, exemptions).
-    """
     app.add_middleware(RequestContextEnvelopeMiddleware, require_auth=require_auth, validators=validators)
     app.add_middleware(AuthMiddleware, validators=validators, require_auth=require_auth)
     app.add_middleware(LegacyHeaderNamesMiddleware)
@@ -359,19 +248,6 @@ def _add_request_middleware(app: FastAPI, *, validators: list, require_auth: boo
 
 
 class AgentHostWorker(FastApiFrontEndPluginWorker):
-    """
-    Worker that adds the API routes of one web role to the FastAPI app.
-
-    ``api``:
-    - Knowledge API routes (collections, documents) - uses factory singleton
-    - Async Job API routes (agent jobs, SSE streaming, housekeeping)
-
-    ``chat``:
-    - The chat socket (ADR-0068), the one route a turn runs through
-    - The agent runtime's own routes that run no turn (the OAuth callback, its execution
-      store, ``/evaluate/item``, the MCP tool list)
-    """
-
     _original_sigint_handler: Callable | signal.Handlers | None = None
     _original_sigterm_handler: Callable | signal.Handlers | None = None
 
@@ -430,15 +306,7 @@ class AgentHostWorker(FastApiFrontEndPluginWorker):
         return app
 
     @override
-    async def add_default_route(self, app: FastAPI, session_manager: SessionManager):
-        """Nothing: a turn's one route is the chat socket, which ``_add_chat_routes`` mounts.
-
-        The agent runtime's version mounts the generate, chat and socket routes the
-        ``workflow`` config names, which ``AgentHostConfig`` leaves unset. It also
-        mounts the async generate route whenever a Dask scheduler is reachable,
-        whatever the config says, as ``None/async`` when ``workflow.path`` is
-        unset. So the routes are left out here, not by the config alone.
-        """
+    async def add_default_route(self, app: FastAPI, session_manager: SessionManager): ...
 
     @override
     async def add_routes(self, app: FastAPI, builder: WorkflowBuilder):
@@ -464,51 +332,26 @@ class AgentHostWorker(FastApiFrontEndPluginWorker):
 
         @app.on_event("shutdown")
         async def drain_role():
-            """Let this role's work finish, then close what it opened (``drain_owned_work``)."""
             await drain_owned_work(self._role)
             self._restore_signal_handlers()
 
     async def _add_chat_routes(self, app: FastAPI, builder: WorkflowBuilder) -> None:
-        """What only ``chat`` serves: the chat socket, and the agent runtime's own routes that run no turn."""
         await super().add_routes(app, builder)
 
         session_manager = await self._create_chat_session_manager(builder)
         app.add_api_websocket_route(CHAT_SOCKET_PATH, chat_socket_endpoint(session_manager))
 
     async def _add_api_routes(self, app: FastAPI, builder: WorkflowBuilder) -> None:
-        """What only ``api`` serves beside its router: the job routes.
-
-        The agent runtime's own routes (execution, the OAuth callback, evaluate item, monitor,
-        static, MCP) belong to ``chat`` alone: nothing calls them on this tier.
-        """
         for register in API_APP_REGISTRARS:
             await register(app, builder, self)
         logger.info("Async Job API routes registered")
 
     async def _create_chat_session_manager(self, builder: WorkflowBuilder) -> SessionManager:
-        """The chat socket's session manager, with the agent runtime's concurrency gate off (``max_concurrency=0``).
-
-        The agent runtime's default gate (8) is an ``asyncio.Semaphore`` held for the whole
-        ``Session.run``: a turn waiting on a person's answer kept its place for
-        up to ``HITL_RESPONSE_TIMEOUT_SECONDS``, and the ninth turn queued
-        behind them unseen, after ``RUN_STARTED``, while its heartbeat kept the
-        reader's spinner alive. Nobody chose that number. The chosen gate is
-        ADR-0040's admission (``agent.common.turn_admission``,
-        ``MAX_ACTIVE_TURNS``), held around every chat turn, which refuses
-        a turn it has no slot for at once with a retry hint instead of queueing
-        it. Registered with the worker's others so the agent runtime shuts it down with them.
-        """
         session_manager = await SessionManager.create(config=self._config, shared_builder=builder, max_concurrency=0)
         self._session_managers.append(session_manager)
         return session_manager
 
     def _schedule_internal_api_check(self):
-        """Fire-and-forget the internal-API startup handshake (never fatal).
-
-        Runs the blocking urllib probe in a worker thread so it cannot stall the
-        event loop, and swallows/logs any failure — a broken or not-yet-up
-        frontend must never prevent the backend from serving.
-        """
 
         async def _run() -> None:
             try:
@@ -524,7 +367,6 @@ class AgentHostWorker(FastApiFrontEndPluginWorker):
             logger.debug("No running loop for the internal API handshake; skipping")
 
     def _install_signal_handlers(self):
-        """Install signal handlers to notify SSE connections on shutdown."""
         try:
             self._original_sigint_handler = signal.getsignal(signal.SIGINT)
             self._original_sigterm_handler = signal.getsignal(signal.SIGTERM)
@@ -542,7 +384,6 @@ class AgentHostWorker(FastApiFrontEndPluginWorker):
             logger.warning("Failed to install signal handlers: %s", e)
 
     def _restore_signal_handlers(self):
-        """Restore original signal handlers."""
         try:
             if self._original_sigint_handler is not None:
                 signal.signal(signal.SIGINT, self._original_sigint_handler)
@@ -554,8 +395,6 @@ class AgentHostWorker(FastApiFrontEndPluginWorker):
 
 
 class AgentHostPlugin(FastApiFrontEndPlugin):
-    """Plugin that adds unified API endpoints to the FastAPI server."""
-
     def __init__(self, full_config: Config, config: AgentHostConfig):
         super().__init__(full_config=full_config)
         self.config = config
@@ -567,5 +406,4 @@ class AgentHostPlugin(FastApiFrontEndPlugin):
 
 @register_front_end(config_type=AgentHostConfig)
 async def register_agent_host(config: AgentHostConfig, full_config: Config):
-    """Register the unified API with the agent runtime's framework."""
     yield AgentHostPlugin(full_config=full_config, config=config)

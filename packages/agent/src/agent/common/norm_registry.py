@@ -1,27 +1,3 @@
-"""Curated norm catalog: verified RIS pointers + the legal facts the corpus cannot supply.
-
-The registry is deliberately a FLAT catalog (successor of ``ris_catalog.yml``, reduced
-from the typed-graph experiment of ADR-0025v1 — see the ADR for why). One entry per
-legal norm, three jobs:
-
-1. Pointer index: topic -> exact RIS location (application, document number, URLs),
-   so the agent fetches the right law instead of blind-searching.
-2. ``binding_note``, kept for the platform admin UI; no prompt or citation reads it since
-   ADR-0175: which edition binds where is the records' chain text (``citations/roles.py``).
-3. Open verification questions: ``review_note`` — surfaced as a TODO queue in the
-   platform admin UI, never rendered into prompts as fact.
-
-The OIB corpus itself (data/oib/) is NOT listed here: the knowledge base is its
-source of truth. What a corpus document *is* (Richtlinie/Leitfaden/Erläuterung)
-derives from its filename — see ``oib_doc_class``/``lane_for_hit``.
-
-Storage: the YAML seed at ``configs/norms/at/registry.yml`` (override the root via
-``NORMS_DIR``), optionally superseded at runtime by the admin-managed store
-(``set_db_loader`` — the store registers itself; the YAML remains the seed).
-
-Failure semantics: a missing/invalid registry FAILS OPEN (feature disabled, warning).
-"""
-
 from __future__ import annotations
 
 import logging
@@ -119,8 +95,6 @@ _MIN_TOPIC_LENGTH = 4
 
 
 class VerifySeed(BaseModel):
-    """Live-verification seed for scripts/build_ris_catalog.py (and the admin verify API)."""
-
     title_query: str
     expect: str = ""
     exclude: list[str] = Field(default_factory=list)
@@ -128,16 +102,6 @@ class VerifySeed(BaseModel):
 
 
 class NormEntry(BaseModel):
-    """One curated norm: a RIS pointer, a plain web source, or a known-but-unavailable stub.
-
-    Exactly one source shape per entry:
-    - RIS-sourced law: ``application`` + ``document_number`` (+ URLs), live-verifiable.
-    - Non-RIS source (MA-37 Merkblätter, …): ``source_url`` — a plain link.
-    - Unavailable norm (ÖNORM/TRVB …): no pointer at all — the entry documents that
-      the norm exists and is rendered with an explicit "kein Volltext" marker so the
-      agent references it honestly instead of guessing.
-    """
-
     id: str
     title: str
     short: str
@@ -168,17 +132,6 @@ class NormEntry(BaseModel):
 
 
 class NormsFile(BaseModel):
-    """The registry file (configs/norms/<country>/registry.yml) / admin-store payload.
-
-    ``corpus_collection`` is the RAG-side seam for country expansion: it names the
-    knowledge-base base collection holding this country's norm corpus full texts
-    (AT: ``oib_knowledge``). A second country ships its own registry file + corpus
-    collection; retrieval scope selection then keys off this field instead of a
-    hardcoded collection name. The catalog (pointers/notes) and the corpus (full
-    texts in the RAG, managed via the platform Base-Knowledge surface) are the two
-    halves of the same per-country knowledge plane.
-    """
-
     version: int = 1
     corpus_collection: str = "oib_knowledge"
     language: str = ""
@@ -187,7 +140,6 @@ class NormsFile(BaseModel):
     @field_validator("states", mode="before")
     @classmethod
     def _legacy_state_tokens(cls, value: object) -> object:
-        """A stored registry keys ``states`` by the German token (``wien``); the English one replaces it."""
         if not isinstance(value, dict):
             return value
         return {normalize_profile_token("federal_state", str(token)): name for token, name in value.items()}
@@ -199,8 +151,6 @@ class NormsFile(BaseModel):
 
 
 class NormRegistry(BaseModel):
-    """The loaded catalog view handed to consumers."""
-
     entries: list[NormEntry] = Field(default_factory=list)
 
     def by_id(self, entry_id: str) -> NormEntry | None:
@@ -211,7 +161,6 @@ class NormRegistry(BaseModel):
 
 
 def _normalize(text: str) -> str:
-    """Lowercase and expand umlauts so matching tolerates spelling variants."""
     return text.strip().lower().replace("ä", "ae").replace("ö", "oe").replace("ü", "ue").replace("ß", "ss")
 
 
@@ -223,13 +172,6 @@ def set_db_loader(
     loader: Callable[[], NormsFile | None] | None,
     cache_reset: Callable[[], None] | None = None,
 ) -> None:
-    """Register the admin store as the runtime registry source (None to unset).
-
-    The loader returns the stored NormsFile, or None to fall back to the YAML
-    seed. Must never raise; the store is expected to fail open itself. The
-    optional ``cache_reset`` drops the loader's own memo and is invoked by
-    :func:`reset_registry_cache` (so admin writes flush it immediately).
-    """
     global _db_loader, _db_cache_reset
     _db_loader = loader
     _db_cache_reset = cache_reset
@@ -240,14 +182,6 @@ _REPO_ROOT = Path(__file__).resolve().parents[5]
 
 
 def _norms_dir(path: str | None) -> Path:
-    """The norms seed directory: explicit ``path``, else ``$NORMS_DIR``, else the default.
-
-    The default is relative to the working directory, which is the repo root
-    everywhere the seed is loaded on purpose. When it is NOT there — a test run
-    from a package directory such as ``apps/agent-host`` — resolve it against
-    the repository root instead, so the seed does not silently vanish and every
-    caller downstream sees an empty registry.
-    """
     if path:
         return Path(path)
     env_value = os.environ.get(ENV_NORMS_DIR)
@@ -261,7 +195,6 @@ def _norms_dir(path: str | None) -> Path:
 
 
 def _validated_entries(norms_file: NormsFile, origin: str) -> list[NormEntry]:
-    """Drop invalid entries fail-open (unknown application / state / duplicate id)."""
     kept: list[NormEntry] = []
     seen: set[str] = set()
     for entry in norms_file.entries:
@@ -296,7 +229,6 @@ def _validated_entries(norms_file: NormsFile, origin: str) -> list[NormEntry]:
 
 @lru_cache(maxsize=8)
 def _load_yaml_cached(resolved: str, mtime_ns: int) -> NormsFile | None:
-    """mtime-keyed cache: a regenerated file (new mtime) is reloaded."""
     del mtime_ns
     path = Path(resolved)
     try:
@@ -313,18 +245,11 @@ def _load_yaml_cached(resolved: str, mtime_ns: int) -> NormsFile | None:
 
 
 def registry_yaml_files(norms_dir: str | None = None) -> list[Path]:
-    """The YAML seed files under the norms dir (one per country directory)."""
     root = _norms_dir(norms_dir)
     return sorted(root.glob("*/registry.yml")) if root.is_dir() else []
 
 
 def load_registry(norms_dir: str | None = None) -> NormRegistry | None:
-    """Load the catalog; None when unavailable (fail-open).
-
-    Runtime source precedence: the admin store (when registered and non-empty),
-    then the YAML seed files. An explicit ``norms_dir`` always reads YAML —
-    that is the seed/build-script path.
-    """
     if norms_dir is None and _db_loader is not None:
         try:
             stored = _db_loader()
@@ -351,7 +276,6 @@ def load_registry(norms_dir: str | None = None) -> NormRegistry | None:
 
 
 def reset_registry_cache() -> None:
-    """Drop cached registry state (tests, and after writes/regeneration)."""
     _load_yaml_cached.cache_clear()
     if _db_cache_reset is not None:
         try:
@@ -365,11 +289,6 @@ def _entry_needles(entry: NormEntry) -> list[str]:
 
 
 def match_entries(registry: NormRegistry, query: str) -> list[NormEntry]:
-    """Entries whose title, short name, alias, or topic term appears in the query.
-
-    Deterministic: both sides are normalized (lowercased, umlauts expanded) and a
-    term matches when it is a substring of the query. No LLM, no fuzzy scoring.
-    """
     normalized_query = _normalize(query)
     if not normalized_query:
         return []
@@ -384,14 +303,6 @@ def match_entries(registry: NormRegistry, query: str) -> list[NormEntry]:
 
 
 def extract_federal_state(text: str | None) -> str | None:
-    """The Bundesland the text points at, or None. Pure text matching.
-
-    The structured `federal_state=<token>` fact line (written by the intake wizard
-    into the project-context prompt view) is authoritative when present — name
-    probing must not override it, or a mention like "Wiener Neustadt" (a Lower
-    Austrian town) would flip the jurisdiction to Wien. Free text without the
-    token falls back to probing for state names (spelling variants tolerated).
-    """
     if not text:
         return None
     normalized = _normalize(text)
@@ -411,12 +322,6 @@ STATE_OF_TERRITORY: dict[str, str] = {
 
 
 def resolve_federal_state() -> str | None:
-    """The Bundesland to focus the catalog on: the Land of the turn's site, from its knowledge context alone.
-
-    The first Land on the site's chain, as the BFF resolved it (ADR-0175); the leaf may be a municipality
-    (``AT:gkz:40101``). No placed site, or one outside Austria, is None, and None is final: every Land's lane
-    renders. No text is read: "Wiener Straße … Grundstück in Linz" never narrows it to Wien.
-    """
     from agent.common.knowledge_context import turn_knowledge_context
 
     chain = next(iter(turn_knowledge_context().chains.values()), ())
@@ -424,12 +329,6 @@ def resolve_federal_state() -> str | None:
 
 
 def focus_entries(entries: list[NormEntry], federal_state: str | None) -> list[NormEntry]:
-    """Restrict matches to the known Bundesland and put that state's law first.
-
-    State-law entries of OTHER states are dropped — a Tyrolean project must
-    never be handed the Viennese Bauordnung. Federal/stateless entries always
-    stay. With no known Bundesland this is a no-op.
-    """
     if not federal_state:
         return entries
     kept = [entry for entry in entries if not entry.federal_state or entry.federal_state == federal_state]
@@ -462,13 +361,6 @@ def _render_entry_line(entry: NormEntry) -> str:
 
 
 def render_prompt_block(registry: NormRegistry, federal_state: str | None = None) -> str:
-    """Compact catalog block: federal lane, then the focused state lane.
-
-    Other states' law is dropped entirely (same rule as ``focus_entries``) —
-    with no known Bundesland, all state lanes render, grouped by state. Addresses only: no
-    entry's ``binding_note`` and no corpus edition, because which edition binds is the chain
-    text's to say (ADR-0175).
-    """
     lines = [_BLOCK_HEADER, ""]
     focused = focus_entries(registry.entries, federal_state)
     law = [entry for entry in focused if entry.rank in _LAW_RANKS]
@@ -498,12 +390,6 @@ def render_prompt_block(registry: NormRegistry, federal_state: str | None = None
 
 
 def render_block_for_prompt(norms_dir: str | None = None) -> str | None:
-    """The RIS catalogue as research prompts read it: addresses the RIS tools resolve, or None.
-
-    Only where the run's knowledge context lets the RIS tools run (``law_gate.law_sources_withheld``,
-    ADR-0175): the catalogue is a tool aid, and a gate that withholds Austrian law withholds it too. It
-    says nothing about which edition binds; the chain text does (``law_gate.research_doctrine``).
-    """
     from agent.common.law_gate import law_sources_withheld
 
     if "ris" in law_sources_withheld():
@@ -518,18 +404,6 @@ _PARCEL_TAGS = ("Bebauungsplan", "Flächenwidmungsplan")
 
 
 def parcel_note(available_documents: list[dict] | None) -> str | None:
-    """Prompt note naming the project's parcel documents as the governing source.
-
-    ``available_documents`` are the per-turn document dicts (file_name/summary/
-    tags). Returns None when the project holds no tagged parcel document — the
-    static doctrine rule (demand the plan / point at the public portal) then
-    applies unchanged.
-
-    The note is the FILE LIST and nothing else. What to do with a parcel
-    question is standing method and lives in the system prompt
-    (``prompts/chat_static.md``, ``<legal_method>``), so the per-turn
-    block carries only what varies: which documents this project has.
-    """
     if not available_documents:
         return None
     parcel_tags = _PARCEL_TAGS
@@ -588,7 +462,6 @@ _LANE_LABELS: dict[str, str] = {
 
 
 def oib_doc_class(file_name: str) -> str | None:
-    """OIB document class derived from the corpus filename convention, or None."""
     name = canonical_oib_file_name(file_name)
     if not (name.startswith("oib-rl_") or name.startswith("aenderungen_") or name.startswith("erlaeuterungen_")):
         return None
@@ -611,14 +484,6 @@ _OIB_CLASS_TO_DOC_CLASS: dict[str, str] = {
 
 
 def guess_doc_class(file_name: str) -> str:
-    """Pre-fill guess for the explicit doc_class, derived from the filename.
-
-    Wraps :func:`oib_doc_class` and maps its OIB filename class onto the
-    doc_class vocabulary. An unknown filename (no OIB hint) resolves to the
-    neutral :data:`~agent.knowledge.document_classification.DEFAULT_DOC_CLASS`
-    so ingestion always has a real value to store and stamp. Import is local to
-    avoid an import cycle with the knowledge package.
-    """
     from agent.knowledge.document_classification import DEFAULT_DOC_CLASS
 
     raw = oib_doc_class(Path(file_name).name) if file_name else None
@@ -637,7 +502,6 @@ _OIB_NUMBER_RE = re.compile(r"^(\d+(?:\.\d+)?)")
 
 
 def _render_edition(month: str | None, year: str) -> str:
-    """``("mai", "2023")`` -> ``"Ausgabe Mai 2023"``; ``(None, "2019")`` -> ``"Ausgabe 2019"``."""
     if not month:
         return f"Ausgabe {year}"
     word = month
@@ -647,24 +511,6 @@ def _render_edition(month: str | None, year: str) -> str:
 
 
 def guess_display_title(file_name: str) -> str | None:
-    """Derive a human display title for an OIB corpus document from its filename.
-
-    This is the DEFAULT seed stamped at ingestion; the stored
-    ``display_title`` (document_metadata store) overrides it and is the
-    user-editable source of truth. Returns ``None`` for a filename this cannot
-    confidently render (any non-OIB upload, or an unrecognised OIB structure) —
-    callers then keep the document's existing name rather than showing a mangled
-    guess.
-
-    Examples::
-
-        oib-rl_2_ausgabe_mai_2023.pdf        -> "OIB-Richtlinie 2, Ausgabe Mai 2023"
-        oib-rl_2.3_ausgabe_mai_2023.pdf      -> "OIB-Richtlinie 2.3, Ausgabe Mai 2023"
-        oib-rl_6-leitfaden_...pdf            -> "OIB-Richtlinie 6 – Leitfaden, Ausgabe Mai 2023"
-        erlaeuterungen_oib-rl_2_...pdf       -> "Erläuterungen zu OIB-Richtlinie 2, Ausgabe Mai 2023"
-        oib-richtlinie_2.2_...pdf            -> "OIB-Richtlinie 2.2, Ausgabe Mai 2023"
-        erlaeuterungen-zu-oib-richtlinie_2.2_...pdf -> "Erläuterungen zu OIB-Richtlinie 2.2, Ausgabe Mai 2023"
-    """
     if not file_name:
         return None
     stem = Path(Path(file_name).name).stem
@@ -721,15 +567,6 @@ _OIB_FAMILY_NUMBER_RE = re.compile(r"^(\d+(?:\.\d+)?)(?:[_-]|$)")
 
 @dataclass(frozen=True)
 class NormFamily:
-    """One Richtlinie and every part of it the corpus actually holds.
-
-    ``key`` is the family number (``"2"``), ``members`` the part numbers in
-    numeric order (``("2", "2.1", "2.2", "2.3")``) and ``files`` the indexed
-    filename of each, parallel to ``members``. A family with one member is
-    still a family — that is what "OIB-RL 3 has no parts" looks like, and it is
-    a different statement from "we do not know".
-    """
-
     key: str
     members: tuple[str, ...]
     files: tuple[str, ...]
@@ -740,13 +577,6 @@ class NormFamily:
 
 
 def oib_family_member(file_name: str) -> str | None:
-    """The Richtlinie part number a corpus filename IS, or ``None``.
-
-    Only the Richtlinie itself. A Leitfaden, an Erläuterung, an Änderungs-
-    dokument, the Begriffsbestimmungen and the Zitierte Normen are not members:
-    they are read WITH a Richtlinie, and counting them as parts of it would
-    make an overview answer look complete for having opened a reading aid.
-    """
     name = canonical_oib_file_name(Path(file_name or "").name)
     if oib_doc_class(name) != "guideline":
         return None
@@ -759,12 +589,6 @@ def _member_sort_key(member: str) -> tuple[int, ...]:
 
 
 def oib_families(file_names: Iterable[str]) -> list[NormFamily]:
-    """Group indexed corpus filenames into families, in numeric order.
-
-    Duplicates collapse on the part number, so a corpus carrying two editions of
-    OIB-RL 2 still reports one member `2` — the family is about which
-    requirements exist, not about how many files carry them.
-    """
     by_family: dict[str, dict[str, str]] = {}
     for file_name in file_names:
         member = oib_family_member(file_name)
@@ -779,13 +603,6 @@ def oib_families(file_names: Iterable[str]) -> list[NormFamily]:
 
 
 def _host_matches(source_url: str | None, domain: str) -> bool:
-    """True when *source_url*'s host is ``domain`` or a subdomain of it.
-
-    Lanes are provenance labels, so they must key off the real host: a substring
-    test would also accept lookalike hosts (``wien.gv.at.evil.example``) and mere
-    path/query text (``evil.example/?q=wien.gv.at``). Mirrors ``isHost`` in the
-    frontend ``trace-lanes`` client.
-    """
     raw = (source_url or "").strip()
     if not raw:
         return False
@@ -809,40 +626,6 @@ def lane_for_hit(
     authored_by: str | None = None,
     source_format: str | None = None,
 ) -> tuple[str, str]:
-    """(stratum_key, human label) for a retrieval/citation hit — display tagging only.
-
-    Strata match the product's data placement: Baurecht (authority: registry law +
-    OIB corpus), Projektwissen (project/session collections), Büroablage (org
-    office shelf), Web. Unknown inputs land in ("web", "Web") fail-open.
-
-    An explicit, human-set ``doc_class`` (the "Dokumentart") is FIRST priority:
-    when valid it fully determines the lane, overriding every collection/filename/
-    url heuristic below. This is the authoritative signal the filename guess only
-    approximates. The one exception is the DEFAULT class on a user's own shelf:
-    ``other`` is what ingestion stamps on a file nobody classified, and on a
-    project, session or Büroablage document it says nothing a person decided —
-    it must not turn the user's plan into a "Basisdokument" in law blue.
-
-    ``shelf`` is the shelf the caller knows the hit came from; without it the
-    collection id is read the legacy way (ADR-0047).
-
-    ``authored_by`` is the stated PROVENANCE of the document
-    (``common/provenance.py``), and it outranks everything else here — the
-    doc_class included. A published agent-authored document is filed on the project or
-    the Archiv shelf like any other document, so every rule below would place
-    it as Projektwissen or Büroablage and lose the one fact a reader must not
-    miss; and a doc_class stamped on it by ingest would place it in the norm
-    hierarchy, in law blue, under the ``"Baurecht"`` label fallback. Who wrote
-    a document is not a guess any of those signals can overturn.
-
-    ``source_format`` comes next: ``mail`` is a filed E-Mail-Verlauf
-    (:data:`~agent.common.source_kinds.MAIL_SOURCE_FORMAT`), and it
-    outranks the doc_class and every URL rule for the same reason. A mail from
-    ``ma37.wien.gv.at`` is a clerk's message, never the curated authority lane,
-    and a doc_class a person set on the thread names what the thread is about,
-    not who wrote each section. The kind stays the shelf's
-    (``project_mail`` is Projektwissen, ``office_mail`` Büroablage).
-    """
     from agent.common.provenance import is_agent_author
     from agent.common.source_kinds import Shelf
     from agent.common.source_kinds import legacy_shelf_for_collection_name
@@ -875,11 +658,6 @@ def lane_for_hit(
 def _lane_for_source(
     *, file_name: str | None, source_url: str | None, collection: str | None, registry: NormRegistry | None
 ) -> tuple[str, str]:
-    """:func:`lane_for_hit`'s fallback once no provenance, doc_class or shelf placed the hit.
-
-    What is left is where the document came from: an OIB corpus filename, a RIS
-    or wien.gv.at URL, a named base-corpus collection, else Web (fail-open).
-    """
     if file_name:
         doc_class = oib_doc_class(Path(file_name).name)
         if doc_class:
@@ -909,20 +687,6 @@ def lane_for_knowledge_hit(
     authored_by: str | None = None,
     source_format: str | None = None,
 ) -> tuple[str, str]:
-    """:func:`lane_for_hit` for a hit that came from the KNOWLEDGE LAYER.
-
-    Identical, except that such a hit can never be Web. A retrieved document is
-    by definition something we hold — a project upload, the Büroablage, the base
-    corpus — so ``("web", "Web")`` is not a classification, it is the fail-open
-    value meaning "none of the signals matched" (no doc_class, no recognizable
-    collection prefix, no OIB filename). Those land in Projektwissen.
-
-    This exists so the two consumers of the rule cannot drift: the citation
-    chips (``citations.source_identity.source_lane``) and the Herleitung fan-out
-    (``knowledge_layer.search.trace_lanes.trace_lanes_for_hits``) used to apply it
-    separately, and only the former actually did — so the same document showed
-    as "Projektwissen" on a chip and "Web" in the fan-out of the same answer.
-    """
     lane = lane_for_hit(
         doc_class=doc_class,
         file_name=file_name,

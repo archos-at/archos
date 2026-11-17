@@ -15,7 +15,7 @@ vi.mock('posthog-node', () => ({
   },
 }))
 
-import { captureServer, getPosthogServer, resetPosthogServerForTests } from './posthog-server'
+import { captureServer, getPosthogServer, resetPosthogServerForTests, serverSuperProperties } from './posthog-server'
 import { scrubServerEvent } from './scrub-server-event'
 
 const enable = (): void => {
@@ -108,6 +108,7 @@ describe('captureServer', () => {
     vi.stubEnv('OTEL_SERVICE_NAME', 'grid-scheduler')
     vi.stubEnv('WORKOS_REDIRECT_URI', '')
     vi.stubEnv('NEXT_PUBLIC_WORKOS_REDIRECT_URI', '')
+    vi.stubEnv('POSTHOG_DEPLOYMENT', '')
 
     getPosthogServer()
     getPosthogServer()
@@ -125,6 +126,14 @@ describe('captureServer', () => {
     getPosthogServer()
 
     expect(register).toHaveBeenCalledWith({ release: 'abc1234', service: 'grid-ui', app_host: 'app.dev.example.test' })
+  })
+
+  test('names the deployment by its stack, trimmed, and leaves it out when the stack is blank', () => {
+    vi.stubEnv('POSTHOG_DEPLOYMENT', ' prod ')
+    expect(serverSuperProperties()).toMatchObject({ deployment: 'prod' })
+
+    vi.stubEnv('POSTHOG_DEPLOYMENT', '   ')
+    expect(serverSuperProperties()).not.toHaveProperty('deployment')
   })
 
   test('a blank service name falls back, and app_host comes from the MCP resource URL when the redirect URI is unset', () => {

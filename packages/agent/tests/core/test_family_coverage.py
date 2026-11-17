@@ -1,18 +1,3 @@
-"""How much of a Richtlinien-Familie a turn actually read.
-
-"OIB-Richtlinie 2" is four documents — 2, 2.1 (Betriebsbauten), 2.2 (Garagen),
-2.3 (Hochhäuser). An overview answer that opened three of them reads exactly
-like one that opened all four: the prose is fluent, every citation resolves,
-and the missing part is missing in the one way nothing checks. The inventory
-knows the family, the source registry knows what was read, and until
-`status:coverage` the difference was not countable.
-
-The test goes through the COMPILED GRAPH with a scripted LLM and a real tool,
-because the two halves of this live at opposite ends of a turn: the family list
-is set at inventory time and the sources are captured as the tools node runs,
-and only a run that does both can fail on a mismatch between them.
-"""
-
 from __future__ import annotations
 
 from unittest.mock import AsyncMock
@@ -44,9 +29,8 @@ CORPUS = (
 RETURNS: dict[str, str] = {}
 
 
-@tool
+@tool(description="Search the OIB knowledge corpus.")
 def knowledge_search(query: str) -> str:
-    """Search the OIB knowledge corpus."""
     name = RETURNS.get(query, "")
     if not name:
         return "No relevant documents found."
@@ -94,7 +78,6 @@ def _bypass_citation_pipeline():
 
 @pytest.fixture
 def steps(emitted):
-    """Every body the producers wrote during the test (``tests/conftest.py``)."""
     return emitted
 
 
@@ -126,7 +109,6 @@ def _coverage(steps: list[dict]) -> list[tuple[str, int, int]]:
 
 class TestCoverageIsCounted:
     async def test_two_of_three_members_report_listed_three_opened_two(self, scripted_agent, steps):
-        """The failure this exists for, made countable."""
         RETURNS.update({"Brandabschnitte": CORPUS[0], "Betriebsbauten": CORPUS[1]})
         agent = scripted_agent(
             _search("a", "Brandabschnitte"),
@@ -152,8 +134,6 @@ class TestCoverageIsCounted:
         assert _coverage(steps) == [("2", 3, 3)]
 
     async def test_a_turn_that_touched_no_family_reports_nothing(self, scripted_agent, steps):
-        """A constant is not an event. Six records on a question about the
-        office's own plan would make the rate noise as well as meaningless."""
         RETURNS.update({"Fluchtwege im Plan": "Brandschutzplan_EG.pdf"})
         agent = scripted_agent(_search("a", "Fluchtwege im Plan"), AIMessage(content="Die Antwort [1]."))
 
@@ -173,8 +153,6 @@ class TestCoverageIsCounted:
         assert "oib-rl" not in record.model_dump_json()
 
     async def test_each_family_gets_its_own_step_name(self, scripted_agent, steps):
-        """Two families under one step id collapse into one row, the same
-        trap `status:checkpoint:N` avoids."""
         set_norm_families(oib_families([*CORPUS, "oib-rl_4_ausgabe_mai_2023.pdf"]))
         RETURNS.update({"a": CORPUS[0], "b": "oib-rl_4_ausgabe_mai_2023.pdf"})
         agent = scripted_agent(_search("1", "a"), _search("2", "b"), AIMessage(content="Die Antwort [1]."))
@@ -186,13 +164,10 @@ class TestCoverageIsCounted:
 
 
 class TestWhatCountsAsOpened:
-    """The citation key is the identity plus rendering. Both come off."""
-
     def test_a_page_suffix_is_not_part_of_the_name(self):
         assert _opened_documents([SourceEntry(citation_key="oib-rl_2.1_x.pdf, p.12")]) == {"oib-rl_2.1_x.pdf"}
 
     def test_a_shelf_qualifier_is_not_part_of_the_name(self):
-        """One filename on two shelves is qualified in the key it prints."""
         assert _opened_documents([SourceEntry(citation_key="Plan.pdf (Projektwissen), p.3")]) == {"Plan.pdf"}
 
     def test_a_url_source_contributes_no_document(self):
@@ -201,7 +176,6 @@ class TestWhatCountsAsOpened:
 
 class TestFailOpen:
     async def test_a_broken_family_list_does_not_take_the_turn_down(self, scripted_agent, steps):
-        """A count of the answer is worth strictly less than the answer."""
         set_norm_families([object()])
         RETURNS.update({"a": CORPUS[0]})
         agent = scripted_agent(_search("1", "a"), AIMessage(content="Die Antwort [1]."))

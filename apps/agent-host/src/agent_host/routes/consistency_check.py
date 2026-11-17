@@ -1,18 +1,3 @@
-"""End-of-wizard FREE-TEXT intake consistency-check endpoint.
-
-Structured intake answers (selects/numbers/booleans) are checked
-DETERMINISTICALLY on the client — see ``intake-consistency.ts``. This endpoint
-is the LLM half: it looks ONLY at the free-text answers (goal details,
-high-building details, …) and asks whether that prose contradicts the
-structured answers (passed as read-only context) or itself. It does NOT
-re-check the structured answers against each other, and it does NOT nag about
-completeness: skipped/unknown answers are legitimate and are never sent here.
-
-Mirrors ``generate_summary.py``: machine-readable error codes and an
-always-200, best-effort shape. Any failure returns HTTP 200 with an ``error``
-code and ``findings: None`` so a check outage never blocks the user from saving.
-"""
-
 import asyncio
 import logging
 import os
@@ -61,16 +46,6 @@ SYSTEM_PROMPT = (
 
 
 def _llm_settings(organization_id: str | None = None) -> ResolvedCredential:
-    """Resolve the endpoint (model, key, base URL, data policy) for the consistency-check LLM call.
-
-    Goes through the shared credential resolver so this route reaches the org's
-    BYOK credential like every other LLM call, then the same env chain as before:
-    ``CONSISTENCY_LLM_*`` → generic ``LLM_*`` → the OpenRouter/OpenAI default used
-    by ``config_oib_openrouter.yml`` (matching ``generate_summary.py`` so both
-    endpoints degrade identically). Model + base URL keep their two-level env
-    fallback; the resolver adds BYOK (org key + base, model unchanged) and
-    provider inference on top. Fail-open: a BYOK miss falls back to the env chain.
-    """
     from agent.common.credential_resolution import read_api_key_env
     from agent.common.credential_resolution import resolve_llm_credential
 
@@ -96,22 +71,10 @@ def _llm_settings(organization_id: str | None = None) -> ResolvedCredential:
 
 
 def _render_fields(fields: list) -> str:
-    """One field/value pair per line, for the user turn."""
     return "\n".join(f"- {item.field}: {item.value}" for item in fields)
 
 
 def _parse_findings(content: str | None) -> list[ConsistencyFinding] | None:
-    """Defensively parse the model's JSON into findings.
-
-    Returns a (possibly empty) list of valid findings, or ``None`` if the
-    payload is not the expected object shape. Individual malformed findings are
-    skipped rather than failing the whole parse.
-
-    Recovery of the object itself is shared with the other two JSON-returning
-    routes (issue #233), which also buys this route two tolerances its local
-    fence-stripper never had: a line of prose around the object, and a reply the
-    token cap cut off mid-object.
-    """
     try:
         data = extract_json_object(content)
     except ValueError:
@@ -140,7 +103,6 @@ def _parse_findings(content: str | None) -> list[ConsistencyFinding] | None:
 
 
 def add_consistency_check_routes(router: APIRouter) -> None:
-    """Register the intake consistency-check endpoint."""
 
     @router.post(
         "/v1/consistency-check",

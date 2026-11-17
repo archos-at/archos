@@ -1,30 +1,3 @@
-"""Per-turn agent execution profiler.
-
-Captures a nested span tree (turn -> graph node -> LLM/tool call) for every
-agent run and ships it to the platform-owner-only timeline view. Structured
-exactly like ``cost_tracking.py``'s ``CostTracker``: one
-``BaseCallbackHandler`` installed through LangChain's
-``register_configure_hook`` seam, so every LLM/tool call inside an active
-``track_agent_profile()`` block is captured with zero per-agent wiring —
-new agents built on the same LLM/tool callback stack are covered
-automatically. Events are written to the ``agent_profiler_spans`` ledger via
-the token-guarded internal BFF endpoint ``POST
-/api/internal/agent-profiler-spans``, mirroring the usage-ledger single-writer
-rule (see docs/architecture/usage-budgets.md for the sibling mechanism this
-one is modeled on).
-
-Span nesting cannot ride the callback seam alone: LangGraph node functions
-are plain callables invoked by the graph executor, not runnables dispatched
-through the LangChain callback manager, so they carry no ``run_id``/
-``parent_run_id`` of their own. ``current_span_var`` closes that gap — the id
-of the innermost open span, pushed/reset with the same ContextVar token idiom
-already used in this codebase for ``session_registry``/``card_registry``
-(see ``core/conversation_register.py``) — so nesting is correct across
-``await`` boundaries without depending on LangChain/LangGraph callback
-internals. ``profiled_node()`` wraps each graph node with it; LLM/tool spans
-read it as their parent when they open.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -68,8 +41,6 @@ class _OpenSpan:
 
 @dataclass
 class SpanRecord:
-    """One closed span, as recorded in the ``agent_profiler_spans`` ledger."""
-
     span_id: str
     parent_span_id: str | None
     kind: SpanKind
@@ -97,14 +68,6 @@ class SpanRecord:
 
 
 class AgentProfiler(BaseCallbackHandler):
-    """Request-scoped callback: capture a nested span tree for one agent turn.
-
-    Sync ``BaseCallbackHandler`` methods are invoked for async runs as well
-    (LangChain dispatches them via the running loop's executor), so one
-    implementation covers every agent that shares the LLM/tool callback
-    stack — the same guarantee ``CostTracker`` relies on.
-    """
-
     raise_error = False
     run_inline = True
 
@@ -140,7 +103,6 @@ class AgentProfiler(BaseCallbackHandler):
         return span_id
 
     def annotate(self, span_id: str, facts: dict[str, Any]) -> None:
-        """Merge ``facts`` into an OPEN span's metadata; a closed span is left alone."""
         with self._lock:
             open_span = self._open.get(span_id)
             if open_span is None:
@@ -226,13 +188,6 @@ class AgentProfiler(BaseCallbackHandler):
         return self._spans_recorded
 
     def flush(self, *, wait: bool) -> Future[None] | None:
-        """Send pending spans to the internal ledger endpoint.
-
-        ``wait=False`` hands the batch to the background worker (answer
-        path) and returns its future, so a caller that wants the post to have
-        landed can await it later; ``wait=True`` posts inline (end of turn /
-        job teardown) and returns ``None``. Nothing pending returns ``None``.
-        """
         with self._lock:
             batch, self._pending = self._pending, []
         if not batch:
@@ -258,7 +213,6 @@ def _now_iso() -> str:
 
 
 def _post_profiler_spans(payload: dict[str, Any]) -> None:
-    """POST one batch to the BFF ledger endpoint. Best-effort, never raises."""
     try:
         bff_http.send("POST", "/api/internal/agent-profiler-spans", timeout=_REQUEST_TIMEOUT_SECONDS, body=payload)
     except bff_http.BffNotConfiguredError:
@@ -284,12 +238,6 @@ except Exception:  # pragma: no cover - defensive against langchain-core API dri
 
 
 def profiled_node(name: str, fn: Any) -> Any:
-    """Wrap an async LangGraph node callable with a ``kind="node"`` span.
-
-    A no-op when no profiler is active (e.g. outside ``track_agent_profile()``,
-    or graph invocations that don't opt in), so it is safe to apply
-    unconditionally at every ``graph.add_node(...)`` call site.
-    """
 
     async def _wrapped(*args: Any, **kwargs: Any) -> Any:
         profiler = agent_profiler_var.get()
@@ -320,14 +268,6 @@ def profiled_node(name: str, fn: Any) -> Any:
 
 @contextmanager
 def profiled_span(name: str, kind: SpanKind = "node"):
-    """Open one span around a block of turn work that is not a graph node.
-
-    The per-turn setup (context loads, the ingest hold, the admission wait)
-    used to run outside the profiler entirely, so the waterfall started at the
-    first LLM call and the seconds before it had no row. A no-op when no
-    profiler is active, so it is safe at every call site; the block's own
-    ``await``s are unaffected — only the span's parent is set for its duration.
-    """
     profiler = agent_profiler_var.get()
     if profiler is None:
         yield
@@ -352,16 +292,6 @@ def profiled_span(name: str, kind: SpanKind = "node"):
 
 
 def annotate_current_span(**facts: Any) -> None:
-    """Record facts on the innermost open span, e.g. ``cache_model_config="hit"``.
-
-    The TTL-cached readers on the turn's path (org model config, skills, the
-    norm store, retrieval and reasoning settings, the citation registry) were
-    silent about whether they hit: a warm turn and a cold one wrote the same
-    rows, so no percentile over the waterfall could be read. A no-op without an
-    active profiler, and never raises — the span is a record, not a dependency.
-    ContextVars travel into ``asyncio.to_thread``, so a reader running on a
-    worker thread still lands on the turn's span.
-    """
     try:
         profiler = agent_profiler_var.get()
         span_id = current_span_var.get()
@@ -391,28 +321,6 @@ def track_agent_profile(
     metadata: dict[str, Any] | None = None,
     inline_flush: bool = True,
 ):
-    """Activate span capture for the enclosed agent run.
-
-    Opens a root ``kind="turn"`` span named ``agent_name`` covering the whole
-    block; every span opened inside (nodes, LLM calls, tool calls) nests under
-    it. Identity defaults to the live request context — pass it explicitly
-    from callers with no live request (async job workers, background
-    reflection), same convention as ``track_llm_costs``. Never lets
-    profiling setup/teardown failures break the answer path.
-
-    ``metadata`` is attached to that root span and is read **at teardown**, so a
-    caller may keep filling the same dict inside the block with facts that are
-    only known once the block is done — which is how a post-answer stage records
-    the outcome it reached (``{"stage": …, "outcome": "timeout"}``) on the one
-    span it emits.
-
-    ``inline_flush=True`` posts the final batch synchronously at teardown, the
-    right default for a job worker that may exit right after the block. The
-    chat turn passes ``False`` and flushes itself AFTER the answer is on the
-    wire (``flush_after_answer``): the same POST used to run on the event loop
-    between "answer final" and "first delta", where it cost the reader up to
-    the endpoint's timeout and stalled every other turn on the replica.
-    """
     profiler: AgentProfiler | None = None
     profiler_token = None
     span_token = None
@@ -462,7 +370,6 @@ def _close_turn_span(
     error: str | None,
     inline_flush: bool,
 ) -> None:
-    """Stamp the turn's cache counters on the root span, close it, and flush."""
     if profiler is None or root_span_id is None:
         return
     counters = cache_counters()
@@ -478,16 +385,6 @@ def _close_turn_span(
 
 
 async def flush_after_answer(*ledgers: Any, timeout_seconds: float | None = None) -> None:
-    """Post the turn's final batches once the answer is already on the wire.
-
-    Each ledger (an ``AgentProfiler``, a ``CostTracker``: anything with
-    ``flush(wait=...)``) is handed to its own background worker, and the posts
-    are then awaited off the event loop so the loop keeps serving other turns
-    while the BFF round-trips complete. Best-effort: a failed or slow post
-    logs and never raises, exactly like the inline flush it replaces. The
-    submit is unconditional and the wait is what is bounded, so a consumer
-    that closes the stream early still gets its batches posted by the worker.
-    """
     futures = []
     for ledger in ledgers:
         if ledger is None:

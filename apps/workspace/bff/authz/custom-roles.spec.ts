@@ -51,7 +51,7 @@ const userAdmin = (permissions: string[] = []): AuthorizedSession => ({
   organizationMembershipId: 'om_1',
   role: 'org-user-admin',
   roles: ['org-user-admin'],
-  permissions: ['org:members:manage', 'org:archiv:manage', 'org:projects:create', ...permissions],
+  permissions: ['org:members:manage', 'org:office_shelf:manage', 'org:projects:create', ...permissions],
   featureFlags: null,
 })
 
@@ -70,7 +70,7 @@ const GESCHAEFTSFUEHRUNG: StubRole = {
   slug: 'org-geschaeftsfuehrung',
   name: 'Geschäftsführung',
   description: null,
-  permissions: ['org:archiv:manage', 'org:models:manage'],
+  permissions: ['org:office_shelf:manage', 'org:models:manage'],
   type: 'OrganizationRole',
 }
 
@@ -112,7 +112,7 @@ describe('listOrganizationRoles', () => {
         name: 'Geschäftsführung',
         description: null,
         custom: true,
-        permissions: ['org:archiv:manage', 'org:models:manage'],
+        permissions: ['org:office_shelf:manage', 'org:models:manage'],
       },
     ])
     const read = await listOrganizationRoles(member())
@@ -125,7 +125,7 @@ describe('assignableRolePermissions', () => {
   it('offers the organization tier, grantable only where the editor holds the permission', () => {
     const offered = assignableRolePermissions(userAdmin())
     expect(offered?.map((entry) => entry.slug)).toEqual(
-      ASSIGNABLE_ROLE_PERMISSIONS.filter((slug) => slug !== 'org:archiv:manage')
+      ASSIGNABLE_ROLE_PERMISSIONS
     )
     const grantable = offered?.filter((entry) => entry.grantable).map((entry) => entry.slug)
     expect(grantable?.sort()).toEqual(['org:members:manage', 'org:office_shelf:manage', 'org:projects:create'])
@@ -140,7 +140,7 @@ describe('createCustomRole', () => {
   it('creates the role under the derived slug, sets its permissions, forgets the caches and audits', async () => {
     const created = await createCustomRole(
       userAdmin(),
-      { name: ' Projektleitung ', description: 'Leitet Projekte', permissions: ['org:archiv:manage'] },
+      { name: ' Projektleitung ', description: 'Leitet Projekte', permissions: ['org:office_shelf:manage'] },
       request()
     )
 
@@ -149,7 +149,7 @@ describe('createCustomRole', () => {
       name: 'Projektleitung',
       description: 'Leitet Projekte',
       custom: true,
-      permissions: ['org:archiv:manage'],
+      permissions: ['org:office_shelf:manage'],
     })
     expect(workos.createOrganizationRole).toHaveBeenCalledWith('org_1', {
       slug: 'org-projektleitung',
@@ -157,7 +157,7 @@ describe('createCustomRole', () => {
       description: 'Leitet Projekte',
     })
     expect(workos.setOrganizationRolePermissions).toHaveBeenCalledWith('org_1', 'org-projektleitung', {
-      permissions: ['org:archiv:manage'],
+      permissions: ['org:office_shelf:manage'],
     })
     expect(invalidateCached.mock.calls.map(([key]) => key).sort()).toEqual(ROLE_CACHE_KEYS)
     expect(recordAuditEvent).toHaveBeenCalledTimes(1)
@@ -165,7 +165,7 @@ describe('createCustomRole', () => {
       organizationId: 'org_1',
       actor: { userId: 'user_ua', email: 'ua@buero.at' },
       action: 'org.role.created',
-      metadata: { role: 'org-projektleitung', permissions: 'org:archiv:manage' },
+      metadata: { role: 'org-projektleitung', permissions: 'org:office_shelf:manage' },
     })
   })
 
@@ -173,7 +173,7 @@ describe('createCustomRole', () => {
     await expect(
       createCustomRole(
         userAdmin(),
-        { name: 'Modellpflege', description: null, permissions: ['org:archiv:manage', 'org:models:manage'] },
+        { name: 'Modellpflege', description: null, permissions: ['org:office_shelf:manage', 'org:models:manage'] },
         request()
       )
     ).rejects.toMatchObject({ status: 403, message: expect.stringContaining('org:models:manage') })
@@ -212,12 +212,12 @@ describe('updateCustomRole', () => {
     const updated = await updateCustomRole(
       userAdmin(),
       'org-geschaeftsfuehrung',
-      { permissions: ['org:archiv:manage'] },
+      { permissions: ['org:office_shelf:manage'] },
       request()
     )
-    expect(updated.permissions).toEqual(['org:archiv:manage'])
+    expect(updated.permissions).toEqual(['org:office_shelf:manage'])
     expect(workos.setOrganizationRolePermissions).toHaveBeenCalledWith('org_1', 'org-geschaeftsfuehrung', {
-      permissions: ['org:archiv:manage'],
+      permissions: ['org:office_shelf:manage'],
     })
     expect(invalidateCached.mock.calls.map(([key]) => key).sort()).toEqual(ROLE_CACHE_KEYS)
     expect(recordAuditEvent.mock.calls[0][0]).toMatchObject({ action: 'org.role.updated' })
@@ -227,7 +227,7 @@ describe('updateCustomRole', () => {
     await updateCustomRole(
       userAdmin(),
       'org-geschaeftsfuehrung',
-      { permissions: ['org:archiv:manage', 'org:models:manage', 'org:projects:create'] },
+      { permissions: ['org:office_shelf:manage', 'org:models:manage', 'org:projects:create'] },
       request()
     )
     expect(workos.setOrganizationRolePermissions).toHaveBeenCalled()
@@ -238,7 +238,7 @@ describe('updateCustomRole', () => {
       updateCustomRole(
         userAdmin(),
         'org-geschaeftsfuehrung',
-        { permissions: ['org:archiv:manage', 'org:models:manage', 'org:budgets:manage'] },
+        { permissions: ['org:office_shelf:manage', 'org:models:manage', 'org:budgets:manage'] },
         request()
       )
     ).rejects.toMatchObject({ status: 403, message: expect.stringContaining('org:budgets:manage') })

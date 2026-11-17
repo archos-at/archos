@@ -1,12 +1,3 @@
-"""The characters the content screen reads numbers by: whitespace, Unicode digits, separators.
-
-A leaf both :mod:`agent.common.content_screen` and the per-country number rules
-(:mod:`agent.common.de_numbers`) read, so a country's parser and the scanner
-agree on what a digit and a separator are. The names keep their leading
-underscore: they are the screen's internals, shared by its own modules only.
-The TypeScript twin keeps them in ``apps/workspace/bff/upload-screening/content-screen.ts``.
-"""
-
 from __future__ import annotations
 
 import unicodedata
@@ -25,17 +16,14 @@ def _is_mark(char: str) -> bool:
 
 
 def _is_letter(char: str) -> bool:
-    """A letter: general category ``L*``."""
     return unicodedata.category(char)[0] == "L"
 
 
 def _is_word_char(char: str) -> bool:
-    """A letter or a number: general category ``L*`` or ``N*``."""
     return unicodedata.category(char)[0] in "LN"
 
 
 def _digit_at(text: str, index: int) -> str | None:
-    """The ASCII digit for a Unicode decimal digit (``Nd``) at ``index``, else ``None``."""
     if index >= len(text):
         return None
     value = unicodedata.decimal(text[index], None)
@@ -43,7 +31,6 @@ def _digit_at(text: str, index: int) -> str | None:
 
 
 def _skip_separator(text: str, index: int, marks: str) -> int:
-    """``index`` moved past one separator: a run of whitespace, or one of ``marks``."""
     if index < len(text) and text[index] in WHITESPACE:
         while index < len(text) and text[index] in WHITESPACE:
             index += 1
@@ -53,12 +40,10 @@ def _skip_separator(text: str, index: int, marks: str) -> int:
 
 
 def _digit_touches(text: str, index: int, soft: frozenset[int]) -> bool:
-    """Whether a digit stands at ``index`` right against what came before, without even an invisible character."""
     return _digit_at(text, index) is not None and index not in soft
 
 
 def _digits_at(text: str, index: int, count: int) -> str | None:
-    """``count`` digits from ``index`` on, as ASCII; ``None`` unless every one is a digit."""
     digits = ""
     for offset in range(count):
         digit = _digit_at(text, index + offset)

@@ -3,7 +3,7 @@ import 'server-only'
 import { PostHog } from 'posthog-node'
 
 import { configuredAppHost } from '@/lib/app-origin'
-import { deployedSha } from '@/lib/boot'
+import { deployedSha, deploymentName } from '@/lib/boot'
 
 import { scrubServerEvent } from './scrub-server-event'
 
@@ -61,12 +61,19 @@ export const posthogServerSettings = (): { host: string; projectToken: string } 
 
 export const isPosthogServerEnabled = (): boolean => posthogServerSettings() !== null
 
-export const serverSuperProperties = (): { release: string; service: string; app_host?: string } => {
+export const serverSuperProperties = (): {
+  release: string
+  service: string
+  app_host?: string
+  deployment?: string
+} => {
   const host = configuredAppHost()
+  const deployment = deploymentName()
   return {
     release: deployedSha(),
     service: process.env.OTEL_SERVICE_NAME?.trim() || 'grid-ui',
     ...(host ? { app_host: host } : {}),
+    ...(deployment ? { deployment } : {}),
   }
 }
 

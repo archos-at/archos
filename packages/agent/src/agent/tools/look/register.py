@@ -1,29 +1,3 @@
-"""``look``: a page of a document, a region of it, or an embedded image, as an image the model sees.
-
-One tool for one act in every context (ADR-0128): the chat, the review canvas,
-``agent-requests`` and deep research bind it, and the external door serves it as
-``document-look``. It replaced two tools that were the same function under two
-names and two argument shapes, the canvas group's ``canvas__look`` and the
-knowledge layer's ``view_knowledge_image``.
-
-What ``look`` decides is WHICH file, and from which collection
-(``resolve.py``); the model never passes a collection. The render, the scope
-check, the per-turn budget, the vision gate and the restricted-folder report are
-the renderer's (``knowledge_layer.view_image.view_image``), unchanged. When the
-document is a workspace document, everyone who has it open sees the box glow
-while the agent reads (``canvas/presence.show_reading``), whether the question came
-from the canvas or the chat; only a chat turn glows, because only its harness
-takes the glow down again.
-
-With a ``question`` the crop is also read by the office's vision model
-(``reading.py``) and the readings come back as short ``Gelesen:`` lines, labelled
-as a reading of the drawing and never a measurement. A chat model that takes no
-images gets those lines alone instead of "I cannot see".
-
-Its own entry point (``look_tools`` in the root ``pyproject.toml``): a deployment
-without the canvas group keeps ``look``, and the reverse.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -81,8 +55,6 @@ DESCRIPTION = (
 
 
 class LookToolConfig(FunctionBaseConfig, name="look"):
-    """Configuration for ``look``."""
-
     max_dim: int = Field(
         default_factory=_default_max_dim,
         description="Long edge (px) of what `look` renders; higher is sharper, larger payloads.",
@@ -91,19 +63,12 @@ class LookToolConfig(FunctionBaseConfig, name="look"):
 
 
 def _may_glow(resolved: Resolved) -> bool:
-    """Whether the room sees this look: a workspace document, on a turn whose harness takes the glow down.
-
-    Only a chat turn binds the canvas presence record and sends ``leave`` once
-    its answer is out (``canvas/presence.leave_canvas``). A look from the agent
-    door or a background run has no such end, so a glow it sent would stay.
-    """
     return resolved.target is not None and resolved.signed is not None and current_canvas_presence() is not None
 
 
 def _observe(
     document: str, page: int, region: Any, image_index: Any, result: Any, resolved: Any, *, asked: bool = False
 ) -> None:
-    """One ``look`` observation: what was asked and whether an image came back. Never the bytes."""
     emit_step_span(
         TOOL,
         {
@@ -121,13 +86,6 @@ def _observe(
 
 
 async def _licence_of(resolved: Any) -> Any:
-    """The licence of the document a look reads, read off the document itself, whatever shelf it sits on.
-
-    The base corpus (the published legal corpus: no collection, no workspace document) holds no office's copy.
-    Anything else with no collection to ask fails closed, as a licensed copy nobody attested, so no image of it
-    goes out (ADR-0164); so does an office shelf file with no point at all, since the office layer indexes no
-    unconfirmed or unattested copy. The lookup itself answers a store it cannot read the same way.
-    """
     from agent.common.licensed_text import LICENSED
     from agent.common.licensed_text import LicenceTerms
     from agent.common.source_kinds import Shelf
@@ -142,7 +100,6 @@ async def _licence_of(resolved: Any) -> Any:
 
 
 def refuse_unattested_look(licence: Any) -> None:
-    """Refuse a look at a licensed copy the office has not attested for AI processing: no model may read it."""
     if licence is not None and licence.licensed and not licence.ai_processing:
         raise Refused(
             "This page belongs to the office's licensed copy of a standard, and the office has not confirmed that its "
@@ -153,13 +110,6 @@ def refuse_unattested_look(licence: Any) -> None:
 async def _licensed_blocks(
     view: Any, question: str, place: PlaceFacts | None, licence: Any
 ) -> tuple[list[dict], str, str]:
-    """A look at a page of the office's licensed copy (ADR-0164): read inside the licensed scope, sent as a reference.
-
-    The page image and its text layer ARE the licensed text, and a tool result rests in the checkpoint and the
-    next turn's history. So the model gets no image: the region's text and the reading go into one licensed hit,
-    whose body the chat contract expands only inside the call. The reading runs in the document's licensed scope
-    (zero retention, traced as metadata only). The card keeps no reading of it.
-    """
     from agent.common.licensed_text import current_capture
     from agent.common.licensed_text import licensed_document_scope
 
@@ -188,20 +138,6 @@ async def _licensed_blocks(
 async def _blocks_for(
     view: Any, question: str, sees: bool | None, region: Any, place: PlaceFacts | None = None, licence: Any = None
 ) -> tuple[list[dict], str, str]:
-    """What the model gets for a rendered look, the reading the card keeps, and everything read.
-
-    The blocks are the region text, the readings it asked for, and the image if
-    it sees. A model that takes no images is never sent one (the next model call
-    of the turn would be refused): it gets the readings alone, answering
-    :data:`DEFAULT_QUESTION` when it asked nothing. The second value is the
-    reading for the card item: the line(s) carrying the measured value before
-    the one-sentence summary (:func:`~.reading.card_reading`); empty without one.
-    The third is every reading line and the summary, for the claim provenance.
-
-    With a ``place`` (a project or office document) and a usable reading, the
-    text block is a grounding block whose one hit holds the reading, so the
-    model can cite the look with ``[N]`` (``place.py``).
-    """
     from .reading import DEFAULT_QUESTION
     from .reading import card_reading
     from .reading import read_region
@@ -235,13 +171,6 @@ async def run_look(
     *,
     limits: Any = None,
 ) -> list[dict] | str:
-    """Look at a page of ``document``, at the box ``region`` on it, or at its embedded image ``image_index``.
-
-    With ``question`` the crop is also read by the office's vision model and the
-    readings come back with it. One look either way: the budget counts the render.
-    The call is one Herleitung row (ADR-0132), beside the ``look`` step that
-    carries the crop.
-    """
     row = ActionRow("look", target=(document or "").strip(), pages=str(page))
     try:
         result, resolved = await _run_look(document, page, region, image_index, question, limits=limits)
@@ -253,13 +182,6 @@ async def run_look(
 
 
 def _row_document(resolved: Resolved | str | None) -> dict[str, str]:
-    """The document a look's row names: the file and its workspace id, once the model may be told them.
-
-    The row settles before the round's results are admitted, so a file only an
-    unadmitted restricted folder holds keeps the name the model asked for
-    (listing is not use, ADR-0088). The name is the one the ``look`` step
-    carries, so the row finds its crop.
-    """
     from agent.knowledge.restricted_use import may_name
 
     if not isinstance(resolved, Resolved) or not may_name(resolved.collection):
@@ -277,7 +199,6 @@ async def _run_look(
     *,
     limits: Any,
 ) -> tuple[list[dict] | str, Resolved | str | None]:
-    """:func:`run_look`'s work: the result, and the document it resolved (or the refusal, or nothing)."""
     from knowledge_layer.view_image import View
     from knowledge_layer.view_image import render_view
     from knowledge_layer.view_image import turn_sees
@@ -324,7 +245,6 @@ async def _run_look(
 
 @register_function(config_type=LookToolConfig)
 async def look(config: LookToolConfig, _builder: Builder):
-    """Agent-runtime function: ``look``, bound to the chat agent and deep research."""
     from knowledge_layer.view_image import ViewLimits
 
     limits = ViewLimits(max_dim=config.max_dim, timeout=config.timeout)

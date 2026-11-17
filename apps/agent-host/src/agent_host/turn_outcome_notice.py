@@ -1,5 +1,3 @@
-"""The arguments of the headless caller's outcome notice (``POST /api/internal/turns/outcome``)."""
-
 from __future__ import annotations
 
 import re
@@ -25,8 +23,6 @@ def _outcome_reason(text: str) -> str | None:
 def turn_outcome_report(
     conversation_id: str, turn_id: str, terminal: RunFinishedBody | RunErrorBody
 ) -> dict[str, Any] | None:
-    """The notice's arguments, or None for a turn id no wake mints. ``reason`` is what the reader was shown
-    (the refusal's words, the error's message), never ``RUN_ERROR.details``, which can quote an exception."""
     if not _TURN_ID.match(turn_id):
         return None
     if isinstance(terminal, RunErrorBody):

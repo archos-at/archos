@@ -1,11 +1,3 @@
-"""The turn's document inventory: which collections it reads, what is in them,
-and whether an upload is still being indexed.
-
-Everything here is fail-open per collection and bounded in time: a missing
-inventory costs the model a listing, a failed inventory must never cost the
-reader an answer.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -43,12 +35,6 @@ ReadInFlight = Callable[[list[str]], dict[str, list[str]]]
 
 
 def available_documents_limit() -> int:
-    """Top-N cap for the per-turn ``available_documents`` prompt block.
-
-    Every chat turn injects the full list into ~5 prompt templates, so per-turn
-    LLM cost grew linearly with the corpus, paid even on chit-chat.
-    ``AVAILABLE_DOCUMENTS_MAX`` (default 50) tunes it; 0/negative disables.
-    """
     raw = os.environ.get("AVAILABLE_DOCUMENTS_MAX", "")
     try:
         return int(raw) if raw.strip() else AVAILABLE_DOCUMENTS_DEFAULT_LIMIT
@@ -77,9 +63,6 @@ def base_collection_name() -> str:
 
 
 def fallback_scope(conversation_id: str | None) -> list[ScopedCollection]:
-    """The collections a turn reads when the request states no scope: the base
-    OIB corpus and this conversation's upload collection. The fallback BUILDS
-    these layers, so each shelf is known structurally, never guessed from a name."""
     scope = [ScopedCollection(base_collection_name(), Shelf.BASE)]
     if not conversation_id:
         return scope
@@ -90,22 +73,14 @@ def fallback_scope(conversation_id: str | None) -> list[ScopedCollection]:
 
 
 def resolve_scope(header_scope: list[ScopedCollection] | None, conversation_id: str | None) -> list[ScopedCollection]:
-    """The signed header scope when it names anything, else the fallback."""
     return list(header_scope) if header_scope else fallback_scope(conversation_id)
 
 
 def shelves_in_scope(scope: Iterable[ScopedCollection]) -> list[str]:
-    """The shelves the scope states, for the pre-graph status line."""
     return [str(entry.shelf) for entry in scope if entry.shelf is not None]
 
 
 def _base_families(docs: Iterable) -> list:
-    """The Richtlinien-Familien the BASE shelf holds, derived from its filenames.
-
-    Base shelf only: a project file called ``oib-rl_2.pdf`` is somebody's copy
-    of a Richtlinie, not a member of the platform corpus, and counting it would
-    tell the model a part exists that a search of the corpus cannot reach.
-    """
     from agent.common.norm_registry import oib_families
 
     names = [
@@ -117,11 +92,6 @@ def _base_families(docs: Iterable) -> list:
 
 
 async def _stamped_rows(collections: Iterable[ScopedCollection], fetch_one: FetchOne) -> list:
-    """Every row of every collection, stamped with its collection and shelf. No cap.
-
-    Fail-open per collection: a ``fetch_one`` that raises contributes an empty
-    list rather than failing the whole aggregation.
-    """
 
     async def _guarded(entry: ScopedCollection):
         try:
@@ -139,7 +109,6 @@ async def _stamped_rows(collections: Iterable[ScopedCollection], fetch_one: Fetc
 
 
 def _cap_for_prompt(aggregated: list, max_documents: int | None = None) -> list:
-    """The rows the PROMPT block lists: user shelves first, bounded, drops recorded."""
     set_norm_families(_base_families(aggregated))
 
     limit = available_documents_limit() if max_documents is None else max_documents
@@ -156,20 +125,10 @@ async def aggregate_documents_across_collections(
     fetch_one: FetchOne,
     max_documents: int | None = None,
 ) -> list:
-    """Concurrently load document summaries for each collection and merge them.
-
-    Each row is stamped with the collection it came from and the shelf the scope
-    stated. Identity is ``(collection, file_name)`` — the same filename on the
-    Büroablage and in a project is two documents (ADR-0047). The cap keeps
-    user-shelf files first so the OIB corpus cannot evict the archive;
-    ``0``/negative disables it.
-    """
     return _cap_for_prompt(await _stamped_rows(collections, fetch_one), max_documents)
 
 
 async def load_available_documents(scope: list[ScopedCollection], fetch_one: FetchOne) -> tuple[list | None, list]:
-    """The scope's document summaries for the prompt (capped, or None when there
-    are none), and every row the scope holds (uncapped, for the tools)."""
     every_row = await _stamped_rows(scope, fetch_one)
     aggregated = _cap_for_prompt(list(every_row))
     names = [entry.collection for entry in scope]
@@ -189,13 +148,6 @@ async def await_ingest_settling(
     poll_seconds: float = INGEST_POLL_SECONDS,
     sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
 ) -> dict[str, list[str]]:
-    """Hold until the in-flight files in ``scope_names`` finish, or the deadline.
-
-    ``read`` is ``ingest_status_store.in_flight_files`` (sync, never raises,
-    run on a thread); a parameter so the loop can be driven by a test without
-    a database. Returns whatever is STILL pending at the end: empty when
-    everything finished, the remaining names otherwise.
-    """
     if not pending:
         return pending
     budget = ingest_wait_seconds() if timeout_seconds is None else timeout_seconds
@@ -221,17 +173,11 @@ HOLDING_SHELVES = frozenset({Shelf.SESSION})
 
 
 def held_uploads(scope: Iterable[ScopedCollection], pending: dict[str, list[str]]) -> dict[str, list[str]]:
-    """The part of ``pending`` that holds the turn: files on a :data:`HOLDING_SHELVES` collection.
-
-    By the shelf the scope STATES, never by the collection's name: an entry with
-    no stated shelf is unknown and does not hold.
-    """
     holding = {entry.collection for entry in scope if entry.shelf in HOLDING_SHELVES}
     return {collection: names for collection, names in pending.items() if collection in holding and names}
 
 
 def in_flight_names(pending: dict[str, list[str]]) -> list[str]:
-    """The pending filenames across collections, first occurrence wins."""
     names: list[str] = []
     for batch in pending.values():
         names.extend(name for name in batch if name not in names)
@@ -240,13 +186,6 @@ def in_flight_names(pending: dict[str, list[str]]) -> list[str]:
 
 @dataclass(frozen=True)
 class Inventory:
-    """What the turn can read, and what it cannot read YET.
-
-    The distinction matters: without ``in_flight_documents`` a just-attached
-    plan looks exactly like a file that does not exist, and the answer omits
-    it silently instead of saying it could not be read yet.
-    """
-
     available_documents: list | None
     in_flight_documents: list[str] | None
     norm_families: tuple = ()
@@ -261,17 +200,6 @@ async def load_inventory(
     fetch_one: FetchOne | None = None,
     read_in_flight: ReadInFlight | None = None,
 ) -> Inventory:
-    """The inventory for ``scope``, and the uploads in it still being indexed.
-
-    It does not wait for them: this is one member of the turn's setup gather,
-    and the wait is announced first. ``_run`` yields :func:`pending_uploads`,
-    then awaits :func:`wait_for_uploads`.
-
-    Fail-open: an inventory that cannot be built costs the INVENTORY (the model
-    answers without the file list, exactly as it does for a scope with no
-    documents) and never the turn or its sibling branches. The per-collection
-    reads already degrade on their own; this catches what is left.
-    """
     fetch_one = fetch_one or get_available_documents_async
     read_in_flight = read_in_flight or ingest_status_store.in_flight_files
     try:
@@ -287,10 +215,6 @@ async def load_inventory(
 
 
 def pending_uploads(inventory: Inventory) -> StatusStep | None:
-    """The step that says the turn is holding for an upload, or ``None`` when it will not hold.
-
-    The reader is told why the first byte is late before the wait starts.
-    """
     if not inventory.pending or ingest_wait_seconds() <= 0:
         return None
     return documents_waiting_step(file_count=sum(len(names) for names in inventory.pending.values()))
@@ -304,16 +228,6 @@ async def wait_for_uploads(
     read_in_flight: ReadInFlight | None = None,
     timeout_seconds: float | None = None,
 ) -> Inventory:
-    """HOLD THE TURN, bounded, for the uploads the inventory found still indexing.
-
-    A file attached seconds ago is invisible to retrieval until its job
-    finishes, and an answer written without it is wrong in the one way the
-    reader cannot see. A file that settled while we waited was absent from the
-    summaries table when the inventory was built, so the inventory is rebuilt
-    once. Its own span: the hold is the one setup cost that is minutes rather
-    than milliseconds. Fail-open like :func:`load_inventory`: a failed wait
-    keeps the inventory it was given.
-    """
     if not inventory.pending:
         return inventory
     try:
@@ -351,7 +265,5 @@ async def _hold(
 async def _documents_and_families(
     scope: list[ScopedCollection], fetch_one: FetchOne
 ) -> tuple[list | None, tuple, dict, tuple]:
-    """The documents, the families and cap drops the same read derived (read in
-    the task that set them), and every row before the cap."""
     documents, every_row = await load_available_documents(scope, fetch_one)
     return documents, tuple(get_norm_families()), dict(get_inventory_drops()), tuple(every_row)

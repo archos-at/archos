@@ -1,16 +1,3 @@
-"""What the model asked the spatial surface for and could not get.
-
-A JSONL ledger of vocabulary misses (``measure="wandstaerke"``), plus one
-ERROR log per distinct miss per process so the OTLP collector turns it into an
-issue. Only a NAME-shaped value leaves the process; the full text stays local.
-
-Record ONLY a value that is in no vocabulary. Not ``decidable: false`` (a
-finding about the export) and not a wrong GlobalId (a mistake the caller fixes
-in the same turn) — a ledger that logs every refusal is a log nobody reads.
-Nothing here may turn a working measurement into an error: the ledger is a
-convenience for us, the architect's answer is the product.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -39,12 +26,6 @@ MAX_ESCALATIONS = 50
 
 
 def default_path() -> Path:
-    """An application-owned state directory, never a predictable name in shared ``/tmp``.
-
-    A world-writable directory lets any local user pre-create the path as a
-    file (to read model-authored requests) or a symlink (to redirect the
-    append). The ``/tmp`` fallback is a directory of our own, created ``0o700``.
-    """
     state = os.environ.get("XDG_STATE_HOME")
     if state:
         return Path(state) / "aiq" / "capability-gaps.jsonl"
@@ -55,25 +36,17 @@ def default_path() -> Path:
 
 
 def ledger_path() -> Path:
-    """The ledger in use. The env var is a TRUSTED deployment override, never request-influenced."""
     override = os.environ.get("CAPABILITY_GAP_LOG")
     return Path(override) if override else default_path()
 
 
 def _one_line(value: Any) -> str:
-    """A model-authored value made safe for one line of a log read in a terminal."""
     text = str(value or "").strip()
     text = "".join(character for character in text if character.isprintable())
     return text[:MAX_VALUE_CHARS]
 
 
 class _Escalations:
-    """Registry of ``(surface, field, value)`` already reported as an ERROR in this process.
-
-    Per-process by design: the error IS the issue, so the hundredth retry of
-    one bad name must not be the hundredth issue. Reset in tests only.
-    """
-
     def __init__(self) -> None:
         self._seen: set[tuple[str, str, str]] = set()
         self._lock = threading.Lock()
@@ -98,14 +71,6 @@ def reset_escalations_for_tests() -> None:
 
 
 def record_gap(*, surface: str, field: str, asked_for: Any, known: Any = ()) -> None:
-    """Note that the caller wanted a name this surface does not have.
-
-    Called from a pydantic validator, which LangChain runs on the event loop
-    when it parses tool arguments — so when a loop is running the file write
-    and the escalation are handed to the loop's executor rather than done
-    inline. The refused call never reaches the tool body, so nothing later
-    could flush a queue; the executor is the only place the write can go.
-    """
     value = _one_line(asked_for)
     if not value:
         return
@@ -131,7 +96,6 @@ def _running_loop() -> asyncio.AbstractEventLoop | None:
 
 
 def _persist(row: dict[str, Any]) -> None:
-    """Append the row and escalate it. An unwritable ledger is logged, never raised."""
     try:
         _append_line(ledger_path(), json.dumps(row, ensure_ascii=False) + "\n")
     except OSError as exc:
@@ -140,12 +104,6 @@ def _persist(row: dict[str, Any]) -> None:
 
 
 def _append_line(path: Path, text: str) -> None:
-    """The one I/O unit: ``0o700`` directory, ``0o600`` file, no symlink following, capped size.
-
-    ``O_NOFOLLOW`` makes a symlink on the final component an error rather than
-    a redirect; ``Path.open("a")`` would follow it and take its mode from the
-    umask. The size is read off the open descriptor rather than stat'ed first.
-    """
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     handle = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND | os.O_NOFOLLOW, 0o600)
     try:
@@ -157,7 +115,6 @@ def _append_line(path: Path, text: str) -> None:
 
 
 def _escalate(row: dict[str, Any]) -> None:
-    """Report the miss as an ERROR once per distinct miss, so it becomes an issue."""
     value = str(row["askedFor"])
     if not _escalations.first_time((str(row["surface"]), str(row["field"]), value)):
         return
@@ -180,7 +137,6 @@ def _escalate(row: dict[str, Any]) -> None:
 
 
 def read_gaps(path: Path | None = None) -> list[dict[str, Any]]:
-    """Every row, oldest first. Unreadable lines are skipped, not raised."""
     target = path or ledger_path()
     if not target.exists():
         return []
@@ -203,7 +159,6 @@ def _parse_row(line: str) -> dict[str, Any] | None:
 
 
 def summarise(path: Path | None = None) -> list[dict[str, Any]]:
-    """The ledger as a ranked backlog: what was wanted, and how often."""
     counts: Counter[tuple[str, str, str]] = Counter()
     last_seen: dict[tuple[str, str, str], str] = {}
     for row in read_gaps(path):
@@ -218,7 +173,6 @@ def summarise(path: Path | None = None) -> list[dict[str, Any]]:
 
 
 def render_report(path: Path | None = None) -> str:
-    """The backlog as text a person can paste into an issue. A human files it, never this module."""
     rows = summarise(path)
     if not rows:
         return "Keine Lücken erfasst — jede Anfrage traf ein vorhandenes Werkzeug."

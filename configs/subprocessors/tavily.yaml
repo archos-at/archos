@@ -26,7 +26,7 @@ env: [TAVILY_API_KEY]
 sdks:
   - 'py:langchain-tavily'
 evidence:
-  - packages/tavily-web-search/src/register.py
+  - packages/tavily-web-search/src/tavily_web_search/register.py
 agreement:
   entity: AlphaAI Technologies Inc. d/b/a Tavily, New York, USA (the privacy policy and the terms give two different addresses). Nebius announced its acquisition in February 2026
   dpa: None published (tavily.com/dpa does not exist, the trust centre is empty). Ask Tavily for a DPA with standard contractual clauses and a no-retention, no-training term

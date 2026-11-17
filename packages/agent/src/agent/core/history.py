@@ -1,10 +1,3 @@
-"""Conversation history, trimmed to a token budget before it reaches a model.
-
-The conversation graph holds the whole thread; every node that hands the
-history to an agent hands it through here first, so the window a model sees is
-budgeted in TOKENS rather than in messages.
-"""
-
 import json
 import logging
 import re
@@ -26,11 +19,6 @@ logger = logging.getLogger(__name__)
 
 @lru_cache(maxsize=1)
 def _get_token_encoder():
-    """Cache a tiktoken encoder, or ``None`` when it cannot be had.
-
-    ``get_encoding`` downloads the BPE table on first use, so a missing
-    package and a transport failure are both "count by heuristic instead".
-    """
     try:
         import tiktoken
 
@@ -42,13 +30,6 @@ def _get_token_encoder():
 
 
 def warm_token_encoder() -> bool:
-    """Load the encoder now, so no turn pays for it; whether tiktoken is usable.
-
-    Blocking (a file read, or the BPE table's download on an empty cache):
-    called once at boot through ``asyncio.to_thread``. Without it the first
-    turn of every process paid it inside the conversation graph's first node,
-    synchronously, on the event loop every other turn shares.
-    """
     return _get_token_encoder() is not None
 
 
@@ -60,13 +41,6 @@ def _encoded_len(text: str) -> int:
 
 
 def _count_message_tokens(messages) -> int:
-    """Total approximate tokens across messages, for history-trim budgeting.
-
-    ``trim_messages`` invokes this on the list it holds — BaseMessage objects
-    or dict dumps — so content is pulled from either form; non-string content
-    is JSON-flattened before counting. Each message adds a small fixed
-    overhead for role/format framing.
-    """
     return sum(_encoded_len(_message_text(message)) + 4 for message in messages)
 
 
@@ -84,11 +58,6 @@ def trim_message_history(
     max_tokens: int,
     token_counter: Callable[..., int] | None = None,
 ) -> list[BaseMessage]:
-    """Trim conversation history to a real token budget (not a message count).
-
-    Keeps the most recent turns (``strategy="last"``), always retains system
-    messages, and starts the retained window on a human turn.
-    """
     return trim_messages(
         messages=[m.model_dump() for m in messages],
         max_tokens=max_tokens,
@@ -99,7 +68,6 @@ def trim_message_history(
     )
 
 
-# Remove this table, replay_retired_look_names and its test after 2026-12-01.
 _RETIRED_LOOK_NAMES: dict[str, dict[str, str | None]] = {
     "view_knowledge_image": {"file_name": "document", "page_number": "page", "collection": None},
     "canvas__look": {},
@@ -120,12 +88,6 @@ def _look_args(name: str, args: Any) -> Any:
 
 
 def replay_retired_look_names(messages: list[BaseMessage]) -> list[BaseMessage]:
-    """The history with past calls to ``view_knowledge_image`` and ``canvas__look`` shown as ``look``.
-
-    Covers the call (``tool_calls`` and provider ``tool_use`` blocks) and the
-    ``ToolMessage`` that answers it, with the arguments renamed. The messages
-    are copied, never edited: the stored transcript keeps what happened.
-    """
     replayed: list[BaseMessage] = []
     for message in messages:
         if isinstance(message, ToolMessage) and message.name in _RETIRED_LOOK_NAMES:
@@ -161,29 +123,12 @@ def _with_look_calls(message: AIMessage) -> AIMessage:
     return message.model_copy(update=update)
 
 
-# Anthropic, Context editing, 2026-11-09: clearing invalidates the cache, so prune once per batch.
 PRUNE_BATCH_TURNS = 4
 
 TRIM_TO_SHARE = 0.625
 
 
 def prune_tool_results(messages: list[BaseMessage], *, keep_turns: int = 1, batch_turns: int = 1) -> list[BaseMessage]:
-    """The history with tool results kept for the last ``keep_turns`` turns only.
-
-    A turn writes its whole transcript back to the conversation — the tool
-    calls, their results, the answer — so the NEXT turn has the passages the
-    last answer was written from in front of it and a follow-up („und in
-    GK 4?") needs no fetch at all. Older turns keep only what was said: the
-    ``ToolMessage``s go, and so does an ``AIMessage`` that was nothing but
-    tool calls (a provider rejects a call with no result, so the two leave
-    together); an assistant message with prose keeps its prose and drops its
-    calls. A turn starts at a ``HumanMessage``; the current question is a
-    turn of its own and counts.
-
-    ``batch_turns`` prunes in steps: the cut only moves when a whole batch of
-    turns has passed it, so a turn between two steps keeps the results of up
-    to ``batch_turns - 1`` turns more and leaves every earlier byte unchanged.
-    """
     messages = replay_retired_look_names(messages)
     boundaries = [i for i, m in enumerate(messages) if isinstance(m, HumanMessage)]
     if len(boundaries) <= keep_turns + 1:
@@ -209,20 +154,6 @@ def prune_tool_results(messages: list[BaseMessage], *, keep_turns: int = 1, batc
 
 
 def history_window(messages: list[BaseMessage], max_tokens: int) -> list[BaseMessage]:
-    """The history a model is handed: what was said always before what was read.
-
-    The previous turn's tool results ride along (:func:`prune_tool_results`), so a
-    follow-up („und für Wohnungen?") needs no fetch. When they do not fit the budget
-    they go, and the earlier questions and answers stay: trimming the full window
-    instead keeps the newest messages, which are those tool results, and
-    ``start_on="human"`` then drops the tail of the previous turn as well, leaving
-    the follow-up alone with no question it follows (live QA, 2026-10-27).
-
-    Both edits move in steps rather than on every turn, because each one
-    rewrites bytes the previous turn's cache entry holds: tool results go in
-    batches (:data:`PRUNE_BATCH_TURNS`), and the window's start moves only when
-    it overflows, then to well inside the budget (:func:`window_start`).
-    """
     pruned = prune_tool_results(messages, batch_turns=PRUNE_BATCH_TURNS)
     for fallback in ({}, {"keep_turns": 0}):
         if _count_message_tokens(pruned) <= max_tokens:
@@ -235,15 +166,6 @@ def history_window(messages: list[BaseMessage], max_tokens: int) -> list[BaseMes
 
 
 def window_start(messages: list[BaseMessage], max_tokens: int) -> int:
-    """Which turn the history window starts at, counted from 0: it moves in steps, from the transcript alone. Pure.
-
-    Replays the conversation turn by turn: the start stays put while the
-    window fits ``max_tokens``, and when it overflows it moves to the earliest
-    turn that leaves at most :data:`TRIM_TO_SHARE` of it. Each turn is sized as
-    prose only (its tool results pruned), the size it has once older, so a
-    turn's size never changes after it is stored and the replay gives every
-    later turn the same start until the next overflow.
-    """
     prose = prune_tool_results(messages, keep_turns=0)
     starts = [i for i, m in enumerate(prose) if isinstance(m, HumanMessage)]
     if not starts:
@@ -260,13 +182,6 @@ def window_start(messages: list[BaseMessage], max_tokens: int) -> int:
 
 
 def _prose_only(message: AIMessage) -> AIMessage | None:
-    """The message's prose with its tool calls gone, or ``None`` when it had none.
-
-    On the Responses API the calls ALSO live in ``content``, as
-    ``function_call`` blocks beside the text blocks, and langchain-openai sends
-    those blocks whatever ``tool_calls`` says. Clearing ``tool_calls`` alone
-    would leave a call with no result, which the provider refuses with a 400.
-    """
     content = message.content
     if isinstance(content, str):
         kept: str | list = content
@@ -285,21 +200,6 @@ UNCITED_PASSAGE_NOTE = "[passage not cited by the answer; open it again by its P
 
 
 def compact_tool_results(messages: list[BaseMessage], cited_keys: set[str]) -> list[BaseMessage]:
-    """The turn's tool results, cut to the passages the answer was written from.
-
-    A retrieval result is a run of ``--- Result N ---`` blocks, each a header
-    (source, page, Punkt, citation key) over a passage body. The answer cited
-    some of them; the rest were read and set aside. The next turn needs the
-    cited passages whole — a follow-up („und in GK 5?") is answered from them
-    — and of the rest only the fact that they exist and where: the header
-    stays, the body becomes one line. A heavy turn carried eight to ten
-    thousand tokens of results into the next one; the cited passages are a
-    fraction of that.
-
-    With no cited key at all the turn is left as it was: an answer that cited
-    nothing gives no signal about which passage mattered, and guessing would
-    cut the wrong one.
-    """
     if not cited_keys:
         return list(messages)
     wanted = {key.strip() for key in cited_keys}
@@ -331,8 +231,6 @@ def _compact_block(content: str, wanted: set[str]) -> str:
 
 
 def _header_only(block: str) -> str:
-    """The block up to its first blank line, then the note, then the trailing
-    text after the body (the next block starts there, or the block's own tail)."""
     header, sep, rest = block.partition("\n\n")
     if not sep:
         return block

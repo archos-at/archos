@@ -1,5 +1,3 @@
-"""Measuring: the measure and survey tools, distance, clearance, overhang, light incidence and storey heights."""
-
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -35,17 +33,6 @@ def _measure_one(
     model: SpatialModel,
     global_id: str,
 ) -> Any:
-    """One element's measurement, where a thrown exception is that element's
-    answer rather than the whole call's.
-
-    `run()` converts the two failures this package models — an unknown id and a
-    wrong kind — into `ToolError`. It does not convert a kernel-level failure: a
-    `RuntimeError` out of the tessellator propagates, and in a batch that aborts
-    the other forty-nine measurements. That is precisely the defect `survey` and
-    the multi-id `measure` were added to remove, so catching only `ToolError`
-    here reintroduces it one layer down. `element_profile` already caught
-    `Exception` for this reason; all three paths now share the rule.
-    """
     try:
         return run(lambda: fn(model, global_id))
     except Exception as exc:  # noqa: BLE001
@@ -53,7 +40,6 @@ def _measure_one(
 
 
 def _headline(measure: str, answer: dict[str, Any] | None) -> float | None:
-    """The scalar a summary should disperse over, or None if there isn't one."""
     value = (answer or {}).get("value")
     if isinstance(value, bool):
         return None
@@ -68,7 +54,6 @@ def _headline(measure: str, answer: dict[str, Any] | None) -> float | None:
 
 
 def _compact(value: Any) -> Any:
-    """Shorten the nested lists inside a measure's value, saying how many were cut."""
     if isinstance(value, list):
         if len(value) > _PROFILE_LIST_CAP:
             return [_compact(item) for item in value[:_PROFILE_LIST_CAP]] + [
@@ -81,27 +66,6 @@ def _compact(value: Any) -> Any:
 
 
 def measure(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) -> Any:
-    """One measurement, of one element or of MANY.
-
-    `globalId` takes a comma-separated list, the way `view` and
-    `fire/compartmentArea` already do. That is not a convenience — it is
-    what makes the common question answerable inside a caller's budget.
-
-    „Wie hoch ist der Keller?" is one question and seventeen rooms. Asked
-    one call at a time it costs seventeen tool calls, and the agent that
-    reported this had a budget of FIVE: it spent them on two briefings and
-    a storey table, was cut off before the first `clearHeight`, and fell
-    back to the declared storey pitch of 3.00 m for rooms whose measured
-    clear height is 2.70 m. The measurement was available and correct the
-    whole time; nothing in the answer was wrong except which number it
-    reached for, and it ran out of turns before it could reach the right
-    one.
-
-    A list also answers a question a single measurement cannot: whether the
-    rooms AGREE. „Alle 17 Kellerräume 2.70 m" is a different and much
-    stronger statement than one room measured and sixteen assumed, and it
-    is the statement a Raumhöhennachweis actually needs.
-    """
     model = resolve(args.get("model"))
     name = str(args.get("measure") or "")
     fn = MEASURE_FN.get(name)
@@ -265,24 +229,6 @@ def _mark_survey_truncated(
 
 
 def survey(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) -> Any:
-    """One measurement over a NAMED SET — selection, measurement and names
-    in a single call.
-
-    This exists because of the shape of the questions, not the shape of the
-    code. „Wie hoch ist der Keller?" is not a question about a room; it is a
-    question about seventeen rooms, and the honest answer is a range with an
-    outlier in it. Composed from primitives it costs `find_elements` +
-    `measure` + a GlobalId→Name join the caller has to carry in its head —
-    four turns of a five-turn budget, which is exactly how a real query came
-    back quoting the declared storey pitch of 3.00 m for rooms that measure
-    2.70 m, with one at 0.25 m nobody saw.
-
-    `find_elements` and `measure` stay: a caller who needs an unusual set,
-    or one element, should not pay for a survey. This is the composition of
-    the two, not a replacement for either — and it deliberately reports the
-    same set `find_elements` would, because names beside numbers are only
-    useful if they belong to the same rooms.
-    """
     model = resolve(args.get("model"))
     name = str(args.get("measure") or "")
     fn = MEASURE_FN.get(name)

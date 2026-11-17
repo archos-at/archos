@@ -284,9 +284,9 @@ lookup:
       AT-9: Wien
     # In the order a question is probed for them.
     choices: [Wien, Niederösterreich, Oberösterreich, Steiermark, Kärnten, Salzburg, Tirol, Vorarlberg, Burgenland]
-    # The project brief's fact line (`federal_state=lower_austria`; `bundesland=` from an older pod): it decides
-    # alone, so "Wiener Neustadt" never flips a Lower Austrian project to Wien. A project outside Austria names none.
-    fact_keys: [federal_state, bundesland]
+    # The project brief's fact line (`federal_state=lower_austria`): it decides alone, so "Wiener Neustadt" never
+    # flips a Lower Austrian project to Wien. A project outside Austria names none.
+    fact_keys: [federal_state]
     fact_values:
       vienna: Wien
       lower_austria: Niederösterreich

@@ -1,37 +1,3 @@
-"""True clearances and oriented extents — the dimensions ``distance`` and ``extent`` cannot give.
-
-Three operators, all of them answers to the same defect: the metric operators in
-:mod:`~ifc_spatial.operators` measure **boxes and centroids**, and an architect
-asking for a *lichte Breite* is asking about **surfaces**.
-
-## The defect, with the numbers that name it
-
-``distance(a, b, 'min')`` is the gap between two axis-aligned bounding BOXES, and
-``distance(a, b, 'horizontal')`` is the distance between two area-weighted mesh
-CENTROIDS — an Achsabstand. On a 1.00 m doorway between two 30 cm walls the
-centroid route returns **1.30 m**: too large by half of each wall, in the
-direction that turns a failed escape-route width into a passing one. Measured in
-this repository's own sample house, the same shape of error appears between the
-bedroom and the living room, which are separated by one 95 mm partition:
-``distance(…, 'horizontal')`` reports **7.082 m** (centre of one room to centre
-of the other) and :func:`clear_width` reports **0.095 m**, the partition itself.
-Both numbers are correctly computed; only one of them is a clearance.
-
-``extent()`` has the mirror-image problem: its box is axis-aligned to the MODEL.
-For the sample house's two skewed chairs (type ``1120x940x350mm``, set at 37° and
-55° in plan) the axis-aligned footprint measures 1.428 × 1.400 m — an area of
-2.00 m² against the true 1.09 m², **84 % too large** — while
-:func:`oriented_extent` returns 1.116 × 0.973 m, which is the chair.
-
-## What this module refuses to do
-
-Nothing here judges. A clear width is measured and handed over with its
-tolerance, the pair of points it was measured between, and a caveat naming what
-kind of clearance it is (Rohbaulichte, not lichte Durchgangsbreite). Whether
-0.810 m is enough is a question about a Bestimmung, and the Bestimmung answers
-it.
-"""
-
 from __future__ import annotations
 
 import math
@@ -66,17 +32,6 @@ _MIN_TRIANGLE_AREA = 1e-12
 
 
 def _closest_on_triangles(points: np.ndarray, tris: np.ndarray) -> np.ndarray:
-    """Closest point on each triangle to each point — Ericson, vectorised.
-
-    ``points`` is (n, 3) and ``tris`` is (n, 3, 3); both may be broadcast views,
-    which is how one point is tested against many triangles and vice versa.
-
-    The seven Voronoi regions of a triangle (three vertices, three edges, the
-    interior) are evaluated as masks rather than branches, applied in REVERSE
-    priority so that the higher-priority region overwrites: interior, BC, CA, C,
-    AB, B, A. Getting that order wrong is silent — it produces a point on the
-    triangle, just not the nearest one — which is why it is spelled out.
-    """
     a, b, c = tris[..., 0, :], tris[..., 1, :], tris[..., 2, :]
     ab, ac = b - a, c - a
     d1 = ((points - a) * ab).sum(-1)
@@ -108,13 +63,6 @@ def _closest_on_triangles(points: np.ndarray, tris: np.ndarray) -> np.ndarray:
 def _closest_between_segments(
     p1: np.ndarray, q1: np.ndarray, p2: np.ndarray, q2: np.ndarray
 ) -> tuple[np.ndarray, np.ndarray]:
-    """The closest pair of points on two segments — Ericson, vectorised.
-
-    Needed because vertex-to-surface tests alone are not a distance between
-    solids: two crossing edges (a beam over a rail, the two reveals of a doorway
-    seen in plan) realise their minimum in the interior of both edges, where no
-    vertex of either is involved.
-    """
     d1, d2, r = q1 - p1, q2 - p2, p1 - p2
     a = (d1 * d1).sum(-1)
     e = (d2 * d2).sum(-1)
@@ -138,23 +86,6 @@ def _closest_between_segments(
 
 
 def _segments_hit_triangles(p: np.ndarray, q: np.ndarray, tris: np.ndarray) -> np.ndarray:
-    """Möller–Trumbore: which segments p→q pass through their triangle.
-
-    All three arguments broadcast against each other — (n, 3), (n, 3), (n, 3, 3)
-    — so one call covers a triangle's three edges against many triangles and the
-    reverse.
-
-    Without this the pair distance is wrong for INTERSECTING solids, and wrong in
-    the dangerous direction. Two triangles crossing in an X have no vertex inside
-    the other and no pair of edges that meet: all fifteen vertex/edge tests come
-    back with a positive number, and a clearance of several centimetres gets
-    reported between two bodies that pass straight through each other. A segment
-    that crosses a triangle is a distance of exactly zero.
-
-    Coplanar (parallel) overlaps need no special case here: a coplanar pair that
-    overlaps always has either a vertex inside the other triangle or a pair of
-    crossing edges, and the fifteen tests already return zero for both.
-    """
     edge1 = tris[..., 1, :] - tris[..., 0, :]
     edge2 = tris[..., 2, :] - tris[..., 0, :]
     direction = q - p
@@ -175,31 +106,6 @@ _EDGE_B = np.tile([0, 1, 2], 3)
 
 
 def _triangle_distances(tri: np.ndarray, tris: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Exact distance from one triangle to many, with the witness points.
-
-    Fifteen tests, which together are the triangle-triangle distance, plus six
-    crossing tests:
-
-      - 9 edge-edge closest pairs,
-      - 3 vertices of ``tri`` against each of ``tris`` and 3 the other way,
-      - 6 segment-through-triangle tests, the only thing that catches a proper
-        crossing (see :func:`_segments_hit_triangles`).
-
-    ## Why all fifteen are one batch
-
-    Because this is called once per surviving candidate block and the arrays are
-    SMALL — a few dozen triangles — the cost is NumPy call overhead, not
-    arithmetic. Written as fifteen separate calls (the obvious way, and how this
-    started) one invocation costs 3.0 ms on 41 candidates and the sample house's
-    worst pair — the sliding door against a chair — took **3.09 s**. Stacked into
-    three batched calls over 9k, 3k and 3k rows it costs 1.36 ms and the same pair
-    takes **1.44 s**. Identical arithmetic, identical answer to the last bit, less
-    than half the Python.
-
-    Returns ``(distance, point_on_tri, point_on_tris)`` — the witnesses travel
-    with the number because a clearance nobody can point at cannot be checked
-    against a drawing.
-    """
     count = len(tris)
     rows = np.arange(count)
 
@@ -238,7 +144,6 @@ def _triangle_distances(tri: np.ndarray, tris: np.ndarray) -> tuple[np.ndarray, 
 
 
 def _usable_triangles(geo: ElementGeometry) -> np.ndarray:
-    """The element's triangles with the degenerate ones dropped."""
     tris = geo.triangles
     _, areas = triangle_normals_areas(tris)
     return tris[areas > _MIN_TRIANGLE_AREA]
@@ -247,61 +152,6 @@ def _usable_triangles(geo: ElementGeometry) -> np.ndarray:
 def _soup_distance(
     tris_a: np.ndarray, tris_b: np.ndarray, budget: float
 ) -> tuple[float, np.ndarray, np.ndarray, int, bool]:
-    """Minimum distance between two triangle soups, with the witness pair.
-
-    ## Complexity, and what it costs on real meshes
-
-    The exact test is O(1) per triangle PAIR, so all-pairs is O(n·m) and a naive
-    version of it is hopeless. Measured on the two worst pairs in the sample
-    house, both of which a caller could legitimately ask about:
-
-    ============================  =========================  =====================
-    2 636-tri door / 3 618-tri chair
-    all pairs, no pre-filter      9 537 048 exact tests      ~73 s (extrapolated)
-    box pre-filter, natural order 104 233 exact tests        2.84 s
-    box pre-filter, sorted+break  41 657 exact tests         **1.44 s**
-    3 618-tri chair / 3 618-tri chair
-    all pairs, no pre-filter      13 089 924 exact tests     ~102 s (extrapolated)
-    box pre-filter, natural order 4 250 exact tests          0.81 s
-    box pre-filter, sorted+break  3 678 exact tests          **0.041 s**
-    ============================  =========================  =====================
-
-    Two things do that, and neither changes the answer by a bit:
-
-    1. **A box lower bound per triangle.** The axis-aligned gap between two
-       triangles' boxes is a true lower bound on their distance and costs six
-       comparisons, vectorised over the whole of B at once. Only triangles whose
-       bound is below the best distance so far are tested exactly. Worth 90× on
-       the door and the chair.
-    2. **Sorted order plus a break.** The triangles of A are visited in ascending
-       order of their box's lower bound to the WHOLE of B, so the minimum is
-       usually found in the first few and the bound tightens immediately.
-       Ascending order is what makes the break sound: the first triangle whose
-       bound is not below the best proves that no LATER one can beat it either, so
-       the loop stops instead of continuing. Note the second row of the chair
-       pair: the break saves barely any exact TESTS (4 250 → 3 678) and still
-       makes it about 20× faster, because what it really saves is 3 600 outer
-       iterations, each of which was computing a 3 618-element bound array for a
-       triangle that could not win.
-
-    Two further ideas were implemented, measured and thrown away rather than
-    kept on the strength of how sensible they sound: seeding ``best`` with a
-    centroid-sampled upper bound, and testing the candidates in bound order in
-    blocks so that ``best`` tightens inside one triangle's sweep. Together they
-    take the door/chair pair from 41 657 exact tests to 38 295 (8 %, and 1.44 s to
-    1.43 s) and the chair pair from 0.041 s to 0.022 s, at the price of a
-    sampling threshold and a nested loop. Neither is in this function.
-
-    What remains is O(n·m) in the box arithmetic, which is vectorised, and
-    O(surviving pairs) in the exact tests. It stops being viable at roughly 10⁴
-    triangles per element on ADVERSARIAL input — two long, finely meshed,
-    near-parallel faces, where there is nothing to prune because every pair really
-    is near-minimal. That is what :data:`CLEARANCE_BUDGET_SECONDS` is for; past it
-    the right structure is a BVH over each mesh, which is a bigger change than
-    this module.
-
-    Returns ``(distance, point_on_a, point_on_b, exact_pairs_tested, aborted)``.
-    """
     lo_a, hi_a = tris_a.min(axis=1), tris_a.max(axis=1)
     lo_b, hi_b = tris_b.min(axis=1), tris_b.max(axis=1)
     whole_b = (lo_b.min(axis=0), hi_b.max(axis=0))
@@ -339,45 +189,6 @@ def _soup_distance(
 
 
 def clear_width(model: SpatialModel, a_global_id: str, b_global_id: str) -> Answer[dict[str, Any]]:
-    """The true minimum surface-to-surface distance between two solids, in metres.
-
-    This is a **lichte Breite**, and it is the number ``distance()`` does not
-    have. Its four modes are a box gap (``min``) and three mesh-centroid
-    distances (``centroid``, ``horizontal``, ``vertical``); a box gap of 0 does
-    not prove that two solids touch, and a centroid distance is an *Achsabstand*
-    that includes half of each element. On a 1.00 m doorway between two 30 cm
-    walls the Achsabstand is 1.30 m — 30 % too generous, on the side that turns a
-    failed escape route into a passing one.
-
-    Measured here on the sample house, bedroom against living room, separated by
-    one 95 mm partition:
-
-    ==========================  =========
-    ``distance('min')``         0.095 m
-    ``distance('horizontal')``  7.082 m
-    ``clear_width``             0.095 m
-    ==========================  =========
-
-    The box gap agrees there **because both spaces are axis-aligned boxes**, which
-    is the one case in which a box gap is a clearance. Where it fails, it fails
-    silently and in the dangerous direction. The pitched roof against the interior
-    partition wall, in the same file:
-
-    ==========================  =========
-    ``distance('min')``         0.000 m
-    ``clear_width``             0.995 m
-    ==========================  =========
-
-    Zero, because the roof's bounding box swallows the wall's — and a caller
-    reading 0 m as "these touch" would be wrong by a metre. A box gap is a lower
-    bound on the clearance and never an upper one, so it can only ever err on the
-    side of reporting elements as closer than they are.
-
-    The answer carries the two points it was measured between, so a reviewer can
-    put a dimension line on it in their own model. It also carries ``boxGap``, the
-    number ``distance('min')`` would have returned, because the size of that
-    difference is the finding.
-    """
     method = f"clearWidth({a_global_id}, {b_global_id})"
     first = _require(model, a_global_id, method)
     second = _require(model, b_global_id, method)
@@ -518,20 +329,6 @@ def clear_width(model: SpatialModel, a_global_id: str, b_global_id: str) -> Answ
 
 
 def _aperture_polygon(model: SpatialModel, element: Any) -> tuple[Any, np.ndarray] | None:
-    """The element's faces projected onto its own plane, unioned — and the plane.
-
-    This is exactly the projection ``operators._clear_opening_area`` performs, and
-    it is kept in step with it deliberately: that function returns only the AREA
-    of the union, and a width cannot be recovered from an area. ``test_clearance``
-    asserts that the union built here has the same area as
-    ``_clear_opening_area`` reports for all three openings of the sample house, so
-    the two cannot drift apart unnoticed.
-
-    Returns ``(polygon, normal)`` in the plane's own 2D frame — x along the
-    horizontal in-plane axis, y along the vertical one — or ``None`` when the
-    element has no usable body or no vertical plane to project along (a skylight
-    in a flat roof).
-    """
     import shapely
     import shapely.ops
 
@@ -571,49 +368,6 @@ def _aperture_polygon(model: SpatialModel, element: Any) -> tuple[Any, np.ndarra
 
 
 def clear_opening_width(model: SpatialModel, opening_or_filler_global_id: str) -> Answer[dict[str, Any]]:
-    """The clear width and height of one opening, measured on its own aperture.
-
-    The number an OIB door-width or escape-route-width check actually wants, and
-    the reason it is a separate operator from :func:`clear_width`: a clear width
-    measured BETWEEN two neighbouring elements needs the right two neighbours, and
-    the two reveals of a doorway are usually the same wall. An opening knows its
-    own aperture.
-
-    The method is ``operators._clear_opening_area``'s: the opening is a prism
-    driven through the wall, so its faces projected along its own plane normal
-    land on top of each other and the shapely union of that projection is the
-    clear aperture. This takes the union's extent along the horizontal in-plane
-    axis as the width and along the vertical one as the height, which is right for
-    a round-headed or trapezoidal window where a bounding box in model coordinates
-    is not.
-
-    Verified against the sample house's own type names, which is the only oracle
-    worth having: ``810x2110mm`` → 0.810 × 2.110 m, ``1810x1210mm`` →
-    1.810 × 1.210 m, ``1810x2110mm`` → 1.810 × 2.110 m. Exact to the millimetre in
-    all three.
-
-    ## What is measured, and what a Bestimmung may instead mean
-
-    This is the **Rohbaulichte** — the clear structural opening. A lichte
-    Durchgangsbreite is measured between the finished frame rebates and is
-    15–25 % smaller on an ordinary door. The two are not interchangeable and the
-    caveat says which one this is; deciding which the clause means is the clause's
-    job.
-
-    ## The fallback, and which way it is wrong
-
-    A window or door is followed through ``FillsVoids → RelatingOpeningElement``
-    to its opening. When no opening carries geometry — 84 % of the fenestration in
-    one ArchiCAD export in the corpus, because the wall body was written with the
-    hole already subtracted — the element's own body is measured instead, and that
-    number is **too LARGE**, not too small. Measured on this file: the internal
-    door's body projects to 0.880 m against its opening's 0.810 m, and both
-    1810 mm units project to 1.860 m against 1.810 m. The lining and the
-    architrave overlap the wall face on both sides, so the silhouette is 50–70 mm
-    wider than the hole it sits in. That is the direction that turns a failing
-    escape route into a passing one, so the fallback is labelled as an upper
-    bound every time it is used.
-    """
     method = f"clearOpeningWidth({opening_or_filler_global_id})"
     subject = _require(model, opening_or_filler_global_id, method)
     kind = model.kind_of(subject)
@@ -714,24 +468,6 @@ def clear_opening_width(model: SpatialModel, opening_or_filler_global_id: str) -
 
 
 def _minimum_area_rectangle(points: np.ndarray) -> tuple[float, float, np.ndarray] | None:
-    """The minimum-area rectangle enclosing a 2D point set — rotating calipers.
-
-    Returns ``(long_side, short_side, long_axis_unit_vector)``, or ``None`` when
-    the points are collinear and there is no rectangle to speak of.
-
-    Only the convex hull's own edge directions are tried, which is not an
-    approximation but the theorem: the minimum-area enclosing rectangle of a
-    convex polygon has a side collinear with one of its edges. So the hull is
-    walked once and every edge is tried, and the result is exact.
-
-    Sampling angles instead is the obvious alternative and it is wrong. Measured
-    on the sample house's skewed chair, whose true minimum is 1.0862 m² at 37°: a
-    5° sweep returns **1.1481 m² at 35°** (5.7 % too large, the axis 2° off), a 2°
-    sweep 1.1154 m² at 36°, and only a 1° sweep finds 37° — because 37 happens to
-    be an integer. A degree of axis error is 25 cm at the end of a 14 m wall, and
-    the too-large area is the direction that makes a room look bigger than it is.
-    Trying |hull| directions costs less than the 90 evaluations of the 1° sweep.
-    """
     import shapely
 
     hull = shapely.MultiPoint([(float(p[0]), float(p[1])) for p in points]).convex_hull
@@ -766,65 +502,6 @@ def _minimum_area_rectangle(points: np.ndarray) -> tuple[float, float, np.ndarra
 
 
 def oriented_extent(model: SpatialModel, global_id: str) -> Answer[dict[str, Any]]:
-    """The element's own length, width and height — a minimum-area oriented box.
-
-    ``extent()`` returns a box axis-aligned to the MODEL, and for anything skewed
-    to the model axes its ``width`` and ``depth`` are systematically too large and
-    are not the element's length and thickness. Measured on the sample house's
-    chair ``Furniture_Chair_Viper:1120x940x350mm``, which stands 37° off the model
-    axes:
-
-    ===================  ================  ==================
-    ``extent()``         1.428 × 1.400 m   footprint 2.000 m²
-    ``oriented_extent``  1.116 × 0.973 m   footprint 1.086 m²
-    ===================  ================  ==================
-
-    The axis-aligned footprint is **84 % too large**, and its ``width`` of 1.428 m
-    is a dimension of nothing: the chair's own long side is 1.116 m, four
-    millimetres off the 1120 mm in its type name. The second chair, at 35°, gives
-    the identical 1.116 × 0.973 m from a different axis-aligned box (1.424 ×
-    1.389 m) — which is the point, since it is the same chair. A wall skewed in
-    plan fails the same way, and there the wrong number is a wall thickness.
-
-    ## How, and why only hull edges are tried
-
-    The footprint is hulled in plan and the minimum-area enclosing rectangle is
-    found by rotating calipers — the minimum-area rectangle of a convex polygon
-    has a side collinear with a hull EDGE, so trying every hull edge is exact and
-    sampling angles is not. See :func:`_minimum_area_rectangle`.
-    ``shapely.minimum_rotated_rectangle`` does exist in the installed 2.1.2 and it
-    is trustworthy — it agrees with this to 2.2e-16 m² on the chair and on a
-    hand-rotated 2 × 1 rectangle, and ``test_clearance`` keeps checking that it
-    does. It is not used because a polygon does not hand back the axis and the two
-    extents, and re-deriving them from its corners is the same rotating-caliper
-    arithmetic with an extra parse in front of it.
-
-    Height is the Z extent, unchanged from ``extent()``: no rotation about a
-    horizontal axis is attempted, because a building element that is tilted out of
-    plumb is a different question and a rectangle in plan is what a floor plan
-    dimensions.
-
-    ## The two angles, which are not the same angle
-
-    ``rotation`` is where the LONG AXIS points, in degrees clockwise from north,
-    folded into [0, 180) because an axis has no direction. ``deviation`` is how
-    far the box is turned out of the model axes, in [0, 45], because a rectangle
-    maps onto itself every 90°. The chair at ``rotation`` 53° has ``deviation``
-    37°; the second chair at 125° has 35°.
-
-    Unlike :func:`~ifc_spatial.operators.azimuth`, this does not refuse when the
-    file declares no ``TrueNorth``. The shape is measured in model coordinates and
-    is a fact either way, so the answer stands and ``northKnown`` is ``False``,
-    ``rotation`` is then relative to model +Y, and the caveat says so. Refusing
-    would withhold a correct length and width over a compass question nobody
-    asked.
-
-    ## When ``extent()`` would have been fine
-
-    ``axisAligned`` says so outright. Every wall, window, door and room of the
-    sample house comes back with ``deviation`` below 1.2e-13 °, which is the
-    answer "use ``extent()``, it costs less and says the same thing".
-    """
     method = f"orientedExtent({global_id})"
     subject = _require(model, global_id, method)
     geo, missing = _geometry_or_answer(model, subject, method)

@@ -1,12 +1,3 @@
-"""The model's transcript carries a tool result without its ``## Trace-Lanes`` line.
-
-Through the compiled graph, because the strip sits in the tools node between
-two readers that must see different bytes: the source capture, which files the
-hits under the bytes the tool returned, runs BEFORE it; the transcript the
-model reads on its next call, the repeat-fetch answer and the checkpointed
-history all read AFTER it. A unit test of the helper cannot fail on the order.
-"""
-
 from __future__ import annotations
 
 from unittest.mock import AsyncMock
@@ -44,9 +35,8 @@ _RESULT = (
 )
 
 
-@tool
+@tool(description="Search the OIB knowledge corpus.")
 def knowledge_search(query: str) -> str:
-    """Search the OIB knowledge corpus."""
     turn_status.record_lane_hit("oib-rl_2_ausgabe_mai_2023.pdf", title="OIB-Richtlinie 2, Ausgabe Mai 2023")
     return _RESULT
 
@@ -97,7 +87,6 @@ async def test_the_transcript_carries_the_passages_and_not_the_lanes():
 
 @pytest.mark.asyncio
 async def test_the_capture_still_sees_the_hit_the_tool_recorded():
-    """Stripping happens after the capture: the ledger and the registry lose nothing."""
     agent = _agent(
         _search("c1"), AIMessage(content='```answer_json\n{"answer": "Die OIB 2 [1].", "kind": "walkthrough"}\n```')
     )
@@ -110,7 +99,6 @@ async def test_the_capture_still_sees_the_hit_the_tool_recorded():
 
 @pytest.mark.asyncio
 async def test_a_repeat_is_answered_with_the_stripped_result():
-    """The duplicate-fetch guard hands back the first execution's text — the text the model read."""
     agent = _agent(
         _search("c1"),
         _search("c2"),

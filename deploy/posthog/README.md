@@ -192,7 +192,7 @@ in the view makes PostHog read every row.
 
 | File | View |
 |---|---|
-| [`prod_events.sql`](views/prod_events.sql) | `prod_events`: every production event, staging left out, with `app_host` and `organization_id` |
+| [`prod_events.sql`](views/prod_events.sql) | `prod_events`: every production event, staging left out, with `deployment`, `app_host` and `organization_id` |
 | [`customer_events.sql`](views/customer_events.sql) | `customer_events`: `prod_events` without the platform's own offices |
 
 ## Skills

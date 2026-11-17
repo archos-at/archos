@@ -26,8 +26,8 @@ uv workspace. How they fit and how they are tested:
 - A tool's `nat.plugins` entry point goes in its **own package's**
   `pyproject.toml`, one per registering module; a tool on an optional extra gets
   its own (`bim_measure`). Nothing reports a missing one.
-- From outside `knowledge_layer`, import a subpackage's names from its surface
-  and patch the module object (the `package-surfaces` hook).
+- Outside a `knowledge_layer` subpackage, import its surface and patch where
+  your code looks a name up, never a submodule (`package-surfaces`).
 - Read a third-party key from the tool's config at build time, never from
   `os.environ` at import.
 - Return citable evidence as `GroundingHit` records through

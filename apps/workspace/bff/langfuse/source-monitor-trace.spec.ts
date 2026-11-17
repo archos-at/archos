@@ -17,11 +17,14 @@ afterEach(() => {
 })
 
 describe('sourceMonitorBatch', () => {
-  it('tags the run with the deployment’s host', () => {
+  it('tags the run with the deployment’s host and stack', () => {
     vi.stubEnv('WORKOS_REDIRECT_URI', 'https://app.example.test/api/auth/callback')
+    vi.stubEnv('POSTHOG_DEPLOYMENT', 'prod')
     const run = { startedAt: 0, endedAt: 1, checked: 0, changed: 0, failed: 0, opened: 0, lags: [] }
     const [trace] = sourceMonitorBatch(run, { traceId: 'a'.repeat(32), eventId: () => 'event-1' }).batch
-    expect(trace?.body).toMatchObject({ tags: ['feature:source-monitor', 'app_host:app.example.test'] })
+    expect(trace?.body).toMatchObject({
+      tags: ['feature:source-monitor', 'app_host:app.example.test', 'deployment:prod'],
+    })
   })
 
   it('posts the run as a trace and one freshness score per watched source', () => {

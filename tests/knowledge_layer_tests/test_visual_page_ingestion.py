@@ -3,11 +3,11 @@ from unittest.mock import MagicMock
 
 import pytest
 from knowledge_layer.ingest import LlamaIndexIngestor
+from knowledge_layer.ingest import _parse_drawing_fields
+from knowledge_layer.ingest import _scrub_watermark_phrases
+from knowledge_layer.ingest import _strip_watermark_lines
+from knowledge_layer.ingest import _summary_from_drawing_fields
 from knowledge_layer.ingest import adapter
-from knowledge_layer.ingest.adapter import _parse_drawing_fields
-from knowledge_layer.ingest.adapter import _scrub_watermark_phrases
-from knowledge_layer.ingest.adapter import _strip_watermark_lines
-from knowledge_layer.ingest.adapter import _summary_from_drawing_fields
 from knowledge_layer_testing.vector_store import FakeEmbedder
 from knowledge_layer_testing.vector_store import record
 from knowledge_layer_testing.vector_store import write

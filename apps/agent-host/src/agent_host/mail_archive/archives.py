@@ -1,30 +1,3 @@
-"""Open archives, kept for the next slice.
-
-Opening an archive reads its header and B-tree roots, and a slice of the BFF's
-import asks for a page of messages and then each of their attachments: a dozen
-requests against the same archive within seconds. Each would otherwise reopen
-it and refill the block cache. So an archive stays open between requests,
-for a few minutes after its last use, and at most :data:`MAX_OPEN` idle ones
-per process.
-
-An open archive is found again by the OBJECT its URL names (origin and path,
-:func:`object_of`), never by a name the caller states beside the URL. A
-presigned URL is the capability: whoever holds one for an object may read it,
-and holding one means the store honours it. So a URL that finds an open archive
-is first proven with a one-byte read of the object (``RangeFile.prove``): a
-URL with a missing, wrong or expired signature is refused (502) before any
-cached block is served, and the open archive keeps the URL it had.
-Keyed on a caller-stated name, a request carrying another tenant's name and a
-URL for any object of its own (with the same size) was handed the other
-tenant's open archive, whose blocks are cached. A replica that never saw the archive
-simply opens it; nothing depends on landing on the same one.
-
-An archive in use is never closed under its reader: :func:`use_archive` holds a
-count, eviction passes over a held archive, and the last holder closes one that
-was evicted meanwhile. Idle archives are closed by a janitor thread, so a
-replica that stops being asked does not keep their block caches (64 MiB each).
-"""
-
 from __future__ import annotations
 
 import threading
@@ -64,14 +37,12 @@ _janitor: threading.Thread | None = None
 
 
 def object_of(url: str) -> str:
-    """The object a presigned URL names: its origin, case-folded as hosts are, and path, never the query."""
     parts = urlsplit(url)
     return f"{parts.scheme.lower()}://{parts.netloc.lower()}{parts.path}"
 
 
 @contextmanager
 def use_archive(url: str, size: int) -> Iterator[Archive]:
-    """The archive ``url`` names, read through it, held open for the block."""
     entry = _acquire(object_of(url), url, size)
     try:
         with entry.archive.lock:
@@ -82,7 +53,6 @@ def use_archive(url: str, size: int) -> Iterator[Archive]:
 
 
 def reset_open_archives() -> None:
-    """Close every open archive. For tests, and for nothing else."""
     with _lock:
         entries = list(_open.values())
         _open.clear()
@@ -116,14 +86,12 @@ def _acquire(key: str, url: str, size: int) -> _Open:
 
 
 def _retire(stale: _Open, closable: list[_Open]) -> None:
-    """The key now names a different object: mark the old one evicted, and close it now if nobody holds it."""
     stale.evicted = True
     if not stale.holders:
         closable.append(stale)
 
 
 def _hold_cached(key: str, size: int) -> _Open | None:
-    """The open archive for ``key``, held so it outlives the proof; ``None`` on a miss."""
     with _lock:
         entry = _open.get(key)
         if entry is None or entry.size != size:
@@ -134,11 +102,6 @@ def _hold_cached(key: str, size: int) -> _Open | None:
 
 
 def _proven(entry: _Open, url: str) -> _Open:
-    """``entry``, read through ``url`` from now on, once the store has honoured ``url``.
-
-    Outside ``_lock``: the proof is a request. A URL the store refuses raises
-    :class:`RemoteFileError` and leaves the entry as it was for its other holders.
-    """
     try:
         entry.file.prove(url)
     except BaseException:
@@ -158,7 +121,6 @@ def _release(entry: _Open) -> None:
 
 
 def _evict_over_capacity() -> list[_Open]:
-    """Drop the least recently used idle archives past :data:`MAX_OPEN`; those safe to close now. Holds ``_lock``."""
     closable: list[_Open] = []
     for key in list(_open):
         if len(_open) <= MAX_OPEN:

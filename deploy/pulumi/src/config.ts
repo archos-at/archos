@@ -17,9 +17,7 @@ import { type CmsConfig, loadCms } from "./config/cms";
 import { refuseInClusterAppArchive } from "./config/barman-backups";
 import { type PosthogConfig, loadPosthog } from "./config/posthog";
 import {
-  type ChromaMigrationConfig,
   type QdrantConfig,
-  loadChromaMigration,
   loadQdrantDashboard,
   loadQdrant,
   refuseRetiredVectorKeys,
@@ -94,8 +92,6 @@ export interface DeployConfig {
   };
 
   publicSourceFetcher: { replicas: number };
-
-  chromaMigration: ChromaMigrationConfig;
 
   qdrant: QdrantConfig;
 
@@ -296,8 +292,6 @@ export function loadConfig(): DeployConfig {
     ...loadWorkers(cfg),
 
     geocoderUrl: loadGeocoderUrl(cfg),
-
-    chromaMigration: loadChromaMigration(cfg),
 
     qdrant: loadQdrant(cfg, qdrantDashboard),
 

@@ -1,50 +1,3 @@
-"""``create_task``: the chat turn's way of handing work over instead of pretending.
-
-## The failure this exists to stop
-
-„Mach den Einreichcheck bis Freitag" is not a question, and until now the only
-thing a turn could do with it was answer as though it were one — or, worse,
-answer „mache ich" about work that would never happen, because a chat turn ends
-when the answer ships and nothing outlives it. ADR-0051 built the row that does
-outlive it, and named a chat handoff as one of the triggers that should create
-one. This is that trigger.
-
-## Two triggers, one row
-
-„prüf das jeden Montag" is the same entity as „prüf das bis Freitag", with a
-recurring trigger instead of a one-off one (migration 0086 collapsed jobs and
-delegated tasks into `task_definitions` + `task_runs` for exactly this). The
-optional ``cadence`` argument is where a chat turn says „jeden Montag": the BFF
-creates a ``schedule`` definition and the scheduler fires it, instead of
-dispatching one run now. A cadence is gated on ``project:skills:manage`` — the
-recurrence is the repeated-spend act — and the refusal comes back as text the
-model can relay.
-
-## What it does and does not decide
-
-It decides WHICH KIND of work and WHAT was asked. It decides nothing about
-identity, permission or budget: the BFF reads the acting person out of the
-signed envelope this tool echoes, resolves that person's pinned session, checks
-`project:edit` (plus `project:skills:manage` for a cadence) against the named
-project and pins them as the task's requester (ADR-0054 §4, ADR-0055). A run
-with no envelope — a CLI call, an eval, a background run that carries none
-(ADR-0108) — has no acting person, and the tool refuses rather than falling
-back to the unsigned individual headers.
-
-The task then costs the requester's budget and runs under their permissions,
-which is why creating one is a real act and why the prompt tells the model to
-SAY it created one, in one sentence, and never to claim the work is done.
-
-## Why the kinds are closed
-
-Four members, `TaskKind` in `cards/workspace_cards.py` (the BFF's `DELEGATABLE_TASK_KINDS`
-is generated from it), because
-each one names an ENGINE that already exists — a norm check by the general
-agent, the Einreichcheck skill, the drafting tools, the revision path. An open `kind` string
-would let the model delegate „Kostenschätzung" to a queue that has nothing to run
-it with, and the failure would arrive hours later as a task that did nothing.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -89,8 +42,6 @@ _NO_ENVELOPE = (
 
 
 class _Refused(Exception):
-    """A model-facing refusal, raised where it is discovered."""
-
     def __init__(self, message: str) -> None:
         super().__init__(message)
         self.message = message
@@ -126,7 +77,6 @@ def _goal_or_refuse(goal: str) -> str:
 
 
 def _cadence_or_refuse(cadence: str) -> str:
-    """The recurrence, as the 5-field cron the scheduler claims."""
     text = " ".join((cadence or "").split())
     if not text:
         raise _Refused("Error: A recurring task needs a schedule. Nothing was created.")
@@ -136,7 +86,6 @@ def _cadence_or_refuse(cadence: str) -> str:
 
 
 async def _post(payload: dict[str, Any], envelope: SignedEnvelope) -> dict[str, Any]:
-    """The blocking call, off the event loop, with the refusal already worded."""
     try:
         return await asyncio.to_thread(post_task, payload, envelope)
     except DelegationError as exc:
@@ -178,12 +127,10 @@ _CREATE_TASK_DESCRIPTION = (
 )
 
 
-class CreateTaskConfig(FunctionBaseConfig, name="create_task"):
-    """Configuration for the ``create_task`` tool."""
+class CreateTaskConfig(FunctionBaseConfig, name="create_task"): ...
 
 
 async def _create(kind: str, goal: str, due: str, cadence: str) -> str:
-    """The whole of ``create_task``, with every refusal raised where it is found."""
     project_id = _project_or_refuse()
     envelope = _envelope()
     chosen_kind = _kind_or_refuse(kind)
@@ -211,12 +158,6 @@ async def _create(kind: str, goal: str, due: str, cadence: str) -> str:
 
 
 async def run_create_task(kind: str, goal: str, due: str = "", cadence: str = "") -> str:
-    """Delegate one piece of work to a task row.
-
-    Module-level, and the tool below is a one-line wrapper around it, so the
-    refusal paths are reachable by a test without going through the agent runtime's generator —
-    the refusals are most of what this tool is.
-    """
     try:
         return await _create(kind, goal, due, cadence)
     except _Refused as refused:

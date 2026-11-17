@@ -293,7 +293,7 @@ describe('resolveOfficeShelfDocumentsByName', () => {
 })
 
 describe('uploadOfficeShelfDocument', () => {
-  it('rejects callers without org:archiv:manage (403)', async () => {
+  it('rejects callers without org:office_shelf:manage (403)', async () => {
     vi.mocked(canManageOfficeShelf).mockReturnValue(false)
 
     await expect(uploadOfficeShelfDocument(session, makeFile(), request)).rejects.toBeInstanceOf(ForbiddenError)
@@ -413,7 +413,7 @@ describe('uploadOfficeShelfDocument', () => {
 })
 
 describe('deleteOfficeShelfDocument', () => {
-  it('rejects callers without org:archiv:manage (403)', async () => {
+  it('rejects callers without org:office_shelf:manage (403)', async () => {
     vi.mocked(canManageOfficeShelf).mockReturnValue(false)
 
     await expect(deleteOfficeShelfDocument(session, 'd1', request)).rejects.toBeInstanceOf(ForbiddenError)

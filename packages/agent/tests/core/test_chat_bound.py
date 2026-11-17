@@ -1,9 +1,3 @@
-"""The shared knowledge tools are rebound only for an agent that reads the estate (ADR-0133 slice 6).
-
-A config without ``filesystem`` (the compliance benchmark, an eval arm) has no ``grep``, so it must
-keep ``knowledge_search``'s literal modes: rebinding it there took literal search away in silence.
-"""
-
 from __future__ import annotations
 
 from types import SimpleNamespace

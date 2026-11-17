@@ -252,7 +252,7 @@ def test_render_page_makes_every_pdfium_call_under_the_process_lock(monkeypatch)
     import sys
     from types import ModuleType
 
-    from knowledge_layer.ingest import pdfium_lock as lock_module
+    from knowledge_layer.ingest import pdfium_guard as lock_module
     from PIL import Image
 
     held = lock_module._LOCK._is_owned

@@ -1,31 +1,3 @@
-"""Plain-language digest of the platform's answer feedback.
-
-Turns the aggregate behind Platform → Quality → Answer feedback into something
-a person reads rather than reconstructs: two or three sentences, what is
-working, what is not, and one next step.
-
-**Why an LLM at all.** The numbers are already on the page, and a template could
-restate them ("12% negative, mostly 'inaccurate'") without one. What a template
-cannot do is read forty questions and notice that the failures cluster around
-escape-route lengths while the praise clusters around fire-compartment sizing.
-That naming of themes is the entire value here; the arithmetic is not.
-
-**The response shape is the guard.** ``strengths`` and ``concerns`` are separate
-required fields. A single free-form summary of a feedback dataset comes back as a
-list of complaints every time — the negative votes carry the reasons, the text
-and the drama — and the surface this backs was already accused, correctly, of
-only showing the bad half.
-
-**What we send.** Counts, plus questions. No answers, no organization ids, no
-user or conversation ids — see ``FeedbackDigestOrgShare``. The caller strips
-them; this route never sees them.
-
-Shares the summary route's LLM-settings resolution, so it reaches the platform
-credential through the same env chain and fails open the same way. Every failure
-path returns an empty digest with a diagnosable code: a digest is a convenience
-on top of a page that works without it, and must never be able to take it down.
-"""
-
 import asyncio
 import logging
 
@@ -91,12 +63,6 @@ SYSTEM_PROMPT = (
 
 
 def _rate(up: int, down: int) -> str:
-    """Render one up/down pair as a helpful rate with the volume behind it.
-
-    Always paired with the count, because the model is asked not to make claims
-    the sample cannot support and "100% helpful" over two votes is exactly the
-    claim it would otherwise make.
-    """
     total = up + down
     if total == 0:
         return "no votes"
@@ -104,12 +70,6 @@ def _rate(up: int, down: int) -> str:
 
 
 def _build_brief(request: FeedbackDigestRequest, causes: dict[str, int] | None = None) -> str:
-    """Render the aggregate into the compact prose block the model reads.
-
-    Prose rather than raw JSON: the model has to reason about proportions, and a
-    line that already says "78% helpful of 147 votes" is one it cannot get wrong
-    by dividing badly.
-    """
     total = request.up + request.down
     lines = [
         f"Window: last {request.window_days} days.",
@@ -163,18 +123,6 @@ def _build_brief(request: FeedbackDigestRequest, causes: dict[str, int] | None =
     disliked = [s for s in samples if s.verdict != "up"]
 
     def _render(entries: list) -> list[str]:
-        """One bullet per sampled question, truncated, tagged and reason-annotated.
-
-        The question is the one piece of raw, user-authored text in this prompt,
-        so it is fenced in ``<question>`` markers that the system prompt declares
-        as data-only. Every ``<`` inside the text is neutralised, because a
-        delimiter a user can close is not a delimiter — and case and whitespace
-        variants of the closing marker close it just as well.
-
-        Entries whose question did not survive the join are dropped rather than
-        rendered as a blank bullet — an empty line in the prompt is a line the
-        model will try to interpret.
-        """
         out = []
         for entry in entries:
             question = (entry.question or "").strip()
@@ -205,7 +153,6 @@ def _build_brief(request: FeedbackDigestRequest, causes: dict[str, int] | None =
 
 
 def _clean_item(value: object) -> str | None:
-    """One list entry, or None if it is not usable text."""
     if not isinstance(value, str):
         return None
     text = value.strip().lstrip("-•* ").strip()
@@ -215,14 +162,6 @@ def _clean_item(value: object) -> str | None:
 
 
 def _parse_digest(raw: str | None) -> tuple[str, list[str], list[str], str | None]:
-    """Extract the digest from the model's reply.
-
-    Fences, surrounding prose and a reply cut off by the token cap are absorbed
-    by :func:`~._llm_json.extract_json_object` — shared with the other two
-    JSON-returning routes so all three tolerate the same things (issue #233).
-    Raises ValueError when no usable object can be recovered, so the caller can
-    return a diagnosable ``llm_response_malformed`` instead of a blank card.
-    """
     data = extract_json_object(raw)
 
     headline = data.get("headline", "")
@@ -233,12 +172,6 @@ def _parse_digest(raw: str | None) -> tuple[str, list[str], list[str], str | Non
         headline = headline[: _MAX_HEADLINE_CHARS - 1].rstrip() + "…"
 
     def _list(key: str) -> list[str]:
-        """One cleaned, capped string list off the reply, or empty if unusable.
-
-        A non-list value is empty rather than an error: `strengths` and
-        `concerns` are independent, and one malformed field must not throw away
-        the other one.
-        """
         values = data.get(key, [])
         if not isinstance(values, list):
             return []
@@ -252,7 +185,6 @@ def _parse_digest(raw: str | None) -> tuple[str, list[str], list[str], str | Non
 
 
 async def _label_causes(request: FeedbackDigestRequest, organization_id: str | None) -> dict[str, int]:
-    """The sampled down-votes by decided cause; empty on any failure (ADR-0064, use 9)."""
     disliked = [s for s in request.samples[:_MAX_SAMPLES] if s.verdict != "up"]
     if not disliked:
         return {}
@@ -267,7 +199,6 @@ async def _label_causes(request: FeedbackDigestRequest, organization_id: str | N
 
 
 def add_feedback_digest_routes(router: APIRouter) -> None:
-    """Register the feedback-digest endpoint."""
 
     @router.post(
         "/v1/feedback-digest",
@@ -284,12 +215,6 @@ def add_feedback_digest_routes(router: APIRouter) -> None:
         request: FeedbackDigestRequest,
         x_grid_organization_id: str | None = Header(default=None),
     ) -> FeedbackDigestResponse:
-        """Summarise one window of answer feedback, or say why it could not be.
-
-        Never raises and never answers non-200: the digest is a convenience on
-        top of a page that works without it, so every failure comes back as an
-        empty digest plus a code the UI can turn into a sentence.
-        """
         if request.up + request.down == 0:
             return FeedbackDigestResponse(headline="", error="no_feedback")
 

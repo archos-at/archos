@@ -1,5 +1,3 @@
-"""``sanitize_report``: the final report's display normalisation and URL hygiene."""
-
 from __future__ import annotations
 
 import logging
@@ -64,8 +62,6 @@ _SPACE_BEFORE_PUNCTUATION_RE = re.compile(r"(?<=\S)[ \t]+(?=[.,;!?]|:(?![^\W\d_]
 
 @dataclass
 class ReportSanitizationResult:
-    """Result of running sanitize_report()."""
-
     sanitized_report: str
     body_urls_removed: int
     body_urls_replaced: int
@@ -77,26 +73,6 @@ class ReportSanitizationResult:
 
 
 def sanitize_report(report_text: str) -> ReportSanitizationResult:
-    """Deterministic report hygiene and final display normalization.
-
-    Checks:
-    1. Normalize the source-section heading and one-source-per-line layout.
-    2. Strip body URLs — collapse markdown links to display text, replace
-       bare URLs that match a reference with ``[N]``, remove the rest.
-    3. Remove shortened/obfuscated URLs from Sources — all URLs must
-       be fully expanded (no bit.ly, t.co, etc.).
-    4. Remove truncated/garbled URLs — URLs ending in '...' or with no
-       path (domain-only like 'https://arxiv.org') are incomplete.
-    5. Block unsafe URLs and strip signed queries (``common/url_safety.py``).
-    6. Renumber citations after verification/sanitization and trim any
-       trailing source-section meta-commentary.
-
-    Args:
-        report_text: Report text (ideally after verify_citations()).
-
-    Returns:
-        ReportSanitizationResult with cleaned report and audit trail.
-    """
     report_text = normalize_citation_syntax(report_text)
 
     ref_match = REFERENCE_SECTION_RE.search(report_text)
@@ -136,11 +112,6 @@ def sanitize_report(report_text: str) -> ReportSanitizationResult:
 
 
 def _normalized(raw_url: str) -> str | None:
-    """A captured URL in the registry's normal form; None for one that cannot be parsed.
-
-    The URL patterns stop at ``]``, so an IPv6 literal arrives as ``https://[::1`` and ``urlparse`` raises on
-    it. Until 2026-11-11 that took the whole answer down; such an address matches no source and is removed.
-    """
     try:
         return normalize_url(raw_url.rstrip(URL_TRIM_CHARS))
     except ValueError:
@@ -148,8 +119,6 @@ def _normalized(raw_url: str) -> str | None:
 
 
 class _BodyUrls:
-    """URL hygiene for the report body: a URL a reference lists becomes its ``[N]``, any other is removed."""
-
     def __init__(self, ref_section: str) -> None:
         self.removed = 0
         self.replaced = 0
@@ -161,21 +130,6 @@ class _BodyUrls:
                 self._url_to_citation[normalized] = int(m.group(1))
 
     def clean(self, body: str) -> str:
-        """The body with its links collapsed to their text and its bare URLs replaced or removed.
-
-        Prose only — every rule here is about how a SENTENCE should read, and none
-        of them is true of code: the space collapse alone rewrites a diagram's
-        indentation. Two passes, because the rules protect different spans:
-          1. Link collapse skips only FENCES. A link's display text may itself
-             carry inline code (`[den ``pulumi`` Befehl](url)`), and segmenting at
-             the inline span would split the link so it never collapses — the URL
-             half then rots in the reader-visible report.
-          2. URL/space hygiene skips fences AND inline code, computed on the
-             link-collapsed text.
-        Both passes treat an unterminated fence as prose: this runs on the
-        COMPLETE report (unlike the streaming reader), and run-to-EOF would
-        exempt everything after one broken fence from URL hygiene.
-        """
         cleaned = map_outside_code(
             body,
             lambda segment: _MD_LINK_RE.sub(r"\1", segment),
@@ -206,8 +160,6 @@ class _BodyUrls:
 
 @dataclass
 class _VettedSources:
-    """The source section without the lines whose URL is shortened, truncated or unsafe, and what went."""
-
     ref_section: str
     removed_numbers: set[int] = field(default_factory=set)
     shortened: list[str] = field(default_factory=list)
@@ -217,7 +169,6 @@ class _VettedSources:
 
 
 def _url_problem(line: str, url_match: re.Match) -> tuple[str, str] | None:
-    """Why the URL on a source line may not stay (``shortened``, ``truncated``, ``unsafe``) and the URL, or None."""
     url = url_match.group(0).rstrip(URL_TRIM_CHARS)
     if _SUSPICIOUS_SCHEMES_RE.search(line):
         return "unsafe", url
@@ -239,7 +190,6 @@ def _url_problem(line: str, url_match: re.Match) -> tuple[str, str] | None:
 
 
 def _without_signed_query(line: str, url_match: re.Match, vetted: _VettedSources) -> str:
-    """The source line with its address's signed query taken off (a pre-signed link carries a credential)."""
     url = url_match.group(0).rstrip(URL_TRIM_CHARS)
     stripped = strip_signed_query(url)
     if stripped == url:
@@ -249,11 +199,6 @@ def _without_signed_query(line: str, url_match: re.Match, vetted: _VettedSources
 
 
 def _vet_source_urls(ref_section: str) -> _VettedSources:
-    """Drop the source lines whose URL fails a check, recording each and the ``[N]`` numbers that went.
-
-    The removed numbers are the deaths the wire must drop fail-closed (a chip at
-    a removed URL must never stay trusted/clickable).
-    """
     vetted = _VettedSources(ref_section=ref_section)
     if not ref_section:
         return vetted
@@ -278,7 +223,6 @@ def _vet_source_urls(ref_section: str) -> _VettedSources:
 
 
 def _strip_tool_call_fragments(report: str) -> str:
-    """The report cut at the first leaked tool-call XML fragment: LLMs sometimes output raw tool-call syntax as text."""
     return re.sub(
         r"</?(parameter|function|tool_call|tool_use|invoke|antml:[\w]+)[\s>].*",
         "",
@@ -288,12 +232,6 @@ def _strip_tool_call_fragments(report: str) -> str:
 
 
 def _trim_after_last_citation(report: str) -> str:
-    """Everything after the last ``[N]`` source line cut.
-
-    The LLM often appends meta-commentary after the references (e.g.,
-    "All citations refer to...", "This report meets..."). Rather than
-    pattern-matching specific phrases, just cut after the last [N] line.
-    """
     last_citation_end = None
     for m in CITATION_LINE_RE.finditer(report):
         last_citation_end = m.end()

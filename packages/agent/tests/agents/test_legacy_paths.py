@@ -1,4 +1,4 @@
-"""The old module path of the agent resolves to agent.core: drop after release 2026-W48."""
+# drop after release 2026-W48
 
 import importlib
 

@@ -176,11 +176,16 @@ export interface IdentityClient {
   register?: (properties: Record<string, string>) => void
 }
 
-let releaseTag = ''
+let buildProperties: Record<string, string> = {}
 
-export const registerRelease = (client: Pick<IdentityClient, 'register'>, release: string): void => {
-  releaseTag = release
-  if (release) client.register?.({ release })
+export const registerBuild = (
+  client: Pick<IdentityClient, 'register'>,
+  build: { release?: string; deployment?: string }
+): void => {
+  buildProperties = Object.fromEntries(
+    Object.entries(build).filter((entry): entry is [string, string] => Boolean(entry[1]))
+  )
+  if (Object.keys(buildProperties).length > 0) client.register?.(buildProperties)
 }
 
 export const ORGANIZATION_GROUP = 'organization'
@@ -205,7 +210,7 @@ export const buildPosthogInitOptions = (
   ...(identity ? { bootstrap: { distinctID: identity.distinctId, isIdentifiedID: true } } : {}),
   loaded: (client: IdentityClient) => {
     if (identity) adoptServerIdentity(client, identity.distinctId)
-    registerRelease(client, config.release ?? '')
+    registerBuild(client, { release: config.release, deployment: config.deployment })
   },
   capture_pageview: 'history_change',
   capture_heatmaps: true,
@@ -307,7 +312,7 @@ export const isPosthogOptedOut = (): boolean => {
 export const resetPosthog = (): void => {
   if (!initialized) return
   posthog.reset()
-  registerRelease(posthog, releaseTag)
+  registerBuild(posthog, buildProperties)
 }
 
 const SESSION_ID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i

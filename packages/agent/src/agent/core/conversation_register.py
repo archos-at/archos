@@ -1,13 +1,3 @@
-"""Agent-runtime registration for the chat workflow: the conversation graph as a turn.
-
-Beside the graph it registers (:mod:`agent.core.conversation`)
-and nothing else: the config, the wiring of the sibling agent-runtime functions into that
-graph, and a ``_run`` that composes the per-turn harness from
-:mod:`agent.turn`. The answering agent, the escalation edge and the
-conversation state are the agent's, which is why this lives here rather
-than in a package of its own.
-"""
-
 import asyncio
 import contextlib
 import logging
@@ -115,8 +105,6 @@ logger = logging.getLogger(__name__)
 
 
 class ChatDeepResearcherConfig(FunctionBaseConfig, name="chat_deepresearcher_agent"):
-    """Configuration for the chat deep researcher orchestrator agent."""
-
     max_history_tokens: int = Field(
         default=40000,
         description=(
@@ -176,8 +164,6 @@ class ChatDeepResearcherConfig(FunctionBaseConfig, name="chat_deepresearcher_age
 
 
 async def _deep_research_tools(builder: Builder) -> list:
-    """The deep agent's tool set, resolved once so a turn can check availability
-    before it hands over to the clarifier."""
     deep_config = builder.get_function_config("deep_research_agent")
     tool_refs = deep_config.tools or get_all_tool_refs()
     return await load_agent_tools(builder, tool_refs, deep_config.exclude_tools)
@@ -185,7 +171,6 @@ async def _deep_research_tools(builder: Builder) -> list:
 
 def _tool_validator(deep_research_tools: list):
     def validate_deep_research_tools(data_sources: list[str] | None) -> tuple[bool, str]:
-        """Whether at least one deep research tool is available for ``data_sources``."""
         selected = filter_tools_by_sources(deep_research_tools, data_sources)
         is_valid, _, unavailable = validate_tool_availability(
             selected, research_type="deep research", enable_logging=False
@@ -198,7 +183,6 @@ def _tool_validator(deep_research_tools: list):
 
 
 async def _stage_llm(builder: Builder, ref: LLMRef | None, stage: str):
-    """An optional post-answer stage model: None (unset) disables the stage at zero cost."""
     if ref is None:
         return None
     try:
@@ -209,12 +193,6 @@ async def _stage_llm(builder: Builder, ref: LLMRef | None, stage: str):
 
 
 async def _build_clarifier(config: ChatDeepResearcherConfig, builder: Builder):
-    """The clarification step, or None when this deployment runs without one.
-
-    A config that turns the clarifier on without configuring it fails HERE, at
-    boot, rather than on the first escalating turn — the same trade the missing
-    ``clarifier_agent`` function used to get from ``builder.get_function``.
-    """
     if not config.enable_clarifier:
         return None
     if config.clarifier is None:
@@ -223,20 +201,6 @@ async def _build_clarifier(config: ChatDeepResearcherConfig, builder: Builder):
 
 
 async def _build_agent(config: ChatDeepResearcherConfig, builder: Builder) -> ConversationGraph:
-    """Resolve the sibling agent-runtime functions into the agent's conversation graph.
-
-    ``enable_clarifier`` decides HERE whether a clarifier is resolved at all: a
-    deployment that runs without one hands the graph ``None`` and the escalation
-    goes straight to deep research. The graph itself never reads the flag.
-
-    It is read once more, per turn, folded into ``skip_clarifier`` beside the
-    request's own headless marker (the ``_response`` body below). That read is
-    redundant — with the flag off there is no ``clarifier_fn`` to run and both
-    paths already land on ``_deep_handoff`` — and it is kept because the two
-    reads answer different questions: this one is about the deployment, that one
-    about the turn, and collapsing them would make a per-request signal depend on
-    a build-time one.
-    """
     research_fn_impl = await builder.get_function("shallow_research_agent")
     deep_fn = await builder.get_function("deep_research_agent")
     return ConversationGraph(
@@ -293,12 +257,6 @@ def _finished(
     message_id: str,
     stage_llms: dict,
 ) -> RunFinishedBody:
-    """The terminal a finished turn delivers, with its post-answer stages scheduled.
-
-    ONE call site for every stage, fire-and-forget: which stages exist and
-    what gates them is declared in `agent/stages/`. Every fact a gate may
-    read is captured here, while the request context is still live.
-    """
     if inputs.focus_region is not None:
         record_turn_facts(focus_region_viewed=registries.regions_viewed > 0)
     if outcome.refusal is not None:
@@ -330,20 +288,6 @@ async def _load_setup(
     thread_id: str,
     resolve_stages: bool,
 ) -> tuple[TurnContext, Inventory, Any, StatusStep | None, ShownNotes]:
-    """The four independent setup I/O paths, overlapped.
-
-    Each fails open on its own (:mod:`agent.turn.context`,
-    :mod:`agent.turn.inventory`, :mod:`agent.turn.registries`,
-    :mod:`agent.turn.subject_document`), so the gather cannot let one dead
-    branch lose the others' results — or the turn.
-
-    The subject read is a member and not a step in front of the gather for the
-    same reason the others are: it is one HTTP round trip on the
-    time-to-first-byte path, it is independent of every other branch, and a
-    subject that cannot be fetched costs the model one file. What it returns is
-    the step that says whether it did — the file it writes IS the result, and
-    the model finds it with `ls` exactly as it finds a draft it wrote itself.
-    """
     context, inventory, session_registry, subject_step, shown_notes = await asyncio.gather(
         spanned(
             "setup.project_context",
@@ -369,8 +313,6 @@ async def _load_setup(
 
 @dataclass(frozen=True)
 class _TurnRuntime:
-    """The turn's identity and its ledgers, fixed before any setup I/O."""
-
     thread_id: str
     identity: dict[str, str | None]
     metadata: dict[str, Any]
@@ -380,8 +322,6 @@ class _TurnRuntime:
 
 @dataclass(frozen=True)
 class _Turn:
-    """What one turn's answering task needs, gathered before it starts."""
-
     agent: ConversationGraph
     state: ConversationState
     session_registry: Any
@@ -403,12 +343,6 @@ async def _prepare_turn(
     resolve_stages: bool,
     runtime: _TurnRuntime,
 ) -> AsyncIterator[StepFinishedBody | _Turn]:
-    """The setup I/O and the steps it reports, then the turn: documents bound, the graph's input state built.
-
-    The setup phase runs before the graph, where no writer exists, so it yields
-    its steps itself (chat wire v2 §b). A hold for uploads still being indexed
-    is announced before it is waited out.
-    """
     scope = resolve_scope(header_scope, conversation_id)
     context, inventory, session_registry, subject_step, shown_notes = await _load_setup(
         request,
@@ -437,13 +371,6 @@ async def _prepare_turn(
 
 
 async def _answer(turn: _Turn, *, message_id: str, stream: bool) -> AsyncIterator[EventBody]:
-    """The answer's bodies as the graph writes them, then its ``RUN_FINISHED``.
-
-    The four registries and, when the platform lets the answer stream
-    (ADR-0066), the live prose are bound for the whole run; the terminal is
-    built once they are unbound, so ``registries.memory_writes`` is what the
-    turn actually wrote.
-    """
     runtime = turn.runtime
     outcome: TurnOutcome[ConversationState] | None = None
     async with turn_registries(
@@ -480,7 +407,6 @@ async def _answer(turn: _Turn, *, message_id: str, stream: bool) -> AsyncIterato
 
 
 def _turn_runner(agent: ConversationGraph, config: ChatDeepResearcherConfig, stage_llms: dict):
-    """The per-turn entry point the agent runtime calls, composed from ``agent.turn``."""
     any_stage_llm = any(llm is not None for llm in stage_llms.values())
 
     async def _run(query: object) -> Annotated[AsyncGenerator[EventBody], Streaming(convert=fold_turn)]:
@@ -551,7 +477,6 @@ def _turn_runner(agent: ConversationGraph, config: ChatDeepResearcherConfig, sta
 
 @register_function(config_type=ChatDeepResearcherConfig, framework_wrappers=[LLMFrameworkEnum.LANGCHAIN])
 async def chat_deepresearcher_agent(config: ChatDeepResearcherConfig, builder: Builder):
-    """Chat deep researcher orchestrator agent."""
     stage_llms = {
         AgentGroup.MEMORY_REFLECTION: await _stage_llm(builder, config.memory_reflection_llm, "memory_reflection_llm"),
         AgentGroup.FOLLOW_UPS: await _stage_llm(builder, config.follow_ups_llm, "follow_ups_llm"),

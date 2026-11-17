@@ -8,6 +8,7 @@ from agent.observability.trace_context import ENVIRONMENT_ATTRIBUTE
 from agent.observability.trace_context import OBSERVATION_TYPE_ATTRIBUTE
 from agent.observability.trace_context import RELEASE_ATTRIBUTE
 from agent.observability.trace_context import TRACE_NAME_ATTRIBUTE
+from agent.observability.trace_context import deployment
 from agent.observability.trace_context import deployment_tags
 from agent.observability.trace_context import langfuse_environment
 from agent.observability.trace_context import langfuse_release
@@ -47,7 +48,6 @@ class TestRelease:
 
 
 class TestDeploymentTag:
-    # Staging and production both run APP_ENV=production; only the host tells them apart in PostHog.
     def test_the_app_host_names_the_deployment(self, monkeypatch):
         monkeypatch.setenv("POSTHOG_APP_HOST", " App.Dev.Example.Test ")
         assert deployment_tags() == ["app_host:app.dev.example.test"]
@@ -55,8 +55,22 @@ class TestDeploymentTag:
     @pytest.mark.parametrize("raw", ["", "   "])
     def test_an_unknown_host_adds_no_tag(self, monkeypatch, raw):
         monkeypatch.setenv("POSTHOG_APP_HOST", raw)
+        monkeypatch.delenv("POSTHOG_DEPLOYMENT", raising=False)
         assert deployment_tags() == []
         assert TAGS_ATTRIBUTE not in process_trace_attributes()
+
+    def test_the_stack_names_the_deployment_beside_the_host(self, monkeypatch):
+        monkeypatch.setenv("POSTHOG_APP_HOST", "app.example.test")
+        monkeypatch.setenv("POSTHOG_DEPLOYMENT", " prod ")
+        assert deployment_tags() == ["app_host:app.example.test", "deployment:prod"]
+        assert process_trace_attributes()[TAGS_ATTRIBUTE] == ["app_host:app.example.test", "deployment:prod"]
+
+    @pytest.mark.parametrize("raw", ["", "   "])
+    def test_an_unknown_stack_adds_no_deployment_tag(self, monkeypatch, raw):
+        monkeypatch.delenv("POSTHOG_APP_HOST", raising=False)
+        monkeypatch.setenv("POSTHOG_DEPLOYMENT", raw)
+        assert deployment() is None
+        assert deployment_tags() == []
 
 
 class TestObservationType:

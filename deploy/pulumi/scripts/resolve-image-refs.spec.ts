@@ -92,9 +92,9 @@ afterAll(() => {
 
 type Run = { status: number | null; stdout: string; stderr: string };
 
-function run(script: string, env: Record<string, string>, args: string[] = [], cwd: string = REPO): Run {
+function run(script: string, env: Record<string, string>, args: string[] = []): Run {
   const result = spawnSync("bash", [join(SCRIPTS, script), ...args], {
-    cwd,
+    cwd: REPO,
     encoding: "utf8",
     env: {
       ...GIT_ENV,
@@ -313,95 +313,6 @@ describe("resolve-image-refs.sh", () => {
     });
     expect(out.status, out.stderr).toBe(0);
     expect(pinned(out).CMS_IMAGE_REF).toBe(ref("cms", "c3"));
-  });
-});
-
-describe("resolve-image-refs.sh, the vector-store floor", () => {
-  const STORE_REPO = join(ROOT, "store-repo");
-  const S: Record<string, string> = {};
-  const sgit = (...args: string[]) =>
-    execFileSync("git", args, { cwd: STORE_REPO, env: GIT_ENV, encoding: "utf8" }).trim();
-  const scommit = (name: string) => {
-    sgit("add", "-A");
-    sgit("commit", "--allow-empty", "-q", "-m", name);
-    S[name] = sgit("rev-parse", "HEAD");
-  };
-  const chromaTs = join(STORE_REPO, "deploy", "pulumi", "src", "data", "chroma.ts");
-  const backend = (name: string) => `ghcr.io/archos-at/grid-oib-backend:sha-${S[name]}`;
-  const all = (name: string) => ({
-    backend: backend(name),
-    frontend: `ghcr.io/archos-at/grid-oib-frontend:sha-${S[name]}`,
-    web: `ghcr.io/archos-at/grid-oib-web:sha-${S[name]}`,
-    cms: `ghcr.io/archos-at/cms:sha-${S[name]}`,
-  });
-  const resolveAt = (deploy: string, env: Record<string, string>) =>
-    run("resolve-image-refs.sh", { DEPLOY_SHA: S[deploy], ...env }, [], STORE_REPO);
-
-  beforeAll(() => {
-    execFileSync("mkdir", ["-p", join(STORE_REPO, "deploy", "pulumi", "src", "data")]);
-    sgit("init", "-q", "-b", "develop");
-    writeFileSync(chromaTs, "export function installChroma() {}\n");
-    scommit("chroma1");
-    rmSync(chromaTs);
-    scommit("removal");
-    scommit("after");
-    writeFileSync(chromaTs, "export function installChroma() {}\n");
-    scommit("revert");
-  });
-
-  it("refuses a rollback to an image built while the program still deployed Chroma", () => {
-    const out = resolveAt("after", {
-      EXPLICIT_TAG: `sha-${S.chroma1}`,
-      STUB_OUTPUTS: JSON.stringify({ deployedImages: all("after") }),
-    });
-    expect(out.status).toBe(1);
-    expect(out.stdout).toBe("");
-    expect(out.stderr).toContain(`::error::backend: refusing ${backend("chroma1")}. It was built for chroma`);
-    expect(out.stderr).toContain("git revert");
-  });
-
-  it("refuses a bare re-deploy that would keep a Chroma-era backend under a program without Chroma", () => {
-    const out = resolveAt("after", {
-      RESOLVE_DEPTH: "1",
-      STUB_PUBLISHED: "",
-      STUB_OUTPUTS: JSON.stringify({ deployedImages: all("chroma1") }),
-    });
-    expect(out.status).toBe(1);
-    expect(out.stderr).toContain("It was built for chroma, and the program");
-  });
-
-  it("allows a rollback that stays on the same side of the removal", () => {
-    const out = resolveAt("after", {
-      EXPLICIT_TAG: `sha-${S.removal}`,
-      STUB_OUTPUTS: JSON.stringify({ deployedImages: all("after") }),
-    });
-    expect(out.status, out.stderr).toBe(0);
-    expect(out.stdout).toContain(`BACKEND_IMAGE_REF=${backend("removal")}`);
-  });
-
-  it("allows the forward deploy of a revert, whose program and image both run Chroma again", () => {
-    const out = resolveAt("revert", { RUN_ID: "7", STUB_OUTPUTS: JSON.stringify({ deployedImages: all("after") }) });
-    expect(out.status, out.stderr).toBe(0);
-    expect(out.stdout).toContain(`BACKEND_IMAGE_REF=${backend("revert")}`);
-  });
-
-  it("is a script of its own, as the prod job runs it on the pinned tag", () => {
-    const floor = (deploy: string, ref: string) =>
-      run("vector-store-floor.sh", { DEPLOY_SHA: S[deploy] }, [ref], STORE_REPO);
-    expect(floor("after", backend("chroma1")).status).toBe(1);
-    expect(floor("after", backend("removal")).status).toBe(0);
-    const unreadable = floor("after", "ghcr.io/archos-at/grid-oib-backend:latest");
-    expect(unreadable.status).toBe(0);
-    expect(unreadable.stderr).toContain("::warning::backend: cannot tell which vector store");
-  });
-
-  it("refuses a Qdrant-only image under a program that deploys Chroma again", () => {
-    const out = resolveAt("revert", {
-      EXPLICIT_TAG: `sha-${S.after}`,
-      STUB_OUTPUTS: JSON.stringify({ deployedImages: all("revert") }),
-    });
-    expect(out.status).toBe(1);
-    expect(out.stderr).toContain("It was built for qdrant, and the program");
   });
 });
 

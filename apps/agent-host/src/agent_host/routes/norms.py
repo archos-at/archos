@@ -1,13 +1,3 @@
-"""Admin CRUD routes for the curated norm registry.
-
-Follows the factory pattern of :mod:`agent_host.routes.oib` (``add_norm_routes`` +
-the ``X-Admin-Token`` guard). Three endpoints under ``/v1/admin/norms``:
-
-- ``GET``    — read the current registry (store first, YAML seed fallback).
-- ``PUT``    — replace the registry with optimistic-concurrency and validation.
-- ``POST /verify`` — live OGD-RIS title search to help an admin pick a pointer.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -41,15 +31,11 @@ def _require_admin_token(x_admin_token: str | None = Header(default=None)):
 
 
 class NormsPutRequest(BaseModel):
-    """PUT body: the expected version (optimistic lock) plus the new registry."""
-
     version: int
     registry: NormsFile
 
 
 class NormsVerifyRequest(BaseModel):
-    """POST /verify body: a live OGD-RIS title search seed."""
-
     title_query: str
     application: str
     federal_state: str = Field("", validation_alias=AliasChoices("federal_state", "bundesland"))
@@ -59,12 +45,6 @@ class NormsVerifyRequest(BaseModel):
 
 
 def _rejection_reasons(norms_file: NormsFile) -> list[str]:
-    """Entries norm_registry would silently drop — surfaced to the admin as 400 reasons.
-
-    Replicates ``norm_registry._validated_entries``' rules (unknown RIS
-    application, unknown Bundesland, duplicate id) with explicit messages so an
-    admin SEES the problem instead of having entries vanish on the next load.
-    """
     problems: list[str] = []
     seen: set[str] = set()
     for entry in norms_file.entries:
@@ -85,7 +65,6 @@ def _rejection_reasons(norms_file: NormsFile) -> list[str]:
 
 
 def _fallback_registry() -> tuple[NormsFile, int]:
-    """YAML-seed view for GET when the store is unavailable (version 0)."""
     registry = norm_registry.load_registry()
     entries = registry.entries if registry is not None else []
     return NormsFile(entries=entries), 0

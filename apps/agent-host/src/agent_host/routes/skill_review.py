@@ -1,29 +1,3 @@
-"""LLM review of a single Agent Skill (SKILL.md) authored in the skills editor.
-
-The structural half of the SKILL.md contract — name charset/length, description
-length, metadata keys — is already enforced deterministically by
-``agent.skills.models`` and rejects a bad skill outright. This endpoint is
-the other half, the one no regex can answer: is this skill *any good* as a skill?
-Under progressive disclosure an agent only ever sees ``name`` + ``description``
-before it decides whether to load the body, so a description that omits WHEN to
-use the skill produces a skill that is never activated — structurally valid and
-practically dead. That is what the reviewer is here to catch.
-
-The rules it applies are NOT written here. They come from one vendored file,
-``agent/skills/review/skill-check/SKILL.md`` — SkillCheck (Free) by
-olgasafonova, MIT, copied verbatim (see the README beside it). A hand-written
-prompt encodes one author's opinion of what makes a good skill and drifts every
-time somebody edits it; a published rulebook is a fixed, named, versioned
-standard, and every finding it produces can be traced back to the numbered check
-that fired. This module's job is only to turn that document into a prompt and
-that prompt's output into our response shape.
-
-Mirrors ``consistency_check.py``: machine-readable error codes and an always-200,
-best-effort shape. Any failure returns HTTP 200 with an ``error`` code and
-``findings: None`` — the review is advisory, and a review outage must never stop
-someone from saving a skill.
-"""
-
 import asyncio
 import logging
 import os
@@ -69,19 +43,6 @@ _CHECK_ID_RE = re.compile(rf"^[a-z0-9][a-z0-9._-]{{0,{MAX_CHECK_CHARS - 1}}}$", 
 
 
 def _load_rulebook(path: Path = RULEBOOK_PATH) -> tuple[str, str]:
-    """Read the vendored rulebook into (rule text, version).
-
-    Parsed with the platform's own strict ``parse_skill_md`` — the rulebook IS a
-    SKILL.md, so the parser that validates every other one validates this one too
-    and hands back the body with the frontmatter already removed. The frontmatter
-    must not reach the prompt: it is metadata about the rulebook (its own name,
-    its own "use when" triggers, its licence), and a model given a document whose
-    header says ``name: skill-check`` will happily start reviewing *that*.
-
-    Raises if the file is missing or malformed. That is deliberate and it fails
-    at import, i.e. at deploy: a reviewer with no rules would otherwise come up
-    healthy and quietly grade every skill against nothing.
-    """
     skill = parse_skill_md(path.read_text(encoding="utf-8"))
     kept = [line for line in skill.body.splitlines() if not _UPSELL_RE.search(line)]
     rules = re.sub(r"\n{3,}", "\n\n", "\n".join(kept)).strip()
@@ -92,14 +53,6 @@ RULEBOOK, RULEBOOK_VERSION = _load_rulebook()
 
 
 def _build_system_prompt(rulebook: str) -> str:
-    """Wrap the rulebook in the little that is ours: scope, mapping, output shape.
-
-    Everything the reviewer *judges* comes from the rulebook. Everything here is
-    translation — what a skill is in this product, which of the rulebook's checks
-    cannot apply to it, how its severities become ours, and the JSON the editor
-    parses. Adding a rule of our own here would defeat the point of vendoring a
-    named standard.
-    """
     return (
         "You review Agent Skills. Your ENTIRE rulebook is the SkillCheck document "
         "between the <rulebook> markers below: apply ONLY the checks it defines, and "
@@ -150,17 +103,6 @@ SYSTEM_PROMPT = _build_system_prompt(RULEBOOK)
 
 
 def _llm_settings(organization_id: str | None = None) -> ResolvedCredential:
-    """Resolve the endpoint (model, key, base URL, data policy) for the skill-review LLM call.
-
-    Goes through the shared credential resolver so this route reaches the org's
-    BYOK credential like every other LLM call, then the same env chain as its
-    siblings: ``SKILL_REVIEW_LLM_*`` → generic ``LLM_*`` → the OpenRouter/OpenAI
-    default used by ``config_oib_openrouter.yml`` (matching
-    ``consistency_check.py`` so all three endpoints degrade identically). Model +
-    base URL keep their two-level env fallback; the resolver adds BYOK (org key +
-    base, model unchanged) and provider inference on top. Fail-open: a BYOK miss
-    falls back to the env chain.
-    """
     from agent.common.credential_resolution import read_api_key_env
     from agent.common.credential_resolution import resolve_llm_credential
 
@@ -186,16 +128,6 @@ def _llm_settings(organization_id: str | None = None) -> ResolvedCredential:
 
 
 def _clean_check(value: object) -> str:
-    """Normalise the rulebook check id a finding claims to come from.
-
-    The id is provenance, not prose: it exists so the author (and we) can look up
-    the rule that produced a finding. So it is accepted only when it still looks
-    like an id — anything longer than ``MAX_CHECK_CHARS``, non-string, or
-    carrying spaces/markup becomes the empty string, because a mangled id points
-    at a rule that does not exist and is worse than no id at all. The rulebook
-    writes its ids as "Check 1.9-xml-in-frontmatter", so a model echoing that
-    prefix keeps its id rather than losing it to a formatting habit.
-    """
     if not isinstance(value, str):
         return ""
     candidate = _CHECK_PREFIX_RE.sub("", value.strip())
@@ -203,19 +135,6 @@ def _clean_check(value: object) -> str:
 
 
 def _parse_findings(content: str | None) -> list[SkillReviewFinding] | None:
-    """Defensively parse the model's JSON into findings.
-
-    Returns a (possibly empty) list of valid findings, or ``None`` if the payload
-    is not the expected object shape. A single malformed entry is skipped rather
-    than failing the whole review — losing one suggestion is a far better outcome
-    than telling the author their review is broken.
-
-    Unlike ``consistency_check.py``, an unknown ``severity`` is DROPPED rather
-    than coerced to a default: severity and field here drive which control the
-    editor highlights, so a guessed value would point the author at the wrong
-    part of their skill. ``check`` is treated the same way but costs only itself
-    (see ``_clean_check``) — the finding is still worth showing without it.
-    """
     try:
         data = extract_json_object(content)
     except ValueError:
@@ -253,7 +172,6 @@ def _parse_findings(content: str | None) -> list[SkillReviewFinding] | None:
 
 
 def add_skill_review_routes(router: APIRouter) -> None:
-    """Register the skill-review endpoint."""
 
     @router.post(
         "/v1/skills/review",

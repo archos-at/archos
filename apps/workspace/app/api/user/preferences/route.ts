@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers'
 import { apiRoute, parseJsonBody } from '@/lib/api/handler'
-import { LEGACY_LOCALE_COOKIE, LOCALE_COOKIE, LOCALE_COOKIE_MAX_AGE_SECONDS, isLocale } from '@/i18n/config'
+import { LOCALE_COOKIE, LOCALE_COOKIE_MAX_AGE_SECONDS, isLocale } from '@/i18n/config'
 import { updatePreferencesSchema } from '@/lib/user-preferences/preferences-wire'
 import { getUserPreferences, mergeUserPreferences } from '@/lib/user-preferences/service'
 
@@ -19,7 +19,6 @@ export const POST = apiRoute(
         maxAge: LOCALE_COOKIE_MAX_AGE_SECONDS,
         sameSite: 'lax',
       })
-      jar.delete(LEGACY_LOCALE_COOKIE)
     }
     return { prefs: merged }
   },

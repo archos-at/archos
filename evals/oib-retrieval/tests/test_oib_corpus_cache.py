@@ -5,8 +5,8 @@ from oib_retrieval import corpus
 
 pytest.importorskip("llama_index.core", reason="the chunking arms are llama-index Documents")
 
+from knowledge_layer import ingest  # noqa: E402
 from knowledge_layer.ingest import PageTable  # noqa: E402
-from knowledge_layer.ingest import adapter  # noqa: E402
 
 
 def _pages() -> list[dict]:
@@ -18,7 +18,7 @@ def _pages() -> list[dict]:
 def pdf(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     path = tmp_path / "oib-rl_2.pdf"
     path.write_bytes(b"%PDF-1.7 stub")
-    monkeypatch.setattr(adapter, "_extract_text_from_pdf", lambda _path: _pages())
+    monkeypatch.setattr(ingest, "_extract_text_from_pdf", lambda _path: _pages())
     return path
 
 

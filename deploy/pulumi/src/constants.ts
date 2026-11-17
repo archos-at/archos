@@ -258,19 +258,3 @@ export const QDRANT = {
   s3Region: "us-east-1",
   curlImage: "curlimages/curl:8.16.0",
 } as const;
-
-export const CHROMA_MIGRATION = {
-  name: "chroma-migration",
-  exporterConfigMap: "chroma-migration-exporter",
-  sourceUrl: "http://chroma:8000",
-  exporterImage: "ghcr.io/astral-sh/uv:0.11.32-python3.12-trixie-slim",
-  exporterResources: {
-    requests: { cpu: "1", memory: "2Gi" },
-    limits: { cpu: "4", memory: "4Gi" },
-  },
-  importerResources: {
-    requests: { cpu: "500m", memory: "1Gi" },
-    limits: { cpu: "2", memory: "4Gi" },
-  },
-  backoffLimit: 0,
-} as const;

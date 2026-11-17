@@ -74,7 +74,7 @@ def test_what_changes_how_every_python_test_runs_forces_the_full_suite(mod, path
 
 @pytest.mark.parametrize(
     "path",
-    ["scripts/release_notes.py", "packages/ifc-spatial-py/x.py", "deploy/migration/chroma_export.py"],
+    ["scripts/release_notes.py", "packages/ifc-spatial-py/x.py", "deploy/posthog/weekly-report/compact.py"],
 )
 def test_python_outside_the_tested_packages_forces_the_full_suite(mod, path):
     assert mod.decide_python([path], TESTS, recorded=True)[0] == "full"
@@ -93,7 +93,7 @@ def test_a_non_python_input_adds_every_test_that_names_it(mod):
 
 
 def test_a_file_named_only_by_its_basename_still_counts(mod):
-    changed = ["packages/knowledge-layer/src/vector_store/schemas.json"]
+    changed = ["packages/knowledge-layer/src/knowledge_layer/vector_store/schemas.json"]
 
     assert mod.decide_python(changed, TESTS, recorded=True)[1] == ["packages/knowledge-layer/tests/test_schema.py"]
 
