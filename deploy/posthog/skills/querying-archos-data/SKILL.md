@@ -44,7 +44,7 @@ or the views below.
 | Question | Read | Trap |
 |---|---|---|
 | Questions asked | `chat_message_sent` | Browser-sent, carries `effort` (`medium`, `high`, `xhigh`) |
-| Answers and failures | `answer_completed.outcome` (`ok`, `error`, `aborted`) | Browser-sent: an answer nobody watched sends none, so `chat_message_sent` minus `answer_completed` is "no report", not "failed" |
+| Answers, failures, answer time | `answer_completed`: `outcome` (`ok`, `error`, `aborted`), `duration_ms` (send to terminal event), `message_id` (the answer's id) | Browser-sent: an answer nobody watched sends none, so `chat_message_sent` minus `answer_completed` is "no report", not "failed" |
 | Thumbs | `answer_feedback_submitted`: `verdict` (`up`, `down`), `reason` (`inaccurate`, `wrong_source`, `too_slow`, `other`) | `reason` is optional, null on most down votes |
 | LLM spend | views `piloti_llm_usage_hourly` (by model, purpose, person), `piloti_org_spend_daily` (per office and UTC day), `piloti_org_budgets` (limits, who is blocked) | Never `$ai_*` events or PostHog's LLM-cost tools: they hold nothing here. Days are UTC (`day_utc`), as budgets are enforced. `amount` is in the office's own unit (credits, or tokens on its own key); for money use `cost_usd` (what the provider charged) |
 | Cost per answer, per ingest | views `piloti_llm_cost_per_answer`, `piloti_llm_cost_per_ingest` | |
