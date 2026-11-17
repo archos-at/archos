@@ -125,7 +125,7 @@ describe('requireProjectAccess', () => {
               'org:budgets:manage',
               'org:compliance:manage',
               'org:audit:view',
-              'org:archiv:manage',
+              'org:office_shelf:manage',
               'org:skills:manage',
               'org:projects:create',
               'org:members:manage',

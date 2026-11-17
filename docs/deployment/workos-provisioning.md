@@ -39,7 +39,7 @@ weeks later) were invisible to everything except a human re-reading the file.
 
 **The catalog's wording follows the „Büroablage" rename on the next provisioning.**
 The product renamed the org-wide shelf from „Archiv" to „Büroablage" („Office
-filing" in English) on 6 Oct 2026. The slug is now `org:office_shelf:manage`; `org:archiv:manage` stays in the catalog, deprecated, until roles are re-granted ([runbook](office-shelf-rename-runbook.md)). Its
+filing" in English) on 6 Oct 2026. The slug is now `org:office_shelf:manage`; `org:archiv:manage` is retired ([runbook](office-shelf-rename-runbook.md)). Its
 label is NOT taken from the dictionary: Organisation → Zugriff
 (`apps/workspace/ui/features/organization/components/permission-reference.tsx`) shows the `name` and `description` from
 `apps/workspace/bff/authz/catalog.ts`, so it still reads „Manage document Archiv" there until

@@ -203,7 +203,6 @@
   "apps/workspace/bff/annotations/wake.spec.ts": 10,
   "apps/workspace/bff/annotations/wake.ts": 6,
   "apps/workspace/bff/answer-export/docx.ts": 1,
-  "apps/workspace/bff/api/legacy-routes.ts": 3,
   "apps/workspace/bff/audit/schemas.mjs": 9,
   "apps/workspace/bff/audit/schemas.spec.ts": 1,
   "apps/workspace/bff/audit/service.spec.ts": 1,

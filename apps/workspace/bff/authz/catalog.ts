@@ -98,14 +98,6 @@ export const ORG_PERMISSION_SPECS: readonly PermissionSpec[] = [
     tier: 'org',
   },
   {
-    slug: 'org:archiv:manage',
-    name: 'Manage the office shelf (old name)',
-    description:
-      'Retired name of org:office_shelf:manage. Retained so existing grants keep working; new roles take org:office_shelf:manage.',
-    tier: 'org',
-    deprecated: true,
-  },
-  {
     slug: 'org:skills:manage',
     name: 'Manage organization skills',
     description:
@@ -372,7 +364,7 @@ export const ROLES: readonly RoleSpec[] = [
       'Curates the org-wide office shelf: upload, delete, re-ingest, retag. No other administrative access.',
     tier: 'org',
     scope: 'environment',
-    permissions: ['org:office_shelf:manage', 'org:archiv:manage'],
+    permissions: ['org:office_shelf:manage'],
   },
   {
     slug: 'org-user-admin',
