@@ -945,7 +945,7 @@ signed envelope. `scripts/turn_census/fixture_workspace.py` serves the door from
 the catalog production shows the agent (`catalog.json`, written by
 `workspace-eval.fixture.spec.ts`) and the turn context with the WORKSPACE block
 the production renderer writes (`rendered.json`); a follow-up turn's block lists
-what the run filed, as production would. A search ranks as `discovery.ts` does
+what the run filed, as production would. A search ranks as `discovery-search.ts` does
 (`lib/text/operation-search.ts`); `tests/test_workspace_eval.py` holds the
 Python mirror to lists the TypeScript wrote. The questions are `tests/fixtures/workspace/workspace_questions.yaml`;
 the checks (`reads`, `proposes`, `uses`, `no_write`, `no_workspace`, `no_repeat`, the
