@@ -1,5 +1,3 @@
-"""The server's sketch fence check, held to the cases the browser's check runs too (ADR-0146)."""
-
 from __future__ import annotations
 
 import json

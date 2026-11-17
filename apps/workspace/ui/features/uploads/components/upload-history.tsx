@@ -1,21 +1,5 @@
 'use client'
 
-/**
- * A project's uploads, newest first (ticket „Verlauf/Protokoll", ADR-0086):
- * when, how many files, and how they ended, as pills. Every member who can
- * open the project reads it; only the uploader's own rows link to the summary,
- * because the summary is the uploader's (the endpoint answers 404 to anyone
- * else, and a link that 404s is worse than none).
- *
- * The reader's own rows say „Sie"; the others carry the uploader's name, which
- * the history endpoint resolves from the organization directory (most readers
- * may not read the project roster). Someone who has left the organization has
- * no name there, and their row carries none rather than an id.
- *
- * The list is read a page at a time; „Ältere Uploads laden" reads the next,
- * so every upload of the project can be reached.
- */
-
 import type { JSX } from 'react'
 import Link from 'next/link'
 import { ArrowUpRight, History, Loader2 } from 'lucide-react'
@@ -85,7 +69,6 @@ function UploadHistoryRow({ entry, own }: { entry: UploadHistoryEntry; own: bool
   )
 }
 
-/** The list for uploads already loaded: the preview route and the specs render this. */
 export function UploadHistoryList({
   uploads,
   currentUserId,
@@ -114,7 +97,6 @@ export function UploadHistoryList({
   )
 }
 
-/** The project's upload history, loaded. */
 export function UploadHistory({
   projectId,
   currentUserId,

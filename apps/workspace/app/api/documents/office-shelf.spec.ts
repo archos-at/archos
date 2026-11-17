@@ -6,22 +6,23 @@
  * function. This suite pins the two halves of that — the parameters reach the
  * service, and the row that leaves is `toDocumentWireRow`'s, field for field.
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'
 
+const session = {
+  userId: 'user-1',
+  organizationId: 'org-1',
+  email: 'test@grid.com',
+  role: 'member',
+  permissions: [] as string[],
+  featureFlags: ['office-standards'] as string[] | null,
+}
+
 vi.mock('@/lib/auth/require-auth', () => ({
-  requireAuthorizedSession: vi.fn().mockResolvedValue({
-    userId: 'user-1',
-    organizationId: 'org-1',
-    email: 'test@grid.com',
-    role: 'member',
-    permissions: [],
-    featureFlags: null,
-  }),
+  requireAuthorizedSession: vi.fn(async () => session),
 }))
 
 vi.mock('@/lib/office-shelf/service', () => ({ listOfficeShelf: vi.fn() }))
-// Which rows are the office's standards (ADR-0163): one read per page, by document id.
 vi.mock('@/lib/base-knowledge/store/repository', () => ({ entryIdsForDocuments: vi.fn(async (_org: string, ids: string[]) => new Map(ids.map((id) => [id, 'work_1']))) }))
 vi.mock('@/lib/documents/lifecycle', () => ({
   summarizeDocumentVersions: vi.fn().mockResolvedValue(new Map([['d1', { versionCount: 2, state: 'published' }]])),
@@ -57,6 +58,8 @@ const get = (query = '') => GET(new NextRequest(`https://grid.test/api/documents
 
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.stubEnv('REQUIRE_AUTH', 'true')
+  session.featureFlags = ['office-standards']
   vi.mocked(listOfficeShelf).mockResolvedValue({
     documents: [LISTED],
     nextCursor: null,
@@ -65,13 +68,12 @@ beforeEach(() => {
   })
 })
 
+afterEach(() => vi.unstubAllEnvs())
+
 describe('GET /api/documents?scope=office_shelf', () => {
   it('serves the same wire row a project listing serves, field for field', async () => {
     const body = await (await get()).json()
 
-    // `toDocumentWireRow` is what `/api/documents` serializes through: the Archiv
-    // row must be that, folderId, originPath, authoredBy, lifecycle,
-    // versionState/versionCount and contentHash included.
     const expected = JSON.parse(
       JSON.stringify({ ...toDocumentWireRow(LISTED, { versionCount: 2, state: 'published' }), baseKnowledgeEntryId: 'work_1' }),
     )
@@ -85,6 +87,13 @@ describe('GET /api/documents?scope=office_shelf', () => {
       versionCount: 2,
       contentHash: 'sha256:abc',
     })
+  })
+
+  it('marks no row as a standard while the office lacks its own standards (office-standards off)', async () => {
+    session.featureFlags = []
+    const body = await (await get()).json()
+
+    expect(body.documents[0].baseKnowledgeEntryId).toBeNull()
   })
 
   it('keeps the envelope the Archiv browser reads', async () => {
@@ -123,8 +132,6 @@ describe('GET /api/documents?scope=office_shelf', () => {
     expect((await get('?includeArchived=1')).status).toBe(400)
   })
 
-  // The Archiv's root is where a Büroablage of two thousand documents sits
-  // (ADR-0102): the same level read a project's listing takes.
   it('forwards a level read to the service', async () => {
     await get('?folderId=root&sort=size&limit=25')
 

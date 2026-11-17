@@ -1,46 +1,5 @@
 'use client'
 
-/**
- * Project surface atoms — the parts every "a project, listed" surface is built
- * from.
- *
- * **Read this before adding another project surface.** The project card
- * (`ProjectCard`) is a staple of the design language, not one page's component:
- * the raised white plate on a subtle surface, the truncating name that opens
- * Chat through a stretched link, the status chip, the location line, the meta strip
- * with a settings gear. A new surface that needs "a project, listed" COMPOSES
- * these atoms — or, better, uses `ProjectCard` itself. It does not hand-roll a
- * second card that happens to look similar; two lookalikes drift on the first
- * token retune, and the divergence shows up as a page where one card has a
- * different corner radius, a different hover lift, or a timestamp that means
- * something else.
- *
- * The atoms exist so a genuinely different ARRANGEMENT (the dense list row) can
- * still be made of the same material as the card.
- *
- * The card's SHAPE is not here: the raised white block on a subtler tray with a
- * footer tab is the product's card, and it already has a primitive —
- * `components/ui/raised-card.tsx` (`RaisedCard` / `RaisedCardBody` /
- * `RaisedCardFooter`). This file holds what is specific to a PROJECT on that
- * shape. Adding a `rounded-b-[10px] bg-card  shadow-xs` of its own here would
- * have been the fifth hand-rolled copy of that geometry, which is the exact
- * drift `raised-card.tsx` was written to stop.
- *
- * Each atom owns a single decision, and the two that carry meaning rather than
- * styling are the ones worth knowing about:
- *
- *   - {@link ProjectActivity} owns the "whose timestamp is this?" rule. The
- *     viewer's own last message and the project's last profile write are two
- *     different facts; this is the only place that decides which is on screen
- *     and labels it accordingly, so no surface can quietly imply the wrong one.
- *   - {@link ProjectOpenLink} owns the stretched-link mechanics. Every project
- *     surface is one big click target with independently focusable controls
- *     layered above it; getting that wrong produces nested anchors, which is
- *     invalid HTML and breaks keyboard navigation.
- *
- * See `docs/design/project-surfaces.md` for the inventory and the rule.
- */
-
 import type { JSX } from 'react'
 import Link from 'next/link'
 import { Clock3, FileText, LayoutDashboard, Mail, MessageSquare } from 'lucide-react'
@@ -56,11 +15,6 @@ import { useLocale, useTranslations } from '@/i18n'
 import { projectsCopy } from '@/i18n/namespaces/projects'
 import { cn } from '@/lib/utils'
 
-/**
- * The project name as the surface's primary link, stretched over the whole
- * nearest positioned ancestor. Anything else clickable on the surface must sit
- * above it (`relative z-10`) rather than inside it — see {@link ProjectOverviewLink}.
- */
 export function ProjectOpenLink({
   project,
   className,
@@ -74,13 +28,6 @@ export function ProjectOpenLink({
       href={`/app/projects/${project.id}/chat`}
       aria-label={t('card.open', { name: project.name })}
       className={cn(
-        // `block min-w-0`: the name is a one-line `MiddleTruncate`, and that can
-        // only shrink inside a box that is allowed to be narrower than its text.
-        //
-        // Inset, not offset: the ring draws on the `::after` sheet covering the
-        // whole card, and an offset ring would be sliced off by the card's own
-        // `overflow-hidden` — this is the documented inset exception at the
-        // documented `/60` alpha, not the old `/50` third recipe.
         'block min-w-0 after:absolute after:inset-0 after:rounded-surface focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-ring/60',
         className,
       )}
@@ -100,21 +47,6 @@ export function ProjectOpenLink({
   )
 }
 
-/**
- * Where the project is: the second line under the name, on the card and the row.
- *
- * It used to be the brief's summary cut to one line, which broke mid-sentence
- * and told nobody which project this was. The site address is what an architect
- * tells two projects of one office apart by, and it fits a line. It is the
- * profile fact the Steckbrief shows, read through `projectSiteAddress`, so the
- * tile and the project's own overview never disagree about where it is.
- *
- * Plain text, no pin icon: an address reads as a place without one, and a pin
- * on every tile is decoration repeated down the page.
- *
- * A project without an address has no second line: a placeholder repeated down
- * a list becomes the loudest line on the rows that carry the least.
- */
 export function ProjectLocationLine({
   project,
   className,
@@ -135,16 +67,6 @@ export function ProjectLocationLine({
   )
 }
 
-/**
- * When this project was last touched, and BY WHOM — the one place that decides.
- *
- * `activityAt` is the viewer's own last message in the project. When it is
- * present the surface says so ("You were last here"); when it is absent the
- * timestamp falls back to the project's own last movement (profile write, then
- * creation) under the neutral "Last activity" label. The two are never merged
- * into one ambiguous number, and the icon follows the label — a speech bubble
- * for a conversation, a clock for a project's own clock.
- */
 export function ProjectActivity({
   project,
   activityAt,
@@ -153,17 +75,8 @@ export function ProjectActivity({
   className,
 }: {
   project: Pick<Project, 'profileUpdatedAt' | 'createdAt'>
-  /** ISO timestamp of the VIEWER's own last activity, when they have any. */
   activityAt?: string
-  /** `false` renders the label for assistive tech only (dense surfaces). */
   showLabel?: boolean
-  /**
-   * The icon stays and the words go to assistive tech and the tooltip: for a
-   * card footer that also carries a link, where „Zuletzt hier gearbeitet“ plus
-   * the time plus the link is wider than a card on a phone. The icon still says
-   * whose clock this is (a speech bubble for the viewer's own, a clock for the
-   * project's).
-   */
   compact?: boolean
   className?: string
 }): JSX.Element {
@@ -201,7 +114,6 @@ export function ProjectActivity({
   )
 }
 
-/** Ingested document count, pluralized. */
 export function ProjectDocCount({ count, className }: { count: number; className?: string }): JSX.Element {
   const t = useTranslations(projectsCopy)
   return (
@@ -212,31 +124,9 @@ export function ProjectDocCount({ count, className }: { count: number; className
   )
 }
 
-/**
- * The shortcut to the project's Übersicht, layered ABOVE the stretched open-link
- * rather than nested inside it — two anchors, never one inside the other.
- *
- * The destination is the project's overview (`/settings`, titled „Übersicht“ in
- * the project's own navigation): where it stands, its brief, its documents and
- * the setup behind them. It used to wear a gear, which promised a settings
- * form and hid the one page that answers „wo steht dieses Projekt“. The icon is
- * the one the navigation gives that destination (`PROJECT_SETTINGS_SECTION`).
- *
- * 44px on a touch pointer: on a row it is the only control besides the
- * stretched link covering everything else, and a neighbour sits beside it, so
- * it grows rather than overhanging (`touch-target` would overlap the row's own
- * link, and the later element in the DOM would win the tap).
- */
-/**
- * The material of a link layered above the card's stretched link (the
- * overview shortcut, the mail waiting): quiet ink, a tint on hover, the
- * control radius, its own focus ring. One string, so the two cannot drift
- * apart (they had: the mail link took the surface radius).
- */
 const LAYERED_LINK =
   'relative z-10 inline-flex items-center justify-center gap-1.5 rounded-control text-muted-foreground transition-colors duration-quick ease-out hover:bg-hover hover:text-foreground focus-visible:outline-none motion-reduce:transition-none'
 
-/** Its labelled size: 32px on a mouse, 44px under a finger. */
 const LAYERED_LINK_LABELLED = 'h-8 px-2.5 text-xs pointer-coarse:h-11 pointer-coarse:px-3'
 
 export function ProjectOverviewLink({
@@ -245,7 +135,6 @@ export function ProjectOverviewLink({
   className,
 }: {
   project: Pick<Project, 'id' | 'name'>
-  /** Spell the destination out beside the icon (the card has the room, a row does not). */
   showLabel?: boolean
   className?: string
 }): JSX.Element {
@@ -267,15 +156,6 @@ export function ProjectOverviewLink({
   )
 }
 
-/**
- * Mail waiting in the project's E-Mail-Eingang (ADR-0137): „2 E-Mails warten“,
- * a link straight into it, layered above `ProjectOpenLink` (`relative z-10`)
- * the way {@link ProjectOverviewLink} is. Rendered only with a count above
- * zero, and only for a reader who may file the project's mail: the projects
- * home reads the count with `waitingMailCounts` (`lib/inbound-mail/waiting-counts.ts`),
- * which counts only where the reader may open the E-Mail-Eingang, so it is
- * honest in the `project-surfaces.md` sense. Quiet ink, never a badge colour.
- */
 export function ProjectMailWaiting({
   project,
   count,
@@ -305,11 +185,6 @@ export function ProjectMailWaiting({
   )
 }
 
-/**
- * Initials tile — the left edge of a dense list, so a scan has a fixed column to
- * index rows by. Decorative: the name is right beside it, so it carries no text
- * for assistive tech.
- */
 export function ProjectInitialsTile({
   project,
   className,

@@ -1,23 +1,5 @@
 'use client'
 
-/**
- * The `ifc_model_picker` card: the project's models as tiles you click to open.
- *
- * "Zeig mir das Modell" used to be answered with a prose bullet list of file
- * names the user had to read and retype — a round-trip through the model for
- * something that is just navigation. This card replaces that: it lists the
- * project's models and each tile is a `<Link>` into the viewer
- * (`buildModelHref`), so a click opens the building directly, client-side, with
- * no second turn.
- *
- * Like every model-backed card it carries no file names of its own — the agent
- * supplies only the heading. The list comes from `useProjectBimModels`, the
- * same live source the viewer resolves against, so a name the model never chose
- * cannot be wrong: there is nothing here to invent. And it is fail-open — a
- * project with no readable model renders nothing and the written answer stands
- * on its own, exactly as the prose did.
- */
-
 import type { JSX } from 'react'
 import { useMemo } from 'react'
 import Link from 'next/link'
@@ -44,17 +26,11 @@ export function IfcModelPickerCard({
   const t = useTranslations(bimCopy)
   const { data: models, isLoading, error } = useProjectBimModels(projectId)
 
-  // Only models that can actually be opened. A `pending`/`extracting`/`failed`
-  // tile would open a viewer with nothing to show, which is the opposite of
-  // what a picker is for.
   const ready = useMemo(
     () => (models ?? []).filter((candidate) => candidate.status === 'ready'),
     [models]
   )
 
-  // Still loading: hold a spinner rather than deciding the project is empty —
-  // the same distinction the viewer card draws between "not arrived yet" and
-  // "genuinely none".
   if (models === null && isLoading) {
     return (
       <section className="rounded-surface border bg-card p-5" aria-label={title}>
@@ -66,8 +42,6 @@ export function IfcModelPickerCard({
     )
   }
 
-  // The list could not be read — a transport failure, a withdrawn feature flag.
-  // "Could not look" is not "the project has no models", so say which it is.
   if (error !== null) {
     return (
       <section className="rounded-surface border bg-card p-5" aria-label={title}>
@@ -77,9 +51,6 @@ export function IfcModelPickerCard({
     )
   }
 
-  // Fail-open: a project with nothing openable renders nothing at all, and the
-  // agent's written answer carries the turn — never an empty picker. Without a
-  // project there are no hrefs to build, so there is nothing to offer either.
   if (!projectId || ready.length === 0) return null
 
   return (

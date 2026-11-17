@@ -21,6 +21,7 @@ import {
   type KnowledgeTextProvenance,
 } from '@/lib/db/schema/knowledge-records'
 import {
+  type CarriedFrom,
   knowledgeApprovals,
   knowledgeChangeRequests,
   knowledgeReleaseMoves,
@@ -33,6 +34,7 @@ import type {
   ChangeRequestStatus,
   KnowledgeRecordType,
   ReviewDecision,
+  ReleaseDecisionSource,
   ReviewDecisionSource,
   SecondReviewDecision,
   SecondReviewState,
@@ -66,7 +68,8 @@ export function platformTransaction<T>(fn: (tx: Tx) => Promise<T>): Promise<T> {
 
 export type ChangeRequestRow = typeof knowledgeChangeRequests.$inferSelect
 
-type NewChangeRequest = { title: string; countryId: string; createdBy: string }
+/** A new request; `carriedFrom` only for one the promotion's carry opens from another deployment's release (ADR-0181). */
+type NewChangeRequest = { title: string; countryId: string; createdBy: string; carriedFrom?: CarriedFrom }
 
 export async function insertChangeRequest(input: NewChangeRequest): Promise<string> {
   return platformTransaction((tx) => insertChangeRequestIn(tx, input))
@@ -491,7 +494,7 @@ const sourceUnchecked = () => (singleOperator() ? SOURCE_UNCHECKED_SINGLE_OPERAT
 
 export async function insertApproval(
   tx: Tx,
-  input: { changeRequestId: string; approver: string; role: ApprovalRole; decisionSource: 'app' | 'elicitation'; overrideReason?: string },
+  input: { changeRequestId: string; approver: string; role: ApprovalRole; decisionSource: ReleaseDecisionSource; overrideReason?: string },
 ): Promise<void> {
   try {
     await tx.insert(knowledgeApprovals).values({ id: randomUUID(), ...input })

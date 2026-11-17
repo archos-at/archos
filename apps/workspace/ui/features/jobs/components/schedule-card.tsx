@@ -1,24 +1,5 @@
 'use client'
 
-/**
- * One standing schedule, as the product's card.
- *
- * A schedule is not work — it is a COMMITMENT — so the card answers the two
- * questions a commitment raises and nothing else: when does this fire next, and
- * is it still on. Its lifecycle, its runs and its prompt live in the drawer; a
- * card that tried to carry them would be a worse version of the drawer stacked
- * eight times down a page.
- *
- * The pause switch sits on the card rather than behind a click because pausing
- * is the one thing a person does to a schedule in passing ("we are on site this
- * week, stop the Monday scan"), and it stops the click from propagating so the
- * toggle never also opens the drawer.
- *
- * Paused is drawn by draining the card, not by adding a red chip: a paused
- * schedule is not a problem, it is a thing switched off, and the surface should
- * look like one switch is off rather than like something is wrong.
- */
-
 import type { JSX } from 'react'
 import type { KeyboardEvent, MouseEvent } from 'react'
 import { useState } from 'react'
@@ -41,15 +22,9 @@ type Translate = ReturnType<typeof useTranslations>
 
 export interface ScheduleCardProps {
   job: Job
-  /** Whether this member may pause/resume schedules (`project:skills:manage`). */
   canManage: boolean
   onChanged?: (job: Job) => void
   onSelect: (job: Job) => void
-  /**
-   * The colour this schedule wears on the timetable, so the card and the block
-   * are recognisably the same thing. Omitted for a schedule the grid cannot
-   * place (no cron, or paused).
-   */
   accent?: string
 }
 
@@ -64,12 +39,6 @@ export function ScheduleCard({
   const { locale } = useLocale()
 
   const cadence = cadenceOf(job)
-  /**
-   * A one-shot that has already fired. The scheduler clears `next_run_at` when
-   * it claims one (migration 0090), so a due date with nothing pending is the
-   * honest reading of "finished" — and it is NOT the same as paused, which is
-   * why this gets its own chip rather than reusing the pause one.
-   */
   const spent = cadence === 'once' && job.nextRunAt === null
 
   const nextRun = job.nextRunAt
@@ -173,11 +142,6 @@ export function ScheduleCard({
   )
 }
 
-/**
- * The pause switch the card and the drawer share. Optimistic — reverts on
- * failure — and it swallows its own clicks so toggling inside an interactive
- * card never also opens the card.
- */
 export function ScheduleEnableSwitch({
   job,
   onChanged,
@@ -194,7 +158,6 @@ export function ScheduleEnableSwitch({
     onChanged?.({ ...job, enabled })
     try {
       const updated = await updateJob(job.projectId, job.id, { enabled })
-      // Carried over from the retired job card, unchanged.
       capturePosthog('job_enabled_changed', { enabled })
       onChanged?.(updated)
     } catch {

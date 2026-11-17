@@ -1,8 +1,3 @@
-/**
- * A filed mindmap is the tree the answer shows, not mermaid's mindmap: no
- * quotes around bare branches, the whole root label, the branches in the
- * order the answer wrote them, and bytes the server's SVG allow-list keeps.
- */
 import { describe, expect, it } from 'vitest'
 import { parseDiagramSvg, serializeDiagramSvg } from '@/lib/diagrams/svg'
 import { parseMermaid } from './parse-mermaid'

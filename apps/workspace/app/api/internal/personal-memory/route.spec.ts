@@ -5,7 +5,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/auth/pinned-session', () => ({ resolvePinnedRequesterSession: vi.fn() }))
 vi.mock('@/lib/personal-memory/service', () => ({ createPersonalMemoryItem: vi.fn() }))
-// Which conversations are temporary (ADR-0180), keyed `organization/conversation` as the SQL scopes it.
 const temporary = vi.hoisted(() => ({ conversations: new Set<string>() }))
 vi.mock('@/lib/conversations/temporary-repository', () => ({
   readConversationTemporary: vi.fn(async (id: string, org: string) => temporary.conversations.has(`${org}/${id}`)),

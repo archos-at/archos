@@ -1,21 +1,3 @@
-"""Parity guard: every copy of the tag vocabulary must match the backend enum.
-
-The controlled tag vocabulary lives canonically in the Python backend
-(``document_classification``). Two copies are kept by hand, each for a reason
-a shared import cannot serve:
-
-* ``apps/workspace/bff/documents/tag-vocabulary.ts``, the BFF's mirror: it
-  validates the tags a person or an agent sets and renders the editor's chips;
-* the ``DocumentType`` / ``Discipline`` ``Literal`` of the cross-project tool
-  (``tools/cross_project/register.py``), so a provider constrains the model's
-  argument before it is sent.
-
-This test fails if either drifts, in content or in order, so the backend stays
-the single source of truth and a stale copy is caught in CI. A tag missing from
-the ``Literal`` was invisible before: the model could not ask for it, and
-nothing said so.
-"""
-
 import re
 from pathlib import Path
 from typing import get_args
@@ -34,7 +16,6 @@ TS_VOCAB = REPO_ROOT / "apps" / "workspace" / "bff" / "documents" / "tag-vocabul
 
 
 def _extract_ts_array(source: str, const_name: str) -> list[str]:
-    """Pull the string literals out of an ``export const NAME = [ ... ]`` block."""
     match = re.search(rf"export const {const_name} = \[(.*?)\]", source, re.DOTALL)
     assert match, f"{const_name} not found in {TS_VOCAB}"
     return re.findall(r"'([^']*)'", match.group(1))
@@ -58,13 +39,10 @@ def test_the_cross_project_tool_offers_the_same_vocabulary():
     assert list(get_args(Discipline)) == list(DISCIPLINE_TAGS)
 
 
-#: A tag spelled like a code token (lower-case ASCII, underscores) is one: it is
-#: stored as such and a person reads its i18n label instead.
 TOKEN = re.compile(r"[a-z][a-z_]*")
 
 
 def test_every_token_is_labelled_in_the_ui(ts_source):
-    """The UI renders a tag from ``LABELLED_TAGS`` through i18n; every token must be in it, nothing else."""
     tokens = [tag for tag in (*DOCUMENT_TYPE_TAGS, *DISCIPLINE_TAGS) if TOKEN.fullmatch(tag)]
     assert CORRESPONDENCE_TAG in tokens
     assert _extract_ts_array(ts_source, "LABELLED_TAGS") == tokens

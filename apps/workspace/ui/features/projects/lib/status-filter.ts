@@ -1,14 +1,3 @@
-/**
- * The projects list's status filter (ADR-0098, ADR-0090): active, paused,
- * closed, or all.
- *
- * Every member reads every closed project, so an office's list grows by every
- * project it ever finished, and a paused project is one nobody is working on
- * right now. The list opens on the active ones; the others are one click away.
- * A person with no active project at all opens on all of them, rather than on
- * an empty list.
- */
-
 import type { Project } from '@/lib/db/schema/projects'
 
 export const PROJECT_STATUS_FILTERS = ['active', 'paused', 'closed', 'all'] as const

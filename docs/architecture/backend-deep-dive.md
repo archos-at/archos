@@ -1884,6 +1884,50 @@ section covers the remaining open defects found by a source audit against the
 installed `deepagents`/`langchain`/`langgraph` versions, several of which are
 now fixed — summarized in §9 below.
 
+### The deep researcher's seams
+
+The deep researcher (`packages/agent/src/agent/agents/deep_researcher/`) runs as
+an async job on a research worker, not on a chat turn, and it is the one agent
+built on **deepagents** rather than a LangGraph `StateGraph` of ours: an
+orchestrator LLM delegates to planner, researcher and writer subagents over a
+shared filesystem. `README.md` beside it has the diagram; `custom_middleware.py`
+is what that framework costs.
+
+- **Every call stays off the event loop.** A research worker heartbeats from the
+  same loop, and the ghost reaper (`apps/agent-host/src/agent_host/routes/job_reaper.py`)
+  fails a job with no sign of life for 300 s. A synchronous HTTP call inline
+  (the skill resolver was one) fails healthy jobs with a timeout that names
+  nothing, so it is wrapped in `asyncio.to_thread`, as `agent.py` does for
+  `_resolve_skills_blocking`. The runner heartbeats only once
+  `run_with_cancellation` (`apps/agent-host/src/agent_host/jobs/runner.py`) is
+  entered, so slow pre-run work belongs inside it. The symptom is in
+  [`gotchas.md`](../contributing/gotchas.md) ("no heartbeat received from worker").
+- **Nothing request-scoped is read from context.** There is no request in a
+  worker: the organization, the skills and the force list come off the state
+  (ADR-0018). Per-run state is built per run, because the agent instance is
+  shared across runs and tenants.
+- **The graph is streamed so a cutoff has something to salvage.** `cutoff.py`
+  keeps the newest full state seen; `finalize.py` is the pure pipeline over it.
+  A complete run and a salvaged one both go through `_finalize` in `agent.py`,
+  which calls `finalize_report`, so verification, sanitisation and the
+  confidence label cannot diverge between them. Post-processing of the report
+  therefore goes in `finalize.py` as a function of the state; anywhere else, the
+  salvage path skips it and a cut-off report ships unverified.
+- **A step that fetches evidence announces its round.** It opens
+  `retrieval_round_scope` around the dispatch and calls
+  `record_round_announcement` beside it, both from the same derived calls
+  (`tools/research.py`, `_query_call`). The round ledger lives on
+  `DeepResearchRunArtifacts`, per run. Without it the hits land under the round
+  before them, and the Herleitung draws a batch that fetched nothing.
+- **`deep_researcher` is a stored identifier.** It is stored in
+  `workflows.agent_type` (`apps/workspace/migrations/0017_workflows.sql`) and in
+  skills' `grid-agents` metadata, and listed in `AGENT_REGISTRY`
+  (`apps/agent-host/src/agent_host/registry.py`), `KNOWN_AGENTS`
+  (`skills/resolver.py`), `SKILL_AGENTS` and `KNOWN_SKILL_AGENTS`. The package
+  name follows it, not the other way round; renaming it drops every scoped skill
+  off deep research. `packages/agent/tests/skills/test_seeded_platform_skills.py`
+  guards a name nothing delivers to.
+
 ## 8. Backend agent architecture & DRY debt
 
 Registered agents (via the runtime's `@register_function` + `FunctionBaseConfig`):

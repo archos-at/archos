@@ -4,19 +4,8 @@ import { useCallback, useMemo } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import type { FileItem } from '../file-types'
 
-/** The viewer's whole view, which closing the stage takes with it. */
 const STAGE_PARAMS = ['model', 'element', 'hl', 'storey', 'xray', 'tab', 'view', 'cut', 'cutup', 'proj']
 
-/**
- * `?model=` is what turns a file page into the viewer.
- *
- * In the URL rather than in state, and that is the whole integration: the stage
- * is a view of the page, so it is linkable, the back button closes it, and every
- * `/model?…` link ever written into a chat answer redirects here and opens the
- * same thing. The page learns exactly one fact — whether the parameter is
- * present. Same parameter and same encoding on both shelves, so a link cannot
- * mean one thing in a project and another in the Archiv.
- */
 export function useModelStage(enabled: boolean, files: readonly FileItem[]) {
   const router = useRouter()
   const pathname = usePathname() ?? ''
@@ -27,7 +16,6 @@ export function useModelStage(enabled: boolean, files: readonly FileItem[]) {
     [files, stageModel]
   )
 
-  /** Closing REPLACES, so shutting the stage leaves no entry that back would re-open. Dropping only `model` would let the next model inherit another building's selection. */
   const closeModel = useCallback(() => {
     const params = new URLSearchParams(searchParams?.toString() ?? '')
     for (const key of STAGE_PARAMS) params.delete(key)

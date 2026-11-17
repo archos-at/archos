@@ -31,13 +31,7 @@ export interface ProjectIntakeWizardProps {
   initialProfileVersion?: number | null
   conflictCheckEnabled?: boolean
   salvageNotice?: 'partial' | 'full' | null
-  /**
-   * Render offline with a supplied definition instead of fetching it — used by
-   * the /dev/intake gallery and component tests so the whole wizard can render
-   * without the API. Undefined in production (the definition is fetched).
-   */
   definitionOverride?: ProjectIntakeDefinition
-  /** Preview/deep-link entry module (index). A restored draft still wins. */
   initialStep?: number
 }
 
@@ -62,8 +56,6 @@ export function useProjectIntakeWizardController(props: ProjectIntakeWizardProps
   const [answers, setAnswers] = useState<Answers>({})
   const [buildings, setBuildings] = useState<BuildingInstance[]>(defaultBuildings())
   const [pendingBinds, setPendingBinds] = useState<PendingRoleBind[]>([])
-  // The latest list, read by the save after the uploads it waited for have
-  // added theirs: the state its closure captured predates them.
   const pendingBindsRef = useRef<PendingRoleBind[]>([])
   const updatePendingBinds = useCallback(
     (next: (previous: PendingRoleBind[]) => PendingRoleBind[]) => {
@@ -81,25 +73,14 @@ export function useProjectIntakeWizardController(props: ProjectIntakeWizardProps
   const [findings, setFindings] = useState<ConsistencyFinding[] | null>(null)
   const [checking, setChecking] = useState(false)
   const [loadAttempt, setLoadAttempt] = useState(0)
-  // Schnellstart (spec `core_flag`): show only Kernfragen. Everything skipped is
-  // persisted with mode 'open', which is already what an unanswered question
-  // becomes — so the mode is a VIEW, not a second answer state to reconcile.
   const [quickStart, setQuickStart] = useState(false)
-  // Modules where the user chose "alle anzeigen" despite Schnellstart.
   const [expandedStages, setExpandedStages] = useState<Set<string>>(new Set())
 
-  // `-v3`: the answers a draft holds are keyed by building id and use-token names
-  // that changed (migration 0159), and since then the yes/no/open and value/estimated/open
-  // tokens were German (`ja`, `geschaetzt`), so a draft from before is not restorable.
-  // It is dropped, not read: a draft is one tab's unsent work.
   const STORAGE_KEY = `intake-draft-v3-${projectId}`
   const LEGACY_STORAGE_KEYS = [`intake-draft-${projectId}`, `intake-draft-v2-${projectId}`]
   const isEdit = mode === 'edit'
   const buildingCounter = useRef(1)
-  // The active module-stepper button, scrolled into view whenever the step changes
-  // so the current pill never hides off the right edge on a narrow screen.
 
-  // Load the definition, then restore a draft or prefill from the stored profile.
   useEffect(() => {
     let cancelled = false
     const load = definitionOverride
@@ -160,7 +141,6 @@ export function useProjectIntakeWizardController(props: ProjectIntakeWizardProps
             buildingCounter.current = maxBuildingNumber(seeded.buildings)
             setAnswers(pruneStaleConditionalAnswers(seeded.answers, data))
           } else if (projectName && !isEdit) {
-            // Seed the project name captured at creation so A1 opens prefilled.
             setAnswers({ A1: projectName })
           }
         }
@@ -183,7 +163,6 @@ export function useProjectIntakeWizardController(props: ProjectIntakeWizardProps
     setLoadAttempt((attempt) => attempt + 1)
   }, [])
 
-  // Debounced autosave of the working draft.
   useEffect(() => {
     if (loading) return
     const timer = setTimeout(() => {
@@ -218,7 +197,6 @@ export function useProjectIntakeWizardController(props: ProjectIntakeWizardProps
   const totalSteps = stages.length
   const stage: ProjectIntakeStage | null = stages[currentStep] ?? null
   const isReview = stage?.id === 'H'
-  /** Modul I renders document slots from the role registry, not questions. */
   const isBasis = stage?.id === 'I'
 
   const setAnswer = useCallback(
@@ -247,22 +225,13 @@ export function useProjectIntakeWizardController(props: ProjectIntakeWizardProps
     [definition]
   )
 
-  /** Visible questions on a projekt/grundstueck stage (building stages iterate instances). */
   const stageVisibleQuestions = useMemo(() => {
     if (!stage || stage.scope === 'building') return []
     return stage.questions.filter((q) => evaluateIntakeCondition(q, answers))
   }, [stage, answers])
 
-  /** Whether Schnellstart is currently narrowing THIS module. */
   const stageQuickStarted = quickStart && stage != null && !expandedStages.has(stage.id)
 
-  /**
-   * What the module actually renders. Validation still runs against the full
-   * visible set — a required question hidden by Schnellstart would otherwise
-   * let the user past a gate the spec keeps closed (only A1/A2/A5 are required,
-   * and all of them are core, so in practice this never bites; it is here so a
-   * later `required: true` on a non-core question cannot open a hole).
-   */
   const flatVisibleQuestions = useMemo(() => {
     if (!stageQuickStarted) return stageVisibleQuestions
     return stageVisibleQuestions.filter((q) => q.core || q.required)
@@ -270,12 +239,6 @@ export function useProjectIntakeWizardController(props: ProjectIntakeWizardProps
 
   const hiddenByQuickStart = stageVisibleQuestions.length - flatVisibleQuestions.length
 
-  /**
-   * The stage a building module renders under Schnellstart.
-   *
-   * Required questions survive the filter for the same reason they do on a
-   * project-scope module: narrowing the view must never narrow the gate.
-   */
   const quickStartStage = useMemo(() => {
     if (!stage) return stage
     if (!stageQuickStarted) return stage
@@ -294,15 +257,6 @@ export function useProjectIntakeWizardController(props: ProjectIntakeWizardProps
     return stageVisibleQuestions.every((q) => isQuestionSatisfied(q, answers, q.id))
   }, [stage, buildings, answers, stageVisibleQuestions])
 
-  /**
-   * Answered / total per module, for the rail.
-   *
-   * Counts only questions currently VISIBLE (a conditional question the project
-   * never reaches is not an unanswered one) and only those that write an answer
-   * — an `info_placeholder` or a `document_role` slot has nothing to satisfy.
-   * Bauwerk modules count across every building, which is what makes "3 von 14"
-   * on module C honest when there are two buildings.
-   */
   const stageProgress = useMemo(() => {
     const counts = new Map<string, { answered: number; total: number }>()
     for (const s of stages) {
@@ -334,14 +288,6 @@ export function useProjectIntakeWizardController(props: ProjectIntakeWizardProps
     return counts
   }, [stages, answers, buildings])
 
-  /**
-   * Record every unanswered question in this module as explicitly open.
-   *
-   * The spec's per-module "Rest überspringen – als offen übernehmen". Writing
-   * mode 'open' rather than leaving the answer absent is the whole point: both
-   * produce an `unknown` in the profile, but only the explicit one can be told
-   * apart from "not reached yet" in Modul H's completion checklist.
-   */
   const skipRestOfStage = useCallback(() => {
     if (!stage) return
     setAnswers((prev) => {
@@ -352,8 +298,6 @@ export function useProjectIntakeWizardController(props: ProjectIntakeWizardProps
         if (q.required) return
         if (isIntakeAnswerProvided(next[key])) return
         if (q.type === 'yes_no_open') {
-          // Its own third state, not a mode sibling — so the control renders as
-          // "noch offen" rather than merely unselected.
           next[key] = 'open'
           return
         }
@@ -365,8 +309,6 @@ export function useProjectIntakeWizardController(props: ProjectIntakeWizardProps
           for (const q of stage.questions) {
             if (evaluateIntakeCondition(q, next, bw.id)) markOpen(q, answerKeyFor(q.id, bw.id))
           }
-          // Modul D renders a question set per selected use. Skipping the
-          // module while leaving those on screen unanswered is not skipping it.
           for (const zone of zoneQuestionsFor(stage, bw.id, next)) {
             markOpen(zone.question, answerKeyFor(zone.question.id, bw.id, zone.use))
           }
@@ -430,7 +372,6 @@ export function useProjectIntakeWizardController(props: ProjectIntakeWizardProps
     goToStep(currentStep + 1)
   }, [stageValid, markStageTouched, goToStep, currentStep])
 
-  // --- Bauwerk management (module C's C0 affordance) ---
   const addBuilding = useCallback(() => {
     buildingCounter.current += 1
     const id = `${BUILDING_ID_PREFIX}${buildingCounter.current}`
@@ -439,9 +380,7 @@ export function useProjectIntakeWizardController(props: ProjectIntakeWizardProps
 
   const removeBuilding = useCallback((id: string) => {
     setBuildings((prev) => (prev.length > 1 ? prev.filter((bw) => bw.id !== id) : prev))
-    // A binding held for a building that is gone has nowhere to go.
     updatePendingBinds((prev) => withoutBuilding(prev, id))
-    // Drop every answer belonging to the removed building.
     setAnswers((prev) => {
       const next: Answers = {}
       for (const [key, value] of Object.entries(prev)) {
@@ -451,7 +390,6 @@ export function useProjectIntakeWizardController(props: ProjectIntakeWizardProps
     })
   }, [updatePendingBinds])
 
-  // The buildings the server already knows; a binding to any other waits for the save.
   const savedBuildingIds = useMemo(
     () => persistedBuildingIds(initialProfile, definition),
     [initialProfile, definition]
@@ -476,8 +414,6 @@ export function useProjectIntakeWizardController(props: ProjectIntakeWizardProps
     setError(null)
     setConflict(false)
     try {
-      // An upload still running for a new building has not recorded its
-      // binding yet; saving now would send the list without it.
       await deferredUploads.settled()
       const built = buildIntakeProfile(answers, definition, { projectName, buildings })
       const profile: ProjectProfile = mergeIntakeProfile(built, initialProfile, definition)
@@ -496,8 +432,6 @@ export function useProjectIntakeWizardController(props: ProjectIntakeWizardProps
         throw new Error('Failed to save')
       }
 
-      // The save made the wizard's new buildings real; only now can their
-      // documents be bound to them.
       const refused = await sendPendingBinds(projectId, pendingBindsRef.current)
       if (refused.length > 0) {
         toast.error(t('intake.bindRefused', { files: refused.map((bind) => bind.filename).join(', ') }))
@@ -510,17 +444,9 @@ export function useProjectIntakeWizardController(props: ProjectIntakeWizardProps
       }
 
       const capturedCount = Object.keys(built.facts).length + Object.keys(built.goals).length
-      // The moment the intake is done: the button's spinner turns into a
-      // check that lands on `springSnap`, and the page holds one
-      // `motionDeliberate` beat so the reader sees it land before the
-      // project replaces the form. Without it, forty answers ended in a
-      // redirect that looked the same as a crash back to the project.
-      // Reduced motion drops the beat, not the check.
       setSaved(true)
       await new Promise((resolve) => window.setTimeout(resolve, completionBeatMs))
       toast.success(t('intake.saveSuccess', { count: capturedCount }))
-      // A first setup hands over to the project tour; an edit goes back to
-      // the project without one.
       router.push(mode === 'create' ? projectTourUrl(projectId) : `/app/projects/${projectId}`)
       router.refresh()
     } catch (e) {
@@ -551,20 +477,6 @@ export function useProjectIntakeWizardController(props: ProjectIntakeWizardProps
     router.refresh()
   }, [router])
 
-  /**
-   * The first unanswered required question anywhere in the definition.
-   *
-   * Per-stage validation only guards the Next button, which was enough while
-   * the only way forward was linear. It is not enough now: Modul H declares no
-   * required questions of its own, so ANY route that lands on it — the module
-   * rail, a restored draft's `currentStep`, a condition that turned a required
-   * question visible after it was passed — reaches a Save that would persist a
-   * profile without A1/A2/A5.
-   *
-   * Guarding the save rather than re-locking the rail is deliberate. Locking
-   * navigation would close one route to a gate that is missing, and take the
-   * rail's whole point with it; this closes the gate.
-   */
   const firstMissingRequired = useCallback((): { stageIndex: number; key: string } | null => {
     if (!definition) return null
     for (const [stageIndex, s] of definition.stages.entries()) {
@@ -593,8 +505,6 @@ export function useProjectIntakeWizardController(props: ProjectIntakeWizardProps
 
     const missing = firstMissingRequired()
     if (missing) {
-      // Land the user ON the unanswered question with its error showing, rather
-      // than refusing from the summary with nothing to act on.
       setTouched((previous) => new Set(previous).add(missing.key))
       goToStep(missing.stageIndex)
       return

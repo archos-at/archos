@@ -1,38 +1,21 @@
-/**
- * What the workspace search tells PostHog (docs/observability/posthog-events.md,
- * "Workspace search"): one `search_issued` per settled question, the hit a
- * reader opens from it, and how they narrowed it.
- *
- * Never the words, never an id: a question is described by its shape (has
- * text, how many words, which kinds and filter dimensions, which view) and its
- * answer by counts. A hit is its kind, its place in its section and why it
- * matched. The events' properties are built here, pure, so a spec holds that
- * line rather than a reviewer.
- */
-
 import { BACK_PARAM } from '@/features/documents/lib/open-review'
 import { capturePosthog, type PostHogEvent } from '@/lib/analytics/posthog'
 import type { DocumentFilters, SearchBody, SearchHit, SearchKind, SearchResponse, SearchScopeQuery, SuggestDimension } from '@/lib/search/search-wire'
 import type { SearchSurface } from './search-surface'
 
-/** Where a search was asked: the ⌘K palette, the search page, a shelf's Suche, Piloti's composer (reserved, nothing sends it yet). */
 export type SearchTelemetrySurface = 'palette' | 'page' | 'shelf' | 'composer'
 
-/** The office-wide page is `page`; a project's Dateien → Suche and the office shelf's are `shelf`. */
 export function telemetrySurface(surface: SearchSurface): SearchTelemetrySurface {
   return surface.kind === 'office' ? 'page' : 'shelf'
 }
 
-/** How long an answer must stand before its question counts as settled, not a pause in typing. */
 export const SEARCH_SETTLE_MS = 1000
 
-/** Where the server spent a search's time, from the route's `Server-Timing` header. */
 export interface ServerTiming {
   sqlMs: number | null
   contentMs: number | null
 }
 
-/** `sql;dur=12.3, content;dur=80.1, total;dur=92.4` → `{ sqlMs: 12.3, contentMs: 80.1 }`; null for a metric it does not name. */
 export function parseServerTiming(header: string | null): ServerTiming {
   const metrics = new Map<string, number>()
   for (const entry of (header ?? '').split(',')) {
@@ -44,7 +27,6 @@ export function parseServerTiming(header: string | null): ServerTiming {
   return { sqlMs: metrics.get('sql') ?? null, contentMs: metrics.get('content') ?? null }
 }
 
-/** The filter dimensions a question sets, sorted: the document filters' names, `annotation`, `kind`, `project`. */
 export function filterDimensions(body: Pick<SearchBody, 'filters' | 'annotationFilters'>, extra: { kinds?: boolean; project?: boolean } = {}): string[] {
   const filters = body.filters ?? {}
   const set = (Object.keys(filters) as (keyof DocumentFilters)[]).filter((key) => {
@@ -59,7 +41,6 @@ export function filterDimensions(body: Pick<SearchBody, 'filters' | 'annotationF
   ].sort()
 }
 
-/** The dimensions one change of the question added and removed. */
 export function refinements(before: readonly string[], after: readonly string[]): Array<{ change: 'added' | 'removed'; dimension: string }> {
   const had = new Set(before)
   const has = new Set(after)
@@ -69,22 +50,18 @@ export function refinements(before: readonly string[], after: readonly string[])
   ]
 }
 
-/** One answered question, as `search_issued` describes it. */
 export interface IssuedSearch {
   scope: SearchScopeQuery
   body: SearchBody
   response: SearchResponse
-  /** From the request to the answer, in the browser. */
   durationMs: number
   serverTiming: ServerTiming
   view: 'list' | 'register'
-  /** The dimensions beyond the body's filters: the kinds the reader narrowed to, a project picked on the office page. */
   extraDimensions?: { kinds?: boolean; project?: boolean }
 }
 
 type Properties = Record<string, string | number | boolean | null>
 
-/** An id for one answered question, so its `search_issued` and the `search_result_opened` that follows can be joined. */
 export function newSearchId(): string {
   try {
     return crypto.randomUUID()
@@ -99,8 +76,6 @@ export function searchIssuedProperties(surface: SearchTelemetrySurface, issued: 
   const total = sections.reduce((sum, section) => sum + (section?.total ?? 0), 0)
   return {
     surface,
-    // A person typing in the app. Automated search goes through the agent door,
-    // which tags its own events `mcp` or `script` (`agent_operation_called`).
     session_source: 'ui',
     scope: issued.response.scope.kind,
     has_text: text !== '',
@@ -132,11 +107,6 @@ export function searchResultOpenedProperties(surface: SearchTelemetrySurface, hi
   }
 }
 
-/** The hit a link points at, and its 1-based place in its section; null when no hit of these sections has that href. */
-/**
- * An href as a hit is known by: without the `back` the page adds to return to
- * the search, its parameters in one order, so a link and `hitHref` compare equal.
- */
 function hitKeyOf(href: string): string {
   const [base, hash = ''] = href.split('#')
   const [pathname, search = ''] = base.split('?')
@@ -167,13 +137,6 @@ export interface SearchTrackerOptions {
   clearTimer?: (timer: unknown) => void
 }
 
-/**
- * One surface's search telemetry. An answer is held for {@link SEARCH_SETTLE_MS}
- * and sent as `search_issued` only if no newer answer replaces it in that
- * time, so a reader typing „Fluchtweg“ through three pauses counts once.
- * Opening a hit, or the surface going away, sends a held answer at once: the
- * reader acted on it, so it was settled.
- */
 export class SearchTracker {
   private pending: { issued: IssuedSearch; searchId: string; timer: unknown } | null = null
   private issuedAt: number | null = null
@@ -195,7 +158,6 @@ export class SearchTracker {
     this.clearTimer = options.clearTimer ?? ((timer) => clearTimeout(timer as ReturnType<typeof setTimeout>))
   }
 
-  /** An answer arrived for the surface's question. */
   answered(issued: IssuedSearch): void {
     if (this.pending) this.clearTimer(this.pending.timer)
     this.issuedAt = this.now()
@@ -203,13 +165,11 @@ export class SearchTracker {
     this.pending = { issued, searchId: this.searchId, timer: this.setTimer(() => this.flush(), this.settleMs) }
   }
 
-  /** The reader opened `hit`, at `rank` in its section. */
   opened(hit: SearchHit, rank: number): void {
     this.flush()
     this.capture('search_result_opened', searchResultOpenedProperties(this.surface, hit, rank, this.issuedAt === null ? null : this.now() - this.issuedAt, this.searchId))
   }
 
-  /** Send the held answer now, if there is one. */
   flush(): void {
     if (!this.pending) return
     this.clearTimer(this.pending.timer)
@@ -219,32 +179,26 @@ export class SearchTracker {
   }
 }
 
-/** `search_refined`, once per dimension a change of the question added or removed. */
 export function captureRefinements(before: readonly string[], after: readonly string[], capture: SearchTrackerOptions['capture'] = capturePosthog): void {
   for (const refinement of refinements(before, after)) capture('search_refined', refinement)
 }
 
-/** `saved_search_created` and `saved_search_run`: whether it is shared, and the scope it asks. */
 export function savedSearchProperties(item: { shared: boolean; scope: SearchScopeQuery }): Properties {
   return { shared: item.shared, scope: item.scope.scope ?? (item.scope.projectId ? 'project' : 'office') }
 }
 
-/** `saved_search_run`: a saved search was opened, from the palette or a search surface's menu. */
 export function captureSavedSearchRun(item: { shared: boolean; scope: SearchScopeQuery }): void {
   capturePosthog('saved_search_run', savedSearchProperties(item))
 }
 
-/** `search_suggestion_picked`: which filter, the place of the value taken (1-based), how many characters were typed. Never the value. */
 export function suggestionPickedProperties(dimension: SuggestDimension, rank: number, prefix: string): Properties {
   return { dimension, rank, prefix_chars: prefix.trim().length }
 }
 
-/** `search_suggestion_picked`, once a completion was taken. */
 export function captureSuggestionPicked(dimension: SuggestDimension, rank: number, prefix: string): void {
   capturePosthog('search_suggestion_picked', suggestionPickedProperties(dimension, rank, prefix))
 }
 
-/** `saved_search_created`, once the server kept it. */
 export function captureSavedSearchCreated(item: { shared: boolean; scope: SearchScopeQuery }): void {
   capturePosthog('saved_search_created', savedSearchProperties(item))
 }

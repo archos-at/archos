@@ -1,16 +1,3 @@
-"""Tests for self-assessed answer-confidence surfacing in Piloti.
-
-Covers the node-level assembly (`_finalize_answer`) and end-to-end
-propagation through ``ConversationGraph.stream()``: the level is the answer
-check's (``confidence_check``, ADR-0139) under the quote gate, never the
-self-report; escalation/error branches surface nothing, and a control marker
-left in the text is always stripped from the user-visible answer.
-
-The signals are Piloti's structured state fields
-(``escalation_requested``, ``answer_confidence_marker``, ...) — the model is
-the contract; nothing here is re-parsed from the answer text.
-"""
-
 import pytest
 from agent_testing.conversation import turn
 from langchain_core.messages import AIMessage
@@ -26,7 +13,6 @@ from agent.common.canned_replies import GENERIC_ERROR_MESSAGE
 
 
 def _signals(**fields) -> ResearchAgentState:
-    """A Piloti state carrying just the signals a test names."""
     fields.setdefault("escalation_requested", False)
     return ResearchAgentState(messages=[], **fields)
 
@@ -36,8 +22,6 @@ def _judged(level: str) -> dict:
 
 
 class TestFinalizeAnswer:
-    """Node-level assembly of the answer update dict."""
-
     def test_grounded_high_surfaces_high_and_strips_a_leaked_marker(self):
         msg = AIMessage(content="OIB-Richtlinie 2 [1].\n\n[CONFIDENCE:high]")
         update = _finalize_answer(
@@ -88,18 +72,13 @@ class TestFinalizeAnswer:
         update = _finalize_answer(
             msg, _signals(escalation_requested=True, answer_citation_grounded=True, answer_confidence_marker="low")
         )
-        # Escalation supersedes the shallow answer → no chip. The key is
-        # ABSENT rather than None: every turn-scoped field is already at its
-        # default when the node runs, so the hand-off writes only the ask.
         assert "answer_confidence" not in update
         assert update["escalate_to_deep"] is True
-        # Both markers stripped from the user-visible text.
         assert update["messages"][0].content == "Partial answer."
 
     def test_non_string_content_passthrough(self):
         msg = AIMessage(content=[{"type": "text", "text": "structured"}])
         update = _finalize_answer(msg, _signals(answer_citation_grounded=True))
-        # Non-string content omits every key → no signal downstream.
         assert update.get("answer_confidence") is None
         assert "escalate_to_deep" not in update
 
@@ -134,8 +113,6 @@ class TestFinalizeAnswer:
 
 
 class TestConfidenceEndToEnd:
-    """Propagation of answer_confidence through ConversationGraph.stream()."""
-
     @pytest.fixture
     def deep_fn(self):
         async def deep(state):
@@ -153,8 +130,6 @@ class TestConfidenceEndToEnd:
         confidence_reason: str | None = None,
         checked: str | None = None,
     ):
-        """The real Piloti state: the answer text is already marker-free and
-        the signals arrive on structured fields, as ``ChatAgent.run()`` sets them."""
 
         async def research(state_input):
             return ResearchAgentState(
@@ -229,9 +204,6 @@ class TestConfidenceEndToEnd:
 
     @pytest.mark.asyncio
     async def test_a_leaked_text_marker_is_stripped_but_not_read(self, deep_fn):
-        """The text is not a signal channel: a marker Piloti failed
-        to strip is removed from the answer, and the level comes from the
-        structured field only."""
         research = self._research_returning("Teilantwort.\n[CONFIDENCE:medium | aus dem Text]", grounded=True)
         result = await self._run(research, deep_fn, "s5")
         assert result.answer_confidence is None

@@ -1,10 +1,3 @@
-"""Tests for the per-turn agent execution profiler.
-
-Mirrors packages/agent/tests/common/test_cost_tracking.py's structure: unit tests
-on the callback handler directly (no live LangChain run needed), plus the
-context-manager activation contract.
-"""
-
 from unittest.mock import patch
 
 import pytest
@@ -113,7 +106,6 @@ class TestProfiledNode:
             result = await wrapped(41)
             assert result == 42
             assert profiler is not None
-            # profiled_node() closes the span before returning the wrapped result.
             assert profiler.spans_recorded == 1
 
     async def test_noop_without_active_profiler(self):
@@ -137,7 +129,6 @@ class TestProfiledNode:
         node_spans = [s for s in payload["spans"] if s["name"] == "failing_node"]
         assert len(node_spans) == 1
         assert node_spans[0]["status"] == "error"
-        # The root turn span is also marked error since the exception propagated out of the block.
         turn_spans = [s for s in payload["spans"] if s["name"] == "test_agent"]
         assert turn_spans[0]["status"] == "error"
 
@@ -165,8 +156,6 @@ class TestTrackAgentProfile:
         assert spans[0]["parentSpanId"] is None
 
     def test_root_span_metadata_is_read_at_teardown(self):
-        """A post-answer stage only knows its outcome once the block is done, so
-        the metadata dict it hands in has to be read at teardown, not at open."""
         metadata = {"stage": "memory_reflection", "outcome": "pending"}
         with patch("agent.common.profiler._post_profiler_spans") as post:
             with track_agent_profile(
@@ -179,8 +168,6 @@ class TestTrackAgentProfile:
         assert span["metadata"] == {"stage": "memory_reflection", "outcome": "timeout"}
 
     def test_configure_hook_attaches_handler_to_langchain_config(self):
-        """The DRY seam: any callback manager configured inside the context
-        must pick up the profiler without agent code opting in."""
         from langchain_core.callbacks.manager import CallbackManager
 
         with track_agent_profile(agent_name="chat_researcher", identity={"organization_id": "org_1"}) as profiler:
@@ -189,8 +176,6 @@ class TestTrackAgentProfile:
 
 
 class TestProfiledSpan:
-    """Setup work that is not a graph node still gets a row in the waterfall."""
-
     def test_nests_under_the_root_span(self):
         from agent.common.profiler import profiled_span
 
@@ -224,8 +209,6 @@ class TestProfiledSpan:
         assert setup["status"] == "error"
 
     async def test_gathered_branches_each_nest_under_the_root(self):
-        """Each gathered branch runs in its own task and its own context copy,
-        so two concurrent spans both parent on the root, never on each other."""
         import asyncio
 
         from agent.common.profiler import profiled_span
@@ -243,8 +226,6 @@ class TestProfiledSpan:
 
 
 class TestCancellationStatus:
-    """A cancelled turn is abandoned work, not failed work."""
-
     async def test_profiled_span_marks_cancelled_not_error(self):
         import asyncio
 
@@ -284,10 +265,6 @@ class TestCancellationStatus:
                         raise GeneratorExit()
         spans = post.call_args.args[0]["spans"]
         assert all(s["status"] != "error" for s in spans)
-        # "not marked error" was also satisfied by not recording the span AT
-        # ALL, which is what narrowing to `except Exception` actually did: the
-        # span stayed open and the waterfall lost the row that says where the
-        # turn stopped. Assert it is present and cancelled, not merely not-error.
         span = next(s for s in spans if s["name"] == "setup.ingest_wait")
         assert span["status"] == "cancelled"
 
@@ -305,9 +282,6 @@ class TestCancellationStatus:
 
 
 class TestDeferredFlush:
-    """The chat turn posts its ledgers AFTER the answer is on the wire, not
-    between the finished answer and its first delta."""
-
     def test_inline_flush_false_leaves_the_batch_pending(self):
         with patch("agent.common.profiler._post_profiler_spans") as post:
             with track_agent_profile(
@@ -357,7 +331,6 @@ class TestDeferredFlush:
                 pass
             assert posting_threads == []
             await flush_after_answer(profiler, tracker)
-        # The profiler always has its root span; the tracker had no events.
         assert len(posting_threads) == 1
         assert posting_threads[0] != loop_thread
 
@@ -367,7 +340,6 @@ class TestDeferredFlush:
         await flush_after_answer(None, None)
 
     async def test_flush_after_answer_records_the_turn_usage_rollup(self):
-        """Per-turn dollars finalize with the ledgers: the tracker in, a rollup out."""
         from unittest.mock import patch
 
         from agent.common.cost_tracking import CostTracker
@@ -404,7 +376,6 @@ class TestDeferredFlush:
         assert record.call_args.kwargs["agent"] == "chat"
 
     async def test_flush_after_answer_survives_a_failing_rollup(self):
-        """Telemetry must never take the turn down — not even the usage rollup."""
         from unittest.mock import patch
 
         from agent.common.cost_tracking import CostTracker
@@ -422,8 +393,6 @@ class TestDeferredFlush:
 
 
 class TestAnnotateCurrentSpan:
-    """A TTL-cached reader says whether it hit, on the span that was open."""
-
     def test_facts_land_on_the_innermost_open_span(self):
         from agent.common.profiler import annotate_current_span
         from agent.common.profiler import profiled_span
@@ -458,12 +427,6 @@ class TestAnnotateCurrentSpan:
 
 
 class TestTheRootSpanCarriesTheCacheCounters:
-    """A warm turn and a cold one must be different rows (latency audit §4.4, E7).
-
-    The counters are the shared cache's own (``common/cache.py``); the profiler
-    only stamps them, and only at teardown, where the turn's totals are final.
-    """
-
     def _span(self, post):
         return post.call_args.args[0]["spans"][0]
 
@@ -488,8 +451,6 @@ class TestTheRootSpanCarriesTheCacheCounters:
         assert not self._span(post)["metadata"]
 
     def test_two_turns_do_not_count_each_other(self, monkeypatch):
-        """One replica answers several turns at once; the scope is a ContextVar
-        so a turn's row is its own traffic, not the replica's."""
         from agent.common import cache
 
         monkeypatch.delenv("REDIS_URL", raising=False)

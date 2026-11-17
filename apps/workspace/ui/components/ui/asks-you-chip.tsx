@@ -2,12 +2,6 @@ import type { JSX, ReactNode } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-/**
- * „Asks you“: a neutral request that needs the reader, standing out without a verdict's colour (paper on a desk,
- * „Asks you“). Ink on a white pill with the press's edge, 28px, radius full, its chevron saying it opens: a chip, so
- * never the press's shape, and white, so never a filter chip's desk fill. „1 Befund“ was 13px of ink at the end of a
- * grey sentence (review of 2026-11-10, finding 12).
- */
 export function AsksYouChip({
   children,
   onPress,

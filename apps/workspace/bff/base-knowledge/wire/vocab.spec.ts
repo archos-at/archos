@@ -14,20 +14,12 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { DECISION_TABLE_PURPOSES, KNOWLEDGE_VOCABULARIES } from './vocab'
 
-/** Every forward migration, oldest first: a later one that redefines (or drops) a CHECK wins. */
 const MIGRATION_FILES = readdirSync(join(process.cwd(), 'migrations'))
   .filter((name) => /^\d{4}_.+\.sql$/.test(name) && !name.endsWith('.down.sql'))
   .sort()
 const MIGRATIONS = MIGRATION_FILES.map((name) => readFileSync(join(process.cwd(), 'migrations', name), 'utf8'))
 const FIXTURE = join(process.cwd(), 'tests/fixtures/base-knowledge.schema.json')
 
-/**
- * The values a CHECK of `table` on `column` lists: `CONSTRAINT <table>_… CHECK
- * (… "column" IN ('a', 'b'))`, across line breaks. The table is named because
- * two tables share a column name (`kind` of a work and of a territory). The
- * newest migration that names it decides, and within one the first CHECK, which
- * is the column's own `_known` constraint. With `source`, that text alone.
- */
 function checkedValues(table: string, column: string, source?: string): string[] {
   const owner = source ? '' : `CONSTRAINT ${table}_\\w+\\s+CHECK \\([^)]*?`
   const pattern = new RegExp(`${owner}"${column}"\\s+IN\\s*\\(([^)]*)\\)`)

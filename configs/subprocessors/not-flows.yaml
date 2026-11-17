@@ -30,7 +30,6 @@ hosts:
   wien.gv.at: a source link in a docstring and the registry, shown to people
   news.buero.at: an example sender domain
   xn--mller-kva.at: an example sender domain
-  xample.org: an example address in a component
   notopenrouter.ai: an example of a non-OpenRouter host in a comment
   schema.org: a structured-data vocabulary identifier, never fetched
   www.sitemaps.org: an XML namespace, never fetched

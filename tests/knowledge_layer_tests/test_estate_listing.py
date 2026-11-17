@@ -1,12 +1,3 @@
-"""``ls``, ``glob`` and the folder card ``README.md`` on the estate (ADR-0133 slice 3).
-
-What is pinned: the root lists the places the person may see; a folder lists its subfolders with
-counts and one row per file with the leaf ``read_file`` takes; a restricted folder's document is
-never named or counted, so ``ls`` of its folder and ``glob`` for its name answer exactly as for a
-folder or a name that does not exist; folder names match folded; ``README.md`` is the folder's card
-unless a real document has the name; every listing is an index (no ``Citation:`` line).
-"""
-
 from __future__ import annotations
 
 from knowledge_layer.browse import FileRow

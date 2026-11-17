@@ -72,8 +72,6 @@ describe('filterMentionCandidates — order and grouping', () => {
   })
 
   test('filters on name and on email, case-insensitively', () => {
-    // The address stays searchable: typing it is how one of two namesakes is
-    // picked. It ranks below every name match ("ranking" below).
     expect(filterMentionCandidates(CANDIDATES, 'hof', true, PRODUCT_NAME).visible).toEqual([MARKUS])
     expect(filterMentionCandidates(CANDIDATES, 'U-SABINE@', true, PRODUCT_NAME).visible).toEqual([
       SABINE,
@@ -101,11 +99,6 @@ describe('MentionPicker — the rows', () => {
     renderPicker()
     const row = screen.getByText('Anna Weber').closest('[role="option"]') as HTMLElement
     expect(within(row).getByText('u-anna@example.com')).toBeInTheDocument()
-    // An ordinary participant gets NO badge. These rows only ever render inside
-    // the group headed "In this chat", so a per-row "In this chat" badge could
-    // never say anything the heading above it had not already said — and it
-    // competed with the badges that do carry information. A badge here now means
-    // the row is not ordinary.
     expect(within(row).queryByText(/In this (chat|conversation)/)).toBeNull()
     expect(screen.getByText('In this conversation')).toBeInTheDocument() // …the heading
   })
@@ -114,9 +107,6 @@ describe('MentionPicker — the rows', () => {
     renderPicker()
     const row = screen.getByText('Sabine Gruber').closest('[role="option"]') as HTMLElement
     expect(within(row).getByText('Will be invited')).toBeInTheDocument()
-    // The consequence is stated WITHOUT repeating her name: the row already
-    // prints it on the line above, and interpolating it again read
-    // "Sabine Gruber / Sabine Gruber is not in this conversation yet…".
     expect(within(row).getByText('Not in this conversation yet — will be invited.')).toBeInTheDocument()
     expect(within(row).queryByText(/Sabine Gruber is not in this conversation/)).toBeNull()
     expect(row).toHaveAttribute('aria-disabled', 'false')
@@ -196,7 +186,6 @@ describe('MentionPicker — selection', () => {
     act(() => ref.current?.move(1))
     expect(screen.getAllByRole('option')[1]).toHaveAttribute('aria-selected', 'true')
 
-    // Up from the top wraps to the last selectable row.
     act(() => ref.current?.move(-1))
     act(() => ref.current?.move(-1))
     expect(screen.getAllByRole('option')[3]).toHaveAttribute('aria-selected', 'true')
@@ -206,14 +195,6 @@ describe('MentionPicker — selection', () => {
   })
 
   test('brings the selected row into view, so the keyboard can reach past the fold', () => {
-    // The panel is bounded and its list scrolls, but nothing scrolled it: arrowing
-    // past the fifth candidate moved the highlight onto a row nobody could see,
-    // and `↵` then inserted a colleague the user had never laid eyes on. The
-    // bottom fade said "more below" while the keyboard could not get there — on a
-    // surface that is keyboard-first.
-    //
-    // jsdom has no layout, so `scrollIntoView` is not implemented and cannot be
-    // observed any other way than by spying on it.
     const scrollIntoView = vi.fn()
     const original = Element.prototype.scrollIntoView
     Element.prototype.scrollIntoView = scrollIntoView
@@ -224,8 +205,6 @@ describe('MentionPicker — selection', () => {
       act(() => ref.current?.move(1))
 
       expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' })
-      // `nearest` and not `center`: a row already on screen must stay exactly
-      // where it is, or every arrow key jolts the whole list.
       expect(scrollIntoView.mock.calls.every(([options]) => options.block === 'nearest')).toBe(true)
     } finally {
       Element.prototype.scrollIntoView = original
@@ -315,11 +294,6 @@ describe('MentionPicker — selection', () => {
   })
 })
 
-/**
- * „@Le" is somebody reaching for Lena. The picker used to match the e-mail too
- * and keep the server's order, so Anna and Jakob, whose addresses contain „le",
- * stayed listed above Lena with Anna selected, and ↵ mentioned Anna.
- */
 describe('ranking: names before e-mail addresses', () => {
   const ANNA_LEHNER = person('u-anna', 'Anna Berger', {
     isParticipant: false,
@@ -357,8 +331,6 @@ describe('ranking: names before e-mail addresses', () => {
   })
 
   test('across groups, ↵ takes the best match, not a participant whose e-mail matched', () => {
-    // A participant leads the list by group, but only her address says „le":
-    // ↵ takes Lena, who is further down under „Weitere im Projekt".
     const PARTICIPANT = { ...ANNA_LEHNER, isParticipant: true }
     const onSelect = vi.fn()
     const { ref } = renderPicker({ candidates: [PARTICIPANT, LENA], query: 'le', onSelect })
@@ -394,8 +366,6 @@ describe('ranking: names before e-mail addresses', () => {
 
 describe('search folds diacritics', () => {
   test('finds Müller by typing muller', () => {
-    // The primary product language is German, and typing the umlaut is exactly
-    // what someone reaching for the picker is trying to avoid.
     const groups = filterMentionCandidates(
       [person('u-m', 'Sabine Müller')],
       'muller',

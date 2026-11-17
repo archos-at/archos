@@ -1,15 +1,3 @@
-/**
- * The Rechercheplan card: the plan as controls, not as a list to say yes to.
- *
- * The backend's plan preview carries the plan as data beside its text
- * (`clarify.format_plan_for_user`, the `plan_json` fence). This renders the
- * sections as a checklist the reader can strike and extend, and the genre
- * and depth as choices, and hands the edited plan back to the approval
- * button: an approval without edits sends the bare keyword the backend has
- * always understood; an approval with edits sends the keyword and the edits
- * as JSON (`clarify.parse_plan_reply`).
- */
-
 import type { JSX } from 'react'
 import { useState, type FC } from 'react'
 import { BookOpen, Plus, X } from 'lucide-react'
@@ -39,15 +27,11 @@ export interface PlanShape {
   sections: string[]
   genre: PlanGenre
   depth: PlanDepth
-  /** File names the run must read in full, from the inventory below. */
   basis: string[]
-  /** File names the run may not use. */
   excluded: string[]
-  /** What the run can read: the turn's inventory, as the backend listed it. */
   documents: PlanDocument[]
 }
 
-/** The source ids the composer shows: the Rahmen the run is approved under. */
 export interface PlanFrame {
   ids: string[]
   labels: string[]
@@ -55,7 +39,6 @@ export interface PlanFrame {
 
 const PLAN_FENCE_RE = /```plan_json\s*\n([\s\S]*?)\n```/
 
-/** The plan the fence carries, or null when there is none or it is unreadable. */
 export function parsePlanFence(content: string): PlanShape | null {
   const match = PLAN_FENCE_RE.exec(content)
   if (!match?.[1]) return null
@@ -90,19 +73,11 @@ export function parsePlanFence(content: string): PlanShape | null {
   }
 }
 
-/** The content without the fence, for the bubble's text. */
 export const stripPlanFence = (content: string): string => content.replace(PLAN_FENCE_RE, '').trim()
 
 const sameList = (a: readonly string[], b: readonly string[]): boolean =>
   a.length === b.length && a.every((item, index) => item === b[index])
 
-/**
- * The reply for an approval: bare when nothing changed and no Rahmen is
- * known, with the edits otherwise. The Rahmen — the composer's sources at the
- * moment of approval — always travels when there is one, because the run
- * has to know what the composer showed; an empty selection sends nothing and
- * leaves the turn's own sources in force.
- */
 export function approvalReply(
   original: PlanShape,
   edited: PlanShape,
@@ -125,13 +100,6 @@ export function approvalReply(
   })}`
 }
 
-/**
- * The plan an approval reply carries: `original` with the edits
- * {@link approvalReply} put beside the keyword, each field taken only when it
- * has the shape it was sent in. A bare keyword, or a reply that is not an
- * approval, is the original. What lets an answered prompt show the plan that
- * was approved after a reload, when the reader's edits are no longer in state.
- */
 export function planFromReply(original: PlanShape, reply: string | undefined): PlanShape {
   const match = /^\s*approve\s+(\{[\s\S]*\})\s*$/i.exec(reply ?? '')
   if (!match?.[1]) return original
@@ -157,7 +125,6 @@ export function planFromReply(original: PlanShape, reply: string | undefined): P
 export const PlanChecklist: FC<{
   plan: PlanShape
   disabled?: boolean
-  /** The composer's sources, shown as the Rahmen the run is approved under. */
   frame?: PlanFrame
   onChange: (plan: PlanShape) => void
 }> = ({ plan, disabled = false, frame, onChange }) => {
@@ -200,10 +167,6 @@ export const PlanChecklist: FC<{
                   type="button"
                   onClick={() => remove(index)}
                   aria-label={t('agentPrompt.plan.removePoint', { point: section })}
-                  // A 14px glyph is the drawn control; under a finger the button
-                  // is the 44px square the list row gives it room for. The rows
-                  // sit a line apart, so it GROWS (the Touch rule) rather than
-                  // overhanging into the row below.
                   className="rounded-control text-muted-foreground hover:text-foreground focus-visible:ring-ring/60 inline-flex shrink-0 items-center justify-center focus-visible:outline-none focus-visible:ring-2 pointer-coarse:size-11"
                 >
                   <X className="size-3.5" aria-hidden />
@@ -360,9 +323,6 @@ const NamedRow: FC<{
     <div className="flex flex-wrap items-center gap-1.5 pointer-coarse:gap-2" data-testid={testId}>
       <span className="text-muted-foreground text-xs">{label}</span>
       {names.map((name) => (
-        // Under a finger the chip is as tall as the remove button inside it
-        // (44px), and the button is the chip's own right-hand end: chips wrap a
-        // few pixels apart, so the control grows rather than overhanging.
         <Chip
           key={name}
           size="sm"
@@ -417,8 +377,6 @@ function ChoiceRow<T extends string>({
               disabled={disabled}
               onClick={() => onPick(option)}
               className={cn(
-                // The chip inside is the drawn control (24px); the button is its
-                // 44px box under a finger, the chips a row apart in a wrapping row.
                 'focus-visible:ring-ring/60 inline-flex items-center rounded-control focus-visible:outline-none focus-visible:ring-2 pointer-coarse:min-h-11',
                 disabled && 'cursor-default'
               )}

@@ -10,7 +10,6 @@ import { describe, expect, it } from 'vitest'
 import { createActor, fromPromise, waitFor } from 'xstate'
 import { temporarySwitchMachine, viewOf, type TemporarySwitchInput } from './temporary-switch-machine'
 
-/** A machine whose PATCH answers `answer(temporary)`, or throws when it returns an Error. */
 function start(input: TemporarySwitchInput, answer: (temporary: boolean) => boolean | Error = (temporary) => temporary) {
   const saves: boolean[] = []
   const refusals: unknown[] = []
@@ -84,8 +83,6 @@ describe('creating', () => {
     expect(state(h)).toBe('off')
   })
 
-  // The race the old chain of callbacks lost: the screen said „keeps nothing"
-  // at once, the turn opened on the created row, and the PATCH followed.
   it('a switch on while the create is in flight is pending, blocks the turn, and is sent once the row exists', async () => {
     const h = start({ onServer: false, temporary: false })
     h.actor.send({ type: 'create.started', temporary: false })

@@ -1,8 +1,3 @@
-/**
- * „Als Kontakt sichern“: a vCard 4.0 a phone imports, escaped and folded as
- * RFC 6350 says.
- */
-
 import { describe, expect, it } from 'vitest'
 import { contactCard, contactCardFileName } from './vcard'
 import { PRODUCT_NAME } from '@/lib/brand'

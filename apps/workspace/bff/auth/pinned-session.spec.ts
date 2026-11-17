@@ -42,19 +42,14 @@ describe('resolvePinnedRequesterSession', () => {
       organizationMembershipId: 'om_1',
       role: 'member',
       roles: ['member'],
-      // No token: nothing on the filing path forwards one, and none is minted.
       accessToken: '',
       featureFlags: [],
     })
-    // Permissions come from WorkOS for the membership's roles, never from the caller.
     expect(rolePermissions).toHaveBeenCalledWith('org_1', ['member'])
     expect(session?.permissions).toEqual(['org:projects:create'])
   })
 
   it("gives an office's own custom role what WorkOS says it holds, as the person's token would", async () => {
-    // Built from the catalog's table, the session gave a role the catalog has
-    // never heard of nothing at all, so Piloti could not do for a Geschäftsführer
-    // what the Geschäftsführer could do in the browser.
     vi.mocked(resolveSubjectMembership).mockResolvedValueOnce({
       organizationMembershipId: 'om_1',
       role: 'org-geschaeftsfuehrung',
@@ -75,7 +70,6 @@ describe('resolvePinnedRequesterSession', () => {
     const session = await resolvePinnedRequesterSession({ ...requester, email: null })
 
     expect(resolvePerson).toHaveBeenCalledWith('org_1', 'user_owner')
-    // The stored email stands where the row has one; WorkOS fills it where it does not.
     expect(session).toMatchObject({ name: 'Anna Weber', email: 'anna@example.test', organizationName: 'Atelier Nord' })
     expect((await resolvePinnedRequesterSession(requester))?.email).toBe('owner@example.test')
   })
@@ -97,7 +91,6 @@ describe('resolvePinnedRequesterSession', () => {
 
     const session = await resolvePinnedRequesterSession(requester)
     expect(session?.featureFlags).toEqual(['agent-authored-documents', 'image-upload'])
-    // The lookup that used to pass the slug as the organization.
     expect(enabledFlagsForOrganization).toHaveBeenCalledWith(requester.organizationId)
   })
 

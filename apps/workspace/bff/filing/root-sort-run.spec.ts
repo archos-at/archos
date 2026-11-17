@@ -91,7 +91,6 @@ function run(patch: Partial<RootSortRun> = {}): RootSortRun {
   }
 }
 
-/** What the slice wrote, and from which status. */
 const written = () => vi.mocked(updateRootSortRun).mock.calls.map(([, , from, patch]) => ({ from, patch }))
 
 const CONTEXT = { folders: { rows: [] }, inputs: [], space: {}, conventions: [] } as unknown as SortContext
@@ -126,10 +125,8 @@ describe('runRootSortSlice', () => {
           }
     )
     const slice = await runRootSortSlice(SESSION, PAYLOAD)
-    // Still judging: nothing to tell anyone yet.
     expect(announceRootSortRun).not.toHaveBeenCalled()
     expect(planRootChunk).toHaveBeenCalledTimes(CHUNKS_PER_SLICE)
-    // The shelf's folders and conventions are read once for the slice, not once per chunk.
     expect(sortContextFor).toHaveBeenCalledTimes(1)
     expect(new Set(vi.mocked(planRootChunk).mock.calls.map((call) => call[3]))).toEqual(new Set([CONTEXT]))
     expect(slice.done).toBe(false)
@@ -158,7 +155,6 @@ describe('runRootSortSlice', () => {
     expect(vi.mocked(proposeRootFolders).mock.calls[0][2]).toEqual(['d2', 'd3'])
     expect(written()[0].patch).toEqual({ newFolders: [], groupingError: 'backend_unreachable', status: 'ready' })
     expect(slice.done).toBe(true)
-    // Ready waits on the person: they are told, whether or not the dialog is open.
     expect(announceRootSortRun).toHaveBeenCalledWith(expect.objectContaining({ status: 'ready' }))
   })
 
@@ -183,7 +179,6 @@ describe('runRootSortSlice', () => {
       { projectId: 'p1', parentId: null, paths: ['05 Fotos', '06 Nicht angelegt'] },
       SESSION
     )
-    // Each move only from the root, where the run found the document.
     expect(moveDocumentsToFolders).toHaveBeenCalledWith(
       [
         { documentId: 'd0', folderId: 'f1', expectedFolderId: null },
@@ -217,7 +212,6 @@ describe('runRootSortSlice', () => {
       moves.map((move) => ({ documentId: move.documentId, ok: move.documentId !== 'd1', error: move.documentId === 'd1' ? 'Folder is read-only.' : null }))
     )
     await runRootSortSlice(SESSION, PAYLOAD)
-    // Only where the run put it: a document filed since stays where it is.
     expect(moveDocumentsToFolders).toHaveBeenCalledWith(
       [
         { documentId: 'd0', folderId: null, expectedFolderId: 'f1' },
@@ -235,7 +229,6 @@ describe('runRootSortSlice', () => {
   it('stops starting moves at the slice budget and carries on from the first one not reached', async () => {
     const keptMoves = ['d0', 'd1', 'd2'].map((documentId) => ({ documentId, folderId: 'f1', newFolderPath: null }))
     vi.mocked(findRootSortRun).mockResolvedValue(run({ status: 'applying', cursor: 1, keptMoves }))
-    // The deadline let one of the two remaining moves start.
     vi.mocked(moveDocumentsToFolders).mockResolvedValue([{ documentId: 'd1', ok: true, error: null, changed: true }])
     const slice = await runRootSortSlice(SESSION, PAYLOAD)
     const [{ patch }] = written()
@@ -352,7 +345,6 @@ describe('a run is never left working with nothing working on it', () => {
     vi.mocked(insertRootSortRun).mockResolvedValue(run({ documentIds: ['d0'] }))
     vi.mocked(enqueueJob).mockRejectedValue(new Error('queue down'))
     await expect(startRootSort(SESSION, { kind: 'project', projectId: 'p1' })).rejects.toThrow('queue down')
-    // The run names its job first, so a missing job is told from a waiting one; the failed queueing ends it.
     expect(written()).toEqual([
       { from: ['judging'], patch: { jobId: expect.any(String) } },
       { from: ['judging'], patch: expect.objectContaining({ status: 'failed', error: 'not_queued', jobId: null }) },
@@ -418,9 +410,7 @@ describe('a run shows its progress as it happens', () => {
     vi.mocked(findRootSortRun).mockResolvedValue(run({ documentIds: ids(ROOT_SORT_CHUNK * CHUNKS_PER_SLICE), cursor: 0 }))
     vi.mocked(planRootChunk).mockImplementation(async (_session, _shelf, chunk) => placed(chunk))
     await runRootSortSlice(SESSION, PAYLOAD)
-    // The first chunk to finish is written at once; the rest wait out the write interval.
     expect(recordRootSortProgress).toHaveBeenCalledWith('org-1', PAYLOAD.runId, { status: 'judging', cursor: 0 }, ROOT_SORT_CHUNK)
-    // The slice's commit brings the live count up to the cursor it commits.
     const { patch } = written()[0]
     expect(patch.progressDone).toBe(patch.cursor)
   })

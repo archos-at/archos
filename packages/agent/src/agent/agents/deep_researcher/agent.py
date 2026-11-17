@@ -1,4 +1,11 @@
-"""Deep research agent using deepagents library for multi-phase workflow."""
+"""Deep research agent using deepagents library for multi-phase workflow.
+
+Keep every call off the event loop (``asyncio.to_thread``): the worker
+heartbeats from it, and the ghost reaper fails a job silent for 300 s. Report
+post-processing goes in ``finalize.py``, which both a complete and a salvaged
+run pass through. The seams and their reasons: ``docs/architecture/backend-deep-dive.md``
+("The deep researcher's seams").
+"""
 
 from __future__ import annotations
 

@@ -1,32 +1,5 @@
 #!/usr/bin/env python3
 
-"""
-LlamaIndex Backend - Collection & File Management API Test
-
-This script tests all abstract methods implemented in the LlamaIndex adapter:
-1. Collection Management: create, list, get, delete
-2. File Management: upload, list, get_status, delete
-
-Prerequisites:
-    - OPENROUTER_API_KEY environment variable (via export or .env file)
-    - LlamaIndex dependencies: uv pip install -e "packages/knowledge-layer[llamaindex]"
-
-Usage:
-    # Option 1: Export env var
-    export OPENROUTER_API_KEY=your-openrouter-key
-
-    # Option 2: Use .env file (auto-loaded, won't override existing vars)
-    echo 'OPENROUTER_API_KEY=your-openrouter-key' >> .env
-
-    # Run with default test file
-    python tests/knowledge_layer_tests/run_collections_api.py
-
-    # Keep collection after test (don't cleanup)
-    python tests/knowledge_layer_tests/run_collections_api.py --no-cleanup
-
-    # Text-only mode (faster, no VLM)
-    python tests/knowledge_layer_tests/run_collections_api.py --text-only
-"""
 
 import argparse
 import os
@@ -36,11 +9,9 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-# Add project root to path for imports
 project_root = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-# Load environment variables from .env file (won't override existing vars)
 load_dotenv()
 
 from agent.knowledge.factory import get_ingestor  # noqa: E402
@@ -50,20 +21,17 @@ from agent.knowledge.schema import FileStatus  # noqa: E402
 
 
 def print_header(title: str):
-    """Print a formatted section header."""
     print("\n" + "=" * 70)
     print(f"  {title}")
     print("=" * 70)
 
 
 def print_result(label: str, value, indent: int = 2):
-    """Print a formatted result."""
     prefix = " " * indent
     print(f"{prefix}{label}: {value}")
 
 
 def print_collection_info(col: CollectionInfo, indent: int = 4):
-    """Print CollectionInfo details."""
     prefix = " " * indent
     print(f"{prefix}Name: {col.name}")
     print(f"{prefix}Backend: {col.backend}")
@@ -75,7 +43,6 @@ def print_collection_info(col: CollectionInfo, indent: int = 4):
 
 
 def print_file_info(file: FileInfo, indent: int = 4):
-    """Print FileInfo details."""
     prefix = " " * indent
     print(f"{prefix}File ID: {file.file_id}")
     print(f"{prefix}File Name: {file.file_name}")
@@ -91,10 +58,8 @@ def print_file_info(file: FileInfo, indent: int = 4):
 
 
 def test_collection_management(ingestor, collection_name: str) -> bool:
-    """Test collection CRUD operations."""
     print_header("TEST 1: Collection Management")
 
-    # 1.1 Create Collection
     print("\n[1.1] Creating collection...")
     try:
         col_info = ingestor.create_collection(
@@ -112,7 +77,6 @@ def test_collection_management(ingestor, collection_name: str) -> bool:
         print_result("Result", f"FAILED - {e}")
         return False
 
-    # 1.2 List Collections
     print("\n[1.2] Listing collections...")
     try:
         collections = ingestor.list_collections()
@@ -131,7 +95,6 @@ def test_collection_management(ingestor, collection_name: str) -> bool:
         print_result("Result", f"FAILED - {e}")
         return False
 
-    # 1.3 Get Collection
     print("\n[1.3] Getting collection by name...")
     try:
         col_info = ingestor.get_collection(collection_name)
@@ -145,7 +108,6 @@ def test_collection_management(ingestor, collection_name: str) -> bool:
         print_result("Result", f"FAILED - {e}")
         return False
 
-    # 1.4 Get Non-existent Collection
     print("\n[1.4] Getting non-existent collection...")
     try:
         col_info = ingestor.get_collection("non_existent_collection_xyz")
@@ -161,12 +123,10 @@ def test_collection_management(ingestor, collection_name: str) -> bool:
 
 
 def test_file_management(ingestor, collection_name: str, test_file: str) -> tuple[bool, str]:
-    """Test file CRUD operations. Returns (success, file_id)."""
     print_header("TEST 2: File Management")
 
     file_id = None
 
-    # 2.1 Upload File
     print("\n[2.1] Uploading file...")
     print_result("File", test_file)
     try:
@@ -189,7 +149,6 @@ def test_file_management(ingestor, collection_name: str, test_file: str) -> tupl
         print_result("Result", f"FAILED - {e}")
         return False, ""
 
-    # 2.2 Wait for Ingestion & Check Status
     print("\n[2.2] Waiting for ingestion to complete...")
     max_wait = 120  # 2 minutes max
     poll_interval = 2
@@ -226,7 +185,6 @@ def test_file_management(ingestor, collection_name: str, test_file: str) -> tupl
         print_result("Result", "TIMEOUT - Ingestion did not complete in time")
         return False, file_id
 
-    # 2.3 List Files
     print("\n[2.3] Listing files in collection...")
     try:
         files = ingestor.list_files(collection_name)
@@ -244,7 +202,6 @@ def test_file_management(ingestor, collection_name: str, test_file: str) -> tupl
         print_result("Result", f"FAILED - {e}")
         return False, file_id
 
-    # 2.4 Get File Status (final)
     print("\n[2.4] Getting final file status...")
     try:
         file_info = ingestor.get_file_status(file_id, collection_name)
@@ -263,10 +220,8 @@ def test_file_management(ingestor, collection_name: str, test_file: str) -> tupl
 
 
 def test_file_deletion(ingestor, collection_name: str, file_id: str) -> bool:
-    """Test file deletion."""
     print_header("TEST 3: File Deletion")
 
-    # 3.1 Delete File
     print("\n[3.1] Deleting file...")
     print_result("File ID", file_id)
     try:
@@ -279,13 +234,11 @@ def test_file_deletion(ingestor, collection_name: str, file_id: str) -> bool:
         print_result("Result", f"FAILED - {e}")
         return False
 
-    # 3.2 Verify File Deleted
     print("\n[3.2] Verifying file was deleted...")
     try:
         file_info = ingestor.get_file_status(file_id, collection_name)
         print_result("Result", f"File status: {file_info}")
 
-        # File should either be None or not in the list
         files = ingestor.list_files(collection_name)
         found = any(f.file_id == file_id for f in files)
 
@@ -299,10 +252,8 @@ def test_file_deletion(ingestor, collection_name: str, file_id: str) -> bool:
 
 
 def test_collection_deletion(ingestor, collection_name: str) -> bool:
-    """Test collection deletion."""
     print_header("TEST 4: Collection Deletion")
 
-    # 4.1 Delete Collection
     print("\n[4.1] Deleting collection...")
     print_result("Collection", collection_name)
     try:
@@ -315,7 +266,6 @@ def test_collection_deletion(ingestor, collection_name: str) -> bool:
         print_result("Result", f"FAILED - {e}")
         return False
 
-    # 4.2 Verify Collection Deleted
     print("\n[4.2] Verifying collection was deleted...")
     try:
         col_info = ingestor.get_collection(collection_name)
@@ -348,13 +298,11 @@ def main():
     parser.add_argument("--text-only", action="store_true", help="Skip VLM-based extraction (faster, text only)")
     args = parser.parse_args()
 
-    # Validate environment
     if not os.environ.get("OPENROUTER_API_KEY"):
         print("ERROR: OPENROUTER_API_KEY environment variable not set")
         print("Export your key: export OPENROUTER_API_KEY='your-openrouter-key'")  # pragma: allowlist secret
         sys.exit(1)
 
-    # Validate test file
     test_file = Path(args.file)
     if not test_file.exists():
         print(f"ERROR: Test file not found: {test_file}")
@@ -370,7 +318,6 @@ def main():
     print(f"  Text Only:    {args.text_only}")
     print(f"  Cleanup:      {not args.no_cleanup}")
 
-    # Initialize ingestor
     print("\nInitializing LlamaIndex ingestor...")
     config = {
         "extract_tables": not args.text_only,
@@ -379,7 +326,6 @@ def main():
     }
 
     try:
-        # Import adapter to register it
         import knowledge_layer.ingest.adapter  # noqa: F401
 
         ingestor = get_ingestor("llamaindex", config)
@@ -388,21 +334,17 @@ def main():
         print(f"ERROR: Failed to initialize ingestor: {e}")
         sys.exit(1)
 
-    # Run tests
     results = {}
     file_id = None
 
-    # Test 1: Collection Management
     results["collection_management"] = test_collection_management(ingestor, args.collection)
 
-    # Test 2: File Management (only if Test 1 passed)
     if results["collection_management"]:
         results["file_management"], file_id = test_file_management(ingestor, args.collection, str(test_file))
     else:
         results["file_management"] = False
         print("\nSkipping file management tests (collection management failed)")
 
-    # Test 3: File Deletion (only if we have a file_id)
     if file_id and results["file_management"]:
         results["file_deletion"] = test_file_deletion(ingestor, args.collection, file_id)
     else:
@@ -410,14 +352,12 @@ def main():
         if results["file_management"]:
             print("\nSkipping file deletion test (no file_id)")
 
-    # Test 4: Collection Deletion (cleanup)
     if not args.no_cleanup:
         results["collection_deletion"] = test_collection_deletion(ingestor, args.collection)
     else:
         results["collection_deletion"] = True  # Skipped
         print("\n[Skipping collection deletion - --no-cleanup flag set]")
 
-    # Summary
     print_header("TEST SUMMARY")
 
     total = len(results)

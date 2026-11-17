@@ -168,7 +168,9 @@ SQL. The folder card builder's suites (`packages/agent/tests/knowledge/folder_ca
 dirty set, budget, manifests, the build over a collection) run on both too, through the
 `database_url` and `agent_db` fixtures in their `conftest.py`, and so does the
 metadata store's mail records (`packages/agent/tests/knowledge/test_mail_facts.py`: the
-add-column path on a table from before the columns, and the read-back). Without `TEST_POSTGRES_URL` the Postgres parameter skips, so the task
+add-column path on a table from before the columns, and the read-back), and the research
+cutover (`apps/agent-host/tests/test_research_cutover.py`: a row it holds is skipped by the
+old claim's `FOR UPDATE SKIP LOCKED` and by a second cutover). Without `TEST_POSTGRES_URL` the Postgres parameter skips, so the task
 reuses `scripts/rls-test-db.sh --exec` for a throwaway cluster and names a
 scratch database in it. Each file carries an `TEST_POSTGRES_REQUIRED` guard,
 set in CI, that fails instead of skipping. A new suite with a Postgres parameter

@@ -1,12 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * What the Python backend pins its OpenRouter requests by. `zdrOnly` must be
- * the EFFECTIVE policy as a boolean: an org that never touched the switch is
- * ZDR, so the field is `true` for it, and only an explicit opt-out reads
- * `false`. The real `isZdrOnlyForOrg` runs here; only storage is stubbed.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/auth/require-auth', () => ({ requireAuthorizedSession: vi.fn() }))

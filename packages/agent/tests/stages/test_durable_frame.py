@@ -1,11 +1,3 @@
-"""The memory frame is stored on its answer by the agent tier, not only by an attached browser.
-
-The defect: the frame became durable only when a browser still held the
-conversation's socket when the stage ended. A person who opened another chat
-three seconds before a 45-second stage finished had the note saved and never
-saw it under the answer, also after a reload (post-answer-stages §11 risk 3).
-"""
-
 import asyncio
 import dataclasses
 import io
@@ -50,8 +42,6 @@ def _refused(status: int) -> urllib.error.HTTPError:
 
 
 class _Bff:
-    """The BFF's answers to the stage route, in turn; every other route (the profiler's spans) answers 200."""
-
     def __init__(self, *answers):
         self.answers = list(answers)
         self.requests = []
@@ -113,7 +103,6 @@ class TestTheWrite:
 
     @pytest.mark.asyncio
     async def test_it_waits_for_the_answer_row_and_then_stores(self):
-        """The agent host persists the answer in the background, possibly after the stage."""
         bff = _Bff(_refused(404), _refused(404), _ok)
         with patch.object(bff_http._opener, "open", side_effect=bff):
             attempts, reason = await _write()
@@ -147,7 +136,6 @@ class TestTheWrite:
 class TestTheStage:
     @pytest.mark.asyncio
     async def test_in_turn_notes_on_a_declined_reflection_are_stored_on_the_answer_too(self):
-        """The gate proceeds with no model call for a turn with in-turn notes: the same write applies."""
         note = TurnMemoryNote(id="n-1", kind="decision", content="Flachdach.", scope="project")
         with (
             patch("agent.memory.reflection.run_memory_reflection") as run,

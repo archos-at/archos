@@ -4,21 +4,6 @@ import { afterEach, describe, expect, test, vi } from 'vitest'
 
 import { BudgetUsageCard } from './budget-usage-card'
 
-/**
- * These pin the *visualization* decisions, not the budget arithmetic — the
- * things a later refactor is most likely to undo without noticing:
- *
- * - colour follows the model, ordering follows the money. A reader who learned
- *   that a model is blue must keep seeing it blue when the leaderboard changes,
- *   so slots are handed out alphabetically while rows are sorted by spend.
- * - the ninth model folds into a neutral "Other" instead of getting a generated
- *   hue, and Other is pinned last however much it spent.
- * - every number is readable without hovering. Three of the eight light-mode
- *   slots sit below 3:1 on white, which the method only permits when the values
- *   are also present as text — so the table is always open, never a toggle.
- * - the meter carries state, which is why it stopped being painted by model.
- */
-
 interface ModelFixture {
   model: string
   day: { amount: number; events: number }
@@ -56,7 +41,6 @@ const model = (name: string, dayAmount: number, monthAmount: number): ModelFixtu
   month: { amount: monthAmount, events: Math.round(monthAmount) },
 })
 
-/** Answers only the two endpoints a non-admin card reaches for. */
 function stubFetch(usage: unknown): void {
   vi.stubGlobal(
     'fetch',
@@ -92,12 +76,7 @@ describe('BudgetUsageCard — spend visualization', () => {
     render(<BudgetUsageCard isAdmin={false} />)
 
     const bar = await screen.findByTestId('spend-composition')
-    // Table rows read biggest-first — rows don't touch, so rank is free…
     expect(rowNames()).toEqual(['zeta-model', 'alpha-model', 'mid-model'])
-    // …but the stack goes in PALETTE order, because only adjacent slots have a
-    // validated colourblind separation and stacking by size would put arbitrary
-    // pairs together. The hue is bound to the alphabetical slot either way, so
-    // the biggest spender is not slot 1.
     const fills = Array.from(bar.children).map((el) => (el as HTMLElement).style.backgroundColor)
     expect(fills).toEqual([
       'var(--spend-series-1)', // alpha-model
@@ -108,8 +87,6 @@ describe('BudgetUsageCard — spend visualization', () => {
 
   test('folds the ninth model into a neutral Other, pinned last', async () => {
     const many = Array.from({ length: 10 }, (_, i) =>
-      // The tail models are the alphabetically last two but the biggest spenders,
-      // so a rank-ordered fold would have put them in a slot.
       model(`model-${String(i).padStart(2, '0')}`, 0, i >= 8 ? 500 : 10)
     )
     stubFetch(usageBody(many))
@@ -129,7 +106,6 @@ describe('BudgetUsageCard — spend visualization', () => {
 
     await screen.findByTestId('spend-table')
     const table = screen.getByTestId('spend-table')
-    // Month credits, today's credits and the request counts all live in the table.
     expect(within(table).getByText('60 credits')).toBeDefined()
     expect(within(table).getByText('30 credits')).toBeDefined()
     expect(within(table).getByText('5 credits')).toBeDefined()
@@ -146,14 +122,12 @@ describe('BudgetUsageCard — spend visualization', () => {
     expect(today.dataset.testid).toBe('budget-meter-within')
     expect(month.dataset.testid).toBe('budget-meter-over')
 
-    // Under the limit the fill is the accent; at or over it, the status step.
     expect((today.firstElementChild as HTMLElement).style.backgroundColor).toBe(
       'var(--spend-meter)'
     )
     expect((month.firstElementChild as HTMLElement).style.backgroundColor).toBe(
       'var(--spend-meter-over)'
     )
-    // The overshoot is only legible if the limit is still marked on the track.
     expect(within(month).getByTestId('budget-limit-tick')).toBeDefined()
     expect(within(today).queryByTestId('budget-limit-tick')).toBeNull()
     expect(screen.getByText('120 credits of 100 credits')).toBeDefined()
@@ -173,7 +147,6 @@ describe('BudgetUsageCard — spend visualization', () => {
     expect(screen.getByTestId('budget-own-key-note')).toBeDefined()
     expect(screen.getByText('48.2K tokens of 100K tokens')).toBeDefined()
     expect(within(screen.getByTestId('spend-table')).getByText('812 tokens')).toBeDefined()
-    // No amount anywhere is a credit amount; the note may name the word.
     expect(screen.queryByText(/\d\s?credits/i)).toBeNull()
   })
 
@@ -187,9 +160,6 @@ describe('BudgetUsageCard — spend visualization', () => {
   })
 
   test('an unreadable organization limit blocks Save instead of saving no limit', async () => {
-    // `null` is what the route stores as NO LIMIT. The old parser returned it
-    // for "fünf" and "-5" as well as for a blank field, so a typo removed the
-    // organization's cap without a word.
     const calls: { url: string; method: string; body?: string }[] = []
     vi.stubGlobal(
       'fetch',

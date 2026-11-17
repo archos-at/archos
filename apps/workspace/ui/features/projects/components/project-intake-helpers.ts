@@ -14,11 +14,9 @@ import { isProjectClosedBody } from '@/lib/projects/project-status'
 
 export type Answers = Record<string, ProjectPrimitiveValue>
 
-/** Shape of the autosaved intake draft persisted in localStorage. */
 export interface IntakeDraft {
   answers?: Answers
   buildings?: BuildingInstance[]
-  /** Role bindings held for buildings not saved yet (`pending-role-binds`). */
   pendingBinds?: PendingRoleBind[]
   currentStep?: number
   savedAt?: number
@@ -53,12 +51,6 @@ export function draftShouldWinInEditMode(
   return false
 }
 
-/**
- * May the wizard advance past this question? Non-required questions never block
- * on emptiness, but an ANSWERED numeric field must still be finite — an entered
- * "1e999" (→ Infinity) serializes to null and would corrupt the fact, so it is
- * rejected even when the field is optional.
- */
 export function isQuestionSatisfied(
   question: ProjectIntakeQuestion,
   answers: Answers,
@@ -90,14 +82,8 @@ export function validationMessage(question: ProjectIntakeQuestion, t: Translator
   }
 }
 
-/** A refusal the person can read: the save was answered, and the message says why. */
 export class SaveRefused extends Error {}
 
-/**
- * Why a profile save was refused (409 or 403). A conflict reads as one; a 403 says
- * why the press did nothing: a closed project and a missing right are both
- * refusals the button cannot fix.
- */
 export async function saveRefusal(res: Response, t: Translator): Promise<Error> {
   if (res.status === 409) return new SaveRefused(t('intake.errors.saveConflict'))
   const body: unknown = await res.json().catch(() => null)

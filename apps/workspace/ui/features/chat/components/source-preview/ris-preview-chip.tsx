@@ -23,14 +23,6 @@ import {
 } from './citation-face'
 import type { RisTarget } from './document-target'
 
-/**
- * A RIS source, read inside Piloti.
- *
- * Behaves like the document chip and not like the web link it used to be:
- * hovering answers "what is this?", clicking commits to the document. The
- * outbound link is not lost — it moves into the dialog's header, where it is
- * the authoritative publication rather than the only way in.
- */
 export const RisPreviewChip: FC<{
   target: RisTarget
   signal: SourceTint

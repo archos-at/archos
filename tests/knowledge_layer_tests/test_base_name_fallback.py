@@ -1,12 +1,3 @@
-"""A ``file_name=`` that names nothing empties a law search; the miss must say how to recover.
-
-Reproduction of the empty reply to "Welche Absturzhöhe bei den Brüstungen ...":
-the prompt said the user had a file open, the model passed that name as
-``file_name=``, and the filter dropped every OIB hit. The filter stays a filter
-(another file's hits would be a silent bait-and-switch); the empty-search
-message tells the model a norm question is answered without the name.
-"""
-
 from __future__ import annotations
 
 from types import SimpleNamespace

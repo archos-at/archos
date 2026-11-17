@@ -1,8 +1,3 @@
-/**
- * Dictation inside the real composer: where a transcript lands, and that a
- * failure leaves the message alone. The microphone itself is faked away (the
- * button has its own spec); the insertion rule and the composer are real.
- */
 import { render, screen, fireEvent } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, test, vi } from 'vitest'
@@ -55,7 +50,6 @@ vi.mock('@/features/documents', () => ({
 vi.mock('./FileSourcesTab', () => ({ FileSourcesTab: () => null }))
 vi.mock('@/features/documents/components/file-preview-dialog', () => ({ FilePreviewDialog: () => null }))
 
-// A stand-in microphone: two buttons that deliver what a recording would.
 vi.mock('@/features/dictation', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/features/dictation')>()),
   DictationButton: ({ onTranscript, onError }: DictationButtonProps) => (

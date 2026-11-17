@@ -1,10 +1,3 @@
-"""A passage of the office's own copy carries the same line fields a platform edition does (ADR-0163).
-
-The office's labels ride the turn (``baseKnowledgeLabels``); a passage finds its label by the edition id its
-points are marked with, never by its file name, and a platform edition the knowledge context knows keeps
-its own fields. Invented records: what is under test is code.
-"""
-
 from __future__ import annotations
 
 import pytest
@@ -64,7 +57,6 @@ def test_a_passage_of_an_office_copy_states_its_edition_role_and_check() -> None
         "last_checked_at": "2026-09-12",
         "freshness": "current",
     }
-    # A commentary interprets: it never reads as binding.
     assert wire["binding_status"] == "unknown"
 
 

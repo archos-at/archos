@@ -1,16 +1,3 @@
-/**
- * The E-Mail-Eingang's door to the API, as one object the components take.
- *
- * Every call is the typed client's (`adapters/api/inbound-mail-client.ts`,
- * ADR-0055): this only gathers them, so a component can be handed a fixture
- * client in a spec or a `/dev` preview and render the real thing over it.
- *
- * `follow` and `unfollow` belong to the E-Mail-Verlauf (`mail-thread-follow`,
- * `mail-thread-unfollow`), so they are its client's
- * (`adapters/api/mail-thread-client.ts`); the E-Mail-Eingang only needs to
- * know that they happened.
- */
-
 import {
   createInboundMailAddress,
   deleteInboundMailAddress,
@@ -45,11 +32,8 @@ export interface InboundMailClient {
   file(projectId: string, body: FileInboundMailsBody): Promise<InboundMailDecisionResultView>
   dismiss(projectId: string, body: DismissInboundMailsBody): Promise<{ mails: InboundMailView[] }>
   restore(projectId: string, mailId: string): Promise<InboundMailView>
-  /** „Diesem E-Mail-Verlauf folgen“ (D31): the person's standing decision for one thread. */
   follow(projectId: string, threadId: string, body?: MailThreadFollowBody): Promise<void>
-  /** Undo a follow just made (the toast's „Rückgängig“). */
   unfollow(projectId: string, threadId: string): Promise<void>
-  /** The thread a document is, to follow a thread the text just started. */
   threadOfDocument(projectId: string, documentId: string): Promise<MailThreadSummaryView | null>
   partContentUrl(projectId: string, mailId: string, partId: string): string
   originalUrl(projectId: string, mailId: string): string

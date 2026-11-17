@@ -8,10 +8,8 @@ import { asStoreState, type DeepPartial, type StoreSelector } from '@/test-utils
 import type { LayoutStore } from '../types'
 import type { ChatStoreWithHydration } from '@/features/chat/store'
 
-// Mock the layout store
 const mockSetSessionsPanelOpen = vi.fn()
 
-// FB-10: the Deep Research section fetches server-truth runs on panel open.
 const mockListResearchRuns = vi.fn()
 vi.mock('@/adapters/api/research-runs-client', () => ({
   listResearchRuns: (...args: unknown[]) => mockListResearchRuns(...args),
@@ -40,12 +38,10 @@ vi.mock('../store', () => ({
   }),
 }))
 
-// Mock the chat store (no longer uses useIsCurrentSessionBusy for navigation)
 vi.mock('@/features/chat/store', () => ({
   useChatStore: vi.fn(),
 }))
 
-// Mock the delete confirmation modal
 vi.mock('./DeleteSessionConfirmationModal', () => ({
   DeleteSessionConfirmationModal: ({
     open,
@@ -67,10 +63,6 @@ vi.mock('./DeleteSessionConfirmationModal', () => ({
 import { useLayoutStore } from '../store'
 import { useChatStore } from '@/features/chat/store'
 
-/**
- * Helper to create a mock chat store state.
- * Components select individual fields via useChatStore((state) => state.X).
- */
 const createMockChatState = (
   overrides: {
     isSessionBusy?: (sessionId: string) => boolean
@@ -95,7 +87,6 @@ const setupChatStoreMock = (overrides: Parameters<typeof createMockChatState>[0]
   })
 }
 
-/** The card row (`<li>`) a chat button lives in — where the row styling sits. */
 const rowOf = (element: HTMLElement): HTMLElement => {
   const row = element.closest('li')
   if (!row) throw new Error('expected the element to sit inside a list row')
@@ -116,7 +107,6 @@ describe('SessionsPanel', () => {
     vi.clearAllMocks()
     setupChatStoreMock()
 
-    // Reset mock to default open state
     vi.mocked(useLayoutStore).mockImplementation((selector?: StoreSelector<LayoutStore>) => {
       const state: DeepPartial<LayoutStore> = {
         isSessionsPanelOpen: true,
@@ -163,8 +153,6 @@ describe('SessionsPanel', () => {
     render(<SessionsPanel sessions={[]} />)
 
     expect(screen.getByText('No chats yet')).toBeInTheDocument()
-    // The pinned New chat button is the only CTA — the empty state does not add
-    // a second identical one two rows below it.
     expect(screen.getAllByRole('button', { name: /start a new chat/i })).toHaveLength(1)
   })
 
@@ -204,7 +192,6 @@ describe('SessionsPanel', () => {
     await user.type(search, 'First')
     expect(screen.queryByText('Second Session')).not.toBeInTheDocument()
 
-    // Two ways out of a filtered list, both real controls.
     await user.click(screen.getAllByRole('button', { name: /clear search/i })[0])
 
     expect(screen.getByText('Second Session')).toBeInTheDocument()
@@ -248,8 +235,6 @@ describe('SessionsPanel', () => {
     render(<SessionsPanel sessions={mockSessions} selectedSessionId="session-1" />)
 
     const firstSession = screen.getByRole('button', { name: /chat: first session/i })
-    // The selected treatment sits on the card row the button stretches over,
-    // and the row also announces itself to AT.
     expect(rowOf(firstSession)).toHaveClass('bg-selected')
     expect(firstSession).toHaveAttribute('aria-current', 'true')
   })
@@ -264,11 +249,9 @@ describe('SessionsPanel', () => {
 
     const locked = screen.getByRole('button', { name: /chat: shared chat/i })
     expect(locked).toBeInTheDocument()
-    // Not the "untitled" placeholder: that would read as a chat nobody named.
     expect(screen.queryByText(/untitled/i)).toBeNull()
 
     await user.hover(locked)
-    // Delete stays (leaving one's own list); rename is for a title the reader can see.
     expect(screen.getByRole('button', { name: /delete chat/i })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /rename chat/i })).toBeNull()
   })
@@ -285,7 +268,6 @@ describe('SessionsPanel', () => {
     expect(marks).toHaveLength(1)
     expect(rowOf(temporary)).toContainElement(marks[0])
     expect(marks[0]).toHaveAttribute('title', 'Temporary chat: nothing from it is kept.')
-    // Decorative: the words are the button's label, so they are not read twice.
     expect(marks[0].querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
     expect(screen.getByRole('button', { name: 'Chat: First Session' })).toBeInTheDocument()
   })
@@ -302,9 +284,6 @@ describe('SessionsPanel', () => {
   })
 
   describe('a finger has no hover: rename and delete get a visible way in', () => {
-    // jsdom cannot evaluate `pointer: coarse`, so these hold the wiring: the menu
-    // is rendered on every row and is shown on a coarse pointer, and the hover
-    // overlay steps aside there (a tap leaves a sticky `mouseenter` behind).
     test('every row carries a row menu that only a coarse pointer sees', () => {
       render(<SessionsPanel sessions={mockSessions} />)
 
@@ -324,7 +303,6 @@ describe('SessionsPanel', () => {
 
       await user.hover(screen.getByRole('button', { name: /chat: first session/i }))
 
-      // Two layers: the sheet, and the pointer's wash over it that holds the buttons.
       const overlay = screen.getByRole('button', { name: /rename chat/i }).parentElement?.parentElement
       expect(overlay?.className).toContain('pointer-coarse:hidden')
     })
@@ -408,18 +386,12 @@ describe('SessionsPanel', () => {
       }
       return selector ? selector(asStoreState<LayoutStore>(state)) : state
     })
-    // A fresh array so the memoized component actually re-renders — in the app
-    // the store subscription does that job.
     rerender(<SessionsPanel sessions={[...mockSessions]} />)
 
-    // Closed, the sheet unmounts its content entirely (Radix dialog) — after
-    // the exit animation, hence the waitFor: the rows are motion elements now,
-    // so dismissal plays out instead of snapping.
     await waitFor(() => {
       expect(screen.queryByRole('textbox', { name: /search chats/i })).not.toBeInTheDocument()
     })
 
-    // Reopen: the stale query is gone and the list is unfiltered.
     vi.mocked(useLayoutStore).mockImplementation((selector?: StoreSelector<LayoutStore>) => {
       const state: DeepPartial<LayoutStore> = {
         isSessionsPanelOpen: true,
@@ -443,14 +415,9 @@ describe('SessionsPanel', () => {
 
     render(<SessionsPanel sessions={mockSessions} />)
 
-    // A closed sheet renders NOTHING — the Radix dialog unmounts its content,
-    // so there is no hidden copy of the history in the DOM to leak into the
-    // tab order or the accessibility tree.
     expect(screen.queryByText('Chat history')).not.toBeInTheDocument()
   })
 
-  // The leading icon is decorative; the row is one button whose accessible name
-  // carries the same state in words, so none of it is visual-only.
   test('an ordinary chat row is named by its title alone', () => {
     render(<SessionsPanel sessions={mockSessions} />)
 
@@ -509,7 +476,6 @@ describe('SessionsPanel - Session Switching', () => {
   })
 
   test('allows switching sessions during active deep research (server-side SSE)', async () => {
-    // Deep research is running but no shallow streaming or HITL — navigation allowed
     setupChatStoreMock({
       isSessionBusy: (sessionId: string) => sessionId === 'session-1',
       hasAnyBusySession: () => true,
@@ -527,7 +493,6 @@ describe('SessionsPanel - Session Switching', () => {
       />
     )
 
-    // Deep research session should be clickable (not visually disabled)
     const deepResearchSession = screen.getByRole('button', {
       name: /chat: deep research session/i,
     })
@@ -554,7 +519,6 @@ describe('SessionsPanel - Session Switching', () => {
       />
     )
 
-    // All sessions should be visually disabled
     const session2 = screen.getByRole('button', {
       name: /chat: idle session \(processing in progress\)/i,
     })
@@ -663,7 +627,6 @@ describe('SessionsPanel - New chat button', () => {
 
     render(<SessionsPanel sessions={mockSessions} />)
 
-    // Deep research does NOT block navigation — new session should be enabled
     const newSessionBtn = screen.getByRole('button', { name: /^start a new chat$/i })
     expect(newSessionBtn).not.toBeDisabled()
   })
@@ -697,7 +660,6 @@ describe('SessionsPanel - Delete Button States', () => {
   })
 
   test('disables individual delete button when session has active deep research', async () => {
-    // Session-1 has active deep research (per-session busy)
     setupChatStoreMock({
       isSessionBusy: (sessionId: string) => sessionId === 'session-1',
       hasAnyBusySession: () => true,
@@ -708,11 +670,9 @@ describe('SessionsPanel - Delete Button States', () => {
     const user = userEvent.setup()
     render(<SessionsPanel sessions={mockSessions} />)
 
-    // Hover over first session to show action buttons
     const firstSession = screen.getByRole('button', { name: /chat: first session/i })
     await user.hover(firstSession)
 
-    // Delete button for session with active deep research should be disabled
     const deleteButton = screen.getByRole('button', { name: /delete chat \(disabled\)/i })
     expect(deleteButton).toBeDisabled()
   })
@@ -723,14 +683,11 @@ describe('SessionsPanel - Delete Button States', () => {
     const user = userEvent.setup()
     render(<SessionsPanel sessions={mockSessions} />)
 
-    // With streaming active, chat rows are disabled and show
-    // "(processing in progress)" in their aria-label
     const firstSession = screen.getByRole('button', {
       name: /chat: first session \(processing in progress\)/i,
     })
     await user.hover(firstSession)
 
-    // Delete button should be disabled due to global streaming
     const deleteButton = screen.getByRole('button', { name: /delete chat \(disabled\)/i })
     expect(deleteButton).toBeDisabled()
   })
@@ -746,11 +703,9 @@ describe('SessionsPanel - Delete Button States', () => {
     const user = userEvent.setup()
     render(<SessionsPanel sessions={mockSessions} />)
 
-    // Hover over first session
     const firstSession = screen.getByRole('button', { name: /chat: first session/i })
     await user.hover(firstSession)
 
-    // Delete button should be enabled
     const deleteButton = screen.getByRole('button', { name: /^delete chat$/i })
     expect(deleteButton).not.toBeDisabled()
   })
@@ -798,11 +753,9 @@ describe('SessionsPanel - Delete Button States', () => {
     const user = userEvent.setup()
     render(<SessionsPanel sessions={mockSessions} />)
 
-    // Hover over session to show buttons
     const firstSession = screen.getByRole('button', { name: /chat: first session/i })
     await user.hover(firstSession)
 
-    // Check that delete button has appropriate title attribute
     const deleteButton = screen.getByRole('button', { name: /delete chat \(disabled\)/i })
     expect(deleteButton).toHaveAttribute('title', 'Cannot delete while operations are in progress')
   })
@@ -849,7 +802,6 @@ describe('SessionsPanel - Deep Research section (FB-10)', () => {
 
     expect(screen.queryByTestId('deep-research-section')).not.toBeInTheDocument()
     expect(screen.queryByRole('radiogroup', { name: /filter history/i })).not.toBeInTheDocument()
-    // The runs belong to a project, so the fetch effect early-returns without one.
     expect(mockListResearchRuns).not.toHaveBeenCalled()
   })
 
@@ -861,12 +813,10 @@ describe('SessionsPanel - Deep Research section (FB-10)', () => {
 
     renderPanel()
 
-    // The section heading carries the count in a pill…
     const section = await screen.findByTestId('deep-research-section')
     await waitFor(() => {
       expect(within(section).getByText('2')).toBeInTheDocument()
     })
-    // …and so does the scope filter's Deep Research option.
     const researchFilter = screen.getByRole('radio', { name: /deep research/i })
     expect(within(researchFilter).getByText('2')).toBeInTheDocument()
 
@@ -886,21 +836,11 @@ describe('SessionsPanel - Deep Research section (FB-10)', () => {
 
     renderPanel()
 
-    // Always open — with the History page gone this sheet is the one record,
-    // so the runs are visible without a click.
-
-    // A run inherits its originating session's title and opens THAT thread,
-    // where the run narrates itself in one message (ADR-0062).
     const completed = await screen.findByRole('link', {
       name: /Open deep research run: Fire safety review/i,
     })
     expect(completed.getAttribute('href')).toBe('/app/projects/p1/chat?session=conv-1')
 
-    // A run that names no conversation — headless, or from the CLI — has no
-    // thread to open. It keeps the shared untitled label and offers NO link:
-    // the `?job=…&tab=thinking` URL it used to get was read by the research
-    // panel alone, so with the panel gone it would land on the chat page and
-    // silently do nothing.
     expect(screen.getByText('Deep research run')).toBeInTheDocument()
     expect(
       screen.queryByRole('link', { name: /Open deep research run: Deep research run/i })
@@ -911,9 +851,6 @@ describe('SessionsPanel - Deep Research section (FB-10)', () => {
     mockListResearchRuns.mockResolvedValue({
       jobs: [
         makeRun({ job_id: 'job-ok', status: 'completed', conversation_id: 'conv-1' }),
-        // Threads of their own, so the failed row is a LINK and its accessible
-        // name can be asserted below — a run with no conversation renders no
-        // link at all, which the deep-link test above covers.
         makeRun({ job_id: 'job-bad', status: 'failed', conversation_id: 'conv-2' }),
         makeRun({ job_id: 'job-live', status: 'running', conversation_id: 'conv-3' }),
       ],
@@ -925,7 +862,6 @@ describe('SessionsPanel - Deep Research section (FB-10)', () => {
     expect(await screen.findByText('Report ready')).toBeInTheDocument()
     expect(screen.getByText('Failed')).toBeInTheDocument()
     expect(screen.getByText('Running')).toBeInTheDocument()
-    // ...and the same word reaches assistive tech through the row's own name.
     expect(
       screen.getByRole('link', { name: /Open deep research run: .* — Failed/i })
     ).toBeInTheDocument()
@@ -939,8 +875,6 @@ describe('SessionsPanel - Deep Research section (FB-10)', () => {
       />
     )
 
-    // The chip lives INSIDE the row's button — scoped, because the scope
-    // filter's "Deep Research" option shares the wording.
     const row = screen.getByRole('button', { name: /chat: research chat/i })
     await waitFor(() => {
       expect(within(row).getByText('Deep Research')).toBeInTheDocument()
@@ -971,7 +905,6 @@ describe('SessionsPanel - Deep Research section (FB-10)', () => {
       await screen.findByText('Deep-research runs could not be loaded.')
     ).toBeInTheDocument()
 
-    // Retry refetches and the rows land.
     await user.click(screen.getByRole('button', { name: 'Retry' }))
     expect(
       await screen.findByRole('link', { name: /Open deep research run: Fire safety review/i })
@@ -988,16 +921,13 @@ describe('SessionsPanel - Deep Research section (FB-10)', () => {
     const user = userEvent.setup()
     renderPanel()
 
-    // "All": both lists.
     expect(await screen.findByRole('link', { name: /open deep research run/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /chat: fire safety review/i })).toBeInTheDocument()
 
-    // "Chats": runs hidden, chats stay.
     await user.click(screen.getByRole('radio', { name: 'Chats' }))
     expect(screen.queryByRole('link', { name: /open deep research run/i })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /chat: fire safety review/i })).toBeInTheDocument()
 
-    // "Deep Research": chats hidden, runs stay.
     await user.click(screen.getByRole('radio', { name: /deep research/i }))
     expect(await screen.findByRole('link', { name: /open deep research run/i })).toBeInTheDocument()
     expect(
@@ -1006,8 +936,6 @@ describe('SessionsPanel - Deep Research section (FB-10)', () => {
   })
 
   test('the Deep Research scope shows a proper empty state when there are no runs', async () => {
-    // beforeEach resolves the fetch with zero jobs — under "All" the section
-    // hides itself (no noise), under the Deep Research scope it must not.
     const user = userEvent.setup()
     renderPanel()
 
@@ -1021,9 +949,6 @@ describe('SessionsPanel - Deep Research section (FB-10)', () => {
   })
 
   test('populates the section after a quick close→reopen while the fetch is pending', async () => {
-    // The component stays mounted when the panel closes, so a pending fetch that
-    // resolves during a close→reopen must NOT be discarded — the section should
-    // show the runs once resolved.
     let isPanelOpen = true
     let resolveRuns: (value: { jobs: ResearchRun[]; total: number }) => void = () => {}
     mockListResearchRuns.mockReturnValue(
@@ -1045,7 +970,6 @@ describe('SessionsPanel - Deep Research section (FB-10)', () => {
 
     expect(mockListResearchRuns).toHaveBeenCalledTimes(1)
 
-    // Close, then reopen — all while the fetch is still in flight.
     isPanelOpen = false
     rerender(
       <SessionsPanel sessions={sessions} projectId="p1" />
@@ -1055,7 +979,6 @@ describe('SessionsPanel - Deep Research section (FB-10)', () => {
       <SessionsPanel sessions={sessions} projectId="p1" />
     )
 
-    // Now the original fetch resolves; the result must land in the section.
     resolveRuns({
       jobs: [
         makeRun({ job_id: 'job-1', conversation_id: 'conv-1' }),
@@ -1126,7 +1049,6 @@ describe('SessionsPanel - stopping a run from the history', () => {
     await waitFor(() => {
       expect(mockCancelJob).toHaveBeenCalledWith('job-live', undefined, { projectId: 'p1' })
     })
-    // Initial fetch plus the refetch after the cancel landed.
     await waitFor(() => {
       expect(mockListResearchRuns).toHaveBeenCalledTimes(2)
     })

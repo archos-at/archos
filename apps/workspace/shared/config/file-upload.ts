@@ -5,7 +5,7 @@ import type { FileUploadConfig } from '@/shared/context'
 import { IFC_EXTENSIONS, IFC_MIME_TYPES } from '@/lib/bim/types'
 import { BYTES_PER_MB, maxDocumentBytesFrom, maxIfcBytesFrom } from './request-body-limit'
 
-// Doctrine (see AGENTS.md): flags are product decisions, env vars are real
+// Doctrine (see docs/contributing/code-conventions.md): flags are product decisions, env vars are real
 // infrastructure dependencies, a capability is DERIVED from the dependency, and
 // availability = flag AND capability. Image upload follows it exactly: the
 // `image-upload` WorkOS flag is the product decision; a configured VLM

@@ -2,15 +2,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The validator, against the real fixture and against models built to be
- * broken in one specific way each.
- *
- * The assertion that matters most is not "the rule fires" — it is that a rule
- * which fires changes what the AGENT is allowed to say. `healthCaveat` is
- * tested as the contract it is: the sentence an answer over a defective model
- * has to carry.
- */
 
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
@@ -99,22 +90,16 @@ describe('validateModel on a well-formed model', () => {
     const health = (await model()).health
     expect(health).not.toBeNull()
     expect(health?.totals.error).toBe(0)
-    // The fixture deliberately publishes no quantities on doors/windows and no
-    // Pset_SpaceCommon, so warnings are expected — errors are not.
     expect(health?.issues.filter((issue) => issue.severity === 'error')).toEqual([])
   })
 
   it('runs at ingestion, so the report travels with the model', async () => {
-    // Computed over the FULL extraction: a truncated element list must not be
-    // able to make a model look healthier than it is.
     expect((await model()).health?.score).toBeGreaterThan(0)
   })
 })
 
 describe('stage 1 — schema', () => {
   it('reports an undeclared schema as a warning, not a failure', () => {
-    // The parser read the file regardless; what is lost is the ability to say
-    // whether an entity is valid in that version.
     expect(rules(index([element()], { schema: null }))).toContain('schema-unknown')
   })
 
@@ -129,8 +114,6 @@ describe('stage 1 — schema', () => {
 describe('stage 2 — identity', () => {
   it('flags a duplicated GlobalId as an error', () => {
     const found = rules(index([element(), element({ expressId: 22 })]))
-    // Two elements with one id makes "which element is that" unanswerable, and
-    // makes a revision comparison silently wrong.
     expect(found).toContain('identity-duplicate-globalid')
   })
 
@@ -176,7 +159,6 @@ describe('stage 3 — spatial structure', () => {
         ],
       })
     )
-    // "The storey above" is unanswerable when two are at the same height.
     expect(found).toContain('spatial-duplicate-storey-elevation')
   })
 
@@ -211,8 +193,6 @@ describe('stage 4 — property sets', () => {
   })
 
   it('notes a model whose property sets are all vendor-specific', () => {
-    // Such a model answers questions — but only in a vocabulary no regulation
-    // is written in.
     expect(rules(index([element({ properties: { ArchiCADProperties: { X: 1 } } })]))).toContain(
       'properties-vendor-sets-only'
     )
@@ -236,8 +216,6 @@ describe('stage 5 — completeness', () => {
   it('reports absent information as info, not as a defect', () => {
     const health = validateModel(index([element({ classifications: [] })]))
     const issue = health.issues.find((entry) => entry.rule === 'complete-no-classifications')
-    // A model without classifications is not broken; it just cannot answer
-    // questions about classifications.
     expect(issue?.severity).toBe('info')
   })
 })

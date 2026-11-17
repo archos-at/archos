@@ -1,8 +1,3 @@
-/**
- * Whether a viewer action moves the asker's viewer (ADR-0144): held until the
- * answer is there, then one place moves when the person allows it and is not
- * typing; offered otherwise; and an undo says only what it did.
- */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MAX_VIEWER_PASSAGE_CHARS } from '@/adapters/api/wire-v2'
 import * as analytics from '@/lib/analytics/posthog'
@@ -53,7 +48,6 @@ const undo = vi.fn(() => true)
 const run = vi.fn(async (_call: ViewerActionCall) => outcome)
 let room = true
 
-/** One answer's actions, arriving while its turn runs, then released by its answer. */
 const answered = async (answerId: string, ...calls: ViewerActionCall[]) => {
   for (const proposed of calls) proposeViewerAction(answerId, proposed)
   await releaseViewerActions(answerId)
@@ -90,7 +84,6 @@ describe('nothing moves before the answer is there', () => {
     proposeViewerAction('answer-1', call('highlight_passage', 'va_2'))
 
     const pressed = showViewerAction('va_1')
-    // The press is in flight: the answer arriving now neither runs it twice nor moves another place.
     expect(entry('va_1')?.status).toBe('pending')
     await releaseViewerActions('answer-1')
     await pressed

@@ -55,6 +55,13 @@ export interface AuthConfig {
    * of 2026-11-11: dev only. Prod keeps four eyes, so it never sets the key.
    */
   knowledgeSingleOperator: boolean;
+  /**
+   * Run the promotion's carry of reviewed knowledge releases (ADR-0181): the
+   * Job `knowledge-carry` (`src/app/knowledge-carry-job.ts`) publishes the
+   * bundles in `apps/workspace/config/knowledge-releases/` here. On the stack
+   * they came from (dev) it is a no-op: it logs that stable already holds them.
+   */
+  knowledgeCarry: boolean;
 }
 
 export interface InternalConfig {
@@ -145,6 +152,7 @@ export function loadAppServices(
       byokLocalKek: cfg.getSecret("byokLocalKek") ?? pulumi.output(""),
       allowAgentOrgMemory: bool(cfg, "allowAgentOrgMemory", false),
       knowledgeSingleOperator: bool(cfg, "knowledgeSingleOperator", false),
+      knowledgeCarry: bool(cfg, "knowledgeCarry", false),
     },
     internal: {
       apiToken: cfg.requireSecret("gridInternalApiToken"),

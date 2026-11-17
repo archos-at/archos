@@ -1,9 +1,3 @@
-"""The source records an operator proposes through the door are the repository records they are made from.
-
-``scripts/source_record_payload.py`` writes them; a stale payload would put a
-record on the platform that differs from the one the image reads while both exist.
-"""
-
 from __future__ import annotations
 
 import importlib.util
@@ -31,7 +25,6 @@ def test_a_payload_takes_a_key_no_repository_record_has():
 
 
 def test_a_payload_carries_the_hosts_that_republish_the_source():
-    """``copy_hosts`` screen the web search (``common/web_sources.py``): a released record must keep them."""
     from public_sources.source import get_source
 
     module = _module()

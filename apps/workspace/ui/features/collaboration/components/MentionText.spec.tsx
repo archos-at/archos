@@ -30,9 +30,6 @@ describe('MentionText', () => {
     const chip = screen.getByTestId('mention-chip')
     expect(chip).toHaveAttribute('aria-label', 'You were mentioned')
     expect(chip).toHaveAttribute('data-mention-me', 'true')
-    // The semantic pair the `warning` Chip and Badge already use for "this
-    // concerns you" — not `bg-primary`, which made a solid ink block in light and
-    // a solid white one in dark, out-shouting the sentence it annotates.
     expect(chip.className).toContain('bg-warning-subtle')
     expect(chip.className).not.toContain('bg-primary')
   })
@@ -46,11 +43,6 @@ describe('MentionText', () => {
     expect(chip.className).not.toContain('bg-warning-subtle')
   })
 
-  /**
-   * The property that actually matters, pinned independently of which tokens are
-   * in play: a mention of you must not LOOK like a mention of a colleague. Both
-   * previous assertions could pass while the two rendered identically.
-   */
   test('the two are visually distinguishable', () => {
     const { unmount } = render(
       <MentionText content="@Anna Weber bitte" mentions={[anna]} currentUserId="u-anna" />,
@@ -112,15 +104,6 @@ describe('MentionText', () => {
   })
 })
 
-/**
- * The pill as a reference you can resolve without leaving the thread.
- *
- * In a project of forty people, "@S. Gruber" is either the fire-safety engineer or
- * somebody in accounts, and a reader who cannot tell either interrupts themselves
- * to go and look or guesses. What these pin is that the peek exists ONLY when
- * there is something true to say — a pill that opens an empty panel is worse than
- * plain text.
- */
 describe('MentionText — the peek behind a pill', () => {
   const roster = [
     { userId: 'u-anna', name: 'Anna Weber', email: 'anna@example.com', profilePictureUrl: null },
@@ -174,7 +157,6 @@ describe('MentionText — the peek behind a pill', () => {
     const peek = await screen.findByTestId('person-peek')
     expect(peek).toHaveTextContent('Piloti')
     expect(peek).toHaveTextContent('Assistant in this project')
-    // "Can read this conversation" is a category error about the assistant.
     expect(screen.queryByTestId('person-peek-access')).not.toBeInTheDocument()
   })
 
@@ -187,13 +169,10 @@ describe('MentionText — the peek behind a pill', () => {
     )
     const chip = screen.getByTestId('mention-chip')
     expect(chip.tagName).toBe('SPAN')
-    // The name still reads — it travels with the message, not with the roster.
     expect(chip).toHaveTextContent('@Tobias Kern')
   })
 
   test('hover peeks after the delay and yields on leave; keyboard focus stays on the pill', async () => {
-    // The shared hook's timing, pinned for its @-mention users now that the
-    // panel mounts beside the pill on first engagement instead of around it.
     const user = userEvent.setup()
     withPeople(<MentionText content="@Anna Weber bitte" mentions={[anna]} />)
     const chip = screen.getByTestId('mention-chip')

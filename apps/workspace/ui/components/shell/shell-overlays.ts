@@ -1,18 +1,3 @@
-/**
- * Which of the shell's own overlays is open: the command palette and, on a
- * phone, „Mehr“ (which holds the project selector).
- *
- * Lifted out of the components that render them because each has more than one
- * door. The palette used to keep its open state inside `KeyboardShortcuts`, so
- * ⌘K was the only way in and a phone, which has no ⌘K, had none at all. The
- * search button in the mobile header and in the org header now writes the same
- * flag the chord does. „Mehr“ opens from its tab in the phone's bar.
- *
- * Not persisted, and kept out of the layout store for that reason: that store is
- * `persist`ed, and an overlay that reopens itself after a reload is a bug, not a
- * preference.
- */
-
 import { create } from 'zustand'
 
 interface ShellOverlaysState {

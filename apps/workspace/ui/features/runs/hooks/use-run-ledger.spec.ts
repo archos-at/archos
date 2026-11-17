@@ -1,18 +1,8 @@
-/**
- * The block's data half: the stored ledger until the stream says otherwise,
- * one subscription per block, closed on the terminal snapshot and on unmount,
- * and nothing at all once the run is over.
- */
-
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-// One mock behind both reads: the block's mount read asks for the stream key
-// (`fetchLiveRunView`), the refresh after a refused stop does not, and the
-// specs below count them as one sequence of reads.
 const readRun = vi.hoisted(() => vi.fn())
 vi.mock('@/lib/runs/run-view-client', async (importOriginal) => ({
-  // The real error class: the hook narrows on it.
   RunViewError: (await importOriginal<typeof import('@/lib/runs/run-view-client')>()).RunViewError,
   fetchRunView: readRun,
   fetchLiveRunView: readRun,
@@ -54,7 +44,6 @@ const view = (overrides: Partial<RunView> = {}): RunView => ({
   ...overrides,
 })
 
-/** The fake client: records the callbacks so a test can emit into them. */
 let connected: Array<{ options: DeepResearchStreamOptions; connect: ReturnType<typeof vi.fn>; disconnect: ReturnType<typeof vi.fn> }>
 
 const callbacksOf = (index = 0): DeepResearchCallbacks => connected[index].options.callbacks
@@ -84,8 +73,6 @@ describe('useRunLedger', () => {
     await waitFor(() => expect(connected).toHaveLength(1))
     expect(result.current.connection).toBe('live')
 
-    // EventSource retries on its own and says nothing; the block has to say it,
-    // or a reader watching a still picture concludes the work stopped.
     act(() => {
       callbacksOf().onReconnecting?.(1)
     })
@@ -111,10 +98,6 @@ describe('useRunLedger', () => {
   })
 
   it('keeps the ledger it holds when a re-render hands it the same one again', () => {
-    // The chat store rebuilds the message object on every render, so `stored`
-    // arrives as a NEW object with identical facts. Taking it would set state
-    // on every render — a loop, not a refresh — and this is the assertion that
-    // says so, because the loop only shows up as a hung test.
     const stored = ledger({ status: 'done' })
     const { result, rerender } = renderHook(
       ({ runLedger }) => useRunLedger({ message: { id: 'msg-1', runLedger }, projectId: 'p1' }),
@@ -143,8 +126,6 @@ describe('useRunLedger', () => {
 
     await waitFor(() => expect(connected).toHaveLength(1))
     expect(fetchRunView).toHaveBeenCalledWith('p1', RUN)
-    // No last event id: the proxy replays from the first flush, and the newest
-    // snapshot is the one that lands.
     expect(connected[0].options).toMatchObject({ jobId: 'job-1' })
     expect(connected[0].options.lastEventId).toBeUndefined()
     expect(connected[0].connect).toHaveBeenCalledTimes(1)
@@ -186,7 +167,6 @@ describe('useRunLedger', () => {
     expect(result.current.ledger?.status).toBe('done')
     expect(result.current.live).toBe(false)
     expect(connected[0].disconnect).toHaveBeenCalled()
-    // The terminal state re-runs the effect to a no-op: one fetch, one client.
     expect(fetchRunView).toHaveBeenCalledTimes(1)
     expect(createDeepResearchClient).toHaveBeenCalledTimes(1)
   })
@@ -301,9 +281,6 @@ describe('useRunLedger', () => {
   })
 
   it('reads the run again when the stop is refused because it already ended, and stops offering it', async () => {
-    // The block was showing a ledger older than the run: the row had closed
-    // and the server settled the block since. „Abbrechen" used to close its
-    // dialog on the 409 and leave „Läuft" on screen for good.
     const ended = ledger({
       status: 'failed',
       error: { reason: 'Job timed out', completedBefore: [] },
@@ -340,13 +317,10 @@ describe('useRunLedger', () => {
       })
     )
     await waitFor(() => expect(connected).toHaveLength(1))
-    // The same status word on a newer snapshot: the rest of the thread has
-    // nothing new to learn, so the message is left alone.
     act(() => {
       callbacksOf().onLedger?.({ ...stored, updatedAt: '2026-09-16T08:00:06.000Z' })
     })
     expect(patch).not.toHaveBeenCalled()
-    // A status change is what the thread reads: it lands on the message.
     act(() => {
       callbacksOf().onLedger?.(ledger({ status: 'done', updatedAt: '2026-09-16T08:00:09.000Z' }))
     })

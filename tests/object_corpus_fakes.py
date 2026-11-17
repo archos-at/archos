@@ -1,19 +1,3 @@
-"""An in-memory stand-in for the BFF and SeaweedFS, for base-corpus tests.
-
-``corpus_store`` reaches the outside world through four module-level functions
-(``_request_upload_url``, ``_put_object``, ``_delete_object``,
-``_download_object``). :func:`install` replaces them with a dict-backed bucket,
-gives the cache a fresh directory and points the corpus table at a throwaway
-SQLite file, so the store's own logic (table, cache, hash checks) runs for real.
-
-Set ``TEST_CORPUS_DB`` to a Postgres URL to run the same tests against a
-real server: the Postgres upsert, the conditional update and the advisory
-locks of ``keyed_lock`` (SQLite has none) are then exercised too. The corpus table and the
-ingest status store (one database, as in deployment) are emptied before each test, and
-Hatchet is the recording fake (``agent_testing.orchestrator_fake``), with a payload key set:
-a job is handed over only encrypted.
-"""
-
 from __future__ import annotations
 
 import os
@@ -29,8 +13,6 @@ from agent.knowledge.document_metadata_store import DocumentMetadataStore
 
 
 class FakeBucket:
-    """Objects by storage key, plus a record of every call the store made."""
-
     def __init__(self) -> None:
         self.objects: dict[str, bytes] = {}
         self.uploads: list[str] = []
@@ -59,7 +41,6 @@ class FakeBucket:
 
 
 def install(monkeypatch, tmp_path: Path) -> FakeBucket:
-    """A fresh database, an empty cache directory and a fake bucket."""
     bucket = FakeBucket()
     monkeypatch.setenv("SUMMARY_DB", os.environ.get("TEST_CORPUS_DB") or f"sqlite:///{tmp_path / 'corpus.db'}")
     monkeypatch.setenv(corpus_store.CACHE_DIR_ENV, str(tmp_path / "cache"))
@@ -69,7 +50,6 @@ def install(monkeypatch, tmp_path: Path) -> FakeBucket:
     monkeypatch.setattr(corpus_store, "_download_object", bucket.download_object)
     with corpus_store._transaction() as conn:
         conn.execute(delete(corpus_store._files))
-    # `get` creates the status table.
     ingest_status_store.get("never-existed")
     with DocumentMetadataStore._get_or_create_sync_engine(ingest_status_store._db_url()).begin() as conn:
         conn.execute(text("DELETE FROM ingest_jobs"))

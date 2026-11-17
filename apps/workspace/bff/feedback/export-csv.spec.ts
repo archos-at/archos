@@ -6,13 +6,11 @@ import { describe, expect, it } from 'vitest'
 import { feedbackExportCopy } from '@/i18n/namespaces/feedback-export'
 import { platformCopy } from '@/i18n/namespaces/platform'
 
-/** The two namespaces an export reads, in the dictionary's shape. */
 const de = { feedbackExport: feedbackExportCopy.messages.de, platform: platformCopy.messages.de }
 import { feedbackExportRecord, unstoredFeedbackExportRecord } from '@/test-utils/feedback-export-fixtures'
 import { FEEDBACK_EXPORT_COLUMNS } from './export-columns'
 import { csvValue, renderCsv } from './export-csv'
 
-/** A minimal RFC 4180 reader: every cell is quoted, quotes are doubled. */
 function parse(text: string): string[][] {
   const rows: string[][] = []
   let row: string[] = []
@@ -87,7 +85,6 @@ describe('the feedback CSV', () => {
     }
   })
 
-  /** A complaint is user text; a spreadsheet must open it as text, not run it. */
   it('neutralises a cell that would open as a formula', () => {
     const text = render([feedbackExportRecord({ question: '=HYPERLINK("https://evil.example","Klick")', comment: '@SUM(A1)' })])
     expect(text).toContain(`"'=HYPERLINK(""https://evil.example"",""Klick"")"`)

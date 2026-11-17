@@ -1,11 +1,3 @@
-/**
- * The tab's rules, each once: whose follow is the viewer's and whether it can
- * still grow; who may end someone else's; which entry a link or a citation
- * means; what a detach keeps; which Fassungen „Vergleichen“ lays side by side;
- * what came with a mail; how far a filed sender was confirmed, and where
- * that is said; where a heading may wrap.
- */
-
 import { describe, expect, it } from 'vitest'
 import { FIXTURE_NOW, VIEWER_ID, attachment, entry, follow, thread, versions } from '@/app/dev/mail-thread/fixtures'
 import {

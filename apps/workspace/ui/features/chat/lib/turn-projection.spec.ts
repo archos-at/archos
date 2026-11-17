@@ -1,12 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The projection of the terminal outcomes that do not end in an answer
- * (wave-2 audit, item 1): a commissioned run takes the answer's row at once,
- * under the id the server wrote it with, so the turn is never drawn as one
- * without a response while the stored message is fetched.
- */
 import { describe, expect, it } from 'vitest'
 import type { WireEvent } from '@/adapters/api/wire-v2'
 import { eventOf, frameOf } from '@/test-utils/wire-v2-fixtures'
@@ -25,7 +19,6 @@ const question: ChatMessage = {
   messageType: 'user',
 }
 
-/** Folds `events` one by one and projects each fold, the way the store commits them. */
 const play = (events: readonly WireEvent[], start: ChatMessage[] = [question]): ChatMessage[] => {
   let messages = start
   let view: TurnView | undefined
@@ -56,8 +49,6 @@ const handedOff = (seq: number) =>
 
 describe('handed_off', () => {
   it('swaps the answer for a provisional run message in the same row', () => {
-    // A row after the answer (a later question) shows the swap is in place,
-    // not a removal and an append.
     const drawn = play(preamble)
     const later: ChatMessage = { ...question, id: 'other', content: 'danach' }
     let view: TurnView | undefined
@@ -193,7 +184,6 @@ describe('the level the answer ran at', () => {
       },
     })
 
-  /** `play`, with the turn opened the way `beginTurn` opens it when this page asked at `effort`. */
   const playAsked = (effort: TurnView['effort'], events: readonly WireEvent[]): ChatMessage[] => {
     let messages: ChatMessage[] = [question]
     let view: TurnView | undefined
@@ -222,7 +212,6 @@ describe('the level the answer ran at', () => {
   it("is the asker's record until the terminal reports one, and when it reports none", () => {
     expect(playAsked('low', preamble)[1]!.reasoningEffort).toBe('low')
     expect(playAsked('low', [...preamble, finishedAt()])[1]!.reasoningEffort).toBe('low')
-    // `none` is no level the dial offers: the record stands.
     expect(playAsked('low', [...preamble, finishedAt('none')])[1]!.reasoningEffort).toBe('low')
   })
 })

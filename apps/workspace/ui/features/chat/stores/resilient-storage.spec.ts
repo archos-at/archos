@@ -1,15 +1,3 @@
-/**
- * The persisted chat store never writes a live turn's growth (the streaming
- * answer, the question's reasoning steps), writes a composer draft a moment
- * after the last keystroke, and writes everything else at once.
- *
- * Every delta flush is a store update, and each update used to prune,
- * serialize and write the whole history to localStorage on the main thread:
- * 74 writes of 1.3 MB for one twelve-second answer, measured on
- * `/dev/stream-chat`. Coalesced to one write per two seconds, it was still a
- * regular hitch on a phone, for bytes a reload drops on read.
- */
-
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import type { StorageValue } from 'zustand/middleware'
 import type { ChatMessage, Conversation } from '../types'
@@ -26,7 +14,6 @@ const message = (content: string, isStreaming: boolean): ChatMessage => ({
   isStreaming,
 })
 
-// The store keeps a field it did not change as the same object; so must the fixtures.
 const NO_DRAFTS: Record<string, string> = {}
 
 const OTHER: Conversation = {
@@ -52,8 +39,6 @@ const value = (
   isStreaming: boolean,
   { others = [] as Conversation[], drafts = NO_DRAFTS } = {}
 ) => {
-  // Every field but the messages is the same object from call to call, as
-  // the store keeps what a flush does not touch.
   const conversation: Conversation = { ...OPEN, messages: [message(content, isStreaming)] }
   const state = {
     currentUserId: 'u1',
@@ -115,8 +100,6 @@ describe('createResilientStorage', () => {
   })
 
   test('what a reload reads is the same whether or not the growth was written', async () => {
-    // `getItem` drops an answer still marked streaming; that is why skipping
-    // its growth loses nothing a reload could use.
     const storage = createResilientStorage()!
     storage.setItem(KEY, value('a', true))
     const restored = await storage.getItem(KEY)
@@ -130,8 +113,6 @@ describe('createResilientStorage', () => {
     const getItem = vi.spyOn(localStorage, 'getItem')
     const setItem = vi.spyOn(localStorage, 'setItem')
 
-    // What `persist` hands over for a loading flag or a thinking step: a new
-    // wrapper around the very same persisted fields.
     storage.setItem(KEY, { ...first, state: { ...first.state } })
     expect(getItem).not.toHaveBeenCalled()
     expect(setItem).not.toHaveBeenCalled()
@@ -148,9 +129,6 @@ describe('createResilientStorage', () => {
     vi.advanceTimersByTime(1_000)
     expect(stored()?.composerDrafts).toEqual({ c1: 'Entwurf' })
 
-    // The skip lets it through to the write path, which serializes the index
-    // to compare it with what is stored. (Whether the field is serialized is
-    // the index's business.)
     const current = stored()!
     const stringify = vi.spyOn(JSON, 'stringify')
     const withNewField = { ...first.state, composerDrafts: current.composerDrafts, later: 1 }
@@ -166,11 +144,8 @@ describe('createResilientStorage', () => {
     expect(storedIds()).toEqual(['c1', 'c2'])
 
     storage.setItem(KEY, value('abc', true))
-    // Not skipped: a browser that dies now must not bring it back.
     expect(storedIds()).toEqual(['c1'])
     expect(localStorage.getItem(chatMessagesKey(KEY, 'c2'))).toBeNull()
-    // The live turn's growth still is not written with it: the open
-    // conversation's messages are what the first write stored.
     expect(storedContent()).toBe('a')
   })
 
@@ -180,13 +155,11 @@ describe('createResilientStorage', () => {
     storage.setItem(KEY, first)
     const setItem = vi.spyOn(localStorage, 'setItem')
     for (const typed of ['N', 'Na', 'Nac', 'Nach']) {
-      // A keystroke changes the drafts and nothing else.
       storage.setItem(KEY, { ...first, state: { ...first.state, composerDrafts: { c1: typed } } })
       vi.advanceTimersByTime(100)
     }
     expect(setItem).not.toHaveBeenCalled()
     vi.advanceTimersByTime(1_000)
-    // One write, of the index alone: a draft costs no conversation.
     expect(setItem).toHaveBeenCalledTimes(1)
     expect(setItem.mock.calls[0]?.[0]).toBe(`${KEY}:index`)
     expect(stored()?.composerDrafts).toEqual({ c1: 'Nach' })

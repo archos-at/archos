@@ -1,21 +1,5 @@
 'use client'
 
-/**
- * Organisation → Sensible Daten: the office's upload-screening policy
- * (ADR-0086), as one form.
- *
- * Two gates read it. Names are checked in the browser before anything is sent;
- * content is checked on Piloti's server before any model reads it. The form is
- * laid out in that order, so each list sits under the sentence that says when
- * it runs. The last sentence says what the check cannot do: it sees words and
- * number shapes, not meaning, and the ADR forbids the UI claiming more.
- *
- * Every member may read it (an uploader whose file was held back comes here to
- * find out why); only `org:settings:manage` may change it, and the PUT enforces
- * that again. While the office has never saved a list, Piloti's suggestion is in
- * force and the form says so; saving it unchanged makes it the office's own.
- */
-
 import { type FC, useCallback, useEffect, useState } from 'react'
 import { Info, Lock, RotateCcw } from 'lucide-react'
 import { toast } from 'sonner'
@@ -50,7 +34,6 @@ import {
 
 type TermListKey = 'nameTerms' | 'nameExceptions' | 'contentTerms'
 
-/** The policy as it will be saved: clean term lists, detectors in their canonical order. */
 export function normalizeScreeningPolicy(policy: UploadScreeningPolicy): UploadScreeningPolicy {
   return {
     enabled: policy.enabled,
@@ -64,7 +47,6 @@ export function normalizeScreeningPolicy(policy: UploadScreeningPolicy): UploadS
 const samePolicy = (a: UploadScreeningPolicy, b: UploadScreeningPolicy): boolean =>
   JSON.stringify(normalizeScreeningPolicy(a)) === JSON.stringify(normalizeScreeningPolicy(b))
 
-/** Loads the policy, then hands it to the form. */
 export const UploadScreeningCard: FC<{ canEdit: boolean }> = ({ canEdit }) => {
   const t = useTranslations(organizationCopy)
   const tc = useTranslations(commonCopy)
@@ -124,8 +106,6 @@ export const UploadScreeningForm: FC<{ initial: UploadScreeningState; canEdit: b
   const readOnly = !canEdit
 
   const dirty = !samePolicy(draft, baseline)
-  // Saving the suggestion unchanged is a real act: it becomes the office's own
-  // list, which a later change to Piloti's suggestion no longer moves.
   const canSave = canEdit && !saving && (dirty || suggested)
   const atSuggestion = samePolicy(draft, initial.suggestion)
 
@@ -149,8 +129,6 @@ export const UploadScreeningForm: FC<{ initial: UploadScreeningState; canEdit: b
       setBaseline(saved.policy)
       setDraft(saved.policy)
       setSuggested(saved.suggested)
-      // Every upload reads the policy afresh; one read already under way in
-      // this tab may have started before the save, so it is not shared on.
       forgetPendingUploadScreeningPolicyRead()
       toast.success(t('screening.saved'))
     } catch (error) {

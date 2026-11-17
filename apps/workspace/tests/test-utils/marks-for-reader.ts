@@ -1,27 +1,14 @@
-/**
- * The cases „für Sie“ is held to, on both sides of the wire: the predicate the
- * review filters with (`isForReader`, `lib/annotations/types.ts`) in
- * `lib/annotations/for-reader.spec.ts`, and the SQL Dateien's chip counts with
- * (`tallyLiveMarks`) in `lib/annotations/repository.integration.spec.ts`. One
- * table, so the two cannot drift: a case added here is asked of both.
- */
-
 import type { AnnotationAuthor, AnnotationStatus } from '@/lib/annotations/types'
 
-/** Who a case names, relative to the person reading. */
 export type MarkPerson = 'reader' | 'colleague'
 
 export interface ForReaderCase {
   name: string
   authorKind: AnnotationAuthor
   status: AnnotationStatus
-  /** The Zuständige, or nobody. */
   assignee: MarkPerson | null
-  /** Who set it (for Piloti's mark: on whose behalf). */
   setBy: MarkPerson
-  /** `isForReader`: listed under the review's „Für Sie“. */
   forReader: boolean
-  /** Counted in Dateien's „… · N für Sie“: live, and the reader's. */
   counted: boolean
 }
 

@@ -1,9 +1,3 @@
-"""``ris_lookup`` on a past day (``as_of``, ADR-0171): the version of that day or a miss, never today's text.
-
-Each case runs the real tool through the agent-runtime path against a fake RIS:
-the search, the version window, the fetch and the miss are the tool's own.
-"""
-
 from __future__ import annotations
 
 from datetime import date
@@ -37,7 +31,6 @@ def _version(url: str, since: str, until: str = "") -> RisHit:
 
 @pytest.fixture
 def versions(lookup, monkeypatch):
-    """Two versions of one §: 2015-01-01 through 2020-12-31, and from 2021-01-01."""
     lookup.client.search_result = RisSearchResult(
         hits=[_version(NEW_URL, "2021-01-01"), _version(OLD_URL, "2015-01-01", "2020-12-31")]
     )
@@ -56,7 +49,6 @@ async def test_reads_only_the_version_in_force_on_the_day(versions, catalog):
 
     assert versions.client.fetch_calls == [OLD_URL]
     assert "alte Fassung" in output and "neue Fassung" not in output
-    # The federal search asked RIS for that day, by the record's date parameter.
     assert versions.client.search_calls[0]["params"].get("Fassung.FassungVom") == "2019-06-01"
 
 
@@ -94,7 +86,6 @@ async def test_a_malformed_day_is_an_error(lookup, monkeypatch):
 
 
 def test_the_version_window_holds_its_last_day_and_excludes_unknown_dates():
-    # RIS's Ausserkrafttretensdatum is the last day in force: 31.12.2020 is in force, 01.01.2021 is not.
     window = {"In Kraft seit": "01.01.2015", "In Kraft bis": "2020-12-31"}
     assert [
         in_force_on(window, date(*day)) for day in ((2014, 12, 31), (2015, 1, 1), (2020, 12, 31), (2021, 1, 1))
@@ -130,7 +121,6 @@ def test_a_date_with_trailing_text_is_no_date_but_a_timestamp_is_its_day():
 
 
 async def _tool():
-    """The registered tool as the chat model is handed it: the agent runtime's LangChain wrapper."""
     from unittest.mock import MagicMock
 
     from ris_adapter.lookup import RisLookupToolConfig
@@ -154,7 +144,6 @@ def _offered(tool) -> tuple[str, set[str]]:
 
 @pytest.mark.asyncio
 async def test_every_turn_is_offered_as_of_and_it_reaches_the_tool(versions):
-    """ADR-0175: the ``time-editions`` switch is gone; the registered tool shows ``as_of`` and answers it."""
     from ris_adapter.lookup.tool import RIS_LOOKUP_DESCRIPTION
 
     async for tool in _tool():
@@ -167,7 +156,6 @@ async def test_every_turn_is_offered_as_of_and_it_reaches_the_tool(versions):
 
 
 def test_no_switch_decides_the_offer_any_more():
-    """The process override and the flag read went with the switch (ADR-0175)."""
     from ris_adapter.lookup import as_of
 
     for retired in ("ENV_OVERRIDE", "as_of_offered", "as_of_allowed", "AS_OF_REFUSED"):

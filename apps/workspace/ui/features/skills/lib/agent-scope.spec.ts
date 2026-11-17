@@ -1,12 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * `grid-agents` is the ONLY thing that decides which agents see a skill, so the
- * two directions of this module have to agree with each other and with both
- * resolvers. The cases below are the ones where a plausible implementation is
- * wrong in a way nothing else would catch.
- */
 
 import { describe, expect, it } from 'vitest'
 import { agentScopeLabelKey, formatAgentScope, parseAgentScope } from './agent-scope'
@@ -25,11 +19,6 @@ describe('parseAgentScope', () => {
   })
 
   it('reads the retired shallow_researcher name as the researcher', () => {
-    // The rename `shallow_researcher` -> `researcher` left stored rows behind,
-    // and this module decides what the editor SHOWS for one. Without the alias
-    // the name would land in `unknown`, the picker would show "every agent" for
-    // a skill its author scoped to chat, and the next save would write that
-    // widening back — the editor turning a restriction into its absence.
     const scope = parseAgentScope('shallow_researcher')
     expect(scope.selected).toEqual(['researcher'])
     expect(scope.unknown).toEqual([])
@@ -39,9 +28,6 @@ describe('parseAgentScope', () => {
   })
 
   it('treats an all-unknown list as every agent, and keeps the unknown names', () => {
-    // Both resolvers log and ignore a name that is not an agent, so a list of
-    // only typos behaves as if the key were absent. The UI has to show the same
-    // thing it will do — and must not quietly delete what the author wrote.
     const scope = parseAgentScope('voice-ana, shallow_reseacher')
     expect(scope.selected).toEqual(['researcher', 'deep_researcher'])
     expect(scope.unknown).toEqual(['voice-ana', 'shallow_reseacher'])
@@ -85,9 +71,7 @@ describe('agentScopeLabelKey', () => {
   it('names the surviving agent', () => {
     expect(agentScopeLabelKey('researcher')).toBe('chatOnly')
     expect(agentScopeLabelKey('deep_researcher')).toBe('deepOnly')
-    // An unknown name alongside a real one does not change the restriction.
     expect(agentScopeLabelKey('deep_researcher,voice-ana')).toBe('deepOnly')
-    // A row still on the retired name is badged for the scope it actually has.
     expect(agentScopeLabelKey('shallow_researcher')).toBe('chatOnly')
     expect(agentScopeLabelKey('shallow_researcher,deep_researcher')).toBeNull()
   })

@@ -58,7 +58,6 @@ const mocked = {
 }
 const mockNames = vi.mocked(getOrganizationDisplayNames)
 
-/** Resolve names from a fixed directory, the way the real resolver would. */
 function withNames(directory: Record<string, string>): void {
   mockNames.mockImplementation(async (ids) => {
     const names = new Map<string, string>()
@@ -67,7 +66,6 @@ function withNames(directory: Record<string, string>): void {
   })
 }
 
-/** Every repository call resolves empty unless a test overrides it. */
 function withEmptyRepository(): void {
   mocked.observed.mockResolvedValue(0)
   mocked.defective.mockResolvedValue(0)
@@ -86,12 +84,10 @@ function withEmptyRepository(): void {
   vi.mocked(getNormRegistry).mockResolvedValue({ registry: { entries: [] } } as never)
 }
 
-/** A scope of UTC days, every organization and project unless named. */
 function scope(from: string, to: string, overrides: Partial<QualityScope> = {}): QualityScope {
   return { from, to, organizationIds: [], projectIds: [], ...overrides }
 }
 
-/** The last 30 days ending on the frozen "today", 2026-07-28. */
 const LAST_30 = scope('2026-06-29', '2026-07-28')
 
 function event(overrides: Partial<CitationEvent> = {}): CitationEvent {
@@ -135,7 +131,6 @@ describe('recordCitationEvents', () => {
 describe('getCitationHealth', () => {
   it('reports a fully clean window when nothing was observed', async () => {
     const snapshot = await getCitationHealth(LAST_30)
-    // No traffic must never read as "everything is broken".
     expect(snapshot.totals).toMatchObject({ turns: 0, defectTurns: 0, cleanTurns: 0, cleanRate: 1 })
     expect(snapshot.byKind).toEqual([])
   })
@@ -149,7 +144,6 @@ describe('getCitationHealth', () => {
 
     const filter = {
       start: new Date('2026-09-01T00:00:00.000Z'),
-      // Exclusive: the whole of 30 September is in, 1 October is not.
       endExclusive: new Date('2026-10-01T00:00:00.000Z'),
       organizationIds: ['org_1', 'org_2'],
       projectIds: ['0f0f0f0f-0000-4000-8000-0000000000a1'],
@@ -185,8 +179,6 @@ describe('getCitationHealth', () => {
   })
 
   it('derives the clean rate from distinct observed turns, not baseline rows', async () => {
-    // A registry_empty turn never reaches verification, so it has no
-    // turn_verified row — counting only baseline rows would understate traffic.
     mocked.observed.mockResolvedValue(100)
     mocked.defective.mockResolvedValue(20)
     mocked.byKind.mockResolvedValue([
@@ -245,9 +237,6 @@ describe('getCitationHealth', () => {
   })
 
   it('reports the distinct defective turns per day, not a bound from the per-kind counts', async () => {
-    // Regression: the day's figure was max(per-kind turns), a lower bound shown
-    // as exact. Four removal turns and two quote turns that are different turns
-    // are six bad turns, which only the database can know.
     mocked.dailyTurns.mockResolvedValue([{ day: '2026-07-28', turns: 10, defectTurns: 6 }])
     mocked.dailyKind.mockResolvedValue([
       { day: '2026-07-28', kind: 'citations_removed', turns: 4 },
@@ -271,9 +260,6 @@ describe('getCitationHealth', () => {
   })
 
   it('does not let confidence_capped reasons dilute the removed-citation shares', async () => {
-    // Regression: shares were taken over every reason of every kind, so 60
-    // capped answers turned "75 % of removals were invented" into 30 % and
-    // suppressed the citations_invented finding.
     mocked.observed.mockResolvedValue(100)
     mocked.defective.mockResolvedValue(80)
     mocked.byKind.mockResolvedValue([
@@ -305,22 +291,17 @@ describe('getCitationHealth', () => {
     withNames({ org_big: 'Bauwerk' })
 
     const snapshot = await getCitationHealth(LAST_30)
-    // A single bad turn at 100 % must not outrank 50 bad turns at 10 %.
     expect(snapshot.organizations.map((org) => org.organizationId)).toEqual([
       'org_big',
       'org_small',
     ])
     expect(snapshot.organizations[0].name).toBe('Bauwerk')
     expect(snapshot.organizations[0].defectRate).toBeCloseTo(0.1)
-    // Unknown to the resolver — degrades to a null name, never throws.
     expect(snapshot.organizations[1].name).toBeNull()
     expect(snapshot.organizationsTotal).toBe(2)
   })
 
   it('lists the top 50 organizations, reports the total, and still finds the outlier below them', async () => {
-    // Regression: the SQL list stopped at 50, so an organization at five times
-    // the platform rate but with few defect turns never reached the outlier
-    // rule; and names came from the first WorkOS page of 100 organizations.
     const busy = Array.from({ length: 60 }, (_, index) => ({
       organizationId: `org_${index}`,
       turns: 1000,
@@ -338,15 +319,12 @@ describe('getCitationHealth', () => {
     expect(snapshot.organizationsTotal).toBe(61)
     const finding = snapshot.findings.find((entry) => entry.id === 'organization_outlier')
     expect(finding?.subject).toEqual({ type: 'organization', label: 'Statik Nord' })
-    // Only the listed organizations and the outlier are resolved.
     const requested = [...(mockNames.mock.calls[0][0] as Iterable<string>)]
     expect(requested).toHaveLength(51)
     expect(requested).toContain('org_outlier')
   })
 
   it('lists the top 25 missing sources but counts every scanned one in the findings', async () => {
-    // Regression: only 25 targets were read, and the finding's "{sources}
-    // sources" was the length of that list, worded as a total.
     const rows = Array.from({ length: 30 }, (_, index) => ({
       target: `missing-${index}.pdf`,
       reason: 'citation_key_not_in_registry',
@@ -405,8 +383,6 @@ describe('getCitationHealth', () => {
     })
 
     it('fails closed when the corpus cannot be read: no upload is offered for a document it may hold', async () => {
-      // Regression: an unreachable knowledge backend read as an empty corpus,
-      // so every held document was offered for upload again.
       vi.mocked(getKnowledgeBaseStatus).mockRejectedValue(new Error('backend down'))
       mocked.observed.mockResolvedValue(10)
       mocked.defective.mockResolvedValue(9)

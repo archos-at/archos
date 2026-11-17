@@ -63,7 +63,6 @@ describe('UploadHistory', () => {
     render(<UploadHistory projectId={FIXTURE_PROJECT_ID} currentUserId={FIXTURE_USER_ID} />)
     expect(await screen.findByTestId('upload-history')).toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledWith(`/api/projects/${FIXTURE_PROJECT_ID}/uploads`, expect.anything())
-    // One page holds them all: nothing older to load.
     expect(screen.queryByTestId('upload-history-more')).not.toBeInTheDocument()
   })
 

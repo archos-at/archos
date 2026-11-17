@@ -5,12 +5,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const listOrganizationFeatureFlags = vi.fn()
 
-/**
- * The SDK returns an `AutoPaginatable`, not a plain list: `data` is the FIRST
- * page (10 flags by default) and `autoPagination()` follows the cursor. The
- * double mirrors both, so a reader that only maps `data` fails here instead of
- * in production, where it silently reports every flag past the tenth as off.
- */
 function paginated(...pages: { slug: string }[][]) {
   return {
     data: pages[0] ?? [],
@@ -36,8 +30,6 @@ import {
 const MEMORY_REFLECTION = FEATURE_FLAGS.memoryReflection
 
 beforeEach(async () => {
-  // Where people sign in — every deployed stack. The anonymous deployment is
-  // its own describe block below.
   vi.stubEnv('REQUIRE_AUTH', 'true')
   vi.stubEnv('WORKOS_API_KEY', 'sk_test')
   await _clearFeatureFlagCache('org-1')
@@ -56,9 +48,6 @@ describe('isOrgFeatureEnabled', () => {
   })
 
   it('reads past the first page, because the endpoint returns ten at a time', async () => {
-    // The defect: `data` alone is one page. Production serves an organization
-    // more than ten flags, and a reader that stops at the first page reports
-    // whatever sorts after it as OFF — silently, and per organization.
     listOrganizationFeatureFlags.mockResolvedValue(
       paginated(Array.from({ length: 10 }, (_, i) => ({ slug: `filler-${i}` })), [
         { slug: MEMORY_REFLECTION },
@@ -127,8 +116,6 @@ describe('a deployment that authenticates nobody (REQUIRE_AUTH not true)', () =>
   })
 
   it('ignores a WorkOS key that happens to be configured', async () => {
-    // A key set for Vault or the audit log does not make an anonymous stack a
-    // tenant one: there is still nobody signed in to hold an entitlement.
     listOrganizationFeatureFlags.mockResolvedValue(paginated([{ slug: FEATURE_FLAGS.deepResearch }]))
     await expect(isDeepResearchEnabledForOrg('org-1')).resolves.toBe(false)
     expect(listOrganizationFeatureFlags).not.toHaveBeenCalled()
@@ -173,8 +160,6 @@ describe('isMemoryReflectionEnabled', () => {
 
 describe('enabledPostAnswerStages', () => {
   it('mirrors the backend stage ids, not the flag slugs', () => {
-    // A stage the backend declares but this registry omits can never be
-    // switched on, so the ids have to be the StageSpec ids verbatim.
     expect(POST_ANSWER_STAGE_FLAGS.map((stage) => stage.id)).toEqual(['memory_reflection', 'follow_ups'])
   })
 

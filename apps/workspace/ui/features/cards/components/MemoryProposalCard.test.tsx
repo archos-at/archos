@@ -1,22 +1,11 @@
-/**
- * The memory_proposal card lets the user complete an org-scoped memory write the
- * agent's service token can't make. This test proves each action targets the
- * right authenticated route (org vs project), that the project action is hidden
- * without a project in scope, that "No" writes nothing, and that the answer is
- * recorded on the owning message so a reload cannot re-offer a write that
- * already happened (`/api/organization/memory` is not idempotent).
- */
 import { render, screen, waitFor } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CardInteractions } from '../card-decision'
 import { MemoryProposalCard } from './MemoryProposalCard'
 
-// Controllable projectId for the mocked chat store.
 let mockProjectId: string | null = 'proj-1'
-// Decisions already recorded on the message the card belongs to.
 let mockCardInteractions: CardInteractions | undefined
-// Whether the open conversation is temporary (ADR-0180 rule 2).
 let mockTemporary = false
 const setCardDecision = vi.fn()
 
@@ -44,8 +33,6 @@ const mockStoreState = (): MockStoreState => ({
 
 vi.mock('@/features/chat/store', () => {
   const useChatStore = (selector: (s: MockStoreState) => unknown) => selector(mockStoreState())
-  // `useCardDecision` re-reads the store imperatively after writing, to detect a
-  // write that could not land.
   useChatStore.getState = () => mockStoreState()
   return { useChatStore }
 })
@@ -76,7 +63,6 @@ const baseProps = {
   cardKey: 'memory_proposal-0',
 }
 
-/** The same card as it renders inside a real answer (decision persisted). */
 const ownedProps = { ...baseProps, messageId: 'msg-1' }
 
 describe('MemoryProposalCard', () => {
@@ -167,7 +153,6 @@ describe('MemoryProposalCard', () => {
     const yes = screen.getByRole('button', { name: 'Yes, remember org-wide' })
 
     await user.click(yes)
-    // Busy, not disabled: a disabled button would have dropped focus to <body>.
     expect(yes).toHaveFocus()
     expect(yes).toHaveAttribute('aria-disabled', 'true')
     expect(yes).toHaveAttribute('aria-busy', 'true')
@@ -176,8 +161,6 @@ describe('MemoryProposalCard', () => {
 
     release()
     const receipt = await screen.findByText(/Saved to organization memory/)
-    // The pressed button left with the question; the keyboard lands on what
-    // replaced it rather than at the top of the page.
     await waitFor(() => expect(receipt.closest('[data-proposal-body]')).toHaveFocus())
   })
 
@@ -193,7 +176,6 @@ describe('MemoryProposalCard', () => {
 
     expect(posts).toEqual([])
     expect(setCardDecision).not.toHaveBeenCalled()
-    // Still offered: once the chat is switched back, the same card saves.
     expect(screen.getByRole('button', { name: 'Yes, remember org-wide' })).toBeInTheDocument()
   })
 
@@ -202,7 +184,6 @@ describe('MemoryProposalCard', () => {
     stubFetch()
     render(<MemoryProposalCard {...baseProps} />)
     expect(screen.queryByRole('button', { name: 'Save to just this project' })).not.toBeInTheDocument()
-    // The org-wide action is still available.
     expect(screen.getByRole('button', { name: 'Yes, remember org-wide' })).toBeInTheDocument()
   })
 
@@ -216,11 +197,6 @@ describe('MemoryProposalCard', () => {
     expect(await screen.findByText('Not saved.')).toBeInTheDocument()
     expect(posts).toHaveLength(0)
   })
-
-  // ── Decision persistence ──────────────────────────────────────────────────
-  // Regression: the outcome used to live in component-local state, so after a
-  // reload the card re-mounted as pending with a live "Yes" that would write
-  // the same memory row a second time.
 
   it('records the decision on the owning message after a successful org save', async () => {
     stubFetch()
@@ -280,11 +256,6 @@ describe('MemoryProposalCard', () => {
   })
 
   it('still settles when the store write cannot land (its session was deleted)', async () => {
-    // `setCardDecision` no-ops for an unknown message. The POST has already
-    // happened by then, so the card must not keep offering the button — but it
-    // must also not fall back on a decision the store DID record (that copy can
-    // later be dropped by reconcileCardInteractions, and reviving it here would
-    // mark a replacement card as decided).
     stubFetch()
     const user = userEvent.setup()
     render(<MemoryProposalCard {...baseProps} messageId="gone" />)

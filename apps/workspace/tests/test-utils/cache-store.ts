@@ -1,11 +1,5 @@
 import type { CacheStore } from '@/lib/cache'
 
-/**
- * A `CacheStore` for specs: no TTL expiry, every key visible on `map`.
- *
- * Install it with `setCacheStore(new MapCacheStore())` in `beforeEach`, so a
- * spec can assert what was (and was not) written, not only what came back.
- */
 export class MapCacheStore implements CacheStore {
   readonly map = new Map<string, string>()
 

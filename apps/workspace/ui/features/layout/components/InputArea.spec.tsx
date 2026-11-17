@@ -7,7 +7,6 @@ import { InputArea } from './InputArea'
 import { ChatDropZone } from './chat-drop-zone'
 import { emptyRunLedger, setRunStatus } from '@/lib/runs/run-ledger'
 
-// Transient send failures surface as toasts; spy on them rather than render them.
 import {
   bumpThreadRevision,
   publishThreadRole,
@@ -17,10 +16,6 @@ import {
 } from '@/shared/collaboration/thread-sharing'
 import { useAwaitingState } from '@/features/collaboration/hooks/use-sharing'
 
-// Only the one publisher is stubbed; the rest of the seam is the real module,
-// because these tests drive it (`publishThreadSharing`, `publishThreadRole`) as
-// the production code does. `bumpThreadRevision` has no observable effect inside
-// this component, so a spy is the only way to see the wire at all.
 vi.mock('@/shared/collaboration/thread-sharing', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/shared/collaboration/thread-sharing')>()),
   bumpThreadRevision: vi.fn(),
@@ -30,44 +25,24 @@ vi.mock('sonner', () => ({
   toast: { error: vi.fn(), success: vi.fn(), message: vi.fn() },
 }))
 
-// Mock the chat hooks
 const mockSendMessage = vi.fn()
 const mockRespondToInteraction = vi.fn()
-// Intent to send (composer focus / submit) — what opens the agent socket in a
-// shared thread. Part of the hook's surface, so every stubbed return needs it.
 const mockNoteSendIntent = vi.fn()
 
 let mockConversationMessages: unknown[] | undefined = []
-// Active session id (null models the "new session draft" state with no id yet).
 let mockCurrentSessionId: string | null = 'session-1'
-// One-shot prefill queued from a deep link / chip.
 let mockComposerPrefill: ComposerPrefill | null = null
-// Bound subject (an uploaded file the next send is about). Read via
-// `useChatStore.getState()` when session files land, so the mock must
-// expose getState the way the real zustand store does.
 let mockComposerSubject: ComposerSubject | null = null
 const mockSetComposerSubject = vi.fn((next: ComposerSubject | null) => {
   mockComposerSubject = next
 })
-// Real-ish per-session draft store, so component tests exercise genuine
-// save/restore/clear behaviour rather than asserting on spy calls alone.
 let mockDrafts: Record<string, string> = {}
-// Shallow-thinking stream state + cancel action for the composer stop button.
 let mockIsStreaming = false
 const mockStopStreaming = vi.fn()
-// Real new-session action (startNewSessionDraft) wired to the post-research
-// "Start new session" button.
 const mockStartNewSessionDraft = vi.fn()
 
 const mockSaveDataSourcesToConversation = vi.fn()
 
-/**
- * The store action that writes the conversation ROW.
- *
- * Real in the app, a spy here, because the `@`-in-a-new-window fix is exactly
- * "call this before the picker asks". A spec that could not see it called would
- * pass on the broken version — which is what happened to the previous fix.
- */
 const mockEnsureConversationExists = vi.fn(async () => {})
 
 function mockChatState() {
@@ -130,7 +105,6 @@ vi.mock('@/features/chat/store', () => ({
   ),
 }))
 
-// Mock the layout store
 const mockSetDataSourcePanelTab = vi.fn()
 
 const mockSetDataSourcesPanelTab = vi.fn()
@@ -140,8 +114,6 @@ let mockAvailableDataSources: Array<{ id: string; name?: string }> = [
   { id: 'source-1', name: 'Quelle eins' },
   { id: 'source-2', name: 'Quelle zwei' },
 ]
-// Which of those the Datenbasis currently allows. Mutable, because the trigger's
-// whole job is to say something different for different mixes.
 let mockEnabledDataSourceIds: string[] = ['source-1', 'source-2']
 
 const mockToggleDataSource = vi.fn()
@@ -156,7 +128,6 @@ const mockLayoutState = () => ({
   availableDataSources: mockAvailableDataSources,
   activeSourcePreset: mockActiveSourcePreset,
   applySourcePreset: mockApplySourcePreset,
-  // Sources popover (C4) — connection toggles lifted from the old panel.
   toggleDataSource: mockToggleDataSource,
   setEnabledDataSources: mockSetEnabledDataSources,
   fetchDataSources: mockFetchDataSources,
@@ -176,12 +147,10 @@ vi.mock('../store', () => ({
   ),
 }))
 
-// Mock auth (sources popover reads idToken to gate auth-required sources)
 vi.mock('@/adapters/auth', () => ({
   useAuth: () => ({ idToken: 'test-token', authRequired: true }),
 }))
 
-// Mock useAppConfig
 vi.mock('@/shared/context', () => ({
   useAppConfig: () => ({
     authRequired: true,
@@ -196,7 +165,6 @@ vi.mock('@/shared/context', () => ({
   }),
 }))
 
-// Mock the file upload hooks
 const mockUploadFiles = vi.fn()
 
 const mockDeleteFile = vi.fn()
@@ -226,9 +194,6 @@ vi.mock('@/features/documents', () => ({
   })),
 }))
 
-// Mention candidates for the `@` picker. Mocked at the hook boundary so the
-// composer tests never touch the network; the picker itself is unit-tested in
-// features/collaboration/components/MentionPicker.spec.tsx.
 const AGENT_CANDIDATE = {
   targetId: 'agent:piloti',
   person: { userId: 'agent:piloti', name: PRODUCT_NAME, email: null, profilePictureUrl: null },
@@ -266,24 +231,11 @@ let mockMentionData: unknown = {
   canInvite: true,
 }
 let mockMentionsLoading = false
-/** The hook's ladder re-arm, so a spec can see the composer ask again. */
 const mockRestartMentionCandidates = vi.fn()
 
-// The thread-level hand-off state behind the composer's addressee line. Mocked at
-// the hook boundary for the same reason: its own fetching/refresh behaviour is the
-// hook's business, and the composer only ever reads the derived answer.
 let mockAwaitingPending: Array<{ id: string }> = []
 
 vi.mock('@/features/collaboration/hooks/use-sharing', () => ({
-  // Honours `enabled` for the same reason `useAwaitingState` below does, and it
-  // is not cosmetic: a mock that answered regardless of the gate is what let the
-  // composer ship a picker that flashed open on `@` in a deployment with
-  // collaboration off. The stub has to refuse where the endpoint would.
-  // Honours the CONVERSATION ID too, and that is a ratchet rather than fidelity
-  // for its own sake. The stub used to answer off `enabled` alone, so no spec in
-  // this file could observe a null id — which is precisely the state a new
-  // window is in when someone reaches for `@`, and precisely why a fix that
-  // could not work shipped looking green.
   useMentionCandidates: vi.fn((conversationId: string | null, enabled: boolean) => {
     const answering = enabled && conversationId !== null
     return {
@@ -293,24 +245,16 @@ vi.mock('@/features/collaboration/hooks/use-sharing', () => ({
     }
   }),
   useAwaitingState: vi.fn((_conversationId: string | null, enabled: boolean) => ({
-    // A gated org never gets an answer — which is what keeps the composer
-    // byte-identical to today with the flag off (spec NF-8).
     awaiting: enabled ? { pending: mockAwaitingPending, awaitingMe: false } : null,
     refresh: vi.fn(),
     release: vi.fn(),
   })),
 }))
 
-// FileSourcesTab is imported by InputArea for the "manage files" dialog; it
-// pulls a large dependency graph that is irrelevant to composer unit tests.
 vi.mock('./FileSourcesTab', () => ({
   FileSourcesTab: () => null,
 }))
 
-// FilePreviewDialog is the shared read-only preview opened from a file chip; the
-// real component pulls the whole preview-pane graph (PDF viewer, fetches). Stub
-// it to a lightweight marker that surfaces the previewed file's name, so the
-// clickable-chip → preview behavior can be asserted in isolation.
 vi.mock('@/features/documents/components/file-preview-dialog', () => ({
   FilePreviewDialog: ({ file }: { file: { filename: string } | null }) =>
     file ? <div data-testid="file-preview">{file.filename}</div> : null,
@@ -344,15 +288,6 @@ describe('InputArea', () => {
     mockRestartMentionCandidates.mockClear()
     mockAwaitingPending = []
     resetThreadSharing()
-    // Reset mocks to defaults - clearAllMocks doesn't reset mockReturnValue
-    //
-    // The two file mocks below were NOT in this list, and both are set by tests
-    // with `mockReturnValue`, which is permanent. So from the drag-overlay test
-    // onwards every remaining test in this file rendered the composer behind a
-    // full-bleed "Unsupported file type" overlay, and from the file-chip test
-    // onwards every one of them had two attachments. None of them noticed,
-    // because none of them queried anything the overlay covered — until one did,
-    // and the failure pointed at the new test rather than at the leak.
     vi.mocked(useFileDragDrop).mockReturnValue({
       isDragging: false,
       isUnsupportedDrag: false,
@@ -373,12 +308,6 @@ describe('InputArea', () => {
       error: null,
       clearError: vi.fn(),
     } as unknown as ReturnType<typeof useFileUpload>)
-    // Same reason, one level down: three tests give `mockSendMessage` a
-    // `mockResolvedValue`, and the last of those makes EVERY later send in this
-    // file resolve to a refusal. The assertions downstream are all
-    // `toHaveBeenCalledWith`, which a refused send satisfies just as well as a
-    // successful one — so the leak cost nothing until a test looked at what the
-    // send actually did.
     mockSendMessage.mockReset()
     vi.mocked(useIsCurrentSessionBusy).mockReturnValue(false)
     vi.mocked(useWebSocketChat).mockReturnValue({
@@ -438,27 +367,17 @@ describe('InputArea', () => {
     await user.tab()
     expect(input).toHaveFocus()
 
-    // Order: the temporary switch, the effort dial, attach, dictation beside send, then send (the files
-    // counter appears only once files are attached, so it is absent here). The
-    // Datengrundlage trigger is withheld with the picker — see the
-    // commented-out block in InputArea. Nothing offers to choose deep research:
-    // Piloti decides whether a question needs a run, and says so with the block.
     await user.type(input, 'Hello')
 
-    // The temporary switch (ADR-0180): whether anything from this chat is kept.
     await user.tab()
     expect(screen.getByRole('button', { name: /turn on temporary chat/i })).toHaveFocus()
 
-    // The Aufwand dial: how hard Piloti thinks, for this chat.
     await user.tab()
     expect(screen.getByRole('button', { name: /effort: medium/i })).toHaveFocus()
 
     await user.tab()
     expect(screen.getByRole('button', { name: /attach files/i })).toHaveFocus()
 
-    // Dictation, beside Send. jsdom has no MediaRecorder, so the microphone is
-    // unavailable: `aria-disabled` rather than disabled, so it still takes
-    // focus (and a press), which is how a keyboard or touch user learns why.
     await user.tab()
     expect(screen.getByTestId('dictation-unavailable')).toHaveFocus()
 
@@ -546,10 +465,6 @@ describe('InputArea', () => {
   })
 
   test('disables input when the session is busy with no local turn of its own', () => {
-    // Busy without a local stream and without response mode (a HITL prompt
-    // restored from storage before the socket hands it over): nothing the
-    // reader may type into yet. Their OWN streaming turn is the one busy case
-    // that keeps the field live — see "typing ahead during the reader's own turn".
     vi.mocked(useIsCurrentSessionBusy).mockReturnValue(true)
 
     render(<InputArea isAuthenticated={true} connectionMode="sse" />)
@@ -573,8 +488,6 @@ describe('InputArea', () => {
     expect(screen.getByRole('button', { name: /attach files/i })).toBeInTheDocument()
   })
 
-  // Note: Research panel button was moved to ResearchPanel component as a toggle tag
-
   test('shows response mode placeholder when pending interaction', () => {
     vi.mocked(useWebSocketChat).mockReturnValue({
       sendMessage: mockSendMessage,
@@ -587,7 +500,6 @@ describe('InputArea', () => {
 
     render(<InputArea isAuthenticated={true} connectionMode="websocket" />)
 
-    // In response mode, placeholder changes to indicate responding to agent
     expect(screen.getByPlaceholderText(`Type your response to ${PRODUCT_NAME}...`)).toBeInTheDocument()
   })
 
@@ -628,9 +540,7 @@ describe('InputArea', () => {
 
     render(<InputArea isAuthenticated={true} />)
 
-    // Manage-files dialog trigger carries the count...
     expect(screen.getByRole('button', { name: /manage attached files/i })).toHaveTextContent('2')
-    // ...and each file also shows as an inline removable chip.
     expect(screen.getByText('doc.pdf')).toBeInTheDocument()
     expect(screen.getByText('doc2.pdf')).toBeInTheDocument()
   })
@@ -657,10 +567,8 @@ describe('InputArea', () => {
 
     render(<InputArea isAuthenticated={true} />)
 
-    // Closed initially — the preview only opens on an explicit chip click.
     expect(screen.queryByTestId('file-preview')).not.toBeInTheDocument()
 
-    // The chip body is a button that opens the shared preview for that file.
     await user.click(screen.getByRole('button', { name: /open file: doc\.pdf/i }))
 
     expect(screen.getByTestId('file-preview')).toHaveTextContent('doc.pdf')
@@ -681,7 +589,6 @@ describe('InputArea', () => {
 
     render(<InputArea isAuthenticated={true} />)
 
-    // No open affordance for an in-flight file, and the preview stays closed.
     expect(screen.queryByRole('button', { name: /open file: up\.pdf/i })).not.toBeInTheDocument()
     expect(screen.queryByTestId('file-preview')).not.toBeInTheDocument()
   })
@@ -733,7 +640,6 @@ describe('InputArea', () => {
       },
     })
 
-    // The zone is the chat panel the composer sits in, not the composer card.
     render(
       <ChatDropZone>
         <InputArea isAuthenticated={true} />
@@ -765,7 +671,6 @@ describe('InputArea', () => {
     expect(screen.getByTestId('chat-drop-overlay')).toHaveTextContent('Unsupported file type')
   })
 
-  /** What the panel's drop zone was last configured with. */
   const lastDropZone = () => vi.mocked(useFileDragDrop).mock.calls.at(-1)?.[0]
 
   test('offers the chat panel its attach path while the reader may attach', () => {
@@ -825,14 +730,11 @@ describe('InputArea', () => {
 
     render(<InputArea isAuthenticated={true} connectionMode="websocket" />)
 
-    // Input is disabled so typing won't work
     const input = screen.getByRole('textbox')
     expect(input).toBeDisabled()
   })
 
   test('input enabled during plan approval even when session is busy (HITL override)', async () => {
-    // useIsCurrentSessionBusy returns true because pendingInteraction is set,
-    // but the input should NOT be disabled so the user can type approve/reject.
     vi.mocked(useIsCurrentSessionBusy).mockReturnValue(true)
     vi.mocked(useWebSocketChat).mockReturnValue({
       sendMessage: mockSendMessage,
@@ -845,10 +747,8 @@ describe('InputArea', () => {
 
     render(<InputArea isAuthenticated={true} connectionMode="websocket" />)
 
-    // Input should be enabled in response mode (plan approval) despite isBusy=true
     expect(screen.getByRole('textbox')).not.toBeDisabled()
     expect(screen.getByPlaceholderText(`Type your response to ${PRODUCT_NAME}...`)).toBeInTheDocument()
-    // Send button should be the normal send button, not a research-in-progress popover
     expect(screen.getByRole('button', { name: /send response/i })).toBeInTheDocument()
   })
 
@@ -875,8 +775,6 @@ describe('InputArea', () => {
   })
 
   test('the composer stays open while a run is going in the thread', () => {
-    // A run is a message with its own stop control (ADR-0062): the person
-    // keeps asking beside it, and a follow-up runs in the same thread.
     mockConversationMessages = [
       {
         messageType: 'agent_response',
@@ -907,7 +805,6 @@ describe('InputArea', () => {
 
   test('input enabled during HITL even when a run is in progress', async () => {
     const user = userEvent.setup()
-    // A run is going AND there's a pending HITL interaction
     vi.mocked(useIsCurrentSessionBusy).mockReturnValue(true)
     mockConversationMessages = [
       {
@@ -926,14 +823,11 @@ describe('InputArea', () => {
 
     render(<InputArea isAuthenticated={true} connectionMode="websocket" />)
 
-    // Input should be enabled for HITL response despite active deep research
     expect(screen.getByRole('textbox')).not.toBeDisabled()
     expect(screen.getByPlaceholderText(`Type your response to ${PRODUCT_NAME}...`)).toBeInTheDocument()
-    // Send button should be normal (not research-in-progress popover)
     const sendButton = screen.getByRole('button', { name: /send response/i })
     expect(sendButton).toBeInTheDocument()
 
-    // User can type and submit their response
     await user.type(screen.getByRole('textbox'), 'approve')
     await user.click(sendButton)
     expect(mockRespondToInteraction).toHaveBeenCalledWith('approve')
@@ -965,9 +859,6 @@ describe('InputArea', () => {
       )
       expect(screen.getByRole('textbox')).toHaveValue('draft one')
 
-      // Switch the active session — the composer must load the other draft. The
-      // real component re-renders via its store subscription; with the store
-      // mocked, a changed prop stands in to trigger the same re-render.
       mockCurrentSessionId = 'session-2'
       rerender(<InputArea isAuthenticated={true} connectionMode="sse" placeholder="b" />)
 
@@ -998,7 +889,6 @@ describe('InputArea', () => {
       await user.type(screen.getByRole('textbox'), 'do not lose me')
       await user.click(screen.getByRole('button', { name: /send message/i }))
 
-      // Failed send keeps both the persisted draft and the restored input text.
       expect(mockDrafts['session-1']).toBe('do not lose me')
       expect(screen.getByRole('textbox')).toHaveValue('do not lose me')
     })
@@ -1018,7 +908,6 @@ describe('InputArea', () => {
 
       render(<InputArea isAuthenticated={true} connectionMode="sse" />)
 
-      // Existing draft wins; the prefill is dropped (consumed without applying).
       expect(screen.getByRole('textbox')).toHaveValue('my own in-progress text')
       expect(mockDrafts['session-1']).toBe('my own in-progress text')
       expect(mockComposerPrefill).toBeNull()
@@ -1026,39 +915,21 @@ describe('InputArea', () => {
   })
 
   describe('composer control row (WS-3)', () => {
-    /**
-     * The Datenbasis trigger. These tests used to assert `toHaveTextContent('2')`
-     * and `getByText('Disable / Enable All')` — both of which encoded the
-     * defects rather than the behaviour: the "2" was a count that omitted the
-     * knowledge layer the wire always carries, and "Disable / Enable All" was a
-     * `role="button"` div wrapping a Switch. They assert the summary now.
-     */
-    /* The Datenbasis picker is WITHHELD from the composer for now (see the
-       commented-out block in InputArea). Its tests are skipped, not deleted,
-       so they resume with it. */
     test.skip('the trigger names the mix rather than counting it, and opens the picker', async () => {
       const user = userEvent.setup()
       render(<InputArea isAuthenticated={true} connectionMode="sse" />)
 
       const trigger = screen.getByRole('button', { name: /data basis/i })
-      // Everything on: a named state, not an integer.
       expect(trigger).toHaveTextContent('All sources')
       expect(trigger).not.toHaveTextContent('2')
 
       await user.click(trigger)
 
-      // The honest sentence is the first thing in the picker, not a footnote.
       expect(
         screen.getByText(/what it actually used is in the derivation/i)
       ).toBeInTheDocument()
     })
 
-    /**
-     * THE REGRESSION THAT MATTERS. `computePresetSourceIds('office', …)`
-     * legitimately returns [] — the office archive is retrieved through the
-     * knowledge layer, which is not a toggleable source — so the old trigger
-     * answered "Büroablage" with "Datengrundlage 0".
-     */
     test.skip('the office preset reads "Büroablage" on the trigger, never "0"', () => {
       mockActiveSourcePreset = 'office'
       mockEnabledDataSourceIds = []
@@ -1086,12 +957,9 @@ describe('InputArea', () => {
 
       await user.click(screen.getByRole('button', { name: /data basis/i }))
 
-      // It rides on every turn (`use-websocket-chat` appends `knowledge_layer`),
-      // so it is drawn — with a chip where a Switch would lie about agency.
       const alwaysOn = screen.getByRole('list', { name: /always included/i })
       expect(within(alwaysOn).getByText('Project knowledge')).toBeInTheDocument()
       expect(within(alwaysOn).getByText('Office filing')).toBeInTheDocument()
-      // A Chip, not a Switch: there is nothing here for the reader to decide.
       expect(within(alwaysOn).getAllByText('Always on')).toHaveLength(2)
       expect(within(alwaysOn).queryAllByRole('switch')).toHaveLength(0)
     })
@@ -1114,8 +982,6 @@ describe('InputArea', () => {
       render(<InputArea isAuthenticated={true} connectionMode="sse" />)
       await user.click(screen.getByRole('button', { name: /data basis/i }))
 
-      // `NoSourcesBanner` short-circuits on `knowledgeLayerAvailable`, so this
-      // case is completely silent in the transcript.
       expect(
         screen.getByText(/search only your project documents/i)
       ).toBeInTheDocument()
@@ -1128,8 +994,6 @@ describe('InputArea', () => {
         { id: 'ris', name: 'RIS – Österreichisches Recht' },
       ]
       mockEnabledDataSourceIds = ['web_search', 'ris']
-      // The chips used to be onboarding-only (empty thread, no prior chat), so
-      // the informative control expired and the naked integer outlived it.
       mockConversationMessages = [
         { id: 'msg-1', role: 'user', content: 'Hello', messageType: 'user' },
       ]
@@ -1166,7 +1030,6 @@ describe('InputArea', () => {
 
       render(<InputArea isAuthenticated={true} connectionMode="sse" />)
 
-      // The normal send button is replaced by a stop control while streaming.
       expect(screen.queryByRole('button', { name: /send message/i })).not.toBeInTheDocument()
       const stop = screen.getByRole('button', { name: /stop response/i })
       await user.click(stop)
@@ -1174,9 +1037,6 @@ describe('InputArea', () => {
     })
 
     test('send and stop are one control: the same element changes job, label and glyph', () => {
-      // Two buttons swapped by a ternary dropped focus and the press target
-      // the moment a turn started. One element keeps both.
-      // InputArea is memoised, so the rerender changes a prop to reach it.
       const { rerender } = render(<InputArea isAuthenticated={true} connectionMode="sse" />)
       const send = screen.getByRole('button', { name: /send message/i })
       expect(send.querySelector('[data-glyph="send"]')).not.toBeNull()
@@ -1191,14 +1051,10 @@ describe('InputArea', () => {
       expect(stop).toHaveAttribute('aria-keyshortcuts', 'Escape')
       expect(stop).toHaveAttribute('title', 'Stop response (Esc)')
       expect(stop.querySelector('[data-glyph="stop"]')).not.toBeNull()
-      // The loading state is a glyph, never the literal "..." it used to be.
       expect(stop).not.toHaveTextContent('...')
     })
 
     test('Escape stops a streaming turn from <body> once the composer let go of the focus', async () => {
-      // A send that releases the soft keyboard leaves the focus on <body>, and
-      // the reader's hands are still on the composer. That is where the key
-      // has to work too.
       const user = userEvent.setup()
       mockIsStreaming = true
       vi.mocked(useIsCurrentSessionBusy).mockReturnValue(true)
@@ -1213,8 +1069,6 @@ describe('InputArea', () => {
     })
 
     test('Escape from <body> after a click on transcript text leaves the turn running', async () => {
-      // Clicking plain text moves the focus to <body> too, but the reader is
-      // reading (or selecting) the answer, and their Escape is not a stop.
       const user = userEvent.setup()
       mockIsStreaming = true
       vi.mocked(useIsCurrentSessionBusy).mockReturnValue(true)
@@ -1280,7 +1134,6 @@ describe('InputArea', () => {
     })
 
     describe("typing ahead during the reader's own turn", () => {
-      /** The reader's own turn is streaming: the local store runs it, no HITL. */
       const startOwnTurn = () => {
         mockIsStreaming = true
         vi.mocked(useIsCurrentSessionBusy).mockReturnValue(true)
@@ -1293,12 +1146,10 @@ describe('InputArea', () => {
           'You can send once the answer is finished.'
         )
       })
-      /** The turn settles. InputArea is memoised, so callers rerender with a new prop. */
       const settle = () => {
         mockIsStreaming = false
         vi.mocked(useIsCurrentSessionBusy).mockReturnValue(false)
       }
-      /** jsdom has no matchMedia, so the pointer kind is stubbed per test. */
       const pointer = (coarse: boolean) =>
         vi.stubGlobal(
           'matchMedia',
@@ -1335,7 +1186,6 @@ describe('InputArea', () => {
 
         expect(mockSendMessage).not.toHaveBeenCalled()
         expect(mockStopStreaming).not.toHaveBeenCalled()
-        // No newline slipped in from the swallowed Enter.
         expect(input).toHaveValue('Und die Brandschutzklasse?')
         expect(mockDrafts['session-1']).toBe('Und die Brandschutzklasse?')
       })
@@ -1464,7 +1314,6 @@ describe('InputArea', () => {
         expect(screen.queryByTestId('mention-picker')).not.toBeInTheDocument()
         expect(mockStopStreaming).not.toHaveBeenCalled()
 
-        // The next Escape is the turn's.
         await user.keyboard('{Escape}')
         expect(mockStopStreaming).toHaveBeenCalledTimes(1)
       })
@@ -1487,10 +1336,6 @@ describe('InputArea', () => {
         expect(document.activeElement).toBe(input)
       })
 
-      /**
-       * The screen as the visual viewport sees it: `occludedPx` of it under an
-       * on-screen keyboard (iOS shrinks only the visual viewport).
-       */
       const screenWithKeyboard = (occludedPx: number) => {
         Object.defineProperty(document.documentElement, 'clientHeight', {
           configurable: true,
@@ -1499,7 +1344,6 @@ describe('InputArea', () => {
         vi.stubGlobal('visualViewport', { height: 844 - occludedPx, scale: 1 })
       }
       afterEach(() => {
-        // The prototype getter takes over again once the own property is gone.
         Reflect.deleteProperty(document.documentElement, 'clientHeight')
       })
 
@@ -1518,8 +1362,6 @@ describe('InputArea', () => {
       })
 
       test('a coarse pointer on a hardware keyboard (iPad) keeps the field focused', async () => {
-        // Coarse, but nothing covers the screen beyond the shortcut strip: the
-        // reader types the follow-up next and must not lose the caret.
         const user = userEvent.setup()
         pointer(true)
         screenWithKeyboard(55)
@@ -1534,7 +1376,6 @@ describe('InputArea', () => {
       })
 
       describe('Send and Stop share one element', () => {
-        /** performance.now(), held still so the swap guard is the test's to step past. */
         let clock = 1_000
         beforeEach(() => {
           clock = 1_000
@@ -1556,8 +1397,6 @@ describe('InputArea', () => {
 
           await user.click(control)
           expect(mockStopStreaming).toHaveBeenCalledTimes(1)
-          // `stopStreaming` settles the turn locally, so the control is Send
-          // again before the second click of the pair arrives.
           settle()
           rerender(<InputArea isAuthenticated={true} connectionMode="sse" placeholder="b" />)
           expect(control).toHaveAccessibleName(/send message/i)
@@ -1566,7 +1405,6 @@ describe('InputArea', () => {
           await user.click(control)
           expect(mockSendMessage).not.toHaveBeenCalled()
 
-          // A deliberate press, after the guard, sends.
           clock += 400
           await user.click(control)
           expect(mockSendMessage).toHaveBeenCalledWith('Folgefrage')
@@ -1601,8 +1439,6 @@ describe('InputArea', () => {
           render(<InputArea isAuthenticated={true} connectionMode="sse" />)
           const control = screen.getByRole('button', { name: /stop response/i })
 
-          // fireEvent returns false when the handler cancelled the event, and
-          // a cancelled Enter keydown is one the browser does not turn into a click.
           expect(fireEvent.keyDown(control, { key: 'Enter' })).toBe(true)
           expect(fireEvent.keyDown(control, { key: 'Enter', repeat: true })).toBe(false)
         })
@@ -1647,8 +1483,6 @@ describe('InputArea', () => {
     })
 
     test('nothing in the composer offers to choose deep research', () => {
-      // The mode picker is gone: Piloti decides whether a question needs a run,
-      // and the block in the thread is how the reader finds out.
       render(<InputArea isAuthenticated={true} connectionMode="sse" />)
 
       expect(
@@ -1657,9 +1491,6 @@ describe('InputArea', () => {
     })
 
     test('offers no project scope chip: the project is fixed, so a picker would be a dead control', () => {
-      // It used to name the project behind a chevron, and its popover held the
-      // current project and a disabled "All projects" — a picker with nothing
-      // to pick. Retrieval is scoped to the project by the route, not by this row.
       render(<InputArea isAuthenticated={true} connectionMode="sse" />)
 
       expect(screen.queryByRole('button', { name: /search scope/i })).not.toBeInTheDocument()
@@ -1668,18 +1499,8 @@ describe('InputArea', () => {
 
   })
 
-  /**
-   * @-mentions in the composer (spec MN-3, MN-4, MN-7).
-   *
-   * The picker itself is covered in MentionPicker.spec.tsx; these tests are about
-   * the composer's half of the contract: the trigger, the keyboard (Enter must
-   * NEVER submit while the picker is open), what is inserted, what is finally sent,
-   * and what the user is told before they send it.
-   */
   describe('@-mentions', () => {
     const composer = () => screen.getByPlaceholderText(`Ask ${PRODUCT_NAME} about this project …`)
-    /** The candidates on screen. Read by target id: a highlighted name is split
-        across elements, so a text query would be brittle. */
     const optionTargets = () =>
       screen.getAllByTestId('mention-option').map((row) => row.getAttribute('data-target-id'))
 
@@ -1742,10 +1563,6 @@ describe('InputArea', () => {
       expect(composer()).toHaveValue('@Anna Weber ')
     })
 
-    // iOS drops the keyboard the moment the field blurs, and a caret put back
-    // by an effect after the insertion cannot raise it again: the reader picked
-    // a name and lost the keyboard they were typing on. Focus moves on the
-    // press, so the picker cancels the press; the tap's click still inserts.
     test('a press on a candidate keeps the focus in the field, and the tap still inserts', async () => {
       const user = userEvent.setup()
       render(<InputArea isAuthenticated={true} canCollaborate connectionMode="sse" />)
@@ -1754,7 +1571,6 @@ describe('InputArea', () => {
       await user.keyboard('@anna')
       const [row] = await screen.findAllByTestId('mention-option')
 
-      // `false`: the default action, moving the focus, was cancelled.
       expect(fireEvent.pointerDown(row!)).toBe(false)
       expect(fireEvent.mouseDown(row!)).toBe(false)
       expect(composer()).toHaveFocus()
@@ -1771,7 +1587,6 @@ describe('InputArea', () => {
       await user.click(composer())
       await user.keyboard('@')
       await screen.findByTestId('mention-picker')
-      // Piloti is pinned first; one step down lands on Anna.
       await user.keyboard('{ArrowDown}{Enter}')
 
       expect(composer()).toHaveValue('@Anna Weber ')
@@ -1824,7 +1639,6 @@ describe('InputArea', () => {
         ),
       )
 
-      // Closed again: no dangling aria-controls to a listbox that is gone.
       await user.keyboard('{Escape}')
       expect(composer()).not.toHaveAttribute('aria-controls')
       expect(composer()).not.toHaveAttribute('aria-expanded')
@@ -1873,7 +1687,6 @@ describe('InputArea', () => {
         mentions: [{ targetId: 'u-anna', display: 'Anna Weber' }],
       })
       expect(composer()).toHaveValue('')
-      // The hint goes with the sent message.
       expect(screen.queryByTestId('composer-mention-hint')).not.toBeInTheDocument()
     })
 
@@ -1887,8 +1700,6 @@ describe('InputArea', () => {
       await user.keyboard('{Enter}')
       expect(screen.getByTestId('composer-mention-hint')).toBeInTheDocument()
 
-      // The token is edited away: the mention goes with it, and the message is
-      // sent with no mentions at all (so the agent answers as usual).
       await user.clear(composer())
       await user.keyboard('doch nicht, danke')
       expect(screen.queryByTestId('composer-mention-hint')).not.toBeInTheDocument()
@@ -1911,7 +1722,6 @@ describe('InputArea', () => {
       await user.keyboard('{Enter}')
       await user.click(screen.getByRole('button', { name: /send message/i }))
 
-      // Nothing is lost: text AND the picked mention survive for another attempt.
       await waitFor(() => expect(composer()).toHaveValue('@Anna Weber'))
       expect(screen.getByTestId('composer-mention-hint')).toBeInTheDocument()
       expect(toast.error).toHaveBeenCalledWith(
@@ -1951,7 +1761,6 @@ describe('InputArea', () => {
       await user.keyboard('@anna')
 
       expect(screen.queryByTestId('mention-picker')).not.toBeInTheDocument()
-      // No combobox semantics at all: it is the plain textarea it always was.
       expect(composer()).not.toHaveAttribute('role')
 
       await user.keyboard('{Enter}')
@@ -1971,34 +1780,17 @@ describe('InputArea', () => {
       expect(screen.getByText('Loading people…')).toBeInTheDocument()
     })
 
-    /**
-     * A THREAD'S FIRST `@` CAN OUTRUN THE THREAD.
-     *
-     * The conversation row reaches the server only with its first persisted
-     * message, so a `@` typed before anything was sent reads candidates that
-     * 404. The hook's retry ladder covers a few seconds of that and then gives
-     * up — and nothing re-armed it: `refresh` is keyed on the conversation id,
-     * which does not change when the row finally appears, and `mentionRequested`
-     * latches true on the first `@` so the enable flag never flips either. The
-     * picker stayed dead for the rest of that thread unless the reader happened
-     * to blur and refocus the tab, which is exactly the first-time interaction
-     * `@` exists to teach — and is what „@ Kollegin erwähnen funktioniert
-     * nicht" looks like from the outside.
-     */
     describe('when the candidates never arrived', () => {
       test('a fresh @ asks again', async () => {
         const user = userEvent.setup()
-        // The ladder has been exhausted: no data, and no longer loading.
         mockMentionData = null
         mockMentionsLoading = false
         render(<InputArea isAuthenticated={true} canCollaborate connectionMode="sse" />)
 
         await user.click(composer())
-        // First `@` — this is the one that requested candidates at all.
         await user.keyboard('@')
         mockRestartMentionCandidates.mockClear()
 
-        // Leave the fragment and open a new one.
         await user.keyboard('{Backspace}Frage an @')
 
         expect(mockRestartMentionCandidates).toHaveBeenCalled()
@@ -2014,7 +1806,6 @@ describe('InputArea', () => {
         await user.keyboard('@')
         mockRestartMentionCandidates.mockClear()
 
-        // Six more characters inside the SAME `@…` fragment.
         await user.keyboard('Markus')
 
         expect(mockRestartMentionCandidates).not.toHaveBeenCalled()
@@ -2032,19 +1823,6 @@ describe('InputArea', () => {
         expect(mockRestartMentionCandidates).not.toHaveBeenCalled()
       })
 
-      /**
-       * AND THE RE-ARM ALONE WAS NOT THE FIX.
-       *
-       * Re-arming a ladder whose every rung 404s buys nothing, and in a NEW
-       * WINDOW every rung does: the logo, the new-chat path and `?new` all null
-       * the conversation, typing `@` created only a CLIENT-SIDE session, and the
-       * server row is written by `_appendMessage` at send time. So the picker
-       * asked about a row that did not exist and the hook cleared its data —
-       * which renders no picker at all, not an empty one.
-       *
-       * These two pin the actual mechanism: the row is created on the FIRST `@`
-       * of a window, and it is created before the ladder is re-armed.
-       */
       test('makes the conversation real on the first @ of a new window', async () => {
         const user = userEvent.setup()
         mockCurrentSessionId = null
@@ -2056,8 +1834,6 @@ describe('InputArea', () => {
         await user.click(composer())
         await user.keyboard('@')
 
-        // Not merely a client-side session: the ROW, which is what the
-        // mention-candidates endpoint resolves.
         expect(mockEnsureConversationExists).toHaveBeenCalled()
       })
 
@@ -2069,28 +1845,17 @@ describe('InputArea', () => {
         render(<InputArea isAuthenticated={true} canCollaborate connectionMode="sse" />)
 
         await user.click(composer())
-        // Ordinary typing creates the client-side session, as it always did,
-        // but must not reach the server — only reaching for the picker does.
         await user.keyboard('Frage')
         expect(mockEnsureConversationExists).not.toHaveBeenCalled()
 
         await user.keyboard(' an @')
         expect(mockEnsureConversationExists).toHaveBeenCalledTimes(1)
 
-        // Six more characters inside the SAME fragment: still one.
         await user.keyboard('Markus')
         expect(mockEnsureConversationExists).toHaveBeenCalledTimes(1)
       })
     })
 
-    /**
-     * With collaboration off the composer must be byte-identical to the one that
-     * shipped before the feature existed (spec NF-8) — and "identical" includes
-     * the moment between keystroke and answer. The bug these two pin: the
-     * candidate fetch ran regardless of the gate, and the loading state alone
-     * opened the picker, so a user on a deployment WITHOUT collaboration saw a
-     * panel flash open on `@` and vanish when the route answered 403.
-     */
     describe('with collaboration off', () => {
       test('typing @ opens nothing, even while a load could be in flight', async () => {
         const user = userEvent.setup()
@@ -2102,7 +1867,6 @@ describe('InputArea', () => {
         await user.keyboard('Frage an @')
 
         expect(screen.queryByTestId('mention-picker')).not.toBeInTheDocument()
-        // The textarea keeps its plain semantics: no combobox, nothing to navigate.
         expect(composer()).not.toHaveAttribute('role')
       })
 
@@ -2113,8 +1877,6 @@ describe('InputArea', () => {
         await user.click(composer())
         await user.keyboard('@ann')
 
-        // The gate belongs on the request, not on the rendering of its result:
-        // a disabled feature must not generate the round-trip at all.
         expect(vi.mocked(useMentionCandidates)).toHaveBeenCalled()
         for (const call of vi.mocked(useMentionCandidates).mock.calls) {
           expect(call[1]).toBe(false)
@@ -2123,16 +1885,6 @@ describe('InputArea', () => {
     })
   })
 
-  /**
-   * The composer's statement of who receives the message (ADR-0034 addendum).
-   *
-   * The behaviour was already right server-side and completely invisible, which is
-   * the defect these tests pin: the line must change as the state changes, and that
-   * transition is what teaches the two-state model. It no longer states the DEFAULT
-   * out loud — that sentence was rendered on every thread forever to describe the
-   * case a user is already in — so what is pinned here is the pair of departures
-   * from it, and that the default itself is quiet.
-   */
   describe('addressee indicator', () => {
     const composer = () => screen.getByPlaceholderText(`Ask ${PRODUCT_NAME} about this project …`)
     const addressee = () => screen.getByTestId('composer-addressee')
@@ -2141,8 +1893,6 @@ describe('InputArea', () => {
       render(<InputArea isAuthenticated canCollaborate connectionMode="sse" />)
 
       expect(addressee()).toHaveAttribute('data-mode', 'agent')
-      // No statement. What remains on the line is the `@` offer, which is not
-      // one — it teaches that mentions exist and is deliberately untouched.
       expect(addressee()).not.toHaveTextContent(/goes to/i)
       expect(screen.getByTestId('composer-mention-offer')).toBeInTheDocument()
     })
@@ -2160,19 +1910,14 @@ describe('InputArea', () => {
 
       expect(addressee()).toHaveTextContent('Goes to Anna Weber')
       expect(addressee()).toHaveAttribute('data-mode', 'people')
-      // …and back to silence when the token is edited away (MN-3).
       await user.clear(composer())
       expect(addressee()).toHaveAttribute('data-mode', 'agent')
-      // No statement. What remains on the line is the `@` offer, which is not
-      // one — it teaches that mentions exist and is deliberately untouched.
       expect(addressee()).not.toHaveTextContent(/goes to/i)
       expect(screen.getByTestId('composer-mention-offer')).toBeInTheDocument()
     })
 
     test('says the message goes to the CHAT while the thread awaits a person, and how to reach Piloti', () => {
       mockAwaitingPending = [{ id: 'r-1' }]
-      // A wait can only exist on a SHARED thread, and the composer reads the
-      // awaiting state only there — a private thread must open no live channel.
       publishThreadSharing('session-1', true)
       render(<InputArea isAuthenticated canCollaborate connectionMode="sse" />)
 
@@ -2185,8 +1930,6 @@ describe('InputArea', () => {
     test('typing @Piloti while awaiting flips the line back to the agent', async () => {
       const user = userEvent.setup()
       mockAwaitingPending = [{ id: 'r-1' }]
-      // A wait can only exist on a SHARED thread, and the composer reads the
-      // awaiting state only there — a private thread must open no live channel.
       publishThreadSharing('session-1', true)
       render(<InputArea isAuthenticated canCollaborate connectionMode="sse" />)
 
@@ -2195,10 +1938,8 @@ describe('InputArea', () => {
       await screen.findByTestId('mention-picker')
       await user.keyboard('{Enter}')
 
-      // Out of the wait: the mode flips, and the line falls silent with it.
       expect(addressee()).toHaveAttribute('data-mode', 'agent')
       expect(addressee()).not.toHaveTextContent('everyone in the chat')
-      // The "type @Piloti" hint has done its job and steps aside.
       expect(screen.queryByTestId('composer-agent-hint')).not.toBeInTheDocument()
     })
 
@@ -2220,17 +1961,13 @@ describe('InputArea', () => {
 
     test('with collaboration off the composer is exactly today’s — no line, no hint (NF-8)', async () => {
       const user = userEvent.setup()
-      // Even with a wait outstanding server-side, a gated org must see nothing.
       mockAwaitingPending = [{ id: 'r-1' }]
-      // A wait can only exist on a SHARED thread, and the composer reads the
-      // awaiting state only there — a private thread must open no live channel.
       publishThreadSharing('session-1', true)
       render(<InputArea isAuthenticated connectionMode="sse" />)
 
       expect(screen.queryByTestId('composer-addressee')).not.toBeInTheDocument()
       expect(screen.queryByTestId('composer-agent-hint')).not.toBeInTheDocument()
 
-      // And the composer still sends exactly as it always did.
       await user.click(composer())
       await user.keyboard('Frage')
       await user.click(screen.getByRole('button', { name: /send message/i }))
@@ -2238,13 +1975,6 @@ describe('InputArea', () => {
     })
   })
 
-  /**
-   * The send has to agree with what the addressee line just told the user
-   * (ADR-0034 addendum). While the thread waits on a named person, a plain message
-   * is a remark — so it goes through the server's ruling and reaches the agent as
-   * CONTEXT, not as a question. The line says "Goes to the chat"; this is the wiring
-   * that makes that true.
-   */
   describe('the send agrees with the addressee line', () => {
     const composer = () => screen.getByPlaceholderText(`Ask ${PRODUCT_NAME} about this project …`)
 
@@ -2257,8 +1987,6 @@ describe('InputArea', () => {
 
     test('a plain message while a person is awaited asks the server to rule', async () => {
       mockAwaitingPending = [{ id: 'r-1' }]
-      // A wait can only exist on a SHARED thread, and the composer reads the
-      // awaiting state only there — a private thread must open no live channel.
       publishThreadSharing('session-1', true)
       render(<InputArea isAuthenticated canCollaborate connectionMode="sse" />)
 
@@ -2279,8 +2007,6 @@ describe('InputArea', () => {
 
     test('a gated org never takes the ruled path, wait or no wait (NF-8)', async () => {
       mockAwaitingPending = [{ id: 'r-1' }]
-      // A wait can only exist on a SHARED thread, and the composer reads the
-      // awaiting state only there — a private thread must open no live channel.
       publishThreadSharing('session-1', true)
       render(<InputArea isAuthenticated connectionMode="sse" />)
 
@@ -2293,11 +2019,6 @@ describe('InputArea', () => {
     })
 
     test('asks the awaiting endpoint nothing at all on a thread that is not shared (NF-8)', () => {
-      // `useAwaitingState` subscribes to the shared event channel, so gating it
-      // on the collaboration flag alone had a solo user in a flag-on org opening
-      // a permanent `/api/stream` connection and polling `/awaiting` for a
-      // conversation that cannot be waiting on anybody. NF-8 is the stricter
-      // promise: a user who never shares must not notice this feature exists.
       mockAwaitingPending = [{ id: 'r-1' }]
       publishThreadSharing('session-1', false)
       render(<InputArea isAuthenticated canCollaborate connectionMode="sse" />)
@@ -2313,11 +2034,6 @@ describe('InputArea', () => {
     })
 
     test('declares the thread stale after sending a mention', async () => {
-      // The consumer side of this wire is well covered in `use-shared-thread`;
-      // the PUBLISHER was not, so the whole first-`@`-in-a-private-thread fix
-      // could be deleted here with every test still green. Sending a mention is
-      // what makes a private thread shared server-side, and the seam has no
-      // other way to hear about it.
       const user = userEvent.setup()
       render(<InputArea isAuthenticated canCollaborate connectionMode="sse" />)
 
@@ -2344,12 +2060,6 @@ describe('InputArea', () => {
     })
   })
 
-  /**
-   * A viewer may read a shared thread and change nothing in it. The server
-   * enforces that; the composer's job is to stop offering controls whose only
-   * outcome is a rejection — and, for the file surface, controls whose outcome
-   * is NOT a rejection because they do not go through the message path at all.
-   */
   describe('a viewer in a shared thread', () => {
     const asViewer = () => {
       publishThreadSharing('session-1', true)
@@ -2377,17 +2087,10 @@ describe('InputArea', () => {
 
       expect(screen.getByRole('textbox')).toBeDisabled()
       expect(screen.getByRole('button', { name: /attach files/i })).toBeDisabled()
-      // The Datenbasis trigger is withheld from the composer for now — its
-      // disabled-for-viewers assertion resumes with the picker.
       expect(screen.queryByRole('button', { name: /data basis/i })).not.toBeInTheDocument()
     })
 
     test.skip('cannot apply a preset either, which also writes the Datenbasis', async () => {
-      // The gap the control-row gate left. Applying a preset calls
-      // `saveDataSourcesToConversation`, so it rewrites which sources the next
-      // person's turn will use. The presets used to live on a chip row gated
-      // only on the auth flag; they now live inside the picker, behind the one
-      // disabled trigger — there is no second door.
       const user = userEvent.setup()
       asViewer()
       render(<InputArea isAuthenticated canCollaborate connectionMode="sse" />)
@@ -2406,10 +2109,8 @@ describe('InputArea', () => {
       withFiles()
       render(<InputArea isAuthenticated canCollaborate connectionMode="sse" />)
 
-      // Reading stays: the chips are there and a finished file still opens.
       expect(screen.getByText('doc.pdf')).toBeInTheDocument()
       expect(screen.getByRole('button', { name: /open .*doc\.pdf/i })).toBeInTheDocument()
-      // Writing does not.
       expect(screen.queryByRole('button', { name: /remove/i })).not.toBeInTheDocument()
       expect(screen.queryByRole('button', { name: /retry/i })).not.toBeInTheDocument()
     })
@@ -2419,17 +2120,11 @@ describe('InputArea', () => {
       withFiles()
       render(<InputArea isAuthenticated canCollaborate connectionMode="sse" />)
 
-      // The desktop button is disabled and the `sm:hidden` mobile text entry —
-      // which opens the same browse / upload / delete sheet — is not rendered.
       expect(screen.getByRole('button', { name: /manage attached files/i })).toBeDisabled()
       expect(screen.queryByRole('button', { name: /^manage \d/i })).not.toBeInTheDocument()
     })
 
     test('is not invited to mention anybody either', () => {
-      // Caught by looking at the screenshot rather than the code: the whole
-      // control row was correctly dimmed and this one link sat above "Sie können
-      // hier mitlesen", live and underlined, offering to type an `@` into a
-      // disabled textarea. It was gated on the collaboration flag alone.
       asViewer()
       render(<InputArea isAuthenticated canCollaborate connectionMode="sse" />)
 
@@ -2446,16 +2141,11 @@ describe('InputArea', () => {
       expect(screen.getByRole('button', { name: /attach files/i })).not.toBeDisabled()
       expect(screen.getAllByRole('button', { name: /remove/i }).length).toBeGreaterThan(0)
       expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument()
-      // Asserted here as well as by their absence above, so the viewer's version
-      // of those checks cannot pass because the query itself stopped matching.
       expect(screen.getByRole('button', { name: /^manage \d/i })).toBeInTheDocument()
       expect(screen.getByTestId('composer-mention-offer')).toBeInTheDocument()
     })
 
     test.skip('the presets outlive onboarding — they are in the picker, not on a chip row', async () => {
-      // They used to render only while `isEmptyThread && !hasHadAChat`, so the
-      // one informative, colour-coded source control expired after the first
-      // chat while the naked integer lasted forever. Backwards.
       const user = userEvent.setup()
       mockConversationMessages = [{ id: 'm1', role: 'user', content: 'hello' }]
       render(<InputArea isAuthenticated canCollaborate connectionMode="sse" />)
@@ -2465,25 +2155,6 @@ describe('InputArea', () => {
     })
   })
 
-  /**
-   * Two attach affordances in one conversation, and only one of them ever said
-   * where the file lands.
-   *
-   * The sources panel offers an explicit project/session choice and states the
-   * selected one ("Files uploaded here go to …"). The composer calls
-   * `useFileUpload` with no projectId at all — it is hardcoded to the session —
-   * and its copy stated the accepted types and nothing else, so a user with a
-   * project open had no way to tell that the paperclip and the panel disagreed.
-   * The composer now says it, in the panel's exact words (the identical sentence
-   * is asserted in FileSourcesTab.spec.tsx).
-   */
-  /**
-   * A chat's first attachment, before its first message. The composer makes the
-   * conversation row real first and then uploads into it through the
-   * first-party session route, which checks the file type and the quota and
-   * writes a document row (and would create the row itself if the first call
-   * had failed). The hook is handed the chat's project for that case.
-   */
   describe('attaching to a chat that has no server row yet', () => {
     test('makes the conversation real before the bytes, then uploads into the chat', async () => {
       const order: string[] = []
@@ -2559,8 +2230,6 @@ describe('InputArea', () => {
     })
 
     test('says nothing about a destination for a file it will refuse', () => {
-      // An unsupported drop lands nowhere, so the overlay keeps stating the
-      // accepted types instead of promising a shelf.
       vi.mocked(useFileDragDrop).mockReturnValue({
         isDragging: true,
         isUnsupportedDrag: true,
@@ -2583,19 +2252,6 @@ describe('InputArea', () => {
       expect(screen.queryByTestId('upload-destination')).not.toBeInTheDocument()
     })
   })
-  /**
-   * THE FILE IS THE QUESTION, AND IT WAS NOT THERE YET.
-   *
-   * Attaching a plan and asking about it in the same breath is the normal way to
-   * use this product, and it did not work: nothing about a session upload is
-   * inline, so the turn was answered against a collection that was still empty
-   * and the agent answered confidently from everything except the document the
-   * question was about. The only signal was a `title` tooltip on the send button.
-   *
-   * Blocking the send was tried and rejected once, for good reason. Holding is
-   * the third option: the message leaves the composer as if sent, a line says
-   * what it waits for, and it goes when the file is readable.
-   */
   describe('a message asked while its file is still being read', () => {
     const composer = () => screen.getByPlaceholderText(`Ask ${PRODUCT_NAME} about this project …`)
 
@@ -2625,10 +2281,7 @@ describe('InputArea', () => {
       await user.click(composer())
       await user.keyboard('Erfüllt der Grundriss die Fluchtweganforderungen?{Enter}')
 
-      // Not sent — sending now would answer against a collection with nothing in it.
       expect(mockSendMessage).not.toHaveBeenCalled()
-      // And not silently swallowed: a vanished message with no answer reads as a
-      // dropped send, the one impression a held message must not give.
       expect(screen.getByTestId('composer-held-for-upload')).toBeInTheDocument()
     })
 
@@ -2642,9 +2295,6 @@ describe('InputArea', () => {
       expect(mockSendMessage).not.toHaveBeenCalled()
 
       withSessionFiles(ready)
-      // `InputArea` is `memo`-wrapped, so a rerender with identical props is
-      // skipped entirely and the new mock value is never read. Changing a prop
-      // that does not affect this behaviour is what makes the rerender real.
       rerender(<InputArea isAuthenticated={true} placeholder={undefined} />)
 
       await waitFor(() => expect(mockSendMessage).toHaveBeenCalled())
@@ -2660,10 +2310,7 @@ describe('InputArea', () => {
       await user.click(composer())
       await user.keyboard('Und ohne die Datei?{Enter}')
 
-      // A failed upload leaves the pending set exactly as a successful one does,
-      // and that is deliberate: the question is still the user's to ask.
       withSessionFiles([{ ...ingesting[0], status: 'error' }])
-      // See the note above: `memo` skips a rerender with identical props.
       rerender(<InputArea isAuthenticated={true} placeholder={undefined} />)
 
       await waitFor(() => expect(mockSendMessage).toHaveBeenCalled())
@@ -2698,13 +2345,6 @@ describe('InputArea', () => {
 
 })
 
-/**
- * The composer's half of the intent-driven agent socket.
- *
- * The decision of WHETHER a socket may be opened lives in `useWebSocketChat` (and
- * is tested there against the real WS client). What belongs here is the wiring: the
- * flag is handed to the hook, and focus is what declares intent.
- */
 describe('InputArea — intent to send opens the agent socket', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -2765,8 +2405,6 @@ describe('InputArea — intent to send opens the agent socket', () => {
   })
 
   test('a send declares it too, for the paths that never fire a focus event', async () => {
-    // A restored draft puts text in the composer without anyone focusing it, so the
-    // send button is reachable with no focus event on the textarea.
     mockDrafts = { 'session-1': 'Wie breit muss der Fluchtweg sein?' }
     render(<InputArea isAuthenticated canCollaborate connectionMode="sse" />)
 

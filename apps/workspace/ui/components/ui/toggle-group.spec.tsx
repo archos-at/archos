@@ -1,19 +1,3 @@
-/**
- * The segmented group's travelling pill, and the one thing about it that is
- * not local: its shared-layout IDENTITY.
- *
- * `layoutId` names one travelling element across the entire React tree, not
- * one per component. A constant therefore made every segmented group on screen
- * the same element — and the Tasks tab mounts two of them at once, the
- * Liste/Zeitplan view switcher above the status filter row, so clicking a
- * filter chip made the pill fly up into the view switcher and back.
- *
- * `layoutId` is motion state and never reaches the DOM, so the animation is
- * not observable from jsdom — which is exactly why the id is mirrored onto
- * `data-pill-id`. That attribute is the defect made visible, and these tests
- * are about it rather than about the glide.
- */
-
 import type { JSX } from 'react'
 import { useState } from 'react'
 import { render, screen } from '@testing-library/react'
@@ -55,9 +39,6 @@ describe('segmented ToggleGroup', () => {
   })
 
   it('gives two groups on one screen DIFFERENT pill identities', () => {
-    // The regression this exists for. Same id in both groups means framer
-    // treats them as one element, and the pill travels between two unrelated
-    // controls instead of gliding inside the one that was clicked.
     const { container } = render(
       <>
         <View />
@@ -80,16 +61,10 @@ describe('segmented ToggleGroup', () => {
 
     await user.click(screen.getByRole('radio', { name: 'Zeitplan' }))
 
-    // Same id on the other segment: the pill is the same element arriving
-    // somewhere new. A fresh id per segment would cross-fade two chips.
     expect(pills(container)[0]!.getAttribute('data-pill-id')).toBe(before)
   })
 
   it('moves the pill when the group is UNCONTROLLED too', async () => {
-    // The atom tracks `onValueChange` into local state when no `value` is
-    // passed, precisely so the pill follows clicks the way Radix's own
-    // `data-state` does. Without a test the controlled half could keep working
-    // while a `defaultValue` consumer got a pill frozen on the first segment.
     const user = userEvent.setup()
     const { container } = render(
       <ToggleGroup type="single" defaultValue="list" segmented aria-label="View">

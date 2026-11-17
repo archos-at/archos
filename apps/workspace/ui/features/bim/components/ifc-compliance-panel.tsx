@@ -1,25 +1,5 @@
 'use client'
 
-/**
- * The Prüfbuch — OIB requirements with a verdict, on the model page.
- *
- * The rest of the model page answers "what is in this file". This answers
- * "where does it stand", which is the only question that ends up on a
- * Bestätigung.
- *
- * Three design commitments, each of which the UI has to make visible rather
- * than merely honour in the data:
- *
- * 1. **`Nicht entscheidbar` is shown as prominently as a failure**, because it
- *    is not a gap in the report — it is the reason the report cannot be
- *    trusted yet, and it is the architect's to-do list.
- * 2. **Every verdict shows the threshold it applied**, so the architect checks
- *    the rule and not only the result.
- * 3. **A rule that stood down says why**, on the row. "Gebäudeklasse nicht
- *    gesetzt" is a fixable state, and hiding the row would make an
- *    under-configured project look like a clean one.
- */
-
 import type { JSX } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import {
@@ -50,80 +30,23 @@ export interface IfcCompliancePanelProps {
   shoppingList: Array<{ path: string; elements: number; rules: string[] }> | null
   isLoading: boolean
   error: string | null
-  /**
-   * The catalogue ran over a CAPPED element list, so every count on this
-   * screen is a count over part of the building.
-   */
   truncated?: boolean
   projectId: string
   modelFilename: string
-  /** Re-runs the catalogue after a failure. */
   onRetry?: () => void
-  /**
-   * Show these elements in the model.
-   *
-   * A PATCH of the view, not a fresh one. These used to be `<Link>`s built by
-   * `buildModelHref` from scratch: clicking a failing door threw away the
-   * storey filter, the camera and the section cut the reader had set up, and —
-   * because a `<Link>` pushes while the stage navigates with `replace`
-   * everywhere else — made the back button do something different from what
-   * it had done a click earlier. The health panel beside it has always
-   * patched; this is the same callback.
-   */
   onShowElements?: (globalIds: string[], status: 'fail' | 'info') => void
-  /** Set when the project brief is missing a fact some rules need. */
-  /** Keys, not names — the panel owns the words. See `BimRuleFactKey`. */
   missingFacts: BimRuleFactKey[]
-  /**
-   * The brief could not be READ, which is not the same as it lacking a value.
-   *
-   * With this set the panel must not tell the reader to go and fill in facts
-   * that are, as far as anyone knows, already there.
-   */
   factsFailed?: boolean
-  /**
-   * The confirmation ledger could not be read.
-   *
-   * Distinct from "nothing is confirmed": a rule somebody signed off renders
-   * with no signature and offers to confirm it again, on the surface whose job
-   * is to be the record.
-   */
   confirmationsFailed?: boolean
   onRetryFacts?: () => void
-  /** Opens the chat so the user can supply what the brief lacks. */
-  /** Where "Angaben ergänzen" asks; `null` where there is no project chat. */
   askHref: string | null
-  /**
-   * Record a human verdict on a rule the catalogue could not settle.
-   *
-   * Absent for a viewer without `project:edit` — the confirmations are still
-   * SHOWN, because they are part of the record everyone needs to read; only
-   * the ability to add one is withheld.
-   */
   onConfirm?: (ruleId: string, note: string) => Promise<void>
   onWithdraw?: (ruleId: string) => Promise<void>
-  /**
-   * Download URL for the BCF archive of the open items, or `null` while the
-   * catalogue has not run.
-   *
-   * A plain link rather than a fetch-and-blob: the browser's own download path
-   * shows progress, survives a slow export, and gives the architect a URL they
-   * can send to the person who actually owns the model.
-   */
   bcfHref: string | null
 }
 
-/** Rows before a rule's list folds — the counts always speak for the rest. */
 const VISIBLE_ROWS = 6
 
-/**
- * An underlined link inside a sentence is 16 px tall — the line box — which is
- * not a thing a thumb can hit, and "im Modell zeigen" is the one action on this
- * panel that matters. Under a coarse pointer the link becomes a 44 px control
- * that still sits on the line (`inline-flex`), so the sentence reads the same
- * and the finger gets its target. WCAG exempts inline links; the product does
- * not, because on site this one is pressed with a glove.
- */
 const TOUCH_LINK = 'pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center'
 
 function verdictHref(
@@ -137,10 +60,6 @@ function verdictHref(
     element: globalIds[0],
     highlights: [{ status, globalIds }],
     xray: true,
-    // Without this the link carries no tab, the drawer falls back to
-    // Überblick, and the finding the reader clicked — with its scroll
-    // position and its half-filled confirmation form — is gone. There is no
-    // back button either: the stage navigates with `replace`.
     tab: 'compliance',
   })
 }
@@ -367,13 +286,11 @@ function RuleRow({
   modelFilename: string
   onConfirm?: (ruleId: string, note: string) => Promise<void>
   onWithdraw?: (ruleId: string) => Promise<void>
-  /** Patches the view rather than replacing it — see the panel's prop doc. */
   onShowElements?: (globalIds: string[], status: 'fail' | 'info') => void
 }): JSX.Element {
   const t = useTranslations(bimCopy)
   const checked = rule.passed + rule.failed + rule.undecidable
 
-  // A hint judges nothing: it reads as a rule that stood down, not as missing data.
   const { Icon, tone } = !rule.applicable || rule.hint
     ? { Icon: MinusCircle, tone: 'text-muted-foreground' }
     : rule.failed > 0
@@ -381,13 +298,6 @@ function RuleRow({
       : checked === 0
         ? { Icon: MinusCircle, tone: 'text-muted-foreground' }
         : // ANY undecidable element leaves the requirement unsettled, not met.
-          // This used to read `rule.passed === 0`, so "9 erfüllt, 2 nicht
-          // entscheidbar" scored a green tick — the precise reading the
-          // three-state design exists to prevent, and the one the badge row
-          // above already refuses to give: `summarizeBimRules` counts that
-          // rule under `rulesUndecidable`, and `standing()` returns `unknown`
-          // for it. Only this icon disagreed, and the icon is what a reader
-          // scans.
           rule.undecidable > 0
           ? { Icon: HelpCircle, tone: 'text-warning' }
           : { Icon: CheckCircle2, tone: 'text-success' }
@@ -409,8 +319,6 @@ function RuleRow({
           {rule.hint && <p className="text-xs text-muted-foreground">{rule.hint}</p>}
 
           {!rule.applicable ? (
-            // A rule that stood down says why. Hiding it would make an
-            // under-configured project look like a clean one.
             <p className="text-xs text-muted-foreground">
               {t('compliance.notApplicable')}: {rule.notApplicableReason}
             </p>
@@ -456,17 +364,6 @@ function RuleRow({
   )
 }
 
-/**
- * The human verdict on a rule, and the way to record one.
- *
- * Rendered BESIDE the machine counts, never instead of them: an architect who
- * confirms a failing rule has said "I know, and it is fine", and turning the
- * row green would hide what the model actually says from the next reader.
- *
- * A confirmation made against an older revision stays visible and is marked
- * stale rather than being deleted or silently honoured — "I checked this" was
- * true of the building that person looked at.
- */
 function Confirmation({
   rule,
   onConfirm,
@@ -481,25 +378,10 @@ function Confirmation({
   const [open, setOpen] = useState(false)
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
-  // A signature that did not save must SAY so. Without this the request failed
-  // silently, the form stayed open with no explanation, and the architect had
-  // every reason to believe the rule was confirmed — a record of a decision
-  // that was never recorded, on the one surface that exists to be a record.
   const [failed, setFailed] = useState(false)
 
-  /**
-   * Where focus goes when a control removes itself.
-   *
-   * Pressing "Bestätigen" unmounts the button that was pressed and mounts a
-   * note field in its place; saving or cancelling does the reverse. Neither
-   * moved focus, so each press threw the reader's place to the top of the
-   * enclosing dialog and left them Tabbing back through the whole Prüfbuch to
-   * reach a field they had just asked for — a signature workflow that a
-   * keyboard cannot complete without counting Tab stops.
-   */
   const noteRef = useRef<HTMLTextAreaElement>(null)
   const openerRef = useRef<HTMLButtonElement>(null)
-  /** Only after an interaction: focusing on mount would steal it from the page. */
   const interacted = useRef(false)
 
   useEffect(() => {
@@ -508,23 +390,9 @@ function Confirmation({
     else openerRef.current?.focus()
   }, [open])
 
-  /**
-   * Whether the last write was refused for lack of permission.
-   *
-   * A project VIEWER can open the Prüfbuch — the confirmations are part of the
-   * record everyone reads — and the panel's own prop doc says the write
-   * callbacks are "absent for a viewer without `project:edit`". Nothing ever
-   * omits them, so a viewer could fill in a note, save it, get a 403 and be
-   * told "bitte erneut versuchen": a retry that can never succeed, with the
-   * note retyped each time.
-   */
   const [denied, setDenied] = useState(false)
-  /** Withdrawing is destructive and irreversible, so it asks first. */
   const [confirmingWithdraw, setConfirmingWithdraw] = useState(false)
 
-  // Nothing to confirm on a rule that stood down, that the model settled
-  // cleanly or that is a hint — offering a signature there would invite one
-  // nobody needs, and one on a hint would outlive the hint.
   const needsHuman = hasOpenWork(rule)
   if (!needsHuman && !rule.confirmation) return null
 
@@ -534,9 +402,6 @@ function Confirmation({
     setFailed(false)
     try {
       await onConfirm(rule.ruleId, note.trim())
-      // Sends focus back to the button that opened the form — which by then
-      // reads "Erneut bestätigen", so the reader lands on a control that
-      // confirms the save happened.
       interacted.current = true
       setOpen(false)
       setNote('')
@@ -554,9 +419,6 @@ function Confirmation({
     setFailed(false)
     try {
       await onWithdraw(rule.ruleId)
-      // Back to the opener, which by then reads "Manuell bestätigen": a
-      // control that confirms the withdrawal happened, rather than a focus
-      // ring thrown to the top of the dialog.
       interacted.current = true
       setConfirmingWithdraw(false)
     } catch (error) {
@@ -613,14 +475,6 @@ function Confirmation({
           {rule.confirmation &&
             onWithdraw &&
             (confirmingWithdraw ? (
-              /*
-                One click used to delete a signed record — permanently, across
-                every revision of the building, with no confirmation, no undo
-                and no feedback beyond the button vanishing. Everything else in
-                this component asks first: the note form is itself a two-step
-                disclosure. This is the same shape, so no new pattern and no
-                dialog.
-              */
               <>
                 <span className="text-muted-foreground text-xs">
                   {t('compliance.confirmed.withdrawConfirm')}
@@ -724,15 +578,6 @@ function VerdictList({
 }: {
   heading: string
   verdicts: BimRuleResultWithConfirmation['failures']
-  /**
-   * How many elements are in this bucket, which is NOT `verdicts.length`.
-   *
-   * The rule engine carries at most `VISIBLE_VERDICTS` (25) individual
-   * verdicts per bucket, so a rule with 300 failures arrives here with 25 of
-   * them. Counting the remainder off the array said "19 weitere" when 294
-   * were missing — a number produced entirely by two caps and true of
-   * neither the model nor the finding.
-   */
   total: number
   projectId: string
   modelFilename: string
@@ -744,15 +589,6 @@ function VerdictList({
   if (verdicts.length === 0) return null
   const shown = verdicts.slice(0, VISIBLE_ROWS)
 
-  /**
-   * A button when the stage can patch the view, a link otherwise.
-   *
-   * Patching keeps the storey, the camera and the cut the reader set up, and
-   * navigates with `replace` like the rest of the stage. The link stays for
-   * the surfaces that render this panel without a viewport to talk to — the
-   * dev page, and any future read-only embed — where a fresh view is the only
-   * thing a click can mean.
-   */
   const show = (globalIds: string[], children: React.ReactNode, className: string) =>
     onShowElements ? (
       <button
@@ -782,8 +618,6 @@ function VerdictList({
         {shown.map((verdict) => (
           <li
             key={verdict.globalId}
-            // Under a finger the name is a 44 px control with the storey and the
-            // reading flowing beside it, wrapping below when they are long.
             className="text-xs text-muted-foreground pointer-coarse:flex pointer-coarse:flex-wrap pointer-coarse:items-center pointer-coarse:pb-2"
           >
             {show(

@@ -57,21 +57,10 @@ interface Member {
 
 interface ProjectMembersFormProps {
   projectId: string
-  /** Whether the current user may change roles / add members. */
   canManage: boolean
-  /**
-   * The signed-in user's own `organizationMembershipId` (same id space as
-   * {@link Member.organizationMembershipId}), so the roster can tell which
-   * row is "you". Used to guard against an admin silently stripping their
-   * own project access. `null`/omitted when unknown — the guard then simply
-   * never matches, i.e. it fails open to the pre-existing (unguarded)
-   * behavior rather than blocking legitimate changes.
-   */
   currentMembershipId?: string | null
 }
 
-/** A pending, user-confirmed role change — either a self-row edit or an
- * "Add member" that would actually change an existing member's role. */
 interface PendingRoleConfirm {
   title: string
   description: string
@@ -87,7 +76,6 @@ const ROLE_VALUES: ProjectRole[] = [
   'project-admin',
 ]
 
-/** Radix Select items cannot use an empty-string value; sentinel for "no access". */
 const NO_ACCESS = 'none'
 
 const initials = (name: string): string => {
@@ -100,8 +88,6 @@ const searchSchema = z.object({
   query: z.string(),
 })
 
-/** Identity disc for a roster row or suggestion. The Avatar primitive's own
- * geometry stands — no radius or size overrides here. */
 function MemberAvatar({ member, className }: { member: Member; className?: string }): JSX.Element {
   return (
     <Avatar className={className}>
@@ -118,7 +104,6 @@ const MAX_SUGGESTIONS = 6
 interface MemberSuggestFieldProps {
   label: string
   placeholder: string
-  /** Full org roster to suggest from; picking one fills the field with their email. */
   members: Member[]
   roleLabel: (role: ProjectRole) => string
   containerClassName?: string
@@ -130,11 +115,6 @@ interface RoleSelectFieldProps {
   containerClassName?: string
 }
 
-/**
- * Role picker for the invite form. Built directly on the base Select
- * primitives (rather than the shared `field.SelectField`) so each option can
- * carry a one-line explainer of what the role actually grants.
- */
 function RoleSelectField({
   label,
   options,
@@ -144,8 +124,6 @@ function RoleSelectField({
   const errors = field.state.meta.isTouched
     ? (field.state.meta.errors as Array<string | { message: string } | undefined>)
     : []
-  // The closed trigger should show only the role name — SelectValue would
-  // otherwise mirror the full option content, description included.
   const selectedLabel = options.find((option) => option.value === field.state.value)?.label
 
   return (
@@ -174,11 +152,6 @@ function RoleSelectField({
   )
 }
 
-/**
- * Combobox over the already-loaded org roster. WorkOS has no member-search
- * API (listUsers only filters by exact email), so suggestions are filtered
- * client-side; the field's submitted value stays a plain email address.
- */
 function MemberSuggestField({
   label,
   placeholder,
@@ -198,7 +171,6 @@ function MemberSuggestField({
     .filter((member) => `${member.name} ${member.email}`.toLowerCase().includes(query))
     .sort(
       (a, b) =>
-        // Members without project access first — they're the ones being added.
         Number(Boolean(a.role)) - Number(Boolean(b.role)) || a.name.localeCompare(b.name)
     )
     .slice(0, MAX_SUGGESTIONS)
@@ -289,8 +261,6 @@ function MemberSuggestField({
                   id={optionId(index)}
                   role="option"
                   aria-selected={index === active}
-                  // preventDefault keeps focus on the input so blur doesn't
-                  // close the list before the click lands.
                   onMouseDown={(event) => {
                     event.preventDefault()
                     pick(member)
@@ -345,14 +315,9 @@ export function ProjectMembersForm({
   const [loadError, setLoadError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [inviteError, setInviteError] = useState<string | null>(null)
-  // A destructive-ish role change (self-row edit, or an "Add member" that
-  // would actually change an existing member's role) waiting on explicit
-  // confirmation before it is sent to the server.
   const [pendingConfirm, setPendingConfirm] = useState<PendingRoleConfirm | null>(null)
   const [isConfirming, setIsConfirming] = useState(false)
 
-  // Keep a live reference so the invite form's onSubmit resolves against the
-  // current roster rather than a stale closure.
   const membersRef = useRef<Member[]>([])
   membersRef.current = members
 
@@ -366,7 +331,6 @@ export function ProjectMembersForm({
     setIsLoading(true)
     setLoadError(null)
     try {
-      // The whole organization: this form picks whom to add as well as whom to change.
       const all = await collectPages<Member>(async (cursor) => {
         const params = new URLSearchParams({ scope: 'organization', limit: '200' })
         if (cursor) params.set('cursor', cursor)
@@ -404,9 +368,6 @@ export function ProjectMembersForm({
 
         if (!response.ok) {
           const data = await response.json().catch(() => ({}))
-          // The server rejects any change that would leave the project with no
-          // admin; surface that as its own localized message rather than the
-          // generic failure copy.
           const message =
             data?.details?.reason === 'last-admin'
               ? t('errors.lastAdmin')
@@ -438,13 +399,6 @@ export function ProjectMembersForm({
     [projectId, t]
   )
 
-  /**
-   * Roster row role change. Guards the current user's own row: an admin
-   * changing their own role/access on this Select otherwise commits
-   * instantly (lockout footgun — see project-members-form ticket), so a
-   * self-edit is routed through an explicit confirmation instead of
-   * `assignRole` directly.
-   */
   const handleRosterRoleChange = (member: Member, nextRole: ProjectRole | ''): void => {
     const isSelf =
       currentMembershipId != null && member.organizationMembershipId === currentMembershipId
@@ -500,23 +454,17 @@ export function ProjectMembersForm({
       }
 
       if (!match.role) {
-        // Genuinely new access — no existing role to clobber.
         await grantAndAnnounce()
         return
       }
 
       if (match.role === value.roleSlug) {
-        // Nothing would actually change; say so instead of a no-op success.
         setInviteError(
           t('invite.alreadyHasRole', { name: match.name, role: roleLabel(match.role) })
         )
         return
       }
 
-      // `match` already has a project role — "Add member" here would
-      // silently change it (e.g. an admin picked as a "viewer" invite gets
-      // downgraded). Confirm the change explicitly instead of presenting a
-      // role change as a cheerful "added" toast.
       setPendingConfirm({
         title: t('confirm.roleChangeTitle'),
         description: t('confirm.roleChangeDescription', {

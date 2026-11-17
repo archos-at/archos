@@ -46,9 +46,6 @@ export function QuestionField({
     return <UploadField question={question} projectId={projectId} />
   }
   if (question.type === 'document_role') {
-    // A role question has no answer in the profile: the binding lives in
-    // `document_roles`. Without a role it has nothing to bind, so it renders
-    // as the plain pointer rather than a control that cannot work.
     if (!question.role) return <UploadField question={question} projectId={projectId} />
     return (
       <div className="flex flex-col gap-2">
@@ -73,7 +70,6 @@ export function QuestionField({
   )
 }
 
-/** Upload slot — directs the user to the project's Files tab (v1: no in-wizard upload). */
 export function UploadField({
   question,
   projectId,
@@ -96,7 +92,6 @@ export function UploadField({
   )
 }
 
-/** Confirmed-brief facts that look derived. The class is not computed here. */
 export function InfoPlaceholder({ question }: { question: ProjectIntakeQuestion }) {
   const t = useTranslations(projectsCopy)
   return (

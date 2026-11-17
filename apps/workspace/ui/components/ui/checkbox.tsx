@@ -16,24 +16,11 @@ const Checkbox = React.forwardRef<
     ref={ref}
     data-slot="checkbox"
     className={cn(
-      // 16px is the right SIZE for a checkbox and a hopeless touch target, so
-      // the box keeps its size and `touch-target` widens what a tap resolves to.
-      // The unchecked box draws the design system's field border (`--ds-line-strong`, 3.4:1 on paper, 3.2:1 on the grey):
-      // the alpha `--input` it wore measured under WCAG 1.4.11's 3:1 for a control's edge.
       'peer border-(--ds-line-strong) dark:bg-input-background data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground data-[state=checked]:border-primary size-4 shrink-0 rounded-inline border outline-none disabled:cursor-not-allowed disabled:opacity-50 touch-target',
       PRESSABLE_SMALL,
-      // `dark:bg-input-dark` and `data-[state=checked]:bg-primary` have equal
-      // specificity, and the dark variant is emitted last — so in dark mode a
-      // CHECKED box kept the unchecked fill and drew its dark tick on it,
-      // which is invisible. Re-assert the checked fill under `dark:` so the
-      // two conditions compose instead of one silently winning.
       'dark:data-[state=checked]:bg-primary dark:data-[state=checked]:text-primary-foreground',
-      // Half-filled is a state of its own, drawn as filled ink with a dash. It
-      // used to share the unchecked paint and the tick, so a master box over
-      // „some" read as „checked, but disabled" — the one state it exists for.
       'data-[state=indeterminate]:bg-primary data-[state=indeterminate]:text-primary-foreground data-[state=indeterminate]:border-primary',
       'dark:data-[state=indeterminate]:bg-primary dark:data-[state=indeterminate]:text-primary-foreground',
-      // Under the pointer the empty box takes the pointer's fill, as everything with no fill of its own does.
       'data-[state=unchecked]:hover:bg-hover',
       FOCUS_RING,
       'aria-invalid:ring-destructive/20 aria-invalid:border-destructive',
@@ -43,12 +30,6 @@ const Checkbox = React.forwardRef<
   >
     <CheckboxPrimitive.Indicator
       data-slot="checkbox-indicator"
-      // The tick lands with the fill, on `--motion-snap`: a fade and a 90%
-      // scale, so it reads as set down rather than switched on. It stays
-      // mounted and TRANSITIONS on its own `data-state`, never an `animate-in`:
-      // Radix mounts the indicator only while checked, so a mount animation
-      // replayed on every pre-checked box of a list as it loaded. A transition
-      // has no first frame to play from, so only a real toggle moves.
       forceMount
       className={cn(
         'group/indicator flex items-center justify-center text-current',

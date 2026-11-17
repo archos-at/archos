@@ -1,9 +1,3 @@
-"""The Erfassungs-Agent as the research worker runs it: a model in a loop that always finishes.
-
-The model is scripted (it calls the real tools through the real ``create_agent``
-graph); the BFF's route and the project's pages are the conftest doubles.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -32,8 +26,6 @@ from agent.common.cost_tracking import BudgetExceededError
 
 
 class ScriptedModel(BaseChatModel):
-    """Answers each call with the next scripted message; the last one repeats."""
-
     _script: list[AIMessage] = PrivateAttr(default_factory=list)
     _seen: list[list[Any]] = PrivateAttr(default_factory=list)
 
@@ -55,7 +47,6 @@ class ScriptedModel(BaseChatModel):
     def _generate(self, messages, stop=None, run_manager=None, **kwargs) -> ChatResult:
         self._seen.append(list(messages))
         message = self._script.pop(0) if len(self._script) > 1 else self._script[0]
-        # A fresh id per call, as a provider gives: a repeated message is a new call, not the old one again.
         calls = [{**call, "id": f"{call['name']}-{len(self._seen)}"} for call in message.tool_calls]
         message = message.model_copy(update={"tool_calls": calls}) if calls else message
         return ChatResult(generations=[ChatGeneration(message=message)])
@@ -94,7 +85,6 @@ READ_AND_RECORD = [
 
 @pytest.fixture
 def needs_covered_after_record():
-    """``needs`` as the BFF answers it: first as the run starts, then with the decisive Geschoße suggested."""
     calls: list[dict[str, Any]] = []
 
     def answer(body: dict[str, Any]) -> dict[str, Any]:
@@ -168,9 +158,7 @@ class TestTheLoop:
         opening = next(message for message in first if isinstance(message, HumanMessage)).content
         assert "storeys_above_ground@bldg1" in opening and "Occasion: Neue Dokumente hochgeladen" in opening
         assert "What the last reading found" not in opening, "no note before a first reading finished"
-        # The finish reads the needs first: nothing decisive is open, so it finishes.
         assert [body["op"] for body in fake.bodies()] == ["needs", "progress", "record", "needs", "finish"]
-        # The page counts the document the moment it is opened, not at the finish.
         assert [body["filesOpened"] for body in fake.bodies("progress")] == [["Baubeschreibung.pdf"]]
         for body in fake.bodies():
             assert not list(validator(intake_schema, "InternalIntakeRequest").iter_errors(body))
@@ -253,7 +241,6 @@ class TestTheFinishHold:
         assert ops == ["needs", "record", "needs", "finish"]
         held = model.seen[3][-1].content
         assert held.startswith("Not finished yet.") and "storeys_above_ground@bldg1" in held
-        # The file this run read is not named; the one nobody opened is.
         assert "Einreichplan.pdf" in held and "Baubeschreibung.pdf" not in held
         assert len(model.seen) == 4, "the second call finishes, and nothing runs after it"
         assert result.outcome["ended"] == "model" and result.outcome["finish_held"] is True
@@ -324,7 +311,6 @@ class TestTheOpening:
 
 class TestThePrompt:
     def test_the_product_framing_scan_reads_this_prompt(self):
-        """``packages/agent/tests/test_product_framing.py`` holds every prompt to VISION.md and CONTEXT.md."""
         from agent_testing.product_framing import FILE_AS_PLAN
         from agent_testing.product_framing import OLD_FRAME
         from agent_testing.product_framing import PROMPTS
@@ -343,7 +329,6 @@ class TestThePrompt:
         assert phrase in system_prompt()
 
     def test_it_prescribes_no_procedure(self):
-        """Goal, rules, tools and budget; the model chooses its way (the product owner's direction)."""
         import re
 
         from agent.agents.intake.agent import system_prompt

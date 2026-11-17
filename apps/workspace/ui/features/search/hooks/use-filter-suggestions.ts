@@ -1,24 +1,10 @@
 'use client'
 
-/**
- * Completions for a free-text filter of the search, as it is typed: the values
- * the office's documents hold, with counts (`POST /api/search/suggest`). The
- * source is the surface's: the connected search asks the route at its scope
- * and under its other filters, the `/dev/search` preview answers from its
- * fixture. Without a source a field is a plain text field.
- *
- * Asked only while the field has focus, 150 ms after the last key (the
- * palette's pace); a newer question aborts the one in flight, so a slow
- * answer for „At“ never lands over the one for „Atelier“. A failed answer is
- * no suggestions: what was typed still applies.
- */
-
 import { createContext, useContext, useEffect, useState } from 'react'
 
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import type { FacetCount, SuggestBody } from '@/lib/search/search-wire'
 
-/** One completion's question, without the filters the source adds. */
 export type SuggestQuestion = Pick<SuggestBody, 'dimension' | 'prefix' | 'role' | 'factKey'>
 
 export type SuggestSource = (
@@ -28,10 +14,8 @@ export type SuggestSource = (
 
 const SuggestSourceContext = createContext<SuggestSource | null>(null)
 
-/** Where a surface's filter fields get their completions. */
 export const SuggestSourceProvider = SuggestSourceContext.Provider
 
-/** Quiet time before a keystroke becomes a question. */
 export const SUGGEST_DEBOUNCE_MS = 150
 
 const NONE: FacetCount[] = []

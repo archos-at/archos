@@ -1,14 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The sender's own filing (`inbound_mail_sender_file`, ADR-0137's amendment):
- * a verified writer's mail is filed as that writer, re-checked as them, and
- * whatever it cannot file waits and is announced. Each case breaks one step of
- * a mail that would otherwise be filed. What the database refuses whatever this
- * job does is `scripts/rls-test-db.sh`'s 0197 section; the whole path against
- * Postgres is `review-first.e2e.spec.ts`.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
@@ -192,7 +184,6 @@ describe('the sender’s own filing', () => {
     vi.mocked(mailViews).mockRejectedValueOnce(new Error('db down'))
     await expect(runInboundMailSenderFile(ORG, payload, { last: true })).rejects.toThrow('db down')
     expect(events()).toEqual([expect.objectContaining({ properties: { outcome: 'failed', last_attempt: true } })])
-    // Codes and counts only: nothing a sender wrote.
     expect(JSON.stringify(vi.mocked(captureServer).mock.calls)).not.toMatch(/anna|example\.test|db down/)
   })
 })

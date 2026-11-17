@@ -128,14 +128,11 @@ describe('answerAsksBack', () => {
     expect(answerAsksBack('**Liegt das Grundstück in Graz?**', 0)).toBe(true)
   })
 
-  // The agent states an assumption up front and closes with an invitation to
-  // correct it (chat_static.md): a complete answer, not a question back.
   it('is false for a cited answer under an assumption that invites a correction', () => {
     const text =
       'Ich gehe von Wien aus. Die Absturzsicherung muss mindestens 1,00 m hoch sein [1].\n\n' +
       'Liegt das Projekt in einem anderen Bundesland?\n\n## Quellen\n- [1] [KB] oib-rl_4.pdf, p.11'
     expect(answerAsksBack(text, 1)).toBe(false)
-    // The same shape with its citations dropped from the message still carries its marker.
     expect(answerAsksBack(text, 0)).toBe(false)
   })
 

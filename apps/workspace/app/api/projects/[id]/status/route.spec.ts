@@ -1,12 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The lifecycle route's body (ADR-0098): exactly one shape per move, nothing
- * extra. A close names its outcome and a month; a pause or resume names
- * nothing else, so a stray `endedOn` or `outcome` is refused rather than
- * silently dropped. And the answer carries how it ended only once closed.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'

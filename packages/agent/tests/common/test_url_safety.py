@@ -1,5 +1,3 @@
-"""Whether an address may stand in an answer as a source (citations spec G28)."""
-
 from __future__ import annotations
 
 import pytest

@@ -19,6 +19,7 @@ import type { JSX } from 'react'
 import { Building2, FileDown, GraduationCap, Globe, Library, Mail, MessageSquareText, ShieldAlert, Users } from 'lucide-react'
 import { withPageSession } from '@/lib/auth/require-auth'
 import { isOrgAdmin } from '@/lib/authz/organizations'
+import { isOfficeStandardsEnabled } from '@/lib/authz/feature-flags'
 import {
   getOrganizationOverview,
   getOrgSettings,
@@ -251,22 +252,25 @@ export default async function OrganizationOverviewPage(): Promise<JSX.Element> {
             <OfficeConventionsCard />
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Library className="size-4 text-muted-foreground" aria-hidden />
-              {t('baseKnowledge.title')}
-            </CardTitle>
-            <CardDescription>{t('baseKnowledge.description')}</CardDescription>
-          </CardHeader>
-          {/* The standards have a place of their own now, beside the Büroablage;
-              a settings card was where nobody looked for documents. */}
-          <CardContent>
-            <Button asChild variant="secondary" size="sm">
-              <Link href="/app/base-knowledge">{t('baseKnowledge.open')}</Link>
-            </Button>
-          </CardContent>
-        </Card>
+        {/* Only for an office with its own standards (`office-standards`). */}
+        {isOfficeStandardsEnabled(session) && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Library className="size-4 text-muted-foreground" aria-hidden />
+                {t('baseKnowledge.title')}
+              </CardTitle>
+              <CardDescription>{t('baseKnowledge.description')}</CardDescription>
+            </CardHeader>
+            {/* The standards have a place of their own now, beside the Büroablage;
+                a settings card was where nobody looked for documents. */}
+            <CardContent>
+              <Button asChild variant="secondary" size="sm">
+                <Link href="/app/base-knowledge">{t('baseKnowledge.open')}</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        )}
       </div>
     )
   })

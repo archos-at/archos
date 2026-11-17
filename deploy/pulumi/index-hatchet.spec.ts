@@ -251,7 +251,7 @@ describe("RabbitMQ", () => {
     expect(spec.replicas).toBe(3);
     // Hatchet's tested RabbitMQ, not the operator's default: 4.3 refuses the
     // x-consumer-timeout Hatchet puts on its classic queues.
-    expect(spec.image).toBe("rabbitmq:4.2.9-management@sha256:d1fb8b38bd0805935907a22b2b7483fba38c9a8dd7e8a74bfba4a6e7a9e91707");
+    expect(spec.image).toBe("rabbitmq:4.2.9-management@sha256:7fa20d0d23d63ed90499bbf62e24af48ec4ae5eb22d173f3db96e3f85b26884a");
     expect(spec.resources).toEqual({ requests: { cpu: "500m", memory: "512Mi" }, limits: { cpu: "1", memory: "512Mi" } });
     expect(spec.persistence).toEqual({ storageClassName: "premium", storage: "10Gi" });
     const label = { "background-work/component": "rabbitmq" };

@@ -1,14 +1,5 @@
 'use client'
 
-/**
- * A standard's facts beside its file, first in the viewer's details column: its
- * edition and since when it applies, whether it is confirmed, whether its text
- * is read, and when it was last checked. The two things a person does in
- * passing are here (confirm a proposal, say it is still current); everything
- * else about the standard is one press away („Angaben bearbeiten“), never in
- * the way of reading it.
- */
-
 import { useState, type JSX } from 'react'
 import { BookOpen, CalendarCheck, CircleCheck, History, Layers, Library, ScanText, Tag } from 'lucide-react'
 import { toast } from 'sonner'
@@ -22,9 +13,7 @@ import { day, LastChecked, StatusChip, superseded, TextUseChip } from './entry-a
 interface StandardFactsProps {
   entry: BaseKnowledgeEntry
   canManage: boolean
-  /** To the standard's page, where its values, licence, editions and folder are changed. */
   onManage: () => void
-  /** Another edition of the same standard, opened as its file. */
   onOpenEdition: (entryId: string) => void
   onChanged: (entry: BaseKnowledgeEntry) => void
 }

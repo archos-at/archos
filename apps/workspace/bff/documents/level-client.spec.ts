@@ -1,9 +1,3 @@
-/**
- * The typed client of a shelf's paged reads (ADR-0055, ADR-0102): the URLs a
- * level, a summary and a single row are read from, and what an answer that is
- * not one turns into.
- */
-
 import { describe, expect, it, vi } from 'vitest'
 import {
   LevelFetchError,

@@ -1,9 +1,3 @@
-/**
- * The base-knowledge root keeps its name and place (`standards-folder.ts`): the
- * office shelf's folder service refuses its rename, move and delete, and passes
- * a description change and every other folder through.
- */
-
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))

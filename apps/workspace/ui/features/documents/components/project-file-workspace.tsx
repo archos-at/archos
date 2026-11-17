@@ -20,74 +20,26 @@ import { MailImportAction } from './mail-import-action'
 import { MailImportDialog } from './mail-import-dialog'
 import { SearchWorkspace, ShelfSearchBack, useShelfSearchMode } from '@/features/search'
 
-// The row and folder types live in `../file-types`; they are re-exported here
-// because this is the name every importer already uses.
 export type { FileAssignee, FileItem, FolderItem } from '../file-types'
 
 interface ProjectFileWorkspaceProps {
   projectId: string
   projectName: string
   collectionName: string
-  /**
-   * Whether the model workspace is reachable (WorkOS `ifc-models`, ADR-0046).
-   *
-   * It decides the smallest of the things the flag has been: whether the preview
-   * offers the way on to the stage. A click always opens the preview, and
-   * `?model=` always opens the stage. Off by default, because a viewer whose
-   * endpoints answer 403 is worse than no viewer.
-   */
   showModels?: boolean
-  /** Faces, Unvergeben, Zuweisen — behind the collaboration flag. */
   canCollaborate?: boolean
   currentUserId?: string
-  /**
-   * What this reader may do to a document's versions, resolved on the server
-   * (`lib/documents/lifecycle-permissions.ts`, ADR-0054). Absent means the pane
-   * shows no Freigabe section — never a guessed set.
-   */
   lifecyclePermissions?: readonly DocumentLifecyclePermission[]
-  /**
-   * The folder tree and the first page of the folder level the URL names, as
-   * the SERVER already read them, for the first paint — see {@link FileWorkspace}.
-   * `initialNextCursor` is where that level continues (null: it was the whole
-   * level); `initialFolderId` the level (null: the root, ADR-0102).
-   */
   initialFolders?: readonly FolderItem[]
   initialFiles?: readonly DocumentWireRow[]
   initialNextCursor?: string | null
   initialFolderId?: string | null
-  /**
-   * Whether this reader may change who may read and write a folder
-   * (`project:manage`, resolved on the server, ADR-0088). Shows „Zugriff…" in the
-   * folder menu; the route checks again.
-   */
   canManageFolderAccess?: boolean
-  /**
-   * What the reader may do at the project root, as the server read it for the
-   * first paint (ADR-0088). Absent means `write`; the folder listing refreshes it.
-   * The mail import files its folder at the root, so only `write` offers it.
-   */
   initialRootAccess?: 'read' | 'write'
-  /** Whether the Outlook archive import is offered (`isMailImportEnabled`, ADR-0085). Off by default. */
   mailImportEnabled?: boolean
-  /**
-   * The E-Mail-Eingang's entry, its count and „Per E-Mail senden …“, present
-   * only for a reader who may decide the project's held mail (ADR-0137). The
-   * route composes it (`app/app/(shell)/projects/[id]/files/project-files-client.tsx`),
-   * so the documents feature never imports the inbound-mail feature
-   * (docs/contributing/module-seams.md).
-   */
   inboundMail?: FileShelf['inboundMail']
 }
 
-/**
- * A project's Dateien: {@link FileWorkspace} over the project's shelf.
- *
- * Everything this adds is a fact about a PROJECT: the shelf's endpoints, the
- * project's chat (so a file can be asked about), collaboration, per-role folder
- * access (ADR-0088), the preview the project shell hosts, and the section header
- * the controls portal into.
- */
 export function ProjectFileWorkspace({
   projectId,
   projectName,
@@ -108,12 +60,9 @@ export function ProjectFileWorkspace({
   const t = useTranslations(filesCopy)
   const router = useRouter()
   const probe = useMemo(() => createDocumentNameProbeClient(), [])
-  // The Outlook import is a button beside the upload control on a wide screen
-  // and an entry in the header's ⋯ on a phone, which has no width for a second button.
   const phone = usePhoneLayout()
   const [mailOpen, setMailOpen] = useState(false)
   const mailOffered = mailImportEnabled && initialRootAccess === 'write'
-  // „Suche“ in place of the listing (`?mode=search`), scoped to the project and the open folder.
   const search = useShelfSearchMode()
 
   const shelf: FileShelf = {

@@ -1,18 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * First-boot provisioning of the platform default model.
- *
- * The cases here are the ones that decide whether this is safe to run on a
- * deployment nobody has configured. The dangerous shape — the one a SQL seed
- * has and this replaces — is writing an OpenRouter model id into a deployment
- * whose workflow LLMs point at another provider: a platform default replaces
- * only the model id, never the base URL, so those requests would carry a model
- * that provider has never heard of. `groupsEligibleForBootstrap` is the guard,
- * and most of this file is about proving it refuses in every ambiguous case
- * rather than guessing.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AGENT_GROUPS } from './agent-groups'
@@ -28,7 +16,6 @@ vi.mock('server-only', () => ({}))
 
 const OPENROUTER = 'https://openrouter.ai/api/v1'
 
-/** Every workflow LLM the registry references, all on one endpoint. */
 function allOn(baseUrl: string | null): LlmBaseUrls {
   return Object.fromEntries(
     AGENT_GROUPS.flatMap((group) => group.configLlmRefs).map((ref) => [ref, baseUrl]),
@@ -68,22 +55,14 @@ vi.mock('@/lib/authz/platform', () => ({
   getPlatformOrganizationId: async (): Promise<string> => 'org_platform',
 }))
 
-/**
- * Rows the next `db.execute` returns, in order: the advisory-lock result then
- * the count. Stated as data so a test says what the database holds.
- */
 let executeResults: unknown[][] = []
 const tx = { execute: async () => executeResults.shift() ?? [] }
 vi.mock('@/lib/db', () => ({
   getDb: () => ({
-    // The lock, the re-check and the write all run on ONE connection now, so the
-    // mock hands the same `tx` to the callback rather than exposing `execute`
-    // on the pooled handle.
     transaction: async (fn: (t: unknown) => Promise<unknown>) => fn(tx),
   }),
 }))
 
-/** Table empty, lock acquired, count 0 — the state a fresh deployment is in. */
 function freshDeployment(): void {
   getPlatformModelDefaults.mockResolvedValue({})
   executeResults = [[{ locked: true }], [{ count: 0 }], []]
@@ -97,23 +76,16 @@ describe('groupsEligibleForBootstrap', () => {
   })
 
   it('refuses every group on a deployment pointed at another provider', () => {
-    // A deployment may hand BACKEND_CONFIG a config on another provider.
-    // Seeding an OpenRouter id into it sends an unknown model to that
-    // provider on every request.
     expect(groupsEligibleForBootstrap(allOn('https://api.kimi.com/coding/v1'))).toEqual([])
     expect(groupsEligibleForBootstrap(allOn('https://api.openai.com/v1'))).toEqual([])
   })
 
   it('refuses a group whose endpoint is unknown rather than assuming OpenRouter', () => {
-    // A null base URL is what an LLM config without one reports. "Unknown"
-    // must never be read as "the provider I happen to validate against".
     expect(groupsEligibleForBootstrap(allOn(null))).toEqual([])
     expect(groupsEligibleForBootstrap({})).toEqual([])
   })
 
   it('refuses a group when only SOME of its LLMs are on the platform provider', () => {
-    // deep_research spans three LLMs. Re-pointing the group moves all three, so
-    // one straggler on another endpoint disqualifies the whole group.
     const deepResearch = AGENT_GROUPS.find((group) => group.id === 'deep_research')
     expect(deepResearch?.configLlmRefs.length).toBeGreaterThan(1)
     const mixed: LlmBaseUrls = {
@@ -125,9 +97,6 @@ describe('groupsEligibleForBootstrap', () => {
   })
 
   it('leaves ingest_vlm out when the ingestion VLM is on its own provider', () => {
-    // An operator may point VLM_BASE_URL at another provider while the
-    // chat models route to OpenRouter. Seeding ingest_vlm there would make
-    // their VLM_MODEL dead config and fail every caption call.
     const vlmElsewhere: LlmBaseUrls = {
       ...allOn(OPENROUTER),
       vlm: 'https://api.openai.com/v1',
@@ -138,8 +107,6 @@ describe('groupsEligibleForBootstrap', () => {
   })
 
   it('is not fooled by a look-alike host', () => {
-    // A prefixed domain is the one a bare `endsWith` lets through: it really
-    // does end with "openrouter.ai" while belonging to someone else.
     expect(groupsEligibleForBootstrap(allOn('https://notopenrouter.ai/v1'))).toEqual([])
     expect(groupsEligibleForBootstrap(allOn('https://openrouter.ai.evil.test/v1'))).toEqual([])
     expect(groupsEligibleForBootstrap(allOn('not a url'))).toEqual([])
@@ -180,7 +147,6 @@ describe('bootstrapPlatformModelDefaults', () => {
     const input = savePlatformModelDefaults.mock.calls[0][0]
     expect(new Set(Object.values(input.defaults))).toEqual(new Set([BOOTSTRAP_DEFAULT_MODEL]))
     expect(input.actorUserId).toBe(BOOTSTRAP_ACTOR)
-    // The validated catalog metadata, for the audit trail.
     expect(input.modelSnapshot.shallow_research).toEqual({ id: BOOTSTRAP_DEFAULT_MODEL })
   })
 
@@ -214,7 +180,6 @@ describe('bootstrapPlatformModelDefaults', () => {
   })
 
   it('leaves the deployment alone when the backend cannot be asked', async () => {
-    // Unreachable backend is NOT "assume OpenRouter" — it is "do not decide".
     freshDeployment()
     getWorkflowLlmBaseUrls.mockRejectedValue(new Error('backend down'))
 
@@ -247,8 +212,6 @@ describe('bootstrapPlatformModelDefaults', () => {
   })
 
   it('refuses to write an unvalidated id when the catalog is unavailable', async () => {
-    // Mirrors the admin PUT, which rejects a save rather than pinning the fleet
-    // to something it could not check.
     freshDeployment()
     fetchModelCatalog.mockRejectedValue(new Error('catalog down'))
 
@@ -277,8 +240,6 @@ describe('bootstrapPlatformModelDefaults', () => {
   })
 
   it('refuses to write anything when the ZDR list is unreachable (fail closed)', async () => {
-    // Every organization is ZDR by default: a default nobody could check
-    // against the ZDR list could have every one of them refused.
     freshDeployment()
     fetchZdrEndpoints.mockRejectedValue(new Error('zdr listing down'))
 
@@ -315,7 +276,6 @@ describe('bootstrapPlatformModelDefaults', () => {
   })
 
   it('keeps the defaults when the audit sink fails', async () => {
-    // Losing the trail must not un-write a decision that is already live.
     freshDeployment()
     recordAuditEvent.mockRejectedValue(new Error('workos down'))
 
@@ -324,10 +284,6 @@ describe('bootstrapPlatformModelDefaults', () => {
   })
 
   it('takes the lock, re-checks and writes on ONE connection', async () => {
-    // `getDb()` is a pool. A session-scoped lock taken on one pooled connection
-    // and released on another leaks forever, and every later boot would then
-    // skip provisioning silently — so the whole sequence must share a session,
-    // and the save must be handed that same transaction.
     freshDeployment()
 
     await bootstrapPlatformModelDefaults()
@@ -352,9 +308,6 @@ describe('bootstrapPlatformModelDefaults', () => {
   })
 
   it('skips quietly when no application database is configured', async () => {
-    // Local dev, the screenshot harness and build steps all run without one.
-    // Reporting that as a failure on every boot trains people to ignore the log
-    // line that matters.
     vi.stubEnv('APP_DATABASE_URL', '')
 
     expect(await bootstrapPlatformModelDefaults()).toEqual([])

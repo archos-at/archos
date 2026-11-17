@@ -1,11 +1,3 @@
-"""The backend reads a service header sent under its new name as the old one it still reads.
-
-`agent_host.legacy_headers` is the expand step of the header rename (expand,
-switch, contract). The BFF's WebSocket proxy strips the same names from what a
-browser sends, or a client could hand the backend a context header the BFF
-never decided; the two lists are held equal here.
-"""
-
 from __future__ import annotations
 
 import json
@@ -58,5 +50,4 @@ def test_the_websocket_proxy_strips_every_name_the_backend_now_reads():
     script = "process.stdout.write(JSON.stringify([...require(process.argv[1]).SERVICE_HEADERS]))"
     result = subprocess.run([node, "-e", script, str(WS_PROXY)], capture_output=True, text=True, timeout=30, check=True)
 
-    # The token is stripped as a credential there (CLIENT_CREDENTIAL_HEADERS).
     assert set(json.loads(result.stdout)) | {"x-internal-token"} == {name.decode() for name in SERVICE_HEADERS}

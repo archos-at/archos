@@ -1,12 +1,3 @@
-"""The RIS adapter, read from its source record, sends what the code sent before (ADR-0162).
-
-``configs/sources/at/ris/source.yml`` replaced the Austrian constants of
-``client.py`` and ``register.py``. The functions below are the code it replaced,
-frozen verbatim, so any record edit that changes a request Austria sends (a
-Bundesland parameter, the date parameter an application takes, a path segment)
-fails here instead of moving the Austrian answers.
-"""
-
 from __future__ import annotations
 
 import itertools
@@ -21,8 +12,6 @@ from ris_adapter.client import RisError
 from ris_adapter.client import build_document_url
 from ris_adapter.client import federal_state_param
 from ris_adapter.register import _build_search_params
-
-# --- the code before the record, frozen -------------------------------------
 
 _FROZEN_CONTROLLERS = {
     **dict.fromkeys(["BrKons", "BgblAuth", "BgblPdf", "BgblAlt", "Begut", "RegV", "Erv"], "Bundesrecht"),
@@ -101,8 +90,6 @@ def _frozen_build(application, query, title, federal_state, date_from, date_to) 
     return params
 
 
-# --- parity -------------------------------------------------------------------
-
 _STATES = ["", "Wien", "wien", "Kärnten", "Nieder-Österreich", "Niederösterreich", "Oberösterreich ", "Atlantis"]
 _DATES = [("", ""), ("2020-01-01", ""), ("", "2021-12-31"), (" 2020-01-01", "2021-12-31 ")]
 _TERMS = [("", ""), ("Bauordnung", ""), ("Stellplatz", "Garagengesetz")]
@@ -143,7 +130,6 @@ def test_document_urls_are_built_as_before(reference, application, url):
 
 
 def test_the_norms_route_and_the_catalog_builder_read_the_same_table():
-    # They held their own copies keyed "Wien"/"Kärnten" before; the record's fold finds both spellings.
     assert federal_state_param("Kärnten") == "Bundesland.SucheInKaernten"
     assert federal_state_param("Niederösterreich") == "Bundesland.SucheInNiederoesterreich"
     assert federal_state_param("Atlantis") == ""

@@ -1,15 +1,5 @@
 'use client'
 
-/**
- * Sharing + hand-off data hooks.
- *
- * Plain `fetch` + `useState`, matching the rest of the codebase. Mutations
- * deliberately do NOT update state optimistically: sharing is the feature whose
- * bugs are access-control bugs, so the server's answer is always what gets
- * rendered. A share dialog that shows an optimistic row which the server then
- * refuses would be actively misleading about who can read the thread.
- */
-
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AwaitingStateResponse, MentionCandidatesResponse } from '@/lib/mentions/types'
 import type {
@@ -38,43 +28,13 @@ import { getAwaitingState, getMentionCandidates, releaseMention } from '@/adapte
 
 export type { SharingFailure } from '@/adapters/api/sharing-client'
 
-/**
- * Backoff ladder, in ms, for a load that came back empty-handed.
- *
- * It was written for a RACE: a brand-new thread reaches the server only when its
- * first message is persisted (`ensureServerConversation` in the chat store),
- * while the header started asking who can read the thread the moment that
- * message appeared locally, and lost on the first turn of every new
- * conversation. The header now waits for the create itself
- * (`useConversationOnServer` in `ChatToolbar`), so the race no longer reaches
- * this hook from there; the ladder stays for the blip — a 502 from a rolling
- * deploy, a 429 — and for any caller that has not been taught to wait.
- *
- * With a single attempt a failed read was permanent for the session: nothing
- * re-reads until the tab is refocused, or the disconnected poll comes round a
- * minute later (`useLiveEvents`), or the page is reloaded — so the thread you
- * were actually in was the one thread with no Share in its menu, which is
- * exactly when you want it.
- *
- * The ladder is short on purpose. It covers a round-trip or two and then stops:
- * a resource that is genuinely gone must not be polled forever, and the three
- * existing triggers are still there for everything slower than this.
- */
 const RETRY_DELAYS_MS = [500, 1_000, 2_000, 4_000]
 
 export interface UseSharingResult {
   state: ResourceSharingState | null
-  /** True while an answer is still coming — including between retries. */
   loading: boolean
-  /**
-   * Set when a load failed and will NOT be retried (distinct from a failed
-   * mutation). A load still working through {@link RETRY_DELAYS_MS} is
-   * `loading`, not failed: a one-second-old thread has not gone wrong.
-   */
   loadError: boolean
-  /** Set by the most recent mutation; cleared when the next one starts. */
   failure: SharingFailure | null
-  /** Dismiss the current mutation failure without starting a new mutation. */
   dismissFailure: () => void
   saving: boolean
   refresh: () => void
@@ -85,11 +45,6 @@ export interface UseSharingResult {
   escalate: () => Promise<boolean>
 }
 
-/**
- * Sharing state for one resource. Every mutation resolves to a boolean (did it
- * succeed) and refreshes from the server, so the roster on screen is always the
- * roster the server believes in.
- */
 export function useSharing(
   resourceType: ShareableResourceType,
   resourceId: string | null,
@@ -101,17 +56,9 @@ export function useSharing(
   const [failure, setFailure] = useState<SharingFailure | null>(null)
   const [saving, setSaving] = useState(false)
   const seq = useRef(0)
-  // The ladder owns its own position and timer (see `createRetryLadder`) — four
-  // hand-rolled copies of that bookkeeping is how this codebase got four
-  // different reset bugs.
-  // Lazy init: bare `useRef(create…())` builds and discards a ladder on every
-  // render. Harmless — no timer is armed at construction — but wasteful and not
-  // the idiom.
   const retryRef = useRef<RetryLadder | null>(null)
   retryRef.current ??= createRetryLadder({ delaysMs: RETRY_DELAYS_MS })
   const retry = retryRef.current
-  // Lets a scheduled retry call the CURRENT refresh without making `refresh`
-  // depend on itself.
   const refreshRef = useRef<() => void>(() => {})
 
   const base = resourceId
@@ -122,9 +69,6 @@ export function useSharing(
 
   const refresh = useCallback(async () => {
     if (!enabled || !resourceId) {
-      // Invalidate any read still in flight: without this bump its `current`
-      // would still match and it would write the abandoned resource's state back
-      // over the cleared one.
       seq.current += 1
       retry.cancel()
       setState(null)
@@ -142,12 +86,9 @@ export function useSharing(
     } catch {
       if (current !== seq.current) return
       if (!retry.schedule(() => refreshRef.current())) {
-        // The ladder is spent. Now it is a real failure, and the dialog may say so.
         setLoadError(true)
         setLoading(false)
       }
-      // `loading` deliberately stays true across the ladder: the answer is still
-      // coming, and a skeleton is truer than an error for a thread this young.
     }
   }, [resourceType, resourceId, enabled, retry])
 
@@ -155,19 +96,8 @@ export function useSharing(
     refreshRef.current = () => void refresh()
   }, [refresh])
 
-  /**
-   * Read again from the top: a fresh ladder, not a continuation of the last one.
-   * This is what every EXTERNAL trigger gets — the dialog's "try again", a focus
-   * event, a live access change — because each of them is new evidence that the
-   * answer may have changed, and none of them should inherit the exhaustion of
-   * an attempt made minutes ago.
-   */
   const restart = useCallback(() => {
     retry.reset()
-    // Clearing the failure and showing the skeleton is what makes "try again"
-    // legible: without it the same destructive alert simply stayed on screen for
-    // the whole retry ladder, and if the retry failed too nothing on screen ever
-    // changed — a button that reads as broken.
     setLoadError(false)
     setLoading(Boolean(enabled && base))
     void refresh()
@@ -178,13 +108,9 @@ export function useSharing(
     setLoadError(false)
     setLoading(Boolean(enabled && base))
     void refresh()
-    // Switching resource (or closing the gate) abandons the ladder in flight —
-    // otherwise a retry for the thread you just left overwrites the one you are in.
     return cancelRetry
   }, [refresh, enabled, base, cancelRetry, retry])
 
-  // A revocation or visibility change made by someone else must land here too —
-  // otherwise an owner's dialog keeps showing a roster that is no longer true.
   useLiveEvents({
     enabled: enabled && Boolean(base),
     onEvent: (event) => {
@@ -198,19 +124,8 @@ export function useSharing(
       setFailure(null)
       setSaving(true)
       try {
-        // Render the server's answer, never an optimistic guess.
         const data = await request()
-        // Invalidate any READ still in flight. A mutation's response is strictly
-        // newer than a GET issued before it, but the GET had no way to know that:
-        // invite someone, tab away and back (which restarts the read), and the
-        // read could land last and quietly restore the roster without them.
         seq.current += 1
-        // `reset`, and the two `set`s below it, because this response is a
-        // complete answer — the same thing the read was retrying FOR. Cancelling
-        // the pending retry without them stranded the dialog: `loading` is held
-        // true across the whole ladder on purpose, so dropping the last rung left
-        // nothing to ever set it false or raise `loadError`. A skeleton over
-        // fresh, correct state, for good.
         retry.reset()
         setState(data)
         setLoadError(false)
@@ -246,7 +161,6 @@ export function useSharing(
   }
 }
 
-/** Invite candidates for the share dialog. Loaded lazily — only when it opens. */
 export function useShareCandidates(
   resourceType: ShareableResourceType,
   resourceId: string | null,
@@ -255,7 +169,6 @@ export function useShareCandidates(
   const [candidates, setCandidates] = useState<ShareCandidate[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(false)
-  // Bumped by `reload`: the effect re-runs without the dialog closing.
   const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
@@ -273,8 +186,6 @@ export function useShareCandidates(
         if (cancelled) return
         setCandidates(Array.isArray(data) ? data : (data.candidates ?? []))
       } catch {
-        // A failed load must not pose as "nobody left to invite" — that is a
-        // false statement about the org, so the failure gets its own surface.
         if (!cancelled) {
           setCandidates([])
           setError(true)
@@ -291,13 +202,6 @@ export function useShareCandidates(
   return { candidates, loading, error, reload: () => setAttempt((current) => current + 1) }
 }
 
-/**
- * The thread's hand-off state (spec MN-8).
- *
- * Derived server-side from open mention requests, so this hook never computes it
- * locally — it re-reads on the `conversation.awaiting` event and on the usual
- * focus/poll fallbacks.
- */
 export function useAwaitingState(
   conversationId: string | null,
   enabled: boolean,
@@ -313,7 +217,6 @@ export function useAwaitingState(
       setAwaiting(await getAwaitingState(conversationId))
     } catch {
       // Keep the last known state: a failed poll must not make the thread look
-      // free to answer when it is still waiting on someone.
     }
   }, [conversationId, enabled])
 
@@ -345,7 +248,6 @@ export function useAwaitingState(
   return { awaiting, refresh: () => void refresh(), release }
 }
 
-/** Mention-picker candidates for a conversation. */
 export function useMentionCandidates(
   conversationId: string | null,
   enabled: boolean,
@@ -353,14 +255,6 @@ export function useMentionCandidates(
   const [data, setData] = useState<MentionCandidatesResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const seq = useRef(0)
-  // Same new-thread race as the sharing read above: the conversation reaches
-  // the server only with its first persisted message, so the first candidates
-  // read 404s. Without the ladder that 404 was permanent for the thread — the
-  // picker stayed dead until a reload, for exactly the first-time user `@`
-  // exists to teach.
-  // Lazy init: bare `useRef(create…())` builds and discards a ladder on every
-  // render. Harmless — no timer is armed at construction — but wasteful and not
-  // the idiom.
   const retryRef = useRef<RetryLadder | null>(null)
   retryRef.current ??= createRetryLadder({ delaysMs: RETRY_DELAYS_MS })
   const retry = retryRef.current
@@ -369,9 +263,6 @@ export function useMentionCandidates(
 
   const refresh = useCallback(async () => {
     if (!enabled || !conversationId) {
-      // Same reason as in `useSharing`: bump the sequence so a candidates read
-      // still in flight for the previous conversation fails its guard instead of
-      // repopulating the picker we just cleared.
       seq.current += 1
       retry.cancel()
       setData(null)
@@ -391,15 +282,9 @@ export function useMentionCandidates(
         setData(null)
         setLoading(false)
       }
-      // `loading` stays true across the ladder, so the picker shows its
-      // loading state rather than vanishing for a thread this young.
     }
   }, [conversationId, enabled, retry])
 
-  /**
-   * External triggers (focus, reconnect poll) read again from the top — new
-   * evidence must not inherit the exhaustion of an attempt made minutes ago.
-   */
   const restart = useCallback(() => {
     retry.reset()
     void refresh()
@@ -417,12 +302,5 @@ export function useMentionCandidates(
     onRefresh: restart,
   })
 
-  // `restart` is returned as well as wired to the live events above: the
-  // composer needs it because a thread's FIRST `@` can outrun the thread. The
-  // conversation row reaches the server only with its first persisted message,
-  // so the candidates read 404s until then, and the ladder is finite — a user
-  // who types `@` before sending anything and stays in the tab had a dead
-  // picker for the rest of that thread, which is exactly the first-time
-  // interaction `@` exists to teach.
   return { data, loading, restart }
 }

@@ -34,11 +34,8 @@ describe('splitForMiddleTruncation', () => {
   })
 
   it('moves the cut to the nearest word boundary instead of through a word', () => {
-    // Forward when no separator is behind the cut: „Grundri" + „ss_1OG_C.pdf" read as „Grun… ss_1OG_C.pdf".
     expect(splitForMiddleTruncation('Grundriss_1OG_C.pdf', 12)).toEqual({ head: 'Grundriss', tail: '_1OG_C.pdf' })
-    // Back first, by a few characters, so the tail keeps the whole word.
     expect(splitForMiddleTruncation('Lageplan_Baufeld-Nord_Rev-C.pdf', 12).tail).toBe('Nord_Rev-C.pdf')
-    // No separator anywhere near: the cut stays.
     expect(splitForMiddleTruncation('abcdefghijklmnopqrstuvwxyz', 8).tail).toBe('stuvwxyz')
   })
 

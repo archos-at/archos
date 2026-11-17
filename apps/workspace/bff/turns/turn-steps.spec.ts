@@ -1,12 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The server's Herleitung (`turn-steps.ts`) is the browser's: over every
- * recorded turn and a row updated many times, the frames the agent tier keeps
- * (`turn_record.TurnFrames`) fold to exactly the rows the asker's fold leaves
- * on the question.
- */
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -29,13 +23,11 @@ import { eventOf } from '@/test-utils/wire-v2-fixtures'
 const TURN_RECORD = (): string =>
   readFileSync(join(process.cwd(), '../agent-host/src/agent_host/turn_record.py'), 'utf8')
 
-/** A Python `frozenset({...})` of strings in `turn_record.py`, read so the two sides cannot part. */
 const pythonSet = (name: string): Set<string> => {
   const body = new RegExp(`^${name} = frozenset\\(([\\s\\S]*?)\\)$`, 'm').exec(TURN_RECORD())?.[1]
   if (!body) throw new Error(`${name} not found in turn_record.py`)
   return new Set([...body.matchAll(/"([A-Za-z_]+)"/g)].map((match) => match[1]!))
 }
-/** A Python integer constant in `turn_record.py`. */
 const pythonInt = (name: string): number => {
   const value = new RegExp(`^${name} = (\\d+)$`, 'm').exec(TURN_RECORD())?.[1]
   if (!value) throw new Error(`${name} not found in turn_record.py`)
@@ -53,11 +45,6 @@ const rowIdOf = (frame: Frame): string | undefined => {
 }
 const endsSubagent = (frame: Frame) => frame.type === 'SUBAGENT_FINISHED' || frame.type === 'SUBAGENT_ERROR'
 
-/**
- * What the agent tier hands over (`turn_record.TurnFrames`, held to this by
- * `test_turn_record.py`): per row, its first frame, the newest frame with a
- * skill title, and the newest frame (a subagent: up to its first end).
- */
 const handedOver = (frames: readonly Frame[]): Frame[] => {
   const rows = new Map<string, { first: Frame; titled?: Frame; last?: Frame; closed: boolean }>()
   for (const frame of frames) {
@@ -114,7 +101,6 @@ describe('foldedTurnSteps', () => {
     const kept = handedOver(frames)
     const stored = foldedTurnSteps('conv_1', 'turn-1', kept)
 
-    // The same seqs `test_turn_record.py` asserts the agent tier keeps of this turn.
     expect(kept.map((frame) => frame.seq)).toEqual([2, 23, 24, 25, 26, 27, 28, 30, 31])
     expect(stored).toEqual(browserRows([...frames, frameOf(32, { type: 'RUN_ERROR', code: 'workflow_error', message: 'x', details: 'x' })]))
     expect(stored.find((row) => row.id === 'tool:1')?.detail).toEqual({ status: 'error' })
@@ -142,7 +128,6 @@ describe('foldedTurnSteps', () => {
 
     expect(stored.map((row) => [row.id, row.isComplete, row.userMessageId])).toEqual([
       ['s1', true, 'turn-1'],
-      // The turn has ended: a row whose end never came is closed, as the fold closes it at the terminal.
       ['s2', true, 'turn-1'],
     ])
     expect(stored[0]!.timestamp).toBe(new Date(1_759_000_000_030).toISOString())

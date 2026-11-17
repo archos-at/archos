@@ -49,10 +49,6 @@ describe('looksLikeStepIfc', () => {
   })
 
   it('accepts a file that starts with a byte-order mark', () => {
-    // Plenty of exporters write one. Decoded as latin1 the three BOM bytes
-    // became `ï»¿`, which `trimStart()` does not strip — it strips `\uFEFF`,
-    // not its mojibake — so the prefix check failed and a perfectly readable
-    // file was rejected as "not an IFC file", losing the whole upload.
     const bytes = new TextEncoder().encode('\ufeffISO-10303-21;\nHEADER;')
     expect(looksLikeStepIfc(bytes.buffer as ArrayBuffer)).toBe(true)
   })
@@ -71,16 +67,6 @@ describe('extractIfcModel', () => {
   })
 
   it('unwraps a .ifczip instead of parsing the archive bytes', async () => {
-    /*
-      The failure this replaces was the worst available: `parseColumnar` does
-      not unwrap (only `parseAuto` does) and does not throw on non-STEP bytes
-      — the entity scan simply finds nothing — so a zipped upload completed as
-      `status: 'ready'` with zero elements, zero storeys and a health score
-      computed over an empty model. Nothing anywhere reported a failure.
-
-      A store-only zip, written with the repo's own deterministic writer, so
-      the test needs no fixture binary and no zip dependency.
-    */
     const inner = new Uint8Array(readFileSync(FIXTURE))
     const archive = createZip([{ path: 'sample-building.ifc', content: inner }])
     const index = await extractIfcModel(
@@ -111,8 +97,6 @@ describe('extractIfcModel', () => {
     expect(index.header.author).toEqual(['A. Muster'])
     expect(index.header.organization).toEqual(['Musterbuero ZT GmbH'])
     expect(index.header.originatingSystem).toBe('GRID')
-    // The file declares millimetres; the length unit must survive as declared
-    // so the UI never prints "3 mm" for a 3 m storey height.
     expect(index.units.length).toEqual({ symbol: 'mm', siScale: 0.001 })
     expect(index.units.area?.symbol).toBe('m²')
   })
@@ -151,8 +135,6 @@ describe('extractIfcModel', () => {
       IfcColumn: 1,
       IfcRoof: 1,
     })
-    // IfcOpeningElement is an IfcFeatureElement: a hole in a wall, not a
-    // building element. Counting it would double-count every door and window.
     expect(index.typeCounts).not.toHaveProperty('IfcOpeningElement')
     expect(index.elements.some((element) => element.ifcType === 'IfcOpeningElement')).toBe(false)
     expect(index.totals.elements).toBe(19)
@@ -172,8 +154,6 @@ describe('extractIfcModel', () => {
       containerKind: 'storey',
     })
 
-    // A space is aggregated into its storey (IfcRelAggregates), not contained
-    // by it — the resolution has to cover both or every room loses its floor.
     const room = index.elements.find((element) => element.name === 'Schlafzimmer')
     expect(room?.storeyName).toBe('Obergeschoss')
     expect(room?.ifcType).toBe('IfcSpace')
@@ -184,14 +164,12 @@ describe('extractIfcModel', () => {
   it('merges type property sets under the element occurrence', async () => {
     const index = await model()
     const wall = index.elements.find((element) => element.name === 'Aussenwand Nord')
-    // Occurrence properties…
     expect(wall?.properties['Pset_WallCommon']).toMatchObject({
       IsExternal: true,
       LoadBearing: true,
       FireRating: 'REI 90',
       ThermalTransmittance: 0.18,
     })
-    // …plus the ones only the IfcWallType declares, in the same set.
     expect(wall?.properties['Pset_WallCommon']).toMatchObject({ Reference: 'AW38' })
     expect(wall?.typeName).toBe('AW 38 Stahlbeton')
   })
@@ -213,7 +191,6 @@ describe('extractIfcModel', () => {
       NetVolume: 7.35,
       Length: 8.2,
     })
-    // Layer order is the construction: load-bearing layer outward.
     expect(wall?.materials).toEqual(['Stahlbeton', 'Waermedaemmung EPS', 'Aussenputz'])
     expect(wall?.classifications).toEqual([
       { system: 'ON B 1800', identification: 'B.1.2', name: 'Aussenwand' },
@@ -222,8 +199,6 @@ describe('extractIfcModel', () => {
 
   it('totals building quantities from spaces only', async () => {
     const index = await model()
-    // 32 + 12.5 + 18 + 6.5 — walls also publish NetVolume, and adding those to
-    // the room volumes would produce a number that means nothing.
     expect(index.quantityTotals.netFloorAreaM2).toBe(69)
     expect(index.quantityTotals.grossFloorAreaM2).toBe(74.2)
     expect(index.quantityTotals.netVolumeM3).toBe(80)
@@ -247,21 +222,11 @@ describe('extractIfcModel', () => {
     const index = await extractIfcModel(fixtureBuffer(), 'sample-building.ifc', { elementLimit: 5 })
     expect(index.elements).toHaveLength(5)
     expect(index.truncatedAt).toBe(5)
-    // The aggregate is computed while walking, before the cap, so a truncated
-    // model still reports how big it really is.
     expect(index.totals.elements).toBe(19)
     expect(index.typeCounts.IfcWall).toBe(5)
   })
 
   it('keeps the floor-area totals whole when the element list is capped', async () => {
-    // The overview tells the reader, in as many words, "Die Summen sind
-    // vollständig, die Bauteilliste ist begrenzt". That sentence was false:
-    // the totals were accumulated INSIDE the loop, after the cap's `continue`,
-    // so every space past the cap was silently left out of the building's
-    // floor area — and the note beside the number promised the opposite.
-    //
-    // Walls sort before spaces here, so a cap of 5 excludes every space; the
-    // area must still match the uncapped run.
     const whole = await extractIfcModel(fixtureBuffer(), 'sample-building.ifc')
     const capped = await extractIfcModel(fixtureBuffer(), 'sample-building.ifc', {
       elementLimit: 5,

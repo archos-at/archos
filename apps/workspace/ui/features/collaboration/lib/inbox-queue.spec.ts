@@ -98,8 +98,6 @@ describe('newsOf and queueOrder', () => {
   })
 
   it('a request answered before the reader opened it is news: the badge counts every unread row', () => {
-    // `state` says resolved before it says read; the badge reads `readAt`. Filtering
-    // on `state` once left the badge at one over an empty queue.
     const answered = row('answered', { state: 'resolved', read: false })
     const answeredAndRead = row('seen', { state: 'resolved', read: true })
     const gone = row('gone', { actionable: false, state: 'inert', read: false })

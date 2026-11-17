@@ -4,13 +4,6 @@ import { useTranslations } from '@/i18n'
 import { chatCopy } from '@/i18n/namespaces/chat'
 import type { PatchPreviewRow } from '@/lib/project-profile/patch-preview'
 
-/**
- * The rows of a proposed change to the project profile: field, before, after.
- * They are DERIVED from the patch and the current profile (`buildPatchPreviewRows`),
- * never from a model-supplied preview, so what the reader consents to is exactly
- * what gets written. `showBefore` is false while the current profile is not
- * known, and once the change is applied (the profile then holds the „after“).
- */
 export function ProfilePatchTable({ rows, showBefore }: { rows: readonly PatchPreviewRow[]; showBefore: boolean }) {
   const t = useTranslations(chatCopy)
   if (rows.length === 0) return null

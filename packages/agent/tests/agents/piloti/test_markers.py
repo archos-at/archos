@@ -1,5 +1,3 @@
-"""Tests for the answer's control markers: escalation, confidence, and the guard."""
-
 import sys
 from urllib.parse import urlparse
 
@@ -10,15 +8,12 @@ from agent.agents.piloti.markers import surface_answer_confidence
 
 
 class TestDetectAndStripEscalationMarker:
-    """Tests for detect_and_strip_escalation_marker."""
-
     def test_marker_on_own_final_line(self):
         content = "Here is my best partial answer.\n\n" + ESCALATION_MARKER
         stripped, present = detect_and_strip_escalation_marker(content)
         assert present is True
         assert ESCALATION_MARKER not in stripped
         assert stripped == "Here is my best partial answer."
-        # No trailing blank lines left behind.
         assert not stripped.endswith("\n")
 
     def test_marker_mid_text(self):
@@ -52,8 +47,6 @@ class TestDetectAndStripEscalationMarker:
         assert stripped is content
 
     def test_marker_quoted_above_tail_region_is_untouched(self):
-        # The marker is quoted inside an explanation well above the last three
-        # non-empty lines → body text, not a trailing signal.
         content = (
             f"When I lack enough evidence I append {ESCALATION_MARKER} to my reply.\n"
             "Here, however, I found what you asked for.\n"
@@ -67,7 +60,6 @@ class TestDetectAndStripEscalationMarker:
         assert stripped == content
 
     def test_marker_in_tail_after_references_detected(self):
-        # A trailing marker following a References section is still in the tail.
         content = (
             "Partial answer grounded in one source [1].\n\n"
             "**References:**\n"
@@ -81,8 +73,6 @@ class TestDetectAndStripEscalationMarker:
 
 
 class TestDetectAndStripConfidenceMarker:
-    """Tests for detect_and_strip_confidence_marker."""
-
     def test_high_marker_on_own_final_line(self):
         content = "OIB-Richtlinie 2 regelt den Brandschutz [1].\n\n[CONFIDENCE:high]"
         stripped, level, _reason = detect_and_strip_confidence_marker(content)
@@ -109,7 +99,6 @@ class TestDetectAndStripConfidenceMarker:
         assert stripped == content
 
     def test_malformed_value_stripped_but_no_signal(self):
-        # Unknown value: never shown to the user, but yields no signal.
         content = "Answer.\n[CONFIDENCE:certain]"
         stripped, level, _reason = detect_and_strip_confidence_marker(content)
         assert level is None
@@ -128,7 +117,6 @@ class TestDetectAndStripConfidenceMarker:
         assert "[CONFIDENCE" not in stripped
 
     def test_combined_with_escalation_marker_any_order(self):
-        # Both markers present, confidence before escalation (prompt-defined order).
         content = f"Partial answer.\n[CONFIDENCE:low]\n{ESCALATION_MARKER}"
         without_esc, esc_present = detect_and_strip_escalation_marker(content)
         assert esc_present is True
@@ -138,7 +126,6 @@ class TestDetectAndStripConfidenceMarker:
         assert ESCALATION_MARKER not in stripped
         assert stripped == "Partial answer."
 
-        # Reversed order — detection is order-insensitive.
         reversed_content = f"Partial answer.\n{ESCALATION_MARKER}\n[CONFIDENCE:high]"
         stripped2, level2, _reason2 = detect_and_strip_confidence_marker(reversed_content)
         without_esc2, esc_present2 = detect_and_strip_escalation_marker(stripped2)
@@ -148,8 +135,6 @@ class TestDetectAndStripConfidenceMarker:
         assert ESCALATION_MARKER not in without_esc2
 
     def test_marker_quoted_above_tail_region_is_untouched(self):
-        # A quoted marker inside an explanation, several lines above the tail,
-        # must be left intact and yield no signal.
         content = (
             "The answer contract asks me to end with [CONFIDENCE:high] or similar.\n"
             "In this case I am confident in the finding below.\n"
@@ -163,7 +148,6 @@ class TestDetectAndStripConfidenceMarker:
         assert stripped == content
 
     def test_marker_in_tail_after_references_detected(self):
-        # A trailing confidence marker after a References block is in the tail.
         content = (
             "OIB-Richtlinie 2 regelt den Brandschutz [1].\n\n"
             "**References:**\n"
@@ -183,8 +167,6 @@ class TestDetectAndStripConfidenceMarker:
 
 
 class TestConfidenceMarkerReason:
-    """Tests for the optional `| reason` payload on the confidence marker."""
-
     def test_reason_parsed_and_marker_stripped(self):
         content = "OIB 2 [1].\n[CONFIDENCE:high | Direkt durch OIB-RL 2 belegt]"
         stripped, level, reason = detect_and_strip_confidence_marker(content)
@@ -203,7 +185,6 @@ class TestConfidenceMarkerReason:
         assert reason is None
 
     def test_reason_keeps_content_after_first_separator(self):
-        # Partition on the FIRST `|`: later separators are part of the reason.
         _stripped, level, reason = detect_and_strip_confidence_marker("Answer.\n[CONFIDENCE:low | a | b]")
         assert level == "low"
         assert reason == "a | b"
@@ -215,8 +196,6 @@ class TestConfidenceMarkerReason:
         assert reason == "x" * 300
 
     def test_invalid_level_discards_reason(self):
-        # An unknown level never invents a signal — and a reason without a
-        # valid level is meaningless.
         stripped, level, reason = detect_and_strip_confidence_marker("Answer.\n[CONFIDENCE:certain | whatever]")
         assert level is None
         assert reason is None
@@ -235,8 +214,6 @@ class TestConfidenceMarkerReason:
 
 
 class TestSurfaceAnswerConfidence:
-    """Tests for the deterministic overconfidence guard."""
-
     def test_none_self_report_surfaces_nothing(self):
         assert surface_answer_confidence(None, True) is None
         assert surface_answer_confidence(None, False) is None
@@ -252,8 +229,6 @@ class TestSurfaceAnswerConfidence:
         assert surface_answer_confidence("low", False) == "low"
 
 
-# The law gate (staging QC F6, ADR-0175): building law the records do not settle caps a checked level.
-# Read off the module the names above come from, so this file names the package no more often than before.
 _markers = sys.modules[surface_answer_confidence.__module__]
 checked_confidence_capped_reason = _markers.checked_confidence_capped_reason
 surface_checked_confidence = _markers.surface_checked_confidence
@@ -264,12 +239,9 @@ def test_the_law_gate_holds_a_checked_high_to_medium_and_names_itself():
     assert checked_confidence_capped_reason("high", law_unsettled=True) == "law_unsettled"
     assert surface_checked_confidence("low", law_unsettled=True) == "low"
     assert checked_confidence_capped_reason("low", law_unsettled=True) is None
-    # The quote gate speaks first when both lower the level.
     assert checked_confidence_capped_reason("high", quotes_verified=False, law_unsettled=True) == "quote_unverified"
 
 
-# The answer's own ceiling (golden at-a6, 2026-11-12): an answer that names a gap of its own is not high,
-# and a check never raises a level above the one the answer gave itself.
 answer_ceiling = _markers.answer_ceiling
 
 
@@ -285,7 +257,6 @@ def test_the_answers_own_ceiling_holds_a_checked_high_and_names_itself():
 def test_the_gates_speak_first():
     assert checked_confidence_capped_reason("high", law_unsettled=True, ceiling="medium") == "law_unsettled"
     assert checked_confidence_capped_reason("high", quotes_verified=False, ceiling="medium") == "quote_unverified"
-    # The law gate leaves medium; a self-reported low lowers it further, and says so.
     assert surface_checked_confidence("high", law_unsettled=True, ceiling="low") == "low"
 
 

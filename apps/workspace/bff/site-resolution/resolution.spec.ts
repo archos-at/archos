@@ -40,7 +40,6 @@ const ENTRIES: RegisterEntry[] = [...csvRecords(lines('ADRESSE.csv'))].flatMap((
 const RELEASE = { id: 'release', register: 'at-bev', referenceDate: '2025-10-01', attribution: bevAttribution('2025-10-01') }
 const ROWS: (RegisterRow & { streetKey: string })[] = ENTRIES.map((entry) => ({ release: RELEASE, ...entry }))
 
-/** What the SQL lookup returns for a line: the rows with its exact street key and one of its house keys. */
 function lookup(line: string) {
   const parsed = parseAddress(line)
   if (!parsed) throw new Error(`unparsed: ${line}`)
@@ -98,7 +97,6 @@ describe('the territory chain of a register address', () => {
   it('hosts the registers the published records describe: Austria’s, and none for a country without one', () => {
     expect(registerFor(AT_SITE_REFERENCE, 'AT')?.id).toBe('at-bev')
     expect(registerFor(AT_SITE_REFERENCE, 'DE')).toBeNull()
-    // Nothing published, no register and no Land: fail closed, never Austria's.
     const none = siteReferenceOf([], '2026-11-10')
     expect(registerFor(none, 'AT')).toBeNull()
     expect(none.federalStateToken('AT-6')).toBeNull()
@@ -218,7 +216,6 @@ describe('the profile a resolution writes', () => {
     const operations = siteProfileOperations({ status: 'unverified', typed: 'Herrengasse 999, 8010 Graz', reason: 'no_register_hit', statedCountry: null, candidates: [] }, 'user_1', now, personConfirmed)
     const removed = operations.filter((operation) => operation.op === 'remove' && operation.path.startsWith('/facts/')).map((operation) => operation.path)
     expect(removed).toEqual(['/facts/site_address'])
-    // The confirmed Land stands, so no postcode suggestion is laid beside it.
     expect(operations.filter((operation) => operation.op === 'add').map((operation) => operation.path)).toEqual(['/assumptions/site_address'])
   })
 

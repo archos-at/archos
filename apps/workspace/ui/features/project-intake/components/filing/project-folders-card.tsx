@@ -12,12 +12,6 @@ import { FolderDropTarget } from './folder-drop-area'
 
 const ROW = 'border-border/60 flex min-h-11 items-center gap-2.5 border-t px-4 text-sm md:min-h-[42px]'
 
-/**
- * The Ablage once documents are in the project: the card the tree stood in,
- * now with the project's top folders as Dateien has them (a restricted one
- * says so), and, while the project takes documents, a last row that chooses
- * more folders. A folder dropped on the card becomes a tree to confirm.
- */
 export function ProjectFoldersCard({
   rows,
   documents,
@@ -26,7 +20,6 @@ export function ProjectFoldersCard({
 }: {
   rows: readonly AccessRow[]
   documents: number
-  /** Choose more folders; absent when the project takes no more documents. */
   onAddMore?: () => void
   onFiles: (files: File[]) => void
 }): JSX.Element {

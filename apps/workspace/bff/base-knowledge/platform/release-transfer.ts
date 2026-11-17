@@ -25,7 +25,7 @@ import type { UserSession } from '@/lib/auth/types'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
 import { sqlTextArray } from '@/lib/db/sql-list'
 import { knowledgeRecords, type KnowledgeProvenance } from '@/lib/db/schema/knowledge-records'
-import { knowledgeCitationCaptures } from '@/lib/db/schema/knowledge-platform'
+import { type CarriedFrom, knowledgeCitationCaptures } from '@/lib/db/schema/knowledge-platform'
 import { citedCaptureIds, insertCapture, sha256Of } from './captures'
 import { recordIdOf, referencesOf } from './records'
 import { MAX_BUNDLE_RECORDS, RELEASE_BUNDLE_FORMAT, type ReleaseBundle, releaseBundleSchema, type ReleaseImportBody, type ReleaseImportResult } from './release-wire'
@@ -70,6 +70,11 @@ export function bundleOf(bytes: Buffer): ReleaseBundle {
 /** The country's stable release as one bundle. Reads only. */
 export async function exportCountryRelease(session: UserSession | null, countryId: string): Promise<ReleaseBundle> {
   await requirePlatform(session, PLATFORM_PERMISSIONS.knowledgeReview)
+  return readCountryRelease(countryId)
+}
+
+/** The country's stable release as one bundle, with no session: the export's read, and what the carry compares with. */
+export async function readCountryRelease(countryId: string): Promise<ReleaseBundle> {
   return platformTransaction(async (tx) => {
     const heads = await tx.execute<{ id: string; provenance: KnowledgeProvenance; corpus_file: string | null; sha256: string | null; disputed: boolean }>(sql`
       SELECT r.id, v.provenance, m.corpus_file, m.sha256, c.second_review IS NOT DISTINCT FROM 'disputed' AS disputed
@@ -159,6 +164,20 @@ export async function importCountryRelease(
   proposedBy: 'person' | 'agent' = 'person',
 ): Promise<ReleaseImportResult> {
   const person = await requirePlatform(session, PLATFORM_PERMISSIONS.knowledgeWrite)
+  return importReleaseAs(person.userId, body, { proposedBy })
+}
+
+/**
+ * The import as `importer` (a person the caller has checked, or the promotion's carry, `./carry.ts`), with no
+ * session: what both share. `carriedFrom` marks the draft as carried (migration 0239), set with it and never after.
+ */
+export async function importReleaseAs(
+  importer: string,
+  body: ReleaseImportBody,
+  options: { proposedBy: 'person' | 'agent'; carriedFrom?: CarriedFrom },
+): Promise<ReleaseImportResult> {
+  const person = { userId: importer }
+  const { proposedBy } = options
   const { bundle } = body
   const digest = sha256Of(canonicalJson(bundle))
   const ids = new Set(bundle.records.map(recordIdOf))
@@ -187,6 +206,7 @@ export async function importCountryRelease(
       title: body.title ?? `Import of ${bundle.countryId} release ${bundle.releaseSeq}`,
       countryId: bundle.countryId,
       createdBy: person.userId,
+      ...(options.carriedFrom ? { carriedFrom: options.carriedFrom } : {}),
     })
     const captureIds = new Map<string, string>()
     for (const capture of bundle.captures) {

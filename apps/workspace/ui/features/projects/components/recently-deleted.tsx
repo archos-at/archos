@@ -16,26 +16,14 @@ import {
 } from '@/adapters/api/project-lifecycle-client'
 
 interface RecentlyDeletedProps {
-  /**
-   * Whether the viewer holds the compliance capability the `/api/deletions`
-   * endpoint requires. Passed from the projects page server component so
-   * non-admins render nothing without issuing a guaranteed-403 request — and
-   * so a real failure for an admin is distinguishable from "nothing pending".
-   */
   canManageCompliance?: boolean
 }
 
-/**
- * Org-admin panel of pending deletions with restore. Renders nothing for
- * non-admins (no compliance capability) or when there is nothing pending, and
- * a small retryable error state when the list genuinely fails to load.
- */
 export function RecentlyDeleted({ canManageCompliance = false }: RecentlyDeletedProps) {
   const t = useTranslations(projectsCopy)
   const { locale } = useLocale()
   const [entries, setEntries] = useState<DeletionEntry[]>([])
   const [error, setError] = useState(false)
-  /** Entry currently being restored — disables its button to avoid double-fires. */
   const [restoringId, setRestoringId] = useState<string | null>(null)
 
   const dateFormatter = useMemo(
@@ -54,7 +42,6 @@ export function RecentlyDeleted({ canManageCompliance = false }: RecentlyDeleted
       setError(false)
       setEntries(rows.filter((row) => row.entityType === 'project'))
     } catch (error) {
-      // A non-admin genuinely has no panel — treat 403 as "nothing to show".
       if (error instanceof ApiRequestError && error.status === 403) {
         setError(false)
         setEntries([])
@@ -65,8 +52,6 @@ export function RecentlyDeleted({ canManageCompliance = false }: RecentlyDeleted
   }, [])
 
   useEffect(() => {
-    // Non-admins can't see the panel and their request is a guaranteed 403 —
-    // skip the fetch entirely when we already know the capability is absent.
     if (!canManageCompliance) return
     void refresh()
   }, [canManageCompliance, refresh])
@@ -78,7 +63,6 @@ export function RecentlyDeleted({ canManageCompliance = false }: RecentlyDeleted
       toast.success(t('recentlyDeleted.restoreSuccess', { name: entry.displayName }))
       await refresh()
     } catch (error) {
-      // The server's sentence when it sent one, ours when it did not.
       const serverMessage = error instanceof ProjectRequestError ? error.serverMessage : null
       toast.error(serverMessage ?? t('recentlyDeleted.restoreError'))
     } finally {
@@ -86,11 +70,8 @@ export function RecentlyDeleted({ canManageCompliance = false }: RecentlyDeleted
     }
   }
 
-  // Non-admins have no panel at all.
   if (!canManageCompliance) return null
 
-  // Real failure (not a 403) — let a compliance admin retry instead of silently
-  // showing an empty section they'd read as "nothing pending".
   if (error) {
     return (
       <section className="mt-8">

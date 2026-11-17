@@ -1,10 +1,3 @@
-/**
- * One change to many entries (`bulk.ts`) and a newer edition (`new-edition.ts`)
- * over the mocked single-entry service: each entry runs on its own, a refusal
- * names the entry and the rest still run, a move lands only in a base-knowledge
- * folder, and a newer edition joins the earlier one's work and keeps it, with a check that says so.
- */
-
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))

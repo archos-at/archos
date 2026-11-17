@@ -1,12 +1,3 @@
-"""`read_passage` reads an older Fassung on request, and says that it is one.
-
-A file a person confirmed as replaced stays readable by name: „was stand in Index B“ is a
-real question. What the read must not do is hand the passage over as the document's current
-state, so the result opens with one line naming the current Fassung, through the same notice
-slot „Older Fassungen left out“ uses in the search (the block's hash still matches). The
-current Fassung itself, and a file nobody replaced, read exactly as before.
-"""
-
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -96,7 +87,6 @@ class TestAnOlderRevisionIsReadOnRequestAndSaysSo:
 
         assert "Die Bewehrung der Decke beträgt 10 mm." in out
         assert "Citation: Statik_Index_B.pdf, p.1" in out
-        # The read addresses the older file: nothing was excluded from the fetch.
         assert all("$nin" not in repr(call["filters"]) for call in store.calls)
 
     async def test_the_first_line_names_the_current_revision_at_the_end_of_the_chain(self, store):
@@ -131,7 +121,6 @@ class TestAnOlderRevisionIsReadOnRequestAndSaysSo:
 
 class TestTheNoticeKeepsTheBlockReadable:
     async def test_the_citation_registry_still_reads_the_records_not_the_text(self, store):
-        """The notice rides the block's slot, so the hash of the bytes the model reads still matches."""
         from agent.common.grounding_block import begin_grounding_capture
         from agent.common.grounding_block import end_grounding_capture
         from agent.common.grounding_block import get_grounding_block

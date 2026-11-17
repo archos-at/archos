@@ -1,13 +1,5 @@
 'use client'
 
-/**
- * Responsible + Ask on the model stage.
- *
- * Assignment lives on the DOCUMENT, same as Files. The stage already treats
- * the building as that document for rename/delete; this is the rest of that
- * chrome, dressed as viewport icon buttons so it sits in the existing pill.
- */
-
 import type { JSX } from 'react'
 import { Sparkles, UserPlus } from 'lucide-react'
 import { useRouter } from 'next/navigation'
@@ -60,7 +52,6 @@ export function ModelFileOwnership({
       {canAsk && (
         <ViewerIconButton
           label={t('assignment.discuss')}
-          // Piloti's glyph, as on „Mit Piloti besprechen“ in the file rail.
           icon={Sparkles}
           onClick={() =>
             askAboutFile({

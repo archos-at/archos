@@ -423,7 +423,8 @@ tasks:
 
   be:test:postgres:
     desc: >-
-      The claim-queue suites' Postgres branch (production's SQL), the rename of
+      The claim-queue suites' Postgres branch (production's SQL), the research
+      cutover's row locks against the old claim, the rename of
       the AI-Q databases, and the metadata store's mail records, against a
       throwaway cluster. Needs PostgreSQL server binaries.
     cmds:
@@ -435,3 +436,4 @@ tasks:
         packages/agent/tests/knowledge/folder_cards
         tests/test_postgres_rename_legacy_names.py
         packages/agent/tests/knowledge/test_mail_facts.py
+        apps/agent-host/tests/test_research_cutover.py

@@ -1,11 +1,3 @@
-"""The answer check through ``finalize_answer`` and the state (ADR-0139): what it is handed, what it sets.
-
-The check's model is the deterministic stub (``agent_testing.claim_judge_stub``):
-these tests are about what the turn hands it (the question, the final answer,
-every passage, record, measurement and reading, the quote check) and what the
-pipeline does with its reply, never about how a model grades.
-"""
-
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -186,7 +178,6 @@ async def test_no_judge_at_all_is_the_same_unavailable_turn():
 
 
 async def test_the_unavailable_reason_reaches_the_stored_turn_through_the_wire_model():
-    """The persisted row is built from ``TurnResult``; a reason it refused would cost the whole check."""
     from agent.common.wire_v2 import ConfidenceCheck
 
     reason = Unavailable("unparseable", finish_reason="length", truncated=True, elapsed_ms=9_100, answer_chars=40)
@@ -267,17 +258,9 @@ async def test_a_locus_the_cited_passage_does_not_hold_is_removed_from_the_answe
 
     final, _ = await _finalize(messages, registry)
 
-    # Removed, never labelled (ADR-0125, amended 2026-11-10).
     assert "Punkt 11.2.1 [1], die Belichtung Punkt 9.1." in final.content
     assert DROPPED_CITATION_MARKER not in final.content
 
-
-# --- a work turn (kind work, ADR-0123) under per-sentence provenance (ADR-0125) ---
-#
-# A work turn reports what it read and proposed in the office; it is not a legal
-# answer. Its sentences are grounded by the records and proposals this turn left
-# on the door, so it reaches the model's own level, and a sentence about the law
-# inside it still needs a passage, exactly as in any other answer.
 
 WORK_ENVELOPE = (
     '```answer_json\n{{"kind": "work", "confidence": {{"level": "high"}}, "answer": "{prose}", '
@@ -307,8 +290,6 @@ def _workspace_proposal(call_id: str = "w2") -> list:
         ToolMessage(content=PROPOSED, tool_call_id=call_id, name="workspace__call"),
     ]
 
-
-# --- a reported proposal the turn did not file ---
 
 FILED_ID = "6f7a8b9c-0d1e-4f2a-9b3c-4d5e6f7a8b9c"
 
@@ -359,9 +340,6 @@ def _hold_a_look(reading: str, name: str = "Grundriss_EG.pdf") -> None:
 
     resolved = SimpleNamespace(file_name=name, collection="proj_1", target=None)
     note_look(resolved, 2, [0.1, 0.1, 0.3, 0.2], question="Türbreite?", reading=reading)
-
-
-# --- a look at a project document registers a citable place (ADR-0125, amendment of 2026-10-22) ---
 
 
 def _look_place_entry(region=(0.1, 0.2, 0.3, 0.4)):
@@ -457,10 +435,6 @@ async def test_a_turn_with_no_drawing_value_writes_no_looked_before_measurement(
     assert "look-count" in names and "looked-before-measurement" not in names
 
 
-# --- no verification marker ever reaches an answer (dev acceptance; ADR-0125, amended 2026-11-10) ---
-
-#: Every spelling a verification marker has had in an answer: the verifier's German labels and the English
-#: the BFF translated them to for an agent (``bff/agent-asks/answer-text.ts``). QC found both in answers.
 VERIFICATION_MARKER_SPELLINGS = (
     "[nicht wörtlich in der Quelle belegt]",
     "[Beleg nicht verifiziert]",
@@ -469,17 +443,14 @@ VERIFICATION_MARKER_SPELLINGS = (
 )
 
 _MARKER_CASES = {
-    # A number whose source line names nothing retrieved.
     "unresolved": (
         "Die Raumhöhe beträgt 2,50 m [1]. Das gilt immer [2].",
         "\\n\\n**Quellen:**\\n- [1] oib-rl_3.pdf, p.7\\n- [2] erfunden.pdf, p.1",
     ),
-    # A Punkt beside a resolved number the passage does not hold.
     "locus": (
         "Die Raumhöhe regelt Punkt 11.2.1 [1], die Belichtung Punkt 9.1 [1].",
         "\\n\\n**Quellen:**\\n- [1] oib-rl_3.pdf, p.7",
     ),
-    # A quotation no passage holds.
     "quote": (
         "Es gilt: „Aufenthaltsräume müssen eine Sprinkleranlage haben“ [1].",
         "\\n\\n**Quellen:**\\n- [1] oib-rl_3.pdf, p.7",
@@ -491,7 +462,6 @@ _MARKER_CASES = {
 @pytest.mark.parametrize("case", sorted(_MARKER_CASES))
 @pytest.mark.parametrize("retrieved", [True, False], ids=["retrieved", "nothing-retrieved"])
 async def test_no_verification_marker_reaches_the_answer(case, retrieved):
-    """Dev acceptance: no raw verification marker appears in an answer, whatever the verifier found."""
     registry = SourceRegistry()
     if retrieved:
         registry.add(_oib_passage())
@@ -507,7 +477,6 @@ async def test_no_verification_marker_reaches_the_answer(case, retrieved):
 @pytest.mark.asyncio
 @pytest.mark.parametrize(("gate", "unsettled"), [("none", True), ("core", False)])
 async def test_an_answer_resting_on_law_the_records_do_not_settle_is_marked(gate, unsettled):
-    """Staging QC F6: the law gate caps the level of an answer that cites building law the records do not settle."""
     from agent.common.knowledge_context import KnowledgeContext
     from agent.common.knowledge_context import set_turn_knowledge_context
 
@@ -533,7 +502,6 @@ async def test_an_answer_resting_on_law_the_records_do_not_settle_is_marked(gate
     assert state.answer_law_unsettled is unsettled
 
 
-# Golden case at-a6 (AT run 31eed61f, 2026-11-12): "high" beside a reason that says "nicht geprüft".
 REASONED_ENVELOPE = (
     '```answer_json\n{{"kind": "walkthrough", "confidence": {{"level": "{level}", "reason": "{reason}"}}, '
     '"answer": "{prose}"}}\n```'

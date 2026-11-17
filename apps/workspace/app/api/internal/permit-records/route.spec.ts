@@ -3,8 +3,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-// The route factory statically imports the session guard, which pulls in
-// authkit; internal routes never call it.
 vi.mock('@/lib/auth/require-auth', () => ({ requireAuthorizedSession: vi.fn() }))
 vi.mock('@/lib/permits/service', () => ({ storePermitRecord: vi.fn() }))
 
@@ -114,8 +112,6 @@ describe('POST /api/internal/permit-records', () => {
   })
 
   it('accepts a delete with no model, as the worker sends it when a document is re-typed', async () => {
-    // Every such delete was a 400 (~320 a week in PostHog Logs), so a re-typed
-    // document kept its stale permit record.
     const response = await POST(request(body({ record: null, model: '' })))
     expect(response.status).toBe(200)
     expect(storePermitRecord).toHaveBeenCalledWith(body({ record: null, model: '' }))

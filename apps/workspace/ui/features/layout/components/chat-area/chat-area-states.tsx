@@ -21,18 +21,6 @@ import { InboundMailWaitingLine } from '@/features/documents'
 import { WELCOME_OFFSET_FALLBACK } from '../../hooks/use-composer-metrics'
 import { TOOLBAR_CLEAR_PADDING } from '../../lib/toolbar-clearance'
 
-/**
- * "New" separator marking where the reader left off in a shared thread (spec
- * CC-19). A rule with a centred label rather than a coloured band: it has to be
- * findable when scrolling a long thread without competing with the messages, and
- * it must not read as an error state.
- *
- * Deliberately the house eyebrow (hairline border + muted label), not
- * full-strength ink: this is a *reading-position* marker, and at ink weight it was
- * the loudest thing in the column — out-shouting the agent's answer, which is the
- * one element that must stay dominant. The two full-width rules are what make it
- * findable; the label does not have to shout to be one.
- */
 export const UnreadDivider: FC<{ label: string }> = ({ label }) => (
   <div
     className="flex items-center gap-3"
@@ -46,26 +34,6 @@ export const UnreadDivider: FC<{ label: string }> = ({ label }) => (
   </div>
 )
 
-/**
- * "Piloti is answering <name>'s question" — the observer's view of a turn that is
- * not theirs (spec CC-13).
- *
- * This is now the FALLBACK rather than the whole story: with the frame relay in
- * place (ADR-0039) an observer watches the answer being written, and `SpectatedTurn`
- * renders it. The banner is what remains when the frames cannot reach them — no
- * shared cache tier, a dropped stream, or simply the first moments before the first
- * token. It is not a lesser version of the feature: what matters most is that the
- * wait is explained, because without it a second participant sees a thread where
- * nothing is happening and a composer that will not take their question, which reads
- * as a broken product rather than a busy one.
- *
- * It says *the assistant is working*, not *somebody is typing*: the Piloti glyph
- * plus the shimmering label — this app's own vocabulary for a turn in progress
- * (`TypingIndicator`, the Herleitung spine) — rather than the three bouncing dots
- * of a messenger, which describe a human at a keyboard and would frame Piloti as
- * one more participant in a group chat. A status strip at the house radius, not a
- * chat bubble.
- */
 export const TurnInFlightBanner: FC<{ label: string }> = ({ label }) => (
   <div
     className="bg-card flex min-h-9 w-fit items-center gap-2 rounded-surface px-3.5 py-2 shadow-xs"
@@ -76,15 +44,9 @@ export const TurnInFlightBanner: FC<{ label: string }> = ({ label }) => (
   </div>
 )
 
-/**
- * Latency-gap typing indicator (three pulsing dots) shown under an answered
- * HITL prompt until the turn resumes. Left-aligned to match assistant bubbles.
- */
 export const TypingIndicator: FC = () => {
   const t = useTranslations(researchCopy)
   const label = t('chatArea.status.thinking')
-  // Mounted when the reader answers the prompt, so counting from mount is the
-  // true time since that answer.
   const elapsed = useElapsedSeconds(true)
   return (
     <div
@@ -119,11 +81,6 @@ export const TypingIndicator: FC = () => {
   )
 }
 
-/**
- * Hydration skeleton (C5): a few grey bubbles sized to the message area, shown
- * only while the persisted chat store rehydrates so a returning user never sees
- * a WelcomeState flash before their thread loads in.
- */
 export const MessageListSkeleton: FC = () => {
   const t = useTranslations(researchCopy)
   return (
@@ -160,34 +117,12 @@ export const MessageListSkeleton: FC = () => {
   )
 }
 
-/**
- * Welcome state shown when no messages exist.
- *
- * Signed in: a time-of-day greeting (with the user's first name when known),
- * hero-sized per the click dummy, and nothing else unless the thread is about a
- * named file. It used to carry a subtitle and a row of example questions too;
- * both were addressed to a first-timer and were paid for by every user on every
- * new thread forever. What replaces them is the composer itself, lifted off the
- * floor to sit with the greeting as one group in the middle of the screen (see
- * `useComposerMetrics`) — an empty canvas that offers the one thing there is to
- * do, rather than explaining it.
- *
- * Signed out: a compact sign-in prompt. Bottom padding in both keeps the
- * centered content clear of the floating composer, and is what the lift is
- * calculated against — do not change one without the other.
- */
 interface WelcomeStateProps {
   isAuthenticated?: boolean
   onSignIn?: () => void
-  /**
-   * The canvas belongs to a project, so the one sentence about what Piloti can
-   * do with it is true here. Outside a project there is nowhere for a draft to
-   * be filed, and the sentence would be an offer the surface cannot keep.
-   */
   inProject?: boolean
 }
 
-/** Time-of-day bucket for the greeting (morning / afternoon / evening). */
 const greetingKeyForHour = (hour: number): 'morning' | 'afternoon' | 'evening' => {
   if (hour < 12) return 'morning'
   if (hour < 17) return 'afternoon'
@@ -233,14 +168,6 @@ export const WelcomeState: FC<WelcomeStateProps> = ({
 
   return (
     <div
-      // Bottom-aligned against the composer's ACTUAL top edge — its height plus
-      // however far it has been lifted off the floor, plus a gap, all published
-      // as one measured number (`--welcome-offset`). That leaves the greeting
-      // exactly one gap above the input by construction, whatever the lift
-      // turns out to be and whatever this column's own top padding is. Both of
-      // those defeated an earlier version that centred here and worked the
-      // clearance out arithmetically: it omitted the `pt-20`, and the composer
-      // landed on the greeting on a phone.
       className="flex flex-1 flex-col items-center justify-end px-6 pt-20 sm:pt-16"
       style={{ paddingBottom: `var(--welcome-offset, ${WELCOME_OFFSET_FALLBACK})` }}
     >

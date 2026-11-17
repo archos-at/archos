@@ -254,8 +254,15 @@ export const DECISION_SOURCES = ['app', 'elicitation'] as const
 export type PersonDecisionSource = (typeof DECISION_SOURCES)[number]
 
 /** How a verdict on a claim was given: the person's own yes, or an agent's call the person did not confirm. */
-export const REVIEW_DECISION_SOURCES = [...DECISION_SOURCES, 'agent'] as const
+export const REVIEW_DECISION_SOURCES = [...DECISION_SOURCES, 'agent', 'carried'] as const
 export type ReviewDecisionSource = (typeof REVIEW_DECISION_SOURCES)[number]
+
+/**
+ * How an approval or a release move was given: a person's yes here, or `carried`, a decision made on the
+ * deployment that released it and carried here once by the promotion's carry Job (migration 0239, ADR-0181).
+ */
+export const RELEASE_DECISION_SOURCES = [...DECISION_SOURCES, 'carried'] as const
+export type ReleaseDecisionSource = (typeof RELEASE_DECISION_SOURCES)[number]
 
 /** A release channel: preview first, then stable, which moves the head offices read. */
 export const RELEASE_CHANNELS = ['preview', 'stable'] as const
@@ -296,9 +303,11 @@ export const KNOWLEDGE_VOCABULARIES = {
   'knowledge_change_requests.status': CHANGE_REQUEST_STATUSES,
   'knowledge_review_decisions.decision': REVIEW_DECISIONS,
   'knowledge_approvals.role': APPROVAL_ROLES,
-  'knowledge_approvals.decision_source': DECISION_SOURCES,
+  'knowledge_approvals.decision_source': RELEASE_DECISION_SOURCES,
   'knowledge_release_moves.channel': RELEASE_CHANNELS,
   'knowledge_release_moves.action': RELEASE_ACTIONS,
+  'knowledge_release_moves.decision_source': RELEASE_DECISION_SOURCES,
+  'knowledge_review_decisions.decision_source': REVIEW_DECISION_SOURCES,
   'knowledge_index_runs.state': INDEX_RUN_STATES,
   'knowledge_relation_revisions.relation_type': RELATION_TYPES,
   'knowledge_relation_revisions.mode': BINDING_MODES,

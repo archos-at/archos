@@ -1,11 +1,3 @@
-"""The read-but-uncited channel: what the turn read beyond what it cited.
-
-``ledger.assemble_result`` threads ``read_sources`` — one entry per retrieved
-but uncited DOCUMENT (document key + lane/kind + page, NO prose) — onto the
-finished state, where ``conversation.ANSWER_LIFTS`` and ``turn.response``
-carry it to the wire for the "Gelesen, nicht zitiert" disclosure.
-"""
-
 from langchain_core.messages import AIMessage
 
 from agent.agents.piloti.answer_pipeline import CitedSource
@@ -40,13 +32,11 @@ def _cited(entry: SourceEntry, number: int = 1) -> CitedSource:
 
 class TestReadButUncited:
     def test_a_cited_document_never_reappears_as_read(self):
-        """The same document cited at p.12 is not "read" via its p.30 passage."""
         turn_sources = [_kb("oib-rl_2.pdf, p.12"), _kb("oib-rl_2.pdf, p.30")]
         cited = [_cited(_kb("oib-rl_2.pdf, p.12"))]
         assert read_but_uncited(turn_sources, cited) is None
 
     def test_an_uncited_document_is_listed_once_per_document(self):
-        """Two pages of one uncited document are one disclosure entry."""
         wire = read_but_uncited([_kb("oib-rl_2.pdf, p.12"), _kb("oib-rl_2.pdf, p.30")], [])
         assert wire is not None
         assert len(wire) == 1
@@ -58,8 +48,6 @@ class TestReadButUncited:
         assert len(wire) == 2
 
     def test_same_filename_in_two_collections_is_two_documents(self):
-        """The document identity is (collection, filename): a project Plan.pdf
-        and an Archiv Plan.pdf are two documents, not one."""
         wire = read_but_uncited(
             [
                 _kb("Plan.pdf, p.1", collection="proj_abc"),
@@ -71,8 +59,6 @@ class TestReadButUncited:
         assert len(wire) == 2
 
     def test_a_bare_tool_result_identifies_nothing_and_is_dropped(self):
-        """A source with neither citation key nor URL cannot be opened from a
-        chip, so it must not become one."""
         bare = SourceEntry(source_type="tool_result", tool_name="some_tool")
         assert read_but_uncited([bare], []) is None
 
@@ -134,8 +120,6 @@ class TestAssembleResultThreadsReadSources:
 
 
 class TestAClaimWithoutRecordsCapsLikeUnsettledLaw:
-    """Citations spec G27: law stated from the web caps the answer, whatever the gate (``common/binding_claims``)."""
-
     MIRROR = SourceEntry(
         url="https://www.jusline.at/gesetz/wgarg_2008/paragraf/50a",
         title="§ 50a WGarG 2008 (Wiener Garagengesetz 2008) - JUSLINE Österreich",
@@ -162,7 +146,6 @@ class TestAClaimWithoutRecordsCapsLikeUnsettledLaw:
         }
 
     def test_a_web_page_cited_beside_the_records_for_a_held_work_is_scored(self, monkeypatch):
-        """The Wien answer of 2026-11-12: the binding day of a held work cited from a newsletter as well."""
         from agent.common import web_sources
         from agent.observability import langfuse_scores
 

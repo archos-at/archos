@@ -1,5 +1,3 @@
-"""The look tool suites' stored PDF and canvas room."""
-
 from __future__ import annotations
 
 import io
@@ -22,7 +20,6 @@ def _pdf() -> bytes:
 
 @pytest.fixture
 def stored(monkeypatch):
-    """A project PDF the lookup finds in ``proj_1`` (or wherever asked) and the store hands back."""
     asked: list[tuple[str, str]] = []
 
     async def locate(collection, file_name, organization_id=None, image_index=None):
@@ -40,7 +37,6 @@ def stored(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def room(monkeypatch, calls):
-    """The canvas route answers every glow; a test that needs another answer calls ``answering`` again."""
     answering(monkeypatch, calls, {"ok": True})
     return calls
 

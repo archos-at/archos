@@ -1,16 +1,4 @@
 // @disk-inputs: ../../tests/fixtures/quarantine_verdict_cases.json
-/**
- * The typed quarantine verdict's reader side of `tests/fixtures/quarantine_verdict_cases.json`
- * (ADR-0113). The ingest job's producer side is
- * `tests/knowledge_layer_tests/test_quarantine_verdict_contract.py`, over the
- * same file: each verdict the job can write is read by `verdictSchema` as the
- * case's `reads_as` (the verdict itself when absent), from the typed field and
- * from the legacy `quarantined:` message alike, and is stored with its kinds as
- * the job wrote them.
- *
- * ONE copy: read from disk at run time, as `content-screen.spec.ts` reads its
- * fixture (vitest runs in apps/workspace with the whole repository checked out).
- */
 
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'

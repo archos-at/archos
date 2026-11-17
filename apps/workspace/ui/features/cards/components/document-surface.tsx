@@ -8,7 +8,6 @@ import { openFilePeek } from '@/features/documents/lib/open-file-peek'
 import type { FileItem } from '@/features/documents/components/project-file-workspace'
 import type { ResolvedSurfacedDocument } from '@/features/documents/hooks/use-surfaced-documents'
 
-/** Open the cited/surfaced file in the chat peek. */
 export function peekFile(
   file: FileItem,
   source: 'project' | 'office' | null,
@@ -17,11 +16,6 @@ export function peekFile(
   openFilePeek({ file, source, projectId })
 }
 
-/**
- * A surfaced file whose row no longer resolves to a live document. Honest
- * and actionable: says the assistant referenced the file and links to
- * where it can be found.
- */
 export const UnresolvedCard: FC<{ entry: ResolvedSurfacedDocument; projectId?: string | null }> = ({
   entry,
   projectId,
@@ -58,7 +52,6 @@ export const UnresolvedCard: FC<{ entry: ResolvedSurfacedDocument; projectId?: s
   )
 }
 
-/** Resolve failed (network / 5xx) — a retry affordance, never a wall of dead tiles. */
 export const ResolveErrorState: FC<{ onRetry: () => void }> = ({ onRetry }) => {
   const t = useTranslations(chatCopy)
   return (

@@ -1,28 +1,13 @@
 /**
  * @vitest-environment node
  */
-/**
- * The READ door: one version's bytes, for a turn whose subject retrieval cannot
- * see.
- *
- * What is asserted here is the boundary, not the happy path. The route is
- * addressed by a version id alone — no collection name, no session — so what
- * the caller STATES is the whole of the address, and a service token is not a
- * person. The predicate is therefore two things and not one: the organization,
- * and the CONVERSATION whose subject this version must be. It is driven through
- * the real `readVersionForService`, with the repository and the object store as
- * the doubles: mocking the service instead would assert the mock's predicate.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-// The route factory statically imports the session guard, which pulls in
-// authkit; an internal route never calls it.
 vi.mock('@/lib/auth/require-auth', () => ({ requireAuthorizedSession: vi.fn() }))
 
 vi.mock('@/lib/documents/version-repository', () => ({
   findDocumentVersionInOrg: vi.fn(),
-  // The rest of the module is imported by `lifecycle`; nothing here calls them.
   compareAndSwapVersionState: vi.fn(),
   findDocumentVersion: vi.fn(),
   listDocumentVersionSummaries: vi.fn(),
@@ -126,18 +111,12 @@ describe('GET /api/internal/document-versions/[versionId]/content', () => {
 
   describe('tenancy', () => {
     it('400s without an organization, rather than reading unscoped', async () => {
-      // A version id carries no scope of its own. This is the difference from
-      // `/api/internal/document-file`, where an unguessable collection name is
-      // the boundary and the organization is optional.
       expect((await GET(request(''), params)).status).toBe(400)
       expect((await GET(request('?organizationId='), params)).status).toBe(400)
       expect(findDocumentVersionInOrg).not.toHaveBeenCalled()
     })
 
     it('400s without a conversation, which is the other half of the address', async () => {
-      // The organization is something the caller states, and a version id is a
-      // uuid it supplies — so on its own it let anything holding the internal
-      // token read any version's bytes in any tenant.
       expect((await GET(request('?organizationId=org_1'), params)).status).toBe(400)
       expect(findDocumentVersionInOrg).not.toHaveBeenCalled()
     })
@@ -179,8 +158,6 @@ describe('GET /api/internal/document-versions/[versionId]/content', () => {
       )
 
       expect(res.status).toBe(404)
-      // Indistinguishable from an id that never existed: the answer must not
-      // tell a caller that somebody else's version is there.
       expect(await res.json()).toMatchObject({ error: expect.stringMatching(/not found/i) })
       expect(vi.mocked(findDocumentVersionInOrg).mock.calls[0]).toEqual([VERSION, 'org_2'])
     })
@@ -204,9 +181,6 @@ describe('GET /api/internal/document-versions/[versionId]/content', () => {
       const res = await GET(request(), params)
 
       expect(res.status).toBe(200)
-      // The state and the hash travel WITH the bytes because the caller stamps
-      // both onto the working-directory file it writes: without them a later
-      // `file_draft` files a second document instead of replacing this version.
       expect(await res.json()).toEqual({
         documentId: DOCUMENT,
         versionId: VERSION,

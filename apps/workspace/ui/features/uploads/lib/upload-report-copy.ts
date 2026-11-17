@@ -1,31 +1,15 @@
-/**
- * The Eingangsbericht in words (`lib/upload-batches/upload-report.ts`): what
- * the inbox row says under „Ihr Upload ist gelesen“. Pure over a translator of
- * the `dossier` namespace, so the row, the dev preview and the specs say the
- * same sentences.
- *
- *   12 Dokumente gelesen: 7 Einreichpläne, 1 Bescheid, 1 Brandschutzkonzept, +2 weitere
- *   2 neue Befunde: Bodengutachten fehlt (verwiesen in 3 Dokumenten), Gebäudeklasse weicht vom Steckbrief ab
- *   5 Angaben · 1 Verweis ohne Dokument im Projekt · 3 Seiten nicht vollständig gelesen · 1 Befund erledigt
- */
-
 import type { Translator } from '@/i18n/translate'
 import type { UploadReport, UploadReportFinding } from '@/lib/upload-batches/upload-report'
 
-/** Types named on the first line; the rest is „+n weitere“. */
 const TYPES_NAMED = 3
-/** Findings named on the second line; the panel has the rest. */
 const FINDINGS_NAMED = 2
 
 export interface UploadReportCopy {
   read: string
-  /** Null when the upload brought no finding. */
   findings: string | null
-  /** The smaller counts, each its own phrase; empty when all are zero. */
   details: string[]
 }
 
-/** What a finding is about, in the row's words. */
 function subjectOf(t: Translator, finding: UploadReportFinding): string {
   switch (finding.kind) {
     case 'profile_contradiction':
@@ -40,7 +24,6 @@ function subjectOf(t: Translator, finding: UploadReportFinding): string {
   }
 }
 
-/** One finding: „Bodengutachten fehlt (verwiesen in 3 Dokumenten)“. */
 export function uploadReportFindingText(t: Translator, finding: UploadReportFinding): string {
   const subject = subjectOf(t, finding)
   const text = t(`uploadReport.finding.${finding.kind}`, { fact: subject, label: subject })
@@ -72,7 +55,6 @@ export function uploadReportCopy(t: Translator, report: UploadReport): UploadRep
   return { read: types.length > 0 ? `${read}: ${types.join(', ')}` : read, findings, details }
 }
 
-/** Where „Zu den Befunden“ leads: the project's Dateien, at the findings panel. */
 export function uploadReportFindingsHref(report: Pick<UploadReport, 'projectId'>, anchor: string): string {
   return `/app/projects/${encodeURIComponent(report.projectId)}/files#${anchor}`
 }

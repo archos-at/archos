@@ -1,9 +1,3 @@
-/**
- * The shelf as folders by topic (ADR-0180, topics amendment). What must hold:
- * one folder per topic in the summary's order, the notes without a topic in
- * their own folder last, each folder's count is the summary's, and a folder's
- * actions are the caller's, with none for the notes without a topic.
- */
 import { describe, expect, test, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
 import { render, screen, within } from '@/test-utils'

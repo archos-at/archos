@@ -1,8 +1,3 @@
-/**
- * The held mail's text as the detail shows it: plain, the first lines first,
- * and every URL cut out as an inert run with its domain, never markup.
- */
-
 import { describe, expect, it } from 'vitest'
 import { linkDomain, PREVIEW_LINES, textPreview, textRuns, tidyText } from './mail-text'
 

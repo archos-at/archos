@@ -1,59 +1,18 @@
-"""The three drafting turn shapes, and the one assertion both harnesses make.
-
-A drafting turn is the shape the agent-writes work added and nothing measured:
-someone commissions a document, has it revised, and files it into the project.
-Ledger row 5 asked for the three against a live model; this module is what
-keeps that eval and the scripted one from drifting into two different tests.
-
-The **prompts** live here because a live case and a fake-LLM case that ask
-different questions stop being the same case the day one of them is edited.
-The **assertion** lives here for the same reason, and because it is the whole
-of what "turn shape" means: which tools ran, what the reader was shown, and
-what kind of answer came back. Neither harness may add a rule of its own
-without adding it here.
-
-What is deliberately NOT asserted: the prose. A live model writes a different
-Aktenvermerk every run, and an eval that pins wording measures the model's
-mood. What must hold is that the document was WRITTEN rather than described,
-that the card the reader acts on exists and knows whether it has been filed,
-and that a drafting turn never grows a ruling's masthead — a verdict on
-„schreib mir einen Aktenvermerk" is the compliance-checker voice leaking into
-a turn that has nothing to rule on.
-
-Used by:
-
-* ``evals/turn-shapes/test_turn_shapes_live.py`` — the real model, stub
-  retrieval, real working directory (skips without ``OPENROUTER_API_KEY``).
-* ``packages/agent/tests/agents/piloti/test_agent.py`` — the same three through the
-  compiled graph on a scripted LLM, which is what runs in CI.
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
 from dataclasses import field
 from typing import Any
 
-#: The card a drafting turn owes the reader. Two states, and the difference is
-#: three fields the card model refuses to carry apart (``DocumentDraftCard``).
 UNFILED = "unfiled"
 FILED = "filed"
 
-#: Answer kinds a drafting turn may come back as. ``ruling`` is the one that
-#: must never appear: it is the shape that carries a verdict masthead, and
-#: „leg das ins Projekt ab" has no legal value to put in one. ``handoff``
-#: is excluded too — writing an Aktenvermerk is this turn's work, not deep
-#: research's. ``None`` is the legacy envelope and stays allowed.
 DRAFTING_ANSWER_KINDS: frozenset[str | None] = frozenset({None, "direct", "walkthrough"})
 
-#: ``file_draft`` called with ``submit=true``, as the trace names it. Submitting
-#: was its own tool (``submit_draft``) until it merged into that argument, and
-#: the cases still have to tell „abgelegt" from „eingereicht" apart.
 SUBMITTING = "file_draft(submit=true)"
 
 
 def traced_tool_name(name: str, args: Any) -> str:
-    """One tool call as the shape assertion names it; both harnesses build their trace with this."""
     if name == "file_draft" and isinstance(args, dict) and str(args.get("submit")).strip().lower() == "true":
         return SUBMITTING
     return name
@@ -61,20 +20,11 @@ def traced_tool_name(name: str, args: Any) -> str:
 
 @dataclass(frozen=True)
 class DraftingCase:
-    """One commissioned document turn, as both harnesses run it."""
-
     id: str
     prompt: str
-    #: Every one of these must have been called. The verb IS the case.
     required_tools: tuple[str, ...]
-    #: None of these may have been called: a commission that files, or a
-    #: revision that writes a second file, is a different turn than the one
-    #: asked for.
     forbidden_tools: tuple[str, ...] = ()
-    #: The draft the working directory holds when the turn starts, as
-    #: ``{path: content}``. Empty for the commission, which creates it.
     seed: dict[str, str] = field(default_factory=dict)
-    #: What the ``document_draft`` card must say afterwards.
     card: str = UNFILED
 
 
@@ -94,9 +44,6 @@ COMMISSION = DraftingCase(
     id="commission",
     prompt="Schreib mir einen Aktenvermerk zur Besprechung mit der MA 37 über den Fluchtweg",
     required_tools=("write_file",),
-    # A commission produces a draft in the conversation. Filing it is a second
-    # request the reader has not made yet, and the tool description says so in
-    # as many words („nicht von selbst nach jedem Schreiben").
     forbidden_tools=("file_draft", SUBMITTING),
     card=UNFILED,
 )
@@ -104,9 +51,6 @@ COMMISSION = DraftingCase(
 REVISE = DraftingCase(
     id="revise",
     prompt="Kürze Punkt 3 des Aktenvermerks",
-    # An edit, not a rewrite: `write_file` here would be a second document with
-    # the same content, and the reader's version history would show a new file
-    # rather than a shortened paragraph.
     required_tools=("edit_file",),
     forbidden_tools=("write_file", "file_draft", SUBMITTING),
     seed={_FILE_NOTE: _SEEDED_DRAFT},
@@ -117,8 +61,6 @@ FILE = DraftingCase(
     id="file",
     prompt="Leg den Aktenvermerk ins Projekt ab",
     required_tools=("file_draft",),
-    # Filing is not submitting. „Ablegen" asks nobody to review anything, and
-    # a turn that submits has put an item in a colleague's inbox uninvited.
     forbidden_tools=(SUBMITTING,),
     seed={_FILE_NOTE: _SEEDED_DRAFT},
     card=FILED,
@@ -126,13 +68,10 @@ FILE = DraftingCase(
 
 DRAFTING_CASES: tuple[DraftingCase, ...] = (COMMISSION, REVISE, FILE)
 
-#: The path the seeded cases hand the model, so a test that needs to name it
-#: (a scripted tool call) and the seed itself cannot disagree.
 SEEDED_DRAFT_PATH = _FILE_NOTE
 
 
 def draft_cards(cards: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Just the ``document_draft`` cards, in the order the reader sees them."""
     return [card for card in cards if card.get("type") == "document_draft"]
 
 
@@ -144,15 +83,6 @@ def assert_turn_shape(
     answer_meta: dict[str, Any] | None,
     escalated: bool,
 ) -> None:
-    """The whole shape of a drafting turn. Raises ``AssertionError`` with the trace.
-
-    Args:
-        case: Which of the three.
-        called_tools: Tool names the turn called, in order.
-        cards: The turn's card registry snapshot.
-        answer_meta: The gated envelope anatomy from the state, or ``None``.
-        escalated: Whether the envelope asked for deep research.
-    """
     for name in case.required_tools:
         assert name in called_tools, f"{case.id}: {name} was never called; trace was {called_tools}"
     for name in case.forbidden_tools:
@@ -164,8 +94,6 @@ def assert_turn_shape(
     filed = latest.get("document_id") is not None
     assert filed is (case.card == FILED), f"{case.id}: card filed={filed}, expected {case.card}: {latest}"
     if case.card == FILED:
-        # The three travel together or the card cannot offer the two controls
-        # that make a filed draft actionable.
         assert latest.get("version_id") and latest.get("version_state"), latest
 
     assert escalated is False, f"{case.id}: a drafting turn handed itself to deep research"

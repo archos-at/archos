@@ -28,7 +28,6 @@ describe('UploadSummaryView', () => {
     expect(within(tile('ready')).getByText(filesCopy.messages.en.status.ready)).toBeInTheDocument()
     expect(within(tile('reading')).getByText(filesCopy.messages.en.status.processing)).toBeInTheDocument()
     expect(within(tile('quarantined')).getByText('1')).toBeInTheDocument()
-    // One document whose reading failed, one upload that never arrived.
     expect(within(tile('failed')).getByText('2')).toBeInTheDocument()
     expect(within(tile('unchanged')).getByText('4')).toBeInTheDocument()
     expect(within(tile('excluded')).getByText('4')).toBeInTheDocument()
@@ -69,8 +68,6 @@ describe('UploadSummaryView', () => {
   it('names the excluded terms with their counts and never a file', () => {
     render(<UploadSummaryView summary={MIXED_SUMMARY} />)
     const excluded = screen.getByTestId('upload-summary-excluded')
-    // The name check's word, and true of every stop it counts: the browser's, the
-    // server's and an e-mail import's (ADR-0086). Never „held back“.
     expect(within(excluded).getByText('The name check did not upload these files', { exact: false })).toBeInTheDocument()
     expect(excluded).not.toHaveTextContent(/held back|kept back/i)
     const terms = within(excluded).getByRole('list', { name: uploadBatchesCopy.messages.en.summary.excluded.listLabel })
@@ -91,11 +88,9 @@ describe('UploadSummaryView', () => {
   it('shows the document type and the other tags of a file, and its summary', () => {
     render(<UploadSummaryView summary={MIXED_SUMMARY} />)
     const row = screen.getByTestId('upload-file-doc-grundriss-eg')
-    // A tag still stored in German reads as its translation in English (`tagLabel`).
     expect(within(row).getByTitle(filesCopy.messages.en.preview.indexed.documentType)).toHaveTextContent('Floor plan')
     expect(within(row).getByText('Safety in use and accessibility')).toBeInTheDocument()
     expect(within(row).getByTestId('upload-file-summary-doc-grundriss-eg')).toHaveTextContent('Einreichplan Erdgeschoss')
-    // The types section counts the detected types across the batch.
     expect(within(screen.getByTestId('upload-summary-types')).getByText('Floor plan')).toBeInTheDocument()
   })
 
@@ -111,11 +106,9 @@ describe('UploadSummaryView', () => {
     expect(within(quarantine).getByText(filesCopy.messages.en.ingestFailure.quarantined)).toBeInTheDocument()
   })
 
-  // T4.2: the uploader of a file held back can ask the people who may release it.
   describe('„Prüfung anfragen" on a file held back', () => {
     afterEach(() => vi.unstubAllGlobals())
 
-    /** The access read answers „ask", as it does for an uploader who may not decide. */
     const stubAsk = (notified: number) =>
       vi.stubGlobal(
         'fetch',
@@ -170,7 +163,6 @@ describe('UploadSummaryView', () => {
       stubAsk(1)
       render(<UploadSummaryView summary={MIXED_SUMMARY} />)
       expect(screen.queryByTestId('upload-file-request-release-doc-grundriss-eg')).not.toBeInTheDocument()
-      // Failed after its check passed (read by its name): nothing is held.
       expect(screen.queryByTestId('upload-file-request-release-doc-scan')).not.toBeInTheDocument()
     })
 
@@ -232,7 +224,6 @@ describe('useUploadSummary', () => {
       expect(result.current.state).toMatchObject({ status: 'ready', summary: { completedAt: SETTLED_SUMMARY.completedAt } })
     )
 
-    // Completed: nothing is asked for again, however long the dialog stays open.
     await act(() => vi.advanceTimersByTimeAsync(UPLOAD_SUMMARY_POLL_MS * 3))
     expect(fetchMock).toHaveBeenCalledTimes(3)
   })
@@ -308,9 +299,7 @@ describe('UploadSummaryDialog', () => {
       'href',
       `/app/projects/${FIXTURE_PROJECT_ID}/files`
     )
-    // The settled fixture holds a file back: "everything has been read" would be untrue of it.
     expect(screen.getByTestId('upload-summary-state')).toHaveTextContent(uploadBatchesCopy.messages.en.summary.state.doneHeld)
-    // Settled is settled: no clock that reads as still working.
     expect(screen.getByTestId('upload-summary-state').querySelector('svg')).toBeNull()
   })
 

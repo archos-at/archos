@@ -33354,6 +33354,10 @@
                                                     "label"
                                                   ],
                                                   "additionalProperties": false
+                                                },
+                                                "assumedWhenUnstated": {
+                                                  "type": "string",
+                                                  "pattern": "^[a-z][a-z0-9_]{0,63}$"
                                                 }
                                               },
                                               "required": [

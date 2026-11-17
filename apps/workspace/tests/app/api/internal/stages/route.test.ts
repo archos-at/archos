@@ -3,8 +3,6 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-// `@/lib/api/handler` reaches the AuthKit session module transitively; the
-// internal-token routes never use it, and it does not load under vitest.
 vi.mock('@/lib/auth/require-auth', () => ({
   requireAuthorizedSession: vi.fn(),
 }))
@@ -63,7 +61,6 @@ describe('GET /api/internal/stages', () => {
     const active = await GET(makeRequest(`?organizationId=org_123&projectId=${PROJECT}`, REAL_TOKEN))
     await expect(active.json()).resolves.toMatchObject({ features: { deepResearch: true, tasks: true } })
 
-    // Another organization's project decides nothing here.
     vi.mocked(findProjectTenancy).mockResolvedValue({ organizationId: 'org_other', deletedAt: null, status: 'closed' })
     const foreign = await GET(makeRequest(`?organizationId=org_123&projectId=${PROJECT}`, REAL_TOKEN))
     await expect(foreign.json()).resolves.toMatchObject({ features: { deepResearch: true, tasks: true } })
@@ -80,9 +77,6 @@ describe('GET /api/internal/stages', () => {
   })
 
   it('serves each capability the answering agent may not offer', async () => {
-    // The whole point of `features`: the agent reads it BEFORE writing the
-    // answer, so a tenant is never handed a plan or an Auftrag that the route
-    // behind it would refuse.
     mockDeepResearch.mockResolvedValue(false)
     mockTasks.mockResolvedValue(false)
 

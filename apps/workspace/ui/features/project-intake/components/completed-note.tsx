@@ -9,13 +9,8 @@ import { useTranslations } from '@/i18n'
 import { projectIntakeCopy } from '@/i18n/namespaces/project-intake'
 import type { IntakeView } from '@/lib/project-intake/types'
 
-/** `2019-03` as the office writes a month: `03/2019`. */
 export const formatMonth = (month: string): string => `${month.slice(5, 7)}/${month.slice(0, 4)}`
 
-/**
- * The finished state, where the page's attention goes once nothing is left to
- * decide: what happened, and the way on to the project's overview.
- */
 export function CompletedNote({ view }: { view: IntakeView }): JSX.Element {
   const t = useTranslations(projectIntakeCopy)
   return (

@@ -1,12 +1,3 @@
-"""Captioned tables are indexed as tables, not as text read across their columns.
-
-OIB-Richtlinie 2's Tabelle 3 reached the agent as „an der obersten an der
-obersten an der obersten Stelle …" and cost the September 2026 census three
-research rounds. These pin the pure half: fragments joined across pages, the
-header repeated in every chunk, a two-row header merged so each column still
-names what it holds, and the per-page path keeping a table rather than losing it.
-"""
-
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -83,7 +74,6 @@ def test_a_guideline_indexes_its_table_as_an_addressable_passage():
 
 
 def test_the_row_group_order_is_not_embedded_or_shown_to_the_model():
-    """``table_part`` orders row groups for ``read_passage``; it is no retrieval signal."""
     from llama_index.core.schema import MetadataMode
 
     body = "\n".join(f"{n} Punkt Nummer {n}\nText zu Punkt {n}, lang genug um zu zählen." for n in range(1, 8))
@@ -131,13 +121,6 @@ class _FakeRegion:
 
 
 class _FakePage:
-    """A pdfplumber page: its tables, and the caption text standing above them (if any).
-
-    ``within_bbox`` refuses a region outside the page's box, as pdfplumber does. The
-    fake once accepted any region, so a crop built from ``(0, 0)`` passed here and
-    failed on every page whose box does not start at the origin.
-    """
-
     def __init__(self, tables=(), caption="", bbox=(0, 0, 600, 842)):
         self._tables = list(tables)
         self._caption = caption
@@ -159,14 +142,10 @@ class _FakePage:
     def extract_text(self):
         return "Fließtext."
 
-    def close(self):
-        """pdfplumber's ``Page.close``: both passes close every page they read."""
+    def close(self): ...
 
 
 def test_a_captionless_box_pages_later_does_not_continue_an_old_table(monkeypatch):
-    """Tabelle 3 on p.3, nothing on p.4, a caption-less ruled box at the top of
-    p.9: the box used to be appended to Tabelle 3 because the last table was
-    remembered across every page after it."""
     import pdfplumber
     from knowledge_layer.ingest.adapter import _extract_text_from_pdf
 
@@ -197,8 +176,6 @@ def test_a_captionless_box_pages_later_does_not_continue_an_old_table(monkeypatc
 
 
 def test_the_table_pass_skips_what_the_captioned_pass_took(monkeypatch):
-    """EXTRACT_TABLES read every pdfplumber table again: Tabelle 3 stood in
-    the index twice, as „Tabelle 3" and as „[TABLE from page 1]"."""
     import pdfplumber
     from knowledge_layer.ingest.adapter import _extract_tables_from_pdf
     from knowledge_layer.ingest.adapter import _extract_text_from_pdf
@@ -231,9 +208,6 @@ def test_the_table_pass_skips_what_the_captioned_pass_took(monkeypatch):
 
 
 def test_a_page_whose_box_is_not_at_the_origin_still_reads_its_tables():
-    """A CAD export's sheet, box (-1162, 1275, 1162, 3826): the caption region was built
-    from x 0 and page.width, pdfplumber refused it, and every table on the page went
-    unread (2026-10, ``WR_25003_P1240_0.pdf``)."""
     from knowledge_layer.ingest import extract_page_tables
 
     box = (-1162.2, 1275.54, 1162.2, 3826.62)
@@ -270,8 +244,6 @@ def test_only_the_next_page_can_continue_a_table():
 
 
 def test_a_continuation_on_its_own_page_keeps_its_first_row_as_data():
-    """The per-page path renders a continuation without its table; its first
-    row is a requirement, not the column labels."""
     first_row = ["4.1 in Treppenhäusern", "R 60", "R 60", "R 90"]
     fragment = PageTable("3", "Anforderungen", [first_row, ["4.2 Wände", "R 30", "R 30", "R 60"]], 31, True)
 
@@ -283,9 +255,6 @@ def test_a_continuation_on_its_own_page_keeps_its_first_row_as_data():
 
 
 def test_a_captioned_table_is_cited_by_its_page_not_as_table_1():
-    """Every captioned table carried no ``table_index`` and was cited
-    „<file>, p.N, Table 1", whichever table it was, under a key no other hit
-    on that page renders."""
     from knowledge_layer.search import LlamaIndexRetriever
     from llama_index.core.schema import NodeWithScore
     from llama_index.core.schema import TextNode
@@ -302,9 +271,6 @@ def test_a_captioned_table_is_cited_by_its_page_not_as_table_1():
 
 
 def test_a_table_page_counts_its_table_as_text_for_the_visual_page_check():
-    """A page that is mostly a captioned table kept only its caption-free prose
-    in ``text``, fell under the visual-page threshold and was VLM-captioned as a
-    drawing (oib-rl_2 pages 29, 31, 33, 34), competing with the table's chunks."""
     from knowledge_layer.ingest import VISUAL_PAGE_MIN_TEXT_CHARS
     from knowledge_layer.ingest import page_texts_for_visual_heuristic
 

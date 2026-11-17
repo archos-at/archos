@@ -1,13 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * `mergeMessageMetadata` is what keeps two clients from erasing each other's
- * card decisions. Each client PATCHes the whole `cardInteractions` map IT knows
- * about, so a plain top-level merge lets the second overwrite the first — which
- * resurrects a settled card and re-invites the duplicate write the whole
- * mechanism exists to prevent (ADR-0030).
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const selectedRow = vi.hoisted(() => ({ current: null as unknown }))
@@ -62,10 +55,6 @@ describe('mergeMessageMetadata', () => {
   })
 
   it('reads and writes in one transaction, holding the row lock across the merge', async () => {
-    // The merge itself runs in JS, so the read and the write must be one
-    // serialized unit — otherwise two PATCHes read the same snapshot and the
-    // later write drops the earlier decision, which is the lost update this
-    // whole deep merge exists to prevent.
     selectedRow.current = { id: 'm1', metadata: { cardInteractions: { a: 1 } } }
 
     await mergeMessageMetadata('conv_1', 'm1', { cardInteractions: { b: 2 } }, ['cardInteractions'])
@@ -125,7 +114,6 @@ describe('mergeMessageMetadata', () => {
   })
 
   it('lets the newer write win for the SAME card key', async () => {
-    // Per-entry last-writer-wins is correct: one card is decided once.
     selectedRow.current = {
       id: 'm1',
       metadata: { cardInteractions: { 'memory_proposal-0': { decision: 'dismissed', decidedAt: DECIDED_AT } } },
@@ -152,9 +140,6 @@ describe('mergeMessageMetadata', () => {
   })
 
   it('strips NUL bytes before the write: jsonb rejects U+0000 (#581)', async () => {
-    // Extracted document text can carry a stray NUL into cards or citations,
-    // and the merge re-writes that stored content on every PATCH — so the
-    // strip happens here, at the SQL boundary, not in the PATCH sanitizers.
     selectedRow.current = {
       id: 'm1',
       metadata: { cards: [{ type: 'summary', content: 'a\u0000extract' }] },

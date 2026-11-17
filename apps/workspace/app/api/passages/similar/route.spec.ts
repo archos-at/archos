@@ -28,7 +28,6 @@ import { findSimilarPassages } from '@/lib/similar-passages/service'
 import type { SimilarPassagesRequest, SimilarPassagesResponse } from '@/lib/similar-passages/types'
 import { POST } from './route'
 
-/** The client's fetch, answered by the real handler. */
 const throughRoute: typeof fetch = async (input, init) => {
   expect(String(input)).toBe(SIMILAR_PASSAGES_PATH)
   const request = new NextRequest(`https://grid.test${String(input)}`, init as ConstructorParameters<typeof NextRequest>[1])

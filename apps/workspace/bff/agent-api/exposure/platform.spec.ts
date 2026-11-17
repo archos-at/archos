@@ -1,15 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The door split (ADR-0160): every console operation is platform-public or
- * tenant content, and no tenant-content operation is reachable by an agent.
- * The platform door is where an operator's agent (Claude onboarding a country)
- * works, and its vendor is no processor of tenant content, so these cases hold
- * the line at each layer an agent meets: the config, the policy that reads it,
- * and the real MCP server on the platform door, listing, searching, describing
- * and calling.
- */
 
 import { webcrypto } from 'node:crypto'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -38,11 +29,6 @@ const isRetired = (name: string) => entries[name]?.withheld?.category === 'produ
 const PLATFORM_OPERATIONS = AGENT_OPERATIONS.filter((op) => op.domain === 'platform')
 const TENANT_CONTENT = PLATFORM_OPERATIONS.filter((op) => isTenantContent(op.name)).map((op) => op.name)
 
-/**
- * The console operations that read what offices wrote, or change their state, as of ADR-0160. Pinned
- * here, so that flipping one to platform-public is a change to this spec too,
- * read in review, never a one-word edit of the config alone.
- */
 const KNOWN_TENANT_CONTENT = [
   'platform-answer-feedback-digest-get',
   'platform-answer-feedback-export',
@@ -66,11 +52,6 @@ const KNOWN_TENANT_CONTENT = [
   'platform-vectors-reconcile',
 ]
 
-/**
- * Console routes whose path says they read offices' turns, votes, reports or
- * lessons. A new operation on one of them is tenant content until someone
- * argues otherwise in this spec.
- */
 const TENANT_CONTENT_PATH = /^\/api\/platform\/(feedback|answer-feedback|lessons|profiler|quality|citation-health|conversations)(\/|$)/
 
 const session = {
@@ -128,7 +109,6 @@ describe('a retired console write is on no door (ADR-0175)', () => {
   it('withholds the norm registry update, which only answers 409 now', () => {
     expect(isRetired('platform-norm-registry-update')).toBe(true)
     expect(isOnDoor('platform-norm-registry-update', 'platform')).toBe(false)
-    // Reading the registry still is the platform's own data.
     expect(isOnDoor('platform-norm-registry-get', 'platform')).toBe(true)
   })
 })
@@ -143,7 +123,6 @@ describe('no tenant-content operation is reachable by an agent', () => {
     }
   })
 
-  // The in-product agent is the `agent` audience above: `canSee` asks `isExposedTo` for it first.
   it('is invisible to the operator’s agent and to an office’s agent, as if it did not exist', () => {
     for (const op of PLATFORM_OPERATIONS.filter((candidate) => isTenantContent(candidate.name))) {
       for (const principal of [operatorAgent, officeAgent]) {
@@ -204,15 +183,12 @@ describe('the platform door, through the real MCP server', () => {
       const called = await rpc('search', 'tools/call', { name: 'call-operation', arguments: { name, input: {} } })
       const direct = await rpc('tools', 'tools/call', { name, arguments: {} })
       for (const text of [described, called]) expect(text, name).toContain(`Unknown operation`)
-      // Not listed, so the SDK refuses it before any handler of ours runs.
       expect(direct, name).toContain(`Tool ${name} not found`)
-      // Not even as a hint: a refusal suggests only what the door offers.
       for (const text of [described, called, direct]) expect(mentionsTenantContent(text.replaceAll(name, '')), name).toEqual([])
     }
     expect(callOperation).not.toHaveBeenCalled()
   })
 
-  // Positive controls: the door is not simply refusing everything.
   it('finds and runs a platform-public operation on the same paths', async () => {
     const found = await rpc('search', 'tools/call', { name: 'search-operations', arguments: { query: 'norm registry' } })
     expect(found).toContain('platform-norm-registry-get')

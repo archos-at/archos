@@ -32,7 +32,6 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 
 vi.mock('server-only', () => ({}))
 
-/** The question's vector, as the embedder would return it; null is an embedder that is down. */
 let queryVector: number[] | null = null
 const MODEL = 'test-embedder'
 vi.mock('@/lib/knowledge/embeddings', async (importOriginal) => ({
@@ -40,7 +39,6 @@ vi.mock('@/lib/knowledge/embeddings', async (importOriginal) => ({
   embedNote: async () => (queryVector ? { vector: queryVector, fingerprint: MODEL } : null),
 }))
 
-// Three axes of meaning, so a test can say what a vector is about: structural proof, fire protection, fees.
 const STATICS = [1, 0, 0]
 const FIRE = [0, 1, 0]
 const FEES = [0, 0, 1]
@@ -65,7 +63,6 @@ describe.skipIf(!url)('permit records against live Postgres', () => {
   let repo: typeof import('./repository')
   let live: typeof import('./live-access')
   const ids = { baden: '', moedling: '', other: '', foreign: '' }
-  // A real folder with its own access list, in Mödling: the restricted record's document sits in it.
   let FOLDER = ''
 
   const inOrg = <T>(organizationId: string, run: () => PromiseLike<T>) => withTenant({ organizationId, userId: USER }, run)
@@ -81,7 +78,6 @@ describe.skipIf(!url)('permit records against live Postgres', () => {
     )
   }
 
-  /** An upload the ingest read to the end and the screen let through, as a document with a record is. */
   async function document(organizationId: string, projectId: string, filename: string): Promise<string> {
     return first(
       await inOrg(organizationId, () =>
@@ -144,11 +140,9 @@ describe.skipIf(!url)('permit records against live Postgres', () => {
       return { records: Number(rows.records), requirements: Number(rows.requirements) }
     })
 
-  /** A folder with its own access list (one role, not every member): it restricts reading. */
   async function customFolder(projectId: string, name: string): Promise<string> {
     return first(
       await inOrg(ORG, () =>
-        // Its own list; who is on it is WorkOS's (ADR-0097).
         db.execute<{ id: string }>(sql`
           insert into project_folders (organization_id, project_id, name, path, access_mode, access_changed_by, access_changed_at)
           values (${ORG}, ${projectId}::uuid, ${name}, ${name}, 'custom', ${USER}, now())
@@ -157,7 +151,6 @@ describe.skipIf(!url)('permit records against live Postgres', () => {
     )
   }
 
-  // The scopes as the cross-project service builds them: each project's folders judged now, from the clearance.
   const search = (
     organizationId: string,
     question: string,
@@ -199,7 +192,6 @@ describe.skipIf(!url)('permit records against live Postgres', () => {
     ], { authority: 'Stadtgemeinde Baden', municipality: 'Baden' })
     await store(ORG, ids.moedling, await document(ORG, ids.moedling, 'Mängelbehebung_Moedling.pdf'), 'Mängelbehebung_Moedling.pdf', [
       requirement('Fluchtwegbreiten sind in allen Grundrissen zu bemaßen.', { vector: FIRE, kind: 'information_request' }),
-      // The same meaning from another embedder: noise of the right shape, never compared.
       requirement('Tragwerk nachweisen.', { vector: STATICS, model: 'another-embedder' }),
     ], { authority: 'Stadtgemeinde Mödling', municipality: 'Mödling' })
     FOLDER = await customFolder(ids.moedling, `Honorare_${STAMP}`)
@@ -260,7 +252,6 @@ describe.skipIf(!url)('permit records against live Postgres', () => {
       const documentId = await document(ORG, ids.other, 'Bleibt.pdf')
       await store(ORG, ids.other, documentId, 'Bleibt.pdf', [requirement('Bleibt bestehen.')])
 
-      // 1001 characters: the 0126 CHECK refuses it, after the old record was deleted inside the transaction.
       await expect(store(ORG, ids.other, documentId, 'Bleibt.pdf', [requirement('x'.repeat(1001))])).rejects.toThrow()
 
       expect(await counts(ORG, documentId)).toEqual({ records: 1, requirements: 1 })
@@ -310,7 +301,6 @@ describe.skipIf(!url)('permit records against live Postgres', () => {
 
       expect(await find(ORG, { collectionName, documentId, fileName: 'Suche.pdf' })).toMatchObject(found)
       expect(await find(ORG, { collectionName, fileName: 'Suche.pdf' })).toMatchObject(found)
-      // An id wins over the name: the id names the row.
       expect(await find(ORG, { collectionName, documentId, fileName: 'anderer-name.pdf' })).toMatchObject(found)
       expect(await find(ORG, { collectionName: 'proj_elsewhere', documentId, fileName: 'Suche.pdf' })).toBeNull()
       expect(await find(ORG, { collectionName: 'proj_elsewhere', fileName: 'Suche.pdf' })).toBeNull()
@@ -344,7 +334,6 @@ describe.skipIf(!url)('permit records against live Postgres', () => {
         legalBasis: null,
         page: 2,
       })
-      // Its words share nothing with the question and its vector is another model's: not found.
       expect(contents(found)).not.toContain('Tragwerk nachweisen.')
     })
 
@@ -357,7 +346,6 @@ describe.skipIf(!url)('permit records against live Postgres', () => {
     })
 
     it('reads a German name as one word: „Mödling" finds Mödling, not every requirement in metres', async () => {
-      // Folded to ASCII, „Mödling" was „m" + „dling", and „m" is in „40 m".
       queryVector = null
 
       expect((await search(ORG, 'Mödling')).map((record) => record.projectId)).toEqual([ids.moedling])
@@ -390,7 +378,6 @@ describe.skipIf(!url)('permit records against live Postgres', () => {
       const single = await search(ORG, 'Brandschutz Fluchtwege', {}, { maxPerRecord: 1 })
       queryVector = null
 
-      // Both records answer; each leads with the requirement about fire protection.
       expect(found.map((record) => record.projectId).sort()).toEqual([ids.baden, ids.moedling].sort())
       expect(found.find((record) => record.projectId === ids.baden)?.requirements[0].content).toBe('Das Brandschutzkonzept ist für die Fluchtwege bis 40 m zu ergänzen.')
       expect(found.find((record) => record.projectId === ids.moedling)?.requirements[0].content).toBe(
@@ -416,8 +403,6 @@ describe.skipIf(!url)('permit records against live Postgres', () => {
     })
 
     it('without an embedder still finds an old requirement behind 300 newer ones', async () => {
-      // Recency is the only SQL order the token channel has; a cut at the
-      // embedder's pool size would keep the newest rows and lose this one.
       const old = 'Die Kellerwände sind mit einer Perimeterdämmung aus XPS auszuführen.'
       await store(ORG, ids.baden, await document(ORG, ids.baden, 'Bescheid_alt.pdf'), 'Bescheid_alt.pdf', [requirement(old)])
       const newer = Array.from({ length: 300 }, (_, index) => requirement(`Hinweis ${index}: Baustellenzufahrt freihalten.`))
@@ -427,10 +412,8 @@ describe.skipIf(!url)('permit records against live Postgres', () => {
     })
 
     describe('a record is served only while its document still stands where it was read from', () => {
-      /** A fresh Baden document with its own record, served before the change under test. */
       async function storedNotice(name: string, content: string): Promise<string> {
         const documentId = await document(ORG, ids.baden, name)
-        // No vector: the token channel finds a question that repeats the requirement.
         await store(ORG, ids.baden, documentId, name, [requirement(content)])
         expect(contents(await search(ORG, content))).toContain(content)
         return documentId
@@ -443,8 +426,6 @@ describe.skipIf(!url)('permit records against live Postgres', () => {
       })
 
       it('goes quiet the moment its document is in a restricted folder, before placement moves its collection', async () => {
-        // The lag: a move (or a new access list) sets folder_id first, and placement re-points the
-        // collection later, or not yet while an ingest is in flight. The record still says "open".
         const content = 'Die Zufahrt für die Feuerwehr ist mit 3,5 m Breite herzustellen.'
         const documentId = await storedNotice('Bescheid_verschoben.pdf', content)
         const folderId = await customFolder(ids.baden, `Vertraulich_${STAMP}`)
@@ -453,10 +434,8 @@ describe.skipIf(!url)('permit records against live Postgres', () => {
 
         expect(contents(await search(ORG, content))).not.toContain(content)
         const cleared = await search(ORG, content, { [ids.baden]: [folderId] })
-        // A reader cleared for the folder is served it, and the hand-out records the folder it sits in NOW.
         expect(cleared.find((record) => record.fileName === 'Bescheid_verschoben.pdf')?.restrictedFolderIds).toEqual([folderId])
 
-        // Placement catches up: the citation names the collection the document is in now, not the one it was read from.
         const restrictedCollection = `proj_prm_${ids.baden}_r${folderId.replaceAll('-', '').slice(0, 12)}`
         await change(sql`update documents set collection_name = ${restrictedCollection}, status = 'completed' where id = ${documentId}::uuid`)
         const placed = await search(ORG, content, { [ids.baden]: [folderId] })
@@ -492,9 +471,6 @@ describe.skipIf(!url)('permit records against live Postgres', () => {
       })
 
       it('goes quiet while its document is held: the screen has not judged the bytes it holds now (ADR-0086)', async () => {
-        // Not quarantined, yet not past the screen either: new bytes the verdict did not
-        // judge, or an upload with no verdict that never settled. What a record says
-        // reaches the agent, so it is served only as SCREENED_ONLY serves a document.
         const replaced = 'Die Grünfläche ist mit mindestens drei Laubbäumen zu bepflanzen.'
         const unsettled = 'Der Spielplatz ist vor Bezug der Wohnungen herzustellen.'
         const first = await storedNotice('Bescheid_neue_Fassung.pdf', replaced)
@@ -515,7 +491,6 @@ describe.skipIf(!url)('permit records against live Postgres', () => {
   })
 
   describe('a project’s records as its reader sees them', () => {
-    // As the page asks: the reader's cleared folders, judged against each document's live folder.
     const list = (projectId: string, readable: string[], options = { maxRecords: 20, maxPerRecord: 4 }) =>
       inOrg(ORG, async () => {
         const access = await live.liveFolderAccess(ORG, projectId, readable)
@@ -558,7 +533,6 @@ describe.skipIf(!url)('permit records against live Postgres', () => {
     })
 
     it('leaves out a record whose document moved, sits in the Papierkorb or is archived', async () => {
-      // Its own project, so what the other tests store there cannot stand in for this one's records.
       const own = await project(ORG, 'Ablage')
       const name = (suffix: string) => `Ablage_${suffix}.pdf`
       const kept = await document(ORG, own, name('bleibt'))
@@ -573,7 +547,6 @@ describe.skipIf(!url)('permit records against live Postgres', () => {
       )
 
       const change = (statement: ReturnType<typeof sql>) => inOrg(ORG, () => db.execute(statement))
-      // Moved into a folder with its own list; placement has not re-pointed its collection yet.
       const restricted = await customFolder(own, `Vertraulich_list_${STAMP}`)
       await change(sql`update documents set folder_id = ${restricted}::uuid where id = ${moved}::uuid`)
       const [folder] = await change(sql`

@@ -61,6 +61,7 @@ export default async function AppLayout({ children }: AppLayoutProps): Promise<J
             showKnowledge={isProjectKnowledgePageEnabled(session)}
             showSkills={isSkillsEnabled(session)}
             canAccessOfficeShelf={navFlags.canAccessOfficeShelf}
+            canAccessOfficeStandards={navFlags.canAccessOfficeStandards}
             canCollaborate={navFlags.canCollaborate}
             canAccessInbox={navFlags.canAccessInbox}
             inboundMail={isInboundMailEnabled(session)}

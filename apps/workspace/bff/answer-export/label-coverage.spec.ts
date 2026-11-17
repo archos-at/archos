@@ -2,62 +2,8 @@
  * @vitest-environment node
  */
 
-/**
- * The guards that keep an exported document German.
- *
- * Four of them, all derived from `contracts/cards/schemas.json` and never from a
- * hand-written list:
- *
- *   1. every field name the walker can label has a word (`fields`);
- *   2. every card type that can head a block has a word (`cardTypes`);
- *   3. every per-path label override still names a field the schema has, and
- *      conditions only on a sibling that can hold the member it names
- *      (`fieldsByPath`);
- *   4. every member of every enum an exported card can carry has a word, and
- *      no word survives its member (`values`).
- *
- * `cards.ts` is a generic field walker: it labels every field it meets with
- * `t('fields.<name>')`. When that key is missing the translator answers with the
- * dot-path, and `fieldLabel` catches that and HUMANIZES the field name instead —
- * `current_step` becomes „Current step“, `to_value` becomes „To value“. Those
- * are readable, plausible, and English, printed inside a German compliance
- * document next to labels that ARE German („Fundstelle“, „Einheit“). Nothing
- * throws, nothing warns in production, and the file has already left the
- * product by the time anyone reads it.
- *
- * That degradation is deliberate and must stay: a stored card carrying a field
- * this build has never heard of has to export its DATA, and a thrown error or a
- * blank label would cost the reader a finding. So the fallback cannot be
- * removed — it has to be made unreachable for every field the catalogue can
- * actually produce, and kept unreachable. This file is the "kept" half.
- *
- * ## Derived from the schema, never from a list
- *
- * The field names come out of `contracts/cards/schemas.json` — the canonical card
- * schema generated from `models.py`, and the file `generated.ts` is itself
- * generated from. A hand-written list here would be exactly the mistake
- * `answer-document.spec.ts` already made once: its "every card in the
- * catalogue" was a claim about an array, not about the catalogue, and thirteen
- * card types sat outside it. A new card type must arrive here as a failing
- * assertion naming its untranslated fields, without anyone remembering to
- * extend anything.
- *
- * Same shape and same self-guard as `key-coverage.spec.ts`: one test asserts
- * the walk found something, because a traversal that silently stopped matching
- * would make every assertion around it pass over nothing at all.
- *
- * ## Only English is asserted
- *
- * Each German namespace is annotated `typeof en.<ns>`, so a key present in
- * English and missing in German is already a compile error. The gap this file
- * closes is the other one: a key missing from BOTH, which no type can see.
- */
-
 import { describe, expect, it } from 'vitest'
 import { answerExportCopy } from '@/i18n/namespaces/answer-export'
-// The canonical card JSON Schema, generated from `models.py`. Loaded at
-// runtime (it lives above the app root, outside the Docker build context) —
-// see the helper for why a static import breaks the production image build.
 import { loadCardJsonSchema } from '@/test-utils/card-json-schema'
 import { exportKindOf, SKIPPED_FIELDS } from './cards'
 
@@ -82,14 +28,12 @@ const document = cardJsonSchema as unknown as JsonSchemaDocument
 const defs = document.$defs
 const cardDefNames = document.oneOf.map((entry) => entry.$ref.split('/').pop() as string)
 
-/** The card type a `$def` describes, off its `type` literal. */
 const cardTypeOf = (defName: string): string | undefined => {
   const node = defs[defName]?.properties?.type
   const value = node?.const ?? node?.default
   return typeof value === 'string' ? value : undefined
 }
 
-/** Every `$def` this property can reach without leaving the field. */
 const referencedDefs = (node: JsonSchemaNode | undefined, found = new Set<string>(), depth = 0) => {
   if (!node || depth > 8) return found
   if (typeof node.$ref === 'string') found.add(node.$ref.split('/').pop() as string)
@@ -100,31 +44,10 @@ const referencedDefs = (node: JsonSchemaNode | undefined, found = new Set<string
   return found
 }
 
-/**
- * Every field name the walker can label, per card type.
- *
- * Recursive, because the walker is: `objectTable` heads a column with
- * `fieldLabel(key)` for every key of every row object, and `nestedText` writes
- * `fieldLabel(key): value` for a record inside a cell. So a name buried three
- * levels down (`calculation.steps[].operands[].factor`) reaches the document
- * exactly as a top-level one does.
- *
- * The exclusions mirror the walker precisely: `SKIPPED_FIELDS` at the card's own
- * level, and only the `type` discriminator below it.
- */
 const labelledFields = new Map<string, string[]>()
 
-/** Every payload path the walker can stand at, as it spells them. */
 const schemaPaths = new Set<string>()
 
-/**
- * The closed vocabularies, by the path they sit at.
- *
- * A `Literal` reaches the schema inlined as `enum`, wrapped in an `anyOf` when
- * the field is optional — so both forms are unwrapped here. This is the map the
- * value guard below is built from: it is the schema's own statement of what a
- * card may say, and nothing at runtime would notice a member missing a word.
- */
 const vocabularyAt = new Map<string, Set<string>>()
 
 const enumMembers = (node: JsonSchemaNode | undefined, depth = 0): Set<string> => {
@@ -154,20 +77,12 @@ const collect = (defName: string, path: string, top: boolean, seen: Set<string>)
   }
 }
 
-/** Card types the document actually renders, by what they contribute to it. */
 const exportedTypes: string[] = []
 const walkedTypes: string[] = []
 for (const defName of cardDefNames) {
   const type = cardTypeOf(defName)
   if (!type) continue
   const kind = exportKindOf(type)
-  // Chrome contributes nothing at all, so it can carry no label. A live card
-  // prints its title and one fixed sentence — a heading, but no fields. A
-  // `diagram` prints its title, the fence's own label, the source, the caption
-  // and the Fundstelle, none of which the WALKER labels: the caption and the
-  // source stand on their own (a caption under a label is not a caption), and
-  // the Fundstelle reuses `fields.reference`, which every other card already
-  // demands. So all three head a block and only `content` is walked.
   if (kind === 'chrome') continue
   exportedTypes.push(type)
   if (kind === 'content') {
@@ -180,7 +95,6 @@ const fields = answerExportCopy.messages.en.fields as Record<string, string | un
 const cardTypes = answerExportCopy.messages.en.cardTypes as Record<string, string | undefined>
 const values = answerExportCopy.messages.en.values as Record<string, Record<string, string | undefined>>
 
-/** `{a: {b: 'x'}}` → `a.b`. The dictionary's own nesting mirrors the payload. */
 const flattenKeys = (node: unknown, prefix: string, into: Set<string>): Set<string> => {
   if (typeof node === 'string') {
     into.add(prefix)
@@ -196,7 +110,6 @@ const flattenKeys = (node: unknown, prefix: string, into: Set<string>): Set<stri
 
 const overrideKeys = [...flattenKeys(answerExportCopy.messages.en.fieldsByPath, '', new Set<string>())].sort()
 
-/** `calculation.limit.value?comparator=between` → its three parts. */
 const parseOverride = (key: string) => {
   const [path, condition] = key.split('?')
   const [sibling, member] = condition ? condition.split('=') : []
@@ -219,10 +132,6 @@ describe('every label an exported card can print is a translated word', () => {
   })
 
   it('names every card type, for the cards that carry no title of their own', () => {
-    // `legal_basis` and `verdict_header` have no `title` field at all, and
-    // `callout`, `key_takeaways` and the rest carry an optional one — but the
-    // fallback is reachable for EVERY type, because a stored card is untrusted
-    // jsonb whose `title` may be absent or blank whatever the schema says.
     const humanized = exportedTypes.filter((type) => typeof cardTypes[type] !== 'string')
 
     expect(
@@ -234,32 +143,15 @@ describe('every label an exported card can print is a translated word', () => {
   })
 
   it('is actually walking the catalogue', () => {
-    // Guards the guard: a traversal that stopped following `$ref`s, or a
-    // classification that called everything chrome, would leave the assertions
-    // above asserting nothing.
     expect(walkedTypes.length).toBeGreaterThan(8)
     expect(labelledFields.size).toBeGreaterThan(50)
-    // The deep path is the one a shallower walk would lose first.
     expect(labelledFields.get('factor')).toContain('calculation.steps.operands.factor')
-    // Same for the vocabularies: a `enumMembers` that stopped unwrapping
-    // `anyOf` would silently stop asking for words for every optional enum.
     expect(vocabularyAt.size).toBeGreaterThan(15)
     expect(vocabularyAt.get('calculation.limit.comparator')).toContain('between')
     expect(vocabularyAt.get('stair_diagram.riser_height.status')).toContain('needs_input')
   })
 })
 
-/**
- * The guard on the per-path label overrides.
- *
- * `fieldsByPath` is the one departure from the dictionary's one-entry-per-name
- * rule, and it is keyed on a path the SCHEMA owns — `calculation.limit.value`
- * exists because `CalculationCard.limit` is a `CalculationLimit` with a `value`.
- * Rename either and the override stops applying, silently, and the field goes
- * back to the flat map's „Ist“ over a limit. So every key is resolved here: an
- * override mechanism that can rot without anyone noticing is worse than the bug
- * it was added for.
- */
 describe('every per-path label override still points at a field that exists', () => {
   it('names a path the card schema has', () => {
     const dangling = overrideKeys
@@ -300,9 +192,6 @@ describe('every per-path label override still points at a field that exists', ()
   })
 
   it('does not condition one path on two different siblings', () => {
-    // `overrideKey` in cards.ts walks the record's own keys and takes the first
-    // variant that matches, so two variants keyed on different siblings would
-    // resolve by jsonb key order — which Postgres does not preserve.
     const siblingsPerPath = new Map<string, Set<string>>()
     for (const key of overrideKeys) {
       const { path, sibling } = parseOverride(key)
@@ -317,23 +206,7 @@ describe('every per-path label override still points at a field that exists', ()
   })
 })
 
-/**
- * The guard that keeps a payload's own vocabulary out of the document.
- *
- * The walker prints what the card says. `direction: 'tightens'` is not a word a
- * Behörde reads, and the card charter forbids a card whose meaning only the
- * pixels carry (§D5) — so every member of every `Literal` in `models.py` that
- * an exported card can reach needs a word in `answerExport.values`.
- *
- * Derived from the schema for the same reason as the label guard above: a
- * member added to a `Literal` has to arrive here as a failing assertion naming
- * it, not as an English word in a German Bauakt that nobody notices until the
- * file has left the product. The reverse direction is asserted too — a word for
- * a member no card can emit any more is dead weight that hides the next real
- * gap.
- */
 describe('every value an exported card can print is a translated word', () => {
-  /** field name → the members every card that has that field can hold. */
   const reachable = new Map<string, Set<string>>()
   for (const [path, members] of vocabularyAt) {
     const name = path.split('.').pop() as string

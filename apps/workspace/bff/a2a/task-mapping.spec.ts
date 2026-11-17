@@ -1,8 +1,3 @@
-/**
- * An ask as an A2A task, and an A2A message as an ask (ADR-0124): the mapping
- * table in `task-mapping.ts`, pinned.
- */
-
 import { Role, TaskState, type Message } from '@a2a-js/sdk'
 import { describe, expect, it } from 'vitest'
 import { ASK_STATES, type AskView } from '@/lib/agent-asks/ask-wire'

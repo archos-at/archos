@@ -9,21 +9,6 @@ import { SIGNED_INTERNAL_PREFIX } from '@/lib/api/handler'
 import { MAX_SIGNATURE_LIFETIME_S, REQUIRED_COVERED_COMPONENTS, requireInternalSignature, SIGNATURE_ALGORITHM } from '@/lib/internal-auth'
 import { contentDigestOf, signedHeaders } from '@/test-utils/signed-request'
 
-/**
- * The BFF's half of the inbound-mail signature vectors
- * (`contracts/inbound-mail-signature.json`). The Worker's half is
- * `deploy/pulumi/src/platform/inbound-mail-worker.spec.ts`, which makes the
- * Worker's hand-written WebCrypto signer produce every vector's request byte
- * for byte. Here the same requests must pass `requireInternalSignature`, and
- * the library this repo verifies with must produce the same signature from
- * the same inputs. Between them, the Worker and the BFF cannot drift apart
- * without one of the two specs failing.
- *
- * The JSON files live above the app root, outside the image's build context,
- * so they are read at runtime, never imported (`test-utils/card-json-schema.ts`
- * says why).
- */
-
 interface Vector {
   readonly name: string
   readonly keyId: string
@@ -74,7 +59,6 @@ function useVector(vector: Vector, secondsAfterCreated = 1): void {
   vi.spyOn(console, 'warn').mockImplementation(() => undefined)
 }
 
-/** The request the Worker sends, as the vector pins it. `content-length` is set by the runtime. */
 function workerRequest(vector: Vector, overrides: Record<string, string> = {}): Request {
   const headers = { ...vector.expected.headers, ...overrides }
   return new Request(vector.expected.url, {
@@ -154,8 +138,6 @@ describe('the inbound-mail signature vectors, against the BFF', () => {
   })
 
   it('decodes every envelope case the Worker encodes', () => {
-    // The BFF reads the envelope headers back with decodeURIComponent, and a
-    // null reverse-path as the contract's marker.
     for (const { address, header } of CONTRACT.envelopeEncoding.cases) {
       expect(header === CONTRACT.envelopeEncoding.nullSender ? '' : decodeURIComponent(header)).toBe(address)
     }

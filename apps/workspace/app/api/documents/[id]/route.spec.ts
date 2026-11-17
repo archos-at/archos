@@ -57,7 +57,6 @@ const read = (id: string) =>
     params: Promise.resolve({ id }),
   })
 
-// A link to a document the paged Files level has not loaded (ADR-0102).
 describe('GET /api/documents/[id]', () => {
   beforeEach(() => vi.clearAllMocks())
 

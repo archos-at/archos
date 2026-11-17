@@ -1,9 +1,3 @@
-"""Tests for the admin-managed norm registry store.
-
-Uses a throwaway SQLite file per test. The ``set_db_loader`` integration tests
-MUST unset the loader in teardown so registry state does not leak across tests.
-"""
-
 from __future__ import annotations
 
 import pytest
@@ -30,7 +24,6 @@ def store(db_url):
 
 @pytest.fixture(autouse=True)
 def _clear_registry_state():
-    """Never let a registered db loader / cached registry leak between tests."""
     yield
     norm_registry.set_db_loader(None)
     norm_registry.reset_registry_cache()
@@ -62,7 +55,6 @@ def test_seed_from_yaml_if_empty_seeds_then_idempotent(store):
     assert norms_file is not None
     assert version == 1
     assert norms_file.entries  # YAML seed has real entries
-    # Second call is a no-op (row already present).
     assert store.seed_from_yaml_if_empty() is False
     _, version_again = store.get()
     assert version_again == 1
@@ -85,9 +77,7 @@ def test_put_get_roundtrip_and_version_increment(store):
 
 def test_put_version_conflict_returns_none(store):
     store.put(_sample_norms_file())  # -> version 1
-    # Caller thinks it is still at version 0.
     assert store.put(_sample_norms_file(), expected_version=0) is None
-    # Stored version is unchanged.
     _, version = store.get()
     assert version == 1
 
@@ -110,7 +100,6 @@ def test_configure_registers_loader_and_falls_back_to_yaml(db_url):
         assert store is not None
         assert norm_store.get_norm_store() is store
 
-        # A distinctive entry only present in the store proves the loader is live.
         custom = NormsFile(
             entries=[
                 NormEntry(
@@ -130,7 +119,6 @@ def test_configure_registers_loader_and_falls_back_to_yaml(db_url):
         assert registry is not None
         assert any(e.id == "only-in-store" for e in registry.entries)
 
-        # Deleting the row makes the loader return None -> YAML seed fallback.
         engine = create_engine(db_url.replace("+aiosqlite", ""))
         with engine.begin() as conn:
             conn.execute(text("DELETE FROM norm_registry WHERE country = 'at'"))
@@ -147,7 +135,6 @@ def test_configure_registers_loader_and_falls_back_to_yaml(db_url):
 
 
 def test_a_row_stored_with_german_keys_is_rewritten_in_place(store, db_url):
-    """Remove with ``NormRegistryStore._rewrite_legacy_keys``."""
     legacy = (
         '{"entries": [{"id": "bo-wien", "title": "BO", "short": "BO", "rank": "state_law", "bundesland": "Wien",'
         ' "verify": {"title_query": "Bauordnung", "gesetzesnummer": "20000006"}}]}'

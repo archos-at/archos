@@ -64,7 +64,6 @@ describe('a text the reader did not answer for', () => {
     expect(Buffer.from(body).toString()).not.toContain('zzzzzzzzzzzz')
     expect(recordReread).toHaveBeenCalledWith(MAIL, expect.objectContaining({ readStorageKey: key, riskFlags: [], contentFindings: ['iban'] }))
     expect(queueSenderFiling).toHaveBeenCalledWith(MAIL)
-    // The reader is given only what the sweep has left of its budget (R3).
     expect(readMail).toHaveBeenCalledWith('http://store.test/raw', LEFT_MS)
   })
 

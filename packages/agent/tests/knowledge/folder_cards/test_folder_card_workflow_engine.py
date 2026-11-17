@@ -1,17 +1,3 @@
-"""The folder card tasks on a real Hatchet engine: what the claim queue did, now the engine's.
-
-Runs only when ``HATCHET_CLIENT_TOKEN`` and ``HATCHET_CLIENT_HOST_PORT`` name an engine
-(CI's ``Hatchet engine tests`` job starts ``hatchet-lite``); skipped otherwise. Each run
-gets its own namespace, so it shares the engine with nothing.
-
-One worker process (``agent_testing.folder_cards_engine_worker``) serves the real tasks
-beside the ingest workflow, as the standard ingest worker does: one standard slot, where
-``agent_testing.orchestrator_engine_worker`` scripts the documents, and the builder's
-durable slots. Only one folder's build is scripted. The tests mark folders dirty in the
-database both processes share, start runs as the sweep does (or wait for the engine's own
-cron), and read the dirty set and the worker's log of each build.
-"""
-
 from __future__ import annotations
 
 import os
@@ -33,7 +19,6 @@ _WAIT_SECONDS = 120
 
 @pytest.fixture(scope="module")
 def engine(tmp_path_factory):
-    """A namespace of our own, the agent database both processes share, and the worker serving the tasks."""
     from agent.common import orchestrator_client
     from agent.knowledge import factory
     from agent.knowledge import ingest_status_store
@@ -74,7 +59,6 @@ def engine(tmp_path_factory):
 
 
 def _wait_for_worker(process: subprocess.Popen) -> None:
-    """The worker has registered once a warm-up build went through it (an unknown workflow's run is dropped)."""
     from agent.knowledge.folder_cards import queue
     from agent.knowledge.folder_cards import workflow
 
@@ -93,7 +77,6 @@ def _wait_for_worker(process: subprocess.Popen) -> None:
 
 
 def _events(directory: Path, collection: str) -> list[tuple[str, str, int, float]]:
-    """``(event, folder path, attempt, seconds)`` of the collection's builds, in order."""
     log = directory / "events.log"
     lines = [line.split("\t") for line in log.read_text().splitlines()] if log.exists() else []
     return [(line[0], line[2], int(line[3]), float(line[4])) for line in lines if line[1] == collection]
@@ -186,14 +169,12 @@ def test_an_organization_builds_one_collection_at_a_time(engine):
 
 
 def _documents(directory: Path, event: str) -> list[float]:
-    """When the scripted ingestor logged ``event`` for a slow document, in order."""
     log = directory / "ingest-events.log"
     lines = [line.split() for line in log.read_text().splitlines()] if log.exists() else []
     return [float(line[3]) for line in lines if line[0] == event and line[1].startswith("slow-")]
 
 
 def test_a_build_neither_waits_for_the_document_slot_nor_takes_it(engine):
-    """The worker has one standard slot. Two documents hold it in turn; the build runs beside both."""
     from agent_testing import orchestrator_engine_worker as scripted
 
     from agent.knowledge import ingest_status_store

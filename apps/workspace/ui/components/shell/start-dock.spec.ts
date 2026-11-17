@@ -4,7 +4,6 @@ import { act, renderHook } from '@testing-library/react'
 import { DOCK_LAYOUT_QUERY } from '@/hooks/use-is-mobile'
 import { START_DOCK_WIDTH_MAX, START_DOCK_WIDTH_MIN, useStartDock, useStartDockDoor, useStartDockShown } from './start-dock'
 
-/** Whether the window has room for a docked panel. */
 let roomy = true
 const realMatchMedia = window.matchMedia
 

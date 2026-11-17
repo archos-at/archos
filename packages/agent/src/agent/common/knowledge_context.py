@@ -182,6 +182,8 @@ class KnowledgeContext:
     coverage: str | None = None
     #: The first leaf's country (ISO 3166-1 alpha-2); None when no site is placed.
     site_country: str | None = None
+    #: The site is an assumption of the profile (``certainty`` ``unverified``), not a confirmed fact.
+    site_assumed: bool = False
     chains: dict[str, tuple[str, ...]] = field(default_factory=dict)
     packs: dict[str, int] = field(default_factory=dict)
     retrieval_countries: frozenset[str] = frozenset()
@@ -358,6 +360,7 @@ def parse_knowledge_context(raw: object) -> KnowledgeContext:
     leaves = [leaf for leaf in gate.get("leaves") or [] if isinstance(leaf, dict)][:MAX_LEAVES]
     coverage = leaves[0].get("coverage") if leaves and isinstance(leaves[0].get("coverage"), str) else None
     site_country = leaves[0].get("country") if leaves and isinstance(leaves[0].get("country"), str) else None
+    site_assumed = bool(leaves) and leaves[0].get("certainty") == "unverified"
     chains_raw = raw.get("chains")
     chains = {str(leaf): _strings(chain) for leaf, chain in chains_raw.items()} if isinstance(chains_raw, dict) else {}
     packs = {
@@ -373,6 +376,7 @@ def parse_knowledge_context(raw: object) -> KnowledgeContext:
         reason=gate.get("reason") if isinstance(gate.get("reason"), str) else None,
         coverage=coverage,
         site_country=site_country,
+        site_assumed=site_assumed,
         chains=chains,
         packs=packs,
         retrieval_countries=frozenset(countries),
@@ -623,13 +627,24 @@ def covered_sentences(countries: frozenset[str]) -> str:
     )
 
 
+#: Said where the site that decides the law is an assumption: quiet, never a routine caveat (ADR-0158).
+ASSUMED_SITE_NOTE = (
+    "The site this law is read for is an assumption in the project memory, not a confirmed fact. Do not "
+    "mention that as a routine caveat. Only where the answer would be different in another Land or country, "
+    "say once which site the answer assumes and ask the person to confirm it."
+)
+
+
 def gate_note(context: KnowledgeContext) -> str | None:
-    """What the turn context says about the gate (ADR-0173 §4.6); None for core or full with nothing moved. Pure."""
+    """What the turn context says about the gate (ADR-0173 §4.6); None for core or full on a confirmed site with
+    nothing moved. Pure."""
     note = _GATE_NOTES.get(context.gate)
     covered = covered_sentences(context.retrieval_countries)
     lines = [note.format(country=context.site_country or "the site's country", covered=covered)] if note else []
     if note:
         lines.append(WEB_IS_INFORMATION)
+    if context.site_assumed and gate_policy(context.gate).may_bind:
+        lines.append(ASSUMED_SITE_NOTE)
     if context.updated_since_last_answer:
         lines.append(
             "The building-law base was updated since this conversation's last answer "

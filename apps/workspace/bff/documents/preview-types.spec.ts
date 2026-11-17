@@ -1,16 +1,3 @@
-/**
- * The one preview list, pinned to the route that enforces it.
- *
- * Three surfaces decide "can this be shown": the preview route (which 415s
- * anything outside the list), the Files pane (which decides whether to ASK),
- * and the citation resolver (which decides whether a chip promises a viewer or
- * a download). They have drifted twice — BMP and TIFF both times — and each
- * copy looked locally correct, so nothing failed and a reader simply got told
- * the product could not show a file it renders fine.
- *
- * These are the assertions that make a fourth copy fail instead of ship.
- */
-
 import { describe, expect, it } from 'vitest'
 import {
   DRAWING_RENDITION_CONTENT_TYPES,
@@ -38,16 +25,12 @@ describe('the preview content-type lists', () => {
       'image/gif',
       'image/webp',
       'image/svg+xml',
-      // The two that went missing twice. Named individually because a length
-      // check would pass the day someone swaps one for another.
       'image/bmp',
       'image/tiff',
     ])
   })
 
   it('never serves user-uploaded HTML as text from this origin', () => {
-    // Same-origin HTML carries script into this origin. `service.ts` says so at
-    // its own definition; this is the assertion behind the sentence.
     expect([...TEXT_PREVIEW_CONTENT_TYPES]).not.toContain('text/html')
   })
 
@@ -67,11 +50,6 @@ describe('the preview content-type lists', () => {
   })
 })
 
-/**
- * The third way of being shown (ADR-0070): not the stored bytes but a PDF the
- * BFF made from them. The preview route, the file route and the ingest dispatch
- * all ask this one predicate, so it is pinned here.
- */
 describe('isOfficeRenditionSource', () => {
   it('recognises an office file by its stored type', () => {
     expect(
@@ -108,11 +86,6 @@ describe('isOfficeRenditionSource', () => {
   })
 })
 
-/**
- * Which office files are INDEXED from their rendition (ADR-0071). The ingest
- * dispatch and the citation page both read this predicate; spreadsheets with
- * their own structure-preserving extractor must stay out of it.
- */
 describe('isIndexedFromRendition', () => {
   it('covers Word, presentations and the spreadsheets with no extractor of their own', () => {
     for (const name of [
@@ -143,11 +116,6 @@ describe('isIndexedFromRendition', () => {
   })
 })
 
-/**
- * A DXF is read through a PDF too, drawn by the backend rather than Gotenberg
- * (ADR-0152). The general predicate is what every surface asks; the drawing one
- * is what picks the converter.
- */
 describe('isDrawingRenditionSource and isRenditionSource', () => {
   it('recognises a DXF by its extension or by any of its types', () => {
     expect(isDrawingRenditionSource({ filename: 'Katasterauszug Mödling.dxf' })).toBe(true)

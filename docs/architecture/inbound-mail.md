@@ -167,8 +167,17 @@ then:
 
 The Worker bounces only a 4xx carrying `x-inbound-verdict: reject`; everything
 else is a retry for the sending server (`contracts/inbound-mail-contract.json`).
-One log line per delivery, ids and codes only; a refusal is a PostHog
-`inbound_mail_refused` with its `reason`.
+One log line per delivery, ids and codes only, with the `stage` it reached
+and, for a refusal of ours, the `error` chain (classes, codes and an object
+store's HTTP status, never a message: `describeError`); a refusal is a PostHog
+`inbound_mail_refused` with its `reason`, `stage` and `error`. The Product
+incidents alert fires on three refusals of ours in an hour on any stack
+([`deploy/posthog/README.md`](../../deploy/posthog/README.md#alerts)). The
+Worker logs one line per mail to Cloudflare's Workers Logs (outcome, the BFF's
+status, verdict and `x-request-id`; no address: invocation logs are off), so a
+refusal can be followed from Cloudflare to the BFF's trace by that id. Both
+exist because in 2026-11 dev refused every delivery to one office for two days
+as `unavailable` and neither side recorded why.
 
 ## Reading and holding: the receive job
 

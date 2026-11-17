@@ -1,12 +1,3 @@
-"""A question that names a day reads the chain on that day, through an operation the door offers the agent.
-
-The turn context resolves the building law on one day: today, or a filing day that has come. Asked
-"welche OIB-RL 6 galt für eine Einreichung am 1. Oktober 2026?" in Eisenstadt, the agent read today's
-chain, reached for the as-of operation (which reads only a work's own edition dates) and answered
-"nicht bestimmbar" (dev QC run, 2026-11-12). The static prompt now names ``project-base-get`` with
-``asOf`` for such a day; this holds the prompt and the door to each other.
-"""
-
 from __future__ import annotations
 
 import json

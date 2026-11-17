@@ -1,19 +1,3 @@
-/**
- * The composer's notice about other projects (ADR-0094), through the real
- * composer and the real chat store.
- *
- * The notice lists what the SERVER says restricts the open chat now
- * (`restrictingOtherProjects` on `GET /api/conversations/:id`), never the
- * project status an answer's citations carried when it was written. The server
- * judges at read time: a project closed since restricts nobody, one reopened
- * restricts again, and a restricted folder of a closed project still does. So
- * every case here seeds citations that say one thing and a server that says
- * another, and the notice must follow the server.
- *
- * Its own file, beside `InputArea.screening.spec.tsx`, because
- * `InputArea.spec.tsx` is already the slowest file in the suite.
- */
-
 import { act, render, screen, waitFor } from '@/test-utils'
 import { http, HttpResponse } from 'msw'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
@@ -92,7 +76,6 @@ const open = (messages: ChatMessage[]) =>
     })
   })
 
-/** What the server says restricts the chat; counts the reads. */
 function serverSays(restricting: Array<{ id: string; name: string | null }>) {
   const reads = { count: 0, restricting }
   server.use(
@@ -106,7 +89,6 @@ function serverSays(restricting: Array<{ id: string; name: string | null }>) {
 
 const notice = () => screen.queryByTestId('other-projects-notice')
 
-/** The projects the chip names: its accessible name, since the names sit in its popover until it is opened. */
 const named = (element: HTMLElement | null) => element?.querySelector('button')?.getAttribute('aria-label') ?? ''
 
 beforeEach(() => {

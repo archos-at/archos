@@ -18,7 +18,7 @@ import 'server-only'
  * descriptions, written for Piloti's prompt in a German office, with German
  * terms, German example queries and Piloti's other tools (`surface_documents`,
  * cards) that an outside agent does not have. Anything an agent reads is
- * English, one word per concept (AGENTS.md, "Industry standard first"), so the
+ * English, one word per concept (working-style.md, "Industry standard first"), so the
  * agent surface layers its own words over the fixture instead of changing
  * Piloti's tools, which the core-agent wave owns. The schema's property
  * descriptions keep the fixture's text with {@link ENGLISH_GLOSSES} applied.

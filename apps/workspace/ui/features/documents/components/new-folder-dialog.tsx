@@ -1,10 +1,5 @@
 'use client'
 
-/**
- * Name a new folder. Used by the breadcrumb popover's sibling — the right-click
- * "New folder" / "New folder inside" path, which has no popover anchor.
- */
-
 import type { JSX } from 'react'
 import { useState } from 'react'
 import { Folder } from 'lucide-react'

@@ -16,7 +16,6 @@ vi.mock('./repository', () => ({
   deletePersonalMemory: vi.fn(),
   deleteAllPersonalMemory: vi.fn(),
 }))
-// The office's screening (ADR-0086): here, a stand-in that masks one number.
 vi.mock('@/lib/upload-screening/service', () => ({
   maskChatText: vi.fn(async (_org: string, text: string) => ({ text: text.replace(/AT\d{18}/g, '[IBAN]') })),
 }))
@@ -70,7 +69,6 @@ function note(overrides: Partial<PersonalMemoryItem> = {}): PersonalMemoryItem {
   }
 }
 
-/** What the driver raises on the unique index, as drizzle wraps it: the SQLSTATE is on the cause. */
 function uniqueViolation(): Error {
   return new Error('Failed query', { cause: Object.assign(new Error('duplicate key'), { code: UNIQUE_VIOLATION }) })
 }
@@ -398,7 +396,6 @@ describe('buildPersonalMemoryDigest', () => {
       ].join('\n')
     )
     expect(PERSONAL_MEMORY_DIGEST_HEADER).toBe('PERSONAL_MEMORY v1')
-    // One more than fits, so a cut can be counted.
     expect(selectPersonalMemory).toHaveBeenCalledWith(OWNER, PERSONAL_DIGEST_MAX_ITEMS + 1)
   })
 

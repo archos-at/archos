@@ -1,6 +1,6 @@
 # AI-native tooling: agents can act in every tool we choose
 
-The rule in [`AGENTS.md`](../../AGENTS.md#working-style) is the short form. This
+The rule in [`working-style.md`](working-style.md#agents-can-act-in-every-tool-we-choose) is the short form. This
 page says what the rule means, how to check a tool against it, and how to write
 the check down.
 

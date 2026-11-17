@@ -131,7 +131,6 @@ describe('summarizeTransfer', () => {
       ...Array.from({ length: 11 }, (_, i) => file({ id: `p${i}`, fileSize: 200_000, status: 'success' })),
     ])
 
-    // 11 of 12 files are done, but almost none of the payload has moved.
     expect(summary.ready).toBe(11)
     expect(summary.bytesPercent).toBe(1)
   })

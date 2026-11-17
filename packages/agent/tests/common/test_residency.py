@@ -1,10 +1,3 @@
-"""Residency (ADR-0167): every model call is routed into the cell's zone, refused outside it, and recorded.
-
-Each guard is exercised through the real seam (the httpx transport, the chat-request contract, the org lookup)
-with a positive control beside it, and the refusals carry a revert check: the same planted call with the guard
-patched out reaches the network, so the test fails if the guard is removed.
-"""
-
 from __future__ import annotations
 
 import json
@@ -47,7 +40,6 @@ def no_cell(monkeypatch):
 
 @pytest.fixture
 def routes(monkeypatch):
-    """Every route the seam records, in order."""
     seen: list[residency.Route] = []
     token = residency.route_sink().set(seen.append)
     yield seen
@@ -97,8 +89,6 @@ class TestRoutes:
 
 
 class TestTheTransport:
-    """Embeddings, vision, reranking, summaries, the distiller, dictation: every bespoke call rides this transport."""
-
     def test_flag_off_sends_where_it_was_sent(self, no_cell, routes):
         sent: list[httpx.Request] = []
         _client(sent).post(f"{GLOBAL_BASE}/embeddings", json={"model": "m", "input": "x"})
@@ -119,7 +109,6 @@ class TestTheTransport:
 
     def test_a_non_json_body_is_routed_too(self, cell):
         sent: list[httpx.Request] = []
-        # Dictation's shape: a multipart upload on a client that leaves the body to the caller (no pin to merge).
         client = _client(sent, NO_RETENTION_LIMITS)
         client.post(f"{GLOBAL_BASE}/audio/transcriptions", files={"file": ("a.wav", b"RIFF")})
         assert sent[0].url.host == "eu.openrouter.ai"
@@ -294,7 +283,6 @@ class TestPolicy:
         assert QUALITY_EVALUATION_CONDITION in rule.filter
 
     def test_without_a_cell_the_judges_keep_judging_every_answered_turn(self):
-        """Only a chat turn carries the tag; without a cell the rule is what it was before ADR-0167."""
         from agent.observability.langfuse_catalog import judge_rules
 
         rule = next(r for r in judge_rules(residency_on=False) if r.name == "chat-turn-judges")
@@ -402,8 +390,6 @@ class TestRecording:
 
 
 class TestTheAsyncTransport:
-    """Summaries, titles, the reranker, decisions, the distiller and dictation use the limited async client."""
-
     def _post(self, url: str) -> list[httpx.Request]:
         import asyncio
 
@@ -432,8 +418,6 @@ class TestTheAsyncTransport:
 
 
 class TestPlacementOnEveryPath:
-    """An organization this cell may not serve is refused on the bespoke paths too, not only on chat."""
-
     @pytest.fixture
     def elsewhere(self, monkeypatch):
         from agent.common import model_overrides as M

@@ -79,8 +79,6 @@ describe('what is copied', () => {
 })
 
 describe('what the Python tier accepts (`ProjectFacts` in `models/requests.py`)', () => {
-  // A value it refuses is a 422 on every upload of the project and on every
-  // boosted search, so the wire carries only what it accepts.
   const MALFORMED = profile({
     federal_state: 'x'.repeat(81),
     'building_class@bldg1': 'Fluchtniveau 8 m → GK4',

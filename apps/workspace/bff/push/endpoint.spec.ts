@@ -23,8 +23,6 @@ describe('which addresses may be registered as a push endpoint', () => {
     'https://user:pw@fcm.googleapis.com/x',
     'https://fcm.googleapis.com:8443/x',
     'https://localhost/x',
-    // WHATWG URL reads an fcm host; Node's url.parse, which web-push sends
-    // with, reads 169.254.169.254.
     'https://169.254.169.254;.fcm.googleapis.com/x',
     'https://169.254.169.254{.fcm.googleapis.com/x',
     'https://169.254.169.254`.fcm.googleapis.com/x',

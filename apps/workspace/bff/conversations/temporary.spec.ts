@@ -38,7 +38,6 @@ describe('requireConversationKeepsMemory', () => {
   })
 
   it('lets a conversation that keeps memory through, and one whose row does not exist yet', async () => {
-    // The repository answers false for a row that is not there (and for another organization's).
     await expect(requireConversationKeepsMemory('s_not_created_yet', 'org_1')).resolves.toBeUndefined()
   })
 

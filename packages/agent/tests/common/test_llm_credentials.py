@@ -1,5 +1,3 @@
-"""Tests for per-org BYOK LLM credentials (ADR-0022)."""
-
 from unittest.mock import patch
 
 import pytest
@@ -23,12 +21,6 @@ CREDENTIAL = OrgLLMCredential(
 
 
 class FakeChatModel(BaseModel):
-    """Mimics a langchain ChatOpenAI: credential fields + client state.
-
-    ``client`` simulates the bound HTTP client langchain builds at
-    construction — a correct credential swap must NOT carry it over.
-    """
-
     model_name: str = "vendor/model"
     openai_api_key: str | None = "sk-platform"
     openai_api_base: str | None = None
@@ -50,11 +42,9 @@ class TestApplyOrgCredential:
         assert swapped is not llm
         assert swapped.openai_api_key == "sk-tenant-key"
         assert swapped.openai_api_base == "https://openrouter.ai/api/v1"
-        # Non-credential settings ride along; stale clients do not.
         assert swapped.model_name == "vendor/model"
         assert swapped.temperature == 0.2
         assert swapped.client is None
-        # The original stays on the platform credential.
         assert llm.openai_api_key == "sk-platform"
 
     def test_none_credential_is_identity(self):
@@ -87,7 +77,6 @@ class TestProviderWithCredential:
         assert derived.get(LLMRole.ROUTER).openai_api_key == "sk-tenant-key"
         assert derived.get(LLMRole.REPORT_WRITER).openai_api_key == "sk-tenant-key"
         assert derived.get(LLMRole.REPORT_WRITER).model_name == "vendor/writer"
-        # Original untouched.
         assert provider.get(LLMRole.ROUTER).openai_api_key == "sk-platform"
 
     def test_shared_llm_instances_stay_shared(self):

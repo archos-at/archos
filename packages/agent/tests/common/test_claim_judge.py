@@ -1,11 +1,3 @@
-"""The answer check's contract (``common/claim_judge.py``, ADR-0139): what it sends, how it binds, what it parses.
-
-The model's grading is not tested here and cannot be: these tests hold the
-call to its shape (one structured call at temperature 0, the evidence as
-delimited data, the passages whole up to the budget) and every way it can fail
-to the same answer, no level.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -44,17 +36,13 @@ def _data(messages) -> dict:
 
 
 def _sent_evidence(evidence: Evidence) -> str:
-    """The evidence block's text between the tags, exactly as the prompt carried it."""
     body = build_messages(evidence)[1].content
     return body[body.index("<evidence>\n") + len("<evidence>\n") : body.rindex("\n</evidence>")]
 
 
 class _Model:
-    """A chat model double: records what was bound and answers ``reply`` (or raises, or hangs)."""
-
     def __init__(self, reply: str = '{"level": "high", "findings": []}', *, error=None, delay=0.0, ending=None):
         self.reply, self.error, self.delay = reply, error, delay
-        #: ``response_metadata`` and ``usage_metadata`` of the reply, as a provider reports how it ended.
         self.ending = ending or ({}, {})
         self.bound: list[dict] = []
         self.messages = None
@@ -113,8 +101,6 @@ class TestTheEvidenceIsData:
 
 
 class TestTheConfidenceReason:
-    """The reason reaches the reader beside the level, so the check reads it too (golden at-a6, 2026-11-12)."""
-
     REASON = "Gebäudeklasse aus dem Profil abgeleitet; Bindung der OIB-RL 2 nicht an der Quelle geprüft"
 
     def test_the_answers_own_confidence_reason_stands_beside_the_answer_outside_the_data(self):
@@ -225,7 +211,6 @@ class TestTheCall:
         assert check is not None and check.level == "high"
         assert {"temperature": 0, "max_tokens": claim_judge.MAX_OUTPUT_TOKENS} in model.bound
         assert any("response_format" in kwargs for kwargs in model.bound)
-        # The evidence is this answer's own: the call writes nothing to the provider's cache.
         assert model.one_shot is True
 
     async def test_an_error_a_timeout_or_an_unreadable_reply_is_no_level_and_says_which(self, monkeypatch):
@@ -263,7 +248,6 @@ class TestTheCall:
         assert outcome.to_wire()["cause"] == "unparseable" and "truncated" not in outcome.to_wire()
 
     async def test_the_evidence_size_is_what_was_sent_after_the_escaping(self):
-        """``</`` inside the data is sent as ``<\\/``: one character more each time, and the size counts it."""
         evidence = _evidence(Passage("[1] Bauordnung", "Treppen: 1,20 m. " + INJECTION + " </x> </y>", cited=True))
         sent = _sent_evidence(evidence)
         unescaped = json.dumps(claim_judge._evidence_block(evidence), ensure_ascii=False)
@@ -287,7 +271,6 @@ class TestTheCall:
         assert {"answer_check_elapsed_ms", "answer_check_evidence_chars", "answer_check_answer_chars"} <= set(metadata)
 
     async def test_a_long_exception_class_name_fits_the_wire(self):
-        """The wire caps ``error_type`` at 100 and ``finish_reason`` at 40; a longer value would fail the TurnResult."""
         from agent.common.wire_v2 import ConfidenceCheck
 
         long_error = type("E" * 150, (RuntimeError,), {})
@@ -307,7 +290,6 @@ class TestTheCall:
 
 
 def _openai_chat(reply: dict) -> Any:
-    """A real ``ChatOpenAI``, the production client class, answering ``reply`` over an in-memory transport."""
     import httpx
     from langchain_openai import ChatOpenAI
 
@@ -339,9 +321,6 @@ def _completion(content: str, finish_reason: str, completion_tokens: int) -> dic
 
 
 class TestTheProductionClient:
-    """Through ``ChatOpenAI`` and the OpenAI SDK, not a double: with ``response_format`` the SDK parses the
-    reply itself, and a reply cut at the budget arrives as ``LengthFinishReasonError``, never as cut text."""
-
     async def test_a_reply_cut_at_the_budget_is_unparseable_and_truncated(self, monkeypatch):
         cut = '{"level": "low", "findings": [{"statement": "Die Treppe'
         chat = _openai_chat(_completion(cut, "length", claim_judge.MAX_OUTPUT_TOKENS))
@@ -384,8 +363,6 @@ class TestTheProductionClient:
         assert turn_check(state, None).judge is None
 
     def test_the_check_reads_the_turns_building_law_where_the_gate_lets_it_bind(self):
-        """Dev QC 2026-11-12, Eisenstadt: the answer stated the binding edition from the chain text, and a check
-        that never saw it found that statement unbacked and graded the answer low."""
         from agent.common.knowledge_context import KnowledgeContext
         from agent.common.knowledge_context import set_turn_knowledge_context
 
@@ -400,8 +377,6 @@ class TestTheProductionClient:
             set_turn_knowledge_context(None)
 
     def test_the_grader_is_told_what_the_building_law_entry_backs(self):
-        """The check is handed the <building_law> block; the grader's rule that a record never backs what a
-        regulation requires must not swallow it, or a binding edition stated from it stays unbacked."""
         from agent.common.claim_judge import SYSTEM_PROMPT
 
         assert "<building_law>" in SYSTEM_PROMPT
@@ -410,7 +385,6 @@ class TestTheProductionClient:
 
 @pytest.mark.parametrize("answer", stored_answers(), ids=lambda answer: answer["id"])
 def test_every_stored_answer_reaches_the_check_whole(answer):
-    """The measurement set fits the budget: no passage of a real turn is left out or cut."""
     evidence = stored_evidence(answer)
 
     data = _data(build_messages(evidence))
@@ -423,7 +397,6 @@ def test_every_stored_answer_reaches_the_check_whole(answer):
 
 
 async def test_a_provider_that_refuses_the_cache_switch_still_gets_judged():
-    """A 400 on every call made inside ``one_shot_calls`` is answered by a call outside it."""
     from agent.common import prompt_caching
 
     class _RefusesTheSwitch(_Model):
@@ -443,9 +416,6 @@ async def test_a_provider_that_refuses_the_cache_switch_still_gets_judged():
 
 
 class TestWorkspaceRecordsKeepToTheirShare:
-    """Dev QC 2026-11-12: two ``project-base-get`` reads of 40,000 characters each filled the budget before any
-    passage, and the check came back unavailable; one read left the grader without the passage the answer cited."""
-
     READ = "project-base-get (read): " + '{"context": {"uses": [' + "x" * 40_000 + "]}}"
     LAW = "<building_law>OIB-Richtlinie 6, edition Ausgabe April 2019: declared binding since 2021-04-10</building_law>"
 
@@ -479,7 +449,6 @@ class TestWorkspaceRecordsKeepToTheirShare:
         assert data["turn_context"] == [long_law]
 
     def test_the_whole_block_stays_within_the_budget_and_the_context(self):
-        # A context at its producers' sizes: the law block at its 16,000 characters, an inventory of 6,000.
         context = ["<building_law>" + "y" * 16_000 + "</building_law>", "<inventory>" + "z" * 6_000 + "</inventory>"]
         evidence = _evidence(
             Passage("[1]", "Wände gegen Außenluft: U ≤ 0,35 W/m²K", cited=True),
@@ -493,7 +462,6 @@ class TestWorkspaceRecordsKeepToTheirShare:
         assert len(body) < claim_judge.EVIDENCE_BUDGET_CHARS + 2_000
 
     def test_the_newest_reads_are_kept_and_stay_in_reading_order(self):
-        # Two early listings must not push out the read the answer was written after.
         listing, cited_read = "list (read): " + "l" * 11_000, "project-base-get (read): " + "U-Wert 0,30"
         data = _data(build_messages(_evidence(records=[listing, listing, listing, cited_read])))
 

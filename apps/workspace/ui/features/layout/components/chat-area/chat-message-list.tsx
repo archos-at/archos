@@ -27,7 +27,6 @@ import { turnEnding, NO_MESSAGES } from '../chat-area/chat-area-helpers'
 import type { ChatAreaController } from './use-chat-area-controller'
 
 export function ChatMessageList({ controller }: { controller: ChatAreaController }) {
-  // Locals, not `controller.` reads: a closure in the JSX keeps the narrowing only of a local.
   const handback = controller.handback
   const spectatedTurn = controller.spectatedTurn
 
@@ -56,10 +55,6 @@ export function ChatMessageList({ controller }: { controller: ChatAreaController
               <motion.div
                 key="welcome"
                 className="flex flex-1 flex-col"
-                // Its arrival mirrors its exit: a new chat brings the greeting
-                // UP as the composer rises to meet it, the reverse of the drift
-                // down a first send gives it. Opening on an empty canvas plays
-                // nothing (`initial={false}` on the presence above).
                 initial={{ opacity: 0, y: 16 }}
                 animate={{
                   opacity: 1,
@@ -78,19 +73,7 @@ export function ChatMessageList({ controller }: { controller: ChatAreaController
             )}
           </AnimatePresence>
           {!controller.isEmpty && (
-            // Bottom padding tracks the floating composer's REAL height (published
-            // as --composer-h by MainLayout's ResizeObserver) plus a breathing gap,
-            // so the last message/Herleitung never renders behind the composer no
-            // matter how tall it grows. The 11rem fallback matches the old pb-44.
             <motion.div
-              // Top padding reserves clearance for the floating toolbar pills that
-              // overlay the top of this scroll plane, so the first message never
-              // renders behind them — a little extra on mobile where the pills sit
-              // edge-to-edge over the full-width column.
-              // The side padding keeps clear of a landscape phone's notch.
-              //
-              // Fades in when it replaces the loading skeleton (the other half
-              // of that cross-fade); otherwise it is simply there.
               initial={controller.listArrivesFromSkeleton ? { opacity: 0 } : false}
               animate={{ opacity: 1, transition: controller.rowEnter }}
               className={cn(
@@ -129,10 +112,6 @@ export function ChatMessageList({ controller }: { controller: ChatAreaController
                       : []
                     const hasThinkingSteps = messageSteps.length > 0
 
-                    // The asker's live turn shows its Herleitung FROM THE SEND:
-                    // its header is the working cue, and the reasoning grows
-                    // into the same object. One object from send to settle,
-                    // never a typing bubble swapped for a panel.
                     const isCurrentlyStreaming =
                       isUserMessage &&
                       controller.turnLive &&
@@ -142,38 +121,22 @@ export function ChatMessageList({ controller }: { controller: ChatAreaController
                       isUserMessage &&
                       (hasThinkingSteps || controller.liveShownIdsRef.current.has(message.id))
 
-                    // This question's turn: the messages up to the next question.
                     const turnMessages =
                       (isUserMessage && controller.threadLayout.turnOf.get(message.id)) ||
                       NO_MESSAGES
 
-                    // Derive post-thinking state. Priority: isThinking (active) >
-                    // isWaiting (HITL) > isInterrupted > stopped > done.
                     const shouldCheckPostState = isUserMessage && !isCurrentlyStreaming
 
-                    // Waiting: an unresponded HITL prompt follows this user message
                     const isWaiting =
                       shouldCheckPostState &&
                       turnMessages.some((m) => m.messageType === 'prompt' && !m.isPromptResponded)
 
-                    // Real data threaded into the Herleitung's assessment node:
-                    // the turn's answer (confidence + citations). The live turn's
-                    // answer is left out: that node describes a finished answer.
                     const agentMsg = shouldCheckPostState
                       ? turnMessages.find(
                           (m) => m.messageType === 'assistant' || m.messageType === 'agent_response'
                         )
                       : undefined
 
-                    // Interrupted means LOST: the turn ended with no answer and
-                    // nothing that explains why. The turn's own ending decides
-                    // when this client saw it — any outcome it recorded
-                    // (answered, refused, handed off to a run, stopped, a queue
-                    // rejection) or a failure, which has its own error card. Only
-                    // a turn this client lost track of (it drops those) falls back
-                    // to the thread: a run's message is a response, and an error
-                    // card other than the "connection lost" one already says what
-                    // went wrong.
                     const turnView = controller.turns?.[message.id]
                     const explainedByError = turnMessages.some(
                       (m) =>
@@ -182,10 +145,6 @@ export function ChatMessageList({ controller }: { controller: ChatAreaController
                     )
                     const hasResponse =
                       agentMsg !== undefined || turnMessages.some((m) => m.runLedger)
-                    // A failed answer (or a failed phase) is a failure, never
-                    // an interruption: the fold drops a failed turn's view, and
-                    // until the error card landed the header read
-                    // „Unterbrochen" with a recovery spinner, the wrong cause.
                     const failedHere =
                       Boolean(agentMsg?.failed) ||
                       turnView?.phase === 'failed' ||
@@ -200,26 +159,12 @@ export function ChatMessageList({ controller }: { controller: ChatAreaController
                     const isStopped =
                       shouldCheckPostState &&
                       (agentMsg?.stopped === true || turnView?.outcome === 'cancelled')
-                    // A turn that ended without an answer of its own is not
-                    // „Fertig": a failed one has its error card below, one
-                    // handed to a run has only started that run's work, and
-                    // a refused one did none.
                     const endedAs = shouldCheckPostState
                       ? turnEnding(turnView, turnMessages, failedHere || explainedByError)
                       : undefined
 
-                    // The answer has begun on the live turn: the Herleitung folds
-                    // to its header, which stays live until the settle.
                     const answering = isCurrentlyStreaming && controller.answerHasBegun
 
-                    // Whether this ANSWER earns the „Als Aktenvermerk schreiben"
-                    // chip — a walkthrough or a ruling, in a project, long enough
-                    // that the reader is already thinking about where to put it
-                    // (`features/chat/lib/file-note-chip`). Decided in the
-                    // answer's own row, once it has settled: decided in the
-                    // question's row, the chip's rail mounted BETWEEN the
-                    // Herleitung and the answer at the settle and pushed the
-                    // answer down by its height.
                     const answerSettled =
                       message.messageType === 'agent_response' &&
                       !message.isStreaming &&
@@ -232,11 +177,9 @@ export function ChatMessageList({ controller }: { controller: ChatAreaController
                         body: message.content,
                       })
 
-                    // Withheld while the Herleitung above it folds (`heldAnswerId`).
                     if (message.id === controller.heldAnswerId) return null
                     controller.renderedIdsRef.current.add(message.id)
 
-                    // The just-sent question's turn is the top-anchor target on send.
                     const isAnchorTarget = isUserMessage && message.id === controller.anchorId
 
                     const messageAuthorship = controller.authorship.get(message.id)
@@ -244,30 +187,14 @@ export function ChatMessageList({ controller }: { controller: ChatAreaController
                     return (
                       <motion.div
                         key={controller.threadLayout.rowKeyOf.get(message.id) ?? message.id}
-                        // The deep-link target (`#message-<id>`). Every message carries
-                        // it, not just mentions: an inbox item can point at any message,
-                        // and a link that resolves for some rows and not others is worse
-                        // than none.
                         id={`message-${message.id}`}
                         data-chat-anchor={isAnchorTarget ? 'true' : undefined}
                         className={cn(
                           'flex flex-col gap-4',
                           TOOLBAR_CLEAR_SCROLL_MARGIN,
-                          // The arrival mark: says "this is the one" for a beat, then
-                          // fades. A ring rather than a background, so it reads on the
-                          // user bubble and the answer card alike. The transition is
-                          // on every row and only the ring toggles: carried by the
-                          // marked state alone, the transition left with the mark,
-                          // and the ring vanished in one frame instead of fading.
                           'ring-offset-background duration-quick rounded-surface ring-offset-4 transition-shadow ease-out motion-reduce:transition-none',
                           controller.highlightedMessageId === message.id && 'ring-warning/50 ring-2'
                         )}
-                        // The row OWNS the turn's entrance: a fade and a 4px rise on
-                        // the entrance pair, for genuinely new messages only —
-                        // hydrated ones render in place. Its children carry none: a
-                        // CSS `animate-in` plays on every mount, so a restored
-                        // thread replayed every bubble's entrance, and on a new
-                        // message it stacked with this one.
                         custom={message.id}
                         variants={controller.rowVariants}
                         initial={controller.hydratedIds.has(message.id) ? false : 'hidden'}
@@ -322,8 +249,6 @@ export function ChatMessageList({ controller }: { controller: ChatAreaController
                             <ChatThinking
                               steps={messageSteps}
                               isThinking={isCurrentlyStreaming}
-                              // Open while the turn works and has steps to show;
-                              // folded the moment the answer begins.
                               autoOpen={isCurrentlyStreaming && hasThinkingSteps && !answering}
                               answering={answering}
                               since={message.timestamp}
@@ -373,8 +298,6 @@ export function ChatMessageList({ controller }: { controller: ChatAreaController
                           <FollowUpsRail
                             items={message.stages?.followUps?.items}
                             offerFileNote={fileNote}
-                            // Only a rail that arrives under the reader fades in:
-                            // on a restored or reopened thread it is simply there.
                             animateIn={
                               !controller.hydratedIds.has(message.id) ||
                               (Boolean(message.stages?.followUps) &&
@@ -481,8 +404,6 @@ export function ChatMessageList({ controller }: { controller: ChatAreaController
                     <SpectatedTurn
                       turn={spectatedTurn}
                       label={controller.turnInFlightLabel}
-                      // The turn's id is its question's: the observer's
-                      // timer counts from the question, as the asker's does.
                       since={
                         controller.messages?.find((m) => m.id === spectatedTurn.turnId)?.timestamp
                       }

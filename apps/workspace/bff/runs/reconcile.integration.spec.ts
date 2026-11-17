@@ -1,23 +1,3 @@
-/**
- * Opt-in integration test: the run reconciler's two statements against a REAL
- * Postgres with every migration applied (0096 included), as the restricted
- * runtime role.
- *
- * The unit suite doubles the repository and pins the decisions. Only this can
- * prove the SQL: that the claim picks exactly the active runs nobody has
- * checked within the window, stamps them in the same statement so a second
- * sweep — or a second replica sweeping at the same moment — never takes one
- * run twice, and that the conditional close lets exactly one closer win. And
- * the ledger heal (migration 0099): a run whose row closed by a path that never
- * reached its block is claimed once, and its block — a real message, written
- * through the lock-held merge — ends.
- *
- *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \
- *     npx vitest run bff/runs/reconcile.integration.spec.ts
- *
- * `task db:test:rls` (scripts/rls-test-db.sh) builds that database and runs it.
- */
-
 import { sql } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { emptySkillSnapshot } from '@/lib/jobs/types'
@@ -103,7 +83,6 @@ describe.skipIf(!url)('run reconciler SQL against live Postgres (migration 0096)
     await seedRun('stale', ORG, PROJECT, { status: 'running', startedAt: minutesAgo(30), createdAt: minutesAgo(31) })
     await seedRun('fresh', ORG, PROJECT, { status: 'running', startedAt: minutesAgo(2), createdAt: minutesAgo(2) })
     await seedRun('done', ORG, PROJECT, { status: 'succeeded', startedAt: minutesAgo(60), createdAt: minutesAgo(60) })
-    // Never started: judged by when it was created.
     await seedRun('queued', ORG, PROJECT, { status: 'queued', startedAt: null, createdAt: minutesAgo(45) })
     await seedRun('elsewhere', OTHER_ORG, OTHER_PROJECT, {
       status: 'running',
@@ -142,7 +121,6 @@ describe.skipIf(!url)('run reconciler SQL against live Postgres (migration 0096)
     )
     expect(ours(again)).toEqual([])
 
-    // A cutoff in the future stands in for the window having passed.
     const later = await withPlatformAccess('test: claim later', () =>
       repository.claimRunsToReconcile(new Date(Date.now() + 60_000), 500),
     )
@@ -150,9 +128,6 @@ describe.skipIf(!url)('run reconciler SQL against live Postgres (migration 0096)
   })
 
   it('two sweeps at the same moment never take the same run', async () => {
-    // Due again, as they would be once the window has passed — and a cutoff in
-    // the PAST, as a real sweep uses, so a run one sweep has just stamped is out
-    // of the other's window whether it saw the lock or the committed stamp.
     await withPlatformAccess('test: make due again', () =>
       db.execute(sql`update task_runs set reconcile_checked_at = null where organization_id in (${ORG}, ${OTHER_ORG})`),
     )
@@ -191,7 +166,6 @@ describe.skipIf(!url)('run reconciler SQL against live Postgres (migration 0096)
     )
     expect(finished).toBeNull()
 
-    // And a closed run leaves the sweep for good.
     const after = await withPlatformAccess('test: claim after close', () =>
       repository.claimRunsToReconcile(new Date(Date.now() + 60 * 60_000), 500),
     )
@@ -218,13 +192,11 @@ describe.skipIf(!url)('run reconciler SQL against live Postgres (migration 0096)
       phases: [{ phase: 'researching', startedAt: minutesAgo(39).toISOString() }],
     })
 
-    // The ghost reaper's report: the row closes, the block hears nothing.
     await withTenant({ organizationId: ORG }, () =>
       repository.closeActiveRun(ids.ghost, ORG, { status: 'failed', error: 'Job timed out' }),
     )
 
     const claimed = await withPlatformAccess('test: heal claim', () => repository.claimClosedRunsToHeal(500))
-    // Only runs with a block: 'stale' and 'done' closed too, but have no message.
     expect(ours(claimed).map((row) => nameOf(row.id))).toEqual(['ghost'])
 
     const [ghost] = ours(claimed)
@@ -239,22 +211,18 @@ describe.skipIf(!url)('run reconciler SQL against live Postgres (migration 0096)
     expect(ledger.status).toBe('failed')
     expect(ledger.error?.reason).toBe('Job timed out')
 
-    // Looked at once: the stamp moved it past its ending.
     const again = await withPlatformAccess('test: heal claim again', () => repository.claimClosedRunsToHeal(500))
     expect(ours(again)).toEqual([])
-    // A heal that failed hands its claim back: the run is due on the next sweep.
     await withTenant({ organizationId: ORG }, () => repository.releaseHealClaim(ids.ghost))
     const released = await withPlatformAccess('test: heal claim after release', () =>
       repository.claimClosedRunsToHeal(500),
     )
     expect(ours(released).map((row) => nameOf(row.id))).toEqual(['ghost'])
-    // And a second settle of an ended block writes nothing.
     expect(await withTenant({ organizationId: ORG }, () => runs.settleRunLedger(ghost, { status: 'success' }))).toBe(
       false,
     )
   })
 
-  /** A run with its message in a thread of its own, as a submit leaves it. */
   async function seedRunWithBlock(name: string, status: 'queued' | 'running') {
     const { insertConversation } = await import('@/lib/conversations/repository')
     const runs = await import('@/lib/runs/service')
@@ -272,8 +240,6 @@ describe.skipIf(!url)('run reconciler SQL against live Postgres (migration 0096)
   it('the kill switch’s claim leaves out a run whose block already reads done', async () => {
     const runs = await import('@/lib/runs/service')
     const { claimRunsToInterrupt } = await import('@/lib/tasks/run-moves')
-    // The worker stored its report and said so on the block; only its outcome
-    // report, which closes the row, has not arrived.
     await seedRunWithBlock('reported', 'running')
     await runs.applyRunLedgerOp(ids.reported, { op: 'finish', result: { filedAt: new Date().toISOString() } })
     await seedRunWithBlock('working', 'running')
@@ -288,8 +254,6 @@ describe.skipIf(!url)('run reconciler SQL against live Postgres (migration 0096)
 
     expect(names).toEqual(expect.arrayContaining(['working', 'blockless']))
     expect(names).not.toContain('reported')
-    // Not stamped either: the reconciler finds it by its own age and closes it
-    // from the job store when the worker's report never comes.
     const [reported] = ours(
       await withPlatformAccess('test: reconcile claim', () =>
         repository.claimRunsToReconcile(new Date(Date.now() + 60_000), 500),
@@ -309,7 +273,6 @@ describe.skipIf(!url)('run reconciler SQL against live Postgres (migration 0096)
     const record = (name: string, status: 'queued' | 'running', organizationId = ORG) =>
       withTenant({ organizationId }, () => recordSubmission(ids[name], organizationId, submission(name, status)))
 
-    // The kill switch closed the queued row while the submit was out.
     await seedRun('killed', ORG, PROJECT, { status: 'queued', startedAt: null, createdAt: minutesAgo(1) })
     await withTenant({ organizationId: ORG }, () =>
       repository.closeActiveRun(ids.killed, ORG, { status: 'interrupted', error: 'Abgebrochen.' }),
@@ -318,20 +281,17 @@ describe.skipIf(!url)('run reconciler SQL against live Postgres (migration 0096)
     expect(killed).toMatchObject({ status: 'interrupted', error: 'Abgebrochen.', startedAt: null })
     expect(killed?.backendJobId).toBe(`job_submitted_killed_${STAMP}`)
 
-    // The worker's first flush started the run before the submit returned `queued`.
     const startedAt = minutesAgo(1)
     await seedRun('flushed', ORG, PROJECT, { status: 'running', startedAt, createdAt: minutesAgo(2) })
     const flushed = await record('flushed', 'queued')
     expect(flushed).toMatchObject({ status: 'running', backendJobId: `job_submitted_flushed_${STAMP}` })
     expect(flushed?.startedAt?.getTime()).toBe(startedAt.getTime())
 
-    // The ordinary case: a queued row whose job started at once.
     await seedRun('taken', ORG, PROJECT, { status: 'queued', startedAt: null, createdAt: minutesAgo(1) })
     const taken = await record('taken', 'running')
     expect(taken?.status).toBe('running')
     expect(taken?.startedAt).toBeInstanceOf(Date)
 
-    // And one the backend queued stays queued and unstarted.
     await seedRun('held', ORG, PROJECT, { status: 'queued', startedAt: null, createdAt: minutesAgo(1) })
     expect(await record('held', 'queued')).toMatchObject({ status: 'queued', startedAt: null })
 
@@ -339,9 +299,6 @@ describe.skipIf(!url)('run reconciler SQL against live Postgres (migration 0096)
   })
 
   it('heals a run closed by a pod whose clock lags the database’s', async () => {
-    // The claim stamps `reconcile_checked_at` with the database's clock. The
-    // close used to stamp `finished_at` with the pod's, so behind a lagging pod
-    // the run ended "before" it was last looked at and the heal never took it.
     await seedRun('lagging', ORG, PROJECT, { status: 'running', startedAt: minutesAgo(30), createdAt: minutesAgo(30) })
     await withTenant({ organizationId: ORG }, () =>
       repository.updateRun(ids.lagging, ORG, { runMessageId: '0c0c0c0c-0000-4000-8000-0000000000aa' }),
@@ -362,7 +319,6 @@ describe.skipIf(!url)('run reconciler SQL against live Postgres (migration 0096)
       vi.useRealTimers()
     }
 
-    // A date for every reader of the returned row, and the database's.
     expect(closed?.finishedAt).toBeInstanceOf(Date)
     expect(Math.abs((closed?.finishedAt as Date).getTime() - realNow)).toBeLessThan(60_000)
     const healable = await withPlatformAccess('test: heal claim', () => repository.claimClosedRunsToHeal(500))

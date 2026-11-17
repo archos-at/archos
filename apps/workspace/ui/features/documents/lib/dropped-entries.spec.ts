@@ -4,7 +4,6 @@
 import { describe, expect, it } from 'vitest'
 import { readDrop, readDroppedTree } from './dropped-entries'
 
-/** A minimal stand-in for the entries API, shaped like the real one. */
 type Entry = {
   isFile: boolean
   isDirectory: boolean
@@ -22,11 +21,6 @@ const fileEntry = (name: string): Entry => ({
   file: (ok) => ok({ name, size: 1 } as unknown as File),
 })
 
-/**
- * A directory that hands out its children 100 at a time and then an empty
- * batch, exactly as the browser does. The batching is the point: a reader that
- * calls `readEntries` once sees the first 100 and believes it is finished.
- */
 const dirEntry = (name: string, children: Entry[]): Entry => {
   let cursor = 0
   return {
@@ -74,8 +68,6 @@ describe('readDroppedTree', () => {
   })
 
   it('drains a directory rather than taking its first batch for the whole of it', async () => {
-    // 250 files is three `readEntries` calls. A single read returns 100 and
-    // looks complete, which would silently drop 150 files from an upload.
     const many = Array.from({ length: 250 }, (_, i) => fileEntry(`plan_${i}.pdf`))
 
     const tree = await readDroppedTree(transferOf([dirEntry('Plaene', many)]))
@@ -91,8 +83,6 @@ describe('readDroppedTree', () => {
   })
 
   it('reports truncation rather than quietly taking a prefix', async () => {
-    // A silently truncated bulk upload is worse than a refused one: the missing
-    // files are indistinguishable from files nobody uploaded.
     const tooMany = Array.from({ length: 2500 }, (_, i) => fileEntry(`f_${i}.pdf`))
 
     const tree = await readDroppedTree(transferOf([dirEntry('Riesig', tooMany)]))
@@ -112,7 +102,6 @@ const failingFileEntry = (name: string): Entry => ({
   file: (_ok, err) => err(new Error('cloud-only')),
 })
 
-/** A drop as the browser hands it over: entries where it has them, plain files where it does not. */
 const dropOf = (items: Array<{ entry?: Entry; file?: File }>, listed: File[] = []): DataTransfer =>
   ({
     items: items.map(({ entry, file }) => ({

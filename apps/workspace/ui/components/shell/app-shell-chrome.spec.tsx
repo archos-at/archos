@@ -6,8 +6,6 @@ import { DOCK_LAYOUT_QUERY } from '@/hooks/use-is-mobile'
 import { AppShellChrome } from './app-shell-chrome'
 import { useStartDock } from './start-dock'
 
-// The chrome DECIDES which shape stands; the shapes themselves are covered by
-// their own specs. Stubs keep the decision observable without mounting a rail.
 let pathname = '/app/projects/p1/chat'
 vi.mock('next/navigation', () => ({
   usePathname: () => pathname,
@@ -74,10 +72,6 @@ describe('AppShellChrome — which chrome stands', () => {
 
 describe('AppShellChrome — overlay routes keep the chrome of the covered page', () => {
   test('opening the office shelf over a project keeps the project rail standing', () => {
-    // An intercepted navigation changes the URL to /app/office-shelf while the
-    // segment below keeps rendering the project page. Flipping the rail into
-    // the org header UNDER the sheet is the reflow this logic exists to
-    // prevent.
     const { rerender } = render(<AppShellChrome {...baseProps}>page</AppShellChrome>)
     pathname = '/app/office-shelf'
     rerender(<AppShellChrome {...baseProps}>page</AppShellChrome>)
@@ -113,9 +107,6 @@ describe('AppShellChrome — overlay routes keep the chrome of the covered page'
 
 describe('AppShellChrome — height', () => {
   test('the frame follows the visual viewport while the iOS keyboard is up, 100dvh otherwise', () => {
-    // useVisualViewport publishes the variable only while the keyboard
-    // occludes the layout viewport; the fallback is what every other browser
-    // gets. A bare `h-dvh` here puts the composer behind the iOS keyboard.
     const { container } = render(<AppShellChrome {...baseProps}>page</AppShellChrome>)
     const frame = container.querySelector('.overflow-hidden')
     expect(frame?.className).toContain('h-[var(--visual-viewport-height,100dvh)]')
@@ -127,18 +118,14 @@ describe('AppShellChrome — the phone tab bar', () => {
     const { container, unmount } = render(<AppShellChrome {...baseProps}>page</AppShellChrome>)
     const bar = screen.getByTestId('tab-bar')
     expect(bar).toHaveAttribute('data-project-id', 'p1')
-    // In flow, after the page: the scroll container ends where the bar begins,
-    // so nothing scrolls under it and no page reserves its height.
     const frame = container.querySelector('[data-tab-bar]')!
     expect(Array.from(frame.children).indexOf(bar)).toBeGreaterThan(0)
-    // „Mehr“ holds the project selector on a phone; there is no second sheet for it.
     expect(screen.getByTestId('more-sheet')).toBeInTheDocument()
     unmount()
 
     pathname = '/app/projects'
     render(<AppShellChrome {...baseProps}>page</AppShellChrome>)
     expect(screen.getByTestId('tab-bar')).toHaveAttribute('data-project-id', 'org')
-    // No project, nothing to switch between.
     expect(screen.queryByTestId('more-sheet')).toBeNull()
   })
 
@@ -153,9 +140,6 @@ describe('AppShellChrome — the phone tab bar', () => {
   })
 
   test('the chat route on a phone always has a way to the navigation: the bar returns when the keyboard goes', () => {
-    // The chat toolbar has no menu button of its own on a phone; the bar's
-    // "Mehr" is the door to the drawer there. Composing may take the bar away
-    // for as long as the keyboard covers it, and not one frame longer.
     pathname = '/app/projects/p1/chat'
     keyboardUp = true
     const { rerender } = render(<AppShellChrome {...baseProps}>page</AppShellChrome>)
@@ -182,7 +166,6 @@ describe('AppShellChrome — the phone tab bar', () => {
 })
 
 describe('AppShellChrome — the panel docked beside the page (ADR-0148)', () => {
-  // Room for the dock; ResizeObserver is the shell's way of following the panel's edge.
   const realMatchMedia = window.matchMedia
   let roomy = true
   beforeEach(() => {

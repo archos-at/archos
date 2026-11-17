@@ -2,11 +2,6 @@ import * as React from 'react'
 
 import { cn } from '@/lib/utils'
 
-/**
- * Physical keycap. Hairline edge + raised surface + contact shadow so a
- * shortcut looks like a key, not like muted text. Used by the cheatsheet,
- * the command palette, and picker footers.
- */
 function Kbd({ className, ...props }: React.ComponentProps<'kbd'>): React.JSX.Element {
   return (
     <kbd
@@ -24,7 +19,6 @@ function Kbd({ className, ...props }: React.ComponentProps<'kbd'>): React.JSX.El
   )
 }
 
-/** Groups a chord or a sequence of keycaps (⌘ K, G then F). */
 function KbdGroup({ className, ...props }: React.ComponentProps<'span'>): React.JSX.Element {
   return (
     <span

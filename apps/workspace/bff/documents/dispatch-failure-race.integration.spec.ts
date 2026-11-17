@@ -51,7 +51,6 @@ const KEY = 'k/dispatch-race/bericht.pdf'
 const NEW_KEY = 'k/dispatch-race/bericht-v2.pdf'
 const DISPATCH_FAILED = 'Ingestion could not be started'
 
-/** One scripted answer of the backend to `POST /v1/ingest`. */
 type BackendAnswer = () => Promise<Response>
 
 const accepted = (jobId: string): BackendAnswer => async () =>
@@ -59,7 +58,6 @@ const accepted = (jobId: string): BackendAnswer => async () =>
 const refused: BackendAnswer = async () => new Response('unavailable', { status: 503 })
 const timeout = () => Object.assign(new Error('The operation was aborted due to timeout'), { name: 'TimeoutError' })
 
-/** A request that hangs until the test lets it time out, or lets the backend take it after all. */
 function hanging(): { answer: BackendAnswer; timeOut: () => void; accept: (jobId: string) => void } {
   let resolve: (response: Response | PromiseLike<Response>) => void = () => undefined
   let reject: (reason: Error) => void = () => undefined
@@ -112,7 +110,6 @@ describe.skipIf(!url)('a dispatch that fails late, against Postgres', () => {
     return row
   }
 
-  /** New bytes on the row, as a re-upload writes them (`replaceDocumentWithinQuota`): a new key, back to `uploaded`. */
   const replaceBytes = (id: string) =>
     inTenant(() =>
       db
@@ -121,7 +118,6 @@ describe.skipIf(!url)('a dispatch that fails late, against Postgres', () => {
         .where(eq(schema.documents.id, id)),
     )
 
-  /** The backend answers each request in the order the answers are given. */
   function backendAnswers(...answers: BackendAnswer[]) {
     const fetchSpy = vi.fn(async () => {
       const next = answers.shift()
@@ -134,7 +130,6 @@ describe.skipIf(!url)('a dispatch that fails late, against Postgres', () => {
 
   const dispatch = (id: string, storageKey = KEY) => dispatchIngest(id, `archiv_${ORG}`, storageKey, ORG)
 
-  /** Dispatch A is started and has sent its first request, which hangs. */
   async function startHangingDispatch(id: string, ...later: BackendAnswer[]) {
     const first = hanging()
     const fetchSpy = backendAnswers(first.answer, ...later)
@@ -143,7 +138,6 @@ describe.skipIf(!url)('a dispatch that fails late, against Postgres', () => {
     return { outcome, timeOut: first.timeOut, accept: first.accept }
   }
 
-  /** A `bff_job_queue` job for the row's bytes, in the state the interleaving needs. */
   async function seedJob(documentId: string, storageKey: string, status: 'claimed' | 'dead'): Promise<string> {
     const jobId = await inTenant(() =>
       queue.insertJob({ kind: 'office_rendition', organizationId: ORG, priority: 1, payload: { documentId, storageKey } }),
@@ -162,7 +156,6 @@ describe.skipIf(!url)('a dispatch that fails late, against Postgres', () => {
       `),
     )
 
-  /** The job a new round of local work names: the open one for these bytes, as `queueDocumentWork` asks. */
   const openJobFor = (documentId: string, storageKey: string) =>
     inTenant(() => queue.findOpenJobId({ kind: 'office_rendition', organizationId: ORG, matching: { documentId, storageKey } }))
 
@@ -195,18 +188,15 @@ describe.skipIf(!url)('a dispatch that fails late, against Postgres', () => {
   it('does not fail a row a second dispatch has put in flight, and that read still settles', async () => {
     const id = await insert({ status: 'uploaded' })
 
-    // A: asks, and hangs. B: asks while A hangs, and gets its job.
     const a = await startHangingDispatch(id, accepted('job-b'), refused)
     await expect(dispatch(id)).resolves.toEqual({ jobId: 'job-b', status: 'pending' })
     expect(await rowOf(id)).toMatchObject({ status: 'pending', ingestJobId: 'job-b' })
 
-    // A: times out, asks once more, is refused, and records its failure.
     a.timeOut()
     await expect(a.outcome).resolves.toEqual({ jobId: null, status: 'failed' })
 
     expect(await rowOf(id)).toMatchObject({ status: 'pending', ingestJobId: 'job-b', errorMessage: null })
 
-    // B ends: the settle push finds the row by its job, and the outcome lands.
     const settleable = await repository.listSettleableDocumentsForIngestJobs(['job-b'])
     expect(settleable.map((row) => row.id)).toEqual([id])
     await expect(
@@ -231,7 +221,6 @@ describe.skipIf(!url)('a dispatch that fails late, against Postgres', () => {
   it('does not fail new bytes for a read of the old ones', async () => {
     const id = await insert({ status: 'uploaded' })
 
-    // A: asks for the old bytes, and hangs. A re-upload replaces them before A gives up.
     const a = await startHangingDispatch(id, refused, accepted('job-new'))
     await replaceBytes(id)
     a.timeOut()
@@ -239,7 +228,6 @@ describe.skipIf(!url)('a dispatch that fails late, against Postgres', () => {
 
     expect(await rowOf(id)).toMatchObject({ status: 'uploaded', storageKey: NEW_KEY, errorMessage: null })
 
-    // The re-upload's own dispatch is the one the row answers to.
     await expect(dispatch(id, NEW_KEY)).resolves.toEqual({ jobId: 'job-new', status: 'pending' })
     expect(await rowOf(id)).toMatchObject({ status: 'pending', ingestJobId: 'job-new' })
   })
@@ -277,12 +265,10 @@ describe.skipIf(!url)('a dispatch that fails late, against Postgres', () => {
   it('does not let the late success of a read of old bytes take the row from the read of the new ones', async () => {
     const id = await insert({ status: 'uploaded' })
 
-    // A: asks for the old bytes, and hangs. New bytes arrive and their dispatch B gets its job.
     const a = await startHangingDispatch(id, accepted('job-new'))
     await replaceBytes(id)
     await expect(dispatch(id, NEW_KEY)).resolves.toEqual({ jobId: 'job-new', status: 'pending' })
 
-    // A: the backend takes the old bytes after all.
     a.accept('job-old')
     await a.outcome
 
@@ -299,7 +285,6 @@ describe.skipIf(!url)('a dispatch that fails late, against Postgres', () => {
       expect(await found({ deadJobId: dead })).toBe(true)
       expect(await found(new Date(Date.now() - 15 * 60_000))).toBe(true)
 
-      // A new round starts: the name is dropped, and no job is named yet.
       await repository.markDocumentProcessing(id, ORG)
 
       expect(await found({ deadJobId: dead })).toBe(false)
@@ -325,32 +310,19 @@ describe.skipIf(!url)('a dispatch that fails late, against Postgres', () => {
       const earlier = await seedJob(id, KEY, 'claimed')
       await nameJob(id, earlier)
 
-      // The earlier job has converted the old bytes and asks the backend, which hangs.
       const a = await startHangingDispatch(id)
-      // New bytes: a new round starts, and its job is not named yet.
       await replaceBytes(id)
       await repository.markDocumentProcessing(id, ORG)
       expect(await openJobFor(id, NEW_KEY)).toBeNull()
 
       const own = { storageKey: KEY, backgroundJobId: earlier, unnamedCounts: true }
       await expect(repository.markDocumentIngestFailed(id, ORG, 'IFC extraction failed', own)).resolves.toBe(false)
-      // The backend takes the old bytes after all, inside the window.
       a.accept('job-old')
       await a.outcome
 
       expect(await rowOf(id)).toMatchObject({ status: 'processing', storageKey: NEW_KEY, ingestJobId: null })
     })
 
-    /**
-     * The one interleaving left open, written down as what happens. A job on its
-     * last attempt writes its failure after a new round dropped its name, and
-     * the queue buries it before that round looks for an open job. Both must
-     * fall between two consecutive statements of `queueDocumentWork`. The row
-     * reads `failed` with the true reason for these bytes and offers the retry
-     * again; the job the round then queues finds a row that is not `processing`
-     * and leaves. Nothing is shown as read that was not. Closing it means one
-     * transaction over the enqueue and the stamp, which the queue does not offer.
-     */
     it('leaves a job buried inside the window as a failed row that can be retried', async () => {
       const id = await insert({ status: 'processing' })
       const dying = await seedJob(id, KEY, 'claimed')

@@ -13,7 +13,6 @@ vi.mock('@/lib/auth/require-auth', () => ({
 }))
 
 vi.mock('@/lib/authz/platform', () => {
-  // Defined inside the factory: vi.mock is hoisted above module-level classes.
   class PlatformAccessDeniedError extends Error {
     readonly status = 403
   }
@@ -113,7 +112,6 @@ describe('platform knowledge routes', () => {
     expect(res.status).toBe(409)
     expect((await res.json()).code).toBe('NAME_TAKEN')
     expect(uploadMock).not.toHaveBeenCalled()
-    // What was asked: the upload's file by name, with the sha256 of its bytes.
     expect([...(refuseReplacing.mock.calls[0]?.[0] as Map<string, string>)]).toEqual([
       ['norm.pdf', '039058c6f2c0cb492c533b0a4d14ef77cc0f78abccced5287d84a1a2011cfb81'],
     ])
@@ -141,7 +139,6 @@ describe('platform knowledge routes', () => {
     isOwner.value = true
     deleteMock.mockClear()
     refuseRemoval.mockClear()
-    // The check once saw ' norm.pdf', which no record names, and the service then trimmed it and removed norm.pdf.
     refuseRemoval.mockImplementation(async (name: string) => {
       if (name === 'norm.pdf') throw new ConflictError('norm.pdf is the text of manifestation:at-norm-text')
     })

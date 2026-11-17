@@ -1,19 +1,5 @@
 'use client'
 
-/**
- * Notifications for this device, as the settings section and the inbox prompt
- * see them (ADR-0112).
- *
- * Plain `fetch` + `useState`, like the inbox hooks. The hook reads the
- * deployment's config, this browser's capabilities and subscription, and the
- * person's devices and choices, and offers the three things a person can do:
- * turn this device on, turn it off (or remove another), change a choice.
- *
- * Turning on starts from the click and asks for the browser's permission before
- * anything else is awaited (`subscribeThisDevice`), because Safari ties the
- * prompt to the gesture. Nothing here ever asks by itself.
- */
-
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { PushPreferences, PushPreferencesPatch } from '@/lib/inbox/push-categories'
 import { DEFAULT_PUSH_PREFERENCES } from '@/lib/inbox/push-categories'
@@ -31,12 +17,6 @@ import {
 import { pushClient, type PushClient } from '@/lib/push/client'
 import type { PushDeviceView } from '@/lib/push/types'
 
-/**
- * - `loading`: not known yet (the server render, and the first reads).
- * - `off`: this deployment sends no notifications; show nothing.
- * - `unsupported`, `needs-install`, `denied`: this browser cannot, and why.
- * - `ready`: it can; `thisDeviceOn` says whether it is.
- */
 export type PushPhase = 'loading' | 'off' | 'unsupported' | 'needs-install' | 'denied' | 'ready'
 
 export type PushActionError = 'enable' | 'remove' | 'preferences' | null
@@ -45,7 +25,6 @@ export interface UsePushNotificationsResult {
   phase: PushPhase
   thisDeviceOn: boolean
   devices: PushDeviceView[]
-  /** The id of this browser's entry in `devices`, if it has one. */
   thisDeviceId: string | null
   preferences: PushPreferences
   busy: boolean
@@ -89,9 +68,6 @@ export function usePushNotifications(client: PushClient = pushClient): UsePushNo
       setPublicKey(config.publicKey)
       const support = classifyPushSupport(readCapabilities())
       setPhase(phaseOf(support))
-      // Devices and choices are the person's own and cost nothing to read, so
-      // they show even where this browser cannot subscribe (a phone's settings
-      // lists the laptop).
       const [list, prefs, subscription] = await Promise.all([
         client.listDevices(),
         client.getPreferences(),
@@ -102,7 +78,6 @@ export function usePushNotifications(client: PushClient = pushClient): UsePushNo
       setPreferences(prefs)
       setEndpoint(subscription?.endpoint ?? null)
     } catch {
-      // The deployment cannot be read: draw nothing rather than a broken control.
       if (alive.current) setPhase((current) => (current === 'loading' ? 'off' : current))
     }
   }, [client])
@@ -123,8 +98,6 @@ export function usePushNotifications(client: PushClient = pushClient): UsePushNo
       await action()
     } catch (cause) {
       if (!alive.current) return
-      // A refused prompt is an answer, not a failure: the section then shows
-      // how to allow it. Anything else is a failure to retry.
       if (cause instanceof PushPermissionError) {
         setPhase(classifyPushSupport(readCapabilities()) === 'denied' ? 'denied' : 'ready')
       } else {
@@ -196,13 +169,9 @@ export function usePushNotifications(client: PushClient = pushClient): UsePushNo
   }
 }
 
-/** Keep the registration of a device the person already turned on fresh, once per page load. */
 export async function refreshRegisteredDevice(client: PushClient = pushClient): Promise<void> {
   const subscription = await currentSubscription()
   if (!subscription) return
   const device = deviceOfSubscription(await client.listDevices(), subscription)
-  // Only a device THIS person registered is refreshed. A subscription that
-  // another person left in a shared browser stays theirs until this person
-  // turns it on themselves.
   if (device) await client.registerDevice(registrationBody(subscription))
 }

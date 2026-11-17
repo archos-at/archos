@@ -1,12 +1,3 @@
-"""The document-metadata resolvers fail open, and say so.
-
-Each of the three (`doc_class`, `display_title`, folder path) swallowed every
-store error and returned an empty map, so a metadata store that was down or
-misconfigured made every hit fall back to its chunk metadata — a wrong
-doc_class, a filename for a title, a root folder — with nothing in any log to
-distinguish that from a correct answer.
-"""
-
 import logging
 from types import SimpleNamespace
 
@@ -41,8 +32,6 @@ def test_a_store_read_failure_is_fail_open_and_logged(monkeypatch, caplog, resol
     warning = next(r for r in caplog.records if r.levelno == logging.WARNING)
     assert "proj_1" in warning.getMessage()
     assert what in warning.getMessage()
-    # The traceback travels with it: "falls back" without the cause is a
-    # symptom line, and the operator needs the fault.
     assert warning.exc_info is not None
 
 

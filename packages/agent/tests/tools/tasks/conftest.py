@@ -1,11 +1,3 @@
-"""One signed, project-scoped turn for the delegation tool.
-
-The HTTP call is the only thing mocked. The request context, the card registry
-and the tool itself are the real ones, because what is under test is the seam:
-that the SIGNED bytes leave unchanged, and that a run with no acting person
-delegates nothing at all.
-"""
-
 from __future__ import annotations
 
 import base64
@@ -29,7 +21,6 @@ PROJECT = "3f8b0d2e-0000-4000-8000-000000000001"
 
 
 def envelope(payload: dict[str, Any]) -> tuple[str, str]:
-    """The BFF's own encoding: base64url(JSON) plus the hex HMAC of the raw JSON."""
     raw = json.dumps(payload)
     header = base64.urlsafe_b64encode(raw.encode("utf-8")).decode("ascii").rstrip("=")
     signature = hmac.new(SECRET.encode("utf-8"), raw.encode("utf-8"), hashlib.sha256).hexdigest()
@@ -53,8 +44,6 @@ class _Metadata:
 
 
 class _Context:
-    """The half of the agent runtime's Context this tool reads."""
-
     def __init__(self, headers: dict[str, str], conversation_id: str | None) -> None:
         self.metadata = _Metadata(headers)
         self.conversation_id = conversation_id
@@ -82,7 +71,6 @@ def registry() -> Any:
 
 @pytest.fixture(autouse=True)
 def _context(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A signed, project-scoped chat turn, as the WS upgrade would leave it."""
     monkeypatch.setenv("INTERNAL_API_TOKEN", SECRET)
     bind_context(
         monkeypatch,
@@ -100,7 +88,6 @@ def responder(
     body: dict[str, Any],
     calls: list[tuple[dict[str, Any], SignedEnvelope]],
 ) -> None:
-    """Record what the tool posts and answer with ``body``."""
 
     def _post(payload: dict[str, Any], envelope_arg: SignedEnvelope) -> dict[str, Any]:
         calls.append((payload, envelope_arg))

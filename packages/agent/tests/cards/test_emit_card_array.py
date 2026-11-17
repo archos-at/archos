@@ -1,16 +1,3 @@
-"""``emit_card`` with an array: several cards, one call, one reply.
-
-Two cards used to cost two rounds, each one a full pass over the turn's
-context — and a description saying "one call each, in the same round" did not
-move the fleet, because nothing stops a model issuing those calls one round
-apart. An array cannot be issued serially.
-
-What the array must not buy is a softer standard: every element goes through
-the same validation and the same closed channels as a card emitted on its own,
-and a refusal names the element's index so the model knows which object to fix
-rather than re-sending the whole array over cards that already registered.
-"""
-
 import json
 from unittest.mock import MagicMock
 
@@ -21,13 +8,11 @@ from agent.cards.registry import CardRegistry
 from agent.cards.registry import reset_card_registry
 from agent.cards.registry import set_card_registry
 
-#: Two cards the model may emit, filled the way it would fill them.
 PICKER = {"type": "ifc_model_picker", "title": "Treppe"}
 BASIS = CARD_EXAMPLES["calculation"]
 
 
 async def _emit(registry: CardRegistry, payload) -> str:
-    """The real tool against a bound registry."""
     token = set_card_registry(registry)
     try:
         async with emit_card(EmitCardConfig(), MagicMock()) as info:
@@ -45,14 +30,10 @@ class TestAnArrayRegistersEveryCard:
         assert [card["type"] for card in registry.snapshot()] == ["ifc_model_picker", "calculation"]
         assert "[[card:1]]" in message
         assert "[[card:2]]" in message
-        # The markers are in emission order, which is the order the frontend
-        # resolves them in.
         assert message.index("[[card:1]]") < message.index("[[card:2]]")
-        # The model still has to be told what to DO with them.
         assert "line of its own" in message
 
     async def test_the_positions_continue_the_turn_s_registry(self):
-        # A card emitted on its own earlier in the turn already holds card 1.
         registry = CardRegistry()
 
         await _emit(registry, PICKER)
@@ -80,9 +61,6 @@ class TestARefusedElementNamesItself:
 
         assert [card["type"] for card in registry.snapshot()] == ["ifc_model_picker"]
         assert "[[card:1]]" in message
-        # Index and type, because the model wrote the whole array in one call:
-        # without them it cannot tell which object to fix, and the card that
-        # did register is already in the registry, so re-sending both duplicates it.
         assert "Card at index 1 (type 'stair_diagram')" in message
         assert "failed validation" in message
 
@@ -145,5 +123,4 @@ class TestTheSingleObjectPathIsUnchanged:
         message = await _emit(registry, {"type": "stair_diagram", "title": "Treppe"})
 
         assert message.startswith("Error: card of type 'stair_diagram' failed validation:")
-        # No index prefix: there is no array to point into.
         assert "Card at index" not in message

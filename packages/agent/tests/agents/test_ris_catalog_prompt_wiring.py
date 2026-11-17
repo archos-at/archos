@@ -1,12 +1,3 @@
-"""Prompt wiring: the norm registry block reaches the deep-research prompt.
-
-Piloti no longer renders the catalog. Its entries are RIS addresses, and
-``ris_lookup`` resolves one out of the question itself (ADR-0060 (d)), so a
-per-turn copy of the list below the KV-cache boundary bought the turn nothing
-and cost it ~1,500 tokens. Deep research, whose researcher orchestrates RIS by
-hand, still gets it — which is why the wiring is still pinned here.
-"""
-
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -88,8 +79,6 @@ def test_the_deep_template_omits_the_registry_block_when_absent():
 
 
 def test_chat_carries_no_catalog_variable_at_all():
-    """Not "renders empty": the variable is gone from the template, so a
-    caller cannot reintroduce 1,500 tokens by passing one."""
     source = CHAT_TEMPLATE.read_text(encoding="utf-8")
 
     assert "ris_catalog" not in source
@@ -135,7 +124,6 @@ def test_deep_render_prompt_passes_registry_block(austria_core):
 
 
 def test_without_a_context_that_allows_ris_the_catalogue_is_withheld():
-    """ADR-0175: no knowledge context bound, no RIS tool, and no RIS addresses either."""
     context = _graph_context({"researcher": "{% if ris_catalog %}RIS-BLOCK{% else %}no-catalog{% endif %}"})
 
     assert context.render_prompt("researcher") == "no-catalog"
@@ -156,7 +144,6 @@ _PROBE = "Bauherr sitzt in der Wiener Straße, Grundstück in Linz"
 
 @pytest.fixture
 def two_lands(_registry_env):
-    """The registry with Linz's Land beside Vienna's."""
     registry = {**_REGISTRY, "entries": [*_REGISTRY["entries"], {**_REGISTRY["entries"][0], "id": "bo-ooe"}]}
     registry["entries"][1].update(short="OÖ BauO", title="Oö. Bauordnung 1994", federal_state="Oberösterreich")
     (_registry_env / "at" / "registry.yml").write_text(yaml.safe_dump(registry, allow_unicode=True), encoding="utf-8")
@@ -177,8 +164,6 @@ def _catalog_with(gate: str, chains: dict) -> str:
 
 
 def test_with_no_site_every_land_renders_and_the_project_text_decides_nothing(two_lands):
-    """Review of #1582: under ``site_unknown`` the text "Wiener Straße … Linz" narrowed the catalogue to Wien
-    and dropped Oberösterreich. With no site in the context, every Land's lane renders (ADR-0175)."""
     rendered = _catalog_with("site_unknown", {})
     assert "BO Wien" in rendered and "OÖ BauO" in rendered
 
@@ -189,6 +174,5 @@ def test_the_site_s_land_comes_from_the_context_s_leaf(two_lands):
 
 
 def test_a_site_placed_by_its_municipality_still_narrows_to_its_land(two_lands):
-    """Review of #1582: the BFF's leaf is the register municipality first, so the Land is found down the chain."""
     rendered = _catalog_with("core", {"AT:gkz:40101": ("AT:gkz:40101", "AT-4", "AT", "EU")})
     assert "OÖ BauO" in rendered and "BO Wien" not in rendered

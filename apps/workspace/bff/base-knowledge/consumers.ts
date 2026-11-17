@@ -101,6 +101,7 @@ const LISTING = {
 const MA37 = { file: PLATFORM_SPEC, name: 'excludes an MA 37 directive for a project in Graz, and applies it in Vienna, by the competence rulesets' }
 const INDEXED = { file: PLATFORM_SPEC, name: 'gives a published text its indexing run, and reads it indexed once the corpus has its chunks' }
 const INDEX_FAILED = { file: PLATFORM_SPEC, name: 'records a corpus that does not know the file as failed, with why' }
+const INDEXED_ONCE = { file: 'apps/workspace/bff/base-knowledge/platform/texts.integration.spec.ts', name: 'indexes a text once: a retry after its ingest is done only titles it' }
 const ALONE_SPEC = 'apps/workspace/bff/base-knowledge/platform/approve-alone.integration.spec.ts'
 const PLATFORM_SERVICE = 'apps/workspace/bff/base-knowledge/platform/service.ts'
 const APPROVED_ALONE = {
@@ -109,6 +110,9 @@ const APPROVED_ALONE = {
 }
 const EVERY_ROLE = { file: ALONE_SPEC, name: 'owes a second review in every role approved alone, each from somebody holding that role' }
 const SECOND_REVIEW_KEPT = { file: ALONE_SPEC, name: 'keeps the author from giving the second review themselves' }
+/** A release carried from another deployment by the promotion (ADR-0181). */
+const CARRY = 'apps/workspace/bff/base-knowledge/platform/carry.ts'
+const CARRIED = { file: 'apps/workspace/bff/base-knowledge/platform/carry.integration.spec.ts', name: 'carries both to stable, decided `carried`, once the right bytes are fetched' }
 const FOUR_EYES = { file: PLATFORM_SPEC, name: 'refuses an approval by the request’s own author (four eyes)' }
 const RACE = { file: PLATFORM_SPEC, name: 'publishes to stable only after preview, and refuses a record released by another request since' }
 const COMPETENCE_IDS = { file: 'apps/workspace/bff/base-knowledge/platform/validate.spec.ts', name: 'names a competence territory that is not imported, by pointer' }
@@ -321,6 +325,7 @@ export const KNOWLEDGE_CONSUMERS: readonly KnowledgeConsumer[] = [
   { element: 'knowledge_change_requests.second_review', consumer: PLATFORM_SERVICE, test: APPROVED_ALONE },
   { element: 'knowledge_change_requests.second_review_by', consumer: PLATFORM_STORE, test: SECOND_REVIEW_KEPT },
   { element: 'knowledge_change_requests.second_review_at', consumer: PLATFORM_STORE, test: APPROVED_ALONE },
+  { element: 'knowledge_change_requests.carried_from', consumer: CARRY, test: CARRIED },
   { element: 'knowledge_second_reviews.id', consumer: PLATFORM_STORE, test: EVERY_ROLE },
   { element: 'knowledge_second_reviews.change_request_id', consumer: PLATFORM_STORE, test: EVERY_ROLE },
   { element: 'knowledge_second_reviews.role', consumer: PLATFORM_STORE, test: EVERY_ROLE },
@@ -345,6 +350,7 @@ export const KNOWLEDGE_CONSUMERS: readonly KnowledgeConsumer[] = [
   { element: 'knowledge_index_runs.change_request_id', consumer: PLATFORM_INDEXING, test: INDEXED },
   { element: 'knowledge_index_runs.state', consumer: PLATFORM_INDEXING, test: INDEXED },
   { element: 'knowledge_index_runs.failure', consumer: PLATFORM_INDEXING, test: INDEX_FAILED },
+  { element: 'knowledge_index_runs.handed_at', consumer: PLATFORM_INDEXING, test: INDEXED_ONCE },
   { element: 'knowledge_index_runs.requested_at', consumer: PLATFORM_INDEXING, test: INDEXED },
   { element: 'knowledge_index_runs.updated_at', consumer: PLATFORM_INDEXING, test: INDEXED },
   { element: 'organization_countries.organization_id', consumer: PLATFORM_ENTITLEMENTS, test: LISTING },

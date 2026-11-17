@@ -1,12 +1,3 @@
-/**
- * Where a clicked citation lands, and what a resolved-but-unrenderable one
- * offers — the three defects reported against the answer's provenance row.
- *
- *  - #621 the viewer opened at page 1 for a citation that knew its page;
- *  - #623 a cited project document offered no way in and no reason;
- *  - #622 a RIS source left the product instead of opening in it.
- */
-
 import { describe, expect, test } from 'vitest'
 import { buildCitationModel, openAtLocus, referencesByNumber, resolveCitationTarget } from './index'
 import type { CitationSource } from '../../types'
@@ -18,11 +9,6 @@ const wire = (overrides: Partial<CitationSource>): CitationSource => ({
   ...overrides,
 })
 
-/**
- * The shape #621 arrives in: the retrieval payload knows the page, the answer's
- * written source list carries the `[N]` and names no page. Two loci, one
- * document.
- */
 const officeDocument = () => {
   const [document] = buildCitationModel({
     citations: [
@@ -57,8 +43,6 @@ describe('a citation opens where the document was read (#621)', () => {
     const document = officeDocument()
     const pageless = document.loci.find((locus) => locus.page === undefined)!
 
-    // This is the click #621 reported: the reader pressed the `[1]` whose
-    // binding came from the written list, and the viewer opened at page 1.
     expect(openAtLocus(document, pageless)?.page).toBe(18)
 
     const target = resolveCitationTarget(document, {
@@ -83,12 +67,6 @@ describe('a citation opens where the document was read (#621)', () => {
   })
 
   test('a locus that carries the cited passage keeps it, and keeps its own words', () => {
-    // The regression the first version of this fix introduced, which is worse
-    // than #621 was. `[3]` cited the document as a whole WITH the quoted
-    // passage; `[5]` is a different passage on page 7. Treating "has a page" as
-    // the test discarded `[3]`'s locus for `[5]`'s — so the reader clicked `[3]`
-    // and was shown page 7 with ANOTHER citation's sentence marked as theirs,
-    // and the copy-as-Zitat and the deep link inherited it.
     const [document] = buildCitationModel({
       citations: [
         wire({
@@ -114,7 +92,6 @@ describe('a citation opens where the document was read (#621)', () => {
     })
     const forThree = referencesByNumber([document!]).get(3)!.locus!
 
-    // A passage IS a place — the viewer finds it without being told a page.
     expect(openAtLocus(document!, forThree)?.key).toBe(forThree.key)
 
     const target = resolveCitationTarget(document!, {
@@ -131,8 +108,6 @@ describe('a citation opens where the document was read (#621)', () => {
   })
 
   test("a place may be borrowed, but the caller's passage never is", () => {
-    // The other half: a locus with NEITHER page nor passage still borrows a
-    // page from the document, and must not acquire that locus's words with it.
     const document = officeDocument()
     const pageless = document.loci.find((locus) => locus.page === undefined)!
     document.loci.find((locus) => locus.page === 18)!.snippet = 'SEITE ACHTZEHN'
@@ -148,10 +123,7 @@ describe('a citation opens where the document was read (#621)', () => {
         },
       ],
     })
-    // The page is borrowed (that is #621's fix)…
     expect(target).toMatchObject({ kind: 'document', page: 18 })
-    // …and since the asked locus has no passage of its own, the borrowed one is
-    // all there is. It belongs to the same place, so it is not a false claim.
     expect(target).toMatchObject({ snippet: 'SEITE ACHTZEHN' })
   })
 
@@ -198,8 +170,6 @@ describe('a cited document with no viewer says so and hands over the file (#623)
   })
 
   test('a citation that resolves to nothing is still `info`, not a download', () => {
-    // The distinction is the whole point: "we cannot draw it" and "it is not
-    // here" are different answers and the reader is owed the right one.
     const target = resolveCitationTarget(cited('Bestandsplan_EG.dwg'), { storedDocuments: [] })
     expect(target.kind).toBe('info')
   })
@@ -239,9 +209,6 @@ describe('a cited office document opens on its PDF rendition (ADR-0070)', () => 
   ]
 
   test('a Word file is a `document`, not a download, and keeps its original type', () => {
-    // The #623 example. It was a download because nothing could draw it; the
-    // BFF now renders a PDF from it, and the surface falls back to the download
-    // only when that rendition cannot be had (415 / 502).
     const target = resolveCitationTarget(cited('Raumprogramm_Schulbau.docx', 1), {
       storedDocuments: stored(
         'Raumprogramm_Schulbau.docx',
@@ -294,8 +261,6 @@ describe('a cited office document opens on its PDF rendition (ADR-0070)', () => 
   })
 
   test('an .xlsx or .xlsm locus names a sheet, not a rendition page, so it opens at 1', () => {
-    // openpyxl still reads these from the original; one sheet can print across
-    // many PDF pages, so the sheet number says nothing about where it lands.
     for (const fileName of ['Flaechen.xlsx', 'Makro.xlsm']) {
       const target = resolveCitationTarget(cited(fileName, 4), {
         storedDocuments: stored(fileName, null),
@@ -351,9 +316,6 @@ describe('a RIS source opens inside Piloti (#622)', () => {
 
 describe('an inline `[N]` binds to the locus that knows its page (#621)', () => {
   test('the written list cannot take the page away from the retrieval payload', () => {
-    // Both producers state `[1]`: the wire knows the page, the written list
-    // does not. Two loci, one marker — and `byNumber` used to keep whichever
-    // came last in locus order, which is the page-less one.
     const [document] = buildCitationModel({
       citations: [
         wire({
@@ -375,9 +337,6 @@ describe('an inline `[N]` binds to the locus that knows its page (#621)', () => 
   })
 
   test('a marker bound to a page-less locus still opens where the document was read', () => {
-    // The other half of the same defect: when only the written list carries
-    // `[1]`, the binding is honestly page-less and the fix has to happen at the
-    // open instead.
     const document = officeDocument()
     const bound = referencesByNumber([document]).get(1)
 

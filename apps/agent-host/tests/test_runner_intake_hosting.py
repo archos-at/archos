@@ -1,14 +1,3 @@
-"""The project intake agent is hosted by the research worker (slice 4 of agentic project intake).
-
-Module under test: ``agent_host.jobs.runner`` and ``agent_host.registry``.
-
-The intake writes suggested values onto a project, not a report. Three things
-follow, each pinned here: the post-report model calls (grid cards, anatomy,
-follow-ups, reflection) are skipped when the agent declares
-``produces_report = False``; its LLM runs on the chat model's group; and the
-completion-token budget cap guards it as it guards deep research.
-"""
-
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -25,13 +14,10 @@ from agent_host.registry import get_agent_config
 
 
 class _Reportless:
-    """An agent that writes to objects: it declares no report."""
-
     produces_report = False
 
 
-class _Reporting:
-    """An agent like every one before the intake: no declaration, so a report."""
+class _Reporting: ...
 
 
 @pytest.fixture
@@ -94,7 +80,6 @@ class TestReportlessAgentGetsNoReportPasses:
 
 
 async def _default_group(fn_config) -> AgentGroup:
-    """The group ``_create_llm_provider`` tags the config's single ``llm`` with."""
     captured: dict[str, AgentGroup] = {}
 
     class _Provider:

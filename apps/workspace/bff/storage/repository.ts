@@ -67,7 +67,7 @@ function isDocumentScope(value: string): value is DocumentScope {
  *
  * `file_size` is a nullable integer, so `sum()` yields NULL for an org with no
  * documents and postgres-js hands back `bigint` as a STRING — both are coerced
- * here rather than at the call site, per the raw-`sql` rule in AGENTS.md.
+ * here rather than at the call site, per the raw-`sql` rule in code-conventions.md.
  * Soft-deleted rows are excluded so a restore does not double-count.
  */
 export async function aggregateStorageUsage(
@@ -157,7 +157,7 @@ async function sumItemBytes(organizationId: string): Promise<number> {
  *
  * `sum()` yields NULL for an org with no versions and postgres-js hands back
  * `bigint` as a STRING; both are coerced here, per the raw-`sql` rule in
- * AGENTS.md.
+ * code-conventions.md.
  */
 export async function versionOverheadByScope(
   organizationId: string,

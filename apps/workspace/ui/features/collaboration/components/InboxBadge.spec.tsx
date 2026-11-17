@@ -3,13 +3,6 @@ import { render, screen } from '@/test-utils'
 
 import { InboxBadge } from './InboxBadge'
 
-/**
- * The badge's contract is small and entirely about edge cases: nothing at zero, a
- * capped display that never loses the true count, and the right key from the
- * `…One`/`…Many` pair (this i18n layer has no plural rules).
- *
- * Tests render without an I18nProvider, so they see the default locale (`en`).
- */
 describe('InboxBadge', () => {
   test('renders nothing at all when nothing is pending (no empty circle)', () => {
     const { container } = render(<InboxBadge pending={0} />)
@@ -39,27 +32,20 @@ describe('InboxBadge', () => {
   test('caps the visible number at 99+ but keeps the true count in the label', () => {
     render(<InboxBadge pending={128} />)
     const badge = screen.getByTestId('inbox-badge')
-    // The cap is the pill's own (`max`): `99+` is what is seen, and the only
-    // text a sighted reader meets; the exact figure rides in the label.
     expect(badge.querySelector('[aria-hidden]')).toHaveTextContent(/^99\+$/)
     expect(badge).toHaveAttribute('aria-label', '128 items need your attention')
-    // The exact count also stays machine-readable for the collapsed rail.
     expect(badge).toHaveAttribute('data-pending', '128')
   })
 
   test('accepts positioning overrides so the collapsed rail can place it', () => {
     render(<InboxBadge pending={2} className="absolute -top-1 -right-1" />)
-    // On the frame that carries its arrival, so the pill and its motion move as one.
     expect(screen.getByTestId('inbox-badge').parentElement).toHaveClass('absolute')
   })
 
   test('renders through the CountPill primitive, in its attention tone', () => {
-    // The shape (rounded-full, tabular numerals, padding) is the primitive's job;
-    // a fourth hand-rolled copy of it is what this composition exists to prevent.
     render(<InboxBadge pending={3} />)
     const badge = screen.getByTestId('inbox-badge')
     expect(badge).toHaveAttribute('data-slot', 'count-pill')
-    // Attention, not the primitive's default muted: this count is a call to act.
     expect(badge).toHaveClass('bg-primary')
   })
 
@@ -69,13 +55,9 @@ describe('InboxBadge', () => {
     const atRest = pill()
     rerender(<InboxBadge pending={3} />)
     const arriving = pill()
-    // A new pill: the one that plays the arrival.
     expect(arriving).not.toBe(atRest)
-    // The shell re-renders for its own reasons while the spring runs. The pill
-    // was keyed by „rose in this render“, so this remounted it at rest.
     rerender(<InboxBadge pending={3} />)
     expect(pill()).toBe(arriving)
-    // A fall is not an arrival.
     rerender(<InboxBadge pending={1} />)
     expect(pill()).toBe(arriving)
   })

@@ -42,7 +42,6 @@ describe('normalizeTopic', () => {
 
   it('refuses a topic longer than the maximum, once its spaces are collapsed', () => {
     expect(() => normalizeTopic('x'.repeat(MEMORY_TOPIC_MAX_LENGTH + 1))).toThrow(BadRequestError)
-    // Spaces that collapse do not count against the bound.
     expect(normalizeTopic(`${'a'.repeat(30)}${' '.repeat(20)}${'b'.repeat(9)}`)).toBe(`${'a'.repeat(30)} ${'b'.repeat(9)}`)
   })
 

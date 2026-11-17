@@ -1,11 +1,5 @@
 'use client'
 
-/**
- * One change request opened over the page it was listed on: the review with
- * every claim beside its source, the texts of its editions, and its next step
- * (`ChangeRequestReview`). Read-only staff see it without the write controls.
- */
-
 import type { JSX } from 'react'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { usePlatformCan } from '@/features/platform/platform-access'

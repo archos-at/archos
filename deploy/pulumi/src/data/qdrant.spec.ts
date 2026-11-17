@@ -99,8 +99,60 @@ describe("the snapshot script's collection listing", () => {
   });
 
   it("lists every collection name otherwise", () => {
-    expect(run('{"result":{"collections":[{"name":"piloti_office_v1"},{"name":"piloti_corpus_v1"}]}}')).toBe(
-      "piloti_office_v1\npiloti_corpus_v1\nEND\n",
+    expect(run('{"result":{"collections":[{"name":"office_v1"},{"name":"piloti_corpus_v1"}]}}')).toBe(
+      "office_v1\npiloti_corpus_v1\nEND\n",
     );
+  });
+});
+
+describe("the snapshot script on a retried run", () => {
+  // The Job retries a failed run (backoffLimit), and every retry used to take
+  // a new snapshot of every collection on every peer: prod's qdrant-snapshots
+  // grew to 74 GB by 2026-11-14. A collection holding a snapshot from the last
+  // FRESH_HOURS is not snapshotted again.
+  const script = snapshotScript().split("\n");
+  const fn = (name: string): string => {
+    const start = script.findIndex((l) => l.startsWith(`${name}() {`));
+    if (start < 0) throw new Error(`snapshotScript defines no ${name}()`);
+    const end = script.findIndex((l, i) => i > start && l === "}");
+    return script.slice(start, end + 1).join("\n");
+  };
+  const line = (prefix: string): string => {
+    const found = script.find((l) => l.startsWith(prefix));
+    if (!found) throw new Error(`snapshotScript has no line starting ${prefix}`);
+    return found;
+  };
+  const stampOf = (msAgo: number): string => {
+    const d = new Date(Date.now() - msAgo);
+    const p = (n: number) => String(n).padStart(2, "0");
+    return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())}-${p(d.getUTCHours())}-${p(d.getUTCMinutes())}-${p(d.getUTCSeconds())}`;
+  };
+  const hasRecent = (snapshotNames: string[]): boolean => {
+    const answer = JSON.stringify({ result: snapshotNames.map((name) => ({ name })) });
+    const program = [
+      "set -eu -o pipefail",
+      line("names()"),
+      line("FRESH_HOURS="),
+      line("fresh_cutoff="),
+      fn("stamp"),
+      fn("recent"),
+      fn("has_recent"),
+      `q() { printf '%s' '${answer}'; }`,
+      'if has_recent "http://peer" office_v1; then echo yes; else echo no; fi',
+    ].join("\n");
+    return execFileSync("bash", ["-c", program], { encoding: "utf8" }).trim() === "yes";
+  };
+  const HOUR = 3600 * 1000;
+
+  it("does not snapshot again when one from the last hours exists", () => {
+    expect(hasRecent([`office_v1-123-${stampOf(2 * HOUR)}.snapshot`])).toBe(true);
+  });
+
+  it("snapshots when the newest is a day old", () => {
+    expect(hasRecent([`office_v1-123-${stampOf(25 * HOUR)}.snapshot`])).toBe(false);
+  });
+
+  it("snapshots a collection that has none", () => {
+    expect(hasRecent([])).toBe(false);
   });
 });

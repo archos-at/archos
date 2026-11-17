@@ -171,16 +171,27 @@ describe("committed stack files", () => {
     }
   });
 
-  it("recommend, in prod's commented project-mail block, a DMARC record that parses", () => {
-    // The owner uncomments the line at promotion 2; a typo found then is a
-    // failed deploy. The placeholder stands for inboundMailOperatorAddress.
-    const text = readFileSync(join(DIR, "Pulumi.prod.yaml"), "utf8");
-    const line = new RegExp(`^ *# ${LEGACY_PROJECT}:inboundMailDmarc: *"(.*)"$`, "m").exec(text)?.[1];
-    expect(line, "the commented inboundMailDmarc line").toBeDefined();
-    const record = String(line).replace("<inboundMailOperatorAddress>", "mail-ops@company.example");
-    expect(dmarcRecordProblem(record)).toBeUndefined();
-    // `sp=` explicit: the receiving subdomain has no record of its own.
-    expect(record).toMatch(/;\s*sp=/);
+  it("cover the receiving subdomain explicitly in a mail zone's DMARC record", () => {
+    // The receiving subdomain has no record of its own: `sp=` is what applies to it.
+    for (const stack of stacks()) {
+      const record = str(stack.config, "inboundMailDmarc");
+      if (record === undefined) continue;
+      expect(record, stack.file).toMatch(/;\s*sp=/);
+    }
+  });
+
+  it("let a stack share an operator address only when another committed stack owns it", () => {
+    // `inboundMailOperatorAddressShared` declares no destination address, and the
+    // preview refuses one the account does not hold verified. The owner is the
+    // stack that creates it (and keeps it, `retainOnDelete`): if that stack moved
+    // to another mailbox, the sharer's next preview would fail at its release.
+    const mail = stacks().filter((s) => str(s.config, "inboundMailDomain") !== undefined);
+    const shared = (s: { config: StackConfig }) => str(s.config, "inboundMailOperatorAddressShared") === "true";
+    const owned = new Set(mail.filter((s) => !shared(s)).map((s) => str(s.config, "inboundMailOperatorAddress")?.toLowerCase()));
+    for (const stack of mail.filter(shared)) {
+      const address = str(stack.config, "inboundMailOperatorAddress")?.toLowerCase();
+      expect(owned.has(address), `${stack.file} shares ${address}, which no stack owns`).toBe(true);
+    }
   });
 
   // `loadConfig` refuses them at plan time, which is the deploy failing; this
@@ -217,5 +228,21 @@ describe("four-eyes review of platform knowledge", () => {
     expect(prod, "Pulumi.prod.yaml").toBeDefined();
     const value = prod?.config[`${LEGACY_PROJECT}:knowledgeSingleOperator`];
     expect(value === undefined || value === false || value === "false").toBe(true);
+  });
+  // The one exception, by the owner's decision of 2026-11-14 (ADR-0181): the promotion's carry Job sets it on its own
+  // pod, to carry the releases dev reviewed. No other source under src/ turns it on.
+  it("is turned on in source only by the knowledge carry Job", () => {
+    const sources = (dir: string): string[] =>
+      readdirSync(join(DIR, dir), { withFileTypes: true }).flatMap((entry) =>
+        entry.isDirectory() ? sources(join(dir, entry.name)) : entry.name.endsWith(".ts") && !entry.name.endsWith(".spec.ts") ? [join(dir, entry.name)] : [],
+      );
+    const setsIt = sources("src").filter((file) => /name: "KNOWLEDGE_SINGLE_OPERATOR", value: "true"/.test(readFileSync(join(DIR, file), "utf8")));
+    expect(setsIt).toEqual([join("src", "app", "knowledge-carry-job.ts")]);
+  });
+
+  it("carries the reviewed releases on prod and on dev", () => {
+    for (const file of ["Pulumi.prod.yaml", "Pulumi.dev.yaml"]) {
+      expect(stacks().find((stack) => stack.file === file)?.config[`${LEGACY_PROJECT}:knowledgeCarry`], file).toBe("true");
+    }
   });
 });

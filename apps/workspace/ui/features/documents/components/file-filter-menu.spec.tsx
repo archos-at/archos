@@ -24,18 +24,8 @@ const renderMenu = (overrides: Partial<Parameters<typeof FileFilterMenu>[0]> = {
 
 const open = () => userEvent.click(screen.getByTestId('file-filter-menu-trigger'))
 
-/**
- * The strip these tests replaced showed its state by looking pressed. A popover
- * cannot, so the count on the trigger carries it instead — which makes the
- * badge load-bearing rather than decoration, and is why it is tested first.
- */
 describe('the retired filter', () => {
   test('offers a way back to a file somebody archived', async () => {
-    // Retiring takes the file out of the listing (`lifecycle = 'active'` is in
-    // the query), so this checkbox is the ONLY way back to one. Matched on the
-    // copy the reader sees: „Auch zeigen: Stillgelegte" / „Also show: Retired" —
-    // the act is no longer called archiving, because the Archiv is the office
-    // archive a document is put INTO to become cross-project knowledge.
     const { onFiltersChange } = renderMenu()
     await open()
     await userEvent.click(screen.getByLabelText(/retired/i))
@@ -47,8 +37,6 @@ describe('the retired filter', () => {
 
 describe('the older revisions filter', () => {
   test('offers the older Fassungen beside their current one, and says it widens', async () => {
-    // Older Fassungen are one entry with their current document; this brings
-    // the older ones back, so it is asked for as „auch“ like the retired filter.
     const { onFiltersChange } = renderMenu()
     await open()
     await userEvent.click(screen.getByLabelText('Older revisions'))
@@ -64,7 +52,6 @@ describe('the older revisions filter', () => {
     expect(within(alsoShow).getAllByRole('checkbox')).toHaveLength(2)
     expect(within(alsoShow).getByLabelText('Retired')).toBeInTheDocument()
     expect(within(alsoShow).getByLabelText('Older revisions')).toBeInTheDocument()
-    // The narrowing filters keep their own section.
     const origin = screen.getByRole('group', { name: 'Origin and approval' })
     expect(within(origin).getByLabelText(`By ${PRODUCT_NAME}`)).toBeInTheDocument()
     expect(within(origin).getByLabelText('Awaiting approval')).toBeInTheDocument()
@@ -85,7 +72,6 @@ describe('FileFilterMenu', () => {
   test('puts the count in the accessible name, not only in the pill', async () => {
     renderMenu({ filters: { ...NO_FILE_FILTERS, assignment: 'mine', kinds: ['photo'] } })
     expect(screen.getByTestId('file-filter-count')).toHaveTextContent('2')
-    // A badge a screen reader never reads is a state change nobody announced.
     expect(screen.getByTestId('file-filter-menu-trigger')).toHaveAccessibleName(/2/)
   })
 
@@ -98,8 +84,6 @@ describe('FileFilterMenu', () => {
     renderMenu({ canCollaborate: false })
     await open()
     expect(screen.queryByRole('group', { name: 'Responsible' })).not.toBeInTheDocument()
-    // The rest still renders: authorship and type exist whether or not a
-    // project assigns work.
     expect(await screen.findByLabelText(`By ${PRODUCT_NAME}`)).toBeInTheDocument()
   })
 
@@ -109,9 +93,6 @@ describe('FileFilterMenu', () => {
     })
     await open()
     await userEvent.click(await screen.findByLabelText('3D model (IFC)'))
-    // Spread from the empty set rather than enumerated: this expectation used
-    // to list every dimension by hand and broke the day one was added, which is
-    // the same fragility the reset button had.
     expect(onFiltersChange).toHaveBeenCalledWith({
       ...NO_FILE_FILTERS,
       assignment: 'mine',
@@ -120,11 +101,6 @@ describe('FileFilterMenu', () => {
     })
   })
 
-  /**
-   * A new column takes its OWN default direction. Inheriting the previous
-   * column's gives "Name, descending" the moment you arrive from "Hinzugefügt",
-   * which is Z→A and not what anyone means by sorting a list of drawings.
-   */
   test('a new sort column takes its own default direction', async () => {
     const { onSortChange } = renderMenu({ sort: { key: 'added', direction: 'desc' } })
     await open()
@@ -139,12 +115,6 @@ describe('FileFilterMenu', () => {
     expect(onSortChange).toHaveBeenCalledWith({ key: 'size', direction: 'asc' })
   })
 
-  /**
-   * A ranked result set orders itself, and re-sorting it by upload date throws
-   * the ranking away without saying so. Hidden rather than disabled: there is
-   * nothing the reader could press to enable it short of clearing a search they
-   * meant to run.
-   */
   test('offers no ordering while a semantic search is active', async () => {
     renderMenu({ sortDisabled: true })
     await open()
@@ -155,8 +125,6 @@ describe('FileFilterMenu', () => {
   test('reset is offered but inert while nothing is filtered', async () => {
     const { onFiltersChange } = renderMenu()
     await open()
-    // Disabled, not hidden — a control that appears on the first click moves
-    // everything under the cursor.
     expect(await screen.findByTestId('file-filter-reset')).toBeDisabled()
     expect(onFiltersChange).not.toHaveBeenCalled()
   })

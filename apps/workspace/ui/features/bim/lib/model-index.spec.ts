@@ -41,8 +41,6 @@ describe('resolveHighlights', () => {
       ELEMENTS
     )
     expect(resolved.expressIds).toEqual([21, 24])
-    // Surfaced, not swallowed: highlighting two of three elements while saying
-    // nothing is a wrong answer rendered confidently.
     expect(resolved.unresolved).toEqual(['g-nonexistent'])
   })
 
@@ -100,28 +98,18 @@ describe('expressIdsForStorey', () => {
   })
 
   it('returns null for no storey filter — which the renderer reads as "isolate nothing"', () => {
-    // Distinct from an EMPTY set, which the renderer reads as "hide everything".
     expect(expressIdsForStorey(ELEMENTS, null)).toBeNull()
   })
 
   it('returns an empty set for a storey with no elements', () => {
-    // The model DOES assign elements to storeys and none are on this one, so
-    // an empty viewport is the correct answer to the question asked.
     expect(expressIdsForStorey(ELEMENTS, 'Dachgeschoss')?.size).toBe(0)
   })
 
   it('does not blank the building while the element rows are still in flight', () => {
-    // Geometry and the element list arrive on separate requests. A link
-    // carrying `?storey=Erdgeschoss` renders the building a beat before the
-    // rows land, and an empty set in that window means "draw nothing" — the
-    // reader watches their model disappear and come back.
     expect(expressIdsForStorey([], 'Erdgeschoss')).toBeNull()
   })
 
   it('does not blank the building when the model assigns no storeys at all', () => {
-    // Matching by name cannot be done, which is a fact about the export. It is
-    // not the same fact as "this level is empty", and hiding the whole
-    // building is not a truthful way to report it.
     const unassigned: BimViewerElement[] = [
       { globalId: 'g-1', expressId: 1, ifcType: 'IfcWall', name: 'Wand', storeyName: null },
       { globalId: 'g-2', expressId: 2, ifcType: 'IfcSlab', name: 'Decke', storeyName: null },
@@ -141,23 +129,16 @@ describe('what the viewport finally isolates', () => {
   })
 
   it('takes BOTH when the reader asked for both', () => {
-    // Isolate a stair, filter to the first floor: the answer is the part of
-    // the stair on that floor, not one or the other.
     expect([...(resolveIsolation(new Set([1, 2, 3]), new Set([2, 3, 9])) ?? [])]).toEqual([2, 3])
   })
 
   it('passes an empty intersection through rather than dropping a constraint', () => {
-    // The reader isolated something that is not on the level they filtered to.
-    // An empty viewport is the honest report; quietly ignoring one control
-    // would show them a building they did not ask for.
     expect(resolveIsolation(new Set([1]), new Set([2]))?.size).toBe(0)
   })
 })
 
 describe('whether a selection survives being hidden', () => {
   it('drops a selection the reader just hid', () => {
-    // Otherwise the inspector describes a component that is not on screen and
-    // the camera orbits around something invisible.
     expect(selectionSurvives(21, { hidden: new Set([21]), isolated: null })).toBe(false)
   })
 
@@ -182,9 +163,6 @@ describe('whether the reader has changed what is visible', () => {
 
   it('is true once anything is hidden or isolated', () => {
     expect(hasVisibilityEdits({ hidden: new Set([1]), isolated: null })).toBe(true)
-    // An EMPTY isolation set is still an edit — it is the state where the
-    // reader isolated a thing that no longer resolves, and they need the way
-    // out that "show everything" is.
     expect(hasVisibilityEdits({ hidden: new Set(), isolated: new Set() })).toBe(true)
   })
 })
@@ -195,9 +173,6 @@ describe('whether two visibility states are the same state', () => {
   })
 
   it('compares the ids, not the set objects', () => {
-    // Every edit mints a new Set, so identity says nothing. Undo depends on
-    // this: a step recorded for an edit that changed no ids is a press that
-    // appears to do nothing.
     const a = { hidden: new Set([1, 2]), isolated: new Set([7]) }
     const b = { hidden: new Set([2, 1]), isolated: new Set([7]) }
     expect(sameVisibility(a, b)).toBe(true)
@@ -219,9 +194,6 @@ describe('whether two visibility states are the same state', () => {
   })
 
   it('keeps "nothing isolated" apart from "isolate nothing"', () => {
-    // The whole-building-vs-empty-viewport distinction `expressIdsForStorey`
-    // is built around. Collapsing it here would let Undo restore an empty
-    // viewport as if it were the untouched building.
     expect(
       sameVisibility({ hidden: new Set(), isolated: null }, { hidden: new Set(), isolated: new Set() })
     ).toBe(false)
@@ -281,7 +253,6 @@ describe('formatting', () => {
     expect(formatElevation({ elevation: 0 }, 'en-GB')).toBe('0 m')
     expect(formatElevation({ elevation: 3.2 }, 'en-GB')).toBe('+3.2 m')
     expect(formatElevation({ elevation: -2.85 }, 'en-GB')).toBe('-2.85 m')
-    // `+3.25 m` in a German Struktur tree reads as 325 metres.
     expect(formatElevation({ elevation: -2.85 }, 'de-AT')).toBe('-2,85 m')
     expect(formatElevation({ elevation: null }, 'en-GB')).toBe('—')
   })
@@ -294,11 +265,6 @@ describe('formatting', () => {
 
 describe('one storey name, compared one way', () => {
   it('ignores the padding an exporter left on the name', () => {
-    // Trailing whitespace in an IFC storey name is common. The rail publishes
-    // `name.trim()` and writes that into the link, while every element carries
-    // the padded original — so nothing matched, the model DOES assign storeys,
-    // and the answer was an empty set. The renderer reads that as "draw
-    // nothing": the app's own rail blanked the building.
     const padded: BimViewerElement[] = [
       { globalId: 'g-1', expressId: 1, ifcType: 'IfcWall', name: 'Wand', storeyName: ' Erdgeschoss ' },
     ]

@@ -1,11 +1,3 @@
-"""`list_files` shows a Fassung a person confirmed, and it beats the reading of the names.
-
-A confirmed replacement is a fact; an index in a file name is a guess. The older file
-says which one replaced it, the newer which it replaced and, in a line, what changed.
-An unconfirmed name series keeps its "by file name" mark. A link counts only while
-both files are in the selection.
-"""
-
 from __future__ import annotations
 
 import pytest
@@ -36,7 +28,6 @@ def _line(text: str, name: str) -> str:
 
 
 def _confirmed():
-    """Two differently named files a person linked, and an unrelated one."""
     return file_rows(
         [
             _doc("Statik alt.pdf", superseded_by="Statik neu.pdf"),

@@ -1,13 +1,5 @@
 'use client'
 
-/**
- * A standard opened as what it is, a file: the app's one viewer
- * (`FilePreviewDialog`, as the Büroablage opens it) with the standard's facts
- * first in its details column. The file is read the way every door into the
- * viewer reads it (`GET /api/documents/{id}/status`), so it is the same file,
- * named and screened the same, wherever it is opened.
- */
-
 import { useEffect, useRef, useState, type JSX } from 'react'
 import type { BaseKnowledgeEntry } from '@/adapters/api/base-knowledge-client'
 import { FilePreviewDialog, fileItemFromStatus, type FileItem } from '@/features/documents/file-preview'
@@ -22,7 +14,6 @@ interface StandardFileProps {
   onManage: () => void
   onOpenEdition: (entryId: string) => void
   onChanged: (entry: BaseKnowledgeEntry | null) => void
-  /** The file could not be read (gone, or not this reader's to see). */
   onUnavailable: () => void
 }
 
@@ -31,7 +22,6 @@ type StatusBody = Parameters<typeof fileItemFromStatus>[0]
 export function StandardFile({ entry, canManage, onClose, onManage, onOpenEdition, onChanged, onUnavailable }: StandardFileProps): JSX.Element {
   const [file, setFile] = useState<FileItem | null>(null)
   const documentId = entry.documentId
-  // Read once per document: a changed entry (a check, a confirmation) keeps the file on screen.
   const fallback = useRef({ fileName: entry.fileName, onUnavailable })
   fallback.current = { fileName: entry.fileName, onUnavailable }
 
@@ -51,8 +41,6 @@ export function StandardFile({ entry, canManage, onClose, onManage, onOpenEditio
     }
   }, [documentId])
 
-  // Until the file is read, a modal holds the place (focus and pointer alike), so nothing behind it opens another
-  // file; Escape gives up opening it, as closing the viewer would.
   if (!file) {
     return (
       <Dialog open onOpenChange={(open) => !open && onClose()}>

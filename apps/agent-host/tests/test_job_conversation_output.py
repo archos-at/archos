@@ -1,19 +1,3 @@
-"""A finished job run lands in the conversation it was given.
-
-The contract these pin, in order of how badly each would hurt:
-
-1. Nothing here may fail a run. Every write is best-effort.
-2. The question precedes the answer. The reader sorts by timestamp and breaks
-   ties on a random uuid, so insertion order guarantees nothing.
-3. A run that produced nothing says so, rather than leaving an empty thread.
-4. No conversation means no HTTP call at all.
-5. Whatever transparency an interactive turn carries, the job's thread message
-   carries too — a reader must not learn less from a scheduled answer than from
-   one they typed. Including the caveats the run put on its OWN answer: a run
-   cut off at the wall clock and salvaged must still read as cut off when the
-   thread is reopened tomorrow.
-"""
-
 from __future__ import annotations
 
 from unittest import mock
@@ -36,13 +20,6 @@ def _posts(calls) -> list[dict]:
 
 @pytest.fixture(autouse=True)
 def _no_run_message():
-    """Every test below is about a run that has NO message of its own.
-
-    That is the older shape — an interactive deep-research job, or a run
-    submitted before ADR-0062 — and it is still the contract for those runs, so
-    the whole file keeps testing it. ``None`` is exactly what the BFF's 404
-    means. The run-message path has its own class at the end.
-    """
     with mock.patch(
         "agent_host.jobs.conversation_output.post_internal_run_report",
         new_callable=mock.AsyncMock,
@@ -70,10 +47,7 @@ async def test_writes_the_question_then_the_answer() -> None:
     assert [p["role"] for p in posts] == ["user", "assistant"]
     assert posts[0]["text"] == "Fasse die Woche zusammen."
     assert posts[1]["text"] == "Hier ist die Zusammenfassung."
-    # The ONE thing insertion order cannot guarantee.
     assert posts[0]["created_at"] < posts[1]["created_at"]
-    # The persisted answer carries the job id, so the UI's existing
-    # "view report" affordance lights up on the message for free.
     assert posts[1]["metadata"]["deep_research_job_id"] == "job-1"
     assert posts[1]["metadata"]["cards"] == [{"type": "summary"}]
 
@@ -96,7 +70,6 @@ async def test_ids_are_deterministic_so_a_retry_is_a_no_op() -> None:
     posts = _posts(post.await_args_list)
     assert posts[0]["message_id"] == posts[2]["message_id"]
     assert posts[1]["message_id"] == posts[3]["message_id"]
-    # The two roles must NOT collide with each other.
     assert posts[0]["message_id"] != posts[1]["message_id"]
 
 
@@ -113,7 +86,6 @@ async def test_no_conversation_means_no_call() -> None:
 
 @pytest.mark.asyncio
 async def test_a_failed_write_never_propagates() -> None:
-    """The whole point: a conversation write must not unmake a good run."""
     with mock.patch(
         "agent_host.jobs.conversation_output.post_internal_conversation_message",
         new_callable=mock.AsyncMock,
@@ -153,13 +125,6 @@ async def test_no_organization_id_skips_rather_than_posting_a_doomed_write() -> 
 
 @pytest.mark.asyncio
 async def test_a_job_that_ran_under_a_skill_says_so_in_the_thread() -> None:
-    """The transparency the socket path already writes, on the job path too.
-
-    ``persist_assistant_message`` puts ``skills_activated`` in the metadata of
-    an interactive turn. A job run had the same field on the same agent state
-    and dropped it, so a thread written BY a job looked identical whether or
-    not the office's own working method had shaped the answer.
-    """
     with mock.patch(
         "agent_host.jobs.conversation_output.post_internal_conversation_message",
         new_callable=mock.AsyncMock,
@@ -178,7 +143,6 @@ async def test_a_job_that_ran_under_a_skill_says_so_in_the_thread() -> None:
 
 @pytest.mark.asyncio
 async def test_a_job_without_skills_writes_no_skills_key() -> None:
-    """Absent means absent — an empty list would render as a claim of nothing."""
     with mock.patch(
         "agent_host.jobs.conversation_output.post_internal_conversation_message",
         new_callable=mock.AsyncMock,
@@ -196,14 +160,6 @@ async def test_a_job_without_skills_writes_no_skills_key() -> None:
 
 
 class TestTransparencyReachesTheThread:
-    """The caveats a run put on its own answer, on the durable surface too.
-
-    The job store and the live ``job.degraded`` event already carried these. The
-    conversation message did not, so the reader who came back tomorrow — the one
-    with no live panel and no stream — was the only one never told the research
-    had been cut off.
-    """
-
     @pytest.mark.asyncio
     async def test_a_cut_off_run_says_so_in_the_thread(self) -> None:
         with mock.patch(
@@ -225,9 +181,6 @@ class TestTransparencyReachesTheThread:
             )
 
         metadata = _posts(post.await_args_list)[1]["metadata"]
-        # Wire spelling, verbatim: the BFF's normaliser recognises these names
-        # and no others, so a camelCase "tidy-up" here would store keys nothing
-        # ever reads back.
         assert metadata["research_truncated"] is True
         assert metadata["truncation_reason"] == "wall_clock"
         assert metadata["degraded_reasons"] == ["no_valid_citations"]
@@ -235,7 +188,6 @@ class TestTransparencyReachesTheThread:
 
     @pytest.mark.asyncio
     async def test_the_answers_self_assessment_travels_whole(self) -> None:
-        """Level and reasons together — a level with no reason is not actionable."""
         with mock.patch(
             "agent_host.jobs.conversation_output.post_internal_conversation_message",
             new_callable=mock.AsyncMock,
@@ -260,7 +212,6 @@ class TestTransparencyReachesTheThread:
 
     @pytest.mark.asyncio
     async def test_a_clean_run_writes_no_transparency_keys_at_all(self) -> None:
-        """Absent, not false: no ``research_truncated: false`` on a complete run."""
         with mock.patch(
             "agent_host.jobs.conversation_output.post_internal_conversation_message",
             new_callable=mock.AsyncMock,
@@ -287,7 +238,6 @@ class TestTransparencyReachesTheThread:
 
     @pytest.mark.asyncio
     async def test_empty_values_are_not_claims(self) -> None:
-        """``degraded_reasons: []`` would read as "we checked and found none"."""
         with mock.patch(
             "agent_host.jobs.conversation_output.post_internal_conversation_message",
             new_callable=mock.AsyncMock,
@@ -313,7 +263,6 @@ class TestTransparencyReachesTheThread:
 
     @pytest.mark.asyncio
     async def test_only_the_known_keys_travel(self) -> None:
-        """An allowlist, so no caller can seed new keys in a public contract."""
         with mock.patch(
             "agent_host.jobs.conversation_output.post_internal_conversation_message",
             new_callable=mock.AsyncMock,
@@ -333,7 +282,6 @@ class TestTransparencyReachesTheThread:
 
     @pytest.mark.asyncio
     async def test_a_malformed_payload_costs_the_caveat_not_the_message(self) -> None:
-        """Transparency is bookkeeping ABOUT an answer; it may never unmake one."""
         with mock.patch(
             "agent_host.jobs.conversation_output.post_internal_conversation_message",
             new_callable=mock.AsyncMock,
@@ -348,29 +296,12 @@ class TestTransparencyReachesTheThread:
             )
 
         posts = _posts(post.await_args_list)
-        # The thread still reads as a question and its answer.
         assert [p["role"] for p in posts] == ["user", "assistant"]
         assert posts[1]["text"] == "a"
         assert "research_truncated" not in posts[1]["metadata"]
 
 
 class TestTheRunWritesIntoItsOwnMessage:
-    """A run is ONE message in the thread that commissioned it (ADR-0062).
-
-    The BFF minted that message when the run was submitted and it has been
-    carrying the run's ledger since; the report belongs IN it. What these pin is
-    the shape of the move and the fork that decides it:
-
-    1. when the run has a message, the report goes there and NO question row is
-       written — nobody typed a question, and inventing one puts words in a
-       person's mouth in their own thread;
-    2. the metadata is the same metadata either way, so the two destinations
-       cannot come to describe one answer differently;
-    3. a failure notice lands in that same message rather than beside it;
-    4. the 404 that says „this run has no message" falls back to the old pair,
-       which is what lets the two services deploy in either order.
-    """
-
     @pytest.mark.asyncio
     async def test_the_report_fills_in_the_run_message_and_writes_no_question(self, _no_run_message) -> None:
         _no_run_message.return_value = "msg-run-1"
@@ -394,7 +325,6 @@ class TestTheRunWritesIntoItsOwnMessage:
         written = _no_run_message.await_args.kwargs
         assert written["job_id"] == "job-1"
         assert written["text"] == "Hier ist die Zusammenfassung."
-        # Everything the fallback turn would have carried, carried here.
         assert written["metadata"]["deep_research_job_id"] == "job-1"
         assert written["metadata"]["cards"] == [{"type": "summary"}]
         assert written["metadata"]["skills_activated"] == ["oib-brandschutznachweis"]
@@ -403,7 +333,6 @@ class TestTheRunWritesIntoItsOwnMessage:
 
     @pytest.mark.asyncio
     async def test_the_writer_names_the_message_the_report_landed_in(self, _no_run_message) -> None:
-        """The ledger's ``result.reportMessageId`` is whatever the writer returns, never a second derivation."""
         _no_run_message.return_value = "msg-run-1"
         with mock.patch(
             "agent_host.jobs.conversation_output.post_internal_conversation_message",
@@ -447,7 +376,6 @@ class TestTheRunWritesIntoItsOwnMessage:
 
     @pytest.mark.asyncio
     async def test_a_run_without_a_message_still_gets_its_question_and_answer(self) -> None:
-        """The fallback, which is the whole reason the 404 is not an error."""
         with mock.patch(
             "agent_host.jobs.conversation_output.post_internal_conversation_message",
             new_callable=mock.AsyncMock,
@@ -464,13 +392,6 @@ class TestTheRunWritesIntoItsOwnMessage:
 
     @pytest.mark.asyncio
     async def test_a_run_message_needs_no_conversation_id_of_its_own(self, _no_run_message) -> None:
-        """The BFF knows where the message is; the worker does not have to.
-
-        A deep-research run was submitted with no conversation at all before this
-        design, and its report went into the job store and nowhere else. Now the
-        run's message is found from the job id, so the report reaches the thread
-        even when nothing was passed down to the worker.
-        """
         _no_run_message.return_value = "msg-run-1"
         with mock.patch(
             "agent_host.jobs.conversation_output.post_internal_conversation_message",
@@ -489,11 +410,6 @@ class TestTheRunWritesIntoItsOwnMessage:
 
     @pytest.mark.asyncio
     async def test_a_failing_report_write_never_propagates(self, _no_run_message) -> None:
-        """Nothing here may fail a run — the module's first rule, on the new door.
-
-        And the reader still gets the answer: a surprise on the tidier path costs
-        them the tidier SHAPE, never the report.
-        """
         _no_run_message.side_effect = RuntimeError("bff down")
         with mock.patch(
             "agent_host.jobs.conversation_output.post_internal_conversation_message",
@@ -511,8 +427,6 @@ class TestTheRunWritesIntoItsOwnMessage:
 
 
 class TestTransparencyMetadataFilter:
-    """The filter itself, at the values the extractor can hand it."""
-
     def test_nothing_in_nothing_out(self) -> None:
         assert _transparency_metadata(None) == {}
         assert _transparency_metadata({}) == {}
@@ -522,7 +436,6 @@ class TestTransparencyMetadataFilter:
         assert _transparency_metadata({"research_truncated": False}) == {}
 
     def test_the_keys_are_the_backends_wire_spelling(self) -> None:
-        """Pinned: the BFF normaliser recognises these names and no others."""
         assert _TRANSPARENCY_METADATA_KEYS == (
             "research_truncated",
             "truncation_reason",
@@ -540,7 +453,6 @@ class TestTransparencyMetadataFilter:
 
 
 async def test_the_report_row_names_the_trace_the_run_ran_in():
-    """A vote on the report is scored on this trace; a run with no trace writes no key."""
     with mock.patch(
         "agent_host.jobs.conversation_output.post_internal_run_report", new=mock.AsyncMock(return_value="run-msg")
     ) as report:

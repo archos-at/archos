@@ -1,12 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The inbox row a reading leaves its requester (`piloti.intake_ready`). The
- * setup page tells a person they may leave; this is the half of that promise
- * the server keeps. A fold merges payloads, so every field a wording reads is
- * written on every emission, empty when there is nothing to say.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))

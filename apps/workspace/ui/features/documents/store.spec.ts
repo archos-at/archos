@@ -19,7 +19,6 @@ import type {
 
 describe('useDocumentsStore', () => {
   beforeEach(() => {
-    // Reset store to initial state before each test
     useDocumentsStore.setState({
       currentCollectionName: null,
       collectionInfo: null,
@@ -349,8 +348,6 @@ describe('useDocumentsStore', () => {
     })
 
     test('does not overwrite a same-named file tracked under a different job/collection', () => {
-      // Regression: a session upload's status tick must not clobber a
-      // same-named file in the project corpus by filename match.
       const projectFile: TrackedFile = {
         id: 'proj-1',
         fileName: 'plan.pdf',
@@ -390,7 +387,6 @@ describe('useDocumentsStore', () => {
       useDocumentsStore.getState().updateFilesFromJobStatus(jobStatus)
 
       const proj = useDocumentsStore.getState().trackedFiles.find((f) => f.id === 'proj-1')!
-      // Project file untouched: still its own serverFileId and status.
       expect(proj.serverFileId).toBe('proj-server-id')
       expect(proj.status).toBe('success')
       const sess = useDocumentsStore.getState().trackedFiles.find((f) => f.id === 'sess-1')!
@@ -413,9 +409,6 @@ describe('useDocumentsStore', () => {
       }
 
       test('does not claim an upload of this session whose own request is still out', () => {
-        // The reader dropped a second report.pdf while the first one's job is
-        // polled. Taking that job's file id would point this row at the other
-        // document, and removing the row would then delete it.
         const fresh: TrackedFile = {
           id: 'fresh-1',
           file: new File(['x'], 'report.pdf'),
@@ -683,9 +676,6 @@ describe('useDocumentsStore', () => {
     })
 
     test('keeps a stored or held attachment at rest across a re-list, never available', () => {
-      // The chat's first-party listing says `stored` for an attachment nobody
-      // read and `held` for one the content check stopped. A re-list used to
-      // read both as `success`, so the chat counted them as sources.
       const listed = (file_id: string, status: FileInfo['status']): FileInfo => ({
         file_id,
         file_name: `${file_id}.pdf`,
@@ -699,7 +689,6 @@ describe('useDocumentsStore', () => {
       const files = useDocumentsStore.getState().trackedFiles
       expect(files.find((f) => f.id === 'stored-1')?.status).toBe('stored')
       expect(files.find((f) => f.id === 'held-1')?.status).toBe('held')
-      // What NoSourcesBanner and the composer count as an available source.
       expect(files.some((f) => f.status === 'success')).toBe(false)
     })
 

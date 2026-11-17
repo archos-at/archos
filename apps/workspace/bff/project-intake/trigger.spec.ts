@@ -1,13 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The upload trigger (ADR-0111): a completed batch on a project whose intake
- * is open queues one `project_intake_read` job per project, as the uploader,
- * at bulk priority, and only for an uploader who may write the profile. A
- * Büroablage or chat upload, a project without an open intake, and an
- * uploader who left queue nothing.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -94,8 +87,6 @@ describe('queueIntakeReadsAfterUpload', () => {
     expect(enqueueJob).not.toHaveBeenCalled()
   })
 
-  // Migration 0195: a batch opened with `startsIntake` off starts no reading,
-  // and does not take the project's reading from another batch that does.
   it('starts no reading for a batch opened without one, and lets a later batch of the project start it', async () => {
     expect(
       await queueIntakeReadsAfterUpload('org-1', [{ scope: 'project', startsIntake: false, projectId: P1, createdBy: 'anna' }])

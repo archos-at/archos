@@ -14,19 +14,10 @@ import { knowledgeCopy } from '@/i18n/namespaces/knowledge'
 
 import { QuoteSelection } from './pdf-document-view-helpers'
 
-/** The ground when the host lays its own: layout only, no material. */
 export function HostGround({ className, children }: { className?: string; children?: ReactNode }): JSX.Element {
   return <div className={cn('relative min-h-0 min-w-0', className)}>{children}</div>
 }
 
-/**
- * pdf.js could not open the document: a blocked worker, a corrupt file, a
- * stream that refused. Said on the stage, where the document would have been,
- * with the two things a reader can do about it — try again, or hand the file to
- * the browser's own viewer, which still honours `#page=N` and reads things
- * pdf.js will not. Not a frame of that viewer in place of this one: a frame is
- * what shows blank on Android Chrome, which has no inline PDF renderer.
- */
 export const PdfFailure: FC<{ href: string; onRetry: () => void }> = ({ href, onRetry }) => {
   const t = useTranslations(knowledgeCopy)
   return (
@@ -60,12 +51,6 @@ export const PdfFailure: FC<{ href: string; onRetry: () => void }> = ({ href, on
   )
 }
 
-/**
- * The document is encrypted. Ask for its password here, on the stage, rather
- * than calling it a failure: the office has the password, usually in the email
- * the document came with. The password goes to pdf.js and nowhere else — not
- * to the server, not into storage — and is forgotten with the viewer.
- */
 export const PdfPasswordPrompt: FC<{ incorrect: boolean; onSubmit: (password: string) => void }> = ({
   incorrect,
   onSubmit,
@@ -113,26 +98,10 @@ export const PdfPasswordPrompt: FC<{ incorrect: boolean; onSubmit: (password: st
   )
 }
 
-/**
- * The offer that turns a selection into a citation.
- *
- * Anchored to the selection rather than parked in the toolbar, because the
- * gesture and the offer belong together: the reader has just dragged across a
- * sentence and their eyes are on it. One action, in the reader's own language
- * of what they are doing — not "copy text", which the browser already does,
- * but "copy this AS A CITATION", with the document and page the viewer knows
- * and their clipboard otherwise would not.
- *
- * `onMouseDown` is prevented on purpose: the default would move focus and
- * collapse the very selection the button exists to act on, so the click would
- * copy nothing.
- */
 export const QuoteBar: FC<{
   selection: QuoteSelection
   state: 'idle' | 'done' | 'failed'
-  /** Copy the selection as a citation; absent where the viewer is not citing anything. */
   onCopy?: () => void
-  /** Look for passages like the selection; absent where nobody asked for it, or the selection is too short. */
   onFindSimilar?: () => void
 }> = ({ selection, state, onCopy, onFindSimilar }) => {
   const t = useTranslations(knowledgeCopy)
@@ -146,8 +115,6 @@ export const QuoteBar: FC<{
     <div
       data-testid="pdf-quote-bar"
       className="absolute z-10 -translate-y-full pb-1.5"
-      // Clamped at the left edge: a selection that starts in the page's gutter
-      // would otherwise hang the bar outside the frame and clip it.
       style={{ left: Math.max(0, selection.x), top: selection.y }}
     >
       <span className="flex items-center gap-1.5">
@@ -158,11 +125,6 @@ export const QuoteBar: FC<{
             variant="secondary"
             onMouseDown={(event) => event.preventDefault()}
             onClick={onCopy}
-            // `bg-card` is load-bearing, not decoration: the outline variant is
-            // transparent, and this bar floats over the rendered PAGE, which is
-            // paper-white in both themes. In dark mode that put near-white label
-            // text on white paper — a control that was, measurably, invisible
-            // exactly where it is offered.
             className="bg-card shadow-sm"
           >
             {state === 'done' ? (
@@ -180,7 +142,6 @@ export const QuoteBar: FC<{
             variant="secondary"
             onMouseDown={(event) => event.preventDefault()}
             onClick={onFindSimilar}
-            // On paper-white, as the copy button beside it (see `bg-card` above).
             className="bg-card shadow-sm"
             data-testid="pdf-find-similar"
           >

@@ -142,14 +142,15 @@ restore_rls_role_names() {
 # The release transfer suite (rollover-to-prod, step 2) moves a country's release
 # from one deployment to another: two fresh copies of the migrated database,
 # taken before any suite writes to it, one per deployment.
-RELEASE_DATABASES="grid_app_release_source grid_app_release_target"
+# The carry suite (ADR-0181) carries released bundles into a third, the deployment they are carried to.
+RELEASE_DATABASES="grid_app_release_source grid_app_release_target grid_app_carry_target"
 release_databases() {
   local name
   for name in $RELEASE_DATABASES; do
     $PSQL -q -v ON_ERROR_STOP=1 -c "CREATE DATABASE $name TEMPLATE grid_app OWNER $OWNER;"
   done
 }
-RELEASE_URLS="TEST_RELEASE_SOURCE_DATABASE_URL=postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app_release_source TEST_RELEASE_TARGET_DATABASE_URL=postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app_release_target"
+RELEASE_URLS="TEST_RELEASE_SOURCE_DATABASE_URL=postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app_release_source TEST_RELEASE_TARGET_DATABASE_URL=postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app_release_target TEST_CARRY_DATABASE_URL=postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app_carry_target"
 
 # `--only <spec…>`: the migrated cluster and the restricted role, for the specs
 # named and nothing else. For one suite while you work on it, and for the
@@ -311,6 +312,10 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
 # draft into another's (rollover-to-prod, step 2). Its own two databases.
 echo "==> running the release transfer suite as app_rw"
 env $RELEASE_URLS npx vitest run bff/base-knowledge/platform/release-transfer.integration.spec.ts
+
+# Reviewed releases carried to a deployment by the promotion (ADR-0181): its own database.
+echo "==> running the knowledge carry suite as app_rw"
+env $RELEASE_URLS npx vitest run bff/base-knowledge/platform/carry.integration.spec.ts
 
 # The tenant suites above may leave queued jobs behind: Ausmisten bins a
 # subfolder, and a Papierkorb delete queues its purge takeover and a refused

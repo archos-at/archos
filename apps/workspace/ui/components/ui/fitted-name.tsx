@@ -5,19 +5,6 @@ import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 import { fitName, type FittedName } from '@/lib/text/fit-name'
 import { cn } from '@/lib/utils'
 
-/**
- * A name in at most `lines` lines of the width it is given, by `fitName`'s one
- * rule: whole, broken only between words; else its middle cut, keeping the
- * extension and the end before it; else its end cut. Every file tile and row
- * draws its name with it, so a tile never breaks „Tragwerksplan/ung“ and a row
- * never shows „R…“ with its ellipsis lost.
- *
- * Measured on a canvas in the element's own font, at the width a shared
- * `ResizeObserver` reports, and again once the web font has loaded. Before
- * that (the server's HTML, a test without a canvas) the name is the whole text
- * clamped to its lines, broken only between words. The drawn lines are hidden
- * from assistive technology; the whole name is read once.
- */
 export function FittedName({
   text,
   lines = 1,
@@ -27,9 +14,7 @@ export function FittedName({
 }: {
   text: string
   lines?: number
-  /** `end` for a name whose start tells it apart; `middle` (a file's) keeps its extension. */
   cut?: 'middle' | 'end'
-  /** Pixels the first line gives up at its end, for a control that stands there (a tile's ⋯). */
   firstLineInset?: number
   className?: string
 }): JSX.Element {
@@ -41,7 +26,6 @@ export function FittedName({
     if (!element || !measure) return
     const width = element.getBoundingClientRect().width
     if (width <= 0) return
-    // Half a pixel short: a canvas measures to the subpixel, the layout rounds.
     const next = fitName(text, { width: width - 0.5, lines, measure, cut, firstLineInset })
     setFitted((current) => (current && sameLines(current, next) ? current : next))
   }, [text, lines, cut, firstLineInset])
@@ -82,11 +66,9 @@ export function FittedName({
 const sameLines = (a: FittedName, b: FittedName): boolean => a.cut === b.cut && a.lines.join('\n') === b.lines.join('\n')
 
 let canvas: CanvasRenderingContext2D | null | undefined
-/** The font last set on the canvas: `ctx.font` reads back normalised, so comparing with it set the font on every call. */
 let fontSet = ''
 const widths = new Map<string, number>()
 
-/** A measure in the element's font, or null where there is no canvas (jsdom). */
 function measurerFor(element: HTMLElement): ((text: string) => number) | null {
   if (canvas === undefined) {
     try {
@@ -117,7 +99,6 @@ function measurerFor(element: HTMLElement): ((text: string) => number) | null {
 let observer: ResizeObserver | null = null
 const listeners = new Map<Element, () => void>()
 
-/** One observer for every name on the page: a folder of a thousand rows is a thousand callbacks, not observers. */
 function observeWidth(element: Element, onResize: () => void): () => void {
   if (typeof ResizeObserver === 'undefined') return () => {}
   observer ??= new ResizeObserver((entries) => {

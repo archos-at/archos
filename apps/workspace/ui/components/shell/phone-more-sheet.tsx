@@ -1,24 +1,5 @@
 'use client'
 
-/**
- * „Mehr" on a phone: a bottom sheet with the destinations the tab bar does not
- * carry, and the account.
- *
- * It used to open the whole rail as a drawer, which repeated the bar's own four
- * tabs and made the tab feel pointless. What is listed is `moreDestinations`
- * (derived from the bar's tab list and the rail's gates, never a second list).
- * Rows are 56px, the current page is marked, and the actions that were behind
- * the avatar (appearance, language, tour, feedback, sign out) sit below the
- * destinations.
- *
- * Its first row, inside a project, is the PROJECT SELECTOR: the project's name
- * at 16/600 on one line over „Projekt wechseln“, one press (white with its
- * edge) under the thumb. It turns the sheet into the project list
- * (`PhoneProjectList`), with a way back to „Mehr“. Until 2026-11-10 the
- * selector was a 44px press in the top band of every page, the place a thumb
- * reaches worst, for something done a few times a day.
- */
-
 import type { JSX } from 'react'
 import * as React from 'react'
 import Link from 'next/link'
@@ -70,20 +51,13 @@ const ROW =
   FOCUS_RING_INSET
 
 export interface PhoneMoreSheetProps extends MoreFlags {
-  /** The project the bar is for, or null above a project. */
   projectId: string | null
   authRequired: boolean
-  /** The route to mark current; the product omits it and the sheet reads the URL. */
   pathname?: string
-  /** Heads the organisation's places, as it heads them in the rail; „Organisation" without it. */
   organizationName?: string | null
-  /** The project's name: the selector's first line, and the heading of the project's places. */
   projectName?: string | null
-  /** The projects „Projekt wechseln“ lists; without them (above a project, a preview) the sheet has no selector. */
   projects?: ProjectSwitcherProject[]
-  /** The view the sheet opens in. A preview passes `projects` to show the list; the product always opens „Mehr“. */
   initialView?: MoreView
-  /** Who is signed in, shown first under „Konto". */
   user?: SidebarUser
 }
 
@@ -133,11 +107,9 @@ export function PhoneMoreSheet({
   const [view, setView] = React.useState<MoreView>(initialView)
   const selectable = projectId !== null && projects !== undefined && projectName !== null
 
-  // A navigation closes the sheet.
   React.useEffect(() => {
     setOpen(false)
   }, [pathname, setOpen])
-  // Every opening starts on „Mehr“: the list is one press further, not where the sheet was left.
   React.useEffect(() => {
     if (open) setView(initialView)
   }, [open, initialView])
@@ -174,8 +146,6 @@ export function PhoneMoreSheet({
         data-slot="phone-more-sheet"
         className={cn(
           'gap-0 overflow-hidden rounded-overlay p-0 outline-none',
-          // The list has a search: never taller than what the keyboard leaves,
-          // and a fixed height so typing does not move the sheet's top.
           listing ? 'h-[min(85dvh,var(--visual-viewport-height,100dvh))] max-h-none' : 'max-h-[85dvh]',
           'pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]'
         )}
@@ -202,9 +172,6 @@ export function PhoneMoreSheet({
         {listing && <PhoneProjectList projects={projects} activeProjectId={projectId} onDone={() => setOpen(false)} />}
         <div className={cn('min-h-0 flex-1 overflow-y-auto overscroll-contain pb-2', listing && 'hidden')}>
           {selectable && (
-            // The project selector, the sheet's first row: a press (white with
-            // its 12% edge, radius 6), the name whole on its own line. `mt-px`,
-            // or the scroll box, flush with it, cuts its edge (gotchas.md).
             <button
               type="button"
               data-project-selector=""
@@ -226,7 +193,6 @@ export function PhoneMoreSheet({
           {/* The project's places, then the organisation's under its name,
               as the rail groups them. */}
           {[
-            // Under the selector, which names the project, the group is „Projekt“; without it, the name.
             { key: 'project', label: selectable ? t('tabBar.moreSheet.project') : (projectName ?? t('tabBar.moreSheet.project')), list: projectPlaces },
             { key: 'organization', label: organizationName ?? t('sectionGroups.org'), list: orgPlaces },
           ].map(({ key, label: groupLabel, list }) =>
@@ -350,7 +316,6 @@ function DestinationRow({
   )
 }
 
-/** A short choice as a segmented row: the value is visible, one tap changes it. */
 function Segmented({
   ariaLabel,
   value,
@@ -368,10 +333,8 @@ function Segmented({
       segmented
       size="sm"
       value={value}
-      // Radix reports '' when the selected item is tapped again; a choice stays chosen.
       onValueChange={(next) => next && onChange(next)}
       aria-label={ariaLabel}
-      // One width and one right edge for both controls, segments of one size.
       className="w-44 shrink-0"
     >
       {options.map((option) => (

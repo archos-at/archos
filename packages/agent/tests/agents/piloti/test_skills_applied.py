@@ -1,10 +1,3 @@
-"""The envelope's ``skills_applied`` reaches the skill runtime, and nothing else.
-
-The pipeline lifts the names, the ledger carries them onto the state, and the
-register hands them to the runtime AFTER the run — the runtime decides which
-are real (only a body it pinned), and ``skills_activated`` is what it says.
-"""
-
 from __future__ import annotations
 
 import json
@@ -58,8 +51,6 @@ def test_the_ledger_carries_them_onto_the_state():
 
 
 def test_the_register_reports_what_the_runtime_accepted():
-    """One pinned, one only in the catalog; the model names both and a fiction.
-    Activated is the pinned one it named, and only that."""
     kurz = Skill(name="kurz", description="k", body="kurz body", origin="platform")
     lang = Skill(name="lang", description="l", body="x" * 5000, origin="org")
     runtime = SkillRuntime.office((kurz, lang))

@@ -1,5 +1,3 @@
-/** A page of the What's new list for the dev preview and the specs: two weeks, one summarised. */
-
 import type { LocalizedReleaseNoteList } from '@/lib/release-notes/release-notes-wire'
 
 export const WHATS_NEW_FIXTURE: LocalizedReleaseNoteList = {

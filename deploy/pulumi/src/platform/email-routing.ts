@@ -46,7 +46,9 @@ import type { DeployConfig } from "../config";
  * `{"support_subaddress": true}` (cloudflare-go `EmailRouting.Edit`; that
  * endpoint's `enabled` field is documented as a no-op, "use POST/DELETE
  * /zones/{zone_id}/email/routing/dns"), which nothing in the provider calls.
- * So it stays one call by a person, the runbook's §7, checked by
+ * So it is one call outside Pulumi: `deploy.yml` makes it after `pulumi up`
+ * (`scripts/inbound-mail-after-deploy.sh subaddress`, GET first, PATCH only
+ * when off; the runbook's §7 for a stack deployed by hand), checked by
  * `scripts/inbound-mail-smoke.ts g0` (gate G0); `inbound-mail.spec.ts` fails
  * if an `EmailRoutingSettings` is ever declared.
  *

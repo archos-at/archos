@@ -1,31 +1,5 @@
 'use client'
 
-/**
- * One delegated task, as the product's card.
- *
- * It was a bordered `<li>` whose only click target was the title — a 200-pixel
- * string with a hover underline, floating in a row of chips and links that
- * looked exactly as clickable. Three things follow from making the whole card
- * the target instead, and they are the reason for this file:
- *
- *   - **One target, not four.** Fitts's law says the cost of a click is the
- *     distance to a target divided by its size; a card is the biggest target
- *     the layout can offer, and a reader stops aiming. The result link inside
- *     it is the one deliberate exception, and it stops the click from
- *     propagating so "open the document" never also opens the drawer.
- *   - **The card anatomy the product already has.** `RaisedCard` is a white
- *     sheet laid into a tray, with the quiet temporal metadata showing on the
- *     tray beneath it — the same shape a file, a project and a schedule use.
- *     A task that looked like nothing else in the app read as a log line.
- *   - **Status as a swatch on the title line.** A 10px rounded square, the
- *     same shape the timetable and the schedule cards already use to mean
- *     "this colour stands for this row" — see {@link STATUS_SWATCH} for the two
- *     louder shapes it replaced and why both were wrong.
- *
- * `interactive` is on, which is the promise: the lift says a click opens
- * something, and here it does.
- */
-
 import type { JSX } from 'react'
 import type { KeyboardEvent, MouseEvent } from 'react'
 import Link from 'next/link'
@@ -50,20 +24,6 @@ import type { TaskRunStatus } from '@/lib/tasks/task-vocabulary'
 import { cn } from '@/lib/utils'
 import { isActiveTask, taskResultTarget, type TaskRunView } from '../lib/task-view'
 
-/**
- * The chip tone per status — a `Record`, so a status added to the tuple has to
- * be given a colour before this compiles.
- *
- * `interrupted` is a warning and not an error on purpose: the run was stopped,
- * which is a thing a person did or a budget did, and painting it red would put
- * it beside the failures a person has to look into. Colour is the loudest thing
- * on a card, and a surface that shouts at four states has no way left to shout
- * at the one that matters.
- *
- * `skipped` is muted for the same reason at a lower volume: the fire never
- * reached the agent (an org cap, a switched-off feature), so there is nothing
- * broken to look into. `error` IS destructive — the submission broke.
- */
 const STATUS_TONE: Record<TaskRunStatus, 'muted' | 'info' | 'success' | 'destructive' | 'warning'> = {
   queued: 'muted',
   running: 'info',
@@ -74,40 +34,12 @@ const STATUS_TONE: Record<TaskRunStatus, 'muted' | 'info' | 'success' | 'destruc
   error: 'destructive',
 }
 
-/**
- * THE STATUS SWATCH — the same 10px rounded square the timetable uses.
- *
- * Status needs an anchor the eye can find without reading, because the question
- * a column of these answers is "which one went wrong". Two shapes were tried
- * for it and both were wrong in the same way, by making the STATUS the loudest
- * thing on the card instead of the title:
- *
- *   - a coloured rail down the left edge, which is a third material on a card
- *     whose whole anatomy is two (a white sheet laid into a tray) and reads as
- *     a kanban leftover stuck to it;
- *   - a tint across the whole sheet, which shouts — a red card is a red card
- *     even when the failure it names is four days old and already understood.
- *
- * A swatch is the quiet version of the same signal, and it is the shape this
- * product already uses to mean "this colour stands for this row": the schedule
- * cards and the timetable legend pair a 10px rounded square with a name for
- * exactly that reason. Reusing it costs nothing to learn.
- *
- * Colour is never the only carrier — the chip below the title states the status
- * in words, always.
- *
- * Written out rather than composed as `bg-${tone}` because Tailwind scans
- * source for whole class names; an interpolated one is not in the stylesheet
- * and the swatch silently disappears.
- */
 const STATUS_SWATCH: Record<TaskRunStatus, string> = {
   queued: 'bg-border',
   running: 'bg-info',
   succeeded: 'bg-success',
   failed: 'bg-danger',
   interrupted: 'bg-warning',
-  // A fire that never reached the agent is not "nothing happened" — it is an
-  // attempt that broke, and it wears the failure colour because it is one.
   skipped: 'bg-border',
   error: 'bg-danger',
 }
@@ -117,13 +49,6 @@ const REVIEW_ICON: Record<'accepted' | 'rejected', LucideIcon> = {
   rejected: XCircle,
 }
 
-/**
- * One icon per place a result can live, so the affordance is recognisable.
- *
- * Two, since a run's report and its thinking stopped being places of their own:
- * both were the side panel behind `?job=`, and both are now the run's message
- * in its thread (ADR-0062), which is the conversation.
- */
 const RESULT_ICON: Record<'document' | 'conversation', LucideIcon> = {
   document: FileText,
   conversation: MessageSquare,
@@ -137,7 +62,6 @@ export interface TaskCardProps {
 
 const ABSOLUTE_AFTER_MS = 24 * 60 * 60 * 1000
 
-/** Relative within a day, the exact date after it. */
 export function cardTimeLabel(iso: string, locale: string, now: number = Date.now()): string {
   const at = new Date(iso).getTime()
   if (Number.isNaN(at) || now - at <= ABSOLUTE_AFTER_MS) return formatRelativeTime(iso, locale, now)
@@ -151,15 +75,8 @@ export function TaskCard({ projectId, task, onSelect }: TaskCardProps): JSX.Elem
   const result = taskResultTarget(projectId, task)
   const ResultIcon = result ? RESULT_ICON[result.kind] : null
   const active = isActiveTask(task)
-  /**
-   * Finished, and nobody has judged it. The one open loop this surface owns,
-   * so it is marked on the CARD and not only behind the filter: a dot a reader
-   * can see from across the list is what makes the loop closable.
-   */
   const unreviewed = task.status === 'succeeded' && task.review === null
 
-  // A phone has no hover, so the exact date a `title` carries is out of reach:
-  // once a card is more than a day old it says WHEN, not "vor 3 Tagen".
   const when = cardTimeLabel(task.createdAt, locale)
   const open = (): void => onSelect(task)
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
@@ -167,8 +84,6 @@ export function TaskCard({ projectId, task, onSelect }: TaskCardProps): JSX.Elem
     event.preventDefault()
     open()
   }
-  // The result link is a destination of its own inside a card that is also a
-  // target. Without this, following it would open the drawer behind it too.
   const stop = (event: MouseEvent): void => event.stopPropagation()
 
   return (
@@ -190,9 +105,6 @@ export function TaskCard({ projectId, task, onSelect }: TaskCardProps): JSX.Elem
                   aria-hidden
                   data-testid="task-card-swatch"
                   className={cn(
-                    // `mt-1` drops it onto the title's cap height rather than
-                    // its line box, so the swatch sits ON the word instead of
-                    // floating above it.
                     'mt-1 size-2.5 shrink-0 rounded-[3px]',
                     STATUS_SWATCH[task.status],
                   )}

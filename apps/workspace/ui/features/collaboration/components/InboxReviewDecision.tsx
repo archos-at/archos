@@ -1,20 +1,5 @@
 'use client'
 
-/**
- * A version waiting for a decision, decided from its inbox row (ADR-0054): the
- * three decisions on the row, so the reviewer answers here instead of
- * navigating to Files first. The row draws it only while the round is open for
- * this reader (actionable, unresolved, reachable, naming its version and its
- * Fassung). The server enforces who may decide (project:edit, never the
- * submitter); a refusal there surfaces as an error line, never as a silent
- * nothing. It resolves server-side: the decision settles the round for every
- * reviewer (`resolveReviewInbox`) and the list re-reads on the `inbox.changed`
- * nudge. Nothing persists on a chat message, so `useCardDecision` does not apply.
- *
- * Its own component because it is its own small workflow (pick, confirm or
- * word it, send, a moved STAND), and the row it sits in is about the row.
- */
-
 import type { JSX } from 'react'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
@@ -36,7 +21,6 @@ export type InboxReviewClient = Pick<DocumentLifecycleClient, 'approve' | 'reque
 export interface InboxReviewDecisionProps {
   item: InboxItemView
   reviewClient: InboxReviewClient
-  /** Following the file's link counts as opening the row. */
   onOpen?: (item: InboxItemView) => void
 }
 
@@ -53,22 +37,6 @@ export function InboxReviewDecision({ item, reviewClient, onOpen }: InboxReviewD
   const [reviewVersion, setReviewVersion] = useState<DocumentVersionView | null>(null)
   const [reviewVersionError, setReviewVersionError] = useState(false)
 
-  // The STAND the decisions act on: version number for the signature (Fassung
-  // required — nothing is released without naming it) and `contentHash` as the
-  // `ifMatch` the calls below send, so a stale row 409s instead of deciding on
-  // bytes the reviewer never saw. Read with the row, not when a decision
-  // opens: the signature must already name the Fassung when it appears, and a
-  // refusal must already carry the expected bytes when it is sent — waiting
-  // for the read inside the confirm would race the send. One attempt per
-  // version anchor; a failed read falls back to deciding on state alone,
-  // exactly as before, rather than stranding the row.
-  //
-  // Deliberately NO loading flag: setting one before the `await` would re-run
-  // this effect (it is in the deps) and its cleanup would flip `live` to false
-  // while the read is still in flight — the resolve below would then be
-  // discarded and the STAND would never arrive. The pending state is visible
-  // anyway: the stand renders '…' and the approve send stays shut until the
-  // Fassung number is known.
   useEffect(() => {
     if (!item.anchorId) return
     if (reviewVersion !== null || reviewVersionError) return
@@ -99,10 +67,6 @@ export function InboxReviewDecision({ item, reviewClient, onOpen }: InboxReviewD
 
   const sendReview = async () => {
     if (!reviewing || !item.anchorId || reviewBusy) return
-    // Approval is signed, refusals are worded — the transition table's own
-    // requirements, read at the same point the file pane reads them. Approval
-    // additionally requires the Fassung number: the stand is not released
-    // without naming which version it releases.
     if (reviewing === 'approve' && !reviewChecked) return
     if (reviewing === 'approve' && typeof reviewClient.getVersion === 'function') {
       if (reviewVersion?.versionNumber == null) return
@@ -112,10 +76,6 @@ export function InboxReviewDecision({ item, reviewClient, onOpen }: InboxReviewD
     setReviewBusy(true)
     setReviewFailed(false)
     setReviewStale(false)
-    // The expected bytes, when the STAND above could be read. Absent when the
-    // read never ran (old callers, a version without a digest): the server
-    // then decides on state alone, exactly as before, and a provided-but-stale
-    // digest 409s with the current STAND.
     const ifMatch = reviewVersion?.contentHash ?? undefined
     try {
       if (reviewing === 'approve') {
@@ -125,17 +85,11 @@ export function InboxReviewDecision({ item, reviewClient, onOpen }: InboxReviewD
       } else {
         await reviewClient.reject(item.resourceId, item.anchorId, words, ifMatch)
       }
-      // Decided here; resolved everywhere by the server, which settles the
-      // round for every reviewer and nudges this list to re-read it.
       setReviewDecided(true)
       setReviewing(null)
       setReviewComment('')
       setReviewChecked(false)
     } catch (error) {
-      // A 409 is not a failed decision, it is a moved STAND: somebody decided
-      // first, or the bytes changed under the row. Surfaced distinctly, with
-      // the file as the way back to the current Fassung — never as a silent
-      // nothing, and never as the generic red line.
       if (error instanceof DocumentLifecycleError && error.status === 409) {
         setReviewStale(true)
       } else {
@@ -218,13 +172,6 @@ export function InboxReviewDecision({ item, reviewClient, onOpen }: InboxReviewD
           )}
         </div>
       ) : reviewing === 'approve' ? (
-        /* The same minimum ceremony as on the file: never one click,
-           and the signature names the same facts — which Fassung is
-           released (subject + number + round opening) and who acts
-           when. The number is required: without the STAND read above
-           nothing is released. Who asked is already in the title, so
-           the acting line stays date-only like the file pane's own
-           fallback when no viewer name is known. */
         <div
           className="space-y-2 rounded-lg border p-2"
           data-testid="inbox-review-approve-confirm"
@@ -308,8 +255,6 @@ export function InboxReviewDecision({ item, reviewClient, onOpen }: InboxReviewD
           </div>
         </div>
       ) : (
-        /* A refusal without words is refused by the transition itself;
-           the button stays shut until something is typed. */
         <div className="space-y-2 rounded-lg border p-2" data-testid="inbox-review-comment">
           <label
             htmlFor={`inbox-review-comment-${item.id}`}

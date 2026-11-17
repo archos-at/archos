@@ -1,11 +1,3 @@
-/**
- * Voice dictation for the chat composer: the facade. The composer imports the
- * button, the recording strip, the channel between them and the insertion rule from here
- * and nothing else; recording, support detection and the call to
- * `/api/dictation` stay inside.
- * `docs/architecture/voice-dictation.md` has the design and its open questions.
- */
-
 export {
   DictationButton,
   DictationControl,

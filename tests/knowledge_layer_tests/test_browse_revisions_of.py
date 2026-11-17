@@ -1,12 +1,3 @@
-"""`list_files(revisions_of=…)` renders one document's whole chain of Fassungen, newest first.
-
-The questions it answers are „Welche Fassungen gibt es von X?“ and „Was hat sich zwischen Index B und C
-geändert?“. The chain is joined two ways, a link a PERSON confirmed (`superseded_by`, across file
-names) and the file name's own series (Index, Datum), and it reads only the rows and shelves the
-turn may list: another shelf, a restricted folder's collection, or a file that is not in the
-inventory is not in it. The change line is stored on the NEWER file and compares against a named basis.
-"""
-
 from __future__ import annotations
 
 from unittest.mock import MagicMock
@@ -27,7 +18,6 @@ from agent.knowledge.inventory import set_turn_documents
 from agent.knowledge.schema import AvailableDocument
 from agent.knowledge.scoping import ScopedCollection
 
-# Every read of a project scope names the office it reads as (``vector_store.reading_office``, ADR-0163).
 pytestmark = pytest.mark.usefixtures("reads_as_an_office")
 
 
@@ -43,7 +33,6 @@ def _doc(name: str, *, shelf: str = "project", **extra) -> AvailableDocument:
 
 
 def _floor_plan():
-    """The first state, Index B, and Index C with its change line."""
     return file_rows(
         [
             _doc("EG_Grundriss.pdf", added_at="2026-07-01"),
@@ -60,7 +49,6 @@ def _floor_plan():
 
 
 def _numbered(text: str) -> list[str]:
-    """The chain's lines: `1. name · …`."""
     return [line for line in text.splitlines() if line[:1].isdigit() and ". " in line[:4]]
 
 
@@ -194,8 +182,6 @@ class TestAConfirmedLinkAcrossFileNames:
 
 
 class TestTheTitleBlock:
-    """Two files whose Plankopf prints the same number are Fassungen of one document, whatever their names say."""
-
     def _rows(self):
         return file_rows(
             [
@@ -405,7 +391,6 @@ def _page(file_name: str, n: int, text: str):
 
 @pytest.fixture
 def stored(monkeypatch, qdrant_store):  # noqa: ARG001 - the store the compare reads
-    """Index A and Index B as the index holds them, in a real Qdrant: one value moved on page 2."""
     from knowledge_layer_testing.vector_store import write
 
     write(
@@ -425,8 +410,6 @@ def stored(monkeypatch, qdrant_store):  # noqa: ARG001 - the store the compare r
 
 
 class TestComparing:
-    """`compare_to` turns the chain into a compare of two of its Fassungen (ADR-0104)."""
-
     async def _call(self, **kwargs) -> str:
         async with list_files(ListFilesConfig(), _builder()) as info:
             return await info.single_fn(info.input_schema(**kwargs))
@@ -436,7 +419,6 @@ class TestComparing:
 
         assert "„Plan_Index_A.pdf“ (older) → „Plan_Index_B.pdf“ (newer)" in text
         assert "Page 2: Values: Fluchtweglänge 38 m → 42 m." in text
-        # The stored change line was written against exactly this older file, so it rides along.
         assert "Wand neu" in text
 
     async def test_the_order_follows_the_chain_not_the_arguments(self, scope, stored):
@@ -462,11 +444,6 @@ class TestComparing:
         scope,
         qdrant_store,  # noqa: ARG002
     ):
-        """Point ids are random node ids, so only the chunk's place in the file orders a page's chunks.
-
-        One chunk per page (the fixture above) cannot see a shuffled page; the
-        Sentence splitter cuts several from a real one.
-        """
         from knowledge_layer_testing.vector_store import write
 
         lines = [f"Zeile {i}: Brandabschnitt {i} hat Feuerwiderstand REI {30 + i}" for i in range(8)]

@@ -5,8 +5,6 @@ import { InspectorGroup, InspectorRow, InspectorSection } from './inspector-grou
 
 describe('InspectorSection, InspectorGroup, InspectorRow', () => {
   it('renders what it is given: a section is a named region holding its group and rows', () => {
-    // The first cut of `InspectorGroup` destructured `children` and never passed
-    // them on, so every group on the rail drew as an empty white bar.
     render(
       <InspectorSection label="Properties" icon={Info}>
         <InspectorGroup>
@@ -22,8 +20,6 @@ describe('InspectorSection, InspectorGroup, InspectorRow', () => {
   })
 
   it('gives label and value one type, so they share a baseline whatever the value is', () => {
-    // The rows this replaced let each value set its own size on an inline span,
-    // which sat 2–4px below its label by a different amount per row.
     render(
       <InspectorGroup>
         <InspectorRow label="Size" icon={Ruler}>

@@ -1,18 +1,12 @@
 /**
  * @vitest-environment node
  */
-/**
- * Who reads the conversation Piloti answers in (H1, ADR-0093). The database is
- * replaced at the repository seam; the rule deciding solo (`isSoloAudience`) is
- * the real one.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/db', () => ({ getDb: vi.fn(() => ({})) }))
 vi.mock('@/lib/db/tenant-context', () => ({ withTenant: vi.fn((_tenant: unknown, run: () => unknown) => run()) }))
 vi.mock('@/lib/conversations/restricted-use-repository', () => ({ readConversationAudience: vi.fn() }))
 vi.mock('@/lib/conversations/cross-project-use', async () => {
-  // The real rules, without the module's database imports.
   return {
     isSoloAudience: (audience: { exists: boolean; visibility: string; createdBy: string | null; grantees: string[] }, userId: string) =>
       !audience.exists ||
@@ -86,6 +80,3 @@ describe('conversationAudienceOf', () => {
     }
   })
 })
-
-// What a read hands out, what it refuses and the record under the audience lock are SQL and the
-// reach's WorkOS questions: proven against Postgres in `read-gate.integration.spec.ts`, not here.

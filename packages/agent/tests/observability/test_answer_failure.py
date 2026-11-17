@@ -1,5 +1,3 @@
-"""``answer_failed``: the reason a turn ended without an answer, and the event that carries it."""
-
 from __future__ import annotations
 
 import httpx

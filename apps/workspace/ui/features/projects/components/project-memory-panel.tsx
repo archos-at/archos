@@ -38,13 +38,6 @@ import { personalMemoryCopy } from '@/i18n/namespaces/personal-memory'
 import { noteRefusalKind, type NoteRefusalKind } from '@/lib/knowledge/note-refusal'
 import { useMemoryKindLabels } from '@/components/memory/memory-kinds'
 
-/**
- * Project Memory panel — "What Piloti knows about this project".
- * See docs/architecture/project-memory-design.md §7: capture is silent, this
- * panel is the human backstop (view / add / edit / confirm / pin / dismiss).
- */
-
-/** One page of the shelf's list: its notes, the cursor on, and the shelf's topics. */
 interface MemoryPage {
   items: MemoryItem[]
   nextCursor: string | null
@@ -53,19 +46,9 @@ interface MemoryPage {
 
 interface ProjectMemoryPanelProps {
   projectId: string
-  /**
-   * A list without the controls to add, confirm, pin, edit or remove: for a
-   * reader without `project:memory:write`, whose every click would answer 404,
-   * and for a closed project, whose memory is read-only (ADR-0090).
-   */
   readOnly?: boolean
 }
 
-/**
- * `refused` says why a note was refused when the server named its kind
- * (`details.kind`, `bff/knowledge/note-refusal.ts`); any other failure keeps
- * the generic text.
- */
 async function requestJson<T>(
   url: string,
   init?: RequestInit,
@@ -102,13 +85,11 @@ export function ProjectMemoryPanel({
   const [items, setItems] = useState<MemoryItem[] | null>(null)
   const [topics, setTopics] = useState<MemoryTopicCount[]>([])
   const [error, setError] = useState<string | null>(null)
-  /** Item currently being mutated — disables its actions to avoid double-fires. */
   const [busyId, setBusyId] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editDraft, setEditDraft] = useState('')
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null)
 
-  // Add form
   const [adding, setAdding] = useState(false)
   const [addKind, setAddKind] = useState<ProjectMemoryKind>('decision')
   const [addScope, setAddScope] = useState<'project' | 'organization'>('project')
@@ -119,18 +100,12 @@ export function ProjectMemoryPanel({
   const baseUrl = `/api/projects/${projectId}/memory`
   const orgUrl = '/api/organization/memory'
 
-  /** Org-wide items are managed through the organization endpoint. */
   const itemUrl = (item: MemoryItem) =>
     item.scope === 'organization' ? `${orgUrl}/${item.id}` : `${baseUrl}/${item.id}`
 
   const load = useCallback(
     (signal: { cancelled: boolean }, { silent = false }: { silent?: boolean } = {}) => {
-      // A silent refetch (focus/interval revalidation) must not flash the
-      // skeleton or clear an existing error banner — it only swaps in fresh
-      // items when they arrive. The initial load is non-silent.
       if (!silent) setError(null)
-      // Every page carries the shelf's topics, counted over the whole shelf
-      // rather than the page: the last page's are kept.
       let shelfTopics: MemoryTopicCount[] = []
       collectPages<MemoryItem>((cursor) =>
         requestJson<MemoryPage>(
@@ -156,7 +131,6 @@ export function ProjectMemoryPanel({
     [baseUrl, t]
   )
 
-  // Initial load.
   useEffect(() => {
     const signal = { cancelled: false }
     load(signal)
@@ -165,17 +139,10 @@ export function ProjectMemoryPanel({
     }
   }, [load])
 
-  // Pause silent revalidation while the user is actively mutating (adding,
-  // editing, deleting, or a request is in flight) so a background refetch never
-  // clobbers optimistic UI or an open editor.
   const interacting = adding || editingId !== null || busyId !== null || confirmingDeleteId !== null
   const interactingRef = useRef(interacting)
   interactingRef.current = interacting
 
-  // Revalidate so memory captured elsewhere (the chat `remember` tool and the
-  // async reflection stage both write out-of-band) shows up without a manual
-  // reload: on window focus / tab re-visibility, and on a slow interval while
-  // the panel is mounted. Silent — never flashes the skeleton.
   useEffect(() => {
     const signal = { cancelled: false }
     const revalidate = () => {
@@ -290,7 +257,6 @@ export function ProjectMemoryPanel({
     onAskRemove: (id) => setConfirmingDeleteId(id),
   }
   const confirmingDeleteItem = items?.find((it) => it.id === confirmingDeleteId) ?? null
-  // A new note takes an open topic, as a move does: an office note only the office's topics.
   const addTopicNames = pickableTopicNames(
     visible,
     { scope: addScope, restricted: false },
@@ -298,10 +264,6 @@ export function ProjectMemoryPanel({
   )
 
   return (
-    // `min-w-0`: the panel sits in a grid cell on the settings page, and a grid
-    // item's automatic minimum is its widest unbreakable line. A restricted
-    // note's badge or a long path in a note's text was enough to push the whole
-    // page 97px past a phone's edge.
     <section className="min-w-0 space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
         <div className="min-w-0 flex-1 basis-56">
@@ -353,7 +315,6 @@ export function ProjectMemoryPanel({
                 <Select
                   value={addScope}
                   onValueChange={(value) => {
-                    // A topic belongs to one shelf: a project topic must not ride along onto an office note.
                     setAddScope(value as 'project' | 'organization')
                     setAddTopic(null)
                   }}

@@ -242,10 +242,6 @@ export function ProjectIntakeWizardView({ controller }: { controller: ProjectInt
                   </div>
                 ) : stage.scope === 'building' ? (
                   <BuildingStage
-                    // Schnellstart is a view over the QUESTIONS, so it has to be
-                    // applied here as well: passing the raw stage left modules
-                    // C, D and E showing every question while the toggle claimed
-                    // to be showing only Kernfragen.
                     stage={quickStartStage}
                     buildings={buildings}
                     answers={answers}

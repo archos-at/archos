@@ -1,12 +1,3 @@
-"""Which quota a 429 names: the transport and the OpenAI SDK, against real OpenRouter-shaped bodies.
-
-OpenRouter answers 429 in two shapes. An upstream provider that ran out wraps its
-refusal and names itself in ``error.metadata.provider_name``; OpenRouter's own
-limit carries ``code: 429`` and no provider. The first is one model's quota, the
-second the key's. The OpenAI SDK keeps the response's ``error`` object as
-``RateLimitError.body``, which is what the chat seam classifies.
-"""
-
 from __future__ import annotations
 
 import fakeredis

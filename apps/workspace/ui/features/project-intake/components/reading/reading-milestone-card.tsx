@@ -9,10 +9,6 @@ import { intakeReadingStepCopy } from '@/i18n/namespaces/intake-reading-step'
 import { cn } from '@/lib/utils'
 import type { MilestoneState, ReadingMilestone } from './reading-milestones'
 
-/**
- * The state's mark: a glyph, and the word for a screen reader. Never a colour
- * alone, and nothing that spins: what still moves is a dashed ring.
- */
 function StateMark({ state }: { state: MilestoneState }): JSX.Element {
   if (state === 'done') {
     return (
@@ -36,7 +32,6 @@ function StateMark({ state }: { state: MilestoneState }): JSX.Element {
 
 interface RowWords {
   label: string
-  /** What stands at the right: a number, a place, or a quiet word. */
   value: ReactNode
   quiet: boolean
 }
@@ -68,7 +63,6 @@ function countWords(
   const label = t(`milestones.${id}.label`)
   if (state === 'pending' && id === 'gaps') return { label, value: t('milestones.later'), quiet: true }
   if (count > 0) return { label, value: count, quiet: false }
-  // Nothing yet while it reads; nothing at all once it is over.
   return { label, value: state === 'done' ? t('milestones.none') : t('milestones.noneYet'), quiet: true }
 }
 
@@ -76,11 +70,6 @@ function wordsOf(milestone: ReadingMilestone, t: Translator): RowWords {
   return milestone.id === 'site' ? siteWords(milestone, t) : countWords(milestone, t)
 }
 
-/**
- * The reading's milestones as one card, one row each: the state's mark, what
- * it is, and what stands at the right. The list is a live region, so a screen
- * reader hears a milestone change without being interrupted.
- */
 export function ReadingMilestoneCard({ milestones }: { milestones: readonly ReadingMilestone[] }): JSX.Element {
   const t = useTranslations(intakeReadingStepCopy)
   return (

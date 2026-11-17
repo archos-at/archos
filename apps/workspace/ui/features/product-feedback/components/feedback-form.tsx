@@ -1,25 +1,5 @@
 'use client'
 
-/**
- * The feedback form — the one door a member has to the people who run Piloti.
- * It is the „Neues Feedback" pane of „Mein Feedback" (`feedback-threads.tsx`),
- * and every „Feedback senden" in the shell opens it there.
- *
- * Built to be finished in under a minute: pick what it is (four tiles, a bug
- * pre-selected because that is what most people come to report), write a few
- * sentences against a placeholder that asks the right question for that kind,
- * send. Everything a triager needs that the reporter would not know to type —
- * the page, the browser, the screen size — is captured automatically and shown
- * before sending, so nothing leaves the browser unseen.
- *
- * Mounted fresh for every new report, so the context it captures describes the
- * page the reporter opened it from. What happens after sending is the host's
- * (`onSent`): the modal opens the new case's thread.
- *
- * Distinct from the thumbs on an answer (`AnswerFeedback`): that rates one
- * reply, this reaches a person.
- */
-
 import type { JSX } from 'react'
 import * as React from 'react'
 import { Bug, ChevronDown, CircleHelp, Heart, Lightbulb, type LucideIcon } from 'lucide-react'
@@ -60,35 +40,17 @@ export const FEEDBACK_KIND_ICONS: Record<ProductFeedbackKind, LucideIcon> = {
   question: CircleHelp,
 }
 
-/**
- * Radix's scroll viewport wraps its children in a `display: table` box that
- * grows to its widest child; block layout makes the content take the pane's
- * width. See `components/ui/scroll-area.tsx`.
- */
 export const FIT_VIEWPORT = '[&>[data-radix-scroll-area-viewport]>div]:!block'
 
 export interface FeedbackFormProps {
-  /** The kind pre-selected. */
   defaultKind?: ProductFeedbackKind
-  /** Shown in the contact hint, so the reporter knows where a reply goes. */
   userEmail?: string | null
   submit: (request: SubmitProductFeedbackRequest) => Promise<SubmitProductFeedbackResult>
-  /** The report is stored; its id, for the host to open its thread. */
   onSent: (reportId: string) => void
-  /** „Abbrechen". */
   onCancel: () => void
-  /** Told while a send is in flight, so the host can refuse to close mid-send. */
   onSendingChange?: (sending: boolean) => void
 }
 
-/**
- * After the first-party record exists, tell PostHog the product event: the kind
- * only, never the words. The Support ticket is not opened here: the SERVER
- * opens it for every report, with the masked text the office's „Sensible
- * Daten" policy allows (ADR-0086); the browser only hands over its replay
- * session id with the submit (`getPosthogSupportContext`). No-op while
- * PostHog is off.
- */
 function relayToPosthog(report: SubmittedProductFeedbackView): void {
   capturePosthog('product_feedback_submitted', { kind: report.kind })
 }
@@ -115,10 +77,6 @@ export function FeedbackForm({
   const [captured] = React.useState(() => captureFeedbackContext())
   const textareaRef = React.useRef<HTMLTextAreaElement>(null)
 
-  // A mouse or a keyboard came here to write: the message takes the focus. On
-  // a phone a focused field raises the keyboard over the kinds and the send
-  // button before the reporter has chosen anything; they tap it when ready.
-  // This runs before the dialog's own open focus, which then leaves it alone.
   React.useEffect(() => {
     if (!isCoarsePointer()) textareaRef.current?.focus()
   }, [])
@@ -228,7 +186,6 @@ export function FeedbackForm({
             {showLengthHint && tooShort ? (
               <FieldError id={`${messageId}-hint`}>{t('dialog.tooShort', { min: PRODUCT_FEEDBACK_MESSAGE_MIN })}</FieldError>
             ) : (
-              // A keyboard shortcut is noise on a device with no such keys.
               <FieldDescription id={`${messageId}-hint`} className="pointer-coarse:hidden flex items-center gap-1.5">
                 <KbdGroup>
                   <Kbd>{mod}</Kbd>
@@ -281,10 +238,6 @@ export function FeedbackForm({
   )
 }
 
-/**
- * What is sent along without being typed, shown before it is sent. Collapsed:
- * it is disclosure, not a question, and most reporters never need to open it.
- */
 function CapturedContext({ pagePath, context }: ReturnType<typeof captureFeedbackContext>): JSX.Element {
   const t = useTranslations(feedbackCopy)
   const rows: Array<[string, string | undefined | null]> = [

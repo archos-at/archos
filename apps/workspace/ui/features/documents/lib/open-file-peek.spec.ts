@@ -115,9 +115,6 @@ describe('dropFileSubject — the one control here that ends things', () => {
     expect(toasted.calls).toHaveLength(1)
     toasted.calls[0].undo?.()
 
-    // Both, because the ✕ ended both: a viewer that comes back without the
-    // retrieval focus (or the other way round) is half an undo, which is worse
-    // than none — the reader would believe they had their question back.
     const preview = useFilePreviewStore.getState()
     expect(preview.file?.id).toBe('doc-1')
     expect(preview.mode).toBe('peek')

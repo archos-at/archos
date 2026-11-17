@@ -12,10 +12,6 @@ import {
   resetConversationsOnServer,
 } from '@/features/chat/lib/conversation-on-server'
 
-// Sharing data hooks are stubbed: this spec is about what the toolbar shows and
-// gates, not about the (separately tested) fetching. The default state is "nothing
-// loaded", which is exactly what a collaboration-disabled org looks like — so the
-// pre-existing tests below are unaffected by the sharing surfaces.
 let mockSharingState: ResourceSharingState | null = null
 const mockUseSharing = vi.fn()
 
@@ -40,10 +36,6 @@ vi.mock('@/features/collaboration/hooks/use-sharing', () => ({
   useShareCandidates: () => ({ candidates: [], loading: false, error: false, reload: vi.fn() }),
 }))
 
-// Mock the layout store. The toolbar reads one thing off it — the sessions
-// overlay. It held the mobile nav drawer too (the hamburger, now the phone tab
-// bar's "Mehr") and the research panel until a run became a message in its own
-// thread (ADR-0062).
 const mockToggleSessionsPanel = vi.fn()
 
 function getLayoutState() {
@@ -59,8 +51,6 @@ vi.mock('../store', () => ({
   }),
 }))
 
-// The phone shell's connection line asks `useIsMobile`; the context row itself is
-// CSS (`md:hidden`), so jsdom renders it either way.
 let mockIsMobile = false
 vi.mock('@/hooks/use-is-mobile', () => ({ useIsMobile: () => mockIsMobile }))
 vi.mock('@/shared/hooks/use-connection-presence', () => ({
@@ -85,7 +75,6 @@ vi.mock('@/features/chat/store', () => ({
     }) => unknown
   ) =>
     selector({
-      // A run going in the thread is a message whose stored ledger says so.
       currentConversation: mockCurrentSessionId
         ? {
             id: mockCurrentSessionId,
@@ -107,25 +96,11 @@ vi.mock('@/features/chat/store', () => ({
     }),
 }))
 
-/**
- * Open the thread menu — the one place every non-primary header action lives.
- * The header shows only what is TRUE about the thread plus New chat; share and
- * rename are behind this trigger by design, so most action tests start here.
- */
 async function openThreadMenu(user: ReturnType<typeof userEvent.setup>): Promise<void> {
   await user.click(screen.getByTestId('thread-menu'))
   await screen.findByRole('menu')
 }
 
-/**
- * Pick an item out of the open thread menu.
- *
- * The hover is load-bearing, not decoration: a menu item is selected while it is
- * the *focused* item, and it becomes focused on pointer movement. `user.click`
- * dispatches no `pointermove`, so clicking an item that was never hovered fires
- * `onSelect` only sometimes — which showed up as a rename test that failed about
- * one run in four.
- */
 async function selectMenuItem(
   user: ReturnType<typeof userEvent.setup>,
   testId: string,
@@ -152,11 +127,6 @@ describe('ChatToolbar', () => {
 
       render(<ChatToolbar conversationId="session-1" isCollaborationEnabled />)
 
-      // The one piece of research the header carries in the open: the thread's own
-      // banner scrolls away, so this is the persistent "still working" signal. It
-      // states, and there is nothing left for it to act WITH — a run is read in
-      // the thread that commissioned it (ADR-0062), so the menu holds no way out
-      // to a side panel.
       const running = screen.getAllByTestId('research-running')[0]!
       expect(running).toBeInTheDocument()
       expect(running.querySelector('button')).toBeNull()
@@ -180,9 +150,6 @@ describe('ChatToolbar', () => {
 
       render(<ChatToolbar />)
 
-      // With no rename and no sharing there is nothing occasional to disclose on
-      // a desktop, so the trigger is gone there. It stays for a phone, where it
-      // holds New chat, because the phone's right pill is that one square.
       expect(screen.getByTestId('thread-menu')).toHaveClass('sm:hidden')
     })
 
@@ -229,7 +196,6 @@ describe('ChatToolbar', () => {
       const phone = document.querySelector('[data-status-surface="phone"]')
       expect(phone?.querySelector('[data-testid="research-running"]')).not.toBeNull()
       expect(phone?.querySelector('[data-testid="access-chip"]')).toBeNull()
-      // The desktop pill still states the rule.
       expect(document.querySelector('[data-status-surface="desktop"] [data-testid="access-chip"]')).not.toBeNull()
     })
   })
@@ -240,8 +206,6 @@ describe('ChatToolbar', () => {
       mockIsMobile = false
     })
 
-    // The founder (2026-11-10): „on mobile lets remove it entirely“. No project name and no lone search
-    // glyph stand over the pills: the project is the first row of „Mehr“, and the search is listed there.
     test('carries no project name and no search over the pills: the toolbar starts with its pills', () => {
       mockIsMobile = true
       render(<ChatToolbar sessionTitle="My Session" />)
@@ -283,10 +247,8 @@ describe('ChatToolbar', () => {
         />
       )
 
-      // The quiet navigation affordances stay available on the empty start screen.
       expect(screen.getByRole('button', { name: 'Chats' })).toBeInTheDocument()
 
-      // The actions + thread identity are withheld until a chat starts.
       expect(screen.queryByTestId('thread-menu')).not.toBeInTheDocument()
       expect(
         screen.queryByRole('button', { name: 'Create new session' })
@@ -330,11 +292,6 @@ describe('ChatToolbar', () => {
     })
   })
 
-  // The data-sources toggle was removed from the toolbar: the composer's
-  // Datengrundlage chip already owns opening that panel, so the navbar no
-  // longer duplicates it.
-  // None of the pilot offices found the chat history (2026-11-10): its door was a lone glyph whose name lived
-  // in aria-label and title alone. Its word is visible at every width, in every state of the chat.
   describe('the history door is never a glyph alone', () => {
     const HIDING = /(^|:)(hidden|sr-only|invisible)$/
 
@@ -348,7 +305,6 @@ describe('ChatToolbar', () => {
       const door = screen.getByTestId('chat-history-door')
       const label = door.querySelector('[data-slot="history-door-label"]')
       expect(label?.textContent).toBe('Chats')
-      // Its accessible name is the word it shows (label in name), not an aria-label beside a glyph.
       expect(door).not.toHaveAttribute('aria-label')
       expect(door).toHaveAccessibleName('Chats')
       for (const node of [door, label]) {
@@ -370,9 +326,6 @@ describe('ChatToolbar', () => {
   })
 
   describe('phone layout', () => {
-    // The thread's name is what the row is for. At 393px it was cut to eight
-    // characters, because a hamburger (now the tab bar's "Mehr"), the history
-    // door, the title and two actions shared 361px under a 64% cap.
     test('has no hamburger: the phone tab bar owns the drawer', () => {
       render(<ChatToolbar sessionTitle="Fluchtwegbreiten Treppenhaus 2" />)
 
@@ -385,19 +338,15 @@ describe('ChatToolbar', () => {
 
       const title = screen.getByText('Fluchtwegbreiten Treppenhaus 2')
       expect(title.className).toContain('line-clamp-2')
-      // No percentage cap on the pill that holds it.
       expect(title.closest('div[class*="max-sm:flex-1"]')).not.toBeNull()
       expect(title.closest('div[class*="max-w-[64%]"]')).toBeNull()
     })
 
-    // Ticket #38, R1: in a narrow window the title ran under „Neuer Chat“, both
-    // unreadable, and the thread read through the header behind the pills.
     test('from `sm` the title yields to New chat: it shrinks and clamps, the actions keep their width', () => {
       render(<ChatToolbar sessionTitle="Wiener Garagengesetz — Stellplatzverpflichtung" />)
 
       const title = screen.getByText('Wiener Garagengesetz — Stellplatzverpflichtung')
       expect(title.className).toContain('sm:line-clamp-1')
-      // `flex-none` cannot shrink: the title kept its whole width and overflowed.
       for (const box of [title.closest('button'), title.closest('nav')]) {
         expect(box?.className).toContain('min-w-0')
         expect(box?.className).toContain('sm:flex-initial')
@@ -423,7 +372,6 @@ describe('ChatToolbar', () => {
       const phone = document.querySelector('[data-status-surface="phone"]')
       expect(phone).not.toBeNull()
       expect(phone).toHaveTextContent('Researching')
-      // Shown below `sm`, gone at `sm` where the right pill carries it.
       expect(phone?.className).toContain('sm:hidden')
       expect(phone?.className).not.toContain('hidden sm:')
     })
@@ -469,8 +417,6 @@ describe('ChatToolbar', () => {
     })
 
     test('the title is the size of the New chat label beside it, from `sm` on', () => {
-      // The title read as a heading next to a button, one step larger than the
-      // only other words in the row. Beside each other they are one row.
       render(<ChatToolbar sessionTitle="My Session" />)
 
       const newChatLabel = screen.getByText('New chat')
@@ -492,9 +438,6 @@ describe('ChatToolbar', () => {
       const user = userEvent.setup()
       render(<ChatToolbar sessionTitle="My Session" />)
 
-      // Two ways in, on purpose: the menu entry is how anyone DISCOVERS renaming,
-      // this is the fast path once you know it. Unlike the menu route it needs no
-      // deferral — no menu is closing, so nothing is about to reclaim focus.
       await user.click(screen.getByRole('button', { name: /rename session/i }))
 
       expect(screen.getByRole('textbox', { name: /session title/i })).toHaveValue('My Session')
@@ -572,17 +515,10 @@ describe('ChatToolbar', () => {
 
       await openThreadMenu(user)
 
-      // An action that cannot run is not listed. A disabled row here would only
-      // pose a question the reader cannot answer from the menu.
       expect(screen.queryByTestId('rename-session')).not.toBeInTheDocument()
     })
   })
 })
-
-// ---------------------------------------------------------------------------
-// Sharing surfaces (spec SH-17/SH-18). Everything here is gated twice: the org's
-// collaboration flag AND a reachable, started conversation.
-// ---------------------------------------------------------------------------
 
 const SHARED_STATE: ResourceSharingState = {
   resourceType: 'conversation',
@@ -610,9 +546,6 @@ const SHARED_STATE: ResourceSharingState = {
 }
 
 describe('ChatToolbar — sharing surfaces', () => {
-  // This block used to inherit whatever the previous test happened to leave in the
-  // module-level mocks — the reset lives in the other describe's beforeEach, which
-  // does not reach here. Reset explicitly so each case states its own preconditions.
   beforeEach(() => {
     vi.clearAllMocks()
     mockIsAuthenticated = true
@@ -646,8 +579,6 @@ describe('ChatToolbar — sharing surfaces', () => {
   })
 
   test('a chat minted here is not asked about until the server has created it', () => {
-    // The header appears with the first message, and the server row with that
-    // message's store: asking in between was a 404 on every new chat.
     resetConversationsOnServer()
     markConversationMinted('session-new')
     const { rerender } = render(
@@ -672,9 +603,6 @@ describe('ChatToolbar — sharing surfaces', () => {
     )
 
     expect(screen.getAllByTestId('participant-strip').length).toBeGreaterThan(0)
-    // The chip would read "Shared with 1" — the same sentence the two faces
-    // already are, and the widest element in a row that has to hold the thread's
-    // own title. Under `private` the roster IS the audience, so the faces say it.
     expect(screen.queryByTestId('access-chip')).not.toBeInTheDocument()
   })
 
@@ -689,9 +617,6 @@ describe('ChatToolbar — sharing surfaces', () => {
       />,
     )
 
-    // The header's rule: information is not clickable, controls look like
-    // controls. An avatar stack that silently opened a dialog was the clearest
-    // case of the two being mixed — and it made sharing's ONE door into three.
     for (const strip of screen.getAllByTestId('participant-strip')) {
       expect(strip.tagName).not.toBe('BUTTON')
     }
@@ -709,10 +634,6 @@ describe('ChatToolbar — sharing surfaces', () => {
     )
 
     expect(screen.getAllByTestId('access-chip')[0]).toHaveTextContent('Project')
-    // Not both. Under a blanket rule the roster is not a summary of the audience
-    // but a partial sample of it — two faces beside "Projekt" read as "these two
-    // can see it" when the truth is "everyone in the project can". The named
-    // exceptions belong where there is room to explain them: the sharing surface.
     expect(screen.queryByTestId('participant-strip')).not.toBeInTheDocument()
   })
 
@@ -728,11 +649,8 @@ describe('ChatToolbar — sharing surfaces', () => {
       />,
     )
 
-    // Neither faces nor a "Private" chip: the default state of the overwhelmingly
-    // common thread needs no announcement…
     expect(screen.queryByTestId('participant-strip')).not.toBeInTheDocument()
     expect(screen.queryByTestId('access-chip')).not.toBeInTheDocument()
-    // …but sharing is still reachable, which is how a thread stops being solo.
     await openThreadMenu(user)
     expect(screen.getByTestId('share-button')).toBeInTheDocument()
   })
@@ -749,7 +667,6 @@ describe('ChatToolbar — sharing surfaces', () => {
       />,
     )
 
-    // Nothing in the open row opens it — not the faces, not a second button.
     expect(screen.queryByTestId('share-dialog')).not.toBeInTheDocument()
     expect(screen.queryByTestId('share-button')).not.toBeInTheDocument()
 

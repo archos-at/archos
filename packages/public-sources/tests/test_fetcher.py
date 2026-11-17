@@ -1,5 +1,3 @@
-"""The fetcher service and the transport that routes a source's requests through it."""
-
 from __future__ import annotations
 
 import httpx
@@ -26,7 +24,6 @@ def _upstream(calls: list[httpx.Request]):
 
 
 async def _client_through_fetcher(monkeypatch, calls):
-    """A client for at-ris whose requests go through the fetcher app, which answers from a mock upstream."""
     app = make_app(transport=_upstream(calls))
     monkeypatch.setenv(routing.ENV_FETCHER_URL, "http://public-source-fetcher:8095")
     transport = routing.source_transport("at-ris", inner=httpx.ASGITransport(app=app))

@@ -20,7 +20,6 @@ vi.mock('@/lib/push/browser', async (original) => {
     currentSubscription: vi.fn(async () => browser.subscription),
     subscribeThisDevice: vi.fn(async () => {
       if (browser.refuse) {
-        // The person pressed Block on the browser's prompt.
         browser.support = 'denied'
         throw new real.PushPermissionError('denied')
       }

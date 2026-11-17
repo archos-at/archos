@@ -2,16 +2,6 @@
  * @vitest-environment node
  */
 
-/**
- * The vocabulary map — what one ledger is read to SAY.
- *
- * Three surfaces render from these derivations (the block, the compact line,
- * the task card), so each answer is pinned once here rather than three times
- * in three component specs. The fixtures are built with the ledger's own fold
- * helpers, at fixed instants, so a tally or a duration below is a fact about
- * the helpers and the derivation together — the same pair production runs.
- */
-
 import { describe, expect, it } from 'vitest'
 import {
   appendStep,
@@ -47,7 +37,6 @@ const step = (id: string, phase: RunStep['phase'], docs: string[], seconds: numb
   docs: docs.map((name) => ({ name, loci: ['S. 1'] })),
 })
 
-/** Planen done at 12 s, two research rounds over four documents, still researching. */
 function researching(): RunLedger {
   let ledger = emptyRunLedger('run-1', T0)
   ledger = openPhase(ledger, 'planning', at(0))
@@ -172,9 +161,6 @@ describe('elapsedMs and phaseDurationMs', () => {
     expect(elapsedMs(done, at(500).getTime())).toBe(90_000)
   })
 
-  // A run that asked a question on Friday afternoon showed „68 h" on Monday:
-  // a true number about the wrong subject. The pill says how long the WORK
-  // took, and between the ask and the answer the run is doing none.
   it('stops the clock at the ask while a run is waiting for an answer', () => {
     const asking = setRunStatus(researching(), 'waiting', at(102))
     expect(elapsedMs(asking, at(102).getTime())).toBe(102_000)

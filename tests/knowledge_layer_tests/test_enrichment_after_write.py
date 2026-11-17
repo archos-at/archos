@@ -1,13 +1,3 @@
-"""The summary, tags, topics and dossier no longer stand between a file and its search.
-
-The chunks are embedded and written while those calls run; their rows are
-registered after, and the tags reach the points through ``register_summary``'s
-copy (``writes.refresh_facts``). The job still reads terminal only once they are
-collected, and a dossier that fails costs the dossier, never the write.
-
-Offline: the screening harness's hand-built PDF and stub store.
-"""
-
 from __future__ import annotations
 
 import threading
@@ -53,7 +43,6 @@ class _SummaryModel:
 
 @pytest.fixture
 def order(calls, monkeypatch):  # noqa: F811
-    """What happened, in order: the write, the tags' answer, every copy of facts onto the points."""
     from knowledge_layer.vector_store import writes
 
     events: list[str] = []
@@ -64,8 +53,6 @@ def order(calls, monkeypatch):  # noqa: F811
         written.set()
 
     def tags(*args, **kwargs):
-        # Answers only once the chunks are in: an ingest that waited for the tags
-        # before writing would time this call out and store no tags at all.
         assert written.wait(10), "the write waited for the tag call"
         events.append("tags")
         return ["Baubeschreibung"]
@@ -92,7 +79,6 @@ def test_the_chunks_are_written_before_the_tags_answer_and_the_tags_reach_the_po
 
     assert detail.status.value == "success"
     assert events.index("write") < events.index("tags")
-    # The row's tags are copied onto the points after the row is written.
     assert any(event.startswith("facts:") for event in events[events.index("tags") :])
     assert document.tags == ["Baubeschreibung"]
     assert document.topics == ["Wohnbau"]

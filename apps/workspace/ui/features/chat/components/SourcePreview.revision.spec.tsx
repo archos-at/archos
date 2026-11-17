@@ -1,12 +1,3 @@
-/**
- * A citation of an older Fassung says so, and reaches the current one.
- *
- * The cited document resolves by name through the by-name route, whose listing row carries the
- * reader-visible `revision.supersededBy` (a newer document a person confirmed; one the reader may not
- * open is not in it, name and all). The peek turns that into one muted line with the current
- * Fassung's name as the control. A document nobody replaced shows no line.
- */
-
 import { render, screen, waitFor } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { vi, describe, test, expect, beforeEach, afterEach } from 'vitest'
@@ -41,7 +32,6 @@ const row = (id: string, filename: string, extra: Record<string, unknown> = {}) 
   ...extra,
 })
 
-/** What `POST /api/documents/by-name` answers, by the names asked for. */
 let rows: Record<string, ReturnType<typeof row>> = {}
 
 const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {

@@ -1,5 +1,3 @@
-"""The transient 402 (credits held by in-flight requests) is retried by the OpenRouter transport."""
-
 from __future__ import annotations
 
 import asyncio

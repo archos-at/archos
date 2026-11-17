@@ -25,7 +25,6 @@ const file = (id: string, folderId: string | null): FileItem => ({
   capture: null,
 })
 
-/** The hook over a list it can patch, the way the workspace holds one. */
 function harness(initial: FileItem[]) {
   let rows = initial
   const setFiles = vi.fn((action: FileItem[] | ((prev: FileItem[]) => FileItem[])) => {
@@ -185,14 +184,12 @@ describe('useDocumentMoves.dropInFolder', () => {
       rows = typeof action === 'function' ? action(rows) : action
     })
     const hook = renderHook(({ list }) => useDocumentMoves(list, setFiles, []), { initialProps: { list: rows } })
-    // The folder opened: its own level is listed now.
     hook.rerender({ list: [file('c', 'site')] })
 
     await act(async () => hook.result.current.dropInFolder('a', 'site'))
 
     expect(fetchMock).toHaveBeenCalledWith('/api/documents/a/folder', expect.anything())
     expect(toast.success).toHaveBeenCalledWith(expect.stringContaining('a.jpg'), expect.anything())
-    // And it is in the level it was dropped on at once, not on the next re-read.
     expect(rows.find((row) => row.id === 'a')?.folderId).toBe('site')
   })
 })

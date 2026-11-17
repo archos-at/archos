@@ -1,46 +1,5 @@
 'use client'
 
-/**
- * "Who is accessing this" — the panel the participant strip opens, and the body of
- * the share dialog (spec SH-17).
- *
- * The whole design serves one sentence: **a reader must learn in one glance both
- * the blanket rule and the named exceptions.** Those are two different kinds of
- * access and a flat list of names cannot express the difference — a project-wide
- * thread whose roster happens to show three people looks identical to a private
- * thread shared with three people, and they are not remotely the same thing. So:
- *
- *   - the top states the *rule* — the visibility chip plus its plain-words
- *     consequence ("Alle im Projekt können ebenfalls mitlesen und mitschreiben")
- *     and the number of people that currently resolves to;
- *   - directly under it, **who that rule currently reaches**, named, in one compact
- *     block;
- *   - then, separately, the people who are here **by name**, grouped by what they
- *     may do, because "who can change this" and "who can only read it" is the
- *     distinction a reader is actually scanning for;
- *   - and every named row carries **why** it is there ("Eingeladen von Matthias").
- *     A name with no reason is the thing that generates the "why can Anna see
- *     this?" support ticket, so the reason is not optional garnish — it is the
- *     point of the row.
- *
- * **Why rule-people and named-people are two blocks and not one list.** They were
- * one list, and it could not be read: the consequence sentence floated above rows
- * that were partly project members and partly named invitees, so nothing on screen
- * said whether the list was everyone or a sample, or why the head count was what it
- * was. The two also behave differently — a derived row has no per-person controls,
- * because there is no per-person deny (SH-3) — so a uniform-looking list did two
- * different things depending on the row. Splitting them makes that structural.
- *
- * The rule block names its people as **text**, not only as faces: `AvatarStack`
- * carries no accessible name, so initials alone would answer "who can see this?"
- * with nothing at all for a screen reader and nothing without hover on a phone.
- *
- * Presentational: it renders the state it is handed and never fetches or mutates.
- * The share dialog injects per-row controls through `renderActions`, which is what
- * lets the management surface reuse this grouping instead of growing a second,
- * drifting copy of it.
- */
-
 import type { JSX } from 'react'
 import { useId } from 'react'
 import type { ReactNode } from 'react'
@@ -62,14 +21,12 @@ import { cn } from '@/lib/utils'
 import { AccessChip, namedAudienceCount } from './AccessChip'
 import { sortByRoleThenName } from './ParticipantStrip'
 
-/** Strongest first: owners, then contributors, then readers. */
 const GROUPS: ReadonlyArray<{ role: ResourceRole; headingKey: string }> = [
   { role: 'owner', headingKey: 'sharing.overview.ownersHeading' },
   { role: 'collaborator', headingKey: 'sharing.overview.collaboratorsHeading' },
   { role: 'viewer', headingKey: 'sharing.overview.viewersHeading' },
 ]
 
-/** `viaVisibility*` — the consequence sentence for each blanket rule. */
 const CONSEQUENCE: Record<string, string> = {
   private: 'sharing.overview.viaVisibilityPrivate',
   project: 'sharing.overview.viaVisibilityProject',
@@ -78,18 +35,8 @@ const CONSEQUENCE: Record<string, string> = {
 
 export interface AccessOverviewProps {
   state: ResourceSharingState
-  /** Marks the reader's own row with `sharing.overview.you`. */
   currentUserId?: string | null
-  /**
-   * Renders the controls at the trailing edge of a row (role select, remove).
-   * Omitted on the read-only overview, supplied by the share dialog.
-   */
   renderActions?: (entry: ResourceAccessEntry) => ReactNode
-  /**
-   * Show the visibility chip + its consequence line. The share dialog turns this
-   * off because its visibility *selector* states the same rule one control above,
-   * and saying it twice makes the reader hunt for the difference.
-   */
   showVisibility?: boolean
   className?: string
 }
@@ -102,16 +49,12 @@ export function AccessOverview({
   className,
 }: AccessOverviewProps): JSX.Element {
   const t = useTranslations(collaborationCopy)
-  // Namespaces this instance's shared layout ids — see the `layoutId` note below.
   const instanceId = useId()
 
   const ordered = sortByRoleThenName(state.entries)
   const count = ordered.length
   const countLabel = count === 1 ? t('sharing.overview.countOne') : t('sharing.overview.countMany', { count })
 
-  // The two kinds of access, split at the source rather than blended in one list.
-  // `derived` are here because of the visibility rule and have no per-person
-  // controls (rule 4); `named` are here because somebody put them here.
   const derived = ordered.filter((entry) => entry.reason.startsWith('visibility-'))
   const named = ordered.filter((entry) => !entry.reason.startsWith('visibility-'))
   const namedCountLabel =
@@ -119,9 +62,6 @@ export function AccessOverview({
       ? t('sharing.overview.countOne')
       : t('sharing.overview.countMany', { count: named.length })
 
-  // Bounded so a 40-person project cannot turn one compact block into a wall of
-  // text; the overflow is counted rather than dropped, because "and 37 more" is
-  // itself the answer to "how wide is this?".
   const DERIVED_NAMES_SHOWN = 5
   const derivedNames = [
     ...derived.slice(0, DERIVED_NAMES_SHOWN).map((entry) => entry.person.name),
@@ -130,13 +70,8 @@ export function AccessOverview({
       : []),
   ].join(', ')
 
-  // Grants are the named exceptions; under `private` their number is what the
-  // access chip reports ("Mit 3 Personen geteilt").
   const namedOthers = namedAudienceCount(ordered, currentUserId)
 
-  // `grantedBy` is a user id; the granter is usually on the roster themselves, so
-  // resolve names from it and fall back to the anonymous variant rather than
-  // printing a raw id at a colleague.
   const nameById = new Map(ordered.map((entry) => [entry.person.userId, entry.person.name]))
 
   const reasonFor = (entry: ResourceAccessEntry): string => {
@@ -242,20 +177,6 @@ export function AccessOverview({
                 <SectionLabel as="h3">{t(headingKey)}</SectionLabel>
                 <ul className="-mx-2">
                   {group.map((entry) => (
-                    /*
-                     * `layoutId` is what makes a role change legible. The row
-                     * unmounts from one group and mounts in another in a single
-                     * commit; a shared layout id tells motion those are the same
-                     * person, so they GLIDE from "can write" to "can read" instead
-                     * of blinking out of one list and into another. Since the row
-                     * menu no longer restates the role, this movement IS the
-                     * confirmation that the change took.
-                     *
-                     * Namespaced per instance: the id must be unique in the layout
-                     * tree, and several overviews can share a page (the dev preview
-                     * renders three). Bare user ids would make motion try to animate
-                     * one person between two unrelated cards.
-                     */
                     <motion.li
                       key={entry.person.userId}
                       layout

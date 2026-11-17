@@ -1,10 +1,3 @@
-"""The answer suite's before/after report (``scripts/turn_census/compare.py``) and the arms run, offline.
-
-What is pinned: which checks count as accuracy, the per-answer arithmetic, how two runs pair arm by arm,
-the cost read off the recorded usage, and that ``--arm all`` runs each arm with its own restriction,
-directory and conversation ids, then writes the arms table and, with a baseline, the comparison.
-"""
-
 from __future__ import annotations
 
 import json
@@ -201,7 +194,6 @@ class TestTheArmsRun:
 
         monkeypatch.setattr(suite, "_preflight", lambda *a, **k: 0)
         monkeypatch.setattr(fixture_files, "seed_problem", lambda: None)
-        # The files set seeds its project before it runs (the E-Mail-Verlauf rows need a fresh seed); no Qdrant here.
         monkeypatch.setattr(fixture_files, "seed", lambda project=None, **_: {})
         monkeypatch.setattr(suite, "run_set", fake_run_set)
         monkeypatch.setattr(suite, "source_commit", lambda: "abc")

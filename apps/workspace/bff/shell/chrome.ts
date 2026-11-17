@@ -60,6 +60,7 @@ const EMPTY_NAV_FLAGS: NavFlags = {
   canViewOrganization: false,
   canManagePlatform: false,
   canAccessOfficeShelf: false,
+  canAccessOfficeStandards: false,
   canCollaborate: false,
   canAccessInbox: false,
 }

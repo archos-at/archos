@@ -464,7 +464,8 @@ class FormulaCard(CardModel):
         default=None,
         description=(
             "Which editions bind at the turn's site, set where the card is validated and never by the model. "
-            "Absent: the site is not known, and the card shows hints rather than verdicts"
+            "Every turn stamps it, an unplaced site included. Absent outside a turn and on a card written before "
+            "the stamp, which the card judges as it did when it was written"
         ),
     )
 

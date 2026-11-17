@@ -8,14 +8,6 @@ import { en } from './en'
 import { SUBPROCESSOR_PAGE } from './subprocessors.generated'
 import { legalSlugs, type LegalDocument } from '../types'
 
-/**
- * The legal text states what the product sends. PostHog receives product
- * analytics, masked replays, errors, surveys and support messages, and stores
- * `ph_…` entries in the browser, so a notice that still claims "only strictly
- * necessary cookies" is wrong, and a processor table without PostHog hides a
- * recipient. These specs hold the copy to that, in both languages.
- */
-
 const flatten = (doc: LegalDocument): string =>
   doc.sections
     .flatMap((section) => [
@@ -55,8 +47,6 @@ describe.each([
     expect(flatten(content.privacy)).toMatch(/E-Mail-Adresse und Ihr Name werden nicht|email address and name are not sent/)
   })
 
-  // These pages are public (/legal/*). A value nobody has verified is a TODO(owner)
-  // in a source comment, never a bracketed placeholder a visitor reads.
   it.each(legalSlugs)('%s renders no bracketed placeholder', (slug) => {
     const doc = content[slug]
     expect(`${doc.title}\n${doc.intro ?? ''}\n${flatten(doc)}`).not.toMatch(/\[[^\]]*\]/)
@@ -78,9 +68,6 @@ describe.each([
     expect(selfHosted.some((row) => row[0] === 'ClamAV')).toBe(true)
   })
 
-  // The processor table and the lists come from the data-flow register
-  // (configs/subprocessors/, docs/compliance/data-flow-register.md); the page may
-  // not drop or reorder them, and the flows the design review found must be on it.
   it('shows the register’s processor rows, all of them, in order', () => {
     const locale = content === de ? 'de' : 'en'
     const rows = content.subprocessors.sections[0]?.table?.rows ?? []

@@ -1,22 +1,5 @@
 'use client'
 
-/**
- * The „E-Mails“ tab of a thread document's preview (ADR-0137, D16): the
- * E-Mail-Verlauf as the mails it holds, where the well beside it shows the
- * document they render into.
- *
- * Top to bottom: how many mails of this thread still wait in the
- * E-Mail-Eingang (for whoever may file them), the follow control, and one row
- * per mail, newest first (`MailThreadEntryItem`). A link (`?mailEntry=`) or a
- * citation (its section heading) scrolls to its entry and marks it.
- *
- * Every write is one call of the thread's client, then the tab reads the
- * thread again: following and ending a follow (`FollowControl`), detaching a
- * mail (`DetachDialog`, which also tells the shelf that two documents have a
- * new Fassung). The thread document's Fassungen are read once, after the
- * thread, for „Vergleichen“ and the detach confirmation's numbers.
- */
-
 import type { JSX } from 'react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
@@ -44,16 +27,11 @@ type Load = { kind: 'loading' } | { kind: 'failed' } | { kind: 'ready'; view: Ma
 
 export interface MailThreadTabProps {
   projectId: string
-  /** The thread document (the preview's file). */
   documentId: string
   threadId: string
-  /** The thread document's folder, where a mail detached into a new thread goes. */
   folderId: string | null
-  /** The reader, to find their own follow; null where the surface does not know them. */
   viewerUserId: string | null
-  /** The entry a link (`?mailEntry=`) or a citation (its heading) points at. */
   focus?: { entryId?: string | null; heading?: string | null }
-  /** The `/dev/mail-thread` preview opens the detach dialog for this entry, to capture it. */
   openDetachFor?: string
   client?: MailThreadClient
   className?: string
@@ -81,7 +59,6 @@ export function MailThreadTab({
         const view = await client.get(projectId, threadId, signal)
         if (signal?.aborted) return
         setLoad({ kind: 'ready', view })
-        // The Fassungen follow the thread; without them the tab still says everything but „Vergleichen“.
         client.versions(documentId).then(
           (listing) => !signal?.aborted && setVersions(listing.versions),
           () => undefined,
@@ -138,7 +115,6 @@ export function MailThreadTab({
     toast.success(targetName ? t('detach.done', { name: targetName }) : t('detach.doneNew'), {
       description: result.followsEnded > 0 ? t('detach.followsEnded', { count: result.followsEnded }) : undefined,
     })
-    // Both thread documents have a new Fassung: the shelf reads them again.
     notifyDocumentsChanged()
     void read()
   }
@@ -162,7 +138,6 @@ export function MailThreadTab({
       {entries.length === 0 ? (
         <EmptyState icon={Inbox} title={t('tab.empty')} data-testid="mail-thread-empty" />
       ) : (
-        // A rail section sets its rows on a card: muted text straight on the sunken rail is 4.41:1.
         <ItemList as="ol" className="bg-card" aria-label={t('tab.timeline')} data-testid="mail-thread-entries">
           {entries.map((entry) => (
             <MailThreadEntryItem
@@ -174,7 +149,6 @@ export function MailThreadTab({
               versions={versions}
               focused={entry.id === focused}
               showTrust={sayingTrust.has(entry.id)}
-              // The thread's only mail cannot leave it (`last_entry`): the document is deleted instead.
               onDetach={writable && view.entries.length > 1 ? setDetaching : undefined}
               client={client}
             />

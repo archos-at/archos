@@ -1,8 +1,3 @@
-/**
- * Evidence chips: a document chip is the chat's own source chip (project
- * provenance signal, hover peek, the same viewer), and the other evidence is
- * neutral because it is not a document source.
- */
 import { render, screen, waitFor } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -66,7 +61,6 @@ describe('EvidenceChips', () => {
     expect(viewer).toHaveBeenLastCalledWith(
       expect.objectContaining({ open: true, fileName: 'Baubeschreibung.pdf', page: 3, highlight: QUOTE })
     )
-    // Resolved by name in the page's own project, not in whatever chat was last open.
     expect(JSON.parse(String(byName.mock.calls[0][1].body))).toEqual({ projectId: 'project-1', names: ['Baubeschreibung.pdf'] })
   })
 
@@ -85,7 +79,6 @@ describe('EvidenceChips', () => {
 
     expect(chip.querySelector('svg')).not.toBeNull()
     expect(chip).toHaveTextContent('Baubeschreibung.pdf, p. 3')
-    // Not the neutral chip the other evidence wears.
     expect(chip.closest('[data-slot="chip"]')).toBeNull()
 
     await userEvent.click(chip)

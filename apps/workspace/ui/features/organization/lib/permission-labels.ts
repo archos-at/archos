@@ -1,14 +1,3 @@
-/**
- * Human labels for the permissions a custom role can carry (ADR-0087).
- *
- * The catalog's names are English, written for provisioning; an office
- * composing a role reads German. Each organization permission has a key in
- * `organization.customRoles.permission`, and this map says which. It is a map
- * rather than a derivation from the slug so `permission-labels.spec.ts` can
- * fail the day the catalog gains an organization permission nobody labelled,
- * instead of the editor quietly showing a raw slug.
- */
-
 import { findPermissionSpec } from '@/lib/authz/catalog'
 import type { Translator } from '@/i18n/translate'
 
@@ -20,7 +9,6 @@ export const PERMISSION_LABEL_KEYS: Readonly<Record<string, string>> = {
   'org:audit:view': 'audit_view',
   'org:downloads:view': 'downloads_view',
   'org:office_shelf:manage': 'office_shelf_manage',
-  // The retired slug of the same permission: a role that still holds it reads the same.
   'org:archiv:manage': 'office_shelf_manage',
   'org:skills:manage': 'skills_manage',
   'org:projects:create': 'projects_create',
@@ -30,15 +18,9 @@ export const PERMISSION_LABEL_KEYS: Readonly<Record<string, string>> = {
 
 export interface PermissionLabel {
   name: string
-  /** One line on what it allows; null when only the catalog knows the permission. */
   hint: string | null
 }
 
-/**
- * The label for one permission, from a translator scoped to `organization`.
- * A permission without a key (one set in the WorkOS dashboard, or newer than
- * this map) falls back to the catalog's name, then to its slug.
- */
 export function permissionLabel(t: Translator, slug: string): PermissionLabel {
   const key = PERMISSION_LABEL_KEYS[slug]
   if (key) {

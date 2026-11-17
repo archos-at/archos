@@ -33,7 +33,6 @@ describe('deriveGebaeudeklasse', () => {
         escape_level_m: '3.2',
       }).value
     ).toBe(1)
-    // `offen` is no answer: GK 1 or GK 2 is then open on the access alone.
     expect(deriveBuildingClass({ ...singleFamilyHouse, access_three_sides: 'open' })).toEqual({
       value: null,
       hochhaus: false,
@@ -75,7 +74,6 @@ describe('boundaries', () => {
     expect(area(400.5)).toBe(2) // freistehend, three sides, rein Wohnen, ≤ 800 m²
     expect(area(800)).toBe(2)
     expect(area(800.5)).toBe(3)
-    // A garage in the house is no reines Wohngebäude: the 800 m² branch closes.
     expect(area(600, { uses: ['residential', 'garage'] })).toBe(3)
   })
 
@@ -113,7 +111,6 @@ describe('decisiveInputs', () => {
   it('names an open input only when one of its bands can flip the outcome', () => {
     expect(decisiveInputs(building({ storeys_above_ground: 6, escape_level_m: 18 }))).toEqual([])
     expect(decisiveInputs(building({ escape_level_m: 25 }))).toEqual([])
-    // Angebaut: the three-side access and the uses only matter for a freistehend building.
     expect(
       decisiveInputs(
         building({ building_position: 'attached', storeys_above_ground: 2, gfa_above_ground: 300 })
@@ -141,8 +138,6 @@ describe('decisiveInputs', () => {
 
   it('agrees with deriveBuildingClass’s missing', () => {
     const inputs = { ...multiFamilyHouse, building_position: undefined, uses: undefined }
-    // A Reihenhaus of units ≤ 400 m² would be GK 2; any other Stellung leaves GK 3. The uses only
-    // matter for the 800 m² branch, which 900 m² misses.
     expect(decisiveInputs(inputs)).toEqual(['building_position'])
     expect(deriveBuildingClass(inputs).missing).toEqual(['building_position'])
   })

@@ -1,25 +1,5 @@
 'use client'
 
-/**
- * „Exportieren…" on the ratings tab: the votes the page shows, as a file.
- *
- * The dialog does not choose what to export; the page already did. It says what
- * the file will hold in the page's own words (range, organizations, projects,
- * every rating filter), how many votes that is, and offers the two choices that
- * are about the FILE: the format, and "every rating in the range" without the
- * rating filters, which is the export people mean when they ask for "the
- * feedback" while looking at a filtered list.
- *
- * - **Live count.** From `/api/platform/answer-feedback/options`, the same
- *   strict parser and the same SQL as the export, debounced (300 ms), with a
- *   stale guard so a slow answer for the previous choice never overwrites the
- *   current one. Zero disables the download; over the cap says which votes go.
- * - **The download is a link.** `<a download href>` to the export route, built
- *   from the same query string; the route sets `Content-Disposition`, so the
- *   file costs the bundle nothing and the dialog fetches nothing but the count.
- * - **Phone.** Full height (`fullScreenOnMobile`), sections stacked.
- */
-
 import type { JSX } from 'react'
 import { useEffect, useId, useRef, useState } from 'react'
 import { Download, FileSpreadsheet, FileText } from 'lucide-react'
@@ -60,22 +40,18 @@ const COUNT_DEBOUNCE_MS = 300
 
 export type FeedbackExportFormat = 'xlsx' | 'csv'
 
-/** The query the file is read with: the page's, or its scope alone. */
 export function exportQuery(query: FeedbackQuery, allVotes: boolean): FeedbackQuery {
   return allVotes ? { scope: query.scope, ratings: NO_RATINGS_FILTERS } : query
 }
 
-/** The download link: the export route with the page's query string and the format. */
 export function feedbackExportHref(query: FeedbackQuery, format: FeedbackExportFormat, allVotes = false): string {
   return `${EXPORT_ROUTE}?${feedbackQueryString(exportQuery(query, allVotes))}&format=${format}`
 }
 
 export interface FeedbackExportDialogProps {
   query: FeedbackQuery
-  /** Display names for the scope's ids; the id is shown when a name is unknown. */
   organizationName: (id: string) => string
   projectName: (id: string) => string
-  /** Open on mount (the `/dev` preview). */
   defaultOpen?: boolean
 }
 
@@ -111,8 +87,6 @@ export function FeedbackExportDialog({
     const timer = setTimeout(() => {
       getAnswerFeedbackFilterOptions(search, { signal: controller.signal })
         .then((options) => {
-          // Only the newest request may write: a slower answer for the
-          // previous choice must not replace the count for the current one.
           if (requestId === latestRequest.current) setCount({ kind: 'ready', options })
         })
         .catch(() => {

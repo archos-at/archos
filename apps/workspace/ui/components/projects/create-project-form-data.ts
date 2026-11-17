@@ -1,18 +1,9 @@
-/**
- * What the create dialog posts to its server action, kept out of the form
- * component so the form stays one organism and this stays a pure function.
- */
-
 import type { AddressValue } from './address-field'
 import { setSitePlace, type SitePlace } from './site-place-fields'
 import type { ProjectSetup } from '@/lib/projects/create-project-schema'
 
 export type CreateProjectState = 'active' | 'closed'
 
-/**
- * The action's fields. `name`, `state` and `setup` always; the address (the chosen hit, else the typed
- * line and the country and Land chosen beside it), the description and the held drop's key when given; the closed project's facts when it is closed.
- */
 export function toFormData(
   value: {
     name: string

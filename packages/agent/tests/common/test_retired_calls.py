@@ -1,5 +1,3 @@
-"""A retired argument on Piloti's chat binding is an error that names its replacement (ADR-0133 slice 6)."""
-
 from __future__ import annotations
 
 from unittest.mock import patch

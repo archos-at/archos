@@ -2,18 +2,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The declared lifecycles (ADR-0179), held three ways:
- *
- * - each means what a statechart interpreter says it means (XState is the oracle);
- * - `docs/architecture/lifecycles.generated.md` is what the code declares, so a
- *   move added in code without the reference fails here:
- *
- *     UPDATE_FIXTURES=1 bunx vitest run bff/lifecycles/registry.spec.ts
- *
- * - a `defineLifecycle` call anywhere in `bff/` is in the registry, so a new
- *   lifecycle cannot stay out of the reference.
- */
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -94,7 +82,6 @@ describe('the declared lifecycles', () => {
   })
 
   it('are all in the registry', () => {
-    // By declaration, not by file: a second lifecycle added to a file that already holds one counts too.
     const declared = sourceFiles(join(ROOT, 'bff'))
       .flatMap((file) => {
         const calls = readFileSync(file, 'utf8').match(/\bdefineLifecycle\s*[<(]/g) ?? []

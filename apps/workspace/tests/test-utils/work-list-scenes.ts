@@ -1,10 +1,3 @@
-/**
- * The north-star scene of ADR-0132 as wire steps, for specs and the
- * `/dev/derivation?variant=work` preview: round 1 runs a literal search, a
- * folder listing and a meaning search together; round 2 reads a plan sheet
- * and looks at it. Pure data (no `node:fs`), so a page can import it.
- */
-
 import { parseWireEvent } from '@/adapters/api/wire-v2'
 import { foldTurnEvents } from '@/lib/turns/turn-fold'
 import type { StoredThinkingStep } from '@/lib/conversations/message-provenance'
@@ -14,10 +7,8 @@ export type WireStepInput = Record<string, unknown>
 
 const DOCUMENT_ID = '00000000-0000-4000-8000-0000000000c1'
 
-/** One call: `at` ms after the scene's origin, running `ms`. */
 export interface TimedStep {
   at: number
-  /** The wire event type this step is sent as. */
   type: 'STEP_STARTED' | 'STEP_FINISHED'
   step: WireStepInput
 }
@@ -117,7 +108,6 @@ const round2 = (at: number, running = false): TimedStep[] => [
       ]),
 ]
 
-/** The look step the model's `look` call stores beside its action row. */
 export const NORTH_STAR_LOOK: WireStepInput = {
   id: 'look:1',
   kind: 'look',
@@ -129,7 +119,6 @@ export const NORTH_STAR_LOOK: WireStepInput = {
   where: 'oben rechts',
 }
 
-/** Both rounds, settled: three calls together, then two. */
 export const northStarScene = (): TimedStep[] =>
   [
     ...round1(),
@@ -137,14 +126,11 @@ export const northStarScene = (): TimedStep[] =>
     { at: 4220, type: 'STEP_FINISHED' as const, step: NORTH_STAR_LOOK },
   ].sort((a, b) => a.at - b.at)
 
-/** Round 1 settled, round 2 started and not ended: the live state. */
 export const northStarLiveScene = (): TimedStep[] =>
   [...round1(), ...round2(2600, true)].sort((a, b) => a.at - b.at)
 
-/** 2026-10-22 10:00:00 UTC, the scene's origin. */
 export const SCENE_ORIGIN = Date.UTC(2026, 9, 22, 10, 0, 0)
 
-/** A scene folded the way the app folds the wire: the stored rows a reader gets. */
 export const foldScene = (
   scene: readonly TimedStep[],
   origin: number = SCENE_ORIGIN
@@ -165,14 +151,6 @@ export const foldScene = (
   const view = foldTurnEvents(undefined, events)
   return view ? view.stepOrder.map((id) => view.steps[id]) : []
 }
-
-// ── The approved mockup's scene (Herleitung, 2026-10 evolution) ─────────────
-//
-// „Welche Brandabschnitte sind im Einreichplan EG eingetragen, und passt das
-// zur OIB-RL 2?“ — the decision's prefetch finds the OIB-RL 2 (no row of its
-// own), step 1 searches the project literally, opens a folder and finds
-// nothing on the Tiefgarage in the OIB-RL 2, step 2 reads the plan sheet and
-// looks at it. The answer cites three documents.
 
 const OIB_2 = 'oib-rl_2_ausgabe_mai_2023.pdf'
 const OIB_2_NOTES = 'erlaeuterungen_oib-rl_2_ausgabe_mai_2023.pdf'
@@ -195,7 +173,6 @@ const LANE: Record<LaneKind, { key: string; label: string }> = {
   web: { key: 'web', label: 'Web' },
 }
 
-/** The `sources` step a call returned, under its call id. */
 const sourcesOf = (at: number, callId: string, round: number, hits: readonly Hit[]): TimedStep => ({
   at,
   type: 'STEP_FINISHED',
@@ -225,7 +202,6 @@ const sourcesOf = (at: number, callId: string, round: number, hits: readonly Hit
   },
 })
 
-/** The `retrieval` step that opens a round: the model's sentence, or the decision's prefetch. */
 const retrievalOf = (at: number, round: number, reason?: string, prefetch = false): TimedStep => ({
   at,
   type: 'STEP_FINISHED',
@@ -349,11 +325,9 @@ const stepTwo = (lookRunning = false): TimedStep[] => [
       ]),
 ]
 
-/** The mockup's turn, settled: a prefetch, two steps, three documents cited. */
 export const mockupScene = (): TimedStep[] =>
   [...prefetchRound(), ...stepOne(), ...stepTwo()].sort((a, b) => a.at - b.at)
 
-/** The mockup's turn mid-step 2: the read is done, the look still runs. */
 export const mockupLiveScene = (): TimedStep[] =>
   [...prefetchRound(), ...stepOne(), ...stepTwo(true)].sort((a, b) => a.at - b.at)
 
@@ -381,7 +355,6 @@ const citation = (
   isCited: true,
 })
 
-/** What the mockup's answer cites: [1] the OIB-RL 2, [2] the plan sheet, [3] the fire safety concept. */
 export const mockupCitations = (): CitationSource[] => [
   citation('c1', 1, OIB_2, 'building_law', { clause: '3.1.1' }),
   citation('c2', 2, PLAN, 'project', { page: 2 }),
@@ -391,7 +364,6 @@ export const mockupCitations = (): CitationSource[] => [
 export const MOCKUP_QUESTION =
   'Welche Brandabschnitte sind im Einreichplan EG eingetragen, und passt das zur OIB-RL 2?'
 
-/** One step, a failed RIS call beside a search that found what the answer cites. */
 export const failedCallScene = (): TimedStep[] =>
   [
     retrievalOf(0, 1, 'Die Garagenvorschrift im RIS und die Stellplätze im Projekt nachsehen.'),
@@ -421,7 +393,6 @@ export const failedCallCitations = (): CitationSource[] => [
   citation('f2', 2, DESCRIPTION, 'project', { page: 4 }),
 ]
 
-/** One call: the fire safety concept read at page 7, and cited. */
 export const singleReadScene = (): TimedStep[] => [
   retrievalOf(0, 1),
   ...call('call:s1', 100, 700, {
@@ -439,7 +410,6 @@ export const singleReadCitations = (): CitationSource[] => [
   citation('s1', 1, CONCEPT, 'project', { page: 7 }),
 ]
 
-/** One step of many calls: seven reads fold into one row, the empty one leads, the rest fold into „+N weitere“. */
 export const manyCallsScene = (): TimedStep[] => {
   const reads = Array.from({ length: 7 }, (_, i) =>
     call(`call:r${i}`, 200 + i * 10, 600, {
@@ -503,18 +473,8 @@ export const manyCallsScene = (): TimedStep[] => {
   ].sort((a, b) => a.at - b.at)
 }
 
-// ── The filesystem verbs (ADR-0133): ls, glob, grep and read_file ───────────
-//
-// The rows exactly as the estate backend emits them (`estate/backend.py`,
-// `estate_grep.py`, pinned by `test_estate_action_rows.py`): a place (`mount`)
-// and the folder inside it, never a path. Step 1 orients (a folder, a name
-// pattern, a literal search), step 2 reads what step 1 found. The numbers agree
-// as the backend's do: a folder counts everything below it, and the places
-// (`ls /`) count exactly what a grep everywhere searches when nothing fails.
-
 const SPEC = 'Baubeschreibung.pdf'
 
-/** The happy turn: list, glob and grep side by side, then a read, a folder card and a citable grep. */
 export const filesystemScene = (): TimedStep[] =>
   [
     retrievalOf(0, 1, 'Erst schauen, was in der Einreichung liegt und wo „Brandabschnitt“ steht.'),
@@ -559,7 +519,6 @@ export const filesystemScene = (): TimedStep[] =>
       counts: { hits: 3, documents: 1 },
     }),
     sourcesOf(2800, 'call:fs4', 2, [{ name: SPEC, detail: 'S. 4', kind: 'project' }]),
-    // The folder card (`README.md`): a listing of the folder, with the card's counts.
     ...call('call:fs5', 2110, 300, {
       round: 2,
       verb: 'list',
@@ -585,7 +544,6 @@ export const filesystemCitations = (): CitationSource[] => [
   citation('fs2', 2, CONCEPT, 'project', { page: 3 }),
 ]
 
-/** Every outcome of the four verbs that is not a plain hit, one row each, over three steps. */
 export const filesystemEdgesScene = (): TimedStep[] =>
   [
     retrievalOf(
@@ -602,7 +560,6 @@ export const filesystemEdgesScene = (): TimedStep[] =>
       status: 'empty',
       counts: { hits: 0, documents: 0, searched: 41 },
     }),
-    // The office's scan failed: 32 of 41 searched, three hits, and the row says it is a floor.
     ...call('call:fe2', 110, 3000, {
       round: 1,
       verb: 'search',
@@ -613,7 +570,6 @@ export const filesystemEdgesScene = (): TimedStep[] =>
       status: 'ok',
       counts: { hits: 3, documents: 1, searched: 32 },
     }),
-    // The same failure without a hit: no hit in what was searched, and no no.
     ...call('call:fe3', 120, 3000, {
       round: 1,
       verb: 'search',
@@ -625,7 +581,6 @@ export const filesystemEdgesScene = (): TimedStep[] =>
       status: 'empty',
       counts: { hits: 0, documents: 0, searched: 9 },
     }),
-    // A regex of plain words or'ed together reads as the words.
     ...call('call:fe9', 130, 900, {
       round: 1,
       verb: 'search',
@@ -636,7 +591,6 @@ export const filesystemEdgesScene = (): TimedStep[] =>
       counts: { hits: 2, documents: 1, searched: 21 },
     }),
     retrievalOf(3200, 2, 'Den Personalordner und die Pläne ansehen.'),
-    // A folder that does not exist, and a restricted one: one answer for both.
     ...call('call:fe4', 3300, 200, {
       round: 2,
       verb: 'list',
@@ -645,7 +599,6 @@ export const filesystemEdgesScene = (): TimedStep[] =>
       status: 'empty',
       missing: true,
     }),
-    // A guessed path: the name the model asked for, „nicht gefunden“, as for any miss.
     ...call('call:fe5', 3310, 200, {
       round: 2,
       verb: 'read',
@@ -669,7 +622,6 @@ export const filesystemEdgesScene = (): TimedStep[] =>
       status: 'ok',
       counts: { files: 41, folders: 3 },
     }),
-    // A place that is there and holds nothing: „leer“, and nothing for „Offen“.
     ...call('call:fe10', 3720, 200, {
       round: 3,
       verb: 'list',

@@ -1,15 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The reviewer chain (ADR-0054, and the review that found it broken).
- *
- * The bug it exists for: a draft Piloti files is `Unvergeben` BY CONSTRUCTION
- * (ADR-0047), so the assignment fallback resolved to nobody and `submit` was
- * refused with „name a reviewer or assign the document first" on every path
- * that had no way to name one — the draft card, the lifecycle panel, and the
- * agent's own `file_draft` submit.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { makeDocument } from '@/test-utils/db-fixtures'
@@ -64,15 +55,11 @@ beforeEach(() => {
   vi.mocked(filterUsersWithProjectPermission).mockResolvedValue(
     new Set(['user_anna', 'user_bernd']),
   )
-  // An open project: whoever is asked about may read the folder.
   vi.mocked(filterUsersWhoMayReadFolder).mockImplementation(async (_org, _project, _folder, userIds) => new Set(userIds))
 })
 
 describe('listReviewCandidates', () => {
   it('asks for project:edit, not project:view', async () => {
-    // Being able to OPEN a project does not make somebody able to release a
-    // Brandschutzkonzept, and a picker built on the assignment candidates would
-    // offer people whose Freigabe the approve transition then refuses.
     await listReviewCandidates(session, document)
     expect(filterUsersWithProjectPermission).toHaveBeenCalledWith(
       session,
@@ -88,8 +75,6 @@ describe('listReviewCandidates', () => {
   })
 
   it('offers only editors who may read the folder the document is filed in (ADR-0088)', async () => {
-    // Bernd edits the project but the folder is restricted to other roles: a round
-    // in front of him is one he cannot open, on a document he was never to know.
     vi.mocked(filterUsersWhoMayReadFolder).mockResolvedValue(new Set(['user_anna']))
     const filed = makeDocument({ id: 'doc_3', projectId: 'proj_1', folderId: 'folder_restricted' })
 
@@ -114,7 +99,6 @@ describe('listReviewCandidates', () => {
   })
 
   it('has nobody to offer for a document with no project', async () => {
-    // The org-wide Archiv and a chat attachment have no project roster to ask.
     expect(await listReviewCandidates(session, projectless)).toEqual([])
     expect(filterUsersWithProjectPermission).not.toHaveBeenCalled()
   })
@@ -142,7 +126,6 @@ describe('resolveReviewers — the chain', () => {
   })
 
   it('opens the round to every editor for an Unvergeben draft', async () => {
-    // The case the whole chain exists for: a Piloti draft nobody has taken.
     const resolved = await resolveReviewers(session, document, undefined)
     expect(resolved).toEqual({ reviewers: ['user_anna', 'user_bernd'], selfReview: false })
   })
@@ -162,8 +145,6 @@ describe('resolveReviewers — the chain', () => {
   })
 
   it('waives to the submitter in a one-person project, and says it did', async () => {
-    // Refusing here would make the lifecycle unusable for a sole
-    // Ziviltechniker. The waiver is recorded rather than granted silently.
     vi.mocked(filterUsersWithProjectPermission).mockResolvedValue(new Set())
     const resolved = await resolveReviewers(session, document, [])
     expect(resolved).toEqual({ reviewers: [session.userId], selfReview: true })
@@ -201,8 +182,6 @@ describe('matchReviewCandidate — the name the agent was given', () => {
   })
 
   it('refuses an ambiguous one rather than picking', () => {
-    // Two people called „Anna" means the caller has not said which, and picking
-    // one puts a Freigabe in front of somebody who was never asked.
     const twins = [
       { userId: 'user_a', name: 'Anna Berger', email: 'a@buero.test' },
       { userId: 'user_b', name: 'Anna Berger', email: 'b@buero.test' },

@@ -1,7 +1,3 @@
-/**
- * Where the streaming caret goes: after the last word of the block being
- * written, inside it, so no block gives up its display to trail it.
- */
 import { render } from '@/test-utils'
 import { describe, expect, it } from 'vitest'
 

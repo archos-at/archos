@@ -1,24 +1,5 @@
 'use client'
 
-/**
- * A Rechenweg, laid out line by line: the one derivation renderer.
- *
- * `CalculationCard` draws the steps a model wrote; `FormulaCard` draws the
- * steps a named rule compiles to (`../lib/formulas`). Both are
- * `CalculationStepData` evaluated by `../lib/calculate`, so a step is printed
- * one way, whichever card it is on: each operand with what it is underneath it,
- * the way a Rechenweg is written on paper, and the result this module was
- * handed by `evaluate`, never one stated on the wire.
- *
- * How a number is printed is part of not disagreeing with oneself:
- *
- *  - an input prints as it was written (`formatInput`), so a λ of 0,035 does
- *    not round to 0,04;
- *  - a result prints to its step's `display`, and an operand that IS an
- *    earlier result prints exactly as that step's result did, so the terms of
- *    a sum are at the precision of the line they came from.
- */
-
 import type { FC } from 'react'
 import { SectionLabel } from '@/components/ui/section-label'
 import type { Translator } from '@/i18n'
@@ -35,7 +16,6 @@ import type { CalculationOperandData, CalculationStepData, DimStatus } from '@/s
 
 export type { StepDisplay } from '../lib/calculate'
 
-/** The glyph BETWEEN two operands of a step. Symbols, so they need no locale. */
 const operatorFor = (
   operation: CalculationStepData['operation'],
   operand: CalculationOperandData
@@ -45,7 +25,6 @@ const operatorFor = (
   return '×'
 }
 
-/** The constant a percentage step applies after its operands. */
 const PERCENT_FACTOR: Partial<Record<CalculationStepData['operation'], string>> = {
   percent_ratio: '× 100',
   percent_of: '÷ 100',
@@ -124,8 +103,6 @@ const StepRow: FC<{
 }) => {
   const result = results[index]
   const band = fmtTolerance(result.tolerance, result.unit)
-  // Said once, on the step where it happens: a later step that is undecidable
-  // only because it builds on this one has nothing new to say.
   const inherited = step.operands.some(
     (operand) => operand.step != null && results[operand.step - 1]?.undecidable
   )
@@ -216,22 +193,13 @@ const StepRow: FC<{
 export interface DerivationStepsProps {
   steps: CalculationStepData[]
   results: Derivation
-  /** One entry per step; a missing entry prints to the house two decimals. */
   display: StepDisplay[]
-  /** The verdict colour of the LAST step's result. An intermediate result coloured green would read as a verdict. */
   tint?: DimStatus | null
-  /**
-   * How an operand that is an earlier step's result is named: by the step's
-   * number („aus Schritt 2"), for a model's derivation, whose operand labels are
-   * the model's; or by its own label, for a compiled rule, whose labels say it.
-   */
   stepReference?: 'index' | 'label'
-  /** What a division by zero in a given step means, when the rule can say it better („λ = 0 ist nicht möglich."). */
   undefinedText?: (index: number) => string | undefined
   t: Translator
 }
 
-/** The steps of a Rechenweg; the last one's result is the card's figure. */
 export const DerivationSteps: FC<DerivationStepsProps> = ({
   steps,
   results,

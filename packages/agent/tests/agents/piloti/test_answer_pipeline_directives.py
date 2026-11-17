@@ -1,14 +1,3 @@
-"""The answer's Markdown directives pass the pipeline as inert text.
-
-The prompt teaches a small directive dialect the renderer draws richly
-(``chat_static.md`` <formatting>, RICH BLOCKS): ``:::check`` around a check
-table, ``:::procedure`` around a Verfahren's list, ``:energy-class[B]``, and a cited
-quote line ``> „…“ [N]``. None of the post-answer passes knows the dialect, and
-none may need to: the fence lines must reach the reader byte-equal, the ``[N]``
-inside a block must be verified and renumbered like any other, and a quote
-inside one is checked against the source like any quote.
-"""
-
 from __future__ import annotations
 
 import json
@@ -91,8 +80,6 @@ async def test_directive_blocks_and_their_citations_reach_the_reader_intact():
 
 @pytest.mark.asyncio
 async def test_a_dropped_citation_leaves_the_blocks_as_written():
-    # [3] resolves to nothing: verification removes it from the prose, and the
-    # hygiene pass that closes the gap it leaves must not reach the blocks.
     final = await _finalize(_answer("1", "2").replace("Anforderung [2];", "Anforderung [3];"))
 
     assert "Anforderung;" in final.content and DROPPED_CITATION_MARKER not in final.content
@@ -101,9 +88,6 @@ async def test_a_dropped_citation_leaves_the_blocks_as_written():
 
 
 def test_hygiene_keeps_indentation_and_the_space_before_a_directive():
-    # The space collapse once flattened `   :::details` to `:::details`, which
-    # closes the outer block early, and the space-before-punctuation rule
-    # welded `:energy-class[B]` onto the word before it.
     report = (
         "Klasse :energy-class[B] und Schritt [1] :current.\n\n1. Schritt\n   :::details[Unterlagen]\n   - Plan\n   :::"
     )

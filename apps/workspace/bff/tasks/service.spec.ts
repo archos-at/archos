@@ -1,10 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The run lifecycle service over `task_runs` (migration 0086): one recorder
- * closes a run, files its result as the pinned requester, and tells them.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -99,11 +95,6 @@ const pinned = {
   name: null,
 } as AuthorizedSession
 
-/**
- * One row, as the database holds it: every update lands on the previous state,
- * the close is a compare-and-set from the live states, and a read sees what
- * was written. Answers a reader of the row as it now is.
- */
 function storedRow(start: Partial<TaskRun>): () => TaskRun {
   let row = { ...run, ...start } as TaskRun
   const write = (patch: Partial<TaskRun>) => (row = { ...row, ...patch } as TaskRun)
@@ -130,7 +121,6 @@ beforeEach(() => {
   vi.spyOn(console, 'error').mockImplementation(() => undefined)
 })
 
-/** The completion of a run this report closes; a spec that expects another ending to stand asks the recorder. */
 async function complete(...args: Parameters<typeof completeRunForOutcome>) {
   const completed = await completeRunForOutcome(...args)
   if (!completed) throw new Error('another ending stands; nothing was completed')
@@ -139,14 +129,10 @@ async function complete(...args: Parameters<typeof completeRunForOutcome>) {
 
 describe('completeRunForOutcome', () => {
   it('queues the filing of a run that has no definition behind it — an escalated question', async () => {
-    // The commissioned run of a chat escalation (ADR-0062): one row, no
-    // standing intent. Everything the outcome path needs is on the run itself,
-    // and the inbox row says so with a null job id rather than inventing one.
     const escalated = { ...run, definitionId: null, conversationId: 's_conv', runMessageId: 'msg-1' } as TaskRun
 
     const result = await complete(escalated, { status: 'success', report: '# Bericht' })
 
-    // Not filed here: the document is the job's to make.
     expect(result.filed).toBeNull()
     expect(result.run.status).toBe('succeeded')
     expect(result.run.filingStatus).toBe('queued')
@@ -167,11 +153,9 @@ describe('completeRunForOutcome', () => {
         report: '# Bericht',
         cards: [{ type: 'legal_basis' }],
         taskRunId: 'run-1',
-        // The run's own pinned requester files it, resolved when the job runs.
         requester: null,
       },
     })
-    // Nothing is rendered, and nobody is resolved, in the outcome callback.
     expect(fileResearchReport).not.toHaveBeenCalled()
     expect(resolvePinnedRequesterSession).not.toHaveBeenCalled()
     expect(result.filed).toBeNull()
@@ -221,7 +205,6 @@ describe('completeRunForOutcome', () => {
   })
 
   it('queues nothing for a run whose report a worker’s earlier attempt already filed', async () => {
-    // The earlier attempt closed the row and filed; this is the worker repeating its report.
     storedRow({ status: 'succeeded', filingStatus: 'filed', filedDocumentId: 'doc-9' })
 
     const result = await complete(run, { status: 'success', report: '# Bericht' })
@@ -308,11 +291,9 @@ describe('runReportFilingJob (file_research_report)', () => {
       organizationId: 'org_1',
       organizationMembershipId: 'om_7',
       permissions: ['project:documents:write'],
-      // What the filing's feature gate reads under enforcement.
       featureFlags: ['agent-authored-documents'],
       accessToken: '',
     })
-    // A read with no run row has no row to record on.
     expect(repository.updateRun).not.toHaveBeenCalled()
   })
 
@@ -368,7 +349,6 @@ describe('runReportFilingJob (file_research_report)', () => {
     await runReportFilingJob('org_1', payload(), notLast)
     await runReportFilingJob('org_1', payload(), notLast)
 
-    // The key is the backend job id, which is what `fileGeneratedDocument` probes on.
     expect(vi.mocked(fileResearchReport).mock.calls.map(([call]) => call.runId)).toEqual([
       'backend-job-1',
       'backend-job-1',
@@ -438,11 +418,6 @@ describe('previousDecisionsBlock', () => {
   })
 })
 
-// ---------------------------------------------------------------------------
-// The delegated kinds (ADR-0051)
-// ---------------------------------------------------------------------------
-
-/** A run delegated from chat: no schedule, its own definition, its own backend id. */
 const delegated = (overrides: Partial<TaskRun> = {}): TaskRun => {
   const row = {
     ...run,
@@ -468,8 +443,6 @@ describe('completeRunForOutcome, by kind', () => {
 
     const { filed } = await complete(delegated(), { status: 'success', report: '# Aktenvermerk' })
 
-    // The run's own id as the reference, so a retried outcome updates the
-    // document the first one made rather than filing a second.
     expect(vi.mocked(fileAgentDocumentDraft).mock.calls[0][0]).toMatchObject({
       projectId: 'proj-1',
       ref: 'task-run-1',
@@ -478,8 +451,6 @@ describe('completeRunForOutcome, by kind', () => {
     })
     expect(transitionDocumentVersion).toHaveBeenCalledWith(expect.anything(), 'doc-7', 'ver-1', 'submit', {
       reviewerUserIds: ['user_owner'],
-      // The run's own submission, like the filing one line up. The flag is what
-      // the publish door reads and what migration 0085 records.
       actingHuman: false,
     })
     expect(filed).toEqual({ documentId: 'doc-7', filename: 'aktenvermerk-2026-09-10.md' })
@@ -518,17 +489,13 @@ describe('completeRunForOutcome, by kind', () => {
 
     const { filed } = await complete(revision, { status: 'success', report: '# Befund, überarbeitet' })
 
-    // The If-Match is the hash the LIFECYCLE reported, never one computed here:
-    // a self-computed hash agrees with itself and overwrites a reviewer.
     expect(vi.mocked(replaceVersionContent).mock.calls[0].slice(1)).toEqual([
       'doc-3',
       'ver-2',
       '# Befund, überarbeitet',
       'sha256:abc',
-      // A run is not a person, on both halves of the filing.
       { actingHuman: false },
     ])
-    // Back to the person who asked for the changes: they are the one waiting.
     expect(transitionDocumentVersion).toHaveBeenCalledWith(
       expect.anything(),
       'doc-3',
@@ -536,7 +503,6 @@ describe('completeRunForOutcome, by kind', () => {
       'submit',
       { reviewerUserIds: ['user_reviewer'], actingHuman: false },
     )
-    // The SAME document, never a second one.
     expect(filed).toEqual({ documentId: 'doc-3', filename: 'befund.md' })
     expect(fileAgentDocumentDraft).not.toHaveBeenCalled()
   })
@@ -548,8 +514,6 @@ describe('completeRunForOutcome, by kind', () => {
   })
 
   it('files nothing for a `compliance_check` or a `submission_check`', async () => {
-    // Their result IS the conversation the run wrote into; filing the prose as
-    // a second document would put a copy of the thread in Berichte.
     for (const kind of ['compliance_check', 'submission_check'] as const) {
       vi.clearAllMocks()
       const { filed } = await complete(delegated({ kind }), { status: 'success', report: '# Ergebnis' })
@@ -580,12 +544,9 @@ describe('recordRunOutcome', () => {
       type: 'task_run.completed',
       resourceType: 'project',
       resourceId: 'proj-1',
-      // The work was Piloti's, and a row whose actor is its recipient is
-      // dropped — which a run somebody delegated to themselves always would be.
       actorUserId: null,
     })
     expect(emission[0].payload).toMatchObject({
-      // The run is the task now: taskId and runId name the same row.
       taskId: 'run-1',
       runId: 'run-1',
       conversationId: 's_conv_2',
@@ -615,7 +576,6 @@ describe('recordRunOutcome', () => {
       })
       expect(sent.properties.duration_ms).toBeGreaterThanOrEqual(90_000)
       expect(sent.properties.duration_ms).toBeLessThan(120_000)
-      // Nothing the requester wrote or the run produced.
       expect(JSON.stringify(captureServer.mock.calls)).not.toMatch(/Aktenvermerk|Budget exhausted|Bericht|owner@grid/)
     })
 
@@ -663,9 +623,6 @@ describe('recordRunOutcome', () => {
   })
 
   it('settles the run’s block whoever reported the ending, after the row is closed', async () => {
-    // The reaper's and the cancel route's reports carry no ledger op: there is
-    // no worker left to send one. Before, the row closed and the block read
-    // „läuft" for good.
     const row = delegated()
     const order: string[] = []
     vi.mocked(settleRunLedger).mockImplementation(async () => {
@@ -685,7 +642,6 @@ describe('recordRunOutcome', () => {
       { status: 'interrupted' },
       expect.any(Date),
     )
-    // Row first: its compare-and-set decides which ending the block is told.
     expect(order).toEqual(['row', 'block'])
   })
 
@@ -702,7 +658,6 @@ describe('recordRunOutcome', () => {
     it('keeps the ending the reconciler recorded when the worker’s success arrives late', async () => {
       const row = storedRow({ status: 'interrupted', error: 'Vom Betrieb abgebrochen.', finishedAt: new Date(0) })
 
-      // The worker read the run while it was still running; its report lands after the close.
       const result = await recordRunOutcome(run, { status: 'success', report: '# Bericht' })
 
       expect(row()).toMatchObject({ status: 'interrupted', error: 'Vom Betrieb abgebrochen.', finishedAt: new Date(0) })
@@ -720,7 +675,6 @@ describe('recordRunOutcome', () => {
     })
 
     it('settles the block with the ending the row holds, not with the report that lost', async () => {
-      // The reconciler lost the close to the worker: the row says succeeded.
       storedRow({ status: 'succeeded', finishedAt: new Date(0) })
 
       await recordRunOutcome(run, { status: 'failure', error: 'Job timed out' }, { onlyIfActive: true })
@@ -747,7 +701,6 @@ describe('recordRunOutcome', () => {
 
       expect(result).toMatchObject({ notified: true, closed: true })
       expect(queueResearchReportFiling).toHaveBeenCalledTimes(1)
-      // The row keeps when it first ended; the retry announces nothing.
       expect(row().finishedAt).toEqual(new Date(0))
       expect(captureServer).not.toHaveBeenCalled()
     })

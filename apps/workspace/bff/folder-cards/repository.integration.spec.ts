@@ -90,7 +90,6 @@ describe.skipIf(!url)('folder cards against Postgres', () => {
     expect((await as(OTHER_ORG, () => repo.getFolderCards(OTHER_ORG, SHELF))).cards).toEqual([])
     expect((await as(OTHER_ORG, () => repo.getFolderCards(ORG, SHELF))).cards).toEqual([])
     const folder = (await as(ORG, () => repo.findCardFolder(ORG, SHELF, 'Vertraege')))!
-    // Stating the other organization's id inside this one's scope is refused by WITH CHECK or finds nothing.
     await expect(as(OTHER_ORG, () => repo.upsertFolderCard(ORG, folder, body()))).rejects.toThrow()
   })
 

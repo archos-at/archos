@@ -1,18 +1,3 @@
-"""A question about a whole Richtlinie is answered with all of its parts.
-
-"Was weißt du über die OIB 2?" names four documents. Ranked passages answer it
-with whichever two scored best, and the model then opens the rest one round at
-a time, when it knows they exist at all. `knowledge_search` recognises the
-shape (`norm_registry.family_query_number`), reads every member's scope passage
-and Gliederung beside the search, and renders both in ONE grounding block: one
-search round, then one round of Punkt opens.
-
-These tests pin what that block is: the members first, in member order, each
-with a Citation a reader can resolve; then the ordinary hits; one trailer
-carrying one Gliederung per member; and a preamble that states what the corpus
-holds rather than what a Richtlinie usually has.
-"""
-
 from __future__ import annotations
 
 import importlib
@@ -66,7 +51,6 @@ def _clause_chunk(file_name: str, clause: str, depth: int, title: str, page: int
 
 
 def _outline_of(number: str, file_name: str) -> list[Chunk]:
-    """One member as the store holds it: Punkt 0, two chapters, one sub-Punkt."""
     return [
         _clause_chunk(file_name, "0", 1, "Vorbemerkungen", 2, content=f"Teil {number} gilt für …"),
         _clause_chunk(file_name, "1", 1, "Begriffsbestimmungen", 3),
@@ -76,7 +60,6 @@ def _outline_of(number: str, file_name: str) -> list[Chunk]:
 
 
 def _ranked() -> list[Chunk]:
-    """What similarity returns for the same query: two passages, deep in one part."""
     return [
         _clause_chunk(MEMBERS["2"], "3.5.2", 3, "Fluchtwege", 12, content="Die Fluchtweglänge …"),
         _clause_chunk(MEMBERS["2.3"], "4.1", 2, "Hochhäuser", 5, content="Für Hochhäuser gilt …"),
@@ -84,7 +67,6 @@ def _ranked() -> list[Chunk]:
 
 
 def _outline_file(filters) -> str | None:
-    """The file an OUTLINE fetch names, or ``None`` for an ordinary search."""
     clauses = (filters or {}).get("$and") or []
     names = [clause["file_name"]["$eq"] for clause in clauses if "file_name" in clause]
     depths = [clause for clause in clauses if "$or" in clause]
@@ -92,8 +74,6 @@ def _outline_file(filters) -> str | None:
 
 
 class _Store:
-    """The retriever, answering outline fetches and ranked searches apart."""
-
     backend_name = "fake"
     embed_model_name = "fake-embedder"
 
@@ -101,7 +81,6 @@ class _Store:
         self.outlines = outlines
         self.ranked = ranked
         self.calls: list[dict] = []
-        #: Set to make the ranked fetch fail the way a wrong embedder does.
         self.search_error: str | None = None
 
     async def retrieve(self, query, collection_name, top_k, filters=None):
@@ -120,7 +99,6 @@ class _Store:
 
 @pytest.fixture
 def corpus(monkeypatch):
-    """A base shelf holding OIB 2, 2.1, 2.2 and 2.3, and nothing else."""
 
     def install(members: dict[str, str], ranked: list[Chunk] | None = None) -> _Store:
         store = _Store(
@@ -136,9 +114,6 @@ def corpus(monkeypatch):
         monkeypatch.setattr("agent.knowledge.factory.get_available_documents_async", _documents)
         monkeypatch.setattr("agent.knowledge.factory.configure_summary_db", lambda url: None)
         monkeypatch.setattr("agent.knowledge.norm_store.configure_norm_store", lambda url: None)
-        # The formatter's three store lookups are not what these tests are
-        # about; an empty map is the documented fail-open and keeps the run
-        # database-free.
         for name in ("get_document_doc_classes", "get_document_display_titles", "get_document_folder_paths"):
             monkeypatch.setattr(f"agent.knowledge.factory.{name}", lambda _c, _f: {})
         monkeypatch.delenv("INTERNAL_API_TOKEN", raising=False)
@@ -174,7 +149,6 @@ def _lanes(out: str) -> dict:
 
 class TestTheFamilyIsTheAnswer:
     async def test_every_member_is_a_hit_before_the_ranked_passages(self, corpus):
-        """Member order, not score order: the reader is walking a Richtlinie."""
         corpus(MEMBERS)
 
         out = await _search()
@@ -183,7 +157,6 @@ class TestTheFamilyIsTheAnswer:
         assert _citations(out)[4:] == [f"{MEMBERS['2']}, p.12", f"{MEMBERS['2.3']}, p.5"]
 
     async def test_a_member_hit_is_its_scope_passage(self, corpus):
-        """Punkt 0 says what the part is FOR, which is the question that was asked."""
         corpus(MEMBERS)
 
         out = await _search()
@@ -200,15 +173,6 @@ class TestTheFamilyIsTheAnswer:
         assert "Results 1 to 4 are the Geltungsbereich of these parts" in out
 
     async def test_the_preamble_says_the_parts_are_open(self, corpus):
-        """The fact that stops the second round.
-
-        The block already carried each part's scope passage and Gliederung,
-        which is what `read_passage(document=…)` returns for one of them, and
-        said nothing about that: the model read the preamble as a search
-        result, announced it would now open the Richtlinie properly, and spent
-        a whole round re-reading the passages it was holding. The Punkt is
-        where the next open pays, and `_OUTLINE_INSTRUCTION` below says how.
-        """
         corpus(MEMBERS)
 
         out = await _search()
@@ -217,9 +181,6 @@ class TestTheFamilyIsTheAnswer:
         assert "deeper goes only a single Punkt from a Gliederung" in out
 
     async def test_a_part_the_corpus_lacks_is_never_claimed(self, corpus):
-        """Membership is derived from what is indexed. A deployment without 2.3
-        must not be told it has one, which is the failure the whole branch
-        exists to avoid, one level up."""
         corpus({"2": MEMBERS["2"], "2.1": MEMBERS["2.1"]})
 
         out = await _search()
@@ -229,8 +190,6 @@ class TestTheFamilyIsTheAnswer:
         assert "## Gliederung OIB-Richtlinie 2.3" not in out
 
     async def test_a_member_the_store_cannot_read_drops_out(self, corpus):
-        """Registered and unreadable is not the same fact as indexed: a member
-        with no chunk contributes no passage, no Gliederung and no count."""
         store = corpus(MEMBERS)
         store.outlines[MEMBERS["2.2"]] = []
 
@@ -241,10 +200,6 @@ class TestTheFamilyIsTheAnswer:
 
 
 class TestTheMembersAreOpened:
-    """What the family branch returns is credited as OPENED on the turn's ledger,
-    the way a ``read_passage(document=…)`` read is: a member re-read in a later
-    round is then a repeat, not a new document."""
-
     @staticmethod
     async def _captured(query: str) -> list[dict]:
         from agent.common.turn_status import begin_lane_capture
@@ -276,12 +231,7 @@ class TestTheMembersAreOpened:
 
 
 class TestWhereMembershipComesFrom:
-    """Three sources, cheapest first, and never a literal list of parts."""
-
     async def test_the_turn_s_own_family_list_answers_without_a_store_read(self, corpus, monkeypatch):
-        """The production path. The list is derived from the base shelf BEFORE
-        the inventory cap can drop a member, so it is the complete one; the
-        listing below it is what a run with no turn around it has."""
         from agent.knowledge.inventory import set_norm_families
 
         store = corpus(MEMBERS)
@@ -310,8 +260,6 @@ class TestTheOneTrailer:
         assert "## Gliederung OIB-Richtlinie 2.3, Ausgabe Mai 2023" in out
 
     async def test_the_instruction_is_stated_once(self, corpus):
-        """It says what a Gliederung is and is not, and that holds for all of
-        them; four copies would be three copies of one sentence."""
         corpus(MEMBERS)
 
         out = await _search()
@@ -319,8 +267,6 @@ class TestTheOneTrailer:
         assert out.count(rp._OUTLINE_INSTRUCTION) == 1
 
     async def test_the_index_lists_chapters_and_not_sub_clauses(self, corpus):
-        """Four members at the single-document budget is 4 to 6k tokens of index
-        framing far less evidence, so a family prints depth 1 only."""
         corpus(MEMBERS)
 
         out = await _search()
@@ -330,7 +276,6 @@ class TestTheOneTrailer:
         assert "Punkt 2.1: Abstände" not in index
 
     async def test_the_trailer_follows_the_fan_out(self, corpus):
-        """A heading may not arrive where a passage body is read."""
         corpus(MEMBERS)
 
         out = await _search()
@@ -346,8 +291,6 @@ class TestTheBlockIsStillOneRecordSet:
         end_grounding_capture(token)
 
     async def test_the_whole_block_is_found_by_its_own_bytes(self, corpus, capturing):
-        """ADR-0061: the preamble and the trailer are rendered INSIDE the block.
-        A byte glued on afterwards costs this result the structured reader."""
         corpus(MEMBERS)
 
         assert get_grounding_block(await _search()) is not None
@@ -361,9 +304,6 @@ class TestTheBlockIsStillOneRecordSet:
         assert [source["detail"] for source in lane["sources"]][:4] == ["Pkt. 0 p.2"] * 4
 
     async def test_a_clause_addressed_hit_is_listed_by_its_clause(self, corpus):
-        """The locus a reader of a normative document can act on is the Punkt.
-        The page rides along because the frontend takes the preview's page out
-        of this string."""
         corpus(MEMBERS)
 
         details = [source["detail"] for source in _lanes(await _search())["lanes"][0]["sources"]]
@@ -373,8 +313,6 @@ class TestTheBlockIsStillOneRecordSet:
 
 class TestTheOrdinarySearchIsUntouched:
     async def test_a_topic_question_gets_passages_and_no_family(self, corpus):
-        """ "OIB 2 Fluchtweglänge" wants the passage it named. An overview would
-        answer a question nobody asked and spend the round doing it."""
         store = corpus(MEMBERS)
 
         out = await _search(TOPIC_QUERY)
@@ -385,7 +323,6 @@ class TestTheOrdinarySearchIsUntouched:
         assert [call for call in store.calls if _outline_file(call["filters"])] == []
 
     async def test_a_file_scoped_search_is_the_opposite_request(self, corpus):
-        """`file_name=` is the caller narrowing to one document."""
         store = corpus(MEMBERS)
 
         out = await _search(FAMILY_QUERY, file_name=MEMBERS["2"])
@@ -401,8 +338,6 @@ class TestTheOrdinarySearchIsUntouched:
         assert [call for call in store.calls if _outline_file(call["filters"])] == []
 
     async def test_a_failed_fan_out_is_reported_as_a_failure(self, corpus):
-        """An overview rendered over a corpus that answered nothing would look
-        exactly like a complete answer."""
         store = corpus(MEMBERS)
         store.search_error = "Retrieval failed: Collection 'oib_knowledge' embedding mismatch: e5 vs nv-embed"
 
@@ -421,13 +356,6 @@ class TestTheOrdinarySearchIsUntouched:
 
 
 class TestAnOverviewThatFailsSaysSo:
-    """Fail-open kept the answer and lost the fact that the family branch ran.
-
-    A production trace showed a family question coming back as two ranked
-    documents with nothing marking the overview as attempted and lost, so the
-    turn read exactly like an ordinary search and could not be explained.
-    """
-
     @staticmethod
     def _broken(monkeypatch) -> None:
         async def _raise(entries, family_key):
@@ -462,8 +390,6 @@ class TestAnOverviewThatFailsSaysSo:
         assert "Hinweis:" not in out
 
     async def test_a_listed_family_with_no_readable_part_is_a_lost_overview(self, corpus):
-        """No member read is not "no family": the corpus lists it, so the
-        search asked for an overview and got none, and the notice says so."""
         store = corpus(MEMBERS)
         for file_name in MEMBERS.values():
             store.outlines[file_name] = []
@@ -476,7 +402,6 @@ class TestAnOverviewThatFailsSaysSo:
 
 class TestOneRoundNotFive:
     async def test_the_members_are_read_in_one_gathered_round(self, corpus):
-        """One filtered fetch per member, plus the search itself."""
         store = corpus(MEMBERS)
 
         await _search()
@@ -486,8 +411,6 @@ class TestOneRoundNotFive:
         assert all(call["top_k"] == rp._MAX_OUTLINE_CHUNKS for call in outline_calls)
 
     async def test_a_scope_passage_the_search_also_ranked_is_not_repeated(self, corpus):
-        """One passage, one citation key: a repeat would spend a result slot on
-        text the block already carries."""
         corpus(MEMBERS, ranked=[_clause_chunk(MEMBERS["2"], "0", 1, "Vorbemerkungen", 2, content="Teil 2 gilt für …")])
 
         out = await _search()
@@ -496,7 +419,6 @@ class TestOneRoundNotFive:
 
 
 def _ranked_many() -> list[Chunk]:
-    """What a real family query ranks around the overview: many passages, mostly guidance."""
     return [
         _clause_chunk(MEMBERS["2"], f"3.{i}", 2, f"Abschnitt {i}", 10 + i, content=f"Passage {i} …")
         for i in range(1, 11)
@@ -505,7 +427,6 @@ def _ranked_many() -> list[Chunk]:
 
 class TestTheOverviewIsNotBuriedInRankedHits:
     async def test_only_a_few_ranked_passages_ride_beside_the_overview(self, corpus):
-        """The overview answers; sixteen ranked passages beside it were half the block."""
         family = importlib.import_module("knowledge_layer.search.family_branch")
         corpus(MEMBERS, ranked=_ranked_many())
 
@@ -516,7 +437,6 @@ class TestTheOverviewIsNotBuriedInRankedHits:
         assert len(citations) == 4 + family.FAMILY_RANKED_HITS
 
     async def test_the_ranked_passages_left_out_are_counted_on_the_span(self, corpus, monkeypatch):
-        """The cap and the floor record what they drop; so does the family budget."""
         family = importlib.import_module("knowledge_layer.search.family_branch")
         corpus(MEMBERS, ranked=_ranked_many())
         span: dict = {}
@@ -527,11 +447,9 @@ class TestTheOverviewIsNotBuriedInRankedHits:
         monkeypatch.setattr("agent.observability.retrieval_trace.emit_retrieval_span", _capture)
         await _search()
 
-        # Ten ranked, eight past the top-k cap, four of those beside the overview.
         assert span["dropped_by_family"] == _config().top_k - family.FAMILY_RANKED_HITS
 
     async def test_the_span_says_how_the_members_were_read(self, corpus, monkeypatch):
-        """``family_read``: "retrieve" when the probe was embedded, "fetch" when read by filter alone."""
         store = corpus(MEMBERS, ranked=_ranked_many())
         span: dict = {}
 
@@ -573,7 +491,6 @@ class TestTheOverviewIsNotBuriedInRankedHits:
 
 class TestAnOverviewQuestionIsNotJudged:
     async def test_the_requery_judge_never_runs_on_a_family_query(self, corpus, monkeypatch):
-        """The judge counts a scope note as not answering; on an overview it said no by construction."""
         corpus(MEMBERS)
         calls: list = []
 
@@ -597,7 +514,6 @@ class TestAnOverviewQuestionIsNotJudged:
 
         assert calls == []
         assert "Umformulierungen" not in out
-        # The trace says WHY the judge did not run, so loop_eval does not count it as a miss.
         assert span["requery_skipped"] == "family"
         assert span["requery_fired"] is False
 
@@ -617,9 +533,6 @@ class TestAnOverviewQuestionIsNotJudged:
         return calls
 
     async def test_a_corpus_without_the_family_keeps_the_judge(self, corpus, monkeypatch):
-        """The skip used to key on the query's shape: with no member of the
-        family indexed there is no overview, only ranked passages, and those
-        lost their requery."""
         corpus({"3": "oib-rl_3_ausgabe_mai_2023.pdf"})
         calls = self._judge(monkeypatch)
 

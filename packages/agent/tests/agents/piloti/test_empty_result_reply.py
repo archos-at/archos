@@ -1,9 +1,3 @@
-"""The reply a turn gets when its searches left nothing citable.
-
-Answer feedback (October 2026): a user who had narrowed nothing was told not to
-narrow the question to one file, twice, on an OIB question the corpus answers.
-"""
-
 from types import SimpleNamespace
 
 import pytest

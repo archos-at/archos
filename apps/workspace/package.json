@@ -9,6 +9,7 @@
     "build": "node scripts/copy-pdfjs-assets.mjs && node scripts/copy-excalidraw-assets.mjs && bun run build:mcp-apps && next build",
     "build:mcp-apps": "bun scripts/build-mcp-app-views.ts",
     "build:jobs": "bun scripts/build-jobs-bundle.ts",
+    "rederive:building-classes": "node workers/rederive-building-classes.js",
     "start": "NODE_ENV=production node server.js",
     "postinstall": "node scripts/copy-pdfjs-assets.mjs && node scripts/copy-excalidraw-assets.mjs",
     "lint": "node scripts/check-static-utility-modifiers.mjs && oxlint app bff ui i18n shared types utils tests proxy.ts instrumentation.ts",

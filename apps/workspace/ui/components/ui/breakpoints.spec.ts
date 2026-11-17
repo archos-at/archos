@@ -1,21 +1,4 @@
 // @disk-inputs: app/**, bff/**, i18n/**, shared/**, types/**, ui/**, utils/**
-/**
- * A phone on its side is still a phone: `md:` and `useIsMobile()` agree, and
- * both say so.
- *
- * An iPhone in landscape is 852 x 393. Tailwind's `md` is "at least 768px
- * wide", so it took the desktop shell into 393px of height and every
- * `md:opacity-0` reveal hid its control from a finger. `globals.css` redefines
- * `md`/`max-md` and adds `phone`; `use-is-mobile.ts` exports the same queries
- * for JavaScript. These hold the three things that can drift apart silently:
- *
- *  1. the stylesheet's queries and the hook's (two copies of one string, because
- *     CSS cannot import TypeScript);
- *  2. Tailwind still honouring a `@custom-variant` that reuses a built-in name
- *     (it replaces the body and keeps the sort position today; an upgrade that
- *     changed that would put every `md:` back on the phone without a diff);
- *  3. nobody writing the old width by hand into a `matchMedia` again.
- */
 
 import { readFileSync } from 'node:fs'
 import { readdirSync, statSync } from 'node:fs'
@@ -29,7 +12,6 @@ import { SOURCE_DIRS, srcKey, srcJoin } from '@/test-utils/source-tree'
 const UI_ROOT = process.cwd()
 const GLOBALS = readFileSync(srcJoin('app', 'globals.css'), 'utf8')
 
-/** The body of `@custom-variant <name> { … }`, braces balanced. */
 function customVariant(name: string): string {
   const start = GLOBALS.indexOf(`@custom-variant ${name} {`)
   expect(start, `@custom-variant ${name}`).toBeGreaterThanOrEqual(0)
@@ -86,7 +68,6 @@ describe('Tailwind honours the override', () => {
   it('wraps md: in the phone exclusion, and leaves lg: as Tailwind wrote it', async () => {
     const css = await build(['md:flex', 'lg:grid'])
     const md = css.indexOf('.md\\:flex')
-    // The class sits inside the exclusion, which sits inside the width query.
     const before = css.slice(0, md)
     expect(before.lastIndexOf(`@media not all and ${PHONE_ON_ITS_SIDE_QUERY}`)).toBeGreaterThan(
       before.lastIndexOf('@media (width >= 48rem)')
@@ -112,12 +93,9 @@ describe('no breakpoint is written by hand into JavaScript', () => {
   }
 
   it('asks for the phone shell through use-is-mobile, never a raw md width', () => {
-    // A `(max-width: 767px)` in a matchMedia forgets the phone on its side, and
-    // disagrees with every `md:` class on the same screen.
     const RAW_MD = /\((?:max|min)-width:\s*(?:767|768)(?:\.\d+)?px\)|\(width\s*[<>]=?\s*48rem\)/
     const offenders = SOURCE_DIRS.flatMap((dir) => walk(join(process.cwd(), dir)))
       .filter((file) => !file.endsWith(join('hooks', 'use-is-mobile.ts')))
-      // An `<img sizes>` names widths for the image picker, not a layout.
       .filter((file) =>
         readFileSync(file, 'utf8')
           .split('\n')

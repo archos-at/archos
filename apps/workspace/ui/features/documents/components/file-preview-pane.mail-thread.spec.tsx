@@ -1,11 +1,3 @@
-/**
- * The preview of an E-Mail-Verlauf and of a file a mail brought (D16, D36):
- * a thread document's rail opens on its „E-Mails“ tab, a link with
- * `?mailEntry=` lands on that mail; a document whose newest Fassung came with
- * a mail says which under its header; any other document asks nothing of the
- * mail routes and shows neither.
- */
-
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const params = { current: new URLSearchParams() }

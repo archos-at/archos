@@ -29,7 +29,6 @@ const all = (cases as unknown as { cases: Case[] }).cases
 const cardOf = (entry: Case): FormulaCardData =>
   answerCardSchema.parse(entry.card ?? all.find((other) => other.id === entry.base)?.card) as FormulaCardData
 
-/** Every (designation, edition label) a check of a fixture case cites, over every rule and case. */
 const cited = (): Map<string, string> => {
   const pairs = new Map<string, string>()
   for (const entry of all) {

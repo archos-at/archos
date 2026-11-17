@@ -1,31 +1,5 @@
 'use client'
 
-/**
- * Agent profiler (platform staff): cross-organization conversation directory
- * plus a per-turn execution timeline, backed by the `agent_profiler_spans`
- * ledger (packages/agent/src/agent/common/profiler.py, the timing sibling of the LLM cost
- * ledger).
- *
- * One tab of Platform → Answer quality ("timing"). Two cards side by side on a
- * wide screen, stacked on a phone with the list first: the searchable list of
- * conversations, most recently active first, and the selected conversation's
- * turns, each drawn as a waterfall: bars positioned on the turn's own time
- * axis, nested by indentation (turn → step → model/tool call), the kind told
- * apart by icon, label and colour together. No chart dependency.
- *
- * The list is read in the page's scope (`scope`: date range, organizations,
- * projects): conversations with a turn in the range, their counts taken over
- * those turns. The search narrows within it. The timeline is one whole
- * conversation and ignores the range; a conversation with no turn in a NEW
- * scope is deselected, so the right card never describes something the left
- * one no longer lists.
- *
- * A conversation can be preselected (`initialConversationId`, or
- * `?conversation=` on the URL), which is how citation health's recent findings
- * link into this view. A link is honoured even when the conversation falls
- * outside the scope the page opens with.
- */
-
 import type { JSX } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
@@ -67,10 +41,8 @@ type SpanStatus = 'ok' | 'error'
 interface ConversationSummaryDto {
   conversationId: string
   organizationId: string | null
-  /** Resolved display name; absent on servers that predate it. */
   organizationName?: string | null
   title: string | null
-  /** The conversation drew on a restricted folder; the server sends no title (ADR-0093). */
   titleWithheld?: boolean
   turnCount: number
   totalDurationMs: number
@@ -86,7 +58,6 @@ interface SpanNodeDto {
   durationMs: number
   status: SpanStatus
   errorMessage: string | null
-  /** `{ synthetic: true }` on a stand-in root for a turn whose root span was lost. */
   metadata?: Record<string, unknown> | null
   children: SpanNodeDto[]
 }
@@ -103,25 +74,16 @@ interface TurnDto {
 
 interface TimelineDto {
   conversationId: string
-  /** The newest turns, oldest first. */
   turns: TurnDto[]
-  /** Turns the conversation has in all; more than `turns.length` when capped. */
   totalTurns?: number
   capped?: boolean
 }
 
-/** Debounce for the search box; the first, empty query goes out at once. */
 const SEARCH_DEBOUNCE_MS = 300
 
-/** Indentation per nesting level, capped so a deep tree keeps a readable name. */
 const INDENT_PX = 12
 const MAX_INDENT_DEPTH = 4
 
-/**
- * Span kind → icon + palette slot. The icon and the legend label carry the
- * kind; the colour repeats them, never alone. Slots come from the validated
- * categorical palette; the turn itself is the recessive ink.
- */
 const KIND_STYLE: Record<SpanKind, { icon: LucideIcon; color: string }> = {
   turn: {
     icon: MessageSquare,
@@ -133,7 +95,6 @@ const KIND_STYLE: Record<SpanKind, { icon: LucideIcon; color: string }> = {
 }
 const KIND_ORDER: SpanKind[] = ['turn', 'node', 'llm', 'tool']
 
-/** A locale-formatted duration: "850 ms", "2,45 s", "12,3 s", "1,5 min". */
 export function formatSpanDuration(ms: number, locale: string): string {
   const safe = Number.isFinite(ms) && ms > 0 ? ms : 0
   const format = (
@@ -170,11 +131,6 @@ function flattenWithOffset(root: SpanNodeDto): WaterfallRow[] {
   return rows
 }
 
-/**
- * Bar geometry as percentages of the turn. Clamped so a bar never leaves its
- * track: a child that started late and ran long (clock skew, a span that
- * outlived its parent) used to draw past the right edge of the row.
- */
 export function barGeometry(
   offsetMs: number,
   durationMs: number,
@@ -210,11 +166,7 @@ function KindLegend(): JSX.Element {
 
 function TurnWaterfall({ turn, locale }: { turn: TurnDto; locale: string }): JSX.Element {
   const t = useTranslations(platformCopy)
-  // The server always sends a root now; a null one only comes from a server
-  // that predates the synthetic root.
   if (!turn.root) return <p className="text-muted-foreground text-sm">{t('profiler.noSpans')}</p>
-  // A root that never reached the ledger (a dropped flush batch) is stood in
-  // for by a synthetic one spanning the recorded spans: say so, and name it so.
   const synthetic = turn.root.metadata?.synthetic === true
   const rows = flattenWithOffset(turn.root)
   const nameOf = (node: SpanNodeDto): string =>
@@ -281,11 +233,6 @@ function TurnWaterfall({ turn, locale }: { turn: TurnDto; locale: string }): JSX
   )
 }
 
-/**
- * Why a span failed, on the page. It was `sr-only` text plus the row's `title`,
- * so a sighted reader on a phone, where `title` never shows, never saw the one
- * thing they opened a failed turn for. Two lines until a tap opens the rest.
- */
 function SpanFailure({ text }: { text: string }): JSX.Element {
   const [open, setOpen] = useState(false)
   return (
@@ -351,7 +298,6 @@ function ErrorAlert({
 interface ConversationListDto {
   conversations: ConversationSummaryDto[]
   capped: boolean
-  /** The asked-about conversation in the scope, null when it has no turn there. */
   selected?: ConversationSummaryDto | null
 }
 
@@ -367,8 +313,6 @@ export function AgentProfiler({
   const scopeLabel = useQualityScopeLabel()
   const searchParams = useSearchParams()
   const preselected = initialConversationId ?? searchParams?.get('conversation') ?? null
-  // The query string is the scope's identity: the page may rebuild the object
-  // on every render, and refetching on identity would loop.
   const scopeQuery = qualityScopeQuery(scope)
 
   const [conversations, setConversations] = useState<ConversationSummaryDto[] | null>(null)
@@ -376,32 +320,23 @@ export function AgentProfiler({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
   const [search, setSearch] = useState('')
-  /** The query the shown list answers, for the no-match copy. */
   const [shownQuery, setShownQuery] = useState('')
-  /** The scope the shown list answers; differs from `scope` while a switch loads or after it failed. */
   const [shownScopeQuery, setShownScopeQuery] = useState<string | null>(null)
 
   const [selectedId, setSelectedId] = useState<string | null>(preselected)
-  /** The selected conversation's row, from the server, when the list does not carry it. */
   const [selectedSummary, setSelectedSummary] = useState<ConversationSummaryDto | null>(null)
-  /** True after a scope change dropped the selection, so the empty timeline says why. */
   const [droppedByScope, setDroppedByScope] = useState(false)
   const [timeline, setTimeline] = useState<TimelineDto | null>(null)
   const [timelineLoading, setTimelineLoading] = useState(false)
   const [timelineError, setTimelineError] = useState(false)
 
-  // Only the newest request of each kind may land: typing "ab" after "a", or
-  // clicking B while A's timeline is still in flight, used to let the slower
-  // response overwrite the newer one.
   const listRequest = useRef<AbortController | null>(null)
   const timelineRequest = useRef<AbortController | null>(null)
   const timelineCardRef = useRef<HTMLDivElement | null>(null)
-  // Read inside `load` without making it change identity on every selection.
   const selectedRef = useRef(selectedId)
   useEffect(() => {
     selectedRef.current = selectedId
   }, [selectedId])
-  /** The scope of the last list that landed; null until the first one has. */
   const landedScope = useRef<string | null>(null)
 
   const load = useCallback((query: string, requestedScope: string) => {
@@ -429,8 +364,6 @@ export function AgentProfiler({
         setShownScopeQuery(requestedScope)
         if (asked === null || asked !== selectedRef.current) return
         setSelectedSummary(data.selected ?? null)
-        // Only a CHANGE of scope drops the selection: a link into a
-        // conversation outside the scope the page opened with still opens it.
         if (scopeChanged && data.selected === null) {
           setSelectedId(null)
           setDroppedByScope(true)
@@ -484,8 +417,6 @@ export function AgentProfiler({
     if (conversationId === selectedId) return
     setSelectedId(conversationId)
     setDroppedByScope(false)
-    // Stacked layout: the timeline sits under a long list, so bring it into
-    // view, or the click appears to do nothing.
     if (typeof window !== 'undefined' && window.matchMedia?.('(max-width: 1023px)').matches) {
       timelineCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }
@@ -624,8 +555,6 @@ export function AgentProfiler({
     if (timeline.turns.length === 0)
       return <EmptyState variant="bare" icon={Clock} title={t('profiler.noSpans')} />
     const totalTurns = Math.max(timeline.totalTurns ?? 0, timeline.turns.length)
-    // A capped timeline holds the NEWEST turns: number them by their place in
-    // the whole conversation, not from one.
     const firstTurnNumber = totalTurns - timeline.turns.length + 1
     return (
       <div className="usage-viz animate-in fade-in-0 duration-base flex flex-col gap-5 ease-out motion-reduce:animate-none">

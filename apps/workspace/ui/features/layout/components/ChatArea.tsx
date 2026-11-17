@@ -1,14 +1,3 @@
-/**
- * ChatArea Component
- *
- * Main chat display area showing messages between user and assistant.
- * Includes the message list and is positioned in the center of the layout.
- *
- * Shows different welcome states based on authentication:
- * - Logged out: Prompt to sign in with CTA button
- * - Logged in: Ready to start chatting
- */
-
 'use client'
 import { type FC, memo } from 'react'
 import { ArrowDown, Check, WifiOff } from 'lucide-react'
@@ -33,15 +22,9 @@ import { useChatAreaController } from './chat-area/use-chat-area-controller'
 import type { ChatAreaProps } from './chat-area/use-chat-area-controller'
 import { ChatMessageList } from './chat-area/chat-message-list'
 
-/**
- * Main chat area container with scrollable message list.
- * Shows welcome state when no messages exist.
- */
 export const ChatArea: FC<ChatAreaProps> = memo(function ChatArea(props) {
   const controller = useChatAreaController(props)
   const tChat = useTranslations(chatCopy)
-  // The socket is still on its ladder and an answer or a question waits on
-  // it: said in the dock, before the ladder is spent and the line says lost.
   const restoring = useConnectionRestoring(controller.currentConversation?.id)
   const connectionNote = restoring && controller.connectionNote !== 'lost' ? 'restoring' : controller.connectionNote
   const connectionText =
@@ -67,10 +50,6 @@ export const ChatArea: FC<ChatAreaProps> = memo(function ChatArea(props) {
           ref={controller.scrollContainerRef}
           onScroll={controller.handleScroll}
           className="scrollbar-hide flex flex-1 flex-col overflow-y-auto overscroll-contain"
-          // A named, focusable region, so a keyboard reader can scroll the
-          // thread. Not `role="log"`: a log announces every addition, and the
-          // live answer adds words every frame. The settle is announced once,
-          // below.
           role="region"
           tabIndex={0}
           aria-label={controller.t('chatArea.ariaMessages')}
@@ -180,8 +159,6 @@ export const ChatArea: FC<ChatAreaProps> = memo(function ChatArea(props) {
               }}
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
-              // Leaving one step shorter than it came: the reader pressed it
-              // and is already watching the thread move, not the button.
               exit={{
                 opacity: 0,
                 y: 6,

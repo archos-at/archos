@@ -1,5 +1,3 @@
-/** Collaboration UI surfaces (ADR-0032…0035). Inbox first; sharing follows. */
-
 export {
   AddresseeIndicator,
   type AddresseeIndicatorProps,

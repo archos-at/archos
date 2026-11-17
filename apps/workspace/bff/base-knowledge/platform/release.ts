@@ -23,13 +23,13 @@ import { sqlTextArray } from '@/lib/db/sql-list'
 import { ConflictError } from '@/lib/api/errors'
 import { knowledgeManifestationRevisions, knowledgeRecords } from '@/lib/db/schema/knowledge-records'
 import { knowledgeIndexRuns, knowledgeReleaseMoves } from '@/lib/db/schema/knowledge-platform'
-import type { ReleaseChannel } from '@/lib/base-knowledge/wire/vocab'
+import type { ReleaseChannel, ReleaseDecisionSource } from '@/lib/base-knowledge/wire/vocab'
 import type { Tx } from '../store/repository'
 import { lockChangeRequest, newestPerRecord, platformTransaction, requestRevisions, setChangeRequestStatus } from './store'
 
 export interface ReleaseActor {
   by: string
-  decisionSource: 'app' | 'elicitation'
+  decisionSource: ReleaseDecisionSource
 }
 
 export interface PublishOutcome {

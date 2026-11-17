@@ -25,9 +25,6 @@ vi.mock('@workos-inc/authkit-nextjs/components', () => ({
   AuthKitProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
 }))
 
-// PostHogIdentitySync reads useAuth; the AuthKit mock above provides no
-// session, so stub the adapter. Mutable, because the identity tests below
-// need to move the session between users and to signed-out mid-test.
 const authState = {
   isAuthenticated: false,
   isLoading: false,
@@ -137,9 +134,6 @@ describe('Providers', () => {
       document.head.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.remove())
     })
 
-    // A layout effect, so the class is on <html> before the browser paints the
-    // committed tree. React's dev remount strips attributes the inline boot
-    // script set; a passive effect let that paint one light frame.
     test('applies the stored theme before paint and points theme-color at it', () => {
       const meta = document.createElement('meta')
       meta.setAttribute('name', 'theme-color')
@@ -190,8 +184,6 @@ describe('Providers', () => {
       authState.organizationId = undefined
     })
 
-    // The Langfuse audit (docs/observability/langfuse-audit-2026-10.md) flagged
-    // identify() sending email and name. The WorkOS user id is the whole identity.
     test('identifies with the WorkOS user id only, never email or name', () => {
       signedInAs('user-a')
       render(
@@ -228,7 +220,6 @@ describe('Providers', () => {
       expect(registerPosthogContext).toHaveBeenLastCalledWith(
         expect.objectContaining({ organizationId: 'org_2' })
       )
-      // A switch inside one session is not a new person.
       expect(identifyPosthog).toHaveBeenCalledTimes(1)
     })
 
@@ -271,7 +262,6 @@ describe('Providers', () => {
         locale: 'en',
       })
 
-      // A client-side switch to another organization must not keep the old name.
       authState.organizationId = 'org_2'
       view.rerender(
         <Providers config={config} locale="en">
@@ -297,12 +287,6 @@ describe('Providers', () => {
       expect(registerPosthogContext).not.toHaveBeenCalled()
     })
 
-    // A session lost WITHOUT `handleSignOut` — expiry, a failed refresh — used
-    // to clear only the local ref. PostHog kept its persisted identity, and
-    // because the ref was null the reset-on-user-change guard then did not
-    // fire, so the next person to sign in on that browser was identified onto
-    // the previous user's distinct id. That is cross-user attribution, so it
-    // is pinned here rather than left to review.
     test('resets PostHog when the session is lost without an explicit sign-out', () => {
       signedInAs('user-a')
       const view = render(
@@ -345,7 +329,6 @@ describe('Providers', () => {
         </Providers>
       )
 
-      // The reset already happened on the way out, so user-b starts clean.
       expect(identifyPosthog).toHaveBeenCalledWith('user-b')
     })
 

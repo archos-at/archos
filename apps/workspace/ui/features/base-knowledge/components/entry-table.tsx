@@ -1,12 +1,5 @@
 'use client'
 
-/**
- * The office standards as a table: what it is, its kind and edition, its
- * status, what happens to its text and when it was last checked. A row opens
- * the entry's sheet; its checkbox selects it for a bulk action. The order is
- * the server's: what needs a person first.
- */
-
 import type { JSX } from 'react'
 import { Checkbox } from '@/components/ui/checkbox'
 import {

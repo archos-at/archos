@@ -1,9 +1,3 @@
-/**
- * A source is parsed once, not once per mount.
- *
- * A remount of a fence already drawn used to start from `undefined` (the
- * skeleton) and queue another parse behind the mermaid lock.
- */
 import { renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -62,7 +56,6 @@ describe('useDiagramModel', () => {
     await waitFor(() => expect(first.result.current).toBe(MODEL))
     first.unmount()
 
-    // Mounted on a hit, then the page reads 64 other diagrams.
     const held = renderHook(() => useDiagramModel('graph TD\n  Held --> On'))
     expect(held.result.current).toBe(MODEL)
     await readOthers(64)
@@ -76,7 +69,6 @@ describe('useDiagramModel', () => {
     await waitFor(() => expect(first.result.current).toBe(MODEL))
     first.unmount()
     await readOthers(63)
-    // Read again: now the most recent, so the next parse evicts another.
     renderHook(() => useDiagramModel('graph TD\n  Often --> Read')).unmount()
     await readOthers(1, 63)
 
@@ -86,7 +78,6 @@ describe('useDiagramModel', () => {
   })
 })
 
-/** Mount and settle `count` other sources, as a long page does. */
 async function readOthers(count: number, from = 0): Promise<void> {
   for (let i = from; i < from + count; i++) {
     const other = renderHook(() => useDiagramModel(`graph TD\n  N${i} --> M${i}`))

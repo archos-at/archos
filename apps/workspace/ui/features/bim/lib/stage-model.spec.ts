@@ -30,9 +30,6 @@ describe('stageLevels', () => {
   })
 
   it('sorts a storey with no elevation last rather than treating it as ground level', () => {
-    // An unplaced storey is UNKNOWN, not at zero. Sorting it as zero would drop
-    // it between the basement and the first floor and assert a position the
-    // file never published.
     const levels = stageLevels(summary([storey('Zwischenebene', null), storey('Keller', -2.8)]))
     expect(levels.map((level) => level.name)).toEqual(['Keller', 'Zwischenebene'])
   })
@@ -101,8 +98,6 @@ describe('pickStageModel', () => {
   })
 
   it('defaults to the newest READY model, not the newest model', () => {
-    // Haus-C is newer but still extracting: opening onto it shows a progress
-    // bar where a building should be, which reads as a broken viewer.
     expect(pickStageModel(models, null)?.filename).toBe('Haus-B.ifc')
   })
 
@@ -143,15 +138,12 @@ describe('readableIfcType / humaniseIfcType', () => {
 describe('formatLevelElevation', () => {
   it('signs the number, which is the only thing the list is scanned for', () => {
     expect(formatLevelElevation(3.2, 'en-GB')).toBe('+3.20')
-    // The Geschoße rail is German for German readers, digits included.
     expect(formatLevelElevation(3.2, 'de-AT')).toBe('+3,20')
     expect(formatLevelElevation(-2.8, 'en-GB')).toBe('−2.80')
   })
 
   it('marks ground level as the datum rather than as a bare zero', () => {
     expect(formatLevelElevation(0, 'en-GB')).toBe('±0.00')
-    // Rounding to centimetres lands exactly on the datum, and it should read
-    // as the datum rather than as "+0.00", which looks like a rounding artefact.
     expect(formatLevelElevation(0.001, 'en-GB')).toBe('±0.00')
   })
 
@@ -160,8 +152,6 @@ describe('formatLevelElevation', () => {
   })
 
   it('leaves the unit to the dictionary', () => {
-    // A number formatted here and captioned there is how "+3.20 m" ends up in
-    // an otherwise German rail.
     expect(formatLevelElevation(3.2, 'en-GB')).not.toContain('m')
   })
 })

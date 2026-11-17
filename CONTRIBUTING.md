@@ -9,6 +9,8 @@ from one place.
 - How the system works: [docs/architecture/system-overview.md](docs/architecture/system-overview.md)
 - How we work, in detail: [docs/contributing/README.md](docs/contributing/README.md)
 - What an agent must act on while working: [AGENTS.md](AGENTS.md)
+- The rules of how we work, with their cases: [docs/contributing/working-style.md](docs/contributing/working-style.md)
+- What every change must do, and the check that fails it: [docs/contributing/obligations.md](docs/contributing/obligations.md)
 - The bar every change must clear before it is "done":
   [docs/contributing/definition-of-done.md](docs/contributing/definition-of-done.md)
 

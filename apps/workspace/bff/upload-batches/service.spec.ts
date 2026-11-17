@@ -17,13 +17,11 @@ vi.mock('@/lib/documents/reconcile-status', () => ({
 }))
 vi.mock('@/lib/documents/repository', () => ({ findFolderPathsInProject: vi.fn().mockResolvedValue(new Map()) }))
 vi.mock('@/lib/projects/repository', () => ({ findProjectInOrg: vi.fn() }))
-// The loaders are stubbed; the rule is the real one, so each spec decides with the rule it ships with.
 vi.mock('@/lib/authz/folder-access', async () => ({
   ...(await import('@/lib/authz/folder-access-rule')),
   loadCustomFolderTree: vi.fn(),
   clearanceOf: vi.fn(),
 }))
-// The reader's hold (ADR-0086): a member, who sees screened files and their own held ones.
 vi.mock('@/lib/upload-screening/quarantine-reviewers', () => ({
   shelfReaderFor: vi.fn(async () => ({ kind: 'member', userId: 'user-1' })),
 }))
@@ -108,9 +106,7 @@ const ownList = (id: string, everyoneReads: boolean, extra: Partial<AccessFolder
   everyoneReads,
   ...extra,
 })
-/** The folders whose list holds the Geschäftsführung, as WorkOS would report their folder roles (ADR-0097). */
 const gfFolders = new Set<string>()
-/** A folder only the Geschäftsführung may open: hidden from the member who reads these specs. */
 const gfOnly = (id: string, extra: Partial<AccessFolder> = {}): AccessFolder => {
   gfFolders.add(id)
   return ownList(id, false, extra)
@@ -118,7 +114,6 @@ const gfOnly = (id: string, extra: Partial<AccessFolder> = {}): AccessFolder => 
 const binned = (folder: AccessFolder): AccessFolder => ({ ...folder, deleted: true })
 const asMember = () => vi.mocked(clearanceOf).mockResolvedValue({ levels: {}, seesEverything: false })
 const asAdmin = () => vi.mocked(clearanceOf).mockResolvedValue({ levels: {}, seesEverything: true })
-/** Someone on every Geschäftsführung list, with folder-editor on each. */
 const asGf = () =>
   vi.mocked(clearanceOf).mockImplementation(async () => ({
     levels: Object.fromEntries([...gfFolders].map((id) => [id, 'write' as const])),
@@ -161,8 +156,6 @@ describe('openUploadBatch', () => {
     )
   })
 
-  // Only a server-side caller filing on a person's decision opens a quiet
-  // batch; the body a browser or an agent sends has no field for it.
   it('takes no effects from the route body', () => {
     const body = { id: BATCH_ID, scope: 'project', projectId: '6f1c2d3e-4a5b-4c6d-8e7f-9a0b1c2d3e4f', expectedCount: 1 }
     expect(openUploadBatchSchema.safeParse(body).success).toBe(true)
@@ -301,14 +294,10 @@ describe('getUploadSummary', () => {
       ['Kaputt.pdf', 'failed'],
     ])
     expect(summary.documents[0]).toMatchObject({ folderPath: 'Einreichung/Pläne', summary: 'Grundriss EG', tags: ['Plan'], screening: 'clean' })
-    // The quarantine is reasons, not an error string.
     expect(summary.documents[1]).toMatchObject({ errorMessage: null, quarantine: { reasons: [{ term: 'Lohnzettel' }] } })
     expect(summary.documents[3]?.errorMessage).toContain('pdf_pages_unreadable')
   })
 
-  // The column holds seven values since 0135, so "a status nobody declared"
-  // can no longer reach this summary; both in-flight values count as being
-  // read, as the folder brief counts them, and `stored` never does.
   it('counts a row being read as being read, as the folder brief does, never as stored', async () => {
     vi.mocked(findUploadBatch).mockResolvedValue(batch({ sealedAt: new Date() }))
     vi.mocked(listBatchDocuments).mockResolvedValue([
@@ -337,7 +326,6 @@ describe('getUploadSummary', () => {
     const summary = await getUploadSummary(session, BATCH_ID)
 
     expect(summary.documents.map((d) => d.filename)).toEqual(['EG.pdf'])
-    // The batch's own counts may be of files in that folder too, so they go with it.
     expect(summary).toMatchObject({ expectedCount: 1, unchangedCount: 0, failedCount: 0, excluded: [] })
   })
 
@@ -360,12 +348,10 @@ describe('getUploadSummary', () => {
     const filed = (id: string, folderId: string | null) =>
       makeDocument({ id, filename: `${id}.pdf`, folderId, createdAt: new Date('2026-10-01T10:00:05Z') })
     vi.mocked(listBatchDocuments).mockResolvedValue([
-      // Older than the batch: this upload put new bytes on it (ADR-0054).
       makeDocument({ id: 'old', filename: 'Lageplan.pdf', createdAt: new Date('2026-09-01T08:00:00Z') }),
       filed('new', 'f-plain'),
       filed('secret', 'f-own-list'),
       filed('below', 'f-below-own-list'),
-      // Every member reads it, only the Projektleitung changes it: still a folder with its own list.
       filed('statik', 'f-write-limited'),
     ])
     asGf()
@@ -396,7 +382,6 @@ describe('getUploadSummary', () => {
 
     const summary = await getUploadSummary(session, BATCH_ID)
 
-    // The binned file is left out, as the file list leaves it out, and hides nothing the uploader may not see.
     expect(summary.documents.map((d) => d.filename)).toEqual(['EG.pdf'])
     expect(summary).toMatchObject({ expectedCount: 3, unchangedCount: 1, excluded: [{ term: 'Rechnung', count: 2 }] })
   })
@@ -456,8 +441,6 @@ describe('listProjectUploadHistory', () => {
       ],
       nextCursor: null,
     })
-    // The repository counts only what the reader may see: 12 of BATCH_ID's 14
-    // and all 12 of OTHER's went where the reader cannot look.
     vi.mocked(countBatchDocumentsByStatus).mockResolvedValue([{ batchId: BATCH_ID, status: 'completed' as const, count: 2 }])
 
     const { uploads: entries } = await listProjectUploadHistory(session, 'proj-1')
@@ -476,9 +459,7 @@ describe('listProjectUploadHistory', () => {
     vi.mocked(loadCustomFolderTree).mockResolvedValue([gfOnly('f-hidden')])
     vi.mocked(listProjectUploadBatchPage).mockResolvedValue({
       batches: [
-        // A re-sync of 'Honorare': three new files, five the server answered „unchanged" for.
         batch({ expectedCount: 8, unchangedCount: 5, excluded: [] }),
-        // Everything that landed is hidden, and one transfer failed.
         batch({ id: FAILED, expectedCount: 4, unchangedCount: 0, failedCount: 1, excluded: [] }),
       ],
       nextCursor: null,
@@ -503,7 +484,6 @@ describe('listProjectUploadHistory', () => {
       uploads: [entry],
     } = await listProjectUploadHistory(session, 'proj-1')
 
-    // The unchanged, failed and screened-out files carry no folder: any of them may be in 'f-hidden'.
     expect(entry).toMatchObject({ expectedCount: 3, unchangedCount: 0, failedCount: 0, excludedCount: 0 })
     expect(entry?.counts).toMatchObject({ ready: 2, quarantined: 1 })
   })
@@ -532,7 +512,6 @@ describe('listProjectUploadHistory', () => {
       batches: [batch({ expectedCount: 9, unchangedCount: 3, failedCount: 1 })],
       nextCursor: null,
     })
-    // Four landed in f-open; the two in the bin are not tallied, as the listing leaves them out.
     vi.mocked(countBatchDocumentsByStatus).mockResolvedValue([{ batchId: BATCH_ID, status: 'completed' as const, count: 4 }])
 
     const {
@@ -573,7 +552,6 @@ describe('listProjectUploadHistory', () => {
       ],
       nextCursor: null,
     })
-    // The purge erased the folder's documents before it marked the folder.
     vi.mocked(countBatchDocumentsByStatus).mockResolvedValue([{ batchId: BATCH_ID, status: 'completed' as const, count: 4 }])
 
     const { uploads: entries } = await listProjectUploadHistory(session, 'proj-1')
@@ -584,10 +562,6 @@ describe('listProjectUploadHistory', () => {
   })
 
   it('withholds an upload into a closed folder that is still empty, its first file in flight or failed', async () => {
-    // The batch is opened with its announced total before any file is sent,
-    // and a document row is written only when a file lands: until then the
-    // closed folder holds nothing. Listing the upload now and dropping it once
-    // the file lands would tell the reader who filed how much there, and when.
     vi.mocked(loadCustomFolderTree).mockResolvedValue([inherit('f-open'), gfOnly('f-lohn')])
     vi.mocked(listProjectUploadBatchPage).mockResolvedValue({
       batches: [batch({ expectedCount: 12, unchangedCount: 0, failedCount: 1, excluded: [] })],

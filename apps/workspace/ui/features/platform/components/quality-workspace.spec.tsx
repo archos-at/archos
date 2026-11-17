@@ -17,8 +17,6 @@ vi.mock('next/navigation', () => ({
 const describeScope = (scope: QualityScope): string =>
   `${scope.from}..${scope.to} orgs=${scope.organizationIds.join(',')} projects=${scope.projectIds.join(',')}`
 
-// The organisms fetch on mount; the workspace is only about which one is open
-// and what it is handed. Each records the exact props the workspace passes.
 vi.mock('./answer-feedback-health', () => ({
   AnswerFeedbackHealth: ({
     scope,

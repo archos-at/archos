@@ -1,10 +1,3 @@
-/**
- * How alike two projects are (docs/design/cross-project-escalation.md): the
- * Bundesland outweighs everything else (it decides the OIB edition and the
- * Bauordnung), the Gebäudeklasse comes next, a neighbouring class still counts
- * a little, and malformed facts read as unknown rather than throwing.
- */
-
 import { describe, expect, it } from 'vitest'
 import type { Project } from '@/lib/db/schema/projects'
 import { projectIntakeDefinitionV1 } from '@/lib/project-profile/intake-definition'
@@ -27,7 +20,6 @@ function profile(facts: Record<string, unknown>, assumptions: Profile['assumptio
   }
 }
 
-/** An unconfirmed assumption as the document extractor (`agent_suggested`) or the onboarding (`onboarding_default`) writes it. */
 function assumption(value: unknown, source: 'agent_suggested' | 'onboarding_default' = 'agent_suggested'): Profile['assumptions'][string] {
   return { value: value as string, status: 'unconfirmed', reason: 'Aus den Unterlagen', source, updatedAt: '' }
 }
@@ -57,9 +49,6 @@ describe('similarityFacts', () => {
   })
 
   it('reads what the intake wizard stores: a building’s answers under its instance, every building', () => {
-    // The producer, not a hand-written profile: the wizard keys a building's
-    // answers `construction_method@bldg1`, and a ranking that read only `construction_method` saw
-    // nothing of a real project but its Bundesland and kind of work.
     const facts = similarityFacts(
       buildIntakeProfile(
         {
@@ -135,7 +124,6 @@ describe('similarity', () => {
     const at = (construction_method: unknown) => similarity(here, similarityFacts(profile({ construction_method })))
     expect(at(['reinforced_concrete', 'timber'])).toBeGreaterThan(0)
     expect(at(['reinforced_concrete'])).toBe(0)
-    // „noch offen" says nothing about the building, so two undecided projects share nothing.
     expect(similarity(similarityFacts(profile({ construction_method: ['open'] })), similarityFacts(profile({ construction_method: ['open'] })))).toBe(0)
   })
 
@@ -176,7 +164,6 @@ describe('suggestions from the documents', () => {
     const both = profile({ building_class: 2, federal_state: 'styria' }, { building_class: assumption('4'), federal_state: assumption('lower_austria') })
 
     expect(similarityFacts(both)).toMatchObject({ federal_state: 'styria', building_class: [2] })
-    // The suggestion would have matched `here` on Land and class; the fact matches on neither.
     expect(similarity(here, similarityFacts(both))).toBe(0)
   })
 

@@ -30,9 +30,6 @@ describe('ConnectionBand', () => {
     expect(band).not.toHaveClass('sr-only')
   })
 
-  // The header it sits in has no rule under it any more (the design system:
-  // no line under the header), so the band draws none either: it is a line of
-  // the header's own band.
   it('is a line of the header’s band by default, with no rule of its own', () => {
     presence = 'offline'
     const { container } = render(<ConnectionBand />)
@@ -42,10 +39,6 @@ describe('ConnectionBand', () => {
     expect(band).not.toHaveClass('border-t')
   })
 
-  // A status that is fine says nothing: the rail footer carried a green
-  // „Verbunden“ all day. It is this band now, quiet while connected.
-  // Nielsen 9: while the server does not answer, a way to ask now. Offline has
-  // none: the browser says when the network is back.
   it('offers to try again while reconnecting, and not while offline', async () => {
     presence = 'reconnecting'
     const { rerender } = render(<ConnectionBand appearance="rail" />)
@@ -66,7 +59,6 @@ describe('ConnectionBand', () => {
 
     rerender(<ConnectionBand appearance="rail" compact />)
     expect(band()).toHaveClass('size-9')
-    // No words beside a 36px tile, so no button either: its tooltip explains.
     expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull()
 
     presence = 'connected'

@@ -1,10 +1,3 @@
-/**
- * The two service halves of a stored raster: the presigned PUT the ingest
- * pipeline writes through, and the derived key the `look`
- * tool reads back. Both build the key from the document's OWN row, so the
- * assertions here are about where the key can and cannot land.
- */
-
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { PutObjectCommand } from '@aws-sdk/client-s3'
 
@@ -68,8 +61,6 @@ describe('presignDocumentImageUpload', () => {
     expect(getSignedUrl).not.toHaveBeenCalled()
   })
 
-  // The ceiling is enforced where the write capability is minted: past it no
-  // URL exists, so the backend has nothing to PUT with.
   it('issues nothing at or past the per-document ceiling', async () => {
     vi.mocked(findStorageKeyByIdAndCollection).mockResolvedValue(row)
 

@@ -1,5 +1,3 @@
-"""A finished turn's outcome on its root span (ADR-0089)."""
-
 import asyncio
 
 from agent.common.wire_v2 import CitationsRemoved
@@ -52,7 +50,6 @@ class TestOutcomeAttributes:
         assert attributes[f"{META}quotes_not_found"] == 1
 
     def test_a_source_from_another_project_counts_as_precedent(self):
-        """The office's experience reaching an answer is a slice, not a guess from the prose (ADR-0094)."""
         graz = {"id": "p-graz", "name": "Wohnbau Graz", "status": "closed"}
         sources = [
             WireSource(content="OIB-RL 4", number=1),
@@ -119,7 +116,6 @@ class TestTheBox:
         assert current_turn_outcome() is None
 
     def test_a_write_from_a_copied_context_reaches_the_bound_box(self):
-        """The workflow runs in copies of the socket's context; the root's export task in another."""
         token = begin_turn_outcome()
         try:
 
@@ -142,8 +138,6 @@ class TestTheBox:
 
 
 class TestFactsOnlyTheWorkflowKnows:
-    """`record_turn_facts`: the workflow's own facts (``focus_region_viewed``) on the root."""
-
     def test_a_fact_rides_beside_the_terminal_whichever_comes_first(self):
         from agent.observability.turn_outcome import record_turn_facts
 

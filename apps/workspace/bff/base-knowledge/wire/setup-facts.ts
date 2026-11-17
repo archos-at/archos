@@ -151,6 +151,11 @@ export const factDefinitionsSchema = z
         label,
         options: z.array(subdivisionSchema).min(1).max(60),
         outside: z.object({ token, label }).strict().optional(),
+        /**
+         * The option a project of an office seated in this country is assumed to be in while its profile
+         * names no site at all (ADR-0158): an unverified placement, never a fact. One of `options`.
+         */
+        assumedWhenUnstated: token.optional(),
       })
       .strict()
       .optional(),
@@ -173,6 +178,9 @@ export const factDefinitionsSchema = z
       once(payload.subdivisions.options.map((option) => option.token), ['subdivisions', 'options'])
       if (payload.subdivisions.options.some((option) => option.token === payload.subdivisions?.outside?.token))
         context.addIssue({ code: 'custom', path: ['subdivisions', 'outside'], message: 'the outside token is also a subdivision' })
+      const assumed = payload.subdivisions.assumedWhenUnstated
+      if (assumed && !payload.subdivisions.options.some((option) => option.token === assumed))
+        context.addIssue({ code: 'custom', path: ['subdivisions', 'assumedWhenUnstated'], message: `${assumed} is not a subdivision` })
     }
     payload.facts.forEach((fact, index) => {
       if (fact.codes && fact.type !== 'code' && fact.type !== 'codes')

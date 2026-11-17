@@ -29,7 +29,6 @@ describe('a superseded edition', () => {
       ],
     } as unknown as Parameters<typeof needs>[0]
     expect(needs(entry, 'check_due')).toBe(false)
-    // Positive control: the same entry alone is due.
     expect(needs({ ...entry, editions: [{ id: 'e2005', startsOn: '2005-03-01', inForceToday: true }] } as typeof entry, 'check_due')).toBe(true)
   })
 

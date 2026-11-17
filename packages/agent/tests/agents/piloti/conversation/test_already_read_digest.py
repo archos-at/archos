@@ -1,11 +1,3 @@
-"""The digest across the turn boundary: persist, lift, forward.
-
-The digest is conversation-scoped (same lifetime as ``messages``): the
-checkpoint carries it, the research input threads it into the answering state,
-and the finished answer lifts it back out. A turn that digests nothing must
-not wipe the checkpointed lines.
-"""
-
 import pytest
 from agent_testing.conversation import turn
 from langchain_core.messages import AIMessage
@@ -127,9 +119,6 @@ class TestDigestTravelsTheGraph:
 
     @pytest.mark.asyncio
     async def test_a_caller_supplied_digest_reaches_a_fresh_thread(self):
-        # No checkpoint, no checkpointer: the lines the caller brought must
-        # survive into the turn instead of being dropped with the turn-scoped
-        # fields.
         seen: list = []
 
         async def research(state_input):
@@ -169,7 +158,6 @@ class TestDigestTravelsTheGraph:
             thread_id=thread,
         )
 
-        # The checkpoint's lines come first and neither set is lost.
         assert seen[-1] == [*DIGEST, *caller_line]
 
 

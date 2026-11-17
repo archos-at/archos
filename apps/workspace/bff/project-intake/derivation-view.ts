@@ -15,6 +15,8 @@
  * building, gets nothing.
  */
 
+import { gateNamesLaw } from '@/lib/base-knowledge/wire/project-law'
+import type { GateState } from '@/lib/base-knowledge/wire/vocab'
 import { answersFromProfile } from '@/lib/project-profile/intake-profile'
 import type { ProjectIntakeDefinition } from '@/lib/project-profile/intake-types'
 import type { DerivationEvidence, DerivationInput, ProfileAlternative } from '@/lib/project-profile/evidence-schema'
@@ -72,6 +74,16 @@ export function withoutDerivedClasses(profile: ProjectProfile, definition: Proje
     }
   }
   return current
+}
+
+/**
+ * The profile as a reader may see it under the project's gate: the profile itself where the gate names law,
+ * else without the derived classes (`withoutDerivedClasses`). The one rule the Steckbrief, the profile route
+ * and the agent's prompt view share; the stored classes stay (`record.ts` keeps them while law is withheld).
+ * `null`: no gate was read, and the profile is shown as stored.
+ */
+export function profileAsTheLawShows(profile: ProjectProfile, definition: ProjectIntakeDefinition, gate: GateState | null): ProjectProfile {
+  return gate === null || gateNamesLaw(gate) ? profile : withoutDerivedClasses(profile, definition)
 }
 
 /** The buildings the profile describes, in order (`bldg1` when it names none). */

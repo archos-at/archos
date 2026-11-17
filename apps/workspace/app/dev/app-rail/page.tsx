@@ -158,6 +158,7 @@ export default function AppRailPreview(): JSX.Element {
           canManageOrganization={!viewer}
           canManagePlatform={!viewer}
           canAccessOfficeShelf={!viewer}
+          canAccessOfficeStandards={!viewer}
           canAccessInbox
           showModels
           showSkills={!viewer}

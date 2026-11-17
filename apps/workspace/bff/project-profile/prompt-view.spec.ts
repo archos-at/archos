@@ -3,17 +3,6 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-/**
- * Regression coverage for the federal_state cache-invalidation bug (WP-C, Fix 1).
- *
- * Deliberately does NOT mock `@/lib/cache`: it drives a REAL in-memory
- * CacheStore so the test exercises the actual get/set/delete key wiring. A test
- * that stubs the whole cache layer (as profile-service.spec.ts does) cannot see
- * that `federal_state:<id>` was left behind — the exact hole this covers.
- *
- * Only `@/lib/db` is mocked, to control what the loaders read on a cache miss.
- */
-
 let dbRows: unknown[] = []
 
 function makeBuilder() {
@@ -31,21 +20,8 @@ vi.mock('@/lib/db/schema/projects', () => ({
   projects: { id: 'id', profile: 'profile', profilePromptView: 'profilePromptView' },
 }))
 
-/**
- * The repository is the loader behind the cache. Keyed by organization so a
- * test can prove one tenant never receives another's row — which is the point
- * of the partitioned cache key.
- */
 const rowsByOrg = new Map<string, { profile: unknown; profilePromptView: string }>()
-/**
- * The document-roles block is appended by `loadProjectPromptView` at read time.
- * Mocked here rather than let through: this spec is about the cache and its
- * tenant partition, and the real loader would drag the schema barrel in behind
- * it. What the block CONTAINS is covered by
- * `lib/document-roles/prompt-section.spec.ts`.
- */
 let rolesSection = ''
-/** The reader each block was built for (ADR-0087): absent means nobody's clearance. */
 const rolesReaders: unknown[] = []
 vi.mock('@/lib/document-roles/prompt-loader', () => ({
   loadDocumentRolesPromptSection: async (...args: unknown[]) => {
@@ -54,12 +30,6 @@ vi.mock('@/lib/document-roles/prompt-loader', () => ({
   },
 }))
 
-/**
- * The `documents_unreadable:` block is read from the document tables, which
- * this spec's schema mock does not carry. Mocked for the same reason as the
- * roles block above: it is appended at read time, outside the cache, and what
- * it CONTAINS is covered by `unreadable-section.spec.ts`.
- */
 let unreadableSection = ''
 const unreadableCalls: { projectId: string; organizationId: string | null | undefined }[] = []
 vi.mock('./unreadable-section', () => ({
@@ -81,6 +51,15 @@ vi.mock('@/lib/projects/repository', () => ({
     rowsByOrg.get(organizationId ?? 'anon')?.profile ??
     (dbRows[0] as { profile?: unknown })?.profile ??
     null,
+  findProjectProfileInOrg: async (_projectId: string, organizationId: string) => {
+    const profile = rowsByOrg.get(organizationId)?.profile ?? (dbRows[0] as { profile?: unknown })?.profile
+    return profile ? { profile, profileVersion: 1 } : null
+  },
+}))
+
+let gateState = 'core'
+vi.mock('@/lib/base-knowledge/context/service', () => ({
+  contextForPage: async () => ({ gate: { state: gateState, reason: null, leaves: [] } }),
 }))
 
 import { setCacheStore, type CacheStore } from '@/lib/cache'
@@ -91,7 +70,6 @@ import {
   loadProjectPromptView,
 } from './prompt-view'
 
-/** Minimal real TTL store — records the exact keys written so we can assert them. */
 class TestStore implements CacheStore {
   readonly map = new Map<string, { value: string; expiresAt: number }>()
   async get(key: string) {
@@ -139,9 +117,6 @@ describe('project profile cache invalidation (Fix 1)', () => {
   })
 
   it('appends the document-roles block to the stored view', async () => {
-    // The stored view is built at profile-save; a document declared afterwards
-    // would never reach a view built there, so the block is appended at read
-    // time instead.
     dbRows = rowFor('vienna', 'PROJECT_CONTEXT v1')
     rolesSection = 'documents:\n- Bebauungsplan: bplan.pdf'
 
@@ -161,7 +136,6 @@ describe('project profile cache invalidation (Fix 1)', () => {
     expect(await loadProjectFederalState('proj-1', 'org-1')).toBe('vienna')
     expect(await loadProjectPromptView('proj-1', 'org-1')).toBe('PROJECT_CONTEXT v1')
 
-    // Two SEPARATE keys — the crux of the bug: invalidating one leaves the other.
     expect(store.map.has('federal-state:org-1:proj-1')).toBe(true)
     expect(store.map.has('promptview-v2:org-1:proj-1')).toBe(true)
   })
@@ -171,13 +145,10 @@ describe('project profile cache invalidation (Fix 1)', () => {
     await loadProjectFederalState('proj-1', 'org-1')
     await loadProjectPromptView('proj-1', 'org-1')
 
-    // The user changes the location and saves; the DB now holds the new value.
     dbRows = rowFor('tyrol', 'PROJECT_CONTEXT v2')
 
-    // The OLD invalidation only dropped the prompt-view key…
     await invalidateProjectPromptViewCache('proj-1', 'org-1')
 
-    // …so the prompt view re-reads fresh, but federal_state is served STALE.
     expect(await loadProjectPromptView('proj-1', 'org-1')).toBe('PROJECT_CONTEXT v2')
     expect(await loadProjectFederalState('proj-1', 'org-1')).toBe('vienna') // stale — the bug
   })
@@ -187,12 +158,10 @@ describe('project profile cache invalidation (Fix 1)', () => {
     await loadProjectFederalState('proj-1', 'org-1')
     await loadProjectPromptView('proj-1', 'org-1')
 
-    // Location changed + saved.
     dbRows = rowFor('tyrol', 'PROJECT_CONTEXT v2')
 
     await invalidateProjectProfileCaches('proj-1', 'org-1')
 
-    // Both keys were cleared, so both loaders re-read the new stored profile.
     expect(store.map.has('federal-state:org-1:proj-1')).toBe(false)
     expect(store.map.has('promptview-v2:org-1:proj-1')).toBe(false)
     expect(await loadProjectFederalState('proj-1', 'org-1')).toBe('tyrol')
@@ -215,11 +184,6 @@ describe('project profile cache is partitioned by tenant', () => {
   })
 
   it('does not serve one organization the project context cached for another', async () => {
-    // The exploitable shape: `getCached` returns BEFORE the loader runs, and the
-    // project id is caller-supplied on the websocket-scope path. With a key of
-    // `projectId` alone, org B asking for org A's project id got org A's context
-    // straight out of the cache — no query, no tenant scope, no row-level
-    // security in the path at all.
     rowsByOrg.set('org-a', {
       profile: {
         facts: { federal_state: { value: 'vienna' } },
@@ -271,9 +235,6 @@ describe('project profile cache is partitioned by tenant', () => {
   })
 
   it('a write evicts the anonymous variant as well as its own', async () => {
-    // An authenticated write knows an organization; an anonymous deployment
-    // populated `anon`. Dropping only one leaves the other serving what the
-    // write just replaced.
     rowsByOrg.set('org-a', {
       profile: {
         facts: { federal_state: { value: 'vienna' } },
@@ -331,7 +292,6 @@ describe('restricted folders and the shared prompt view (ADR-0087)', () => {
 
     expect(await loadProjectPromptView('proj-1', 'org-1')).not.toContain('Honorarnote.pdf')
     expect(await loadProjectPromptView('proj-1', 'org-1')).not.toContain('Honorarnote.pdf')
-    // One build, cached, for nobody's clearance.
     expect(rolesReaders).toEqual([null])
   })
 })
@@ -377,7 +337,6 @@ describe('unreadable documents ride beside the cached view', () => {
     unreadableSection = 'documents_unreadable:\n- Honorarnote.pdf'
 
     await loadProjectPromptView('proj-1', 'org-1')
-    // A re-read fixed the failure: the next turn must no longer be told about it.
     unreadableSection = ''
     const second = await loadProjectPromptView('proj-1', 'org-1')
 
@@ -385,7 +344,6 @@ describe('unreadable documents ride beside the cached view', () => {
       { projectId: 'proj-1', organizationId: 'org-1' },
       { projectId: 'proj-1', organizationId: 'org-1' },
     ])
-    // The view builder ran once; the second call was served from the cache.
     expect(rolesReaders).toHaveLength(1)
     expect(second).toBe('PROJECT_CONTEXT v1')
   })
@@ -404,5 +362,44 @@ describe('unreadable documents ride beside the cached view', () => {
 
     expect(await loadProjectPromptView(undefined, 'org-1')).toBeNull()
     expect(unreadableCalls).toHaveLength(0)
+  })
+})
+
+describe('the derived classes the agent reads follow the gate the page shows them under', () => {
+  const derived = {
+    value: '4',
+    status: 'unconfirmed',
+    reason: 'Abgeleitet: OIB-RL 2',
+    source: 'agent_suggested',
+    updatedAt: '2026-11-01T00:00:00.000Z',
+    evidence: [{ kind: 'derivation', rule: 'building_class', citation: 'OIB-RL 2', inputs: [] }],
+  }
+  const stored = 'PROJECT_CONTEXT v1\n\nassumptions:\n- building_class@bldg1=4 [abgeleitet]'
+
+  beforeEach(() => {
+    setCacheStore(new TestStore())
+    rowsByOrg.clear()
+    rolesSection = ''
+    unreadableSection = ''
+    rowsByOrg.set('org-law', {
+      profile: { facts: {}, goals: {}, unknowns: [], assumptions: { 'building_class@bldg1': derived } },
+      profilePromptView: stored,
+    })
+  })
+
+  afterEach(() => {
+    gateState = 'core'
+  })
+
+  it('serves the stored view, class included, where the gate names law', async () => {
+    gateState = 'core'
+    expect(await loadProjectPromptView('p1', 'org-law')).toContain('building_class@bldg1=4')
+  })
+
+  it.each(['site_unknown', 'none', 'knowledge_unavailable'])('leaves the derived class out where the gate is %s', async (gate) => {
+    gateState = gate
+    const view = await loadProjectPromptView('p1', 'org-law')
+    expect(view).not.toContain('building_class')
+    expect(view).toContain('PROJECT_CONTEXT v1')
   })
 })

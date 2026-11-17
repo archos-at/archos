@@ -1,10 +1,3 @@
-"""Hatchet's spans in Langfuse: our provider, no document in an attribute, one trace from trigger to file.
-
-The SDK's instrumentor is installed for real on ``direct_trace``'s provider
-with an in-memory exporter; its two wrappers that matter (a trigger and a step
-run) are called with a fake of what they wrap, since no engine runs here.
-"""
-
 from __future__ import annotations
 
 import base64
@@ -22,7 +15,6 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanE
 from agent.observability import direct_trace
 from agent.observability import orchestrator_tracing
 
-#: What must never reach a span: a file name, a presigned URL, a payload's text.
 SECRETS = ("Bauantrag.pdf", "s3.example", "Gutachten über das Dach")
 
 
@@ -68,7 +60,6 @@ def test_the_instrumentor_exports_through_our_provider_and_never_to_hatchet(expo
 
     instrumentor = orchestrator_tracing._instrumentor
     assert instrumentor.tracer_provider is direct_trace._provider
-    # The collector exporter is the only processor the instrumentor adds; ours has one, the test's.
     assert len(direct_trace._provider._active_span_processor._span_processors) == 1
     assert {a.value for a in instrumentor.config.otel.excluded_attributes} >= {"payload", "additional_metadata"}
 

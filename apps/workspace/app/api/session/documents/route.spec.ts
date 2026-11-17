@@ -1,18 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * `conversationId` is a caller's string, and the listing hands it straight to a
- * database comparison and to a retrieval collection name. `z.string().min(1)`
- * accepted anything that was not empty.
- *
- * What it is NOT validated as is a UUID. That was the review's suggestion and
- * it would reject every id the product mints: a conversation id is
- * `s_<uuid-with-underscores>`, which is why `conversations.id` and
- * `documents.conversation_id` are both `text`. This spec pins both directions —
- * the real shape is accepted, a UUID is not — so the shape cannot quietly be
- * "tightened" into a rule that breaks the feature.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -32,7 +20,6 @@ vi.mock('@/lib/session-documents/service', () => ({
 import { listSessionDocuments } from '@/lib/session-documents/service'
 import { GET } from './route'
 
-/** The shape all three minting sites produce (`s_${uuid.replace(/-/g, '_')}`). */
 const CONVERSATION_ID = 's_3f2504e0_4f89_11d3_9a0c_0305e82c3301'
 
 const list = (conversationId: string) =>
@@ -68,9 +55,6 @@ describe('GET /api/session/documents', () => {
   })
 
   it('does not demand a UUID, which no conversation id is', async () => {
-    // The column is `text` deliberately. A `uuid()` rule here would 400 every
-    // real request; this asserts the accepted value is precisely the one a
-    // uuid rule would refuse.
     const response = await list(CONVERSATION_ID)
 
     expect(response.status).toBe(200)

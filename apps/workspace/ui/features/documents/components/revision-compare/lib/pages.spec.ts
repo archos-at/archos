@@ -36,9 +36,7 @@ describe('page arithmetic', () => {
 
   it('fits the whole sheet when the height is known, and the width alone when it is not', () => {
     const stage = { width: 840, height: 594 }
-    // A wide frame, but short: the height decides.
     expect(fitScale({ width: 1680, height: 297 }, stage, 1)).toBe(0.5)
-    // A tall frame: the width decides.
     expect(fitScale({ width: 420, height: 2000 }, stage, 1)).toBe(0.5)
     expect(fitScale({ width: 420, height: 0 }, stage, 1)).toBe(0.5)
   })
@@ -48,7 +46,6 @@ describe('page arithmetic', () => {
     expect(nextZoom(1, -1)).toBe(0.75)
     expect(nextZoom(MIN_ZOOM, -1)).toBe(MIN_ZOOM)
     expect(nextZoom(MAX_ZOOM, 1)).toBe(MAX_ZOOM)
-    // Deep enough for an A1 sheet's 2.5 mm lettering on a phone: ~0.43 px/mm at the fit.
     expect(MAX_ZOOM).toBe(16)
     expect(2.5 * 0.43 * MAX_ZOOM).toBeGreaterThanOrEqual(16)
   })

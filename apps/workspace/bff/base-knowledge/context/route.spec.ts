@@ -61,7 +61,6 @@ describe('the route and the day a role holds from', () => {
       role: 'binding',
       via: 'relation',
       route: { designation: 'TO-N', editionLabel: 'TO-N 2022', provision: '§ 1 TO-N' },
-      // The later of the edition's entry into force (2021-05-01) and the relation's (2022-06-15).
       roleSince: '2022-06-15',
     })
   })

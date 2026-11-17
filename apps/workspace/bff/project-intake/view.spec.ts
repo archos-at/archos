@@ -1,13 +1,3 @@
-/**
- * The review's shape (ADR-0111), from the real intake definition: every value
- * under a key a question writes, in that question's module and with its
- * label and display; a value with alternatives listed again as a
- * contradiction; the derived class shown once, in the derivations, not again
- * in its module (but among the contradictions when contested); the questions
- * are the decisive needs nothing filled; and a key no question writes is not
- * shown.
- */
-
 import { describe, expect, it } from 'vitest'
 import { projectIntakeDefinitionV1 } from '@/lib/project-profile/intake-definition'
 import type { ProjectProfile } from '@/lib/project-profile/types'
@@ -120,7 +110,6 @@ describe('buildIntakeView', () => {
     const result = view()
     expect(result.groups.flatMap((group) => group.items).map((item) => item.key)).not.toContain('building_class@bldg1')
     expect(result.derivations.map((derivation) => derivation.buildingId)).toEqual(['bldg1'])
-    // …and carried there, so the review has a row to confirm it through.
     expect(result.derivations[0]?.suggestion).toMatchObject({ key: 'building_class@bldg1', state: 'suggested' })
   })
 
@@ -184,7 +173,6 @@ describe('buildIntakeView', () => {
     expect(derivation.missing.length).toBeGreaterThan(0)
   })
 
-  // Step 5, Steckbrief: the law at the site is the records' (`projectLawFor`), passed through, never derived here.
   it('carries the law the service read, and derives no list of its own (ADR-0175)', () => {
     expect(buildIntakeView(input())).not.toHaveProperty('applicableLaw')
     expect(buildIntakeView(input())).not.toHaveProperty('applicableStandards')

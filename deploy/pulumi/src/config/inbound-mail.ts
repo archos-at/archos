@@ -91,6 +91,16 @@ export interface InboundMailConfig {
    */
   operatorAddress: string;
   /**
+   * `inboundMailOperatorAddressShared`: the address is already a destination
+   * address of the account, owned elsewhere (another stack's, or added by hand),
+   * so this stack points its forwards at it and never creates it. The preview
+   * then refuses an address the account does not hold verified, instead of an
+   * apply that fails half-way at the forwards (Cloudflare error 2054).
+   * Default false: this stack creates the address and someone clicks its
+   * verification mail once (`platform/inbound-mail-operator.ts`).
+   */
+  operatorAddressShared: boolean;
+  /**
    * The `_dmarc.<zone apex>` TXT record (`inboundMailDmarc`), published by the
    * mail block, or undefined: no record from here. Never together with the DNS
    * block's `dnsDmarc` on the same zone, because two DMARC records make every
@@ -300,6 +310,7 @@ export function inboundMailConfig(cfg: pulumi.Config, context: InboundMailZoneCo
     signingKey: pulumi.secret(""),
     apiToken: context.cloudflareApiToken ?? pulumi.secret(""),
     operatorAddress: (cfg.get("inboundMailOperatorAddress") ?? "").trim().toLowerCase(),
+    operatorAddressShared: bool(cfg, "inboundMailOperatorAddressShared", false),
     dmarc,
   };
   if (!configured) {

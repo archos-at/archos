@@ -74,7 +74,6 @@ describe('ZdrPolicySection', () => {
     section({ zdrApplicable: false, provider: 'openai', coverage: null })
     expect(screen.getByRole('switch')).toBeDisabled()
     expect(screen.getByRole('switch')).not.toBeChecked()
-    // The provider's display name, never its raw id ("openai").
     expect(screen.getByText(/contract with OpenAI\b/)).toBeInTheDocument()
     expect(screen.queryByText(/\bopenai\b/)).not.toBeInTheDocument()
     expect(screen.queryByTestId('zdr-off-banner')).not.toBeInTheDocument()

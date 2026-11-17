@@ -1,13 +1,3 @@
-/**
- * The revision timeline.
- *
- * The assertions are about the two ways a timeline lies: printing a zero delta
- * for a revision that has no comparable figures, and offering a comparison
- * against a revision that is not actually the predecessor.
- *
- * Rendered in English — the default test locale.
- */
-
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -126,9 +116,7 @@ describe('IfcRevisionTimeline', () => {
       />
     )
     expect(screen.getByText('+20')).toBeInTheDocument()
-    // Two rooms disappeared between v1 and v2 — the sign is the whole point.
     expect(screen.getByText('-2')).toBeInTheDocument()
-    // Measured and unchanged is not the same as unknown.
     expect(screen.getAllByText('±0').length).toBeGreaterThan(0)
   })
 
@@ -159,7 +147,6 @@ describe('IfcRevisionTimeline', () => {
         onCompareWithPrevious={onCompareWithPrevious}
       />
     )
-    // The v2 row must diff against v1, even though v3 is the one on screen.
     await userEvent.click(screen.getByRole('button', { name: 'Compare with Haus-A.ifc' }))
     expect(onCompareWithPrevious).toHaveBeenCalledTimes(1)
     const [revision, previous] = onCompareWithPrevious.mock.calls[0]

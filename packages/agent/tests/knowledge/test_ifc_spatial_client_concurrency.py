@@ -1,30 +1,3 @@
-"""What happens when two turns reach the spatial engine at the same moment.
-
-``ifc_measure`` runs its blocking work through ``asyncio.to_thread``, so every
-module global in :mod:`agent.knowledge.ifc_spatial_client` is touched by
-real worker threads. Two of them were touched without the lock the module
-already owns, and both were reproduced before they were fixed:
-
-  - ``_engine`` tested ``_TOOLS is None`` outside ``_LOCK`` and built the cache
-    and the tool table outside it too. Four threads arriving together on a cold
-    process built FOUR tool tables; three callers walked away holding one that
-    was not the module's, so every model they opened was invisible to the next
-    operator call;
-  - ``open_model`` released the lock between deciding to rebuild the table and
-    registering the handle that rebuild produced. A parse that took seconds
-    while three other turns landed registered its handle into a table that had
-    never seen its model.
-
-The second one is the expensive one, because of how it FAILS. The handle is
-listed as open and the operator raises ``SpatialToolError``, which
-``measure_register`` renders as an argument mistake — so the agent is told the
-architect's GlobalId is wrong, about a building it opened correctly, and it
-never happens twice in a row.
-
-Nothing here needs a network: the models are the repository's own fixtures and
-the source identity is seeded straight into the spill table.
-"""
-
 from __future__ import annotations
 
 import os
@@ -37,14 +10,7 @@ from typing import Any
 
 import pytest
 
-# Anchored on this file, not on the working directory. `Path(...).resolve()`
-# on a relative path resolves against the CWD, so running pytest from anywhere
-# but the repo root made every model below point at nothing — and because the
-# suite reaches these paths through a `skip`, that did not fail, it silently
-# stopped testing the race it exists for. A test that disappears when you run
-# it from a different directory is worse than one that is missing.
 FIXTURES = Path(__file__).resolve().parents[4] / "packages" / "ifc-spatial-py" / "tests" / "fixtures"
-#: Four different buildings, because the failure is about a table sized for two.
 MODELS = {
     "a": FIXTURES / "Ifc4_SampleHouse.ifc",
     "b": FIXTURES / "floor-slab-and-window.ifc",
@@ -68,12 +34,6 @@ def engine():
 
 
 def _seed(client: Any) -> None:
-    """Give every identity a spill file that already exists.
-
-    The download is not what this file is about, and routing four models through
-    a test HTTP server would only add a second failure mode to a test whose
-    subject is a lock.
-    """
     client._engine()
     for key, path in MODELS.items():
         client._PATH_BY_SOURCE[f"etag:{key}"] = str(path)
@@ -84,12 +44,6 @@ def _source(key: str) -> dict[str, Any]:
 
 
 def test_a_cold_process_builds_one_engine_no_matter_how_many_turns_arrive(engine, monkeypatch) -> None:
-    """The docstring on ``_engine`` claimed a lock the code did not take.
-
-    Reproduced with four threads and a ``create_tools`` slowed to 150 ms: four
-    tables, and three of the four callers holding one the module had already
-    replaced.
-    """
     import ifc_spatial.tools as tools_module
 
     real = tools_module.create_tools
@@ -111,25 +65,12 @@ def test_a_cold_process_builds_one_engine_no_matter_how_many_turns_arrive(engine
         thread.join(30)
 
     assert len(built) == 1
-    # Every caller holds the table and the cache the module holds — a caller
-    # holding its own is a caller whose models nothing else can see.
     assert all(tools is engine._TOOLS for _, tools in got)
     assert all(cache is engine._CACHE for cache, _ in got)
     assert len({id(tools) for _, tools in got}) == 1
 
 
 def test_a_table_rebuild_cannot_land_between_a_parse_and_its_registration(engine, monkeypatch) -> None:
-    """The reproduction, staged so it is not a race the test can lose.
-
-    One turn's parse is held open while three others run. Without the open lock
-    the third of those rebuilds the table and clears ``_OPEN_HANDLES``, the held
-    turn then registers its handle into the cleared list, and the handle is
-    listed as open while resolving in nothing.
-
-    The assertion is the invariant, not the sequence: **a handle listed in
-    ``_OPEN_HANDLES`` resolves.** Being evicted later is fine and expected —
-    ``MAX_RESIDENT_MODELS`` is 2 — but then it is not listed.
-    """
     import ifc_spatial.tools as tools_module
 
     _seed(engine)
@@ -144,8 +85,6 @@ def test_a_table_rebuild_cannot_land_between_a_parse_and_its_registration(engine
     def instrumented(tools: Any, name: str, args: dict[str, Any]) -> Any:
         result = real_call(tools, name, args)
         if name == "open_model" and threading.current_thread().name == "langsam":
-            # A 150 MB model is genuinely seconds of C++ inside this call. The
-            # event only makes that duration deterministic.
             parsed.set()
             release.wait(20)
         return result
@@ -174,7 +113,6 @@ def test_a_table_rebuild_cannot_land_between_a_parse_and_its_registration(engine
     ]
     for thread in threads:
         thread.start()
-    # Long enough for the other turns to have rebuilt the table, if they can.
     time.sleep(1.5)
     release.set()
     for thread in threads:
@@ -193,12 +131,6 @@ def test_a_table_rebuild_cannot_land_between_a_parse_and_its_registration(engine
 
 
 def test_the_second_question_about_one_building_does_not_queue_behind_another_parse(engine, monkeypatch) -> None:
-    """The open lock must not be paid by the case that made the cache worth having.
-
-    A conversation asks ten questions about one building. If the already-open
-    check moved inside the open lock, every one of them would wait out whatever
-    parse happened to be running — seconds, to answer from a dictionary.
-    """
     import ifc_spatial.tools as tools_module
 
     _seed(engine)
@@ -249,7 +181,6 @@ print(bool(engine.open_model(source("building"))))
 
 @pytest.mark.usefixtures("engine")
 def test_a_length_unit_that_never_ends_leaves_the_open_lock_free(tmp_path) -> None:
-    """In a child, because a regression spins holding `_OPEN_LOCK` and no wait ends that spin."""
     looped = tmp_path / "looped.ifc"
     foot = "IFCRATIOMEASURE(0.3048),#8)"
     assert foot in MODELS["d"].read_text()
@@ -272,23 +203,6 @@ def test_a_length_unit_that_never_ends_leaves_the_open_lock_free(tmp_path) -> No
 
 
 class TestTheDownloaderCannotSpeakAnythingButHttp:
-    """`file:///etc/passwd` must not be a URL this process can fetch.
-
-    `_download` string-tests the scheme, and that guard is real but weak in one
-    specific way: it protects the single call site it sits in front of, and a
-    reader has to re-derive it at every later call. The opener removes the
-    CAPABILITY instead — `urllib`'s default carries a `FileHandler`, and one
-    built without it raises „unknown url type" whatever anyone passes, on the
-    first request and on every redirect hop, since the hops go through the same
-    opener.
-
-    Pinned because the first attempt at this used `urllib.request.build_opener`,
-    which starts from the DEFAULT handler set and merely adds to it — so
-    `build_opener(HTTPHandler, HTTPSHandler)` still read the file and returned
-    its bytes. A bare `OpenerDirector` is what makes the difference, and nothing
-    about the two spellings looks different at a glance.
-    """
-
     @staticmethod
     def _client():
         pytest.importorskip("ifc_spatial.tools", reason="the spatial engine is not installed")
@@ -309,8 +223,6 @@ class TestTheDownloaderCannotSpeakAnythingButHttp:
         assert "unknown url type" in str(raised.value)
 
     def test_the_default_opener_would_have_read_it(self, tmp_path) -> None:
-        """The control. Without this the test above could pass because the file
-        was missing rather than because the handler was."""
         import urllib.request
 
         secret = tmp_path / "secret.txt"
@@ -318,8 +230,6 @@ class TestTheDownloaderCannotSpeakAnythingButHttp:
         assert urllib.request.urlopen(f"file://{secret}").read() == b"SECRET-INTERNAL-CONTENT"  # noqa: S310
 
     def test_the_string_guard_still_answers_first(self, tmp_path) -> None:
-        """Belt and braces: the caller-facing refusal is the German one about an
-        unusable source, not a `URLError` leaking out of the transport."""
         from agent.knowledge.bim_query import BimQueryUnavailableError
 
         secret = tmp_path / "secret.txt"

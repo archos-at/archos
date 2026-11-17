@@ -1,5 +1,3 @@
-"""The turn's document inventory: aggregation, the ingest wait, the scope."""
-
 from __future__ import annotations
 
 import asyncio
@@ -26,8 +24,6 @@ def _scoped(names):
 
 
 class _Doc:
-    """Minimal stand-in for a document summary."""
-
     def __init__(self, file_name, collection=None, shelf=None):
         self.file_name = file_name
         self.collection = collection
@@ -44,7 +40,6 @@ class _Doc:
 
 
 def _sequential_reference(collections, per_collection):
-    """Oracle: stamp collection, keep ``(collection, file_name)`` (ADR-0047)."""
     aggregated = []
     seen = set()
     for coll in collections:
@@ -62,18 +57,11 @@ def _sequential_reference(collections, per_collection):
 
 
 class TestAggregateDocumentsAcrossCollections:
-    """The concurrent per-collection loader must return the same merged/deduped
-    data as the old sequential loop, plus a stable file_name sort and a top-N
-    cap for prompt-cost control — with the same per-collection fail-open."""
-
     def _run(self, collections, per_collection):
-        """Drive the concurrent helper against a mock async fetch_one."""
         call_order = []
 
         async def fetch_one(coll):
             call_order.append(coll)
-            # Yield control so collections genuinely interleave (proves the
-            # merge does not depend on completion order).
             await asyncio.sleep(0)
             docs = per_collection.get(coll)
             if docs is None:
@@ -115,7 +103,6 @@ class TestAggregateDocumentsAcrossCollections:
         assert [d.file_name for d in result] == ["x.pdf", "y.pdf"]
 
     def test_one_collection_failing_still_merges_the_rest(self):
-        # Fail-open per collection: the raising one yields empty, not a wipeout.
         collections = ["base", "session"]
         per_collection = {
             "base": [_Doc("a.pdf")],
@@ -151,8 +138,6 @@ class TestAggregateDocumentsAcrossCollections:
         assert sorted(call_order) == ["base", "extra", "session"]
 
     def test_merge_is_order_deterministic_regardless_of_completion(self):
-        # session resolves before base (base sleeps longer), but the merged
-        # order must still follow the input order, not the completion order.
         async def fetch_one(coll):
             if coll == "base":
                 await asyncio.sleep(0.02)
@@ -164,8 +149,6 @@ class TestAggregateDocumentsAcrossCollections:
         assert [d.file_name for d in result] == ["base.pdf", "session.pdf"]
 
     def test_result_is_sorted_by_file_name(self):
-        # DB rows have no ordering column; the helper sorts so the capped slice
-        # (and prompt prefix) is stable across turns.
         async def fetch_one(coll):
             return [_Doc("m.pdf"), _Doc("a.pdf"), _Doc("z.pdf")]
 
@@ -196,7 +179,6 @@ class TestAggregateDocumentsAcrossCollections:
             return [_Doc(f"{c}.pdf") for c in "edcba"]
 
         result = asyncio.run(aggregate_documents_across_collections(_scoped(["base"]), fetch_one, max_documents=2))
-        # Sorted then capped -> the two lowest file_names.
         assert [d.file_name for d in result] == ["a.pdf", "b.pdf"]
 
     def test_cap_of_zero_disables_truncation(self):
@@ -208,8 +190,6 @@ class TestAggregateDocumentsAcrossCollections:
 
 
 class TestAwaitIngestSettling:
-    """The turn holds for an attachment still being indexed, bounded."""
-
     async def _run(self, reads, timeout=5.0):
         reads = list(reads)
         calls = {"polls": 0, "sleeps": []}
@@ -233,7 +213,6 @@ class TestAwaitIngestSettling:
         assert calls["polls"] == 2
 
     async def test_returns_the_remaining_files_when_the_deadline_hits(self):
-        # A read that never clears: the loop must end on the clock, not spin.
         stuck = {"s_1": ["plan.pdf"]}
         settled, calls = await self._run([stuck] * 50, timeout=0.0001)
 
@@ -259,8 +238,6 @@ def test_session_collection_name_is_idempotent():
 
 
 class TestScope:
-    """Which collections a turn reads when the request states none."""
-
     def test_the_fallback_builds_base_and_session_with_their_shelves(self, monkeypatch):
         monkeypatch.setenv("COLLECTION_NAME", "oib_knowledge")
         assert fallback_scope("conv-1") == [
@@ -288,8 +265,6 @@ class TestScope:
 
 
 class TestLoadInventory:
-    """The documents and the in-flight files, read together; the wait only after."""
-
     SCOPE = [ScopedCollection("s_1", Shelf.SESSION)]
 
     async def test_reads_documents_and_in_flight_in_one_gather(self):
@@ -322,7 +297,6 @@ class TestLoadInventory:
         assert inventory == Inventory(None, ["plan.pdf", "schnitt.pdf"], pending={"s_1": ["plan.pdf", "schnitt.pdf"]})
 
     async def test_a_colleagues_upload_is_named_but_does_not_hold_the_turn(self):
-        """In an office of fifty a project file is nearly always being read; it must not delay every answer."""
 
         async def fetch_one(_collection):
             return []
@@ -362,13 +336,10 @@ class TestHeldUploads:
 
 
 class TestTheWaitIsAnnouncedFirst:
-    """``_run`` yields :func:`pending_uploads`, then awaits :func:`wait_for_uploads`."""
-
     SCOPE = [ScopedCollection("s_1", Shelf.SESSION)]
     PENDING = Inventory(None, ["plan.pdf"], pending={"s_1": ["plan.pdf"]})
 
     def test_the_waiting_step_counts_the_pending_files(self, emitted):
-        # RETURNED for `_run` to yield: the setup phase runs outside any graph.
         assert pending_uploads(self.PENDING) == StatusStep(
             id="status:documents:waiting",
             slot="documents:waiting",
@@ -431,8 +402,6 @@ class TestTheWaitIsAnnouncedFirst:
 
 
 class TestTheFamiliesLeaveTheGather:
-    """The families are set inside two gathers; a ContextVar set there dies with the task."""
-
     async def test_the_inventory_carries_the_base_families_out(self):
         from agent.knowledge.inventory import get_norm_families
         from agent.knowledge.inventory import set_norm_families
@@ -443,7 +412,6 @@ class TestTheFamiliesLeaveTheGather:
             return [_Doc("oib-rl_2_ausgabe_mai_2023.pdf"), _Doc("oib-rl_2.1_ausgabe_mai_2023.pdf")]
 
         set_norm_families(())
-        # As the turn runs it: one member of the setup gather.
         (inventory,) = await asyncio.gather(load_inventory(scope, fetch_one=fetch_one, read_in_flight=lambda _n: {}))
 
         assert get_norm_families() == ()  # the var the read set did not survive the gather...
@@ -467,13 +435,6 @@ class TestTheFamiliesLeaveTheGather:
 
 
 class TestTheToolsSeeEveryRow:
-    """The prompt cap bounds what the model READS, never what a tool can RESOLVE.
-
-    A project's 51st file used to be „und N weitere" in the prompt AND unknown
-    to every tool that resolves a name against the turn's rows, so renaming or
-    moving it was refused on exactly the projects with the most files.
-    """
-
     SCOPE = [ScopedCollection("proj_1", Shelf.PROJECT)]
 
     async def test_the_inventory_carries_every_row_past_the_cap(self, monkeypatch):

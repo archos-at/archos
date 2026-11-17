@@ -72,8 +72,6 @@ export function FilePreviewFooter({ controller }: { controller: FilePreviewContr
             popoutHref={popoutHref}
             initialTool={reviewTool ?? undefined}
             onPage={onReviewPage}
-            // The Protokoll filed as a document: a project's file, in its own folder. Who may file there
-            // (write in that folder) the review knows, and decides (`canAnnotate`).
             protocolFiling={
               projectId && scope !== 'officeShelf' && !closedProjectName ? { projectId, folderId: file.folderId } : null
             }

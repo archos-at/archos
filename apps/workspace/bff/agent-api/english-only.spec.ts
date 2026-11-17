@@ -2,28 +2,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Everything an agent reads from Piloti's MCP server is English, one word per
- * concept (AGENTS.md, "Industry standard first"; the words are in
- * `docs/glossary.md`, "Agent surface and standard terms"). German is for people,
- * through i18n, and for domain data.
- *
- * Collected here, and failed on any German word (`test-utils/german-words.ts`:
- * an umlaut or ß, a stem of `ci/german_stems.json`, or a word of its prose list):
- *
- *  - what `tools/list` and `initialize` hand a client, in both modes: every
- *    operation's name, title, description and input JSON Schema (descriptions
- *    and enum values of the routes' own wire schemas included), the meta-tools,
- *    the backend operations, and the server instructions;
- *  - the OpenAPI document of the catalog;
- *  - every string literal in the agent surface's own source (`lib/agent-api/**`,
- *    `app/api/mcp/**`): the refusals, the result texts, the proposal summaries.
- *
- * Domain data is allowed only through {@link DOMAIN_DATA}, each entry with the
- * reason it is data and not a word the agent is taught. Its Python half, for
- * what Piloti's workspace client tells the model, is
- * `packages/agent/tests/tools/workspace/test_english_only.py`.
- */
 
 import { webcrypto } from 'node:crypto'
 import { readdirSync, readFileSync } from 'node:fs'
@@ -44,17 +22,11 @@ import { READ_REFUSALS } from './conversation-audience'
 const SRC = join(dirname(fileURLToPath(import.meta.url)), '../..')
 const SURFACE_DIRS = ['bff/agent-api', 'app/api/mcp']
 
-/**
- * Text an agent may read that is German because it is domain data: a proper
- * noun, a legal citation, a document's name. Each entry is removed before the
- * check, so keep it as narrow as the data it names.
- */
 const DOMAIN_DATA: readonly { text: string; reason: string }[] = [
   { text: 'OIB-Richtlinie', reason: 'the published title of the OIB guidelines, a legal citation' },
   { text: 'ÖNORM', reason: 'the prefix of an Austrian standard’s designation (ÖNORM B 1600), a citation' },
 ]
 
-/** One piece of text an agent reads, and where it was found. */
 interface Found {
   where: string
   text: string
@@ -77,12 +49,9 @@ function germanIn(found: readonly Found[]): string[] {
   })
 }
 
-// --- what a client is handed -------------------------------------------------
-
 const principal: AgentPrincipal = {
   actor: 'external_agent',
   clientId: 'c',
-  // Every operation, sensitive ones included, as an organization that switched both classes on would see them.
   scopes: ['piloti:sensitive'],
   sensitiveOptIns: ['access', 'secret'],
   session: {
@@ -99,7 +68,6 @@ const principal: AgentPrincipal = {
 }
 
 beforeAll(() => {
-  // The shared setup file swaps `crypto` for a stub with no randomUUID.
   Object.defineProperty(globalThis, 'crypto', { value: webcrypto, configurable: true })
 })
 
@@ -127,8 +95,6 @@ const INITIALIZE = {
   clientInfo: { name: 'english-only.spec', version: '1' },
 }
 
-// --- the surface's own source ------------------------------------------------
-
 function sourceFiles(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const path = join(dir, entry.name)
@@ -137,7 +103,6 @@ function sourceFiles(dir: string): string[] {
   })
 }
 
-/** Every string literal and template text in `file`; module specifiers are paths, not words. */
 function literalsOf(file: string): Found[] {
   const source = ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true)
   const name = relative(SRC, file)
@@ -177,8 +142,6 @@ describe('everything an agent reads is English', () => {
 
   it('in every tool of tools mode: names, titles, descriptions and input schemas', async () => {
     const listed = (await rpc('tools', 'tools/list', {})) as { tools: { name: string }[] }
-    // Every operation on the office door but the sensitive ones (hidden until WorkOS enforces their scope; the
-    // OpenAPI case reads them, and the withheld and platform ones) and every backend operation is listed.
     const offered = AGENT_OPERATIONS.filter((op) => isExposedTo('external', op.name) && !op.sensitivity).length
     expect(listed.tools.length).toBeGreaterThan(offered)
     expect(germanIn(strings(listed, 'tools', []))).toEqual([])

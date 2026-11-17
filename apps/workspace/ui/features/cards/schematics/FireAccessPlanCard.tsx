@@ -1,17 +1,3 @@
-/**
- * FireAccessPlanCard — OIB 2 / TRVB Feuerwehrzufahrt: a top-down site plan.
- *
- * Same drawing language as SetbackPlanCard: parcel to scale, hachured
- * building footprint, street band anchoring the front. Added fire layer: the
- * access-route strip runs from the street to the Aufstellfläche at its real
- * clear width (edges + width arrow coloured by the route check), the
- * Aufstellfläche sits beside the front facade at its real width × length with
- * its clearance to the facade dimensioned, and a reach arrow measures the
- * walk distance to the farthest necessary entrance, coloured by its status.
- * Durchfahrt height (not drawable in plan) and Gebäudeklasse surface in the
- * legend. Unknown values read "fehlende Angabe", never a guessed number.
- */
-
 import { type FC } from 'react'
 import { Flame } from 'lucide-react'
 import {
@@ -47,7 +33,6 @@ interface FireAccessPlanCardProps {
   note?: string | null
 }
 
-/** Neutral drawing geometry when a value is unknown (labels stay "missing"). */
 const FALLBACK_ROUTE_W_M = 3
 const FALLBACK_STAGING_AREA_W_M = 5
 const FALLBACK_STAGING_AREA_L_M = 10
@@ -74,7 +59,6 @@ export const FireAccessPlanCard: FC<FireAccessPlanCardProps> = ({
   const PW = parcelW * k
   const PD = parcelD * k
 
-  // Building toward the back-right, leaving the front-left free for the route.
   const bxM = Math.max((parcelW - buildingW) * 0.62, 0)
   const byM = Math.max((parcelD - buildingD) * 0.22, 0)
   const bx = px + bxM * k
@@ -83,14 +67,12 @@ export const FireAccessPlanCard: FC<FireAccessPlanCardProps> = ({
   const BD = buildingD * k
   const facadeY = by + BD // front facade (street side)
 
-  // Access route: a strip at its real clear width, street → Aufstellfläche.
   const routeWm = route_width.value ?? FALLBACK_ROUTE_W_M
   const routeXm = Math.max(Math.min(bxM * 0.3, parcelW - routeWm), 0.4)
   const rx = px + routeXm * k
   const RW = Math.min(routeWm * k, PW - (rx - px))
   const routeColor = statusColor(route_width.status)
 
-  // Aufstellfläche beside the front facade, fed by the route.
   const aufW = stagingArea.width.value ?? FALLBACK_STAGING_AREA_W_M // perpendicular to facade
   const aufL = stagingArea.length.value ?? FALLBACK_STAGING_AREA_L_M // along the facade
   const facadeDist = stagingArea.distance_to_facade?.value ?? FALLBACK_FACADE_DIST_M
@@ -107,8 +89,6 @@ export const FireAccessPlanCard: FC<FireAccessPlanCardProps> = ({
   const routeBottomY = py + PD
   const routeTopY = ay + AW / 2
 
-  // Entrance on the far end of the front facade; reach measured from the
-  // Aufstellfläche's near top corner.
   const doorX = bx + BW * 0.88
   const walkColor = statusColor(walk_distance_to_entrance.status)
 

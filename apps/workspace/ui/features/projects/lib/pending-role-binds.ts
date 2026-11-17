@@ -1,16 +1,3 @@
-/**
- * Role bindings the intake wizard holds until its save, for buildings not saved yet.
- *
- * Modul I (Projektgrundlagen) comes before the save, so during a first intake
- * every building added in the wizard exists only in the browser's draft. The
- * server accepts a binding only for a building the stored profile names
- * (`projectHasBuilding`), and refused "Bauwerk 'bldg2' does not exist": the plan
- * was uploaded and left unbound. Relaxing the server would bring back the
- * binding to nowhere it exists to refuse, so the wizard keeps such a binding
- * here instead, shows it, keeps it in the draft, drops it with its building,
- * and sends it once the save has made the building real.
- */
-
 import { defaultBuildings } from '@/lib/project-profile/intake-building-keys'
 import { answersFromProfile } from '@/lib/project-profile/intake-profile'
 import type { ProjectIntakeDefinition } from '@/lib/project-profile/intake-types'
@@ -19,13 +6,11 @@ import type { ProjectProfile } from '@/lib/project-profile/types'
 
 export interface PendingRoleBind {
   documentId: string
-  /** What the field shows until the binding is made. */
   filename: string
   role: DocumentRole
   scopeInstanceId: string
 }
 
-/** The buildings the server will accept a binding for: the stored profile's, as `projectHasBuilding` reads them. */
 export function persistedBuildingIds(
   profile: ProjectProfile | null | undefined,
   definition: ProjectIntakeDefinition | null
@@ -35,7 +20,6 @@ export function persistedBuildingIds(
   return new Set(buildings.map((building) => building.id))
 }
 
-/** Add a pending binding; a single-holder role keeps only the newest for its slot. */
 export function withPendingBind(
   pending: readonly PendingRoleBind[],
   next: PendingRoleBind
@@ -49,7 +33,6 @@ export function withPendingBind(
   return [...kept, next]
 }
 
-/** Without the pending bindings of a building the wizard removed. */
 export function withoutBuilding(
   pending: readonly PendingRoleBind[],
   buildingId: string
@@ -57,7 +40,6 @@ export function withoutBuilding(
   return pending.filter((bind) => bind.scopeInstanceId !== buildingId)
 }
 
-/** Without one pending binding (the user took it back). */
 export function withoutPendingBind(
   pending: readonly PendingRoleBind[],
   removed: PendingRoleBind
@@ -72,7 +54,6 @@ export function withoutPendingBind(
   )
 }
 
-/** Only the entries a stored draft may carry back: the shape, never trusted blindly. */
 export function pendingBindsFromDraft(raw: unknown): PendingRoleBind[] {
   if (!Array.isArray(raw)) return []
   return raw.filter(
@@ -86,13 +67,6 @@ export function pendingBindsFromDraft(raw: unknown): PendingRoleBind[] {
   )
 }
 
-/**
- * Make the held bindings, now that the save created their buildings.
- *
- * One at a time, in the order they were made, so a single-holder slot ends on
- * the last choice. Returns the ones the server refused (a document deleted in
- * the meantime, a building the save did not keep) for the caller to name.
- */
 export async function sendPendingBinds(
   projectId: string,
   pending: readonly PendingRoleBind[],
@@ -118,15 +92,6 @@ export async function sendPendingBinds(
   return refused
 }
 
-/**
- * The deferred uploads still in flight, so the save can wait for them.
- *
- * An upload for a building the wizard has not saved yet records its binding
- * only when the upload answers. A save started before that sent the bindings
- * it had, cleared the draft and left: the file was uploaded and never bound,
- * and nothing said so. `settled` resolves once every tracked upload has,
- * including ones started while it waits.
- */
 export function createUploadTracker(): {
   track: (work: Promise<unknown>) => void
   settled: () => Promise<void>

@@ -1,11 +1,3 @@
-"""The skills backend (ADR-0135): one run's resolved skills as read-only ``SKILL.md`` files.
-
-What it must hold: the middleware parses what it serves exactly as the skill
-says; nothing writes to it; and what a tenant's run can list or read is that
-tenant's resolved set and nothing else — curated offers only when taken up,
-another organization's rows never.
-"""
-
 from __future__ import annotations
 
 from unittest import mock
@@ -52,7 +44,6 @@ class TestTheDocument:
         assert meta["license"] == "CC-BY-4.0"
 
     def test_every_builtin_round_trips_through_the_middleware(self) -> None:
-        """No builtin skill is dropped or renamed by the middleware's parser."""
         builtins = discover_builtin_skills()
         runtime = SkillRuntime.office(builtins)
         middleware = SkillsMiddleware(backend=runtime.mounted(), sources=["/skills/office/"])
@@ -72,7 +63,6 @@ class TestReadOnly:
         assert backend.edit(path, "Brandschutz", "nichts").error
         assert backend.delete(path).error
         assert backend.upload_files([(path, b"x")])[0].error == "permission_denied"
-        # Nothing changed.
         assert "Load `building-class` first." in backend.read(path).file_data["content"]  # type: ignore[index]
         assert backend.read("/office/new/SKILL.md").error
 
@@ -88,8 +78,6 @@ class TestReadOnly:
 
 
 class TestAMissSaysWhatExists:
-    """A hallucinated path costs no extra round: the error names the paths to read instead."""
-
     def _skill(self, name: str) -> Skill:
         return Skill(name=name, description=f"{name}.", body=f"body {name}")
 
@@ -141,8 +129,6 @@ def _row(name: str, **extra: object) -> dict[str, object]:
 
 
 class TestTenancy:
-    """A run lists and reads its own organization's skills, and only those."""
-
     @pytest.fixture
     def resolver(self, monkeypatch: pytest.MonkeyPatch) -> SkillResolver:
         monkeypatch.setenv("INTERNAL_API_TOKEN", "test-token")
@@ -164,7 +150,6 @@ class TestTenancy:
         assert b.mounted().read("/skills/office/a-only/SKILL.md").error
 
     def test_the_cache_is_keyed_by_organization(self, resolver: SkillResolver) -> None:
-        """A cached payload for one org never answers for another."""
         rows = {"org-a": [_row("a-only")], "org-b": [_row("b-only")]}
         self._runtime_for(resolver, "org-a", rows)
         b = self._runtime_for(resolver, "org-b", rows)
@@ -198,7 +183,6 @@ class TestCuration:
         assert offer.name in {s.name for s in with_offer.skills}
 
     def test_a_hidden_skill_is_listed_and_readable(self) -> None:
-        """``grid-hidden`` keeps the live line quiet; it never hides the skill from the model."""
         runtime = SkillRuntime.office((RICH,))
         assert "fire-safety" in (runtime.catalog_block() or "")
         assert runtime.mounted().read("/skills/office/fire-safety/SKILL.md").error is None

@@ -1,22 +1,7 @@
-/**
- * What one attachment of a held mail is, for the row that shows it: its
- * state, the facts the reader must see before filing it, and whether it is
- * offered checked (DECISION §9, the case table).
- *
- * Whether it is offered checked is the server's (`part.preselected`,
- * `lib/inbound-mail/review-defaults.ts`): a part is offered checked only when
- * filing it needs nothing from the person, and nothing of an impersonation
- * is. This module says why a part is not, as notes the row words, or that it
- * is not offered at all when it cannot be filed (still in the original `.eml`).
- *
- * Pure.
- */
-
 import type { InboundMailPartView, InboundMailView } from '@/lib/inbound-mail/inbound-mail-wire'
 import type { NotStagedReason, PartRiskFlag } from '@/lib/inbound-mail/inbound-mail-vocabulary'
 import { isImageInMail, revisionVouched, senderFactsOfView } from '@/lib/inbound-mail/review-defaults'
 
-/** Where the attachment stands. Only `waiting` can be decided. */
 export type AttachmentStatus =
   | 'waiting'
   | 'filing'
@@ -28,10 +13,8 @@ export type AttachmentStatus =
   | 'scan_infected'
   | 'not_offered'
 
-/** The risk flags filing needs the person's explicit yes for (`acknowledgeRisk`). */
 export type AcknowledgedRisk = Extract<PartRiskFlag, 'macro' | 'type_mismatch' | 'unverified_thread'>
 
-/** One fact about a waiting attachment, worded by the row. */
 export type AttachmentNote =
   | { kind: 'duplicate'; name: string; folderPath: string | null; documentId: string }
   | { kind: 'revision'; name: string; folderPath: string | null; nextVersion: number; documentId: string; verified: boolean }
@@ -46,19 +29,14 @@ export type AttachmentNote =
 export interface AttachmentCase {
   part: InboundMailPartView
   status: AttachmentStatus
-  /** The person may check it: waiting, scanned clean, a type the office files, and the project open. */
   selectable: boolean
-  /** Offered checked: the server's `preselected`. */
   defaultChecked: boolean
   notes: AttachmentNote[]
-  /** The risk filing it would need acknowledged, if any (beyond a chosen earlier Fassung). */
   risk: AcknowledgedRisk | null
-  /** Whether a thumbnail may be drawn: an image or a PDF whose scan was clean (RT-S19). */
   previewable: boolean
 }
 
 const PREVIEW_TYPES = /^(?:image\/(?:png|jpe?g|gif|webp|avif)|application\/pdf)$/i
-/** A thumbnail needs the bytes in the browser; past this it is not worth the download. */
 export const PREVIEW_MAX_BYTES = 20 * 1024 * 1024
 
 function statusOf(part: InboundMailPartView): AttachmentStatus {
@@ -105,7 +83,6 @@ export function attachmentCase(
   if (part.riskFlags.includes('forwarded_inner')) notes.push({ kind: 'forwarded_inner' })
   if (isImageInMail(part)) notes.push({ kind: 'image_in_mail' })
 
-  // A mail only its member may file is no reader's to check (`sender_only`): nothing of it is selectable.
   const selectable = status === 'waiting' && !mail.projectClosed && !mail.onlySenderReleases
   return {
     part,
@@ -118,11 +95,8 @@ export function attachmentCase(
   }
 }
 
-/** The files of the mail that never became parts, grouped as the detail lists them; layout images are only counted. */
 export interface NotStagedSummary {
-  /** Shown one per line with why: they are only in the original. */
   listed: Array<{ filename: string; reason: Exclude<NotStagedReason, 'embedded' | 'signature' | 'empty'> }>
-  /** Signature logos and pasted layout images, counted. */
   layoutImages: number
 }
 

@@ -1,20 +1,9 @@
 // @disk-inputs: app/**, bff/**, purger/**, shared/**, ui/**, utils/**, workers/**
-/**
- * Who may set `documents.status` is a list somebody reads, not something a new
- * writer joins unseen. Costed on 2026-11-11 against one settle function for
- * every writer and found the smaller thing that holds: the guards are of four
- * kinds and do not fit one signature, and a job's outcome already has one way
- * in. So the ways in are counted here, each with the guard its `WHERE` carries,
- * and with why that guard is not the declared lifecycle's list where it is not
- * (`./reading-lifecycle`). Parsed with the TypeScript compiler, like
- * `document-visibility.spec.ts`.
- */
 import { readFileSync, readdirSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import ts from 'typescript-api'
 import { describe, expect, it } from 'vitest'
 
-/** Every function that sets the column, keyed `<path>#<function>`: what it writes, and the guard in its `WHERE`. */
 const STATUS_WRITERS: Record<string, string> = {
   'bff/documents/repository/reconcile.ts#setDocumentReconciledStatus':
     "A job's outcome, mirrored from the backend. Not the lifecycle: a compare-and-set on the status the read saw and the ingest job id, which tells a late report from a true one; a list of states cannot.",
@@ -40,7 +29,6 @@ const STATUS_WRITERS: Record<string, string> = {
     '`processing`, when a placement needs the file read again. Not the lifecycle: a compare-and-set on the collection name; its caller leaves a quarantined row out before it asks.',
 }
 
-/** Every file that names the one function writing a job's outcome. A third caller is a second way in. */
 const MAY_WRITE_A_JOB_OUTCOME: Record<string, string> = {
   'bff/documents/repository/reconcile.ts': 'Defines it.',
   'bff/documents/repository.ts': "The repository's index re-exports it.",
@@ -53,7 +41,6 @@ const MAY_WRITE_A_JOB_OUTCOME: Record<string, string> = {
 const ROOTS = ['app', 'bff', 'ui', 'shared', 'utils', 'workers', 'purger']
 const SOURCE = /\.(tsx?|m?js)$/
 const SPEC = /\.(spec|test)\.[a-z]+$/
-/** Raw SQL that updates the table and names the column before any `WHERE`. */
 const RAW_STATUS_UPDATE = /\bupdate\s+(?:(?:"?public"?\.)?"?documents"?|\$\{documents\})\s(?:(?!\bwhere\b)[^;`])*\bset\b(?:(?!\bwhere\b)[^;`])*\bstatus"?\s*=/i
 
 function sourceFiles(dir: string, found: string[] = []): string[] {
@@ -83,7 +70,6 @@ const isTable = (node: ts.Node | undefined) => !!node && /^(schema\.)?documents$
 const calls = (node: ts.Node, method: string): node is ts.CallExpression =>
   ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression) && node.expression.name.text === method
 
-/** Whether `.set(values)` can name `status`: in the literal, or in a local the literal spreads. Anything else counts. */
 function setsStatus(values: ts.Node, tree: ts.SourceFile): boolean {
   if (!ts.isObjectLiteralExpression(values)) return true
   const locals = new Set<string>()

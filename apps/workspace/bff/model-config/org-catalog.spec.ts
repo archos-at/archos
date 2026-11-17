@@ -36,18 +36,6 @@ const zdrIndex = (...ids: string[]): Map<string, ZdrEndpoint[]> =>
 
 const fetchSpy = vi.spyOn(globalThis, 'fetch')
 
-/**
- * The URL and Authorization header of the first `fetch`, under either calling
- * convention.
- *
- * The code under test calls `fetch(url, init)`, but MSW's interceptor — started
- * by the shared vitest setup — sits OUTSIDE this spy and normalises its
- * arguments into a single `Request` before passing them through. Asserting on
- * the raw first argument therefore read `[object Request]` and the init was
- * `undefined`. Reading the request either way keeps the assertion about what it
- * is actually about (which endpoint, with whose key) instead of about how many
- * arguments an interceptor happened to forward.
- */
 function firstFetchCall(): { url: string; authorization: string | null } {
   const [first, init] = fetchSpy.mock.calls[0] as [RequestInfo | URL, RequestInit | undefined]
   if (first instanceof Request) {
@@ -115,8 +103,6 @@ describe('getCatalogForOrg', () => {
     const catalog = await getCatalogForOrg('org_1', { zdrOnly: true })
     expect(catalog).toMatchObject({ zdrOnly: true, zdrApplicable: true })
     expect(catalog.zdr).toBe(zdr)
-    // Unfiltered on purpose: validation must be able to say `not_zdr` rather
-    // than "not in the catalog"; the picker filters with `zdr`.
     expect(catalog.models.map((m) => m.id)).toEqual(['vendor/capable'])
   })
 
@@ -135,8 +121,6 @@ describe('getCatalogForOrg', () => {
 
   it('does not apply ZDR to a provider-native BYOK listing (reports zdrOnly:false, zdrApplicable:false)', async () => {
     vi.mocked(resolveActiveCredentialForBackend).mockResolvedValue({
-      // Distinct org+cred so the per-(org,cred) BYOK listing cache from the
-      // other tests does not satisfy this fetch.
       id: 'cred-zdr',
       provider: 'openai',
       baseUrl: 'https://api.openai.com/v1',

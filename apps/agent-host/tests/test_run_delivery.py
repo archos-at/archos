@@ -1,15 +1,3 @@
-"""A finished run's writes to the BFF heal on their own, or can be rebuilt.
-
-Two halves of one fix (backlog T3-11):
-
-1. The run's own writes — the report into its message, the thread turn — are
-   retried briefly, so a BFF restart at the moment a run ends costs nothing.
-2. What the retry cannot heal the BFF's run reconciler rebuilds from the job
-   store, through ``GET /v1/internal/jobs/{id}/outcome``. That route must hand
-   back the SAME message the runner would have written, and nothing about a job
-   of another organization.
-"""
-
 from __future__ import annotations
 
 import json
@@ -31,8 +19,6 @@ USAGE = {"identity": {"organization_id": "org_1", "user_id": "u1"}}
 
 
 class _Sequence:
-    """``httpx.AsyncClient`` stand-in: each POST gets the next answer; an exception is raised."""
-
     answers: list = []
     calls: list[dict] = []
 
@@ -73,7 +59,6 @@ class TestTheRunReportIsRetried:
 
     @pytest.mark.asyncio
     async def test_without_a_run_the_404_is_the_answer_at_once(self) -> None:
-        """An interactive job has no run message; the caller falls back without waiting."""
         _Sequence.answers = [404]
         with mock.patch("agent_host.internal_api.httpx.AsyncClient", _Sequence):
             assert await post_internal_run_report(job_id="job-1", text="# Bericht") is None
@@ -124,7 +109,6 @@ class TestTheThreadTurnIsRetried:
         [("FRONTEND_INTERNAL_URL", "org_1"), ("INTERNAL_API_TOKEN", "org_1"), (None, None)],
     )
     async def test_an_unconfigured_write_is_not_attempted(self, monkeypatch, missing, organization_id) -> None:
-        """No base URL, no service token, or no organization to scope by: no doomed POST, and no raise."""
         if missing:
             monkeypatch.delenv(missing)
         with mock.patch("agent_host.internal_api.httpx.AsyncClient", _Sequence):
@@ -168,8 +152,6 @@ class TestTheWritersPassOnWhetherARunIsExpected:
 
 
 class TestTheRunMessageRebuiltFromTheJobStore:
-    """What the reconciler writes must be what the runner would have written."""
-
     @pytest.mark.asyncio
     async def test_a_success_rebuilds_the_same_content_and_metadata_the_runner_posts(self) -> None:
         output = {

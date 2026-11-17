@@ -17,6 +17,13 @@ repos:
       - id: check-merge-conflict
       - id: check-added-large-files
         args: [--maxkb=1024]
+        # A carried knowledge release (ADR-0181) is the reviewed bundle byte for byte, its source captures'
+        # text included; the manifest pins its sha256, so it cannot be split or trimmed. 2 MiB bounds it.
+        exclude: ^apps/workspace/config/knowledge-releases/[a-z]{2}-\d+\.json\.gz$
+      - id: check-added-large-files
+        name: check for added large files (carried knowledge releases, 2 MiB)
+        args: [--maxkb=2048]
+        files: ^apps/workspace/config/knowledge-releases/[a-z]{2}-\d+\.json\.gz$
       - id: check-yaml
       - id: end-of-file-fixer
       - id: trailing-whitespace
@@ -145,15 +152,17 @@ repos:
         types: [text]
 
       - id: doc-paths
-        name: the concept index points at files that exist
-        # docs/architecture/where-is-what.md is only worth reading while its
-        # paths resolve, and they sit in code spans, so markdown-link-check
-        # never looks at them. A rename turns a row into the grep the index
-        # exists to remove, with nothing local objecting.
+        name: paths in the concept index, the AGENTS.md guides and the docs exist
+        # Paths in code spans are invisible to markdown-link-check, so a rename
+        # leaves a guide pointing at nothing. The concept index and every
+        # AGENTS.md are held to zero dead paths; docs/architecture and
+        # docs/contributing to ci/doc_paths_baseline.json, which only shrinks.
+        # Always run: a rename in code is what kills a doc path, so the commit
+        # that renames is the one to fail. It reads `git ls-files`, under a second.
         entry: python3 scripts/check_doc_paths.py
         language: system
         pass_filenames: false
-        files: ^docs/architecture/where-is-what\.md$|^scripts/check_doc_paths\.py$
+        always_run: true
 
       - id: english-names
         name: no Python file gains a German identifier
@@ -190,6 +199,16 @@ repos:
         # file passes no filename, and its stale entry would fail the next
         # person's commit instead. The check takes about three seconds.
         always_run: true
+
+      - id: comments
+        name: no source file gains a comment line past its baseline (three are free)
+        # A comment goes stale, binds nothing, and gives an agent room to justify
+        # a workaround the next agent copies: code-conventions.md#comments.
+        # The staged files only, so a commit pays milliseconds, not the 25 s a
+        # full scan takes; CI's --all-files run passes every file.
+        entry: .venv/bin/python scripts/check_comments.py
+        language: system
+        types_or: [python, ts, tsx, javascript, jsx]
 
       - id: nesting
         name: no Python source function gains a third level of nesting

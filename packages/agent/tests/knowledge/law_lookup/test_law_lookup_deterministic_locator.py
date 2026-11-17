@@ -1,13 +1,3 @@
-"""A named provision costs no model call at all.
-
-"What does § 63 Building Code require?" is an ADDRESS, resolved by reading,
-not by inference: the catalog knows where the code is (no search planner), the
-grammar knows which provision § 63 is (no picker). If a test here ever needs a
-picker answer to pass, the lookup started paying a model to find a number it
-was handed. Ported from the RIS tool's suite
-(``test_ris_lookup_deterministic_locator``) onto XA's statute portal.
-"""
-
 from __future__ import annotations
 
 import pytest
@@ -36,7 +26,6 @@ async def test_a_named_provision_makes_no_picker_call():
 
 
 async def test_a_named_provision_makes_no_planner_call_either():
-    """The catalog answers, so no live search is planned and none is run."""
     _output, portal, planner, _picker = await _ask(question=_QUESTION, instrument="Building Code")
 
     assert planner.calls == []
@@ -50,12 +39,10 @@ async def test_the_provision_comes_back_with_its_parts():
     assert "(1) A permit application" in body
     assert "(2) The drawings are signed" in body
     assert "(3) The authority may ask" in body
-    # ...and nothing from the next provision.
     assert "A hearing is held" not in body
 
 
 async def test_only_the_named_provision_comes_back():
-    """One provision asked for, one returned: not the law."""
     output, *_ = await _ask(question="How high may the building be? § 75", instrument="Building Code")
 
     assert output.count("--- Result ") == 1
@@ -64,7 +51,6 @@ async def test_only_the_named_provision_comes_back():
 
 
 async def test_a_pasted_source_url_is_an_address_and_needs_no_search():
-    """No catalog, no live search: the caller already said which document."""
     output, portal, planner, _picker = await _ask(catalog=False, question="What does § 63 say?", instrument=xa.CODE_URL)
 
     assert planner.calls == []
@@ -74,7 +60,6 @@ async def test_a_pasted_source_url_is_an_address_and_needs_no_search():
 
 
 async def test_a_list_of_provisions_comes_back_whole_in_one_call():
-    """ "§§ 63 and 64": both out of the one document already fetched, no model asked."""
     output, _portal, _planner, picker = await _ask(
         question="What do §§ 63 and 64 require?", instrument="§§ 63 and 64 Building Code"
     )
@@ -85,7 +70,6 @@ async def test_a_list_of_provisions_comes_back_whole_in_one_call():
 
 
 async def test_a_part_the_provision_lacks_comes_back_once():
-    """ "§ 63 para 9" of a provision with three parts is § 63, once, never twice under one key."""
     output, *_ = await _ask(question="What does § 63 para 9 require?", instrument="§ 63 para 9 Building Code")
 
     assert output.count("--- Result ") == 1

@@ -1,10 +1,3 @@
-"""The capture facts a camera wrote into a site photo, read from the ORIGINAL file.
-
-Fixtures are real JPEGs with EXIF written by Pillow, so the tests read the same
-tag layout a camera produces. The privacy rules are the contract: a position
-never reaches a model, and the owner's name and body serial never leave the file.
-"""
-
 from __future__ import annotations
 
 import re
@@ -17,7 +10,6 @@ from PIL import ExifTags
 from PIL import Image
 from PIL.TiffImagePlugin import IFDRational
 
-# A site north-east of Vienna: digits that cannot be mistaken for the date below.
 SITE_GPS = ("N", (48, 12, 34), "E", (16, 22, 11))
 SITE_LATITUDE = 48.209444
 SITE_LONGITUDE = 16.369722
@@ -39,7 +31,6 @@ def _write_photo(
     owner: str | None = None,
     serial: str | None = None,
 ) -> str:
-    """A small JPEG carrying exactly the EXIF given; returns its path."""
     exif = Image.Exif()
     capture = exif.get_ifd(ExifTags.IFD.Exif)
     if when is not None:
@@ -89,7 +80,6 @@ class TestCaptureTime:
         assert facts.captured_at == "2026-09-14T10:32:05"
 
     def test_a_nul_terminated_timestamp_is_still_parsed(self, tmp_path):
-        # The TIFF spec counts the terminating NUL in an ASCII value; Pillow returns it.
         facts = read_photo_facts(_photo(tmp_path, when="2026:09:14 10:32:05\x00"))
         assert facts.captured_at == "2026-09-14T10:32:05"
 
@@ -127,7 +117,6 @@ class TestPosition:
         facts = read_photo_facts(_photo(tmp_path, when="2026:09:14 10:32:05", gps=("N", (0, 0, 0), "E", (0, 0, 0))))
         assert facts.latitude is None
         assert facts.longitude is None
-        # The rest of the file is still read: a rejected position is not a rejected photo.
         assert facts.captured_at == "2026-09-14T10:32:05"
 
     def test_a_latitude_beyond_the_poles_is_rejected(self, tmp_path):
@@ -228,7 +217,6 @@ class TestModelContext:
         assert str(facts.longitude) not in context
         assert "48.2094" not in context
         assert "16.3697" not in context
-        # The date has two-digit fractions only; a coordinate has five or more.
         assert re.search(r"\d+\.\d{5,}", context) is None
 
 
@@ -242,7 +230,6 @@ class TestOwnerAndSerialStayInTheFile:
             owner="Max Mustermann",
             serial="SN-998877",
         )
-        # The fixture really carries them, so the assertions below are not vacuous.
         written = Image.open(path).getexif().get_ifd(ExifTags.IFD.Exif)
         assert written[ExifTags.Base.CameraOwnerName] == "Max Mustermann"
         assert written[ExifTags.Base.BodySerialNumber] == "SN-998877"

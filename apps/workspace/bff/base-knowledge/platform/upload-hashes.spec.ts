@@ -16,11 +16,6 @@ const sha = (text: string) => createHash('sha256').update(strToU8(text)).digest(
 const zip = (members: Record<string, string>) =>
   new File([zipSync(Object.fromEntries(Object.entries(members).map(([name, text]) => [name, strToU8(text)])))], 'texts.zip', { type: 'application/zip' })
 
-/**
- * A ZIP that holds `path` twice, with two contents. zipSync takes an object, so it cannot say one path twice: the
- * second member is zipped under a stand-in name of the same length, renamed in the bytes (its local header and its
- * central-directory entry).
- */
 function duplicatedMember(path: string, first: string, second: string) {
   const standIn = `${path.slice(0, -1)}~`
   const bytes = zipSync({ [path]: strToU8(first), [standIn]: strToU8(second) }, { level: 0 })
@@ -31,11 +26,6 @@ function duplicatedMember(path: string, first: string, second: string) {
   return bytes
 }
 
-/**
- * A ZIP of `count` stored members that all point at ONE payload and each declare to unpack to nothing: one local
- * file header, and a central directory that names it `count` times under different names. A reader that copies a
- * stored member by its compressed size allocates `count` times the payload.
- */
 function storedMembersOverOnePayload(count: number, payload: Uint8Array) {
   const first = strToU8('0.pdf')
   const local = new Uint8Array(30 + first.length + payload.length)
@@ -54,7 +44,6 @@ function storedMembersOverOnePayload(count: number, payload: Uint8Array) {
     view.setUint32(0, 0x02014b50, true)
     view.setUint16(4, 20, true)
     view.setUint16(6, 20, true)
-    // Method 0 (stored) at offset 10; the compressed size is the payload's, the declared unpacked size is 0.
     view.setUint32(20, payload.length, true)
     view.setUint32(24, 0, true)
     view.setUint16(28, name.length, true)
@@ -99,11 +88,9 @@ describe('the hashes of a plain corpus upload', () => {
 
   it('decides ZIP or PDF by the first bytes, as the api tier does, and refuses a name that says otherwise', async () => {
     const archive = zipSync({ 'oib-rl-1.pdf': strToU8('other bytes') })
-    // The reported attack: a ZIP sent as one PDF, whatever content type the part claims.
     await expect(uploadedPdfHashes(new File([archive], 'innocent.pdf', { type: 'application/zip' }))).rejects.toMatchObject({ status: 400 })
     await expect(uploadedPdfHashes(new File([archive], 'innocent.pdf', { type: 'application/pdf' }))).rejects.toMatchObject({ status: 400 })
     await expect(uploadedPdfHashes(new File(['%PDF-1.7 one'], 'texts.zip'))).rejects.toMatchObject({ status: 400 })
-    // A content type alone makes nothing a ZIP.
     expect([...(await uploadedPdfHashes(new File(['one'], 'oib-rl-1.pdf', { type: 'application/zip' })))]).toEqual([['oib-rl-1.pdf', sha('one')]])
   })
 
@@ -114,31 +101,25 @@ describe('the hashes of a plain corpus upload', () => {
   it('refuses a ZIP that holds one member path twice: this reader keeps the last copy, the api tier’s the first', async () => {
     const twice = duplicatedMember('F.pdf', 'the copy the api tier would store', 'the copy this tier would hash')
     await expect(uploadedPdfHashes(new File([twice], 'texts.zip'))).rejects.toMatchObject({ status: 400, message: expect.stringContaining('twice') })
-    // Positive control: the same base name in two folders is two paths.
     expect((await uploadedPdfHashes(zip({ 'a/F.pdf': 'one', 'b/F.pdf': 'one' }))).get('F.pdf')).toBe(sha('one'))
   })
 
   it('refuses an upload, or a ZIP whose PDFs would unpack to more than the limit, before anything is inflated', async () => {
-    // 200,000 zeros deflate to a few hundred bytes: the archive is small, what it declares is not.
     const bomb = new File([zipSync({ 'zeros.pdf': new Uint8Array(200_000), 'ok.pdf': strToU8('one') })], 'texts.zip')
     expect(bomb.size).toBeLessThan(2_000)
     await expect(uploadedPdfHashes(bomb, 100_000)).rejects.toMatchObject({ status: 413 })
-    // The sum counts, not only one member; what is no PDF is not unpacked and does not count.
     const many = zipSync({ 'a.pdf': new Uint8Array(60_000), 'b.pdf': new Uint8Array(60_000), 'notes.txt': new Uint8Array(500_000) })
     await expect(uploadedPdfHashes(new File([many], 'texts.zip'), 100_000)).rejects.toMatchObject({ status: 413 })
     await expect(uploadedPdfHashes(new File([new Uint8Array(100_001)], 'big.pdf'), 100_000)).rejects.toMatchObject({ status: 413 })
-    // Positive control: the same archives under a limit that holds them.
     expect([...(await uploadedPdfHashes(bomb, 300_000)).keys()]).toEqual(['zeros.pdf', 'ok.pdf'])
     expect([...(await uploadedPdfHashes(new File([many], 'texts.zip'), 120_000)).keys()]).toEqual(['a.pdf', 'b.pdf'])
   })
 
   it('counts a stored member by the bytes it is copied from, whatever it declares to unpack to', async () => {
-    // 200 entries over one 1,000-byte payload, each declaring 0 bytes: a 13 KB archive that unpacks to 200,000.
     const payload = new Uint8Array(1_000).fill(7)
     const lie = new File([storedMembersOverOnePayload(200, payload)], 'texts.zip')
     expect(lie.size).toBeLessThan(15_000)
     await expect(uploadedPdfHashes(lie, 100_000)).rejects.toMatchObject({ status: 413 })
-    // Positive control: this reader reads the archive, each member as the whole payload.
     const read = await uploadedPdfHashes(lie, 200_000)
     expect(read.size).toBe(200)
     expect(new Set(read.values())).toEqual(new Set([createHash('sha256').update(payload).digest('hex')]))

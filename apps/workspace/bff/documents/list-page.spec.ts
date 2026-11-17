@@ -1,20 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The keyset page behind `GET /api/documents` and `GET /api/office-shelf/documents`.
- *
- * The listing used to be one page of 500, newest first, with nothing saying it
- * had stopped: the oldest plans of a big project were not in it, so search,
- * filters and the folder-upload planner worked on a corpus that was not the
- * project's. These pin the statement that replaced it: every query is still
- * bounded, one probe row answers "is there more", and the next page starts
- * strictly after the last row in `created_at DESC, id ASC` — compared at
- * MICROSECOND precision, which a JS `Date` cannot carry.
- *
- * Same pg-proxy harness as `version-repository.spec.ts`: a real query builder
- * over a callback driver that records the SQL instead of connecting.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { drizzle } from 'drizzle-orm/pg-proxy'
@@ -68,10 +54,8 @@ import type { DocumentLevelQuery } from './list-query'
 import { projectShelf } from './shelf'
 import { REVIEWER_READER } from './document-reader'
 
-/** Every row: these pin the shape of the listing SQL, not the hold (`visibility.integration.spec.ts`). */
 const reader = REVIEWER_READER
 
-/** One row as pg-proxy returns it: the select's values, in column order. */
 function wireRow(n: number, cursorCreatedAt = `2026-01-01T00:00:00.${String(n).padStart(6, '0')}`): unknown[] {
   const id = `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`
   return [
@@ -144,9 +128,7 @@ describe('listProjectDocumentPage', () => {
       createdAt: '2026-01-01T00:00:00.000002',
       id: '00000000-0000-4000-8000-000000000002',
     })
-    // The cursor column is the pager's, not the row's.
     expect(page.rows[0]).not.toHaveProperty('cursorCreatedAt')
-    // Coerced at the boundary: a raw driver answer is text.
     expect(page.rows[0].createdAt).toBeInstanceOf(Date)
   })
 
@@ -220,11 +202,6 @@ describe('findOfficeShelfDocumentsByFilenames', () => {
   })
 })
 
-/**
- * The by-name lookup behind the search join and the citation resolve. It must
- * reach a document on any page of the listing, answer only what the listing
- * would show (this project's shelf, active rows), and stay bounded.
- */
 describe('findProjectDocumentsByFilenames', () => {
   it('asks nothing for no names', async () => {
     expect(await findProjectDocumentsByFilenames('p1', 'org-1', ['', '  '], { reader })).toEqual([])
@@ -240,7 +217,6 @@ describe('findProjectDocumentsByFilenames', () => {
     expect(sql).toMatch(/"documents"\."lifecycle" = \$\d+/)
     expect(sql).toMatch(/"documents"\."filename" in \(\$\d+, \$\d+\)/)
     expect(sql).toMatch(/lower\("documents"\."filename"\) in/)
-    // Not the rename: this resolves the name the index and the model know.
     expect(sql).not.toMatch(/display_name"\) in/)
     const nfc = 'Übersicht.PDF'.normalize('NFC')
     expect(params).toEqual(
@@ -276,12 +252,6 @@ describe('the cursor codec', () => {
   })
 })
 
-/**
- * The upload planner's name probe. It must answer with exactly the rows the
- * upload would version: person-uploaded, ANY lifecycle (the unique index and
- * `findLiveDocumentByFilename` ignore it), by filename in either Unicode form,
- * plus the case-folded filename or rename the planner calls a `duplicate`.
- */
 describe('findProjectDocumentsByNames', () => {
   it('matches identity and alias keys, person-uploaded rows, every lifecycle', async () => {
     const decomposed = 'Übersicht.pdf'.normalize('NFD')
@@ -291,7 +261,6 @@ describe('findProjectDocumentsByNames', () => {
     expect(sql).toMatch(/"documents"\."filename" in \(\$\d+, \$\d+\)/)
     expect(sql).toMatch(/lower\("documents"\."filename"\) in/)
     expect(sql).toMatch(/lower\("documents"\."display_name"\) in/)
-    // Archived documents are versioned by the upload too, so none is filtered.
     expect(sql).not.toMatch(/"lifecycle" =/)
     const nfc = 'Übersicht.pdf'.normalize('NFC')
     expect(params).toEqual(
@@ -307,7 +276,6 @@ describe('findProjectDocumentsByNames', () => {
     const rows = await findProjectDocumentsByNames('p1', 'org-1', names, { reader })
     expect(captured).toHaveLength(2)
     for (const query of captured) expect(query.params.at(-1)).toBe(2000)
-    // The same row answered both chunks; it is one document.
     expect(rows).toHaveLength(1)
   })
 })
@@ -323,12 +291,6 @@ describe('findOfficeShelfDocumentsByNames', () => {
   })
 })
 
-/**
- * A folder LEVEL, page by page (ADR-0102): the Files workspace's read instead
- * of the shelf drain. One level, in the reader's order, with the id as the
- * ascending tiebreak and the cursor read off the row by the ORDER BY's own
- * expression.
- */
 describe('listDocumentLevelPage', () => {
   const shelf = projectShelf('p1')
   const level = (overrides: Partial<DocumentLevelQuery> = {}): DocumentLevelQuery => ({
@@ -338,7 +300,6 @@ describe('listDocumentLevelPage', () => {
     limit: 100,
     ...overrides,
   })
-  /** A level row as pg-proxy returns it: the listing's columns, then the cursor value. */
   const levelRow = (n: number, cursorValue: string): unknown[] => [...wireRow(n).slice(0, -1), cursorValue]
 
   it('reads one level of the shelf, newest first, behind the listing predicates', async () => {
@@ -366,8 +327,6 @@ describe('listDocumentLevelPage', () => {
   })
 
   it('folds the name and what was typed alike in SQL (Unicode form, umlaut spelling), with no wildcard', async () => {
-    // `fold_german` (migration 0188) normalizes and folds both sides; the
-    // spellings it joins are proven against Postgres in document-repository.integration.spec.ts.
     const decomposed = 'Übersicht'.normalize('NFD')
     await listDocumentLevelPage(shelf, 'org-1', { reader, level: level({ q: `  ${decomposed} 50%_ ` }) })
     const { sql, params } = onlyQuery()
@@ -489,11 +448,6 @@ describe('the level cursor codec', () => {
   })
 })
 
-/**
- * The shelf summary (ADR-0102): one aggregate per folder over the listing's
- * own WHERE, counted by the status vocabulary's families, and the failed
- * documents for „Alle erneut lesen“. Postgres only.
- */
 describe('summarizeShelfFolders', () => {
   it('groups the listing rows by folder and counts each family by its declared statuses', async () => {
     await summarizeShelfFolders(projectShelf('p1'), 'org-1', { reader })
@@ -549,7 +503,6 @@ describe('findShelfDocumentListRow', () => {
     const { sql, params } = onlyQuery()
     expect(sql).toMatch(/(?:"documents"\.)?"id" = \$\d+/)
     expect(sql).toMatch(/(?:"documents"\.)?"project_id" = \$\d+/)
-    // Archived documents are found: a link names one on purpose.
     expect(sql).not.toMatch(/"lifecycle" =/)
     expect(params).toEqual(expect.arrayContaining(['00000000-0000-4000-8000-000000000001', 'p1', 'org-1']))
   })

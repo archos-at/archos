@@ -24,7 +24,6 @@ import { emptySkillSnapshot } from '@/lib/jobs/types'
 import { internalRead } from '@/lib/documents/document-reader'
 
 vi.mock('server-only', () => ({}))
-// The runs at the end of this file are scripted: what a dead job does to its documents is the queue's, not a kind's.
 vi.mock('@/lib/jobs-queue/handlers', async () => ({ JOB_HANDLERS: (await import('@/test-utils/scripted-job-handlers')).SCRIPTED_HANDLERS }))
 
 const url = process.env.TEST_DATABASE_URL
@@ -127,8 +126,6 @@ describe.skipIf(!url)('background-work sweeps against live Postgres', () => {
     await seedDocument('running-job', { ageMinutes: 90, jobId: running })
     await seedDocument('fresh', { ageMinutes: 2 })
     await seedDocument('finished', { ageMinutes: 60, status: 'completed' })
-    // Filed while the folder lived (nothing is filed into a deleted one), then
-    // the folder went to the Papierkorb.
     const [binned] = Array.from(
       await context.withTenant({ organizationId: ORG }, () =>
         db.execute<{ id: string }>(sql`
@@ -169,7 +166,6 @@ describe.skipIf(!url)('background-work sweeps against live Postgres', () => {
     const stuck = await documents.listStuckProcessingDocuments(minutesAgo(15), 100)
     const mine = stuck.filter((row) => nameOf(row.id))
 
-    // The longest-stranded first: 40, 30 and 20 minutes.
     expect(mine.map((row) => nameOf(row.id))).toEqual(['dead-job', 'no-job', 'elsewhere'])
     expect(mine.find((row) => row.id === docs['dead-job'])).toMatchObject({
       organizationId: ORG,
@@ -213,11 +209,9 @@ describe.skipIf(!url)('background-work sweeps against live Postgres', () => {
     expect((await read('no-job'))?.metadata).toMatchObject({ bffJobId: jobId })
     expect((await read('finished'))?.metadata ?? {}).not.toHaveProperty('bffJobId')
 
-    // The row is now waiting on a live job, so the sweep leaves it alone.
     const stuck = await documents.listStuckProcessingDocuments(minutesAgo(15), 100)
     expect(stuck.map((row) => row.id)).not.toContain(docs['no-job'])
 
-    // The next round forgets the old job: it was that round's.
     await context.withTenant({ organizationId: ORG }, () => documents.markDocumentProcessing(docs['no-job'], ORG))
     expect((await read('no-job'))?.metadata ?? {}).not.toHaveProperty('bffJobId')
   })
@@ -235,8 +229,6 @@ describe.skipIf(!url)('background-work sweeps against live Postgres', () => {
       )
       expect(listed).toMatchObject({ jobStatus: 'dead', jobId: dead })
 
-      // While the sweep works through the rows before this one, a person reads
-      // the file again and the read finishes.
       await documents.setDocumentIngestJob(docs['retried-meanwhile'], ORG, 'ingest-retry-1')
       await documents.setDocumentReconciledStatus(
         docs['retried-meanwhile'],
@@ -316,7 +308,6 @@ describe.skipIf(!url)('background-work sweeps against live Postgres', () => {
       await documents.setDocumentIngestJob(docs['archived-while-read'], ORG, 'ingest-archived-1')
       await documents.markDocumentNotIndexed(docs['archived-while-read'], ORG)
 
-      // The reconcile holds the row to what it read: `pending` under this job.
       const moved = await documents.setDocumentReconciledStatus(
         docs['archived-while-read'],
         ORG,
@@ -395,7 +386,6 @@ describe.skipIf(!url)('background-work sweeps against live Postgres', () => {
           `),
         ),
       )
-    // The oldest are alive; the one a sweep has to reach is younger, with a dead job.
     await job(await seed('alive-queued', 300), 'queued')
     await job(await seed('alive-claimed', 290), 'claimed')
     await job(await seed('dead-job', 120), 'dead')
@@ -464,7 +454,6 @@ describe.skipIf(!url)('background-work sweeps against live Postgres', () => {
       vi.spyOn(console, 'warn').mockImplementation(() => {})
       const dying = await failingJob()
       const next = await seedJob(ORG, 'queued')
-      // Two minutes old: far inside the sweep's quarter of an hour.
       await seedDocument('dies-with-job', { ageMinutes: 2, jobId: dying })
       await seedDocument('reread-under-next-job', { ageMinutes: 2, jobId: next })
       await seedDocument('read-meanwhile', { ageMinutes: 2, jobId: dying, status: 'completed' })

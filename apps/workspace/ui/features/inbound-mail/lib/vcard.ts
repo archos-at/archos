@@ -1,20 +1,10 @@
-/**
- * „Als Kontakt sichern“: the project's mail address as a contact card
- * (RFC 6350, vCard 4.0), so forwarding from a phone's mail app is one tap on
- * a name instead of typing a 30-character token.
- *
- * Pure: the text and its file name. The browser download is the caller's.
- */
-
 import { fileSlug } from '@/lib/text/latinize'
 import { PRODUCT_NAME } from '@/lib/brand'
 
-/** RFC 6350 §3.4: backslash, comma, semicolon and newlines are escaped in a text value. */
 function escapeText(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/,/g, '\\,').replace(/;/g, '\\;').replace(/\r\n|\r|\n/g, '\\n')
 }
 
-/** RFC 6350 §3.2: a line longer than 75 octets continues on the next, after CRLF and one space. */
 function fold(line: string): string {
   const encoder = new TextEncoder()
   if (encoder.encode(line).length <= 75) return line
@@ -34,10 +24,8 @@ function fold(line: string): string {
 }
 
 export interface ContactCard {
-  /** The contact's name as the phone lists it (the product's name, then the project: „<Produkt> · Bauplatz 12“). */
   name: string
   address: string
-  /** One line in the card's note: what the address is for. */
   note?: string
 }
 
@@ -54,7 +42,6 @@ export function contactCard({ name, address, note }: ContactCard): string {
   return `${lines.map(fold).join('\r\n')}\r\n`
 }
 
-/** The file name the card downloads as. */
 export function contactCardFileName(projectName: string): string {
   return `${fileSlug(PRODUCT_NAME)}-${fileSlug(projectName, { maxLength: 60 }) || 'project'}.vcf`
 }

@@ -1,25 +1,8 @@
-/**
- * Label declutter for a schematic drawn at phone width.
- *
- * Every template places its labels by hand, in viewBox units, for a drawing
- * that renders at about one pixel per unit. On a phone the drawing renders at
- * 0.6 to 0.7 and `SvgLabel` enlarges its text so it still reads (see
- * `legibleLabelSize`): the geometry shrank, the words did not, and two labels
- * authored ten units apart now overprint. Moving every template's offsets by
- * hand would trade one set of coordinates for another; this takes the
- * rendered boxes, as the reader sees them, and pushes the later of two
- * colliding labels clear of the first.
- *
- * Pure on purpose: `SchematicCanvas` measures the DOM and applies the result,
- * and this decides, so the decision is testable without a layout engine.
- */
-
 export interface LabelBox {
   left: number
   right: number
   top: number
   bottom: number
-  /** False for a label the pass must not move (a rotated dimension label). */
   movable: boolean
 }
 
@@ -29,14 +12,11 @@ export interface LabelNudge {
 }
 
 interface Options {
-  /** Air kept between two labels, in the boxes' unit. */
   gap?: number
-  /** The most one label is moved along either axis: further and it no longer reads as belonging to its mark. */
   maxShift?: number
 }
 
 const PASSES = 6
-/** Overlap below this is the glyphs' own side bearing, not a collision. */
 const TOLERANCE = 0.75
 
 const overlap = (a: LabelBox, b: LabelBox): { x: number; y: number } => ({
@@ -44,15 +24,6 @@ const overlap = (a: LabelBox, b: LabelBox): { x: number; y: number } => ({
   y: Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top),
 })
 
-/**
- * How far each label moves so none overprints another or leaves `bounds`.
- *
- * A label inside the bounds that collides with nothing gets `{ dx: 0, dy: 0 }`.
- * Of two colliding labels the lower one moves down, unless it is fixed, in
- * which case the upper one moves up; a pair of fixed labels is left alone.
- * Vertical only for collisions: a label slid sideways would stop sitting at the
- * end of the line it names. Horizontal movement is for the bounds alone.
- */
 export function declutterLabels(
   boxes: readonly LabelBox[],
   bounds: { left: number; right: number },
@@ -76,8 +47,6 @@ export function declutterLabels(
     nudge.dy = nextDy
   }
 
-  // A label cut by the drawing's edge slides back inside it first, so the
-  // collision pass sees the position the reader will see.
   moved.forEach((box, index) => {
     if (!box.movable) return
     const width = box.right - box.left

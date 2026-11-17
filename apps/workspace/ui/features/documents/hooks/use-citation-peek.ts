@@ -9,24 +9,12 @@ import {
 import { openFilePeek } from '../lib/open-file-peek'
 import { useSurfacedDocuments } from './use-surfaced-documents'
 
-/**
- * Open the chat peek when the current thread's latest finished answer cites
- * exactly one project or Büroablage document.
- *
- * Mount once (project chat / MainLayout), never per card. A ref keyed by
- * message id is the hide-guard: hide() must not be undone by a later render
- * of the same answer. The composer bar stays after hide so the user can
- * still see they are asking about this file.
- */
 export function useCitationPeek(options: {
   projectId: string | null
   projectName?: string | null
   canCollaborate?: boolean
 }): void {
   const { projectId, projectName, canCollaborate } = options
-  // The latest FINISHED answer, not the messages: that object keeps its
-  // identity while the next answer streams, so the page that mounts this hook
-  // does not re-render with every delta.
   const message = useChatStore((state) =>
     latestFinishedAssistantMessage(state.currentConversation?.messages),
   )
