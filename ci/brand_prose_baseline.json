@@ -457,7 +457,6 @@
   "packages/knowledge-layer/pyproject.toml": 2,
   "packages/knowledge-layer/src/browse/revisions.py": 1,
   "packages/knowledge-layer/src/browse/rows.py": 1,
-  "packages/knowledge-layer/src/chat_binding.py": 1,
   "packages/knowledge-layer/src/estate/backend.py": 1,
   "packages/knowledge-layer/src/ingest/photo_facts.py": 1,
   "packages/knowledge-layer/src/register.py": 1,
