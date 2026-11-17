@@ -425,7 +425,7 @@ tasks:
     desc: >-
       The claim-queue suites' Postgres branch (production's SQL), the research
       cutover's row locks against the old claim, the rename of
-      the AI-Q databases, and the metadata store's mail records, against a
+      the row-level-security roles, and the metadata store's mail records, against a
       throwaway cluster. Needs PostgreSQL server binaries.
     cmds:
       # Serial, not -n logical: every test drops and recreates the same tables

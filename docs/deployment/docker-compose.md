@@ -436,12 +436,11 @@ PostgreSQL 16 database.
 
 ### postgres-rename
 
-A one-shot run of `deploy/postgres/rename-legacy-names.sh` (ADR-0145 row 10d): a volume
-made before the rename has the databases `aiq_jobs` and `aiq_checkpoints` and the
-superuser `aiq`, and this renames them to `jobs`, `checkpoints` and
-`app`. Every service that waits on `postgres` waits for it to complete. A volume
-made with the new names, and every run after the first, change nothing. The
-renamed databases refuse new sessions and end the open ones while it runs.
+A one-shot run of `deploy/postgres/rename-legacy-names.sh` (ADR-0145 row 10d): it
+creates the row-level-security roles a fresh volume lacks and hands every object
+in `public` to the migration role. Every service that waits on `postgres` waits
+for it to complete. A volume from before the database rename (`aiq_jobs`,
+`aiq_checkpoints`, superuser `aiq`) is no longer renamed: drop it and start fresh.
 
 | Property | Value |
 |----------|-------|
