@@ -40,7 +40,8 @@ def read_standalone_image(
     vision: dict[str, Any],
     stages: dict[str, float],
 ) -> ImageRead:
-    from knowledge_layer.ingest import adapter as _adapter
+    from knowledge_layer.ingest import caption_documents
+    from knowledge_layer.ingest.measures import _stage
     from knowledge_layer.ingest.photo_facts import read_photo_facts
 
     if not vision.get("vlm_api_key"):
@@ -51,8 +52,8 @@ def read_standalone_image(
         logger.warning("Image ingestion skipped (VLM not configured): %s", file_name)
         return ImageRead(None)
     photo = read_photo_facts(file_path)
-    with _adapter._stage(stages, "vision"):
-        documents = _adapter._build_image_documents(
+    with _stage(stages, "vision"):
+        documents = caption_documents._build_image_documents(
             file_path, file_name, file_size, image_format, photo=photo, **vision
         )
     if documents is None:
@@ -60,7 +61,7 @@ def read_standalone_image(
         ingestor._update_file_status(job, index, FileStatus.FAILED, error=IMAGE_UNREAD_ERROR)
         logger.warning("Image could not be decoded or captioned: %s", file_name)
         return ImageRead(None, photo, image_coverage(read=False))
-    with _adapter._stage(stages, "screen"):
+    with _stage(stages, "screen"):
         held = _screen_reading(ingestor, job, index, rules, documents)
     if held:
         return ImageRead(None, photo, image_coverage(read=True))
@@ -74,6 +75,6 @@ _FORMAT_BY_SUFFIX = {".png": "png", ".jpg": "jpeg", ".jpeg": "jpeg", ".webp": "w
 def standalone_image_format(file_path: str, file_name: str) -> str | None:
     from pathlib import Path
 
-    from .adapter import _looks_like_image
+    from .file_sniffing import _looks_like_image
 
     return _looks_like_image(file_path) or _FORMAT_BY_SUFFIX.get(Path(file_name).suffix.lower())

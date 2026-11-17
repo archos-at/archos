@@ -12,7 +12,7 @@ Older, deeper material is still right and is linked rather than repeated:
 ADR-0076 (the claim queue, superseded), ADR-0117 (the page pipeline, proposed,
 not built), ADR-0150 (Hatchet, which now runs the job: section 7).
 
-Short forms: **A** is `packages/knowledge-layer/src/knowledge_layer/ingest/adapter.py`, **S** is
+Short forms: **A** is `packages/knowledge-layer/src/knowledge_layer/ingest/adapter.py` as it stood before it was split (its `A:N` line references are from then; the job is now run by `packages/knowledge-layer/src/knowledge_layer/ingest/ingest_run.py`, each file by `packages/knowledge-layer/src/knowledge_layer/ingest/file_ingest.py`, a PDF's reads by `packages/knowledge-layer/src/knowledge_layer/ingest/pdf_ingest.py`), **S** is
 `apps/workspace/bff/documents/service.ts` as it stood before it was split (its `S:N` line references are from then; `dispatchDocument` is now in `document-dispatch.ts`, `dispatchIngest` in `ingest-dispatch.ts`), **D** is
 `apps/agent-host/src/agent_host/jobs/ingest_dispatch.py`.
 
@@ -195,7 +195,7 @@ screenable, like an embedded raster's.
 
 **Searchable before it is described.** The summary, tags, topics, dossier and a
 base-corpus Dokumentart suggestion start once the text and visuals are read, and the
-chunks are embedded and written while they run (`ingest/enrichment.py`):
+chunks are embedded and written while they run (`packages/knowledge-layer/src/knowledge_layer/ingest/enrichment.py`):
 no chunk carries them (`stamp_chunk_metadata` reads only the Dokumentart and the
 provenance). They are collected after the write, within their own bounds, and their
 rows are registered then; the tags reach the points through `register_summary`'s copy

@@ -310,9 +310,9 @@ def enrich_vlm_batch(
 
 
 def _analyze_item(kind: str, obj: dict, vision: dict[str, Any]) -> Any:
-    from knowledge_layer.ingest import adapter as _adapter
+    from knowledge_layer.ingest import vision_reads
 
-    content_type, caption, fields = _adapter.analyze_visual(obj["image_bytes"], **vision)
+    content_type, caption, fields = vision_reads.analyze_visual(obj["image_bytes"], **vision)
     obj["fields"] = fields
     if kind == "image":
         return (obj, content_type, caption)

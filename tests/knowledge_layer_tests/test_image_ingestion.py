@@ -9,7 +9,10 @@ from knowledge_layer.ingest import _build_image_caption_document
 from knowledge_layer.ingest import _looks_like_image
 from knowledge_layer.ingest import _read_image_as_jpeg
 from knowledge_layer.ingest import _strip_visual_marker
-from knowledge_layer.ingest import adapter
+from knowledge_layer.ingest import limits
+from knowledge_layer.ingest import pdf_rasters
+from knowledge_layer.ingest import vision_credentials
+from knowledge_layer.ingest import vision_reads
 from knowledge_layer.ingest import visual_analysis
 from knowledge_layer_testing.vector_store import FakeEmbedder
 from PIL import ExifTags
@@ -25,7 +28,7 @@ def _patch_vlm_credential(monkeypatch, api_key: str):
         model="test-vlm",
         source="env" if api_key else "none",
     )
-    monkeypatch.setattr(adapter, "resolve_vlm_credential", lambda organization_id=None: cred)
+    monkeypatch.setattr(vision_credentials, "resolve_vlm_credential", lambda organization_id=None: cred)
 
 
 def _png_bytes(size=(120, 90), color="red") -> bytes:
@@ -72,7 +75,7 @@ class TestLooksLikeImage:
 
 class TestBuildImageCaptionDocument:
     def test_happy_path_metadata_shape(self, tmp_path, monkeypatch):
-        monkeypatch.setattr(adapter, "_analyze_image_with_vlm", lambda *a, **k: ("image", "A red rectangle."))
+        monkeypatch.setattr(vision_reads, "_analyze_image_with_vlm", lambda *a, **k: ("image", "A red rectangle."))
         p = tmp_path / "photo.png"
         p.write_bytes(_png_bytes(size=(120, 90)))
 
@@ -92,7 +95,7 @@ class TestBuildImageCaptionDocument:
         }
 
     def test_chart_classification_uses_chart_prefix(self, tmp_path, monkeypatch):
-        monkeypatch.setattr(adapter, "_analyze_image_with_vlm", lambda *a, **k: ("chart", "A bar chart of sales."))
+        monkeypatch.setattr(vision_reads, "_analyze_image_with_vlm", lambda *a, **k: ("chart", "A bar chart of sales."))
         p = tmp_path / "chart.jpg"
         p.write_bytes(_jpeg_bytes())
 
@@ -103,7 +106,7 @@ class TestBuildImageCaptionDocument:
 
     def test_corrupt_bytes_return_none(self, tmp_path, monkeypatch):
         vlm = MagicMock()
-        monkeypatch.setattr(adapter, "_analyze_image_with_vlm", vlm)
+        monkeypatch.setattr(vision_reads, "_analyze_image_with_vlm", vlm)
         p = tmp_path / "broken.png"
         p.write_bytes(b"this is not a real image")
 
@@ -172,7 +175,7 @@ def _capture_vlm_bytes(monkeypatch):
         captured["bytes"] = image_bytes
         return ("image", "A caption.")
 
-    monkeypatch.setattr(adapter, "_analyze_image_with_vlm", fake_vlm)
+    monkeypatch.setattr(vision_reads, "_analyze_image_with_vlm", fake_vlm)
     return captured
 
 
@@ -185,7 +188,7 @@ class TestImageDownscaleBeforeVLM:
         doc = _build_image_caption_document(str(p), "big.png", 12345, "png")
 
         w, h = Image.open(io.BytesIO(captured["bytes"])).size
-        assert max(w, h) == adapter.VLM_MAX_IMAGE_DIM
+        assert max(w, h) == limits.VLM_MAX_IMAGE_DIM
         assert (w, h) == (1568, 784)
         assert doc.metadata["image_width"] == 4000
         assert doc.metadata["image_height"] == 2000
@@ -253,11 +256,11 @@ class TestExtractImagesFromPdfDownscale:
         big = Image.new("RGB", (3000, 1500), "green")
         self._mock_pdfium_page(monkeypatch, big)
 
-        images = adapter._extract_images_from_pdf("ignored.pdf")
+        images = pdf_rasters._extract_images_from_pdf("ignored.pdf")
 
         assert len(images) == 1
         w, h = Image.open(io.BytesIO(images[0]["image_bytes"])).size
-        assert max(w, h) == adapter.VLM_MAX_IMAGE_DIM
+        assert max(w, h) == limits.VLM_MAX_IMAGE_DIM
         assert (w, h) == (1568, 784)
         assert images[0]["width"] == 3000
         assert images[0]["height"] == 1500
@@ -266,7 +269,7 @@ class TestExtractImagesFromPdfDownscale:
         small = Image.new("RGB", (300, 200), "green")
         self._mock_pdfium_page(monkeypatch, small)
 
-        images = adapter._extract_images_from_pdf("ignored.pdf")
+        images = pdf_rasters._extract_images_from_pdf("ignored.pdf")
 
         assert len(images) == 1
         w, h = Image.open(io.BytesIO(images[0]["image_bytes"])).size
@@ -323,7 +326,7 @@ class TestRunIngestionImageBranch:
 
         _patch_vlm_credential(monkeypatch, "vlm-key")
         monkeypatch.setattr(
-            adapter, "_analyze_image_with_vlm", lambda *a, **k: ("image", "A detailed floor plan drawing.")
+            vision_reads, "_analyze_image_with_vlm", lambda *a, **k: ("image", "A detailed floor plan drawing.")
         )
 
         img = tmp_path / "grundriss.png"
@@ -345,7 +348,7 @@ class TestRunIngestionImageBranch:
         from agent.knowledge import get_available_documents
 
         _patch_vlm_credential(monkeypatch, "vlm-key")
-        monkeypatch.setattr(adapter, "_analyze_image_with_vlm", lambda *a, **k: ("image", "Baustellenfoto."))
+        monkeypatch.setattr(vision_reads, "_analyze_image_with_vlm", lambda *a, **k: ("image", "Baustellenfoto."))
         exif = Image.Exif()
         exif.get_ifd(ExifTags.IFD.Exif)[ExifTags.Base.DateTimeOriginal] = "2026:09:14 10:32:05"
         exif[ExifTags.Base.Model] = "Canon EOS R5"
@@ -368,7 +371,7 @@ class TestRunIngestionImageBranch:
         _patch_vlm_credential(monkeypatch, "vlm-key")
         ingestor.generate_summary_enabled = False
         monkeypatch.setattr(
-            adapter,
+            vision_reads,
             "_analyze_image_with_vlm",
             lambda *a, **k: ("image", "Ein Grundriss EG. VECTORWORKS EDUCATIONAL VERSION. Zentrales Atrium."),
         )
@@ -397,7 +400,7 @@ class TestRunIngestionImageBranch:
         _patch_vlm_credential(monkeypatch, "vlm-key")
         ingestor.generate_summary_enabled = False
         monkeypatch.setattr(
-            adapter,
+            vision_reads,
             "_analyze_image_with_vlm",
             lambda *a, **k: (
                 "image",
@@ -485,7 +488,7 @@ class TestRunIngestionImageBranch:
     def test_corrupt_image_fails_without_crashing(self, tmp_path, monkeypatch, ingestor, summary_db):
         _patch_vlm_credential(monkeypatch, "vlm-key")
         vlm = MagicMock()
-        monkeypatch.setattr(adapter, "_analyze_image_with_vlm", vlm)
+        monkeypatch.setattr(vision_reads, "_analyze_image_with_vlm", vlm)
 
         img = tmp_path / "broken.png"
         img.write_bytes(b"definitely not a PNG payload")
@@ -504,7 +507,7 @@ class TestRunIngestionImageBranch:
 
         _patch_vlm_credential(monkeypatch, "vlm-key")
         ingestor.generate_summary_enabled = False
-        monkeypatch.setattr(adapter, "_analyze_image_with_vlm", lambda *a, **k: ("image", "Ein Grundriss EG."))
+        monkeypatch.setattr(vision_reads, "_analyze_image_with_vlm", lambda *a, **k: ("image", "Ein Grundriss EG."))
 
         img = tmp_path / "caption_only.png"
         img.write_bytes(_png_bytes(size=(61, 47), color="yellow"))
@@ -534,7 +537,7 @@ class TestRunIngestionImageBranch:
         analysis = visual_analysis.parse_visual_analysis(reply)
         assert analysis is not None
         monkeypatch.setattr(
-            adapter,
+            vision_reads,
             "_analyze_drawing_page_with_vlm",
             lambda *a, **k: ("Baustellenfoto mit Kran.", {"analysis": analysis}),
         )

@@ -7,7 +7,11 @@ from unittest.mock import MagicMock
 
 import pytest
 from knowledge_layer.ingest import adapter
+from knowledge_layer.ingest import caption_documents
+from knowledge_layer.ingest import pdf_rasters
 from knowledge_layer.ingest import processing
+from knowledge_layer.ingest import vision_calls
+from knowledge_layer.ingest import vision_reads
 
 from agent.knowledge.document_metadata_store import DocumentMetadataStore
 
@@ -135,7 +139,7 @@ class TestEnrichVlmBatchSkipsFailures:
 
     def test_an_item_that_fails_once_is_read_in_the_second_pass(self, monkeypatch):
         replies = iter([("image", "[Image - analysis failed]"), ("image", "Ein Lageplan im Maßstab 1:500.")])
-        monkeypatch.setattr(adapter, "_analyze_image_with_vlm", lambda *a, **k: next(replies))
+        monkeypatch.setattr(vision_reads, "_analyze_image_with_vlm", lambda *a, **k: next(replies))
 
         image_results, _ = processing.enrich_vlm_batch([self._image_record()], [], "m", "https://vlm.test/v1", "key")
 
@@ -148,7 +152,7 @@ class TestEnrichVlmBatchSkipsFailures:
             asked.append(image_bytes)
             return ("image", "[Image - analysis failed]") if image_bytes == b"bad" else ("image", "Ein Foto.")
 
-        monkeypatch.setattr(adapter, "_analyze_image_with_vlm", reply)
+        monkeypatch.setattr(vision_reads, "_analyze_image_with_vlm", reply)
         good = {**self._image_record(), "image_bytes": b"good"}
         bad = {**self._image_record(), "image_bytes": b"bad", "image_index": 1}
 
@@ -161,7 +165,7 @@ class TestEnrichVlmBatchSkipsFailures:
         monkeypatch.setattr(processing, "VLM_SECOND_PASS_DELAY_SECONDS", -1)
         calls: list[int] = []
         monkeypatch.setattr(
-            adapter,
+            vision_reads,
             "_analyze_image_with_vlm",
             lambda *a, **k: calls.append(1) or ("image", "[Image - analysis failed]"),
         )
@@ -180,7 +184,7 @@ class TestEnrichVlmBatchSkipsFailures:
 
     def test_failure_placeholder_caption_is_skipped(self, monkeypatch):
         monkeypatch.setattr(
-            adapter,
+            vision_reads,
             "_analyze_image_with_vlm",
             lambda *a, **k: ("image", "[Image - analysis failed]"),
         )
@@ -196,7 +200,7 @@ class TestEnrichVlmBatchSkipsFailures:
         def explode(*a, **k):
             raise RuntimeError("provider 500")
 
-        monkeypatch.setattr(adapter, "_analyze_image_with_vlm", explode)
+        monkeypatch.setattr(vision_reads, "_analyze_image_with_vlm", explode)
 
         image_results, _ = processing.enrich_vlm_batch([self._image_record()], [], "m", "u", "key")
 
@@ -204,7 +208,7 @@ class TestEnrichVlmBatchSkipsFailures:
 
     def test_drawing_failure_placeholder_is_skipped(self, monkeypatch):
         monkeypatch.setattr(
-            adapter,
+            vision_reads,
             "_analyze_drawing_page_with_vlm",
             lambda *a, **k: ("[Drawing - analysis failed: timeout]", {}),
         )
@@ -219,7 +223,7 @@ class TestEnrichVlmBatchSkipsFailures:
                 return ("image", "A detailed floor plan.")
             return ("image", "[Image - analysis failed]")
 
-        monkeypatch.setattr(adapter, "_analyze_image_with_vlm", fake_analyze)
+        monkeypatch.setattr(vision_reads, "_analyze_image_with_vlm", fake_analyze)
 
         records = [
             {"image_bytes": b"good", "page_number": 1, "image_index": 0},
@@ -235,7 +239,7 @@ class TestEnrichVlmBatchSkipsFailures:
 
     def test_drawing_success_is_enriched_in_place(self, monkeypatch):
         monkeypatch.setattr(
-            adapter,
+            vision_reads,
             "_analyze_drawing_page_with_vlm",
             lambda *a, **k: ("ZEICHNUNGSTYP: grundriss", {"zeichnungstyp": "grundriss"}),
         )
@@ -421,7 +425,7 @@ class TestExtractImagesDedupe:
         ]
         _install_fake_image_pdf(monkeypatch, pages)
 
-        images = adapter._extract_images_from_pdf("ignored.pdf")
+        images = pdf_rasters._extract_images_from_pdf("ignored.pdf")
 
         assert len(images) == 2
         assert [img["page_number"] for img in images] == [1, 3]
@@ -430,7 +434,7 @@ class TestExtractImagesDedupe:
         pages = [_FakeImagePage([_FakeImageObj("white", size=(50, 50))])]
         _install_fake_image_pdf(monkeypatch, pages)
 
-        assert adapter._extract_images_from_pdf("ignored.pdf") == []
+        assert pdf_rasters._extract_images_from_pdf("ignored.pdf") == []
 
 
 class _FakeChoice:
@@ -460,7 +464,7 @@ class TestVlmChatCreate:
         )
         client = types.SimpleNamespace(chat=types.SimpleNamespace(completions=completions))
 
-        result = adapter._vlm_chat_create(client, model="m", messages=[], max_tokens=1100)
+        result = vision_calls._vlm_chat_create(client, model="m", messages=[], max_tokens=1100)
 
         assert result == "full caption"
         assert len(completions.calls) == 2
@@ -476,7 +480,7 @@ class TestVlmChatCreate:
         )
         client = types.SimpleNamespace(chat=types.SimpleNamespace(completions=completions))
 
-        result = adapter._vlm_chat_create(client, model="m", messages=[], max_tokens=512)
+        result = vision_calls._vlm_chat_create(client, model="m", messages=[], max_tokens=512)
 
         assert result == "part2"
         assert len(completions.calls) == 2  # exactly one retry, no loop
@@ -487,7 +491,7 @@ class TestVlmChatCreate:
             base_url="https://openrouter.ai/api/v1/", chat=types.SimpleNamespace(completions=completions)
         )
 
-        adapter._vlm_chat_create(client, model="m", messages=[], max_tokens=512)
+        vision_calls._vlm_chat_create(client, model="m", messages=[], max_tokens=512)
 
         assert completions.calls[0]["extra_body"] == {"reasoning": {"effort": "low"}}
 
@@ -497,7 +501,7 @@ class TestVlmChatCreate:
             base_url="https://integrate.api.nvidia.com/v1", chat=types.SimpleNamespace(completions=completions)
         )
 
-        adapter._vlm_chat_create(client, model="m", messages=[], max_tokens=512)
+        vision_calls._vlm_chat_create(client, model="m", messages=[], max_tokens=512)
 
         assert "extra_body" not in completions.calls[0]
 
@@ -505,7 +509,7 @@ class TestVlmChatCreate:
         completions = _FakeCompletions([("done", "stop")])
         client = types.SimpleNamespace(chat=types.SimpleNamespace(completions=completions))
 
-        result = adapter._vlm_chat_create(client, model="m", messages=[], max_tokens=512)
+        result = vision_calls._vlm_chat_create(client, model="m", messages=[], max_tokens=512)
 
         assert result == "done"
         assert len(completions.calls) == 1
@@ -522,7 +526,7 @@ class TestVlmChatCreate:
         completions = _RaisingCompletions([("partial caption", "length")])
         client = types.SimpleNamespace(chat=types.SimpleNamespace(completions=completions))
 
-        result = adapter._vlm_chat_create(client, model="m", messages=[], max_tokens=512)
+        result = vision_calls._vlm_chat_create(client, model="m", messages=[], max_tokens=512)
 
         assert result == "partial caption"
         assert len(completions.calls) == 2
@@ -531,7 +535,7 @@ class TestVlmChatCreate:
         completions = _FakeCompletions([("partial caption", "length"), (None, "stop")])
         client = types.SimpleNamespace(chat=types.SimpleNamespace(completions=completions))
 
-        result = adapter._vlm_chat_create(client, model="m", messages=[], max_tokens=512)
+        result = vision_calls._vlm_chat_create(client, model="m", messages=[], max_tokens=512)
 
         assert result == "partial caption"
 
@@ -547,7 +551,7 @@ class TestVlmChatCreate:
                 overrides.append(kwargs)
                 return self
 
-        result = adapter._vlm_chat_create(_FakeClient(), model="m", messages=[], max_tokens=512)
+        result = vision_calls._vlm_chat_create(_FakeClient(), model="m", messages=[], max_tokens=512)
 
         assert result == "full caption"
         assert overrides == [{"max_retries": 0}]
@@ -568,25 +572,25 @@ class TestVlmClientConstruction:
         return captured
 
     def test_image_call_sets_timeout_and_retries(self, captured_openai):
-        adapter._analyze_image_with_vlm(
+        vision_reads._analyze_image_with_vlm(
             b"img",
             vlm_model="m",
             vlm_base_url="https://vlm.test/v1",
             vlm_api_key="key",  # pragma: allowlist secret
         )
 
-        assert captured_openai["timeout"] == adapter.VLM_REQUEST_TIMEOUT_SECONDS
+        assert captured_openai["timeout"] == vision_calls.VLM_REQUEST_TIMEOUT_SECONDS
         assert captured_openai["max_retries"] == 1
 
     def test_drawing_call_sets_timeout_and_retries(self, captured_openai):
-        adapter._analyze_drawing_page_with_vlm(
+        vision_reads._analyze_drawing_page_with_vlm(
             b"img",
             vlm_model="m",
             vlm_base_url="https://vlm.test/v1",
             vlm_api_key="key",  # pragma: allowlist secret
         )
 
-        assert captured_openai["timeout"] == adapter.VLM_REQUEST_TIMEOUT_SECONDS
+        assert captured_openai["timeout"] == vision_calls.VLM_REQUEST_TIMEOUT_SECONDS
         assert captured_openai["max_retries"] == 1
 
 
@@ -603,12 +607,12 @@ class TestBuildImageCaptionDocument:
         monkeypatch.setattr(processing, "get_json", lambda key: None)
         monkeypatch.setattr(processing, "set_json", lambda key, value, ttl: None)
         monkeypatch.setattr(
-            adapter,
+            vision_reads,
             "_analyze_image_with_vlm",
             lambda *a, **k: ("image", "[Image - analysis failed: provider 500]"),
         )
 
-        doc = adapter._build_image_caption_document(
+        doc = caption_documents._build_image_caption_document(
             png_file,
             "plan.png",
             123,
@@ -625,9 +629,9 @@ class TestBuildImageCaptionDocument:
         def forbidden(*a, **k):
             raise AssertionError("live VLM call must not fire on a cache hit")
 
-        monkeypatch.setattr(adapter, "_analyze_image_with_vlm", forbidden)
+        monkeypatch.setattr(vision_reads, "_analyze_image_with_vlm", forbidden)
 
-        doc = adapter._build_image_caption_document(
+        doc = caption_documents._build_image_caption_document(
             png_file,
             "plan.png",
             123,

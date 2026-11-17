@@ -94,7 +94,7 @@ def test_an_office_copy_of_an_edition_is_no_released_text() -> None:
 
 
 def test_the_ingest_job_passes_its_config_and_collection_to_the_choice() -> None:
-    source = Path(ingest.__file__).with_name("adapter.py").read_text(encoding="utf-8")
+    source = Path(ingest.__file__).with_name("pdf_ingest.py").read_text(encoding="utf-8")
     calls = [
         node
         for node in ast.walk(ast.parse(source))
@@ -103,7 +103,10 @@ def test_the_ingest_job_passes_its_config_and_collection_to_the_choice() -> None
     released = [call for call in calls if len(call.args) == 4]
     assert len(released) == 1
     choice = released[0].args[3]
-    assert isinstance(choice, ast.Call) and [ast.unparse(arg) for arg in choice.args] == ["config", "collection_name"]
+    assert isinstance(choice, ast.Call) and [ast.unparse(arg) for arg in choice.args] == [
+        "run.config",
+        "run.collection_name",
+    ]
 
 
 def test_the_footer_of_any_edition_month_is_furniture() -> None:
