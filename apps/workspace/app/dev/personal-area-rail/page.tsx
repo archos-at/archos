@@ -3,7 +3,7 @@
 /**
  * PROTOTYPE, not for merge: three ways the rail could hold a personal area next to the projects
  * (concept for ticket 81). Built from the rail's real parts so the shots show the product's own
- * geometry. `?v=a|b|c|d|e|f` picks the variant, `?place=me|project|new` where the reader is
+ * geometry. `?v=a|b|c|d|e|f|g` picks the variant, `?place=me|project|new` where the reader is
  * (`new`, in f: a chat just started). F is E with a top that stays on the project the reader works in.
  */
 
@@ -318,7 +318,9 @@ function VariantD({ me }: { me: boolean }): JSX.Element {
  * E: no place switcher for „Mein Bereich“. The top names the project of the open chat (or none) and is the way to
  * another; every chat says where it belongs; the person's own things stand at the foot, with the person.
  */
-function VariantE({ me, sticky = false, current }: { me: boolean; sticky?: boolean; current?: number | null }): JSX.Element {
+function VariantE({ me, sticky = false, current, noneLabel }: { me: boolean; sticky?: boolean; current?: number | null; noneLabel?: string }): JSX.Element {
+  // G: the top follows the open chat, and for a chat without a project it states that instead of asking for one.
+  const none = { id: 'none', name: noneLabel ?? '' }
   const showProject = sticky || !me
   const open = current === undefined ? (me ? 0 : 1) : current
   return (
@@ -326,7 +328,7 @@ function VariantE({ me, sticky = false, current }: { me: boolean; sticky?: boole
       <SidebarHeader className="shrink-0 gap-0 p-0 px-3">
         <SidebarBrand iconRail={false} />
         <div className="mt-1 flex items-center">
-          <ProjectSwitcher projects={PROJECTS} activeProjectId={showProject ? 'p-1' : undefined} />
+          <ProjectSwitcher projects={noneLabel ? [none, ...PROJECTS] : PROJECTS} activeProjectId={showProject ? 'p-1' : noneLabel ? 'none' : undefined} />
         </div>
       </SidebarHeader>
       <SidebarContent className="mt-3 flex-1 gap-0 overflow-y-auto px-3 py-px">
@@ -344,7 +346,7 @@ function VariantE({ me, sticky = false, current }: { me: boolean; sticky?: boole
         <GroupLabel>Chats</GroupLabel>
         <ul className="flex flex-col gap-0.5">
           {ALL_CHATS.map((chat, index) => (
-            <ChatRow key={chat.title} chat={chat} current={index === open} showProject markOwn={!sticky} indent={false} />
+            <ChatRow key={chat.title} chat={chat} current={index === open} showProject markOwn={!sticky && !noneLabel} indent={false} />
           ))}
           <MoreRow label="Alle Chats" indent={false} />
         </ul>
@@ -419,8 +421,8 @@ export default function PersonalAreaRailPreview(): JSX.Element {
     <div className="bg-background text-foreground flex h-dvh overflow-hidden">
       <SidebarProvider className="h-full min-h-0 w-auto shrink-0">
         <Sidebar collapsible="icon" data-scope="project" aria-label="Navigation">
-          {variant === 'f' ? <VariantE me={me} sticky current={fresh ? null : undefined} /> : variant === 'e' ? <VariantE me={me} /> : variant === 'd' ? <VariantD me={me} /> : variant === 'c' ? <VariantC me={me} /> : variant === 'b' ? <VariantB me={me} /> : <VariantA me={me} />}
-          <Foot personalDoor={variant === 'e' || variant === 'f'} />
+          {variant === 'g' ? <VariantE me={me} noneLabel="Ohne Projekt" current={fresh ? null : undefined} /> : variant === 'f' ? <VariantE me={me} sticky current={fresh ? null : undefined} /> : variant === 'e' ? <VariantE me={me} /> : variant === 'd' ? <VariantD me={me} /> : variant === 'c' ? <VariantC me={me} /> : variant === 'b' ? <VariantB me={me} /> : <VariantA me={me} />}
+          <Foot personalDoor={['e', 'f', 'g'].includes(variant)} />
           <SidebarRail aria-label="Breite ändern" />
         </Sidebar>
       </SidebarProvider>
