@@ -64,6 +64,7 @@ const BASELINES = [
 ] as const
 const VISIBILITIES = ['visible', 'hidden', 'collapse'] as const
 
+// pdfkit throws "lengths must be numeric and greater than zero" on `1px` or a zero run, taking the whole PDF down.
 function dashArrayOf(raw: string | undefined): string | undefined {
   if (!raw) return undefined
   const lengths = raw
