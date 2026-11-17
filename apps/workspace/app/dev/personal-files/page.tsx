@@ -11,7 +11,7 @@
 import type { JSX, ReactNode } from 'react'
 import { useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Check, ChevronDown, FileText, Folder, FolderInput, LayoutGrid, LockKeyhole, Paperclip, Plus, Upload, Zap } from 'lucide-react'
+import { Check, ChevronRight, FileText, Folder, FolderInput, LayoutGrid, LockKeyhole, Paperclip, Plus, Upload, Zap } from 'lucide-react'
 
 import { ProjectSectionActions, ProjectSectionFrame } from '@/components/shell/project-section-frame'
 import { ProjectSwitcher } from '@/components/shell/project-switcher'
@@ -108,10 +108,10 @@ function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null,
   )
 }
 
-function Browser({ files, folders }: { files: FileItem[]; folders: FolderItem[] }): JSX.Element {
+function Browser({ files, folders, openFolder = null }: { files: FileItem[]; folders: FolderItem[]; openFolder?: string | null }): JSX.Element {
   const [view, setView] = useState<FileView>('cards')
   const [selected, setSelected] = useState<string | null>(null)
-  const folderNav = useFixtureFolderNav(folders, null)
+  const folderNav = useFixtureFolderNav(folders, openFolder)
   const search = useFileSearch(projectSearchScope('proj-demo'))
   const level = files.filter((file) => (file.folderId ?? null) === folderNav.currentFolderId)
   return (
@@ -217,17 +217,27 @@ function AllProjects({ page, own }: { page: 'files' | 'automation'; own: boolean
   )
 }
 
-/** Files of the person's own that belong to the project, as a chat of theirs can: only they see them. */
-const OWN_PROJECT_FILES: FileItem[] = [
-  makeFile('op1', 'Notizen_Bauherrengespraech_03-11.pdf', '', { fileSize: 90_000, createdAt: '2026-11-03T09:00:00Z' }),
-  makeFile('op2', 'Honorarueberlegung_Entwurf.pdf', '', { fileSize: 140_000, createdAt: '2026-11-10T09:00:00Z' }),
+/**
+ * The person's own Ablage with a folder per project they keep something for: what belongs to a project is in a
+ * folder that says so, and inside a project „Meine Ablage“ opens at that folder.
+ */
+const OWN_TREE_FOLDERS: FolderItem[] = [
+  { id: 'o-p1', parentId: null, name: PROJECTS[0]!.name, path: `/${PROJECTS[0]!.name}` },
+  { id: 'o-p2', parentId: null, name: PROJECTS[1]!.name, path: `/${PROJECTS[1]!.name}` },
+  ...OWN_FOLDERS,
+]
+const OWN_TREE_FILES: FileItem[] = [
+  ...OWN_FILES,
+  makeFile('op1', 'Notizen_Bauherrengespraech_03-11.pdf', '', { folderId: 'o-p1', fileSize: 90_000, createdAt: '2026-11-03T09:00:00Z' }),
+  makeFile('op2', 'Honorarueberlegung_Entwurf.pdf', '', { folderId: 'o-p1', fileSize: 140_000, createdAt: '2026-11-10T09:00:00Z' }),
+  makeFile('op3', 'Notizen_Bestandsaufnahme.pdf', '', { folderId: 'o-p2' }),
 ]
 
 /**
  * D: one Dateien page. The track beside the tools says whose files these are: a project's (its name opens the list
  * of projects) or the person's own. `top` is what the rail's switcher shows; `?pos=title` makes the two the title.
  */
-function SwitchPage({ own, top, titleSwitch, scoped }: { own: boolean; top: 'project' | 'all'; titleSwitch: boolean; scoped: boolean }): JSX.Element {
+function SwitchPage({ own, top, titleSwitch }: { own: boolean; top: 'project' | 'all'; titleSwitch: boolean }): JSX.Element {
   const [view, setView] = useState<FileView>('cards')
   const search = useFileSearch(projectSearchScope('proj-demo'))
   const project = PROJECTS[0]!
@@ -239,15 +249,26 @@ function SwitchPage({ own, top, titleSwitch, scoped }: { own: boolean; top: 'pro
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         {/* The page's own title row, drawn over the frame's („Dateien“): the place is called Ablage here, and the
             choice between the project's and the person's own stands at the title, in one of two positions. */}
-        <div className="bg-background absolute left-8 right-8 top-[31px] z-10 flex h-11 items-center gap-4">
-          {titleSwitch ? (
-            <div className="text-page-title flex items-center gap-6">
-              {top === 'project' ? (
-                <span className={own ? 'text-muted-foreground font-medium' : 'border-foreground border-b-2 pb-0.5'}>Projektablage</span>
+        <div className="bg-background absolute left-8 right-8 top-[10px] z-10 flex h-[68px] flex-col justify-between">
+          {/* Where the reader stands. In a project „Meine Ablage“ opens at the folder that carries the project's name. */}
+          <span className="text-muted-foreground text-meta flex items-center gap-1.5">
+            {own ? (
+              top === 'project' ? (
+                <>
+                  Meine Ablage <ChevronRight className="size-3" aria-hidden /> <span className="text-foreground font-medium">{project.name}</span>
+                </>
               ) : (
-                <span className="text-muted-foreground text-sm font-normal">Kein Projekt ausgewählt</span>
-              )}
-              <span className={own ? 'border-foreground border-b-2 pb-0.5' : 'text-muted-foreground font-medium'}>Meine Ablage</span>
+                'Meine Ablage'
+              )
+            ) : (
+              project.name
+            )}
+          </span>
+          <div className="flex h-11 items-center gap-4">
+          {titleSwitch ? (
+            <div className="bg-desk flex rounded-[8px] p-1 text-[17px] leading-6 font-semibold">
+              <span className={own ? 'text-muted-foreground px-4 py-1.5 font-medium' : 'bg-sheet shadow-xs rounded-control px-4 py-1.5'}>{top === 'project' ? 'Projektablage' : 'Kein Projekt ausgewählt'}</span>
+              <span className={own ? 'bg-sheet shadow-xs rounded-control px-4 py-1.5' : 'text-muted-foreground px-4 py-1.5 font-medium'}>Meine Ablage</span>
             </div>
           ) : (
             <>
@@ -258,7 +279,7 @@ function SwitchPage({ own, top, titleSwitch, scoped }: { own: boolean; top: 'pro
               </div>
             </>
           )}
-          {own && <OnlyYou />}
+          </div>
         </div>
         <ProjectSectionFrame projectId="dev" projectName={own ? (top === 'all' ? 'Alle Projekte' : project.name) : project.name} pathname="/app/projects/dev/files" inboundMail={!own}>
           <ProjectSectionActions>
@@ -272,24 +293,8 @@ function SwitchPage({ own, top, titleSwitch, scoped }: { own: boolean; top: 'pro
             />
           </ProjectSectionActions>
           <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
-            {own && top === 'project' && (
-              <div className="text-name flex items-center gap-1.5 px-8 pb-2 pt-1">
-                <span className={`inline-flex h-7 items-center gap-1 rounded-full px-2.5 ${scoped ? 'bg-selected' : 'bg-desk'}`}>
-                  {scoped && <Check className="size-3.5" aria-hidden />}
-                  Zu {project.short}
-                </span>
-                <span className={`inline-flex h-7 items-center gap-1 rounded-full px-2.5 ${scoped ? 'bg-desk' : 'bg-selected'}`}>
-                  {!scoped && <Check className="size-3.5" aria-hidden />}
-                  Alles in meiner Ablage
-                </span>
-              </div>
-            )}
             {own ? (
-              scoped && top === 'project' ? (
-                <Browser key="own-project" files={OWN_PROJECT_FILES} folders={[]} />
-              ) : (
-                <Browser key="own" files={OWN_FILES} folders={OWN_FOLDERS} />
-              )
+              <Browser key={`own-${top}`} files={OWN_TREE_FILES} folders={OWN_TREE_FOLDERS} openFolder={top === 'project' ? 'o-p1' : null} />
             ) : (
               <Browser key="project" files={REAL_FILES} folders={REAL_FOLDERS} />
             )}
@@ -429,7 +434,7 @@ export default function PersonalFilesPreview(): JSX.Element {
   const variant = params?.get('v') ?? 'page'
   return (
     <I18nProvider initialLocale="de" fixedLocale>
-      <div className="bg-background text-foreground flex h-dvh overflow-hidden">{variant === 'all' ? <AllProjects page={params?.get('page') === 'automation' ? 'automation' : 'files'} own={params?.get('shelf') === 'own'} /> : variant === 'switch' ? <SwitchPage own={params?.get('shelf') === 'own'} top={params?.get('top') === 'all' ? 'all' : 'project'} titleSwitch={params?.get('pos') === 'title'} scoped={params?.get('mine') !== 'all'} /> : variant === 'office' ? <InOfficeShelf /> : variant === 'chat' ? <FromChat /> : <OwnPage />}</div>
+      <div className="bg-background text-foreground flex h-dvh overflow-hidden">{variant === 'all' ? <AllProjects page={params?.get('page') === 'automation' ? 'automation' : 'files'} own={params?.get('shelf') === 'own'} /> : variant === 'switch' ? <SwitchPage own={params?.get('shelf') === 'own'} top={params?.get('top') === 'all' ? 'all' : 'project'} titleSwitch={params?.get('pos') === 'title'} /> : variant === 'office' ? <InOfficeShelf /> : variant === 'chat' ? <FromChat /> : <OwnPage />}</div>
     </I18nProvider>
   )
 }
