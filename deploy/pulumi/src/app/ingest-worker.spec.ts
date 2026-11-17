@@ -119,7 +119,7 @@ describe("the ingest-worker tier", () => {
 
   it("states the raster pixel budget the Python module defaults to", async () => {
     const cfg = await load();
-    const python = read("packages", "knowledge-layer", "src", "knowledge_layer", "ingest", "adapter.py").match(
+    const python = read("packages", "knowledge-layer", "src", "knowledge_layer", "ingest", "limits.py").match(
       /MAX_IMAGE_PIXELS = env_int\("MAX_IMAGE_PIXELS", ([\d_]+)/,
     )?.[1];
     expect(python).toBeDefined();
