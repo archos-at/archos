@@ -24,7 +24,7 @@ check for each: [`lifecycles/chat-turn.md`](lifecycles/chat-turn.md).
 The transport can already carry many chunks, but two layers assume **one content
 frame per turn**:
 
-1. **Rendering** — `apps/workspace/.../messages-store.ts` appends a *brand-new*
+1. **Rendering** — `apps/workspace/.../turn-actions.ts` appends a *brand-new*
    assistant bubble for every content frame; it never merges deltas. N streamed
    frames ⇒ N bubbles.
 2. **Persistence** — on a client disconnect, the terminal message is persisted

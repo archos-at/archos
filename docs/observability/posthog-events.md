@@ -139,7 +139,7 @@ No-op until `initPosthogClient` ran, which needs the host and project token in
 | `skill_deleted` | `scope` | `features/skills/components/skill-toolbox.tsx`, `skill-editor-dialog.tsx` |
 | `skill_enabled_changed` | `scope`, `enabled` | `features/skills/components/skill-toolbox.tsx`, `curated-skills.tsx` |
 | `answer_retry_thorough` | `message_id`, `original_effort` | `features/chat/components/RetryThoroughButton.tsx` |
-| `answer_completed` | `message_id`, `outcome`, `duration_ms`, `citation_count`, `source_kinds`, `effort`, `has_run` | `features/chat/stores/messages-store.ts` (browser; `message_id` joins the trace and `answer_failed`) |
+| `answer_completed` | `message_id`, `outcome`, `duration_ms`, `citation_count`, `source_kinds`, `effort`, `has_run` | `features/chat/stores/turn-actions.ts` (browser; `message_id` joins the trace and `answer_failed`) |
 | `answer_failed` | `message_id`, `conversation_id`, `reason` (`provider_credits`, `timeout`, `budget`, `provider_error`, `workflow_error`), `error_type`, `organization_id` | server (Python), `agent_host/chat_socket.py` via `agent/observability/answer_failure.py`: every turn that ends in a `RUN_ERROR` |
 | `answer_feedback_submitted` | `verdict`, `reason`, `has_comment`, `comment_length` (the note's words never leave the product), `message_id`, `conversation_id`, `trace_id` and `langfuse_trace_id` (the turn's Langfuse trace, null when it recorded none). A down-vote without a reason is held 20 s for one and sent once, with it; pagehide sends it as it stands | `features/chat/hooks/use-answer-feedback.ts` |
 | `product_feedback_submitted` | `kind` | `features/product-feedback/components/feedback-form.tsx` |
