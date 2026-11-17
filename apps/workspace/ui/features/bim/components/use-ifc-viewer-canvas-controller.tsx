@@ -269,11 +269,11 @@ export function useIfcViewerCanvasController(props: IfcViewerCanvasProps) {
         ])
         if (cancelled) return
 
-        const geometry = kernel.hold(new GeometryProcessor())
+        const geometry = new GeometryProcessor()
         const renderer: RendererLike = new Renderer(canvas)
         rendererRef.current = renderer
         try {
-          await Promise.all([geometry.init(), renderer.init()])
+          await Promise.all([geometry.init().then(() => kernel.hold(geometry)), renderer.init()])
         } catch (error) {
           renderer.destroy()
           if (rendererRef.current === renderer) rendererRef.current = null

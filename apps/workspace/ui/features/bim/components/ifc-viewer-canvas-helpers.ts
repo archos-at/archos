@@ -71,19 +71,22 @@ export function modelBoundsMetres(
 
 export function guardedKernel() {
   let kernel: { dispose(): void } | null = null
+  let released = false
+  const release = () => {
+    released = true
+    const held = kernel
+    kernel = null
+    try {
+      held?.dispose()
+    } catch (error) {
+      capturePosthogException(error, { source: 'ifc-viewer-dispose' })
+    }
+  }
   return {
-    hold<T extends { dispose(): void }>(next: T): T {
+    hold(next: { dispose(): void }) {
       kernel = next
-      return next
+      if (released) release()
     },
-    release() {
-      const held = kernel
-      kernel = null
-      try {
-        held?.dispose()
-      } catch (error) {
-        capturePosthogException(error, { source: 'ifc-viewer-dispose' })
-      }
-    },
+    release,
   }
 }
