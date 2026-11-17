@@ -22,7 +22,9 @@ const client = vi.hoisted(() => ({
   generateTitle: vi.fn().mockResolvedValue(undefined),
 }))
 vi.mock('@/adapters/api/conversations-client', () => ({ conversationsClient: client }))
+vi.mock('@/lib/analytics/posthog', () => ({ capturePosthog: vi.fn() }))
 
+import { capturePosthog } from '@/lib/analytics/posthog'
 import { useChatStore } from '../store'
 import { registerStopStreamingHandler } from './messages-store'
 import { registerShownText } from './answer-reveal-store'
@@ -151,6 +153,20 @@ describe('a turn folded into its thread', () => {
     useChatStore.setState({ currentTurnStartedAt: Date.now() - 4_000 })
     useChatStore.getState().applyTurnEvents(upTo(answered, 20))
     expect(answerOf(RESULT.message_id)!.answerDurationMs).toBeGreaterThanOrEqual(4_000)
+  })
+
+  it('tells PostHog the answer completed once, with the time from send to its terminal event', () => {
+    ask(answered)
+    useChatStore.setState({ currentTurnStartedAt: Date.now() - 4_000 })
+    useChatStore.getState().applyTurnEvents(answered)
+    useChatStore.getState().applyTurnEvents(answered)
+
+    const completed = vi.mocked(capturePosthog).mock.calls.filter(([event]) => event === 'answer_completed')
+    expect(completed).toHaveLength(1)
+    const properties = completed[0]![1] as { message_id: string; duration_ms: number; outcome: string }
+    expect(properties).toMatchObject({ message_id: RESULT.message_id, outcome: 'ok' })
+    expect(properties.duration_ms).toBeGreaterThanOrEqual(4_000)
+    expect(properties.duration_ms).toBeLessThan(60_000)
   })
 
   it('records the Aufwand the question was sent with on its answer, and mirrors it', async () => {

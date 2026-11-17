@@ -28,10 +28,10 @@ Mechanics, each a decision:
 
 Input and output are the content category the agent runtime already exports for a chat turn
 (ADR-0029), each capped at :data:`MAX_PAYLOAD_CHARS` so a long skill document
-cannot turn one span into megabytes. The environment, release and observation
-type come from ``trace_context`` and the usage buckets from
-``usage_observation_attributes``, so this span and an agent-runtime generation cannot
-disagree about what they carry.
+cannot turn one span into megabytes. The environment, release and deployment tag
+(on every span the provider starts, Hatchet's step runs too, which otherwise land in
+"default") and the observation type come from ``trace_context``, the usage buckets from
+``usage_observation_attributes``, so no two spans disagree about what they carry.
 """
 
 from __future__ import annotations
@@ -46,6 +46,8 @@ from collections.abc import Mapping
 from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import Any
+
+from opentelemetry.sdk.trace import SpanProcessor
 
 from agent.common import residency
 from agent.common.image_redaction import redact_inline_images
@@ -128,8 +130,25 @@ def _build(endpoint: str | None, env: Mapping[str, str], exporter):
 
         exporter = OTLPSpanExporter(endpoint=signal_endpoint(endpoint or "", "traces"))
     provider = TracerProvider(resource=Resource.create(resource_attributes(env)))
+    provider.add_span_processor(ProcessContextSpanProcessor())
     provider.add_span_processor(BatchSpanProcessor(exporter))
     return provider
+
+
+def process_context_additions(existing: Mapping[str, Any]) -> dict[str, Any]:
+    additions = {key: value for key, value in process_trace_attributes().items() if key not in existing}
+    tags = process_trace_attributes().get(TAGS_ATTRIBUTE)
+    if tags:
+        additions[TAGS_ATTRIBUTE] = list(dict.fromkeys([*(existing.get(TAGS_ATTRIBUTE) or ()), *tags]))
+    return additions
+
+
+class ProcessContextSpanProcessor(SpanProcessor):
+    def on_start(self, span: Any, parent_context: Any = None) -> None:
+        try:
+            span.set_attributes(process_context_additions(span.attributes or {}))
+        except Exception:
+            logger.debug("direct_trace: could not stamp the process context onto a span", exc_info=True)
 
 
 def tracer_provider():
@@ -195,9 +214,9 @@ def generation_start_attributes(
     ANY span of a trace, so a child that wrote its own trace name, tags and
     ``feature`` renamed its file's ``ingest-file`` trace to ``ingest-vision``
     whenever its span was ingested after the root's. A nested generation writes
-    its metadata on the observation instead, and no trace-level attribute.
+    its metadata on the observation instead; its one trace-level attribute is the deployment tag.
     """
-    attributes: dict[str, Any] = {**process_trace_attributes(), OBSERVATION_TYPE_ATTRIBUTE: "generation"}
+    attributes: dict[str, Any] = {OBSERVATION_TYPE_ATTRIBUTE: "generation"}
     if not nested:
         attributes[TRACE_NAME_ATTRIBUTE] = feature
         attributes[TAGS_ATTRIBUTE] = [f"feature:{feature}", AUXILIARY_SURFACE_TAG]
@@ -414,7 +433,6 @@ def observed_span(feature: str, *, metadata: Mapping[str, Any] | None = None) ->
                 context=_parent_context.get() or Context(),
                 kind=SpanKind.INTERNAL,
                 attributes={
-                    **process_trace_attributes(),
                     OBSERVATION_TYPE_ATTRIBUTE: "span",
                     TRACE_NAME_ATTRIBUTE: feature,
                     TAGS_ATTRIBUTE: [f"feature:{feature}", AUXILIARY_SURFACE_TAG],
@@ -529,7 +547,6 @@ def retrieval_attributes(
     searched for. ``feature`` is written last so a caller cannot rename the trace.
     """
     return {
-        **process_trace_attributes(),
         OBSERVATION_TYPE_ATTRIBUTE: "retriever",
         TRACE_NAME_ATTRIBUTE: feature,
         TAGS_ATTRIBUTE: [f"feature:{feature}", AUXILIARY_SURFACE_TAG],

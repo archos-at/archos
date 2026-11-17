@@ -25,7 +25,7 @@ here. What is ours:
   exception message can embed one, and a PostHog event is retained off-cluster.
 * Every event carries the deployment's ``environment``, the emitting
   ``service`` and the deployed ``release`` (the commit, as Langfuse's release)
-  as super properties, the same values the Langfuse traces carry.
+  as super properties, the same values the Langfuse traces carry, and ``app_host``.
 * Every event has a stable distinct id and the office as the ``organization``
   group (:func:`resolve_identity`): the acting user when the run knows one,
   else ``organization:<id>``, else ``system``. The last two mint no person. A
@@ -46,6 +46,7 @@ from collections.abc import Callable
 from threading import Lock
 from typing import TYPE_CHECKING
 from typing import Any
+from typing import Literal
 
 from agent.common.log_redaction import scrub_presigned_urls
 from agent.observability import trace_context
@@ -57,6 +58,13 @@ if TYPE_CHECKING:
 HOST_ENV = "POSTHOG_HOST"
 PROJECT_TOKEN_ENV = "POSTHOG_PROJECT_TOKEN"  # pragma: allowlist secret
 IN_APP_MODULES = ["agent", "agent_host"]
+
+ServerEvent = Literal["answer_failed", "answer_finished"]
+"""Every product event a Python process sends: the closed union, as ``ServerEvent`` is in the BFF.
+
+Each has a row in ``docs/observability/posthog-events.md``; ``tests/test_posthog_boundaries.py``
+holds every ``capture`` call to this list and this list to the catalogue.
+"""
 
 _client: Posthog | None = None
 _client_lock = Lock()
@@ -91,12 +99,13 @@ def super_properties() -> dict[str, str]:
     ``environment`` is ``APP_ENV`` exactly as Langfuse files the traces
     (``trace_context``), ``service`` is ``OTEL_SERVICE_NAME``, which tells
     the chat tier from the workers, and ``release`` is ``GIT_SHA``, the same
-    key the BFF and the browser send.
+    key the BFF and the browser send, as is ``app_host``: only it tells staging from production.
     """
     values = {
         "environment": trace_context.langfuse_environment(),
         "release": trace_context.langfuse_release(),
         "service": os.environ.get("OTEL_SERVICE_NAME", "").strip() or None,
+        "app_host": trace_context.app_host(),
     }
     return {key: value for key, value in values.items() if value}
 
@@ -177,7 +186,7 @@ def resolve_identity(distinct_id: str | None, organization_id: str | None = None
 
 
 def capture(
-    event: str,
+    event: ServerEvent,
     *,
     distinct_id: str | None,
     properties: dict[str, Any] | None = None,

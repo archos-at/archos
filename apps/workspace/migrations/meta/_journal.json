@@ -1709,6 +1709,13 @@
       "when": 1795500300000,
       "tag": "0243_documents_generated_namespace",
       "breakpoints": true
+    },
+    {
+      "idx": 244,
+      "version": "7",
+      "when": 1795600300000,
+      "tag": "0244_usage_events_model_once",
+      "breakpoints": true
     }
   ]
 }
