@@ -11,7 +11,7 @@
 import type { JSX, ReactNode } from 'react'
 import { useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Check, FileText, Folder, FolderInput, LayoutGrid, LockKeyhole, Paperclip, Plus, Upload, Zap } from 'lucide-react'
+import { Check, ChevronDown, FileText, Folder, FolderInput, LayoutGrid, LockKeyhole, Paperclip, Plus, Upload, Zap } from 'lucide-react'
 
 import { ProjectSectionActions, ProjectSectionFrame } from '@/components/shell/project-section-frame'
 import { ProjectSwitcher } from '@/components/shell/project-switcher'
@@ -217,23 +217,52 @@ function AllProjects({ page, own }: { page: 'files' | 'automation'; own: boolean
   )
 }
 
-/** D: one Dateien page. A track beside the title switches between the project's files and the person's own. */
-function SwitchPage({ own }: { own: boolean }): JSX.Element {
+/** Files of the person's own that belong to the project, as a chat of theirs can: only they see them. */
+const OWN_PROJECT_FILES: FileItem[] = [
+  makeFile('op1', 'Notizen_Bauherrengespraech_03-11.pdf', '', { fileSize: 90_000, createdAt: '2026-11-03T09:00:00Z' }),
+  makeFile('op2', 'Honorarueberlegung_Entwurf.pdf', '', { fileSize: 140_000, createdAt: '2026-11-10T09:00:00Z' }),
+]
+
+/**
+ * D: one Dateien page. The track beside the tools says whose files these are: a project's (its name opens the list
+ * of projects) or the person's own. `top` is what the rail's switcher shows, `menu` opens the list of projects.
+ */
+function SwitchPage({ own, top, menu, scoped }: { own: boolean; top: 'project' | 'all'; menu: boolean; scoped: boolean }): JSX.Element {
   const [view, setView] = useState<FileView>('cards')
   const search = useFileSearch(projectSearchScope('proj-demo'))
   const project = PROJECTS[0]!
+  const on = 'bg-sheet shadow-xs rounded-[4px] px-3 py-1.5'
+  const off = 'text-muted-foreground px-3 py-1.5'
   return (
     <>
-      <Rail own={false} projectFilesOpen />
+      <Rail own={top === 'all'} section="files" />
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <div className="absolute right-8 top-8 z-10 flex items-center gap-3">
-          {own && <OnlyYou />}
-          <div className="bg-desk text-name flex rounded-control p-0.5 font-medium">
-            <span className={own ? 'text-muted-foreground px-3 py-1.5' : 'bg-sheet shadow-xs rounded-[4px] px-3 py-1.5'}>{project.short}</span>
-            <span className={own ? 'bg-sheet shadow-xs rounded-[4px] px-3 py-1.5' : 'text-muted-foreground px-3 py-1.5'}>Meine Dateien</span>
+        {own && (
+          <div className="absolute left-[132px] top-[38px] z-10">
+            <OnlyYou />
           </div>
+        )}
+        <div className="absolute right-8 top-8 z-10">
+          <div className="bg-desk text-name flex rounded-control p-0.5 font-medium">
+            <span className={`${own ? off : on} inline-flex items-center gap-1`}>
+              {top === 'all' ? 'Projekt wählen' : project.short}
+              <ChevronDown className="size-3.5" aria-hidden />
+            </span>
+            <span className={own ? on : off}>Meine Dateien</span>
+          </div>
+          {menu && (
+            <div className="bg-sheet shadow-md absolute right-0 top-full mt-2 w-72 rounded-[16px] p-1.5">
+              <div className="text-muted-foreground text-meta px-2.5 pb-1 pt-1.5 font-medium">Dateien eines Projekts</div>
+              {PROJECTS.map((item) => (
+                <div key={item.id} className="text-name flex h-9 items-center gap-2.5 rounded-control px-2.5">
+                  <Folder className="text-muted-foreground size-4 shrink-0" aria-hidden />
+                  <span className="min-w-0 flex-1 truncate">{item.name}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-        <ProjectSectionFrame projectId="dev" projectName={own ? 'Meine Dateien' : project.name} pathname="/app/projects/dev/files" inboundMail={!own}>
+        <ProjectSectionFrame projectId="dev" projectName={own ? (top === 'all' ? 'Alle Projekte' : project.name) : project.name} pathname="/app/projects/dev/files" inboundMail={!own}>
           <ProjectSectionActions>
             <FilesHeaderControls
               phone={false}
@@ -244,7 +273,29 @@ function SwitchPage({ own }: { own: boolean }): JSX.Element {
               upload={<ProjectUppyUpload onUpload={() => {}} isUploading={false} allowFolders />}
             />
           </ProjectSectionActions>
-          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">{own ? <Browser key="own" files={OWN_FILES} folders={OWN_FOLDERS} /> : <Browser key="project" files={REAL_FILES} folders={REAL_FOLDERS} />}</div>
+          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+            {own && top === 'project' && (
+              <div className="text-name flex items-center gap-1.5 px-8 pb-2 pt-1">
+                <span className={`inline-flex h-7 items-center gap-1 rounded-full px-2.5 ${scoped ? 'bg-selected' : 'bg-desk'}`}>
+                  {scoped && <Check className="size-3.5" aria-hidden />}
+                  Zu {project.short}
+                </span>
+                <span className={`inline-flex h-7 items-center gap-1 rounded-full px-2.5 ${scoped ? 'bg-desk' : 'bg-selected'}`}>
+                  {!scoped && <Check className="size-3.5" aria-hidden />}
+                  Alle meine Dateien
+                </span>
+              </div>
+            )}
+            {own ? (
+              scoped && top === 'project' ? (
+                <Browser key="own-project" files={OWN_PROJECT_FILES} folders={[]} />
+              ) : (
+                <Browser key="own" files={OWN_FILES} folders={OWN_FOLDERS} />
+              )
+            ) : (
+              <Browser key="project" files={REAL_FILES} folders={REAL_FOLDERS} />
+            )}
+          </div>
         </ProjectSectionFrame>
       </div>
     </>
@@ -380,7 +431,7 @@ export default function PersonalFilesPreview(): JSX.Element {
   const variant = params?.get('v') ?? 'page'
   return (
     <I18nProvider initialLocale="de" fixedLocale>
-      <div className="bg-background text-foreground flex h-dvh overflow-hidden">{variant === 'all' ? <AllProjects page={params?.get('page') === 'automation' ? 'automation' : 'files'} own={params?.get('shelf') === 'own'} /> : variant === 'switch' ? <SwitchPage own={params?.get('shelf') === 'own'} /> : variant === 'office' ? <InOfficeShelf /> : variant === 'chat' ? <FromChat /> : <OwnPage />}</div>
+      <div className="bg-background text-foreground flex h-dvh overflow-hidden">{variant === 'all' ? <AllProjects page={params?.get('page') === 'automation' ? 'automation' : 'files'} own={params?.get('shelf') === 'own'} /> : variant === 'switch' ? <SwitchPage own={params?.get('shelf') === 'own'} top={params?.get('top') === 'all' ? 'all' : 'project'} menu={params?.get('menu') === '1'} scoped={params?.get('mine') !== 'all'} /> : variant === 'office' ? <InOfficeShelf /> : variant === 'chat' ? <FromChat /> : <OwnPage />}</div>
     </I18nProvider>
   )
 }
