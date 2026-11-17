@@ -326,7 +326,8 @@ def grouped_filters(filters: GroupedSearchFilters | None) -> dict[str, Any]:
     return {"$and": [*parts, CURRENT_REVISIONS]}
 
 
-# Measured 2026-10-27 on openai/text-embedding-3-large: unrelated passages score 0.11 to 0.30, related 0.37 and up; re-measure with the embedder.
+# Measured 2026-10-27 on openai/text-embedding-3-large: unrelated passages score 0.11 to 0.30,
+# related 0.37 and up; re-measure with the embedder.
 MEANING_ONLY_MIN_COSINE = 0.35
 
 

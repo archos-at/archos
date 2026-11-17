@@ -72,7 +72,8 @@ logger = logging.getLogger(__name__)
 
 MODEL_ENV = "DICTATION_MODEL"
 FALLBACK_MODEL_ENV = "DICTATION_FALLBACK_MODEL"
-# Chosen in a live test (2026-10-08, ten mixed German/English clips): Scribe kept every mixed sentence; openai/gpt-4o-transcribe has no zero-data-retention endpoint.
+# Chosen in a live test (2026-10-08, ten mixed German/English clips): Scribe kept every mixed
+# sentence; openai/gpt-4o-transcribe has no zero-data-retention endpoint.
 DEFAULT_MODEL = "elevenlabs/scribe-v2"
 DEFAULT_FALLBACK_MODEL = "openai/whisper-large-v3-turbo"
 OWN_KEY_MODELS = ("gpt-4o-transcribe", "whisper-1")

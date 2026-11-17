@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-# Caps measured 2026-10-22 on one core: 20,000 tabs in one line took mail-parser-reply 1.36 7.5 s, icalendar 7.3.0 parsed 2 MB in 4.9 s.
+# Caps measured 2026-10-22 on one core: 20,000 tabs in one line took mail-parser-reply 1.36 7.5 s,
+# icalendar 7.3.0 parsed 2 MB in 4.9 s.
 MAX_MESSAGE_BYTES = 26 * 1024 * 1024
 
 MAX_HTML_BYTES = 2 * 1024 * 1024

@@ -314,7 +314,8 @@ def _callbacks(scope: JobScope, request: JobRequest, fn_config: Any) -> tuple[li
     verbose = is_verbose(getattr(fn_config, "verbose", False))
     callbacks: list[Any] = [VerboseTraceCallback()] if verbose else []
     event_store = BatchingEventStore(EventStore(request.db_url, request.job_id))
-    # Built per run: a worker process serves many tenants, and a ledger that outlived its run would put one office's documents on another's report (ADR-0018).
+    # Built per run: a worker process serves many tenants, and a ledger that outlived its run would
+    # put one office's documents on another's report (ADR-0018).
     plan_documents = scope.plan_documents
     scope.ledger = RunLedgerFold(
         job_id=request.job_id,

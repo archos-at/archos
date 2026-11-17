@@ -101,4 +101,5 @@ const LegalPage = async ({ params }: LegalPageProps): Promise<ReactNode> => {
   )
 }
 
+// Public and unauthenticated: imprint and privacy information must be reachable without signing in (ECG §5, DSGVO Art. 13).
 export default LegalPage

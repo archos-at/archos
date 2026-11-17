@@ -16,7 +16,8 @@ DRAIN_AFTER_TERMINAL_SECONDS = 30.0
 DRAIN_CANCEL_MARGIN_SECONDS = 5.0
 
 
-# A flat 10 s ended before a cancelled turn sent its terminal, and the ask it served read working for 47 minutes (dev, 2026-11-12).
+# A flat 10 s ended before a cancelled turn sent its terminal, and the ask it served read working
+# for 47 minutes (dev, 2026-11-12).
 def drain_cancel_grace() -> float:
     return workflow_stream.PRODUCER_TEARDOWN_SECONDS + DRAIN_CANCEL_MARGIN_SECONDS
 

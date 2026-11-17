@@ -50,6 +50,7 @@ export function visibleBackendOperations(principal: AgentPrincipal): readonly Ba
   return BACKEND_OPERATIONS.filter((op) => canSee(principal, op))
 }
 
+// Remove after the December 2026 release (2026-12-31), with `RENAMED_OPERATIONS` in `catalog/index.ts`.
 export const RENAMED_BACKEND_OPERATIONS: Readonly<Record<string, string>> = {
   'knowledge-image-view': 'document-look',
 }

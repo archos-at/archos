@@ -43,7 +43,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Measured 2026-09-04: Bauordnung für Wien is 759,595 characters and a 400,000 cap cut off § 108; the client passage matcher is the bound.
+# Measured 2026-09-04: Bauordnung für Wien is 759,595 characters and a 400,000 cap cut off § 108;
+# the client passage matcher is the bound.
 MAX_DOCUMENT_TEXT_CHARS = 1_000_000
 
 _PASSAGE_ANCHOR_WORDS = 12

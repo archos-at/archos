@@ -98,6 +98,7 @@ function documentSearchInput(given: OperationExample): OperationExample {
   }
 }
 
+// Remove after the December 2026 release (2026-12-31), with `RENAMED_BACKEND_OPERATIONS` in `policy.ts`.
 export const RENAMED_OPERATIONS: Readonly<Record<string, string | RenamedWithInput>> = {
   'job-list': 'task-list',
   'job-get': 'task-get',

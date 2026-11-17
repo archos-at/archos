@@ -226,6 +226,7 @@ async function expireIfLost(row: AgentAskRow, now = Date.now()): Promise<AgentAs
 
 export const LOST_ASKS_PER_SWEEP = OPEN_ASKS_PAGE
 
+// Same rule as a read: on dev, 2026-11-12, six asks read `working` an hour after a pod restart lost their notices.
 export async function endLostAsks(now: Date = new Date()): Promise<number> {
   const maxSeconds = askMaxSeconds()
   const lost = await findAsksOpenBefore(new Date(now.getTime() - maxSeconds * 1_000), LOST_ASKS_PER_SWEEP)

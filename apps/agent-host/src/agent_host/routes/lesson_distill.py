@@ -231,7 +231,8 @@ def add_lesson_distill_routes(router: APIRouter) -> None:
     )
     async def lesson_distill(request: LessonDistillRequest) -> LessonDistillResponse:
         """Distill one report, or say why it could not be distilled."""
-        # No org header on purpose: the report is one tenant's text, so no tenant's BYOK credential is resolved and ZDR is pinned.
+        # No org header on purpose: the report is one tenant's text, so no tenant's BYOK credential
+        # is resolved and ZDR is pinned.
         cred = await asyncio.to_thread(_llm_settings, None, data_policy=ZERO_DATA_RETENTION)
         if not cred.api_key:
             return LessonDistillResponse(error="llm_not_configured")
