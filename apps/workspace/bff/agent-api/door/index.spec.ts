@@ -155,8 +155,8 @@ describe('completions and the project resource, through the real SDK', () => {
     const templates = (await rpc(outside, 'resources/templates/list')).result?.resourceTemplates as { uriTemplate: string }[]
     expect(templates.map((t) => t.uriTemplate)).toContain(PROJECT_URI_TEMPLATE)
     const listed = (await rpc(outside, 'resources/list')).result?.resources as { uri: string; name: string }[]
-    expect(listed).toContainEqual(expect.objectContaining({ uri: 'piloti://project/p-1', name: 'Haus Josef' }))
-    const { result } = await rpc(outside, 'resources/read', { uri: 'piloti://project/p-1' })
+    expect(listed).toContainEqual(expect.objectContaining({ uri: 'workspace://project/p-1', name: 'Haus Josef' }))
+    const { result } = await rpc(outside, 'resources/read', { uri: 'workspace://project/p-1' })
     expect(JSON.parse((result?.contents as { text: string }[])[0].text)).toEqual({ project: { id: 'p-1' }, counts: { documents: 1 } })
     expect(read).toHaveBeenCalledWith(expect.anything(), 'project-overview-get', { params: { id: 'p-1' } })
     read.mockRestore()

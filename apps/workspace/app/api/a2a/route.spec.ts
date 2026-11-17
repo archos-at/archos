@@ -48,7 +48,7 @@ const SESSION: AuthorizedSession = {
   organizationMembershipId: 'om_1',
   role: 'member',
   permissions: [],
-  featureFlags: ['piloti-ask'],
+  featureFlags: ['agent-requests'],
 }
 
 const PERSON: AgentPrincipal = { actor: 'external_agent', session: SESSION, clientId: 'claude', scopes: [] }

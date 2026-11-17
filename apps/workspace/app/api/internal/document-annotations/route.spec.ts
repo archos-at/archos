@@ -54,6 +54,7 @@ vi.mock('@/lib/annotations/attention', () => ({
 }))
 
 import { requirePinnedSession, requireVerifiedContext } from '@/lib/api/internal-envelope'
+import { LEGACY_AGENT_DIRECT_EDITS_OFF } from '@/lib/authz/legacy-feature-flags'
 import { listAnnotationsForAgent, proposeAnnotations, replyToAnnotation } from '@/lib/annotations/service'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { findConversationInOrg } from '@/lib/conversations/repository'
@@ -96,7 +97,7 @@ import { POST } from './route'
 const SECRET = 'test-internal-token-annotations'
 const DOC_ID = '11111111-1111-4111-8111-111111111111'
 const OTHER_DOC = '22222222-2222-4222-8222-222222222222'
-const SESSION = { userId: 'user_1', organizationId: 'org_1', featureFlags: ['piloti-acts'] } as Partial<AuthorizedSession> as AuthorizedSession
+const SESSION = { userId: 'user_1', organizationId: 'org_1', featureFlags: ['agent-direct-edits'] } as Partial<AuthorizedSession> as AuthorizedSession
 const CONTEXT = {
   organizationId: 'org_1',
   userId: 'user_1',
@@ -131,7 +132,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   process.env.INTERNAL_API_TOKEN = SECRET
   vi.stubEnv('REQUIRE_AUTH', 'true')
-  SESSION.featureFlags = ['piloti-acts']
+  SESSION.featureFlags = ['agent-direct-edits']
   vi.mocked(requireVerifiedContext).mockReturnValue(CONTEXT)
   vi.mocked(requirePinnedSession).mockResolvedValue(SESSION)
   vi.mocked(findConversationInOrg).mockResolvedValue({
@@ -1075,7 +1076,10 @@ describe('POST /api/internal/document-annotations — an office that has the age
     SESSION.featureFlags = []
   })
 
-  const refusal = { code: 'PILOTI_ACTS_OFF', details: { reason: 'piloti-acts-off' } }
+  const refusal = {
+    code: LEGACY_AGENT_DIRECT_EDITS_OFF.code,
+    details: { reason: LEGACY_AGENT_DIRECT_EDITS_OFF.reason },
+  }
 
   it('refuses to set a mark open for the asker, typed, and writes nothing', async () => {
     const response = await post({ op: 'create', answerMessageId: ANSWER, marks: [PROPOSAL] })
@@ -1138,7 +1142,7 @@ describe('POST /api/internal/document-annotations — an office that has the age
   })
 
   it('acts again once the organization switches it on', async () => {
-    SESSION.featureFlags = ['piloti-acts']
+    SESSION.featureFlags = ['agent-direct-edits']
 
     const response = await post({ op: 'update', annotationId: MARK_ID, status: 'resolved', note: NOTE })
 

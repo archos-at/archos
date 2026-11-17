@@ -8,7 +8,7 @@ not know about:
 
 - **Which skills, for whom.** A :class:`SkillRuntime` is built per run
   (ADR-0018) from the skills already resolved for this tenant and agent
-  (``resolver.py``: the BFF payload, the ``grid-agents`` gate, curated offers
+  (``resolver.py``: the BFF payload, the ``agents`` gate, curated offers
   only when taken up), laid out as sources on one :class:`~.backend.SkillsBackend`.
 - **What reached the model.** ``activated`` lists the skills whose body the
   model read (the backend's ``read``) or was handed in full and then named in
@@ -47,7 +47,8 @@ from .backend import OFFICE_SOURCE
 from .backend import SKILLS_ROOT
 from .backend import SkillsBackend
 from .backend import skill_path
-from .builtin import canonical_skill_name
+from .legacy_names import canonical_skill_name
+from .legacy_names import find_skill
 from .models import Skill
 from .models import preferred_cards
 from .models import skill_hidden
@@ -90,7 +91,7 @@ def source_path(source: str) -> str:
 
 
 def preferred_cards_block(skill: Skill) -> str | None:
-    """The ``grid-cards`` block appended to a body when it is read, or None.
+    """The ``cards`` block appended to a body when it is read, or None.
 
     The full card shapes ride along because the read is the moment we know which
     of the card types this turn could need, and it saves a ``describe_card``
@@ -169,7 +170,7 @@ class SkillRuntime:
 
     def pin(self, name: str) -> bool:
         """Give ``name``'s body in full in this run's prompt; False when it is no skill here."""
-        skill = self._by_name.get(canonical_skill_name(name))
+        skill = find_skill(self._by_name, name)
         if skill is None or skill.name in self._pinned:
             return False
         self._pinned.append(skill.name)
@@ -206,7 +207,7 @@ class SkillRuntime:
 
     @property
     def hidden_activated(self) -> tuple[str, ...]:
-        """Activated skills marked ``grid-hidden``: named in the disclosure, kept off the live line."""
+        """Activated skills marked ``hidden``: named in the disclosure, kept off the live line."""
         return tuple(name for name in self._activated if skill_hidden(self._by_name[name].metadata))
 
     def _record_activation(self, skill: Skill) -> None:
@@ -226,9 +227,10 @@ class SkillRuntime:
         """
         accepted: list[str] = []
         for raw in names:
-            name = canonical_skill_name(str(raw).strip().strip("`"))
-            if name not in self._pinned:
-                logger.debug("skills_applied names %r, which was not pinned this run; ignored", name)
+            asked = canonical_skill_name(str(raw).strip().strip("`"))
+            name = next((pinned for pinned in self._pinned if canonical_skill_name(pinned) == asked), None)
+            if name is None:
+                logger.debug("skills_applied names %r, which was not pinned this run; ignored", asked)
                 continue
             if name in self._activated:
                 continue

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import type { CapturedNetworkRequest } from 'posthog-js'
+import { SERVICE_HEADERS } from '../proxy/ws-upgrade-headers.js'
 import {
   DISABLED_POSTHOG_CONFIG,
   adoptServerIdentity,
@@ -18,6 +19,7 @@ import {
   registerPosthogContext,
   resetPosthog,
   scrubEvent,
+  SERVICE_HEADER_NAMES,
   stripUrlQuery,
   type PostHogConfig,
 } from './posthog'
@@ -213,6 +215,31 @@ describe('session replay privacy options', () => {
 
     expect(masked.requestHeaders).toEqual({ accept: 'application/json' })
     expect(masked.responseHeaders).toEqual({ 'content-type': 'application/json' })
+  })
+
+  test('strips every service header under the name the backend reads it by', () => {
+    const masked = maskReplayNetworkRequest(
+      request({
+        requestHeaders: {
+          ...Object.fromEntries(SERVICE_HEADER_NAMES.map((name) => [name, 'SECRET'])),
+          accept: 'application/json',
+        },
+      })
+    )
+
+    expect(masked.requestHeaders).toEqual({ accept: 'application/json' })
+  })
+
+  test('redacts the same service headers the WebSocket proxy strips from a client', () => {
+    expect(new Set(SERVICE_HEADER_NAMES)).toEqual(new Set(SERVICE_HEADERS))
+  })
+
+  test('redacts the internal service token under its new name', () => {
+    const masked = maskReplayNetworkRequest(
+      request({ requestHeaders: { 'x-internal-token': 'SECRET', accept: 'application/json' } })
+    )
+
+    expect(masked.requestHeaders).toEqual({ accept: 'application/json' })
   })
 
   test('keeps the bodies of a failed request, which is what explains it', () => {

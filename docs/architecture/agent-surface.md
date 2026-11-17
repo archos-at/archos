@@ -365,7 +365,7 @@ SSE headers (`Cache-Control: no-transform`, `X-Accel-Buffering: no`) keep
 Next.js from compressing it, as for `/api/stream`.
 
 The mode was called `discovery` until October 2026, and the server still
-accepts that name (header `x-piloti-mcp-mode` or `?mode=`). MCP's own
+accepts that name (in `?mode=`). MCP's own
 "discovery" is `server/discover`, so the old name said something it was not.
 
 ## English only
@@ -685,10 +685,12 @@ Markdown beside the module, embedded by `door/docs.spec.ts`
 
 | Resource | What |
 |---|---|
-| `piloti://guide` | How the workspace fits together, how ids flow, which operation reads what (`guide.md`) |
-| `piloti://glossary` | The office's German words and the catalog words they find: `glossary.md` and the search vocabulary |
-| `piloti://catalog` | Every operation this caller may run, by domain, read or write; generated per caller |
-| `ui://piloti/proposal-card` | The agent's proposal card, an MCP Apps view (`text/html;profile=mcp-app`); drawn by the host from `proposal-get`'s result ([below](#mcp-apps-cards-in-the-persons-own-assistant)) |
+| `workspace://guide` | How the workspace fits together, how ids flow, which operation reads what (`guide.md`) |
+| `workspace://glossary` | The office's German words and the catalog words they find: `glossary.md` and the search vocabulary |
+| `workspace://catalog` | Every operation this caller may run, by domain, read or write; generated per caller |
+| `ui://workspace/proposal-card` | The agent's proposal card, an MCP Apps view (`text/html;profile=mcp-app`); drawn by the host from `proposal-get`'s result ([below](#mcp-apps-cards-in-the-persons-own-assistant)) |
+
+The retired addresses of these resources are still read, and never listed, until the release in `bff/agent-api/legacy-names.ts`.
 
 Prompts: `project-briefing`, `building-law-check`, `my-day` (each
 `prompts/<name>.md`, its arguments its `{{placeholders}}`), and
@@ -745,7 +747,7 @@ none on its tools: per-operation or per-domain icons would repeat ~700 bytes on
 
 ### Listening
 
-A client of the 2026-07-28 revision that attached `piloti://project/{projectId}`
+A client of the 2026-07-28 revision that attached `workspace://project/{projectId}`
 can open `subscriptions/listen` (an SSE stream) and hear
 `notifications/resources/updated` for that URI when the project's overview
 changes (rename, status, profile, documents), and
@@ -795,14 +797,14 @@ iframe the host owns. Code: `lib/agent-api/mcp-apps.ts` (the door's side),
 sequenceDiagram
   participant M as Host's model
   participant H as Host (Claude, ChatGPT)
-  participant V as Card (iframe, ui://piloti/proposal-card)
+  participant V as Card (iframe, ui://workspace/proposal-card)
   participant D as /api/mcp
   participant R as Proposal routes
   M->>H: call proposal-get {params:{id}}
   H->>D: tools/call proposal-get
   D->>R: GET /api/proposals/[id] as the person
   D-->>H: text + structuredContent {proposal}
-  H->>D: resources/read ui://piloti/proposal-card (cached)
+  H->>D: resources/read ui://workspace/proposal-card (cached)
   H->>V: ui/notifications/tool-result
   V->>H: tools/call proposal-card-apply {id} (the person's press)
   H->>D: tools/call proposal-card-apply
@@ -1027,7 +1029,7 @@ The dispatcher speaks JSON to an agent and the route's own encoding to the route
 **Out.** A route that answers a file (PDF, Word, a BCF zip, an Excel workbook) is catalogued like any
 read, with `binaryResponse` listing its media types for OpenAPI. `dispatch.ts` reads the bytes; up
 to `MAX_INLINE_BYTES` (5 MiB) the result is an MCP `resource` content item (`blob` is the base64,
-`uri` is `piloti://operation/<name>/<file name or result>`) next to a one-line text summary. The
+`uri` is `workspace://operation/<name>/<file name or result>`) next to a one-line text summary. The
 base64 never enters `structuredContent` or the 40k text cap. Over the limit nothing is sent, and
 the text names the other ways in: `passage-read` for the text in pages, `document-download` for
 a time-limited link. A route that redirects (3xx with `Location`) is handed on as a
@@ -1405,15 +1407,15 @@ connector, paste the URL, sign in when the browser opens.
 **Claude Code**:
 
 ```bash
-claude mcp add --transport http piloti https://<app-host>/api/mcp
+claude mcp add --transport http workspace https://<app-host>/api/mcp
 ```
 
-Then run `/mcp`, pick `piloti`, and sign in.
+Then run `/mcp`, pick `workspace`, and sign in.
 
 **Cursor**: in `~/.cursor/mcp.json` or the project's `.cursor/mcp.json`:
 
 ```json
-{ "mcpServers": { "piloti": { "url": "https://<app-host>/api/mcp" } } }
+{ "mcpServers": { "workspace": { "url": "https://<app-host>/api/mcp" } } }
 ```
 
 Cursor opens the sign-in on first use.

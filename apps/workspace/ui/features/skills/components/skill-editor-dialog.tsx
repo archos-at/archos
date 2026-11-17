@@ -67,17 +67,16 @@ import { SkillFindingList } from './SkillFindingList'
 import { SkillReviewPanel } from './SkillReviewPanel'
 import { useSkillReview, type SkillReviewField } from '../hooks/use-skill-review'
 import { capturePosthog } from '@/lib/analytics/posthog'
+import { readMetadata, writtenMetadataKey } from '@/lib/skills/legacy-names'
 
 const SKILL_NAME_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/
 
 const DESCRIPTION_MAX = 1024
 
 function withoutReservedKeys(metadata: Record<string, string>): Record<string, string> {
-  const owned = new Set([
-    METADATA_CARDS,
-    METADATA_AGENTS,
-    METADATA_HIDDEN,
-  ])
+  const owned = new Set(
+    ([METADATA_CARDS, METADATA_AGENTS, METADATA_HIDDEN] as const).flatMap((key) => [key, writtenMetadataKey(key)]),
+  )
   const rest: Record<string, string> = {}
   for (const key of Object.keys(metadata)) {
     if (owned.has(key)) continue
@@ -86,14 +85,14 @@ function withoutReservedKeys(metadata: Record<string, string>): Record<string, s
   return rest
 }
 
-const METADATA_CARDS = 'grid-cards'
-const METADATA_AGENTS = 'grid-agents'
-const METADATA_HIDDEN = 'grid-hidden'
+const METADATA_CARDS = 'cards'
+const METADATA_AGENTS = 'agents'
+const METADATA_HIDDEN = 'hidden'
 
 const HIDDEN_TRUE = new Set(['true', '1', 'yes'])
 
 function readHidden(metadata?: Record<string, string>): boolean {
-  return HIDDEN_TRUE.has((metadata?.[METADATA_HIDDEN] ?? '').trim().toLowerCase())
+  return HIDDEN_TRUE.has((metadata ? (readMetadata(metadata, METADATA_HIDDEN) ?? '') : '').trim().toLowerCase())
 }
 
 export interface SkillPersistence {
@@ -147,11 +146,11 @@ export function SkillEditorDialog({
   const isEdit = skill !== null
   const source: SkillListItem | null = skill
   const [preferredCards, setPreferredCards] = useState<string[]>(() =>
-    parsePreferredCardTypes(source?.metadata[METADATA_CARDS]),
+    parsePreferredCardTypes(source ? readMetadata(source.metadata, METADATA_CARDS) : undefined),
   )
   const [cardQuery, setCardQuery] = useState('')
   const [agents, setAgents] = useState<AgentScope>(() =>
-    parseAgentScope(source?.metadata[METADATA_AGENTS]),
+    parseAgentScope(source ? readMetadata(source.metadata, METADATA_AGENTS) : undefined),
   )
   const [hidden, setHidden] = useState(() => readHidden(source?.metadata))
   const [extraMetadata, setExtraMetadata] = useState<Record<string, string>>(() =>
@@ -161,11 +160,11 @@ export function SkillEditorDialog({
   const buildMetadata = useCallback((): Record<string, string> => {
     const metadata: Record<string, string> = {}
     const scope = formatAgentScope(agents)
-    if (scope) metadata[METADATA_AGENTS] = scope
+    if (scope) metadata[writtenMetadataKey(METADATA_AGENTS)] = scope
     if (preferredCards.length > 0) {
-      metadata[METADATA_CARDS] = formatPreferredCardTypes(preferredCards)
+      metadata[writtenMetadataKey(METADATA_CARDS)] = formatPreferredCardTypes(preferredCards)
     }
-    if (hidden) metadata[METADATA_HIDDEN] = 'true'
+    if (hidden) metadata[writtenMetadataKey(METADATA_HIDDEN)] = 'true'
     return { ...metadata, ...extraMetadata }
   }, [agents, extraMetadata, hidden, preferredCards])
   const [enabled, setEnabled] = useState(isEdit ? skill.enabled : true)
@@ -342,8 +341,8 @@ export function SkillEditorDialog({
       form.setFieldValue('name', parsed.name)
       form.setFieldValue('description', parsed.description)
       form.setFieldValue('body', parsed.body)
-      setPreferredCards(parsePreferredCardTypes(parsed.metadata[METADATA_CARDS]))
-      setAgents(parseAgentScope(parsed.metadata[METADATA_AGENTS]))
+      setPreferredCards(parsePreferredCardTypes(readMetadata(parsed.metadata, METADATA_CARDS)))
+      setAgents(parseAgentScope(readMetadata(parsed.metadata, METADATA_AGENTS)))
       setHidden(readHidden(parsed.metadata))
       setExtraMetadata(withoutReservedKeys(parsed.metadata))
       toast.success(t('editor.raw.applied'))

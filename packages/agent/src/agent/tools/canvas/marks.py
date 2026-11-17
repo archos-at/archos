@@ -26,7 +26,7 @@ the agent's reply in the mark's thread, in the same request; a deletion is
 allowed for exactly the marks the asker set. Findings the agent makes on its own
 initiative stay proposals; the tool descriptions say which is which.
 
-Only where the office allows it: with the organization switch ``piloti-acts``
+Only where the office allows it: with the organization switch ``agent-direct-edits``
 off (the default) the BFF refuses ``create``, ``update`` and ``delete``, and
 the agent proposes the mark or leaves the change to the person (``calls.py``).
 

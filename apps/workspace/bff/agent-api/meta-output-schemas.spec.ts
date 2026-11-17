@@ -24,7 +24,7 @@ const session = {
   permissions: [],
   featureFlags: null,
 }
-const principal: AgentPrincipal = { actor: 'external_agent', clientId: 'c', scopes: ['piloti:sensitive'], session }
+const principal: AgentPrincipal = { actor: 'external_agent', clientId: 'c', scopes: ['documents:sensitive'], session }
 
 beforeAll(() => {
   Object.defineProperty(globalThis, 'crypto', { value: webcrypto, configurable: true })

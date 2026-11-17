@@ -15,7 +15,7 @@ const SESSION = vi.hoisted(() => ({
   role: 'member',
   permissions: [] as string[],
   accessToken: '',
-  featureFlags: ['piloti-ask'],
+  featureFlags: ['agent-requests'],
 }))
 
 vi.mock('@/lib/auth/require-auth', () => ({ requireAuthorizedSession: vi.fn(async () => SESSION) }))

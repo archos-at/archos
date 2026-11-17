@@ -1,7 +1,7 @@
 """``look``: a page of a document, a region of it, or an embedded image, as an image the model sees.
 
 One tool for one act in every context (ADR-0128): the chat, the review canvas,
-``piloti-ask`` and deep research bind it, and the external door serves it as
+``agent-requests`` and deep research bind it, and the external door serves it as
 ``document-look``. It replaced two tools that were the same function under two
 names and two argument shapes, the canvas group's ``canvas__look`` and the
 knowledge layer's ``view_knowledge_image``.

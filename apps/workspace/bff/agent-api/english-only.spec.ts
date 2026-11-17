@@ -52,7 +52,7 @@ function germanIn(found: readonly Found[]): string[] {
 const principal: AgentPrincipal = {
   actor: 'external_agent',
   clientId: 'c',
-  scopes: ['piloti:sensitive'],
+  scopes: ['documents:sensitive'],
   sensitiveOptIns: ['access', 'secret'],
   session: {
     userId: 'user_1',

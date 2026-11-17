@@ -27,6 +27,7 @@ vi.mock('@/lib/limits', async (importOriginal) => ({
 
 import { TooManyRequestsError } from '@/lib/api/errors'
 import { resolvePinnedRequesterSession } from '@/lib/auth/pinned-session'
+import { LEGACY_MODE_HEADER } from '@/lib/agent-api/legacy-names'
 import { MCP_REQUEST_LIMIT, enforceLimit, memberSubject } from '@/lib/limits'
 import { buildRequestContextEnvelope, REQUEST_CONTEXT_HEADER_NAMES } from '@/lib/request-context'
 import { DELETE, GET, POST } from './route'
@@ -239,10 +240,10 @@ describe('MCP round trip as the agent', () => {
     ])
   })
 
-  it('lists one tool per operation in tools mode, chosen by query or header', async () => {
+  it('lists one tool per operation in tools mode, chosen by the query or the legacy header', async () => {
     const expected = ['project-list', 'project-member-add', 'project-delete', 'workspace-search', 'report-missing-operation']
     expect(await toolNames(`${URL_}?mode=tools`)).toEqual(expected)
-    expect(await toolNames(URL_, { 'x-piloti-mcp-mode': 'tools' })).toEqual(expected)
+    expect(await toolNames(URL_, { [LEGACY_MODE_HEADER]: 'tools' })).toEqual(expected)
   })
 
   it('serves the instructions that say what the agent is', async () => {

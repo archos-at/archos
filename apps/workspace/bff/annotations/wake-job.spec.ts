@@ -50,6 +50,7 @@ import { findDocumentAnnotation, type AnnotationRecord } from './repository'
 import { MAX_WAKE_WAITS, runAgentWake, waitAfter, WAKE_REQUIRES } from './wake-job'
 import { countWakes, findWake, handBackDelegation, settleWake } from './wake-repository'
 import { delegationEventId, documentThreadConversationId, wakeTurnId } from './wake-ids'
+import { legacyHeaderName } from '@/lib/http/legacy-header-names'
 
 const SECRET = 'wake-secret'
 const DOC_ID = '11111111-1111-4111-8111-111111111111'
@@ -77,7 +78,7 @@ const SESSION: AuthorizedSession = {
   organizationMembershipId: 'om_1',
   role: 'member',
   permissions: [],
-  featureFlags: ['piloti-wakes'],
+  featureFlags: ['agent-thread-replies'],
 }
 
 const DOC = { id: DOC_ID, scope: 'project', projectId: 'proj_1', filename: 'grundriss.pdf', displayName: 'Grundriss EG' } as Partial<Document> as Document
@@ -167,7 +168,7 @@ describe('a wake that runs', () => {
 
     const { headers } = sentRequest()
     expect(headers['x-chat-mode']).toBe('headless')
-    expect(headers['x-aiq-mode']).toBe('headless')
+    expect(headers[legacyHeaderName('x-chat-mode')]).toBe('headless')
     expect(headers['x-user-id']).toBe('user_anna')
     expect(headers).not.toHaveProperty('authorization')
     const envelope = verifyRequestContextEnvelope(
@@ -300,7 +301,7 @@ describe('asked again when the job runs', () => {
     expect(runHeadlessTurn).not.toHaveBeenCalled()
     expect(vi.mocked(settleWake).mock.calls.map((call) => call[2])).toEqual([
       { status: 'suppressed', reason: 'the person is no longer a member' },
-      { status: 'suppressed', reason: 'piloti-wakes is off for the organization' },
+      { status: 'suppressed', reason: 'agent-thread-replies is off for the organization' },
     ])
   })
 

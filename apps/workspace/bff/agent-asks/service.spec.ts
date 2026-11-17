@@ -83,6 +83,7 @@ import {
 } from './service'
 import { CHAT_TURN_DEADLINE_SECONDS, DEFAULT_ASK_MAX_SECONDS } from './ask-wire'
 import { PRODUCT_NAME } from '@/lib/brand'
+import { legacyHeaderName } from '@/lib/http/legacy-header-names'
 
 const SECRET = 'internal-secret'
 const ORG = 'org_1'
@@ -99,7 +100,7 @@ const SESSION: AuthorizedSession = {
   organizationMembershipId: 'om_1',
   role: 'member',
   permissions: [],
-  featureFlags: ['piloti-ask'],
+  featureFlags: ['agent-requests'],
 }
 
 let row: AgentAskRow
@@ -206,7 +207,7 @@ describe('askAgent', () => {
     })
     expect(request.requires).toEqual(ASK_REQUIRES)
     expect(request.headers['x-chat-mode']).toBe('headless')
-    expect(request.headers['x-aiq-mode']).toBe('headless')
+    expect(request.headers[legacyHeaderName('x-chat-mode')]).toBe('headless')
     const context = verifyRequestContextEnvelope(
       request.headers['x-request-context'],
       request.headers['x-request-context-sig'],

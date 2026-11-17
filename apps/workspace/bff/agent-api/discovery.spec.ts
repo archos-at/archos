@@ -448,7 +448,7 @@ describe('call-operation with a file in the answer', () => {
       { type: 'text', text: expect.stringContaining('"Grundriss EG.pdf", application/pdf, 19 bytes') },
       {
         type: 'resource',
-        resource: { uri: 'piloti://operation/project-list/Grundriss_EG.pdf', mimeType: 'application/pdf', blob: base64 },
+        resource: { uri: 'workspace://operation/project-list/Grundriss_EG.pdf', mimeType: 'application/pdf', blob: base64 },
       },
     ])
     expect(text(result)).not.toContain(base64)
@@ -463,7 +463,7 @@ describe('call-operation with a file in the answer', () => {
     })
     const result = await callOperationTool(ctx(person), { name: 'project-list' })
     expect(result.content[1]).toMatchObject({
-      resource: { uri: 'piloti://operation/project-list/result', mimeType: 'application/octet-stream' },
+      resource: { uri: 'workspace://operation/project-list/result', mimeType: 'application/octet-stream' },
     })
   })
 

@@ -2,7 +2,7 @@ import { z } from 'zod'
 import type { OperationName } from './index'
 import { PRODUCT_NAME } from '@/lib/brand'
 
-export const PROPOSAL_CARD_URI = 'ui://piloti/proposal-card'
+export const PROPOSAL_CARD_URI = 'ui://workspace/proposal-card'
 
 export interface AppView {
   readonly uri: string

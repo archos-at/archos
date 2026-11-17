@@ -80,6 +80,7 @@ from agent_host.conversation_bus import InMemoryTransport
 from agent_host.conversation_bus import force_multi_replica_for_tests
 from agent_host.conversation_bus import reset_bus_for_tests
 from agent_host.internal_api import ChatScreening
+from agent_host.legacy_headers import legacy_header
 from nat.plugin_api import InteractionPrompt
 
 CONV = "conv-1"
@@ -2679,8 +2680,9 @@ async def test_a_typed_turn_names_no_trigger(harness):
     assert not [tag for tag in seen[0]["tags"] if tag.startswith("trigger:")]
 
 
-async def test_a_headless_socket_s_caller_skips_the_clarifier_and_says_it_is_headless():
-    sock = FakeSocket(headers=[(b"x-aiq-mode", b"headless")])
+@pytest.mark.parametrize("name", [b"x-chat-mode", legacy_header("x-chat-mode").encode()])
+async def test_a_headless_socket_s_caller_skips_the_clarifier_and_says_it_is_headless(name):
+    sock = FakeSocket(headers=[(name, b"headless")])
 
     caller, code = await authenticate_websocket_connection(sock)
 

@@ -7,7 +7,7 @@ The agentskills.io format contract:
 - ``license``: optional free-form string.
 - ``compatibility``: optional, at most 500 chars.
 - ``metadata``: map of strings; reserved keys are validated
-  (``grid-cards`` must name known, non-system card types; ``grid-title``
+  (``cards`` must name known, non-system card types; ``title``
   is a short human display name).
 - ``allowed-tools``: optional free-form string (tool-level allowlist).
 - Body: markdown; <500 lines recommended, not enforced.
@@ -26,6 +26,10 @@ from typing import Literal
 import yaml
 from pydantic import BaseModel
 
+from .legacy_names import LEGACY_METADATA_KEYS
+from .legacy_names import canonical_metadata_key
+from .legacy_names import metadata_value
+
 logger = logging.getLogger(__name__)
 
 FRONTMATTER_RE = re.compile(r"^---\r?\n(.*?)\r?\n---(?:\r?\n|$)", re.DOTALL)
@@ -35,19 +39,19 @@ MAX_NAME_CHARS = 64
 MAX_DESCRIPTION_CHARS = 1024
 MAX_COMPATIBILITY_CHARS = 500
 
-SKILL_METADATA_KEYS = frozenset(
-    {"grid-agents", "grid-cards", "grid-title", "grid-hidden", "grid-auto-invoke", "grid-catalog"}
-)
+ANSWER_CARDS_KEY = "cards"
 
-ANSWER_CARDS_KEY = "grid-cards"
-
-TITLE_KEY = "grid-title"
+TITLE_KEY = "title"
 
 MAX_TITLE_CHARS = 60
 
-HIDDEN_KEY = "grid-hidden"
+HIDDEN_KEY = "hidden"
 
-AUTO_INVOKE_KEY = "grid-auto-invoke"
+AUTO_INVOKE_KEY = "auto-invoke"
+
+_RESERVED_KEYS = frozenset({"agents", "catalog", ANSWER_CARDS_KEY, TITLE_KEY, HIDDEN_KEY, AUTO_INVOKE_KEY})
+
+SKILL_METADATA_KEYS = _RESERVED_KEYS | frozenset(LEGACY_METADATA_KEYS[key] for key in _RESERVED_KEYS)
 
 _HIDDEN_TRUE = frozenset({"true", "1", "yes"})
 _HIDDEN_FALSE = frozenset({"false", "0", "no"})
@@ -148,8 +152,8 @@ def split_metadata_list(raw: str) -> list[str]:
     return out
 
 
-def _validate_answer_cards(value: str, *, strict: bool) -> str | None:
-    """Validate ``grid-cards`` against the model-facing card catalog.
+def _validate_answer_cards(value: str, *, strict: bool, key: str) -> str | None:
+    """Validate ``cards`` against the model-facing card catalog.
 
     Returns the value to store, or ``None`` when nothing usable is left and the
     key should be dropped entirely.
@@ -160,7 +164,7 @@ def _validate_answer_cards(value: str, *, strict: bool) -> str | None:
     is tenant data arriving over the wire, where one stale name must not delete
     the whole skill from the toolbox — so the bad entries are logged and dropped
     and the rest of the row survives, exactly as the resolver treats an unknown
-    ``grid-agents`` name.
+    ``agents`` name.
 
     A SYSTEM card is rejected on both paths and never merely downgraded: it is
     emitted by a tool on a sanctioned path, and telling the model to produce one
@@ -173,13 +177,12 @@ def _validate_answer_cards(value: str, *, strict: bool) -> str | None:
     unknown = [name for name in names if name not in known]
     if unknown and strict:
         raise SkillValidationError(
-            f"Skill metadata {ANSWER_CARDS_KEY} names unknown or system card type(s) {unknown}; "
-            f"allowed: {sorted(known)}"
+            f"Skill metadata {key} names unknown or system card type(s) {unknown}; allowed: {sorted(known)}"
         )
     if unknown:
         logger.warning(
             "Dropping unknown or system card type(s) from %s: %s (known: %s)",
-            ANSWER_CARDS_KEY,
+            key,
             unknown,
             sorted(known),
         )
@@ -187,8 +190,8 @@ def _validate_answer_cards(value: str, *, strict: bool) -> str | None:
     return ",".join(kept) if kept else None
 
 
-def _validate_title(value: str, *, strict: bool) -> str | None:
-    """Validate ``grid-title``; return the value to store, or ``None`` to drop it.
+def _validate_title(value: str, *, strict: bool, key: str) -> str | None:
+    """Validate ``title``; return the value to store, or ``None`` to drop it.
 
     Same two tolerances as :func:`_validate_answer_cards`, for the same reason: a
     SKILL.md is reviewed in this repo, so a title that is empty, over-long or
@@ -203,27 +206,27 @@ def _validate_title(value: str, *, strict: bool) -> str | None:
     title = value.strip()
     if not title:
         if strict:
-            raise SkillValidationError(f"Skill metadata {TITLE_KEY} must not be empty")
-        logger.warning("Dropping empty %s", TITLE_KEY)
+            raise SkillValidationError(f"Skill metadata {key} must not be empty")
+        logger.warning("Dropping empty %s", key)
         return None
     if len(title) > MAX_TITLE_CHARS:
         if strict:
-            raise SkillValidationError(f"Skill metadata {TITLE_KEY} exceeds {MAX_TITLE_CHARS} characters: {len(title)}")
-        logger.warning("Dropping over-long %s (%d characters)", TITLE_KEY, len(title))
+            raise SkillValidationError(f"Skill metadata {key} exceeds {MAX_TITLE_CHARS} characters: {len(title)}")
+        logger.warning("Dropping over-long %s (%d characters)", key, len(title))
         return None
     if XML_TAG_RE.search(title):
         if strict:
-            raise SkillValidationError(f"Skill metadata {TITLE_KEY} must not contain XML tags")
-        logger.warning("Dropping %s containing XML tags", TITLE_KEY)
+            raise SkillValidationError(f"Skill metadata {key} must not contain XML tags")
+        logger.warning("Dropping %s containing XML tags", key)
         return None
     return title
 
 
-def _validate_hidden(value: str, *, strict: bool) -> str | None:
-    """Validate ``grid-hidden``; return canonical ``"true"`` to store, or ``None`` to drop.
+def _validate_hidden(value: str, *, strict: bool, key: str) -> str | None:
+    """Validate ``hidden``; return canonical ``"true"`` to store, or ``None`` to drop.
 
     Same two tolerances as :func:`_validate_title`, for the same reason: a
-    SKILL.md is reviewed in this repo, so ``grid-hidden: maybe`` is an authoring
+    SKILL.md is reviewed in this repo, so ``hidden: maybe`` is an authoring
     typo we want at parse time (``strict``); a BFF-served org row is tenant data
     over the wire, where a garbage flag must cost the tenant the flag and not
     the whole skill (``lenient``).
@@ -241,15 +244,15 @@ def _validate_hidden(value: str, *, strict: bool) -> str | None:
         return None
     if strict:
         raise SkillValidationError(
-            f"Skill metadata {HIDDEN_KEY} must be a boolean-ish value "
+            f"Skill metadata {key} must be a boolean-ish value "
             f"(one of {sorted(_HIDDEN_TRUE | _HIDDEN_FALSE)}); got {value!r}"
         )
-    logger.warning("Dropping unrecognised %s value %r", HIDDEN_KEY, value)
+    logger.warning("Dropping unrecognised %s value %r", key, value)
     return None
 
 
-def _validate_auto_invoke(value: str, *, strict: bool) -> str | None:
-    """Validate ``grid-auto-invoke``; return canonical ``"false"`` or ``None``.
+def _validate_auto_invoke(value: str, *, strict: bool, key: str) -> str | None:
+    """Validate ``auto-invoke``; return canonical ``"false"`` or ``None``.
 
     Kept only so an old document still parses (see
     :data:`AUTO_INVOKE_KEY`). A truthy token and an empty string drop the
@@ -267,19 +270,19 @@ def _validate_auto_invoke(value: str, *, strict: bool) -> str | None:
         return None
     if strict:
         raise SkillValidationError(
-            f"Skill metadata {AUTO_INVOKE_KEY} must be a boolean-ish value "
+            f"Skill metadata {key} must be a boolean-ish value "
             f"(one of {sorted(_HIDDEN_TRUE | _HIDDEN_FALSE)}); got {value!r}"
         )
-    logger.warning("Dropping unrecognised %s value %r", AUTO_INVOKE_KEY, value)
+    logger.warning("Dropping unrecognised %s value %r", key, value)
     return None
 
 
 def _stringify_metadata_value(key: str, value: Any) -> str:
     """Metadata is strings. YAML and JSON both have native booleans.
 
-    An unquoted ``grid-hidden: true`` is a YAML bool. Rejecting it used to take
+    An unquoted ``hidden: true`` is a YAML bool. Rejecting it used to take
     down every builtin when one file used that spelling. Coerce, then validate.
-    Integers follow for the same reason (``grid-hidden: 1``). Nested types stay
+    Integers follow for the same reason (``hidden: 1``). Nested types stay
     an error — those are not a spelling of a flag.
     """
     if isinstance(value, bool):
@@ -301,26 +304,27 @@ def _validate_metadata(metadata: Any, *, strict: bool = True) -> dict[str, str]:
         if not isinstance(key, str):
             raise SkillValidationError(f"Skill metadata key {key!r} must map a string to a string")
         value = _stringify_metadata_value(key, value)
-        if key == ANSWER_CARDS_KEY:
-            cards = _validate_answer_cards(value, strict=strict)
+        reserved = canonical_metadata_key(key)
+        if reserved == ANSWER_CARDS_KEY:
+            cards = _validate_answer_cards(value, strict=strict, key=key)
             if cards is None:
                 continue
             validated[key] = cards
             continue
-        if key == TITLE_KEY:
-            title = _validate_title(value, strict=strict)
+        if reserved == TITLE_KEY:
+            title = _validate_title(value, strict=strict, key=key)
             if title is None:
                 continue
             validated[key] = title
             continue
-        if key == HIDDEN_KEY:
-            hidden = _validate_hidden(value, strict=strict)
+        if reserved == HIDDEN_KEY:
+            hidden = _validate_hidden(value, strict=strict, key=key)
             if hidden is None:
                 continue
             validated[key] = hidden
             continue
-        if key == AUTO_INVOKE_KEY:
-            auto_invoke = _validate_auto_invoke(value, strict=strict)
+        if reserved == AUTO_INVOKE_KEY:
+            auto_invoke = _validate_auto_invoke(value, strict=strict, key=key)
             if auto_invoke is None:
                 continue
             validated[key] = auto_invoke
@@ -338,7 +342,7 @@ def preferred_cards(metadata: dict[str, str]) -> tuple[str, ...]:
     """
     from agent.cards.catalog import model_facing_card_types
 
-    raw = metadata.get(ANSWER_CARDS_KEY)
+    raw = metadata_value(metadata, ANSWER_CARDS_KEY)
     if not raw:
         return ()
     known = model_facing_card_types()
@@ -351,7 +355,7 @@ def skill_title(skill: Skill) -> str | None:
     ``None`` is a real answer, not a failure: see :data:`TITLE_KEY` for
     why no title is ever synthesised from the id here.
     """
-    title = skill.metadata.get(TITLE_KEY)
+    title = metadata_value(skill.metadata, TITLE_KEY)
     return title if title else None
 
 
@@ -368,7 +372,7 @@ def skill_hidden(metadata: dict[str, str]) -> bool:
     ``"true"``, but an un-revalidated snapshot may carry any truthy token, so an
     absent or unrecognised value reads as visible — the fail-open default.
     """
-    return metadata.get(HIDDEN_KEY, "").strip().lower() in _HIDDEN_TRUE
+    return (metadata_value(metadata, HIDDEN_KEY) or "").strip().lower() in _HIDDEN_TRUE
 
 
 def build_skill_from_payload(

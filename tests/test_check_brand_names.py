@@ -121,6 +121,12 @@ def test_the_external_names_the_owner_kept_are_not_counted(checker):
     assert checker.count_text("image grid-oib-backend, grid_document_id, piloti_corpus_v2") == 3
 
 
+def test_a_legacy_module_that_says_when_it_goes_is_not_counted(checker, repo):
+    _add(repo, "apps/x/legacy-flags.ts", "// drop after release 2026-W48\nexport const OLD = 'piloti-wakes'\n")
+    _add(repo, "apps/x/flags.ts", "export const OLD = 'piloti-wakes'\n")
+    assert checker.measure(repo, ["apps/x/legacy-flags.ts", "apps/x/flags.ts"]) == {"apps/x/flags.ts": 1}
+
+
 def test_a_file_split_inside_a_package_directory_is_not_a_new_hit(checker, repo):
     _add(repo, "packages/agent/src/agent/big.py", "from agent.common import x\n")
     assert checker.main(["--rebaseline"]) == 0

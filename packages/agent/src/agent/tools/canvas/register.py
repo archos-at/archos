@@ -46,10 +46,10 @@ the person set. Each change posts the model's ``note`` as the agent's reply in t
 mark's thread, and the card lists it with an undo. Findings of its own stay
 proposals.
 
-Parity is the office's choice: with the organization switch ``piloti-acts``
-off (the default), the BFF refuses ``create``, ``update`` and ``delete`` with
-``piloti-acts-off``, and the result tells the model to propose the mark, or
-that the person makes the change themselves (``calls.refusal_for``).
+Parity is the office's choice: with the organization switch ``agent-direct-edits``
+off (the default), the BFF refuses ``create``, ``update`` and ``delete``, and
+the result tells the model to propose the mark, or that the person makes the
+change themselves (``calls.refusal_for``).
 """
 
 from __future__ import annotations

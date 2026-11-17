@@ -18,6 +18,7 @@ import { cancelHeadlessTurn, type HeadlessCancelRequest } from '@/lib/turns/head
 import { runAgentWakeStop } from './wake-stop-job'
 import { documentThreadConversationId, wakeTurnId } from './wake-ids'
 import { findWake } from './wake-repository'
+import { legacyHeaderName } from '@/lib/http/legacy-header-names'
 
 const SECRET = 'stop-secret'
 const DOC_ID = '11111111-1111-4111-8111-111111111111'
@@ -52,7 +53,7 @@ describe('runAgentWakeStop', () => {
     const request = sentRequest()
     expect(request).toMatchObject({ url: 'ws://aiq-agent:8000/websocket', conversationId: THREAD, turnId: WAKE_ID })
     expect(request.headers['x-chat-mode']).toBe('headless')
-    expect(request.headers['x-aiq-mode']).toBe('headless')
+    expect(request.headers[legacyHeaderName('x-chat-mode')]).toBe('headless')
     expect(request.headers['x-user-id']).toBe('user_anna')
     expect(request.headers).not.toHaveProperty('authorization')
   })

@@ -255,7 +255,7 @@ Eight builtins were renamed to English (migration `0169`): `einreichcheck` →
 `pruefbericht-writer` → `inspection-report-writer`. A skill's name is what people
 type after a slash, what a stored schedule's prompt says and what the activation
 rows refer to, so the old names keep resolving for one release: `LEGACY_SKILL_NAMES`
-(`skills/builtin.py`, mirrored in `lib/skills/legacy-names.ts` and pinned against
+(`skills/legacy_names.py`, mirrored in `bff/skills/legacy-names.ts` and pinned against
 each other by `legacy-names.spec.ts`) is the one table. The pinned skill, the skills a
 reply reports as followed, the slash chip and menu, a job's skill snapshot and the
 organization's switch all pass a name through `canonical_skill_name` /

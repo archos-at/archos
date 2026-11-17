@@ -437,7 +437,7 @@ def model_facing_card_types() -> frozenset[str]:
     The union minus :data:`SYSTEM_CARD_TYPES`.
     It is exposed separately because other surfaces need to answer "may a
     skill/author name this card?" without parsing the rendered catalog text:
-    the skills substrate validates ``grid-cards`` against it (see
+    the skills substrate validates ``cards`` against it (see
     :mod:`agent.skills.models`), and the editor's picker derives the same
     set from the generated Zod schemas. One definition of "advertisable", so a
     new card type appears everywhere at once and a system card can never be

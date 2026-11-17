@@ -13,7 +13,7 @@ const session = {
   name: 'Anna Berger',
   role: 'member',
   permissions: [] as string[],
-  featureFlags: ['piloti-wakes'] as string[] | null,
+  featureFlags: ['agent-thread-replies'] as string[] | null,
 }
 
 vi.mock('@/lib/auth/require-auth', () => ({ requireAuthorizedSession: vi.fn(async () => session) }))
@@ -183,7 +183,7 @@ let writable = true
 beforeEach(() => {
   vi.clearAllMocks()
   vi.stubEnv('REQUIRE_AUTH', 'true')
-  session.featureFlags = ['piloti-wakes']
+  session.featureFlags = ['agent-thread-replies']
   writable = true
   vi.mocked(getAccessibleDocument).mockImplementation(async (_session, _id, intent) => {
     if (intent === 'write' && !writable) throw new ForbiddenError()

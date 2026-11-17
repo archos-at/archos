@@ -1,12 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   classifyPushSupport,
+  closeNotifications,
   deviceOfSubscription,
   forgetThisDevice,
   readCapabilities,
   urlBase64ToBytes,
   type PushCapabilities,
 } from './browser'
+import { LEGACY_WORKER_MESSAGES } from './legacy-worker-names'
 import type { PushDeviceView } from './types'
 
 const caps = (overrides: Partial<PushCapabilities> = {}): PushCapabilities => ({
@@ -142,5 +144,22 @@ describe('forgetting this browser, as sign-out does', () => {
     }
     await forgetThisDevice(client)
     expect(order.slice(order.indexOf('unsubscribe'))).toEqual(['unsubscribe', 'list', 'remove:mine'])
+  })
+})
+
+describe('asking the worker to close notifications', () => {
+  afterEach(() => {
+    Reflect.deleteProperty(navigator, 'serviceWorker')
+  })
+
+  it('posts the request under the new message and under the old one, which an installed worker one release old still reads', async () => {
+    const postMessage = vi.fn()
+    Object.defineProperty(navigator, 'serviceWorker', {
+      configurable: true,
+      value: { getRegistration: vi.fn(async () => ({ active: { postMessage } })) },
+    })
+    await closeNotifications({ itemIds: ['item-1'] })
+    expect(postMessage).toHaveBeenCalledWith({ type: 'close-notifications', itemIds: ['item-1'] })
+    expect(postMessage).toHaveBeenCalledWith({ type: LEGACY_WORKER_MESSAGES.closeNotifications, itemIds: ['item-1'] })
   })
 })

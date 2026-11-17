@@ -47,7 +47,7 @@ def skip_clarifier_requested() -> bool:
 
 
 def headless_turn_requested() -> bool:
-    """Whether the caller said ``X-AIQ-Mode: headless``: a job holds the socket, and no person watches it.
+    """Whether the caller said ``X-Chat-Mode: headless``: a job holds the socket, and no person watches it.
 
     Narrower than :func:`skip_clarifier_requested`, which an anonymous caller
     also sets: a question put to a headless turn's asker (``ask_user``) would

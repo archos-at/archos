@@ -1,1 +1,3 @@
-export const HEADLESS_MODE_HEADERS = { 'x-chat-mode': 'headless', 'x-aiq-mode': 'headless' } as const
+import { withLegacyHeaderNames } from '@/lib/http/legacy-header-names'
+
+export const HEADLESS_MODE_HEADERS = withLegacyHeaderNames({ 'x-chat-mode': 'headless' })

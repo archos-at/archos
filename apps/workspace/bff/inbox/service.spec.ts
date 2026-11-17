@@ -1259,7 +1259,7 @@ describe('listInbox — where a request on a mark may be answered (answerIn)', (
 
     expect((await listInbox(session)).items[0]!.answerIn).toBe('review')
 
-    const wakes = makeSession({ featureFlags: ['collaboration', 'piloti-wakes'] })
+    const wakes = makeSession({ featureFlags: ['collaboration', 'agent-thread-replies'] })
     expect((await listInbox(wakes)).items[0]!.answerIn).toBe('row')
   })
 
@@ -1275,7 +1275,7 @@ describe('listInbox — where a request on a mark may be answered (answerIn)', (
       ['reader', false],
     ])
 
-    const on = await listInbox(makeSession({ featureFlags: ['collaboration', 'piloti-wakes'] }))
+    const on = await listInbox(makeSession({ featureFlags: ['collaboration', 'agent-thread-replies'] }))
     expect(on.items.map((item) => [item.id, item.pilotiWakes])).toEqual([
       ['writer', true],
       ['reader', false],

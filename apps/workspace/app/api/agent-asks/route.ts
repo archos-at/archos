@@ -13,7 +13,7 @@ export const POST = apiRoute(
   {
     authz: {
       enforcedBy:
-        'askAgent (the piloti-ask flag; requireProjectAccess CHAT_PERMISSIONS on the project; a continued conversation must be one an ask of this person started)',
+        'askAgent (the agent-requests flag; requireProjectAccess CHAT_PERMISSIONS on the project; a continued conversation must be one an ask of this person started)',
     },
     limits: { rule: CHAT_TURN_LIMIT },
   },

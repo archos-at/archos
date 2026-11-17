@@ -35,8 +35,10 @@ import {
 import { type AgentOperation, annotationsOf } from './operation'
 import { type AgentDoor, doorOfPrincipal, findVisibleOperation, visibleBackendOperations, visibleOperations } from './policy'
 import type { AgentPrincipal } from './principal'
-import { offersDoorGuide, offersProjectResource, readableProjectUris, registerDoorGuide } from './door'
+import { CATALOG_URI, GLOSSARY_URI, GUIDE_URI, offersDoorGuide, offersProjectResource, readableProjectUris, registerDoorGuide } from './door'
 import { DoorEventBus, listeningAs } from './door/event-bus'
+import { LEGACY_MODE_HEADER, canonicalRequest } from './legacy-names'
+import { OFFICE_SERVER_NAME, PLATFORM_SERVER_NAME } from './server-name'
 import { META_TOOL_ICONS, serverIcons } from './icons'
 import { META_OUTPUT_SCHEMAS } from './meta-output-schemas'
 import { configuredAppOrigin } from '@/lib/app-origin'
@@ -49,12 +51,10 @@ import type { McpCallContext, McpMode } from './telemetry'
 import { IDEMPOTENCY_KEY_DESCRIPTION } from './door-idempotency'
 import { ONBOARDING_GUIDE_URI, offersOnboardingGuide, registerOnboardingGuide } from './door/platform-guide'
 
-export const MODE_HEADER = 'x-piloti-mcp-mode'
-
 export const MCP_INSTRUCTIONS = [
   `${PRODUCT_NAME} is the workspace for architects: a planning office runs its projects and processes in it, and ${PRODUCT_NAME}, the agent, is a colleague in that office.`,
   'Through this server you act for the signed-in person, with exactly the rights they have: their projects, documents, folders, review, conversations, tasks, skills and knowledge.',
-  'Read the resource piloti://guide once: how the workspace fits together and how ids flow; piloti://catalog lists every operation you may run, piloti://glossary the office\'s German words.',
+  `Read the resource ${GUIDE_URI} once: how the workspace fits together and how ids flow; ${CATALOG_URI} lists every operation you may run, ${GLOSSARY_URI} the office's German words.`,
   'Start with project-list to see which projects exist, then search-operations to find what you need and call-operation to run it (describe-operation shows an input you do not know).',
   'Ask the person before a destructive operation. If nothing fits what they asked for, say so and call report-missing-operation.',
   IDEMPOTENCY_KEY_DESCRIPTION,
@@ -72,15 +72,15 @@ export const PLATFORM_MCP_INSTRUCTIONS = [
 ].join(' ')
 
 const SERVER_IDENTITY: Readonly<Record<AgentDoor, { name: string; title: string; instructions: string }>> = {
-  office: { name: 'workspace', title: PRODUCT_NAME, instructions: MCP_INSTRUCTIONS },
-  platform: { name: 'workspace-platform', title: `${PRODUCT_NAME} platform`, instructions: PLATFORM_MCP_INSTRUCTIONS },
+  office: { name: OFFICE_SERVER_NAME, title: PRODUCT_NAME, instructions: MCP_INSTRUCTIONS },
+  platform: { name: PLATFORM_SERVER_NAME, title: `${PRODUCT_NAME} platform`, instructions: PLATFORM_MCP_INSTRUCTIONS },
 }
 
 const ALWAYS_LOAD: ReadonlySet<string> = new Set(['project-list', 'knowledge-search', 'files-list'])
 const ALWAYS_LOAD_META = { 'anthropic/alwaysLoad': true } as const
 
 export function resolveMode(request: Request): McpMode {
-  const asked = request.headers.get(MODE_HEADER) ?? new URL(request.url).searchParams.get('mode')
+  const asked = new URL(request.url).searchParams.get('mode') ?? request.headers.get(LEGACY_MODE_HEADER)
   return asked?.toLowerCase() === 'tools' ? 'tools' : 'search'
 }
 
@@ -316,14 +316,15 @@ export function createAgentDoorHandler(
     bus: modern.bus,
     async fetch(request: Request, options: { authInfo?: AuthInfo } = {}): Promise<Response> {
       if (request.method.toUpperCase() !== 'POST') return modern.fetch(request, options)
-      if (await isLegacyRequest(request)) return serveLegacyAsJson(request, options.authInfo, onerror)
-      if (request.headers.get('mcp-method') === 'subscriptions/listen' && options.authInfo) {
-        return serveListen((r, o) => modern.fetch(r, o), request, options.authInfo)
+      const posted = await canonicalRequest(request)
+      if (await isLegacyRequest(posted)) return serveLegacyAsJson(posted, options.authInfo, onerror)
+      if (posted.headers.get('mcp-method') === 'subscriptions/listen' && options.authInfo) {
+        return serveListen((r, o) => modern.fetch(r, o), posted, options.authInfo)
       }
-      if (!options.authInfo) return modern.fetch(request, options)
-      const clientCapabilities = await clientCapabilitiesOf(request)
+      if (!options.authInfo) return modern.fetch(posted, options)
+      const clientCapabilities = await clientCapabilitiesOf(posted)
       const extra = { ...options.authInfo.extra, clientCapabilities }
-      return modern.fetch(request, { ...options, authInfo: { ...options.authInfo, extra } })
+      return modern.fetch(posted, { ...options, authInfo: { ...options.authInfo, extra } })
     },
   }
 }

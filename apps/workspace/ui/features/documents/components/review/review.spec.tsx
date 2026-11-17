@@ -310,7 +310,7 @@ describe('the review', () => {
     const posted: Array<{ body: unknown; peer: string | null }> = []
     server.use(
       http.post('/api/documents/:id/annotations', async ({ request }) => {
-        posted.push({ body: await request.json(), peer: request.headers.get('x-grid-room-peer') })
+        posted.push({ body: await request.json(), peer: request.headers.get('x-room-peer') })
         return HttpResponse.json(
           { annotation: view({ id: 'new', shape: 'region', x: 0.1, y: 0.2, w: 0.3, h: 0.3, kind: 'question' }) },
           { status: 201 }

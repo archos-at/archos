@@ -8,6 +8,7 @@ import { server } from '@/mocks/server'
 import { ProjectFileWorkspace } from './project-file-workspace'
 import { FilePreviewHost } from './file-preview-host'
 import { SETTLING_POLL_MS } from '../hooks/use-settling-refresh'
+import { FOLDER_DRAG_TYPE } from '../hooks/use-document-drag'
 import { useFilePreviewStore } from '../stores/file-preview-store'
 import { useProjectDocuments } from '../hooks/use-project-documents'
 import type { DocumentWireRow } from '../lib/file-item'
@@ -993,10 +994,10 @@ describe('ProjectFileWorkspace — dragging a folder into a folder', () => {
   ]
 
   const folderDragTransfer = (folderId: string) => {
-    const store: Record<string, string> = { 'application/x-grid-folder-id': folderId }
+    const store: Record<string, string> = { [FOLDER_DRAG_TYPE]: folderId }
     return {
-      types: ['application/x-grid-folder-id', `application/x-grid-folder-id:${folderId}`],
-      items: [{ kind: 'string', type: 'application/x-grid-folder-id' }],
+      types: [FOLDER_DRAG_TYPE, `${FOLDER_DRAG_TYPE}:${folderId}`],
+      items: [{ kind: 'string', type: FOLDER_DRAG_TYPE }],
       getData: (key: string) => store[key] ?? '',
       setData: (key: string, value: string) => {
         store[key] = value

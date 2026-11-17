@@ -128,7 +128,7 @@ function binaryResult(opName: string, file: BinaryBody): CallToolResult {
   return {
     content: [
       { type: 'text', text: `Returned ${label}${mimeType}, ${sizeText(file.bytes)}, as the attached resource.` },
-      { type: 'resource', resource: { uri: `piloti://operation/${opName}/${name}`, mimeType, blob: file.base64 } },
+      { type: 'resource', resource: { uri: `workspace://operation/${opName}/${name}`, mimeType, blob: file.base64 } },
     ],
   }
 }

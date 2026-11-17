@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
+import { LEGACY_FOLDER_DRAG_TYPE } from './legacy-drag-types'
 import {
   DOCUMENT_DRAG_TYPE,
   FOLDER_DRAG_TYPE,
@@ -153,6 +154,31 @@ describe('useFolderDropTarget', () => {
         dragEvent(
           transfer([FOLDER_DRAG_TYPE, `${FOLDER_DRAG_TYPE}:ok`], { [FOLDER_DRAG_TYPE]: 'ok' }),
         ),
+      ),
+    )
+    expect(onDropFolder).toHaveBeenCalledWith('ok', 'target')
+  })
+
+  it('takes a folder drag written under the type a tab one release old uses', () => {
+    const onDropFolder = vi.fn()
+    const { result } = renderHook(() =>
+      useFolderDropTarget({
+        folderId: 'target',
+        onDropDocument: vi.fn(),
+        onDropFolder,
+      }),
+    )
+
+    act(() =>
+      result.current.dropProps.onDragOver(
+        dragEvent(transfer([LEGACY_FOLDER_DRAG_TYPE, `${LEGACY_FOLDER_DRAG_TYPE}:ok`])),
+      ),
+    )
+    expect(result.current.isOver).toBe(true)
+
+    act(() =>
+      result.current.dropProps.onDrop(
+        dragEvent(transfer([LEGACY_FOLDER_DRAG_TYPE, `${LEGACY_FOLDER_DRAG_TYPE}:ok`], { [LEGACY_FOLDER_DRAG_TYPE]: 'ok' })),
       ),
     )
     expect(onDropFolder).toHaveBeenCalledWith('ok', 'target')

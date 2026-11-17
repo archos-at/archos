@@ -177,7 +177,7 @@ from. A `<metadata>` the client sent as a direct child of the root is discarded
 and replaced, so the recorded source is the one the server validated; **one
 anywhere deeper is refused** (`unsupported-element`), because that is the
 position the module never writes and the one where a second source claim could
-hide. It could: a `<g><metadata data-grid-diagram-source="mermaid">` carrying
+hide. It could: a `<g><metadata data-diagram-source="mermaid">` carrying
 200 KiB was accepted against a 32 KiB source cap and serialised into the stored
 file, since the discard only ever filtered the root's own children.
 
