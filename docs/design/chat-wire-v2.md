@@ -702,7 +702,7 @@ only `attach` and the watchdog, about 100 lines. Without it, about 200.
 
 `messages-store.ts` gains `turns: Record<turnId, TurnView>` and one action,
 `applyTurnEvents(conversationId, turnId, events)`. The driver in
-`use-websocket-chat.ts` buffers events: a `TEXT_MESSAGE_CONTENT` waits for the
+`turn-driver.ts` buffers events: a `TEXT_MESSAGE_CONTENT` waits for the
 next `DELTA_FLUSH_MS` (100 ms) flush, and anything else flushes at once. Each
 flush folds every buffered event and projects the view onto the assistant
 `ChatMessage` in one `set()`. The projection hands cards to the store's card
