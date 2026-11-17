@@ -116,18 +116,18 @@ const KEYED_BY_A_READ_DOCUMENT: Record<string, string> = {
   'lib/storage/repository.ts#versionOverheadByScope|documentVersions': 'Quota: version bytes, every row.',
   'lib/storage/repository.ts#versionOverheadBytes|documentVersions': 'Quota: version bytes, every row.',
 
-  'lib/bim/repository.ts#elementScope|bimModels':
+  'lib/bim/element-queries.ts#elementScope|bimModels':
     "The tenant half of every element query's WHERE, on a model id `getAccessibleModel` or `runBimQuery` already read.",
-  'lib/bim/repository.ts#listBimElements|bimElements': 'Elements of a model read through its reader (`getAccessibleModel`, `resolveInternalModel`).',
-  'lib/bim/repository.ts#findBimElement|bimElements': 'One element of a model read through its reader.',
-  'lib/bim/repository.ts#findBimElementsByGlobalIds|bimElements': 'Elements of a model read through its reader.',
-  'lib/bim/repository.ts#aggregateBimElements|bimElements': 'Counts over a model read through its reader.',
-  'lib/bim/repository.ts#listBimPropertyCatalog|bimModels': 'The tenant check of a model read through its reader.',
-  'lib/bim/repository.ts#listBimPropertyCatalog|bimElements': 'Property names of a model read through its reader.',
-  'lib/bim/repository.ts#loadBimElementsForComparison|bimElements': 'Two revisions, each read through its reader first.',
-  'lib/bim/repository.ts#loadBimRuleInputs|bimModels': 'The rule projection of a model read through its reader.',
-  'lib/bim/repository.ts#loadBimElementsForSchedule|bimElements': 'Elements of a model read through its reader.',
-  'lib/bim/repository.ts#countBimElementsByType|bimElements': 'Counts over a model read through its reader.',
+  'lib/bim/element-queries.ts#listBimElements|bimElements': 'Elements of a model read through its reader (`getAccessibleModel`, `resolveInternalModel`).',
+  'lib/bim/element-queries.ts#findBimElement|bimElements': 'One element of a model read through its reader.',
+  'lib/bim/element-queries.ts#findBimElementsByGlobalIds|bimElements': 'Elements of a model read through its reader.',
+  'lib/bim/element-aggregation.ts#aggregateBimElements|bimElements': 'Counts over a model read through its reader.',
+  'lib/bim/property-catalog.ts#listBimPropertyCatalog|bimModels': 'The tenant check of a model read through its reader.',
+  'lib/bim/property-catalog.ts#listBimPropertyCatalog|bimElements': 'Property names of a model read through its reader.',
+  'lib/bim/element-loading.ts#loadBimElementsForComparison|bimElements': 'Two revisions, each read through its reader first.',
+  'lib/bim/rule-inputs-storage.ts#loadBimRuleInputs|bimModels': 'The rule projection of a model read through its reader.',
+  'lib/bim/element-loading.ts#loadBimElementsForSchedule|bimElements': 'Elements of a model read through its reader.',
+  'lib/bim/element-aggregation.ts#countBimElementsByType|bimElements': 'Counts over a model read through its reader.',
 
   'lib/assignments/repository.ts#listAssignmentsForResources|resourceAssignments':
     'Ids from `requireResourceAccess` (which reads a document through the sharing registry) or from a listing its reader narrowed.',
