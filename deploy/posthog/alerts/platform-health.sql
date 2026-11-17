@@ -64,12 +64,12 @@ UNION ALL
 SELECT
     'Cluster state (k8s_cluster on the gateway collector) stopped 20+ min ago',
     -- Silent for a whole day leaves no samples here: the series still listed in
-    -- metric_series over the last week keeps it breached until a week has passed.
+    -- metric_series (kept 30 days) keeps it breached for as long as PostHog knows it.
     toFloat(if(
         (count() > 0 AND max(m.timestamp) < now() - INTERVAL 20 MINUTE)
         OR (count() = 0 AND (
             SELECT count() FROM posthog.metric_series
-            WHERE time_bucket >= toStartOfHour(now() - INTERVAL 7 DAY)
+            WHERE time_bucket >= toStartOfHour(now() - INTERVAL 30 DAY)
                 AND metric_name = 'k8s.deployment.desired'
                 AND resource_attributes['deployment.environment.name'] = 'prod'
         ) > 0),
