@@ -2389,9 +2389,10 @@ any query the layer emits and was dropped in 0036.
 Deliberately **no** `organization_id`: the parent model's column is the truth
 and the RLS policy joins it, per the child-table rule in ADR-0041. The join is
 asserted against a live Postgres in `src/lib/bim/query.integration.spec.ts`,
-which runs under `task db:test:rls` — as is the agreement between the
-TypeScript `buildSearchKeys` and 0038's SQL backfill, which are two
-implementations of the same map.
+which runs under `task db:test:rls`. The write path is asserted against the
+TypeScript `buildSearchKeys` in `query.search-keys.integration.spec.ts`. No spec
+asserts that 0038's SQL backfill agrees with it: a spec may not read the
+migration's SQL, so that agreement is unverified.
 
 ### `bim_check_confirmations`
 
