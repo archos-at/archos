@@ -214,6 +214,7 @@
   "apps/workspace/scripts/sourcemaps-wiring.spec.mjs": 14,
   "apps/workspace/scripts/sync-platform-skills.mjs": 18,
   "apps/workspace/server.js": 50,
+  "apps/workspace/ui/features/bim/components/use-ifc-viewer-canvas-controller.tsx": 6,
   "apps/workspace/ui/features/projects/components/use-project-intake-wizard-controller.tsx": 5,
   "apps/workspace/workers/app-database.js": 9,
   "apps/workspace/workers/database-unavailable.js": 36,
