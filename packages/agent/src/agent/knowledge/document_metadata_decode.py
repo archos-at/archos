@@ -13,6 +13,7 @@ from agent.knowledge.document_metadata_helpers import dismissed_revisions
 
 
 def _decode_tags(raw: Any) -> list[str] | None:
+    """Decode the JSON-encoded tags column back into a list (fail-open)."""
     if not raw:
         return None
     import json
@@ -28,6 +29,7 @@ def _decode_tags(raw: Any) -> list[str] | None:
 
 
 def _decode_json(raw: Any, kind: type) -> Any:
+    """A JSON column of the ingest's reading, when it decodes to ``kind`` and is not empty; else ``None``."""
     import json
 
     if not raw:
@@ -40,6 +42,14 @@ def _decode_json(raw: Any, kind: type) -> Any:
 
 
 def _decode_object(cls, raw: Any) -> dict[str, Any] | None:
+    """Decode the JSON ``capture`` column: only the known keys, each of its type (fail-open).
+
+    A key outside :attr:`_CAPTURE_TYPES`, or one of the wrong type, is dropped
+    rather than failing the row: the column is a record of what a camera
+    wrote, and a malformed key is a fact we cannot use, not a reason to lose
+    the document. ``bool`` is excluded from the numeric keys (it is an ``int``
+    in Python, and a flag is not a coordinate).
+    """
     if not raw:
         return None
     import json
@@ -62,6 +72,7 @@ def _decode_object(cls, raw: Any) -> dict[str, Any] | None:
 
 
 def _decode_revision_facts(raw: Any) -> dict[str, Any] | None:
+    """Decode the JSON ``revision_facts`` column through the one normaliser (fail-open to ``None``)."""
     if not raw:
         return None
     import json
@@ -73,6 +84,15 @@ def _decode_revision_facts(raw: Any) -> dict[str, Any] | None:
 
 
 def _normalise_suggestion(value: Any) -> dict[str, Any] | None:
+    """A revision suggestion as it is stored and read: exactly its six keys, each valid, or ``None``.
+
+    ``of`` is the older file name, ``confidence`` a number in 0..1 (a flag is
+    not one, and NaN is not one), ``reason`` a non-empty text, ``basis`` one
+    of :data:`SUGGESTION_BASES`. ``dismissed_of`` lists every file a person
+    refused as the older Fassung (:func:`dismissed_revisions`, which also reads
+    the older record with one dismissed ``of``), and ``dismissed`` says whether
+    ``of`` is among them. A suggestion missing any of the first four is no suggestion.
+    """
     if not isinstance(value, dict):
         return None
     older, confidence = value.get("of"), value.get("confidence")
@@ -95,6 +115,7 @@ def _normalise_suggestion(value: Any) -> dict[str, Any] | None:
 
 
 def _decode_suggestion(cls, raw: Any) -> dict[str, Any] | None:
+    """Decode the JSON ``revision_suggestion`` column (fail-open to ``None``)."""
     if not raw:
         return None
     import json

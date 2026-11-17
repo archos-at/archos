@@ -1,3 +1,33 @@
+"""One named observation per knowledge search: what was picked (ADR-0044).
+
+Everything expensive in a research turn already reaches Langfuse span by span,
+but the single question an operator asks of a wrong or weak answer — *which
+documents did the agent pick, and what did it skip?* — was answerable only by
+reading the tool's formatted output text. The `knowledge_search` FUNCTION span
+carries the excerpts as prose; the query, the collections searched, the
+candidate budget and the per-chunk picks (file, page, score, shelf) had no
+structured home. An empty result was indistinguishable from a turn that never
+searched at all.
+
+This module emits ONE balanced agent-runtime step pair per search, named
+``retrieve.<tool>`` (e.g. ``retrieve.knowledge_search``), so it:
+
+* flows through the same exporter pipeline as every other span and therefore
+  gets session/user attribution (ADR-0044), redaction policy (ADR-0029) and
+  Langfuse mapping for free;
+* nests under the calling tool's FUNCTION span in the trace tree;
+* carries METADATA ONLY — chunk ids, file names, pages, scores, shelves. No
+  chunk text rides on it, so it adds no content beyond what ADR-0029 already
+  accepts, and if an operator enables redaction it is redacted together with
+  everything else (`input.value`/`output.value` are in the default
+  `redaction_attributes`). That is by design: the operator's choice removes
+  the picking record along with the prose, never leaves one behind.
+
+Mechanics: a FUNCTION_START/FUNCTION_END pair sharing one UUID, pushed through the real
+`IntermediateStepManager`, so span-stack bookkeeping stays exactly balanced.
+Fail-open by contract — telemetry must never take a turn down.
+"""
+
 import json
 import logging
 import uuid
@@ -9,10 +39,12 @@ PICK_LIMIT = 50
 
 
 def _compact(value: Any) -> dict[str, Any]:
+    """Drop None values so an absent fact is absent rather than null."""
     return {key: val for key, val in value.items() if val is not None}
 
 
 def _shelf_of(entry: Any) -> str | None:
+    """The shelf a scoped collection stated, tolerating plain strings."""
     shelf = getattr(entry, "shelf", None)
     if shelf is None:
         return None
@@ -20,6 +52,7 @@ def _shelf_of(entry: Any) -> str | None:
 
 
 def collection_of(entry: Any) -> str | None:
+    """The collection name of a scoped-collection entry."""
     name = getattr(entry, "collection", None)
     return None if name is None else str(name)
 
@@ -35,6 +68,10 @@ def build_retrieval_input(
     dropped_by_floor: int,
     requery_queries: list[str] | None = None,
 ) -> dict[str, Any]:
+    """What the search asked for — the half that explains WHY these picks.
+
+    Pure, so tests can pin the shape without an agent-runtime context.
+    """
     payload: dict[str, Any] = {
         "query": query,
         "retrieval_query": retrieval_query,
@@ -51,6 +88,11 @@ def build_retrieval_input(
 
 
 def build_retrieval_output(*, chunks: list[Any]) -> dict[str, Any]:
+    """The picks themselves — ids and scores, never chunk text.
+
+    Accepts anything shaped like ``agent.knowledge.schema.Chunk``
+    (attribute access); fields the backend did not populate stay absent.
+    """
     picked = []
     for chunk in chunks[:PICK_LIMIT]:
         metadata = getattr(chunk, "metadata", None) or {}
@@ -72,10 +114,16 @@ def build_retrieval_output(*, chunks: list[Any]) -> dict[str, Any]:
 
 
 def emit_retrieval_span(*, tool_name: str, search_input: dict[str, Any], picks: dict[str, Any]) -> None:
+    """Push ONE balanced custom FUNCTION step recording the search's outcome.
+
+    Input carries the query/budget side, output the picks, mirroring how every
+    other span renders input/output in Langfuse. Never raises.
+    """
     emit_step_span(f"retrieve.{tool_name}", search_input, picks)
 
 
 def _end_timestamps(started_at: float | None, ended_at: float | None) -> dict[str, float]:
+    """The END event's two clocks: when the span ended, and when it started (the agent runtime's convention)."""
     stamps: dict[str, float] = {}
     if ended_at is not None:
         stamps["event_timestamp"] = ended_at
@@ -92,6 +140,21 @@ def emit_step_span(
     started_at: float | None = None,
     ended_at: float | None = None,
 ) -> None:
+    """Push ONE balanced FUNCTION step pair named ``step_name``, with these as its input and output.
+
+    The mechanics every agent-named observation shares (``retrieve.*``, and the
+    decision model's ``decide.*``): a START and an END with one UUID, so the agent runtime's
+    span stack stays balanced and the observation nests under whatever step is
+    open. Never raises: telemetry must never take a turn down.
+
+    Both events are pushed now, back to back. Without timestamps the
+    observation is a point (its latency reads ~1 ms in Langfuse, whatever the
+    work took). ``started_at`` and ``ended_at`` (the agent runtime's clock,
+    ``nat.utils.providers.current_time``) give it the real interval instead:
+    the exporter reads a span's start off the START event's timestamp and its
+    end off the END's (``span_exporter``). ``observability.turn_phases`` is the
+    caller that measures one.
+    """
     try:
         from nat.data_models.intermediate_step import IntermediateStepPayload
         from nat.data_models.intermediate_step import IntermediateStepType

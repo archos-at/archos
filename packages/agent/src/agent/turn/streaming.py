@@ -1,3 +1,14 @@
+"""A turn's wire bodies folded back into its text (chat wire v2 §b).
+
+Two readers need the text rather than the events. ``nat run``, ``nat eval``
+and single-shot HTTP take one value per call: :func:`fold_turn` is the
+workflow's ``Streaming(convert=...)``, and returns ``RUN_FINISHED``'s text.
+The chat socket needs the text so far when the asker presses Stop:
+:class:`TurnTextFold` holds it, folded as the client folds the same events.
+The workflow folds its own bodies too, to log when ``RUN_FINISHED`` replaced
+the settled text (:func:`note_settled_replaced`, counted by the answer suite).
+"""
+
 import logging
 import re
 from dataclasses import dataclass
@@ -28,6 +39,11 @@ _OPEN_MARKER_TAIL = re.compile(r"[ \t\n\r\f\v]*(?:\[\[?[^\[\] \t\n\r\f\v]*|\[\[c
 
 @dataclass
 class _Stretch:
+    """The answer between two replacements: deltas append to it, a snapshot or a retraction ends it.
+
+    Kept after it ends, because the reader may have been reading it when they
+    pressed Stop: the frames that replaced it were still on their way to them.
+    """
 
     text: str = ""
     settled: str | None = None
@@ -39,6 +55,7 @@ class _Stretch:
 
 @dataclass(frozen=True)
 class StoppedAnswer:
+    """What a stopped turn keeps: the answer as the reader had it, and nothing it would have to explain."""
 
     text: str
     sources: list[WireSource] = field(default_factory=list)
@@ -47,6 +64,13 @@ class StoppedAnswer:
 
 
 class TurnTextFold:
+    """The answer so far: deltas append, a snapshot replaces, a retraction clears.
+
+    Folded in ``seq`` order, as the client folds the same events, so a
+    position the client names (``ShownAnswer``: a seq and a length) means the
+    same text here. ``settled`` is the last snapshot's text, the one the reader
+    was left reading, or ``None`` once a retraction took it back.
+    """
 
     def __init__(self) -> None:
         self._stretches: list[_Stretch] = [_Stretch()]
@@ -61,6 +85,7 @@ class TurnTextFold:
         return self._stretches[-1].settled
 
     def add(self, body: EventBody, seq: int | None = None) -> None:
+        """Fold ``body``, stamped ``seq`` (the next one when the caller stamps none)."""
         self._seq = self._seq + 1 if seq is None else seq
         current = self._stretches[-1]
         if isinstance(body, TextMessageContentBody):
@@ -87,12 +112,31 @@ class TurnTextFold:
         self._stretches.append(stretch)
 
     def _stretch_at(self, seq: int) -> _Stretch:
+        """The stretch a reader who had folded through ``seq`` was reading."""
         return next(s for s in self._stretches if s.ended_at is None or s.ended_at > seq)
 
     def partial(self) -> str:
+        """What a stopped turn keeps when nobody said what was on screen: see :meth:`stopped`."""
         return self.stopped().text
 
     def stopped(self, shown: ShownAnswer | None = None) -> StoppedAnswer:
+        """What a stopped turn keeps.
+
+        With ``shown`` (the asker's Stop said what was on screen), the text is
+        the first ``shown.chars`` characters of the stretch the asker was
+        reading at ``shown.seq``, and the masthead and cards are those that had
+        reached them by then, a card only where its ``[[card:N]]`` is in that
+        text: what came after the press is dropped, as the client's fold drops
+        it (``turn-fold.ts``, ``stoppedHere``). Without it, everything folded
+        so far, and no cards: nothing says which the reader saw.
+
+        Either way, a settled text keeps its ``[N]`` and its sources, and a
+        streamed one drops its pending ``[N]``, whose sources never arrived.
+
+        ``apps/workspace/bff/turns/stopped-answer.ts`` is the
+        TypeScript copy of the rule, for the client's and the BFF's writes of
+        the same row; ``contracts/wire/v2/stopped-cases.jsonl`` holds both to it.
+        """
         if shown is None:
             stretch, text = self._stretches[-1], self.text
         else:
@@ -118,6 +162,11 @@ class TurnTextFold:
 
 
 def _placed_cards(stretch: _Stretch, text: str, seq: int) -> list[KeyedCard]:
+    """The leading run of cards that had arrived by ``seq`` and whose place is in ``text``.
+
+    A run, because ``[[card:N]]`` is the N-th card of the list: a gap (a card
+    refused, not arrived or not placed) ends what can be kept.
+    """
     placed = {int(number) for number in _NUMBERED_CARD_MARKER.findall(text)}
     cards: list[KeyedCard] = []
     for index in range(len(stretch.cards)):
@@ -129,6 +178,12 @@ def _placed_cards(stretch: _Stretch, text: str, seq: int) -> list[KeyedCard]:
 
 
 def note_settled_replaced(settled: str | None, terminal: str) -> bool:
+    """Log, and say, whether ``RUN_FINISHED``'s text differs from the settled snapshot.
+
+    The reader has read the settled text by then (ADR-0066), so a difference is
+    the answer changing under them: a repair adopted, a quote marked late, a
+    card suppressed. Nothing else measures it; the answer suite counts the line.
+    """
     if settled is None or terminal.rstrip() == settled.rstrip():
         return False
     logger.info(
@@ -140,6 +195,7 @@ def note_settled_replaced(settled: str | None, terminal: str) -> bool:
 
 
 def fold_turn(bodies: list[EventBody]) -> str:
+    """The finished turn's text, for a caller that takes one value (``nat run``, ``nat eval``, HTTP)."""
     for body in reversed(bodies):
         if isinstance(body, RunFinishedBody):
             return body.result.text

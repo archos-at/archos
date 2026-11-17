@@ -1,3 +1,5 @@
+"""Headroom above a stair: the overhead hits and the clearance measured along each run."""
+
 from __future__ import annotations
 
 import math
@@ -34,6 +36,21 @@ from .operators import _wrong_kind
 def _overhead_hits(
     model: SpatialModel, points: np.ndarray, direction: np.ndarray, exclude: set[str]
 ) -> tuple[float | None, dict[str, float]]:
+    """Cast one ray per sample point and report the shortest run and who stopped it.
+
+    The exclusion discipline is :func:`~ifc_spatial.operators.clear_height`'s,
+    reused rather than re-derived: :data:`~ifc_spatial.model.AIR_TYPES` never
+    stops a ray (a space is air and an opening is a subtraction), and every entry
+    of :data:`HEADROOM_TRANSPARENT` is tested with ``is_a`` because
+    ``IfcFurniture`` is only a SUBTYPE of ``IfcFurnishingElement`` in IFC4 — in
+    IFC2X3 it is not, and a chair once stopped a clear-height ray for that reason.
+
+    ``IfcRailing`` is NOT in that list, and :data:`HEADROOM_TRANSPARENT` records
+    the measurement that decided it: the balustrades this pass used to report
+    were reached by the old single-plane rake across a whole dogleg, not by the
+    filter, and with the flights read one at a time no railing is a candidate at
+    all.
+    """
     shortest: float | None = None
     hit_by: dict[str, float] = {}
     ray = (float(direction[0]), float(direction[1]), float(direction[2]))
@@ -62,6 +79,21 @@ def _overhead_hits(
 
 
 def _exact_clearance(model: SpatialModel, rake: _Rake, candidates: dict[str, float]) -> tuple[float | None, str | None]:
+    """Exact perpendicular distance from the walking plane to the found elements.
+
+    This is where the operator stops being a sampling method. The shortest
+    distance from a plane region to a body above it IS the perpendicular
+    distance, so measuring surface to surface — with
+    :func:`~ifc_spatial.clearance._soup_distance`, the same exact triangle-pair
+    routine ``clear_width`` uses — gives the Durchgangshöhe without needing a
+    sample to land on the critical point. The critical point on a stair is the
+    EDGE of the slab above, and no ray hits an edge.
+
+    Only triangles wholly above the walking plane count. An element that crosses
+    it — the stringer wall beside the flight — would otherwise measure zero from
+    its own part below the nosings, which is a distance to something a head never
+    meets.
+    """
     plane_point = rake.corners.mean(axis=0)
     rectangle = np.array([rake.corners[[0, 1, 2]], rake.corners[[0, 2, 3]]])
     best: float | None = None
@@ -85,6 +117,34 @@ def _exact_clearance(model: SpatialModel, rake: _Rake, candidates: dict[str, flo
 
 
 def headroom(model: SpatialModel, global_id: str) -> Answer[dict[str, Any]]:
+    """The Durchgangshöhe over a stair flight or a ramp, measured perpendicular.
+
+    The measurement people get wrong. The tight point on a stair is where the
+    flight passes under the floor above, and a vertical ray from a tread misses
+    it: the shortest line from the walking surface to that slab edge runs
+    perpendicular to the pitch, and it is shorter than any vertical distance
+    under it. On the test fixture — a 33.69° flight (0.180/0.270) passing an edge
+    at x = 1.200 m with a soffit at 2.600 m — no vertical measurement over the
+    pitch line can get below 1.620 m, and the true clear passage is **1.348 m**.
+    Reporting the vertical number hands the architect 27 cm of headroom that does
+    not exist.
+
+    So the value is the minimum distance from the **raking plane** — the plane
+    through the nosings, over the flight's width — to any body above it. That is
+    the perpendicular distance by construction. Rays along the plane's normal
+    find the candidates; the reported number is then measured exactly against
+    their surfaces, so it does not depend on a sample landing on the critical
+    point.
+
+    ``vertical`` travels beside it, because a clause that means the vertical
+    reading must be able to have it without a second call, and because the gap
+    between the two is itself worth showing.
+
+    A flight with nothing above it is decidable and says so: ``obstructed`` is
+    false and ``searchedTo`` names how far up the search went. That is a
+    statement about this file — most often that the storey above was not
+    exported — and it must never be confused with a measurement of zero.
+    """
     method = f"headroom({global_id})"
     subject = _require(model, global_id, method)
     if not any(subject.is_a(name) for name in (*STAIR_TYPES, *RAMP_TYPES)):

@@ -1,3 +1,20 @@
+"""The German names the project profile used to store, and what they are called now.
+
+ONE normalizer for the whole vocabulary, the Python twin of
+``apps/workspace/bff/project-profile/legacy-names.ts``: a stored key
+(``bundesland``), a select token (``wien``), the building instance id (``bw1``)
+and the derivation rule (``gebaeudeklasse``).
+
+Migrations 0159-0162 rewrote every row. What still arrives with the old names for
+one release is data an older pod wrote while the deploy rolled: a prompt view, a
+request-context envelope a long-running job still carries, a stored norm
+registry. Everything that reads such data calls this module on the way in;
+nothing writes an old name again. ``packages/agent/tests/common/test_profile_names.py``
+holds the tables to ``legacy-names.json``, which the TypeScript side and the
+migrations are generated from. When the last such data has drained, delete this
+module, the JSON, the TypeScript twin and their specs.
+"""
+
 from __future__ import annotations
 
 import re
@@ -339,20 +356,24 @@ _LEGACY_BUILDING_ID = re.compile(rf"^{LEGACY_BUILDING_PREFIX}(\d+)$")
 
 
 def normalize_building_id(building_id: str) -> str:
+    """``bw2`` -> ``bldg2``; anything else is returned as it came."""
     match = _LEGACY_BUILDING_ID.match(building_id)
     return f"{BUILDING_PREFIX}{match.group(1)}" if match else building_id
 
 
 def normalize_profile_base_key(base: str) -> str:
+    """A base key (no ``@``): the new name, or the key itself when it is not a legacy one."""
     return LEGACY_PROFILE_KEYS.get(base, base)
 
 
 def normalize_profile_token(base_key: str, token: str) -> str:
+    """One select token of a (new or old) base key; a token that is not legacy is returned as it came."""
     table = LEGACY_PROFILE_TOKENS.get(normalize_profile_base_key(base_key))
     return table.get(token, token) if table else token
 
 
 def normalize_profile_key(key: str) -> str:
+    """``geschosse_oberirdisch@bw1@wohnen`` -> ``storeys_above_ground@bldg1@residential``."""
     base, *scopes = key.split("@")
     renamed = normalize_profile_base_key(base)
     if not scopes:
@@ -364,6 +385,7 @@ def normalize_profile_key(key: str) -> str:
 
 
 def normalize_profile_value(key: str, value: str) -> str:
+    """A stored token of ``key`` (scoped or not), or a comma-joined list of them."""
     base = normalize_profile_base_key(key.split("@", maxsplit=1)[0])
     if base not in LEGACY_PROFILE_TOKENS:
         return value
@@ -375,6 +397,10 @@ _VIEW_VALUE = re.compile(r"(=|: |alternativ: )([a-z0-9_,]+)")
 
 
 def normalize_prompt_view(view: str) -> str:
+    """The profile prompt view with every legacy key and token on its ``- key=value`` lines renamed.
+
+    The BFF stores and serves this text; an older pod can still have written the German names.
+    """
 
     def rename_line(match: re.Match[str]) -> str:
         lead, key, rest = match.groups()
@@ -392,5 +418,12 @@ def normalize_prompt_view(view: str) -> str:
 
 
 def legacy_profile_token(base_key: str, token: str) -> str:
+    """The German token the vector store still holds for an English one (``vienna`` -> ``wien``).
+
+    Points in Qdrant written before the payload rename keep German fact tokens until the operator
+    rewrite (``docs/deployment/qdrant-payload-rename-runbook.md``); a filter or boost over the
+    English ones asks for these too (``knowledge_layer.vector_store.scope`` and ``boost``). Delete
+    with the fallback.
+    """
     table = LEGACY_PROFILE_TOKENS.get(normalize_profile_base_key(base_key), {})
     return next((old for old, new in table.items() if new == token), token)

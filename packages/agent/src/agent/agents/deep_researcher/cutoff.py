@@ -1,3 +1,14 @@
+"""Streaming a deep research graph under a budget, and salvaging a cut-off run.
+
+The graph is STREAMED, not awaited as one opaque call, purely so a cutoff has
+something to salvage. ``stream_mode="values"`` yields the full graph state
+after every step, so the newest one seen is the run's last known state —
+including any report the writer already persisted to ``/shared/output.md``.
+Awaiting ``ainvoke`` instead meant every cutoff raised out of a call that had
+never returned a state, and every research note, captured source and
+finished-but-unreturned report died with the exception.
+"""
+
 from __future__ import annotations
 
 import asyncio
@@ -35,6 +46,7 @@ _CUTOFF_ERRORS: tuple[type[BaseException], ...] = (
 
 @dataclass(frozen=True)
 class StreamOutcome:
+    """The last graph state a stream reached, and the cutoff that ended it, if any."""
 
     last_state: Any
     elapsed_seconds: float
@@ -49,6 +61,13 @@ async def stream_with_budget(
     stream_kwargs: dict[str, Any],
     max_run_seconds: int,
 ) -> StreamOutcome:
+    """Drive the graph to completion or to a cutoff, keeping the newest state.
+
+    Wall-clock budget: per-call ``request_timeout`` bounds one HTTP request and
+    ``recursion_limit`` bounds step COUNT — neither bounds total run time, so a
+    pathological run could otherwise hold a worker slot forever. ``0`` disables
+    the guard.
+    """
     last_state: Any = None
     started = time.monotonic()
 
@@ -70,6 +89,20 @@ def classify_cutoff(
     elapsed_seconds: float,
     max_run_seconds: int,
 ) -> tuple[str, BaseException]:
+    """Name the cutoff for the operator channel, and the error to raise for it.
+
+    ``asyncio.wait_for`` raises ``TimeoutError`` — and so does any provider or
+    transport call that times out inside the graph, indistinguishably, because
+    ``asyncio.TimeoutError`` IS ``TimeoutError``. Blaming the budget for both
+    made an operator counting budget overruns count 30-second provider hiccups
+    as 2400-second ones, which reads as evidence for raising a budget that was
+    never reached. Elapsed time is the honest discriminator; both are salvaged
+    identically and only NAMED apart.
+
+    A budget error means the run exhausted its completion-token ceiling or a
+    USD budget mid-batch: counted apart so a sizing signal never reads as a
+    slow run. A recursion error means the orchestrator ran out of steps.
+    """
     if isinstance(exc, (RunBudgetExceededError, BudgetExceededError)):
         return CUTOFF_RUN_BUDGET, exc
     if isinstance(exc, GraphRecursionError):
@@ -92,6 +125,7 @@ def _fail_cutoff(
     original: BaseException,
     cause: BaseException,
 ) -> NoReturn:
+    """Report a cutoff with nothing worth shipping, then raise it."""
     emit_deep_research_cutoff(
         reason=cutoff_reason,
         salvaged=False,
@@ -131,6 +165,15 @@ def salvage_cutoff(
     original: BaseException,
     cause: BaseException,
 ) -> DeepResearchAgentState:
+    """Salvage a cut-off run, or re-raise loudly when there is nothing to save.
+
+    The salvage bar, deliberately conservative: ``finalize`` has to yield a
+    report of at least :data:`MIN_SALVAGE_REPORT_CHARS` characters, and the
+    run's normal grounding guard still applies — a run that captured no
+    sources still fails with ``EmptySourceRegistryError`` rather than shipping
+    an unciteable stub under a "was cut off" banner. Anything that clears the
+    bar is returned MARKED, never quietly.
+    """
     fail = dict(cutoff_reason=cutoff_reason, elapsed_seconds=elapsed_seconds, source_count=source_count)
     if last_state is None:
         _fail_cutoff(

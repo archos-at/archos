@@ -1,3 +1,54 @@
+"""The operator vocabulary, on IfcOpenShell.
+
+A port of `packages/ifc-spatial/src/operators/{topology,metric,constructive}.ts`,
+one function per TS operator, every one returning an :class:`~ifc_spatial.envelope.Answer`.
+The German wording of `missing.what`, `missing.remedy` and every `caveat` is kept
+verbatim wherever the TypeScript has one, because the sentence an architect reads
+must not change when the engine underneath does.
+
+## Three outcomes, never two — unchanged from the TS
+
+  - **a value** — with provenance, tolerance and a method that reads like the call.
+  - **undecidable** — the question was well-formed and this file cannot answer it.
+    Carries the IFC relation or property that would settle it, in German.
+  - **exception** — the GlobalId names nothing in this model
+    (:class:`~ifc_spatial.model.UnknownElementError`). Never an undecidable: a
+    hallucinated id must not be reportable as "das Modell sagt dazu nichts".
+
+## Where IfcOpenShell is better than what it replaces, and it is used
+
+Marked ``BESSER`` in the docstrings and listed in ``COVERAGE.md``:
+
+  - :func:`floor_area` — ``util.shape.get_footprint_area`` UNIONS the projected
+    faces (shapely) instead of summing them, so overlapping horizontal faces
+    cannot double-count.
+  - :func:`floor_area` also finds the declared quantity itself and triangulates
+    against it; the TS operator takes it as a parameter and answers with one
+    route when the host forgets to pass it.
+  - :func:`ray` — ``geom.tree.select_ray`` intersects the real OCCT surface, not
+    a retained triangle subset, and returns the surface normal and dot product
+    besides the hit. The TS ray silently skips elements whose triangles the
+    geometry pass dropped and says so in a caveat; there is nothing to drop here.
+  - :func:`opens_to` and :func:`bounds` — ``geom.tree.select(element, extend=…)``
+    is an exact solid proximity query, so the space a window opens into is found
+    at a 5 cm contact tolerance instead of the TS derivation's 30 cm.
+  - :func:`clear_height` — the TS operator returns the modelled space height and
+    says in its caveat that the real clear height needs an intersection test it
+    does not have. IfcOpenShell has it, so this one measures the lichte Höhe by
+    casting rays up from the floor.
+
+## Where it is worse, and the code says so rather than pretending
+
+``tree.clash_collision_many`` / ``clash_clearance_many`` /
+``clash_intersection_many`` return an EMPTY tuple for every input on the shipped
+0.8.5 wheel — including two walls that visibly touch — without raising. §7 of the
+design doc maps `adjacentTo` and `distance` onto exactly those calls. They are
+therefore not used anywhere in this module: a primitive that answers "keine
+Nachbarn" by failing silently is the single most dangerous thing this library
+could be built on. :func:`distance` measures box gaps as the TS does, and
+:func:`adjacent_spaces` goes through shared bounding elements.
+"""
+
 from __future__ import annotations
 
 from collections.abc import Sequence  # noqa: F401
@@ -55,6 +106,22 @@ from .model import SpatialModel  # noqa: F401
 
 
 def _clear_opening_area(model: SpatialModel, opening: Any, z_band: tuple[float, float] | None = None) -> float | None:
+    """The area of an opening's clear aperture — the Rohbaulichte.
+
+    An ``IfcOpeningElement`` is a prism driven through the wall. Projected along
+    the wall's own normal, its two end faces land on top of each other and the
+    shapely UNION of the projection is exactly the clear opening — which is what
+    a Lichteintrittsfläche is measured on, and which no bounding box gives for a
+    round-headed or triangular window.
+
+    The projection direction comes from the opening's own dominant vertical
+    plane rather than from the host wall, so this still works where the export
+    voided a wall the operator was not handed.
+
+    ``None`` when there is no usable body or no vertical plane to project along
+    — a skylight in a flat roof, an opening exported without geometry. The
+    caller reports that as a gap rather than substituting a guess.
+    """
     import shapely
     import shapely.ops
 
@@ -107,6 +174,19 @@ def _clear_opening_area(model: SpatialModel, opening: Any, z_band: tuple[float, 
 
 
 def _rooms_on_one_side(model: SpatialModel, element: Any, rooms: Sequence[Any]) -> bool | None:
+    """Whether every room this element bounds lies on the SAME side of it.
+
+    ``True`` → outside is on the other side. ``False`` → rooms both sides, so it
+    is a Trennbauteil. ``None`` → the element's plane could not be established,
+    and the caller must not fall back to counting (see :func:`_external_route`).
+
+    The element's DOMINANT plane rather than its vertical one, so the same test
+    serves a slab: a floor with rooms above and below is internal by exactly the
+    reasoning that makes a wall with rooms left and right internal, and a ground
+    slab carrying rooms only above it is external by the same test that catches
+    a facade. The centroid is the point on that plane — for a wall it sits in
+    the middle of the thickness, which is where the two sides part.
+    """
     geo = model.geometry(element.GlobalId)
     if geo is None or geo.faces.size == 0:
         return None
@@ -136,6 +216,26 @@ def _rooms_on_one_side(model: SpatialModel, element: Any, rooms: Sequence[Any]) 
 
 
 def _faces_outside(model: SpatialModel, element: Any) -> tuple[bool | None, str]:
+    """Whether this window or door lets daylight IN from outside.
+
+    The first version of :func:`light_entry_area` summed every window and door
+    bounding the room, and the sample house's bedroom came back at 25.3 % — of
+    which an interior door to the hallway was 1.71 m². An internal door is not a
+    Lichteintrittsfläche under any reading of OIB 3, and 25 % versus 14 % is the
+    difference between two opposite answers to a daylight check.
+
+    Two routes, and the declared one wins because it is the architect's own
+    statement:
+
+    1. ``Pset_*Common.IsExternal`` on the host wall.
+    2. Otherwise the count of spaces the opening touches. An interior door joins
+       two rooms; an external window touches one, because there is no IfcSpace
+       outdoors. Weaker — a window onto an unmodelled conservatory reads as
+       external — hence second.
+
+    ``None`` means neither route decided, and the caller must report that rather
+    than picking a side.
+    """
     own = model.declared_property(element, ("IsExternal",))
     if isinstance(own, bool):
         return own, "Pset_*Common.IsExternal am Bauteil selbst (deklariert)"
@@ -170,6 +270,34 @@ def _faces_outside(model: SpatialModel, element: Any) -> tuple[bool | None, str]
 
 
 def light_entry_area(model: SpatialModel, space_global_id: str) -> Answer[dict[str, Any]]:
+    """The room's light-entry area, and what fraction of its floor that is.
+
+    The other half of the answer this library was built because of. The agent
+    could not measure the Dachüberstand, and it could not measure the *Raum-%*
+    either — the ratio an OIB 3 daylight check is decided on. `overhang` closed
+    the first gap; this closes the second.
+
+    For every window and door bounding the room, the operator walks
+    ``FillsVoids → RelatingOpeningElement`` and measures that opening's clear
+    aperture (:func:`_clear_opening_area`), then divides the sum by
+    :func:`floor_area`. Both numbers and the ratio come back together, because a
+    ratio whose two inputs are not visible cannot be checked by the person who
+    has to sign it.
+
+    ## What this deliberately does not do
+
+    It applies no threshold. OIB 3 names a percentage; that percentage is a fact
+    about the *clause*, and the same refusal that keeps `light_incidence` from
+    supplying its own 45° keeps this from reporting „erfüllt".
+
+    It also does not decide WHICH area the clause means. This measures the
+    structural clear opening — the Rohbaulichte. A regulation may instead mean
+    the glazed area, or the clear opening less frame and sash, and the
+    difference on an ordinary window is 15–25 %. Substituting one for the other
+    silently would be the most expensive kind of wrong: a number that is right
+    to the millimetre and answers a different question. So the caveat says which
+    was measured, and the clause decides whether that is the one it wants.
+    """
     method = f"lightEntryArea({space_global_id})"
     subject = _require(model, space_global_id, method)
     if model.kind_of(subject) != "space":

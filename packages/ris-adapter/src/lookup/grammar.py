@@ -1,3 +1,12 @@
+"""The consolidated-text paragraph grammar: §§, Absätze, headings.
+
+RIS's plain text is positional, so this is: a line beginning ``§ 63.`` opens a
+section and everything up to the next such line is its body; an Absatz marker
+``(1)`` opens an Absatz, either on its own line or run into the section head.
+Nothing here knows about questions, LLMs or the tool — it splits text and cuts
+text, which is why every extraction test can be written against it directly.
+"""
+
 from __future__ import annotations
 
 import re
@@ -17,6 +26,7 @@ _HEADING_MAX_CHARS = 120
 
 @dataclass(frozen=True)
 class Section:
+    """One § / Artikel of a consolidated law, as the document states it."""
 
     kind: str
     number: str
@@ -25,10 +35,18 @@ class Section:
 
     @property
     def label(self) -> str:
+        """``§ 63`` — empty for a document with no § grammar (a court decision)."""
         return f"{self.kind} {self.number}" if self.kind and self.number else ""
 
 
 def split_sections(text: str) -> list[Section]:
+    """Split a consolidated law into its §§ / Artikel, in document order.
+
+    The short line under a bare marker, or else the one above it, when it
+    reads as a heading, is recorded as the section's Überschrift. One above is
+    left in the previous body too, because guessing wrong about a heading must
+    not DELETE text a citation rests on.
+    """
     lines = text.splitlines()
     starts = [(index, match) for index, line in enumerate(lines) if (match := SECTION_LINE_RE.match(line))]
     sections = [
@@ -44,6 +62,19 @@ def split_sections(text: str) -> list[Section]:
 
 
 def _one_section_per_label(sections: list[Section]) -> list[Section]:
+    """One section per §: the one that carries the provision.
+
+    RIS states a § more than once. The Bauordnung für Wien prints a header
+    block (``§ 63`` / ``Text`` / Überschrift) before every provision: 183 of
+    its 388 parsed sections were such stubs. The Tiroler Bauordnung opens with
+    a table of contents, ``§ 8`` / ``Abstellmöglichkeiten für Kraftfahrzeuge``,
+    far from § 8 itself. Each stub matches the grammar, so a lookup for § 63
+    returned it as a passage of its own and registered the same citation key
+    twice. The provision is the one whose marker is written ``§ 8.``, the form
+    RIS gives a provision and never a stub; between equals, the longest body.
+    Length alone lost a repealed ``§ 8.`` / ``(entfällt)`` to its table of
+    contents entry, which is longer.
+    """
     kept: dict[str, Section] = {}
     for section in sections:
         best = kept.get(section.label)
@@ -53,20 +84,31 @@ def _one_section_per_label(sections: list[Section]) -> list[Section]:
 
 
 def _provision_rank(section: Section) -> tuple[bool, int]:
+    """How much a section reads as the provision: a ``§ 8.`` marker first, then length."""
     marker = SECTION_LINE_RE.match(section.body)
     return bool(marker and marker.group(0).rstrip().endswith(".")), len(section.body)
 
 
 def _end_of(starts: list[tuple[int, object]], position: int, total: int) -> int:
+    """Where one section's body stops: at the next section, or at the end."""
     return starts[position + 1][0] if position + 1 < len(starts) else total
 
 
 def _heading_above(lines: list[str], index: int) -> str:
+    """The Überschrift on the line above a section start, when there is one."""
     previous = lines[index - 1].strip() if index > 0 else ""
     return previous if _is_heading(previous) else ""
 
 
 def _heading_below(lines: list[str], index: int, marker: re.Match[str]) -> str:
+    """The Überschrift on the line after a bare marker, where a law puts it there.
+
+    The Tiroler Bauordnung writes ``§ 8`` / ``Abstellmöglichkeiten für
+    Kraftfahrzeuge`` / ``(1)``; read only above, its index was bare numbers and
+    the picker, which chooses by heading, chose blind. It is read before the
+    line above: in such a law that line is the previous entry's title, or the
+    Abschnitt's. A marker with text run into it has no heading below.
+    """
     if lines[index][marker.end() :].strip():
         return ""
     below = lines[index + 1].strip() if index + 1 < len(lines) else ""
@@ -74,16 +116,24 @@ def _heading_below(lines: list[str], index: int, marker: re.Match[str]) -> str:
 
 
 def _has_text(section: Section) -> bool:
+    """Whether a section carries anything beyond its own ``§ 63.`` marker."""
     return bool(SECTION_LINE_RE.sub("", section.body, count=1).strip())
 
 
 def _is_heading(line: str) -> bool:
+    """Whether a line reads as an Überschrift rather than as a sentence."""
     if not line or len(line) > _HEADING_MAX_CHARS:
         return False
     return not line.endswith((".", ":", ",", ";")) and not SECTION_LINE_RE.match(line)
 
 
 def subsection_body(section: Section, subsection: str) -> tuple[str, str]:
+    """``(body, subsection)`` narrowed to one Absatz, or the whole section.
+
+    An Absatz the document does not carry returns the section unchanged: the
+    honest answer to "§ 63 Abs 9" in a § with three Absätze is § 63, never an
+    empty passage and never the wrong Absatz.
+    """
     if not subsection or not section.number:
         return section.body, ""
     marks = _subsection_marks(section.body)
@@ -96,6 +146,7 @@ def subsection_body(section: Section, subsection: str) -> tuple[str, str]:
 
 
 def _subsection_marks(body: str) -> list[tuple[str, int]]:
+    """``(subsection, offset)`` for every Absatz marker, the run-in one included."""
     marks = [(match.group(1), match.start()) for match in SUBSECTION_LINE_RE.finditer(body)]
     inline = SUBSECTION_INLINE_RE.match(body)
     if inline:
@@ -104,6 +155,14 @@ def _subsection_marks(body: str) -> list[tuple[str, int]]:
 
 
 def cut_on_subsection(text: str, limit: int = PASSAGE_MAX_CHARS) -> str:
+    """Truncate a passage on an Absatz boundary, never mid-Absatz.
+
+    The default bound is the knowledge layer's own ``_CHUNK_TRUNCATE_CHARS``
+    (imported, never restated); ``passages._passage_limit`` passes the named-§
+    or list budget instead. The marker is the knowledge layer's own
+    ``... [truncated]``, so the citation parser strips it back off exactly as it
+    does for a corpus chunk.
+    """
     if len(text) <= limit:
         return text
     window = text[:limit]
@@ -113,6 +172,7 @@ def cut_on_subsection(text: str, limit: int = PASSAGE_MAX_CHARS) -> str:
 
 
 def headings_index(sections: list[Section]) -> str:
+    """The § headings of one document, as the picker (and a miss) sees them."""
     shown = sections[:MAX_HEADINGS]
     lines = [f"{section.label}{f' — {section.heading}' if section.heading else ''}" for section in shown]
     if len(sections) > len(shown):

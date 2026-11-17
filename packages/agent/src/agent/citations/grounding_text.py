@@ -1,3 +1,5 @@
+"""The legacy path: reading a grounding block back out of its text, for a replayed turn that has no records."""
+
 from __future__ import annotations
 
 import logging
@@ -60,6 +62,23 @@ _KL_TRUNCATED_SUFFIX_RE = re.compile(r"\s*\.\.\.\s*\[truncated\]\s*$")
 
 
 def _split_kl_result_blocks(content: str) -> list[str]:
+    """Split KB tool output into one text span per ``--- Result N ---`` block.
+
+    Each span runs from just after its block marker to the start of the next
+    marker (or the ``## Trace-Lanes`` fan-out summary / end of content), so a
+    block contains exactly one hit's header fields AND its passage body. The
+    leading "Found N relevant document(s):" preamble is not a block and is
+    dropped. Returns ``[]`` when the output carries no block markers.
+
+    Only the grammar's own lines count: a marker or a ``## Trace-Lanes`` line
+    inside a ``<document_content>`` fence is the passage's text
+    (:func:`~agent.common.passage_fence.unfenced`), so a filed mail whose body
+    spells ``--- Result 2 ---`` and ``Shelf: building_law`` cannot forge a hit.
+    The trailing Trace-Lanes JSON belongs to the whole result set, not to the
+    last hit, so a block is cut there and can pollute neither its body nor the
+    header-field scan. A batched result (``source_tool_batching``) carries one
+    per query, which is why the cut is per block.
+    """
     markers = list(unfenced(_KL_RESULT_BLOCK_RE, content))
     if not markers:
         return []
@@ -72,6 +91,18 @@ def _split_kl_result_blocks(content: str) -> list[str]:
 
 
 def _kl_block_body(block: str) -> str:
+    """The retrieved passage body of one result block.
+
+    ``_format_results`` puts the body after the ``Relevance Score:`` header line
+    and a blank line, inside the ``<document_content>`` fence
+    (``common/passage_fence.py``), which is taken back off; a block rendered
+    before the fence reads as it did. Returns ``""`` when that header is absent
+    (nothing to anchor the body to). A very long body is truncated by the
+    producer with a trailing ``... [truncated]`` marker, which is stripped back off.
+    The body is the FIRST fence only: a text whose ``## Trace-Lanes`` line was
+    stripped (``strip_trace_lanes``) runs on into the trailer, and grep's lines
+    index there is fenced too.
+    """
     relevance_match = _KL_RELEVANCE_LINE_RE.search(block)
     if relevance_match is None:
         return ""
@@ -82,20 +113,45 @@ def _kl_block_body(block: str) -> str:
 
 
 def _kl_block_header(block: str) -> str:
+    """The HEADER region of one result block — everything above the passage body.
+
+    Header fields must be read from here, never from the whole block, because
+    the block also contains RETRIEVED DOCUMENT TEXT. ``_format_results`` omits
+    ``Dokumentart:``/``Collection:``/``Page:`` for a hit that has none, so a
+    passage whose own text contains such a line would otherwise supply the
+    missing field — and a scanned Einreichplan or Bescheid whose title block
+    carries a metadata table plausibly does. The result is the same user-visible
+    failure as positional misalignment: a private project plan classified as an
+    OIB Richtlinie, because ``doc_class`` is first priority in ``lane_for_hit``.
+
+    ``Source:``/``Citation:`` happen to be safe (the header always emits them,
+    so the header's own match wins), but scoping the region is what makes that
+    true by construction rather than by luck.
+
+    A block with no ``Relevance Score:`` line has no body to confuse us with, so
+    the whole block is its header.
+    """
     relevance_match = _KL_RELEVANCE_LINE_RE.search(block)
     return block[: relevance_match.start()] if relevance_match else block
 
 
 def _extract_kl_chunk_bodies(content: str) -> list[str]:
+    """Retrieved passage body per ``--- Result N ---`` block, in document order."""
     return [_kl_block_body(block) for block in _split_kl_result_blocks(content)]
 
 
 def _first(pattern: re.Pattern[str], text: str) -> str | None:
+    """First capture of ``pattern`` in ``text``, stripped; ``None`` when absent."""
     match = pattern.search(text)
     return match.group(1).strip() or None if match else None
 
 
 def _parse_kl_doc_class(raw: str | None) -> str | None:
+    """Machine doc_class key from a ``Dokumentart:`` value.
+
+    The line is emitted as ``<doc_class_key> — <German label>``; keep only the
+    leading machine key so lane placement gets a valid key.
+    """
     if not raw:
         return None
     key = raw.split("—")[0].split(" - ")[0].strip() or None
@@ -107,10 +163,18 @@ def _parse_kl_doc_class(raw: str | None) -> str | None:
 
 
 def _parse_kl_source_format(raw: str | None) -> str | None:
+    """The machine token of a ``Format:`` value (``mail — E-Mail`` -> ``mail``), or None."""
     return (raw or "").split("—")[0].strip() or None
 
 
 def _parse_kl_authored_by(raw: str | None) -> str | None:
+    """``"agent"`` when a ``Herkunft:`` value names a Piloti document, else None.
+
+    Fails CLOSED: an unrecognised, reworded or absent value leaves the author
+    unknown rather than claiming a human wrote it — unknown and human are the
+    same for every reader downstream, and only this exact token buys the
+    document its Piloti lane and its verdict ban.
+    """
     from agent.common.provenance import AGENT_AUTHOR
     from agent.common.source_kinds import AGENT_AUTHORED_LANE_LABEL
 
@@ -134,6 +198,10 @@ def _kl_entry(
     project: tuple[str, str, str] | None = None,
     project_federal_state_note: str | None = None,
 ) -> SourceEntry:
+    """Build a knowledge-layer :class:`SourceEntry` from one hit's fields.
+
+    ``project`` is the ``Projekt:`` line read back, ``(name, status label, id)``.
+    """
     parsed_shelf = parse_shelf(shelf)
     project_name, status_label, project_id = project if project else (None, None, None)
     return SourceEntry(
@@ -160,11 +228,13 @@ _PROJECT_STATUS_BY_LABEL = {label: status for status, label in PROJECT_STATUS_LA
 
 
 def _parse_kl_project(header: str) -> tuple[str, str, str] | None:
+    """The ``Projekt:`` line of one block's header, or None when the hit named no project."""
     match = _KL_PROJECT_RE.search(header)
     return (match.group(1).strip(), match.group(2), match.group(3)) if match else None
 
 
 def _parse_kl_score(value: str | None) -> float | None:
+    """The ``Relevance Score:`` value as a float, or None when absent or malformed."""
     if not value:
         return None
     try:
@@ -175,6 +245,23 @@ def _parse_kl_score(value: str | None) -> float | None:
 
 
 def parse_knowledge_layer(content: str, tool_name: str) -> list[SourceEntry]:
+    """Parse knowledge layer retrieval output. THE LEGACY PATH; see the banner above.
+
+    Extracts citation keys (filename + page), the retrieval ``Collection:``
+    each hit came from (threaded by the KB tool so ``source_lane`` can place
+    the hit deterministically), the explicit ``Dokumentart:`` classification,
+    and the retrieved passage body. A text with no ``Citation:`` field carries
+    no sources, and says so with an empty list.
+
+    Fields are read PER ``--- Result N ---`` BLOCK, never by zipping separate
+    whole-document ``findall`` lists. ``_format_results`` emits ``Collection:``
+    and ``Dokumentart:`` only when the hit HAS one, so a result set mixing a
+    classified hit (OIB corpus) with an unclassified one (a project upload)
+    shifts every later value up by one under positional zipping — and because
+    ``doc_class`` is the FIRST-priority signal in ``lane_for_hit``, that
+    silently rendered a project plan as an OIB Richtlinie. Block-scoped parsing
+    makes the association structural rather than coincidental.
+    """
     blocks = _split_kl_result_blocks(content)
     entries: list[SourceEntry] = []
 
@@ -208,6 +295,12 @@ def parse_knowledge_layer(content: str, tool_name: str) -> list[SourceEntry]:
 
 
 def _kl_positional_entries(content: str, tool_name: str) -> list[SourceEntry]:
+    """:func:`parse_knowledge_layer` for a text with no ``--- Result N ---`` markers.
+
+    A non-``_format_results`` producer whose tool name still matches
+    "knowledge". Nothing delimits the hits, so this is the historical
+    positional pairing rather than dropping the sources.
+    """
     citations = _KL_CITATION_RE.findall(content)
     sources = _KL_SOURCE_RE.findall(content)
     collections = _KL_COLLECTION_RE.findall(content)
@@ -229,6 +322,7 @@ _KL_REGION_RE = re.compile(r"^Region:\s*\[([^\]]+)\]\s*(?:„(.*?)“)?\s*$", re
 
 
 def _regions_from_header(header: str) -> list[SourceRegion]:
+    """The ``Region: [x, y, w, h]`` lines of a header as boxes (``x0, y0, x1, y1``); malformed lines are skipped."""
     regions: list[SourceRegion] = []
     for match in _KL_REGION_RE.finditer(header):
         try:
@@ -240,6 +334,11 @@ def _regions_from_header(header: str) -> list[SourceRegion]:
 
 
 def parse_look(content: str, tool_name: str) -> list[SourceEntry]:
+    """``look``'s grounding block read back from TEXT: a replayed turn's places (ADR-0125, 2026-10-22).
+
+    The text twin of :func:`_look_entry`. Without it a replayed turn falls
+    through to the URL extractor and the look's citation vanishes.
+    """
     entries: list[SourceEntry] = []
     for block in _split_kl_result_blocks(content):
         header = _kl_block_header(block)

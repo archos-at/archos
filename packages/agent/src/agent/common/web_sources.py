@@ -1,3 +1,40 @@
+"""What a web search may hand the agent as a source about law (ADR-0175).
+
+Since the cut-over only the platform's records say which edition binds where, the knowledge base is where a
+norm's text is read, and a law is read from its own source (a legal database configured under
+``configs/sources/``). The web filled all three gaps on staging and dev: a guideline cited from a vendor's
+copy, the binding edition taken from the product's own marketing glossary, a paragraph of state law cited
+from two mirror sites while the legal database was not read. So a web search screens every hit before the
+model sees it, and says what it did.
+
+Nothing here names a country, a site or a file-name convention. What is a work's own source and what is a
+copy is read from data:
+
+- **the source records**, read in one place (:func:`configured_sources`): the repository's, through
+  ``public_sources``' loader, and the released ones the turn's knowledge context carries
+  (``KnowledgeContext.sources``, ADR-0174 amendment 2026-11-11). ``hosts`` are a source's own,
+  ``copy_hosts`` republish it. An unreadable repository record set means no host of it is known as a
+  copy, never a failed search;
+- **the works the turn holds**, each with its designation: the editions of the turn's knowledge context
+  (``knowledge_context.EditionUse``: designation, corpus files, legal-database identities), the documents of
+  the base shelf (``inventory.get_norm_families``) and the laws the norm registry points at in a legal
+  database (``norm_registry``, ``configs/norms/``).
+
+A hit is then one of:
+
+- **withheld** (not handed on, the reason said without its address): a page on the product's own domains
+  (``brand.PRODUCT_DOMAINS``); an address that may not be shown as a source (``url_safety``: not https, a
+  local or internal host); a copy on a source's ``copy_hosts`` while that source can be read this turn; a
+  document (:data:`DOCUMENT_SUFFIXES`) that is a copy of a work the knowledge base holds;
+- **labelled** (handed on with a ``source_note`` the tool prints): a copy on ``copy_hosts`` while the source
+  cannot be read this turn, so the answer can say what it rests on; a page on any other host that names a
+  held work, which is a page about the work and never its text;
+- **kept** as it is: everything else, a source's own host included.
+
+Every result also carries one line saying web content is unverified information, never a requirement or
+a binding edition: the gate's note says the same (``knowledge_context.WEB_IS_INFORMATION``).
+"""
+
 from __future__ import annotations
 
 import functools
@@ -32,6 +69,7 @@ Where = Literal["knowledge_base", "legal_database"]
 
 @dataclass(frozen=True)
 class Withheld:
+    """What a web search did not hand on, and why, for the line the agent reads instead."""
 
     url: str
     reason: str
@@ -39,6 +77,7 @@ class Withheld:
 
 @dataclass(frozen=True)
 class HeldWork:
+    """A work whose text the turn can read from its own source, as the records name it."""
 
     designation: str
     where: Where
@@ -49,6 +88,7 @@ class HeldWork:
 
 @dataclass(frozen=True)
 class Assessment:
+    """What the screen makes of one hit: ``withheld`` (a reason), else ``note`` (a label), else nothing."""
 
     withheld: str | None = None
     note: str | None = None
@@ -59,10 +99,13 @@ KEEP = Assessment()
 
 
 def tokens(text: str) -> tuple[str, ...]:
+    """``text`` as lower-case word and number tokens; ``2.2`` stays one token, so it never reads as ``2``."""
     return tuple(_TOKEN_RE.findall(text.casefold()))
 
 
 def host_of(url: str) -> str:
+    """The URL's host, lower-cased without a trailing dot; "" for a URL that does not parse (a malformed hit
+    must not fail the whole search: it is screened as hostless, never trusted)."""
     try:
         return (urlparse(url).hostname or "").rstrip(".").lower()
     except ValueError:
@@ -74,6 +117,7 @@ def on_host(host: str, hosts: Iterable[str]) -> bool:
 
 
 def is_product_site(url: str) -> bool:
+    """Whether ``url`` is on one of the product's own domains, or a subdomain of one."""
     from agent.common.brand import PRODUCT_DOMAINS
 
     return on_host(host_of(url), PRODUCT_DOMAINS)
@@ -83,6 +127,7 @@ def is_product_site(url: str) -> bool:
 
 @dataclass(frozen=True)
 class SourceHosts:
+    """One configured source: whose law it holds, its own hosts and the hosts that republish it."""
 
     title: str
     country: str
@@ -101,10 +146,12 @@ def _sources_under(root: str) -> tuple[SourceHosts, ...]:
 
 
 def configured_sources() -> tuple[SourceHosts, ...]:
+    """The repository's source records (read once per process and directory), then the turn's released ones."""
     return _repository_sources() + _turn_sources()
 
 
 def _repository_sources() -> tuple[SourceHosts, ...]:
+    """The repository's source records; none when they cannot be read (logged)."""
     try:
         from public_sources.source import sources_dir
 
@@ -115,6 +162,7 @@ def _repository_sources() -> tuple[SourceHosts, ...]:
 
 
 def _turn_sources() -> tuple[SourceHosts, ...]:
+    """The released source records the turn carries, as their configuration states them (``copy_hosts``)."""
     from agent.common.knowledge_context import turn_knowledge_context
 
     return tuple(
@@ -129,6 +177,7 @@ def _turn_sources() -> tuple[SourceHosts, ...]:
 
 
 def _registry_hosts() -> set[str]:
+    """The hosts the norm registry points at for a law's text: a legal database's, an authority's own site."""
     from agent.common.norm_registry import load_registry
 
     registry = load_registry()
@@ -140,6 +189,9 @@ _ELI = "eli"
 
 
 def own_source_hosts() -> frozenset[str]:
+    """The hosts a work's own text is read from: every configured source's, the hosts the norm registry points
+    at, and the host of a work's ELI. Only ``eli`` is an address by its standard: any other scheme is an open word
+    whose value no rule makes a URL, so its value names no host to trust."""
     from agent.common.knowledge_context import turn_knowledge_context
 
     hosts = {host for source in configured_sources() for host in source.hosts} | _registry_hosts()
@@ -153,15 +205,18 @@ def own_source_hosts() -> frozenset[str]:
 
 
 def is_own_source(url: str) -> bool:
+    """Whether ``url`` is on a host a work's own text is read from (:func:`own_source_hosts`)."""
     return on_host(host_of(url), own_source_hosts())
 
 
 def _names(*values: str | None) -> tuple[tuple[str, ...], ...]:
+    """The token runs of ``values`` that can identify a work: two tokens, or one long one."""
     runs = (tokens(value) for value in values if value)
     return tuple(dict.fromkeys(run for run in runs if len(run) > 1 or (run and len(run[0]) >= _MIN_SINGLE_TOKEN_CHARS)))
 
 
 def _context_works() -> Iterator[HeldWork]:
+    """The editions the turn's knowledge context holds a text of: in the knowledge base or a legal database."""
     from agent.common.knowledge_context import turn_knowledge_context
 
     context = turn_knowledge_context()
@@ -179,6 +234,7 @@ def _context_works() -> Iterator[HeldWork]:
 
 
 def _shelf_work(file_name: str, title: str) -> HeldWork:
+    """A base-shelf document as a held work. Its display title is "<designation>, <edition>": a page names the first."""
     designation = title.split(",", 1)[0].strip()
     return HeldWork(
         designation=designation,
@@ -189,6 +245,7 @@ def _shelf_work(file_name: str, title: str) -> HeldWork:
 
 
 def _shelf_works() -> Iterator[HeldWork]:
+    """The documents the turn's base shelf holds, each named by the display title its file resolves to."""
     try:
         from agent.common.norm_registry import guess_display_title
         from agent.knowledge.inventory import get_norm_families
@@ -200,6 +257,7 @@ def _shelf_works() -> Iterator[HeldWork]:
 
 
 def _registry_works(sources: tuple[SourceHosts, ...]) -> Iterator[HeldWork]:
+    """The laws the norm registry points at in a configured legal database, by the host of the pointer."""
     from agent.common.norm_registry import load_registry
 
     registry = load_registry()
@@ -217,6 +275,7 @@ def _registry_works(sources: tuple[SourceHosts, ...]) -> Iterator[HeldWork]:
 
 
 def held_works() -> tuple[HeldWork, ...]:
+    """Every work the turn can read from its own source, the knowledge context's first. Reads the turn's state."""
     works: list[HeldWork] = []
     for collect in (_context_works, _shelf_works, lambda: _registry_works(configured_sources())):
         try:
@@ -234,6 +293,7 @@ def contains_run(haystack: tuple[str, ...], run: tuple[str, ...]) -> bool:
 
 
 def named_work(url: str, title: str | None, works: Iterable[HeldWork]) -> HeldWork | None:
+    """The held work a hit names: by a knowledge-base file name, or a designation in its title or address. Pure."""
     path = unquote(urlparse(url).path)
     file_name = path.rsplit("/", 1)[-1].lower()
     title_tokens, path_tokens = tokens(title or ""), tokens(path)
@@ -246,6 +306,7 @@ def named_work(url: str, title: str | None, works: Iterable[HeldWork]) -> HeldWo
 
 
 def _law_readable(country: str | None) -> bool:
+    """Whether the turn may read ``country``'s legal database (``knowledge_context.law_tools_allowed``)."""
     if not country:
         return False
     from agent.common.knowledge_context import law_tools_allowed
@@ -285,6 +346,7 @@ def _named_work_assessment(url: str, work: HeldWork) -> Assessment:
 
 
 def assess(url: str, title: str | None, works: Iterable[HeldWork] | None = None) -> Assessment:
+    """What the screen makes of one hit (module docstring). Reads the turn's records unless ``works`` is given."""
     if is_product_site(url):
         return Assessment(withheld="the product's own site is no source for law")
     problem = host_problem(url)
@@ -301,10 +363,12 @@ def assess(url: str, title: str | None, works: Iterable[HeldWork] | None = None)
 
 
 def copied_work(url: str, title: str | None) -> str | None:
+    """The work a web source copies or names instead of being its source, or None: what ``law-cited-from-web`` asks."""
     return assess(url, title).work
 
 
 def screen(results: Iterable[dict]) -> tuple[list[dict], list[Withheld]]:
+    """The hits a web search hands on (a labelled one with its ``source_note``), and the ones it withheld."""
     kept: list[dict] = []
     withheld: list[Withheld] = []
     works = held_works()
@@ -319,12 +383,18 @@ def screen(results: Iterable[dict]) -> tuple[list[dict], list[Withheld]]:
 
 
 def preamble(withheld: list[Withheld]) -> str:
+    """The lines above a web result: what web content is, and what this search did not hand on.
+
+    The withheld pages are named by their reason, never by their address: a dropped page must not come back
+    as a source, whatever reads the text.
+    """
     lines = [WEB_RESULT_NOTE]
     lines.extend(f"Not shown: {reason}." for reason in dict.fromkeys(item.reason for item in withheld))
     return "\n".join(lines) + "\n\n---\n\n"
 
 
 def score_withheld(count: int) -> None:
+    """Write ``web-sources-withheld`` for one search: how many hits it did not hand on, zero included."""
     from agent.observability.langfuse_scores import RuntimeScore
     from agent.observability.langfuse_scores import emit_scores
 

@@ -1,3 +1,16 @@
+"""[1] The address the caller's words already carry. Deterministic, no LLM.
+
+A legal question usually states where its answer sits: a § or Artikel, a named
+law, a Bundesland. Reading that out is text matching, not reasoning, and doing
+it here is what lets the rest of the pipeline skip both LLM calls — the search
+planner AND the § extractor — whenever the caller already said "§ 63 BO Wien".
+
+Pure: every function here takes strings and returns values. The one exception
+is the project brief, which is a request fact and is read through
+``norm_registry.resolve_federal_state``; it is isolated in its own function so the
+rest stays testable without a request context.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -52,6 +65,7 @@ FEDERAL_STATE_FROM_BRIEF = "the project brief"
 
 @dataclass(frozen=True)
 class Address:
+    """What the caller's words already say about WHERE the answer sits."""
 
     kind: str = ""  # "§" | "Art" | ""
     number: str = ""
@@ -66,10 +80,12 @@ class Address:
 
     @property
     def has_section(self) -> bool:
+        """Whether a § or Artikel was named — the deterministic path's trigger."""
         return bool(self.kind and self.number)
 
     @property
     def sections(self) -> tuple[str, ...]:
+        """Every addressed number: the list when one was named, else the one §."""
         return self.numbers or ((self.number,) if self.number else ())
 
 
@@ -77,6 +93,7 @@ _MAX_RANGE_SPAN = 1000
 
 
 def _first_section(text: str) -> tuple[str, str, int]:
+    """``(kind, number, where)`` of the first § (or else Artikel) in ``text``; ``("", "", -1)`` without one."""
     paragraph = PARAGRAPH_RE.search(text)
     if paragraph:
         return "§", paragraph.group(1), paragraph.start()
@@ -85,6 +102,13 @@ def _first_section(text: str) -> tuple[str, str, int]:
 
 
 def _list_from(text: str, kind: str, start: int) -> tuple[tuple[str, ...], int]:
+    """Every § (or Artikel) a list starting at ``start`` names, and where the list ends.
+
+    Ranges expanded (:func:`_extend`); an Absatz, Ziffer or litera after an
+    item is part of it; after one, only a SIGNED item continues the list. Not
+    capped: :func:`parse_address` addresses the first
+    :data:`MAX_ADDRESSED_SECTIONS` and reports the rest as unread.
+    """
     first = _SIGNED[kind].match(text, start)
     if first is None:
         return (), start
@@ -102,6 +126,7 @@ def _list_from(text: str, kind: str, start: int) -> tuple[tuple[str, ...], int]:
 
 
 def _next_item(text: str, kind: str, join: re.Match[str], *, qualified: bool) -> re.Match[str] | None:
+    """The item after ``join``: signed always; bare only after an unqualified item, and not an ordinal."""
     signed = _SIGNED[kind].match(text, join.end())
     if signed or qualified:
         return signed
@@ -112,6 +137,11 @@ def _next_item(text: str, kind: str, join: re.Match[str], *, qualified: bool) ->
 
 
 def _extend(items: list[str], digits: str, letter: str, *, ranged: bool) -> None:
+    """Add one item, or the range from the last one to it ("7a bis 9" → 8, 9; "5a-5c" → 5b, 5c).
+
+    A range that does not ascend ("§ 12 bis 3") names nothing anyone meant,
+    and adds nothing.
+    """
     if not ranged:
         items.append(digits + letter)
         return
@@ -130,11 +160,13 @@ def _extend(items: list[str], digits: str, letter: str, *, ranged: bool) -> None
 
 
 def section_in(text: str) -> tuple[str, str]:
+    """The first ``(kind, number)`` a text names, or ``("", "")``."""
     kind, number, _where = _first_section(text)
     return kind, number
 
 
 def is_ris_url(value: str) -> bool:
+    """Whether ``value`` is a URL this adapter is allowed to fetch."""
     if not value.lower().startswith(("http://", "https://")):
         return False
     try:
@@ -144,6 +176,12 @@ def is_ris_url(value: str) -> bool:
 
 
 def parse_address(question: str, instrument: str, jurisdiction: str) -> Address:
+    """Read the address out of the caller's arguments.
+
+    The ``instrument`` argument outranks the question for the § and the law: it
+    is what the caller chose to state as an address, while the question is
+    prose that may mention a § in passing.
+    """
     instrument = public_host((instrument or "").strip())
     url = instrument if is_ris_url(instrument) else ""
     number = instrument if not url and _DOCUMENT_NUMBER_RE.match(instrument) else ""
@@ -171,6 +209,7 @@ def parse_address(question: str, instrument: str, jurisdiction: str) -> Address:
 
 
 def _law_name(instrument: str, url: str, number: str) -> str:
+    """The named law inside ``instrument``, with the § and Absatz taken out."""
     if url or number:
         return ""
     rest = instrument
@@ -186,6 +225,14 @@ def _law_name(instrument: str, url: str, number: str) -> str:
 
 
 def assumed_federal_state(jurisdiction: str, instrument: str, question: str) -> tuple[str, str]:
+    """The Bundesland to work in, and WHERE it came from.
+
+    Precedence is the caller's explicit word, then the instrument they named,
+    then the question, then the project brief's structured ``federal_state=``
+    fact. Both halves travel: a miss states the assumption AND its source,
+    because "Wien, because you said so" and "Wien, because the project is in
+    Wien" call for different corrections.
+    """
     if not _CATALOG_AVAILABLE:
         return "", ""
     for value, origin in (
@@ -200,6 +247,12 @@ def assumed_federal_state(jurisdiction: str, instrument: str, question: str) -> 
 
 
 def federal_state_sentence(address: Address) -> str:
+    """The assumed jurisdiction and where it came from, as one sentence.
+
+    Rendered on a HIT as well as on a miss: ``focus_entries`` silently drops
+    every other state's law, so the assumption that did the dropping has to be
+    visible in the result it produced, not only in the result it prevented.
+    """
     if not address.federal_state:
         return (
             "No Bundesland was resolved (not in the arguments, the question or the project brief), "
@@ -209,6 +262,12 @@ def federal_state_sentence(address: Address) -> str:
 
 
 def _federal_state_from_brief() -> tuple[str, str]:
+    """The project brief's structured jurisdiction, or ``("", "")``.
+
+    ``resolve_federal_state()`` reads the Land of the turn's site from its knowledge context and probes
+    no text (ADR-0175); with no placed site (or no turn: tests, the adapter standalone) there is none,
+    which is not an error.
+    """
     try:
         from agent.common.norm_registry import resolve_federal_state
 

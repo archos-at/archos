@@ -1,3 +1,12 @@
+"""Deep research agent using deepagents library for multi-phase workflow.
+
+Keep every call off the event loop (``asyncio.to_thread``): the worker
+heartbeats from it, and the ghost reaper fails a job silent for 300 s. Report
+post-processing goes in ``finalize.py``, which both a complete and a salvaged
+run pass through. The seams and their reasons: ``docs/architecture/backend-deep-dive.md``
+("The deep researcher's seams").
+"""
+
 from __future__ import annotations
 
 import asyncio
@@ -94,14 +103,34 @@ _PROMPT_NAMES = ("planner", "researcher", "orchestrator", "writer", "source_rout
 
 @functools.cache
 def _prompt_templates() -> dict[str, str]:
+    """The five subagent prompt templates, read from disk once per process.
+
+    ``register.py`` constructs a new agent for every request that carries a
+    model override, and each construction used to re-read five files. The
+    templates are immutable at runtime. ``_prompt_templates.cache_clear()``
+    is the reset for tests that want a missing file to fail construction.
+    """
     return {name: load_prompt(AGENT_DIR / "prompts", name) for name in _PROMPT_NAMES}
 
 
 def _resolve_skills_blocking(organization_id: str | None) -> tuple[Skill, ...]:
+    """The BFF round trip for this agent's skills: synchronous httpx, so never on the loop."""
     return resolve_served_skills(SKILL_AGENT, organization_id)
 
 
 def _run_scoped_callbacks(callbacks: Sequence[Any], source_registry_middleware: SourceRegistryMiddleware) -> list[Any]:
+    """Fresh trace callbacks for one run, each holding this run's registry accessor.
+
+    Stateful trace callbacks (``VerboseTraceCallback``) mutate per-run state,
+    so a shared instance must not span runs (ADR-0018). Each is handed the
+    registry ACCESSOR, not the registry: the middleware swaps in a
+    session-scoped registry mid-run in conversation mode, and a callback
+    holding the first one would judge the whole report against a registry the
+    run stopped using. ``run()`` also binds the session contextvar the callback
+    falls back to, but a contextvar does not survive every thread hop
+    LangChain's callback machinery can make, and that failure is silent: a
+    citation reported as uncited.
+    """
     scoped = [cb.for_new_run() if hasattr(cb, "for_new_run") else cb for cb in callbacks]
     for cb in scoped:
         setter = getattr(cb, "set_source_registry", None)
@@ -126,6 +155,13 @@ def _log_run_start(state: DeepResearchAgentState) -> None:
 
 @dataclass(frozen=True)
 class DeepResearchRunArtifacts:
+    """Everything one deep research run needs, built fresh per run (ADR-0018).
+
+    The agent instance holds only immutable configuration; anything that
+    accumulates state during a run lives here so concurrent or consecutive
+    runs of the same (possibly shared, prebuilt) agent cannot observe each
+    other's captured sources, compact citation keys, or throttle state.
+    """
 
     graph: Any
     source_registry_middleware: SourceRegistryMiddleware
@@ -138,6 +174,7 @@ class DeepResearchRunArtifacts:
 
 
 class DeepResearcherAgent:
+    """Deep research agent using deepagents library for multi-phase workflow."""
 
     state_model = DeepResearchAgentState
 
@@ -160,6 +197,14 @@ class DeepResearcherAgent:
         max_run_seconds: int = DEFAULT_MAX_RUN_SECONDS,
         checkpointer: Checkpointer | None = None,
     ) -> None:
+        """Immutable configuration only; everything mutable is built per run.
+
+        ``job_id`` scopes the sandbox backend and, when ``checkpointer`` is set,
+        is the durable graph's ``thread_id`` (see :meth:`run`). ``checkpointer``
+        is execution-state durability (messages, filesystem, todos per thread),
+        distinct from the DeepAgents longterm ``store``, which is always an
+        ``InMemoryStore`` here. ``max_run_seconds=0`` disables the wall clock.
+        """
         self.llm_provider = llm_provider
         self.tools = list(tools) if tools else []
         self.verbose = verbose
@@ -183,6 +228,17 @@ class DeepResearcherAgent:
         state: DeepResearchAgentState,
         skill_runtime: SkillRuntime | None = None,
     ) -> DeepResearchRunArtifacts:
+        """Build the graph and all mutable run state for one deep research run.
+
+        Everything that can accumulate data during a run — the source registry
+        middleware, the batch/throttle tool wrappers with their limiter, the
+        middleware stacks referencing them — is constructed fresh here so no
+        run can observe another run's state (ADR-0018).
+
+        ``skill_runtime`` is resolved by :meth:`run` off the event loop, since
+        it is an HTTP round trip to the BFF. A caller without one gets the
+        builtin collections alone, the shape of a run whose BFF did not answer.
+        """
         if skill_runtime is None:
             skill_runtime = self.deepagents_runtime.skill_runtime()
         documents = state.plan_documents
@@ -232,6 +288,24 @@ class DeepResearcherAgent:
         )
 
     async def _build_skill_runtime(self, state: DeepResearchAgentState) -> SkillRuntime:
+        """Resolve this run's skills into a fresh runtime: the builtin collections and the office's own.
+
+        Per run, for the reason the source registry is (ADR-0018): the runtime
+        owns one run's activation list and this instance is shared across runs
+        and tenants. The organization comes off the STATE first — in a research
+        worker ``get_organization_id_from_context()`` reads no headers because
+        there is no request — and falls back to the request context for the
+        synchronous path and evaluation runs. Every resolved skill is an OFFER:
+        each subagent reads its catalog and opens with ``read_file`` the one it
+        judges applies, and nothing here can put a body in front of it.
+
+        The resolver is a SYNCHRONOUS HTTP call to the BFF. Run on the loop it
+        stalled the research worker's heartbeat for as long as the BFF took to
+        answer, and the ghost reaper failed healthy jobs for it
+        (``docs/contributing/gotchas.md``), so it runs in a worker thread.
+        ``resolve_served_skills`` never raises: an empty office set leaves the
+        builtin collections, and no office source.
+        """
         organization_id = state.organization_id or get_organization_id_from_context()
         office = await asyncio.to_thread(_resolve_skills_blocking, organization_id)
         runtime = self.deepagents_runtime.skill_runtime(office)
@@ -241,6 +315,24 @@ class DeepResearcherAgent:
 
 
     def _invocation(self, callbacks: list[Any]) -> tuple[dict[str, Any] | None, dict[str, Any]]:
+        """The ``astream`` config and kwargs for one run.
+
+        With a checkpointer the thread_id is the job_id, so re-invoking
+        ``run()`` for the same job resumes from the last persisted checkpoint;
+        ``merge_configs`` composes it with the ``recursion_limit`` bound at
+        graph-build time. ``durability="async"`` persists each step's checkpoint
+        while the next executes — the library default with a checkpointer,
+        pinned here against upstream changes ("exit" is not crash-safe).
+
+        Only COMPLETED steps are persisted, so a worker that dies mid-step (a
+        ``run_research_batch`` fan-out, say) redoes that step on resume: tool
+        side effects are at-least-once across a resume. Resume is also manual
+        today — ``jobs/submit.py`` rejects a duplicate job_id — and always
+        passes the full initial state, layering it onto the checkpointed
+        thread through the state reducers; a "continue from the interrupted
+        step" entry point (``ainvoke(None, ...)``) has no caller and is not
+        built.
+        """
         config: dict[str, Any] = {"callbacks": callbacks} if callbacks else {}
         stream_kwargs: dict[str, Any] = {}
         if self.checkpointer is not None:
@@ -249,11 +341,30 @@ class DeepResearcherAgent:
         return config or None, stream_kwargs
 
     async def run(self, state: DeepResearchAgentState) -> DeepResearchAgentState:
+        """Execute deep research, every step it emits drawn as deep research's (``scope: deep``).
+
+        On a chat turn (in process) the run is one subagent invocation of the
+        turn's agent (AG-UI 1.0 SUBAGENT_*), and its planner, researchers and
+        writer nest under it. In a job worker there is no graph stream, and both
+        bindings cost nothing.
+        """
         with step_scope("deep"):
             async with subagent_run(DEEP_RESEARCH_AGENT):
                 return await self._run(state)
 
     async def _run(self, state: DeepResearchAgentState) -> DeepResearchAgentState:
+        """Execute deep research with multi-phase workflow.
+
+        Two contextvars are bound for the run and reset in ``finally``, because
+        a research worker process is reused across jobs and tenants. The SESSION
+        registry, only when nothing is bound: the live citation stream reads it
+        to tell a source the run retrieved from one the model merely named, and
+        in a worker nothing else binds one — while in conversation mode the
+        chat entrypoint binds one that spans turns and must be left alone. The
+        Langfuse trace contributions, unconditionally: without a per-job
+        binding job N's ``feature:ifc`` tag would be stamped onto job N+1's
+        traces for another tenant.
+        """
         skill_runtime = await self._build_skill_runtime(state)
         artifacts = self._prepare_run(state, skill_runtime)
         _log_run_start(state)
@@ -301,6 +412,13 @@ class DeepResearcherAgent:
         artifacts: DeepResearchRunArtifacts,
         cutoff_reason: str | None,
     ) -> DeepResearchAgentState:
+        """Turn a graph state into the finished, verified, honestly-labelled answer.
+
+        Shared by the normal path and the salvage path, so a cut-off run is
+        post-processed by exactly the same citation verification, quote
+        verification and sanitisation as a complete one — the only difference
+        being the banner and the flags that say it was cut off.
+        """
         middleware = artifacts.source_registry_middleware
         if cutoff_reason is None and write_now_honoured():
             cutoff_reason = CUTOFF_USER_REQUESTED
@@ -326,6 +444,14 @@ class DeepResearcherAgent:
         return DeepResearchAgentState.model_validate(result)
 
     def _extract_report(self, result: Any, middleware: SourceRegistryMiddleware) -> tuple[str, list[str]]:
+        """The report text and the degradation, if it had to come from a chat message.
+
+        The writer normally persists the report to ``/shared/output.md``. When it
+        does not — went off-task, replied conversationally, ran out of steps
+        mid-write — the agent's last message is shipped instead of failing the
+        job, MARKED: a chat message wearing a report's clothes is materially
+        weaker than a written report. Raises only when there is truly nothing.
+        """
         report = extract_final_markdown(result)
         if report is not None:
             return report, []
@@ -347,6 +473,12 @@ class DeepResearcherAgent:
         middleware: SourceRegistryMiddleware,
         self_confidence: ConfidenceLevel | None,
     ) -> Verification:
+        """Verify the report against this run's registry, or fail an unverifiable one.
+
+        A completed report with no captured sources means every finding is
+        ungrounded (the writer answered from model memory). That is a failure,
+        not a degraded success, and the job fails loudly rather than shipping it.
+        """
         if not self.enable_citation_verification:
             return Verification(report=report)
         if not middleware.has_sources():
@@ -357,6 +489,7 @@ class DeepResearcherAgent:
         return verification
 
     def _empty_source_registry_error(self) -> EmptySourceRegistryError:
+        """Build an EmptySourceRegistryError enriched with tool availability details."""
         _, available_count, unavailable = validate_tool_availability(
             self.tools,
             research_type="deep research",
@@ -375,8 +508,10 @@ class DeepResearcherAgent:
 
 
     def _extract_final_markdown(self, result: Any) -> str | None:
+        """Extract final Markdown from output files."""
         return extract_final_markdown(result)
 
     @staticmethod
     def _extract_last_message_text(result: Any) -> str | None:
+        """Last-resort answer: the final assistant message text."""
         return last_message_text(result)

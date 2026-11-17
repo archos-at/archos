@@ -1,3 +1,33 @@
+"""Encrypt DB-claimed research-job payloads at rest (ADR-0021, security).
+
+The claimable queue row (``research_job_queue.payload``) persists the full
+``run_agent_job`` payload durably in Postgres. That payload carries the user's
+auth token plus identity/budget context, so persisting it is at-rest exposure
+(table, WAL, backups, replicas).
+
+When ``JOB_PAYLOAD_KEK`` (32 bytes, base64) is set the payload is
+AES-256-GCM encrypted; the worker decrypts it in-process to run the job. Without
+a KEK the payload is stored as plaintext JSON (dev/compat) with a one-time
+warning, so single-node/dev keeps working. Set the KEK in any multi-node or
+production deployment.
+
+Read path is fail-closed: when a KEK is configured, ``deserialize`` accepts
+*only* ``enc:`` payloads and rejects ``json:``/raw-JSON rows with
+``PayloadKeyError``. Otherwise a DB-write attacker could insert a plaintext row
+carrying a forged auth token/usage context and the worker would execute it.
+The write path keeps its plaintext fallback for dev (no KEK, single node).
+
+Migration path for enabling the KEK on an existing deployment: queue rows are
+transient dispatch state (deleted on completion), so drain before setting the
+KEK — stop submitters, let workers empty ``research_job_queue``, then set the
+KEK and restart. Any plaintext row still present afterwards is rejected, never
+executed, and ages out through the normal claim-retry/reap path.
+
+Longer term, minting a short-lived, narrowly-scoped job token at submit (instead
+of forwarding the user's token) would remove the credential from the payload
+entirely; encryption-at-rest is the proportionate fix until then.
+"""
+
 from __future__ import annotations
 
 import base64
@@ -13,7 +43,8 @@ _PLAIN_PREFIX = "json:"
 _warned_plaintext = False
 
 
-class PayloadKeyError(RuntimeError): ...
+class PayloadKeyError(RuntimeError):
+    """Raised when an encrypted payload cannot be decrypted (missing/invalid KEK)."""
 
 
 def _kek() -> bytes | None:
@@ -30,6 +61,7 @@ def _kek() -> bytes | None:
 
 
 def serialize(payload: dict[str, Any]) -> str:
+    """Serialize a payload for storage — encrypted when a KEK is configured."""
     data = json.dumps(payload).encode("utf-8")
     kek = _kek()
     if kek is None:
@@ -51,16 +83,26 @@ def serialize(payload: dict[str, Any]) -> str:
 
 
 def serialize_encrypted(payload: dict[str, Any]) -> str:
+    """:func:`serialize`, refusing the plaintext fallback: for a store that is not ours (ADR-0150).
+
+    A payload handed to the orchestrator lands in its database, which must never
+    hold tenant content in the clear, so without a KEK there is nothing to send.
+    """
     require_kek()
     return serialize(payload)
 
 
 def require_kek() -> None:
+    """Raise unless a valid KEK is configured: nothing is sent to the orchestrator in the clear."""
     if _kek() is None:
         raise PayloadKeyError("JOB_PAYLOAD_KEK is not set; a research payload never leaves this tier unencrypted")
 
 
 def deserialize(stored: str) -> dict[str, Any]:
+    """Inverse of :func:`serialize`. Handles encrypted, wrapped-plaintext, and
+    legacy raw-JSON forms — except when a KEK is configured, where only
+    encrypted (``enc:``) payloads are accepted and anything else is rejected
+    (fail closed; see module docstring)."""
     if stored.startswith(_ENC_PREFIX):
         kek = _kek()
         if kek is None:

@@ -26,6 +26,7 @@ def is_verbose_enabled() -> bool:
 
 
 class ResearchLogger:
+    """Colored logging utilities for research agents."""
 
     def __init__(self, logger_instance: logging.Logger, verbose: bool | None = None):
         self.logger = logger_instance
@@ -96,6 +97,7 @@ class ResearchLogger:
 
 
 class VerboseTraceCallback(BaseCallbackHandler):
+    """Callback handler that logs detailed agent traces with live output."""
 
     def __init__(self, log_reasoning: bool = True, max_chars: int = 5000):
         self.log_reasoning = log_reasoning
@@ -106,6 +108,12 @@ class VerboseTraceCallback(BaseCallbackHandler):
         self.depth = 0
 
     def for_new_run(self) -> VerboseTraceCallback:
+        """Return a fresh instance with the same configuration for one run.
+
+        The handler mutates per-run state (current input, active chains,
+        depth), so a single shared instance must not span concurrent or
+        consecutive runs (ADR-0018).
+        """
         return VerboseTraceCallback(log_reasoning=self.log_reasoning, max_chars=self.max_chars)
 
     def _get_indent(self) -> str:

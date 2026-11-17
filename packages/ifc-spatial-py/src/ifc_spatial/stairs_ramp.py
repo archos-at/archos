@@ -1,3 +1,5 @@
+"""Ramps: the running surface, its slope, and the rake of each flight."""
+
 from __future__ import annotations
 
 import math
@@ -33,6 +35,15 @@ from .operators import _wrong_kind
 
 
 def _running_surface(model: SpatialModel, element: Any) -> _Running | None:
+    """The ramp's walking surface, as a plane with an extent.
+
+    Up-facing triangles are binned by quantised normal and the bin with the
+    greatest AREA wins — the same rule, and the same reason, as
+    ``geometry.dominant_vertical_plane``: a finely tessellated 0.2 m² kerb must
+    not outvote a 7.5 m² running surface. The slope then comes from the winning
+    bin's area-weighted normal rather than from a bounding box, which is what
+    makes it right for a ramp that runs diagonally in plan.
+    """
     geo = model.geometry(element.GlobalId)
     if geo is None:
         return None
@@ -87,6 +98,13 @@ def _running_surface(model: SpatialModel, element: Any) -> _Running | None:
 
 
 def _slope_forms(tangent: float) -> dict[str, Any]:
+    """One slope, in every form a clause or a drawing might use it.
+
+    A bare "6" is ambiguous between 6 %, 1:6 and 6°, and the three differ by a
+    factor of ten. All of them are therefore present at once, and ``slopePercent``
+    is defined in the value itself as ``rise / run × 100`` so that no reader has
+    to assume which convention this package chose.
+    """
     percent = tangent * 100.0
     ratio = (1.0 / tangent) if tangent > 1e-9 else None
     return {
@@ -98,6 +116,33 @@ def _slope_forms(tangent: float) -> dict[str, Any]:
 
 
 def ramp_slope(model: SpatialModel, global_id: str) -> Answer[dict[str, Any]]:
+    """A ramp's slope, as a percentage AND as a ratio, with the rise and run.
+
+    Barrier-free ramps are decided on a percentage, drawn as a ratio and
+    dimensioned in degrees by nobody, so all three forms are returned together
+    and the percentage is defined in the answer itself: **rise / run × 100**.
+    6 % is 6 cm of rise per 100 cm of plan length, which is 1:16,7. A caller that
+    receives only "6" cannot tell that from 1:6, and the difference is a factor of
+    ten on the one number the whole clause turns on.
+
+    The slope comes from the area-weighted normal of the running surface, not
+    from a bounding box: a ramp that runs diagonally in plan has a box whose
+    diagonal is longer than its run, and the box route would report it as
+    flatter than it is. ``rise`` and ``run`` are the extents of that same
+    surface, so ``rise / run`` reproduces the reported percentage and a reader
+    can check it.
+
+    An ``IfcRamp`` that aggregates flights reports the **steepest** flight as the
+    value, with every flight in ``flights``. That is a choice about which number
+    answers the question "how steep is this ramp", not a verdict: nothing here
+    knows what steep enough is.
+
+    ``Pset_RampFlightCommon.Slope`` is triangulated in where it exists. It is an
+    ``IfcPlaneAngleMeasure``, so it is read through the file's plane-angle unit
+    and converted — a file that states 3.4336 DEGREE means 6.0 %, and a file that
+    states the same number in radians means 24 000 %. Reading it as a raw number
+    is how that mistake gets made.
+    """
     method = f"rampSlope({global_id})"
     subject = _require(model, global_id, method)
     if not any(subject.is_a(name) for name in RAMP_TYPES):
@@ -235,6 +280,21 @@ def ramp_slope(model: SpatialModel, global_id: str) -> Answer[dict[str, Any]]:
 
 
 def _rakes_of(model: SpatialModel, element: Any) -> tuple[list[_Rake], list[str]]:
+    """The raking planes a Durchgangshöhe is measured from, and what was refused.
+
+    For a stair that is the plane through the NOSINGS — not the treads, not the
+    soffit. The nosing line is what a person's head clears; a plane through the
+    back of each tread sits half a going behind it and would report a headroom
+    that is too large by ``going × sin(pitch)``, about 15 cm on an ordinary
+    flight.
+
+    A LIST because one body can hold more than one flight: a dogleg written as a
+    single ``IfcStair`` has three pitch lines pointing three ways, and one plane
+    fitted across all of them is a plane through the stairwell rather than over
+    a walking surface. Each flight gets its own rake and the tightest one wins.
+
+    For a ramp it is the running surface itself.
+    """
     if element.is_a("IfcRampFlight") or element.is_a("IfcRamp"):
         rake = _ramp_rake(model, element)
         return ([rake] if rake is not None else []), []
@@ -245,6 +305,7 @@ def _rakes_of(model: SpatialModel, element: Any) -> tuple[list[_Rake], list[str]
 
 
 def _ramp_rake(model: SpatialModel, element: Any) -> _Rake | None:
+    """The running surface of a ramp, as the rectangle a head clears."""
     surface = _running_surface(model, element)
     if surface is None:
         return None
@@ -279,6 +340,7 @@ def _ramp_rake(model: SpatialModel, element: Any) -> _Rake | None:
 
 
 def _flight_rake(element: Any, flight: _Flight) -> _Rake | None:
+    """One flight's nosing plane, as the rectangle a head clears."""
     if len(flight.nosings) < 2:
         return None
     first, last = flight.nosings[0], flight.nosings[-1]
@@ -310,6 +372,13 @@ def _flight_rake(element: Any, flight: _Flight) -> _Rake | None:
 
 
 def _rake_samples(rake: _Rake) -> np.ndarray:
+    """Sample points on the walking plane — for the RAY pass only.
+
+    These find which elements are overhead. They do not decide the number: the
+    distance is measured against the surfaces of whatever they find, so a tight
+    point between two samples changes nothing as long as the element it belongs
+    to was hit at all.
+    """
     steps = max(2, int(math.ceil(rake.length / HEADROOM_SAMPLE_SPACING)) + 1)
     bottom_left, bottom_right, top_left = rake.corners[0], rake.corners[1], rake.corners[3]
     along = np.linspace(0.0, 1.0, steps)

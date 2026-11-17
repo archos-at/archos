@@ -1,3 +1,21 @@
+"""The events of a calendar invitation (``text/calendar``, ``.ics``), in Vienna time.
+
+An invitation to the Bauverhandlung arrives as a calendar part beside the
+text, and its date is the one fact of the message a person most needs. The
+part is read with ``icalendar`` (BSD-2-Clause), which knows RFC 5545 and maps
+Outlook's Windows zone names ("W. Europe Standard Time") onto IANA ones.
+
+Every time is given in Europe/Vienna with its offset, because that is the
+office's clock and the clock the rendition prints. A floating time (no zone)
+is taken as Vienna's; an all-day event starts at midnight of its first day.
+A recurring event is given once, at its first occurrence, and says it repeats.
+
+Only what a person reads of an invitation is kept: method, summary, times,
+place, status, the organizer's name, and UID and SEQUENCE to tell a later
+revision of the same invitation. Attendee lists and the description (Outlook
+repeats the mail body there) are not.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -28,6 +46,7 @@ class CalendarRead:
 
 
 def calendar_events(data: bytes, limit: int = limits.MAX_CALENDAR_EVENTS) -> CalendarRead:
+    """The events of one calendar part, at most ``limit``. Never raises."""
     try:
         calendars = Calendar.from_ical(data, multiple=True)
     except Exception as error:  # noqa: BLE001 - a stranger's bytes; any parser failure is "malformed"
@@ -46,6 +65,7 @@ def calendar_events(data: bytes, limit: int = limits.MAX_CALENDAR_EVENTS) -> Cal
 
 
 def _vevents(calendars: list[Calendar]) -> Iterator[tuple[Component, str | None]]:
+    """Every VEVENT of the calendars, in order, with its calendar's METHOD; lazily, so a cut stops reading."""
     for calendar in calendars:
         method = _text(calendar.get("METHOD"), 40)
         for component in calendar.walk("VEVENT"):
@@ -53,6 +73,7 @@ def _vevents(calendars: list[Calendar]) -> Iterator[tuple[Component, str | None]
 
 
 def _event(component: Component, method: str | None) -> CalendarEvent | None:
+    """One event, or ``None`` when it has nothing a person could read."""
     try:
         start, all_day = _moment(component, "DTSTART")
         end, _ = _moment(component, "DTEND")
@@ -81,6 +102,7 @@ def _event(component: Component, method: str | None) -> CalendarEvent | None:
 
 
 def _moment(component: Component, name: str) -> tuple[str | None, bool]:
+    """The property ``name`` as an ISO time in Vienna, and whether it is a whole day."""
     prop = component.get(name)
     if prop is None:
         return None, False
@@ -97,6 +119,7 @@ def _moment(component: Component, name: str) -> tuple[str | None, bool]:
 
 
 def _text(value: object, bound: int) -> str | None:
+    """A property's text, control characters dropped, whitespace folded, bounded."""
     if value is None:
         return None
     text = "".join(" " if unicodedata.category(char).startswith("C") else char for char in str(value))

@@ -1,3 +1,5 @@
+"""Reading the model for the briefing: storeys and their heights, the product and space inventory, and counts."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -22,6 +24,47 @@ from .model import Storey
 
 
 def storey_heights(model: SpatialModel) -> Answer[list[dict[str, Any]]]:
+    """Storey heights as the difference between consecutive declared elevations.
+
+    ## Why the caveat is not optional
+
+    This number is a *Rohbau-Geschoßhöhe*: top of slab to top of slab. The
+    number an architect is usually being asked for — and the one OIB 3 §3 and
+    every habitable-room check want — is the *lichte Raumhöhe*, which is this
+    minus the floor build-up and the slab. The two differ by 30–50 cm, which is
+    the entire margin of a 2.50 m minimum. Reporting the storey pitch as a room
+    height turns a failing room into a passing one, and reads perfectly while
+    doing it. So the caveat travels with the value, and a caller that drops it
+    is publishing a different claim than the one this function makes.
+
+    ## Why the top storey is ``None``
+
+    There is no next elevation. Every fallback available — the storey below, an
+    average, a default 2.80 — is a fabrication that the answer contract has no
+    way to mark, since it would arrive as a number like all the others. ``None``
+    survives into the render as "nicht bestimmbar", which is true.
+
+    Storeys with no declared elevation are excluded rather than interpolated,
+    and the caveat says how many, because a silently shortened list is a subset
+    reported as a total.
+
+    ## Why this is ``declared`` and not ``computed``
+
+    It returned ``computed``, and the renderer prints that as „aus der Geometrie
+    berechnet, nicht deklariert" — directly contradicting this function's own
+    caveat two lines below it („gebildet aus den deklarierten Höhenlagen"), in
+    the same answer. Nothing here touches geometry: ``elevation`` is
+    ``IfcBuildingStorey.Elevation`` read verbatim, and ``height`` is one declared
+    number minus the next. The reviewer verified it — ``model.geometry_seconds``
+    stays 0.000 across the call.
+
+    A subtraction of two numbers the file states does not change where they came
+    from. If the elevations are wrong, this answer is wrong, and that is exactly
+    what ``declared`` means: „wrong only if the export is wrong". Calling it
+    ``computed`` claims a measurement error band this value does not have and
+    hides the one error source it does have — the architect's own elevations. The
+    subtraction is named in the caveat, where a reviewer can check it.
+    """
     method = "storeyHeights(model)"
     ordered = _sorted_storeys(model)
     with_elevation = [s for s in ordered if s.elevation is not None]
@@ -86,6 +129,40 @@ def storey_heights(model: SpatialModel) -> Answer[list[dict[str, Any]]]:
 
 
 def inventory(model: SpatialModel, kind: RoomUseKind) -> Answer[list[RoomProposal]]:
+    """Propose which rooms are Aufenthaltsräume, Nebenräume or
+    Erschließungsflächen, from what they are CALLED.
+
+    ## This is a proposal for a human, never a verdict
+
+    **Aufenthaltsraum is a legal classification, not a geometric one.** OIB and
+    the Länder-Bauordnungen define it by intended use — a room meant for more
+    than transient occupancy — and that intent lives in the architect's head and
+    the Einreichplan, not in the IFC file. Nothing measurable settles it: a 14 m²
+    room with a window is a Kinderzimmer or a Lagerraum depending on what the
+    plan says it is. This is the one operator no geometry kernel can take over,
+    which is why ``COVERAGE.md`` lists it as *not available* from IfcOpenShell
+    and why it stays hand-written and stays ``inferred``.
+
+    What this function has is the name the architect typed. That is real
+    evidence — people call bedrooms "Schlafen" — and it is *only* evidence. So
+    every result is ``inferred``, carries a per-room confidence and the reasons
+    behind it, and is phrased as a proposal a human confirms. An agent that
+    reports "7 Aufenthaltsräume" as a finding has misused this function.
+
+    ## Why the lexicon is German and umlaut-tolerant
+
+    The room names in an Austrian or German model are German, and exporters
+    mangle umlauts in three different ways depending on the file's encoding and
+    the CAD's locale: ``Küche``, ``Kueche``, ``KÜCHE``, and NFD-decomposed
+    ``Küche`` are all the same room. Matching on the raw string would classify
+    the same building differently depending on which machine exported it.
+
+    ## Why the longest match wins
+
+    ``Waschküche`` contains ``küche``. Ranking matches by the length of the
+    matched term puts a laundry in ``ancillary_room`` where it belongs, instead of
+    proposing it as a habitable room because it has a kitchen in its name.
+    """
     method = f"inventory(model, '{kind}')"
     spaces = _spaces_of(model)
 
@@ -158,6 +235,15 @@ def inventory(model: SpatialModel, kind: RoomUseKind) -> Answer[list[RoomProposa
 
 
 def _products_with_representation(model: SpatialModel) -> int:
+    """How many products carry a shape — an attribute read, never the kernel.
+
+    Deliberately counts ``Representation`` rather than asking
+    :meth:`SpatialModel.geometry`, because the point of this check is to keep the
+    briefing free of geometry work: shaping a model to find out whether it has
+    shapes is the cost the blind spot exists to save the caller. A product whose
+    ``Representation`` the kernel later rejects is a different finding, and
+    :func:`ifc_spatial.operators._no_geometry` reports that one per element.
+    """
     try:
         products = model.file.by_type("IfcProduct")
     except RuntimeError:
@@ -166,6 +252,13 @@ def _products_with_representation(model: SpatialModel) -> int:
 
 
 def _georeferenced(model: SpatialModel) -> bool:
+    """``SpatialModel.georeferenced``, survivable on IFC2X3.
+
+    The model's own property reaches for ``IfcMapConversion``, which the 2X3
+    schema does not define. That module is the spike's frozen parity spec and
+    may not be edited, so the guard lives here: a schema with no map conversion
+    is a file with no map conversion, which is what the blind spot says.
+    """
     try:
         return bool(model.georeferenced)
     except RuntimeError:
@@ -173,14 +266,31 @@ def _georeferenced(model: SpatialModel) -> bool:
 
 
 def _nodes_of(model: SpatialModel) -> list[Any]:
+    """Everything the TS graph would have made a node of.
+
+    ``IfcProduct`` covers every physical and spatial element; ``IfcProject`` and
+    ``IfcGroup`` are the two node kinds that are not products. Types
+    (``IfcWindowType``), property definitions and relationships are deliberately
+    not nodes: they are not things an agent asks a spatial question about, and
+    counting them would inflate every total in the briefing.
+    """
     return [*_by_type(model, "IfcProject"), *_by_type(model, "IfcProduct"), *_by_type(model, "IfcGroup")]
 
 
 def _sorted_storeys(model: SpatialModel) -> list[Storey]:
+    """Lowest first, storeys without an elevation last.
+
+    The order is load-bearing: :func:`storey_heights` takes the difference of
+    consecutive entries, and a file that lists its storeys top-down would
+    otherwise produce negative heights that read like a finding about the
+    building.
+    """
     return sorted(model.storeys, key=lambda s: (s.elevation is None, s.elevation if s.elevation is not None else 0.0))
 
 
 def _heights_of(model: SpatialModel) -> dict[str, float]:
+    """Storey → derived height, shared by :func:`briefing` and
+    :func:`storey_heights` so the two cannot disagree."""
     answer = storey_heights(model)
     out: dict[str, float] = {}
     if not answer.decidable or answer.value is None:
@@ -192,6 +302,8 @@ def _heights_of(model: SpatialModel) -> dict[str, float]:
 
 
 def _hosts_of(element: Any) -> list[Any]:
+    """The building elements a window or door resolves to, through the two
+    declared relations ``FillsVoids`` → ``VoidsElements``."""
     return [
         rel.RelatingBuildingElement
         for fills in (getattr(element, "FillsVoids", None) or [])
@@ -216,6 +328,14 @@ def _entity_count(model: SpatialModel) -> int:
 
 
 def _edge_count(model: SpatialModel) -> int:
+    """Declared relationship links, counted as the operators would traverse them.
+
+    Not a graph edge count — there is no graph. This counts the individual
+    LINKS the relation entities carry (an ``IfcRelContainedInSpatialStructure``
+    with 18 related elements is 18), because that is the number the TS briefing
+    printed and because a count of relation ENTITIES would understate the
+    connectivity by an order of magnitude on any real file.
+    """
     total = 0
     for ifc_type, attribute in (
         ("IfcRelContainedInSpatialStructure", "RelatedElements"),

@@ -1,3 +1,9 @@
+"""What a generation's usage looks like on its Langfuse span: the keys and the exclusive buckets. Pure.
+
+Split out of ``langfuse_trace_attributes`` so the agent runtime's processor and
+the direct traces (``direct_trace``) share one mapping without either growing.
+"""
+
 from __future__ import annotations
 
 import json
@@ -12,6 +18,13 @@ OBSERVATION_MODEL_NAME = "langfuse.observation.model.name"
 
 
 def normalize_langchain_usage(usage: dict[str, Any]) -> dict[str, Any]:
+    """LangChain's ``usage_metadata`` reshaped into the provider key names.
+
+    ``input_token_details.cache_read`` is where langchain-openai puts
+    OpenRouter's ``input_tokens_details.cached_tokens`` (Responses) /
+    ``prompt_tokens_details.cached_tokens`` (Chat Completions). No ``cost``
+    exists on this shape, so none is claimed.
+    """
     input_details = usage.get("input_token_details") or {}
     output_details = usage.get("output_token_details") or {}
     return {
@@ -37,6 +50,20 @@ def usage_observation_attributes(
     model: str | None = None,
     cache_write_tokens: int = 0,
 ) -> dict[str, Any]:
+    """The span attributes that land input/output/total (+cost) on a generation.
+
+    ``gen_ai.usage.*`` carries the provider-verbatim counts (Langfuse
+    normalizes cache buckets server-side on that path).
+    ``langfuse.observation.usage_details`` is stored VERBATIM, so its buckets
+    are exclusive here: ``input`` excludes cached tokens (which ride their own
+    ``input_cached_tokens`` bucket) and the tokens written to the cache (their
+    own ``input_cache_write_tokens`` bucket, priced at 1.25x), and ``output`` excludes reasoning tokens
+    (own ``output_reasoning_tokens`` bucket) — otherwise Langfuse's
+    per-bucket cost math would bill the same token twice.
+    ``cost_details`` carries the provider-reported total when known; without
+    it Langfuse infers cost from ``model`` + usage via its model table.
+    Pure, so the mapping is testable without a span or an event loop.
+    """
     exclusive_input = max(0, prompt_tokens - cached_tokens - cache_write_tokens)
     exclusive_output = max(0, completion_tokens - reasoning_tokens)
     details: dict[str, Any] = {

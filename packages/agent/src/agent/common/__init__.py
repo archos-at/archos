@@ -1,3 +1,5 @@
+"""Common utilities for the AI-Q blueprint."""
+
 from __future__ import annotations
 
 import asyncio
@@ -81,6 +83,7 @@ __getattr__ = lazy_exports(__name__, _LAZY)
 
 
 def _lazy(name: str) -> Any:
+    """`name` as this module holds it now: patched by a test, loaded, or loaded on this call."""
     return getattr(sys.modules[__name__], name)
 
 
@@ -92,6 +95,7 @@ _checkpointer_lock = asyncio.Lock()
 
 
 def _pool_int_env(name: str, default: int) -> int:
+    """Positive-int env override for pool sizing; falls back on unset/invalid/≤0."""
     try:
         val = int(os.environ.get(name, ""))
         return val if val > 0 else default
@@ -160,6 +164,7 @@ __all__ = [
 
 
 def is_verbose(config_verbose: bool) -> bool:
+    """Check if verbose mode is enabled via env var or config."""
     env_verbose = os.getenv("AGENT_VERBOSE", "").lower()
     if env_verbose in ("true", "1", "yes"):
         return True
@@ -169,6 +174,7 @@ def is_verbose(config_verbose: bool) -> bool:
 
 
 def is_postgres_dsn(value: str) -> bool:
+    """Return True when the checkpoint DSN is a Postgres URL."""
     try:
         from urllib.parse import urlparse
 
@@ -179,6 +185,19 @@ def is_postgres_dsn(value: str) -> bool:
 
 
 def _build_checkpointer_serde() -> JsonPlusSerializer:
+    """Build the checkpointer serializer with an explicit msgpack allow-list.
+
+    This flips the checkpointer from permissive to STRICT deserialization: only
+    the listed pydantic state types may be reconstructed from a checkpoint. The
+    list below is the complete set of custom pydantic types carried in
+    ``ConversationState`` (a research turn's own state is never checkpointed).
+    Any NEW pydantic state type MUST be added here or restore will break for it.
+
+    A type that was on this list and is gone (``ShallowResult``, whose one
+    escalation bit is a plain field now) needs no entry: a blocked type decodes
+    to its own kwargs dict instead of raising, and a channel the graph no
+    longer declares is dropped on restore.
+    """
     from agent.common.wire_v2 import FocusRegion
     from agent.common.wire_v2 import TurnTrigger
     from agent.knowledge.schema import AvailableDocument
@@ -189,6 +208,13 @@ def _build_checkpointer_serde() -> JsonPlusSerializer:
 
 
 def get_checkpoint_pool(dsn: str) -> AsyncConnectionPool:
+    """The process-wide connection pool for the checkpoint database, per DSN.
+
+    ONE pool per DSN, whoever asks: the conversation checkpointer opens it, and
+    the chat working directory's LangGraph store (``tools/documents``) rides the
+    same connections rather than opening a second ceiling's worth against the
+    same database.
+    """
     pool = _postgres_pools.get(dsn)
     if pool is not None:
         return pool
@@ -205,6 +231,18 @@ def get_checkpoint_pool(dsn: str) -> AsyncConnectionPool:
 
 
 async def get_checkpointer(checkpoint_db: str) -> BaseCheckpointSaver:
+    """Return a shared checkpointer for the given database/DSN.
+
+    This function caches checkpointers by database path/DSN to avoid
+    creating multiple connections to the same database. It supports
+    both SQLite (file path) and Postgres (DSN) backends.
+
+    Args:
+        checkpoint_db: SQLite database path or Postgres DSN.
+
+    Returns:
+        A configured and initialized checkpointer instance.
+    """
     checkpointer = _checkpointers.get(checkpoint_db)
     if checkpointer is not None:
         return checkpointer

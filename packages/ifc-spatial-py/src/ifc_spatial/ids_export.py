@@ -1,3 +1,68 @@
+"""The shopping list as a file the architect can run — buildingSMART IDS 1.0.
+
+This package's most valuable output is often not a number. It is
+``decidable: false`` with a ``missing.what`` and a ``missing.remedy``: *the
+question is well-formed, this export cannot answer it, and here is what to
+change in the CAD*. Today that arrives as German prose inside one chat turn,
+which means it is read once, by one person, and is gone.
+
+**IDS** — *Information Delivery Specification*, buildingSMART's standard for
+stating machine-readably what a model must contain — turns the same finding
+into a file. The architect drops it into Solibri, BIMcollab, usBIM or
+``ifctester``, runs it against their own model in their own tool on their own
+schedule, and re-runs it after the fix to prove it landed. §5 item 11 of
+``docs/roadmap/agent-spatial-reasoning.md`` names exactly this.
+
+## The one rule this module may never break
+
+**Never state a VALUE.** Not a minimum room height, not a maximum U-value, not
+a fire rating class. IDS is perfectly capable of saying ``FireRating = EI90``
+and this module will not, ever. Every specification here asserts only that a
+fact is PRESENT and measurable in the export.
+
+The reason is not taste. The thresholds live in the OIB-Richtlinien and their
+Länder-specific adoptions; they depend on the Bauklasse, the Gebäudeklasse, the
+use of the room and the year the Bestimmung was adopted. They belong to the
+knowledge base, which cites them, and to the reviewer who signs them. An IDS
+file that ships an invented limit into an architect's checker under our name is
+the worst failure available in this module: it is unsigned, unsourced, wears the
+authority of a standard file format, is executed by a tool the architect
+trusts, and produces red rows against a building that may be perfectly legal.
+A missing property is a fact about an export. A threshold is a legal claim.
+Only the first is ours to make.
+
+The same rule kills ``dataType`` on the property facet, which we could emit and
+do not: requiring ``IFCLENGTHMEASURE`` where the exporter wrote
+``IfcPositiveLengthMeasure`` fails a model that has the fact we asked for. That
+is a finding about the exporter's type spelling dressed up as a finding about
+the building.
+
+## Degrade loudly
+
+Most of what this library reports as blind is **not expressible in IDS 1.0**.
+There is no facet for geometry, none for ``IfcRelSpaceBoundary`` (see
+:data:`WHY_NO_SPACE_BOUNDARY`), none for the ``TrueNorth`` of a representation
+context. A shopping list that quietly drops those items is worse than no export
+at all, because what the architect gets back is a green checker report about a
+model that still cannot answer the question. So every finding that goes in
+comes out on one of two lists — :attr:`IdsShoppingList.exported` or
+:attr:`IdsShoppingList.not_exportable`, the second carrying WHY in German — and
+the counts are reported together: *4 von 6 Befunden sind als IDS ausdrückbar*.
+
+## What was measured, on the version installed here
+
+``ifctester`` 0.8.5, shipped with IfcOpenShell, against its bundled
+``ids.xsd`` version ``1.0.0``. In that schema the cardinality of a
+specification lives on ``<applicability>`` as ``minOccurs``/``maxOccurs``
+(``1``/``unbounded`` = required, ``0``/``unbounded`` = optional, ``0``/``0`` =
+prohibited), while individual requirement facets carry ``@cardinality`` with
+``required``/``optional``/``prohibited``. Earlier IDS drafts spelled this
+differently, and a file using the draft spelling is rejected by every current
+checker — so the XML is produced through ``ifctester``'s own encoder and
+validated against its XSD before it is ever written to disk
+(:func:`to_xml` raises rather than hand an architect a file no tool will open).
+"""
+
 from __future__ import annotations
 
 import hashlib
@@ -76,6 +141,27 @@ WHY_NO_ELEMENTS = (
 
 @dataclass(frozen=True)
 class PropertyTarget:
+    """One (Merkmal, Property-Set, Bauteilklassen) triple worth demanding.
+
+    IDS cannot say "this property, somewhere". A specification needs an
+    applicability — a concrete set of IFC classes — and a property set to look
+    in, and both of those are choices we make on the architect's behalf.
+
+    The list below is deliberately short and hand-picked rather than derived
+    from the IFC property-set templates in full. Derived in full, ``FireRating``
+    alone lands in fifteen ``Pset_*Common`` sets and would demand a fire rating
+    on every curtain-wall mullion in the model. A file like that gets one look
+    and then gets ignored, and an ignored shopping list buys nothing. So: the
+    classes an OIB question actually turns on.
+
+    ``standard`` records the footing. ``True`` means the IFC property-set
+    template itself puts this property in this set for this class — the demand
+    is the schema's, not ours. ``False`` means it is a convention (see
+    ``SillHeight``), and the specification says so in the architect's own
+    language rather than borrowing authority it does not have.
+    ``test_ids_export.py`` verifies both halves against
+    ``ifcopenshell.util.pset``, so the flag cannot rot into a lie.
+    """
 
     concept: str
     property: str
@@ -128,6 +214,7 @@ _CONVENTION_NOTE = {
 
 @dataclass(frozen=True)
 class NotExportable:
+    """A finding that stays German prose, and the reason it has to."""
 
     what: str
     why: str
@@ -138,6 +225,7 @@ class NotExportable:
 
 @dataclass(frozen=True)
 class IdsShoppingList:
+    """An IDS document plus the honest account of what did not fit in it."""
 
     ids: Any
     exported: list[str]
@@ -149,6 +237,13 @@ class IdsShoppingList:
         return len(self.ids.specifications)
 
     def summary(self) -> str:
+        """The sentence a caller may print verbatim. German, and never rounded.
+
+        Says the ratio, not just the numerator. "10 Spezifikationen" reads like
+        a complete shopping list; "4 von 6 Befunden" is the truth, and the two
+        differ by exactly the items the architect will not be told about if
+        nobody prints the second one.
+        """
         total = len(self.exported) + len(self.not_exportable)
         if total == 0:
             return "Keine Befunde — es gibt nichts zu exportieren."
@@ -171,7 +266,12 @@ class IdsShoppingList:
 
 
 class IdsExportError(Exception):
-    ...
+    """The document cannot be produced — as opposed to being empty.
+
+    An empty shopping list is a result (:func:`write_ids` reports it as one). A
+    document that fails its own schema is a defect in this module, and it must
+    never reach an architect's checker as a file that silently does nothing.
+    """
 
 
 
@@ -184,6 +284,23 @@ def blind_spots_as_ids(
     date: str | None = None,
     brief: Briefing | None = None,
 ) -> IdsShoppingList:
+    """This model's blind spots and unfilled properties, as an IDS document.
+
+    Two inputs, both already computed by :func:`ifc_spatial.briefing.briefing`
+    and neither invented here: ``blindSpots`` (what this file cannot answer) and
+    ``absentProperties`` — the FEHLT block, the decisive properties that are
+    filled nowhere in the export. Those are the two lists an architect can act
+    on, and this function is only a translation of them into a format their own
+    tools execute.
+
+    ``author`` must be an e-mail address: the IDS 1.0 XSD constrains the field
+    with a pattern, and ``ifctester`` silently drops anything else. ``date`` is
+    not defaulted to today on purpose — two runs over the same file must produce
+    the same bytes, and a caller that wants a date can pass one. ``brief`` takes
+    an already-computed briefing, so a caller that has one does not pay for the
+    property-set walk twice and cannot end up exporting a shopping list that
+    disagrees with the briefing it just showed the user.
+    """
     b = brief if brief is not None else build_briefing(model)
     present = _classes_present(model)
 
@@ -241,6 +358,30 @@ def answers_as_ids(
     date: str | None = None,
     model: SpatialModel | None = None,
 ) -> IdsShoppingList:
+    """Every ``decidable: false`` among these answers, as an IDS document.
+
+    This is the one that closes the loop. The agent measured a building, some
+    questions came back unanswerable, and the architect gets a file naming
+    exactly those — not a summary of them, not a screenshot of the chat, a file
+    their checker runs before and after the fix.
+
+    The mapping is driven by ``missing.what``, which the envelope defines as the
+    absent fact *in the file's own vocabulary*: a property path
+    (``Pset_WindowCommon.SillHeight``), an entity (``IfcSpace``) or a relation
+    (``IfcRelFillsElement``). Those three shapes are exactly the three IDS can
+    express, which is not a coincidence — it is why the envelope was worth
+    porting unchanged.
+
+    Decidable answers are skipped in silence; they are not findings. Answers
+    whose ``missing.what`` is German prose about geometry ("keine senkrechte
+    Fläche an …") land in :attr:`IdsShoppingList.not_exportable` with the reason,
+    because a shopping list that loses items quietly is worse than one that
+    admits its own edges.
+
+    ``model`` is optional and buys one thing: when an answer's ``missing``
+    names elements, their IFC classes can be read from the file and the
+    applicability aimed at those classes instead of at a guess.
+    """
     present = _classes_present(model) if model is not None else None
 
     specifications: list[Any] = []
@@ -285,6 +426,13 @@ def answers_as_ids(
 
 
 def to_xml(document: IdsShoppingList | Any) -> str:
+    """The IDS 1.0 XML, validated against the bundled XSD before it is returned.
+
+    Validation is not belt-and-braces. An IDS that a checker refuses to open
+    produces no rows, and no rows in a checker reads as "nothing wrong" to
+    everyone who did not watch the import fail. So an invalid document raises
+    here and never reaches a file.
+    """
     ids_document = document.ids if isinstance(document, IdsShoppingList) else document
     if not ids_document.specifications:
         raise IdsExportError(
@@ -298,6 +446,21 @@ def to_xml(document: IdsShoppingList | Any) -> str:
 
 
 def _checked_name(name: str) -> str:
+    """``name`` as ONE file name inside the target directory, or a refusal.
+
+    ``os.path.join(directory, name)`` is not a containment operation and does
+    not pretend to be one: joined with ``"/etc/cron.d/x"`` it returns
+    ``/etc/cron.d/x`` and drops the directory entirely, and joined with
+    ``"../../x.ids"`` it walks out of it. ``write_ids`` is exported, so ``name``
+    is whatever a host passed down — today no tool exposes it, and a guard that
+    waits for the tool that does is a guard that arrives after the incident.
+
+    ``os.path.basename`` is deliberately NOT used to sanitise this. It turns
+    ``"befunde/haus.ids"`` into ``"haus.ids"`` and returns a path the caller did
+    not ask for, which is a silently different file rather than a refused one —
+    and the whole point of this module is that a checker's input is exactly the
+    document that was described.
+    """
     if not name or name in (".", ".."):
         raise ToolError('name muss ein Dateiname sein — "", "." und ".." sind keine gültigen Dateinamen.')
     if "\x00" in name:
@@ -315,6 +478,19 @@ def write_ids(
     directory: str | None = None,
     name: str | None = None,
 ) -> dict[str, Any]:
+    """Write the document and return FACTS about it, never the document.
+
+    Same discipline as ``tools.draw``: a whole IDS is kilobytes of XML that a
+    language model cannot act on and that would evict the conversation to
+    deliver. The host shows the file to the human; the agent gets the path, the
+    count, and — the part that must not be lost — the findings that could not be
+    expressed.
+
+    An empty shopping list is not an error. It returns ``path: None`` with a
+    German note saying so, because "there was nothing to demand" is a real and
+    good outcome, and raising on it would push callers into treating a clean
+    model as a failure.
+    """
     checked = _checked_name(name) if name is not None else None
 
     if not document.ids.specifications:
@@ -382,6 +558,20 @@ def _specification(
     requirements: Sequence[Facet] = (),
     required: bool = False,
 ) -> Any:
+    """One specification, with the cardinality decision made explicitly.
+
+    ``required`` (``minOccurs=1``) says *the model must contain at least one of
+    these*. It is used only where the absence IS the finding — no ``IfcSpace``,
+    no ``IfcSite``. Everywhere else the applicability is optional
+    (``minOccurs=0``), which reads as *if such elements exist, they must carry
+    this*.
+
+    The distinction is the whole rule of this library applied to a file format:
+    a required specification for ``IFCDOOR`` on a model with no doors fails, and
+    that failure is a claim about the BUILDING — that it ought to have doors —
+    which we have no standing to make. An optional one is a claim about the
+    export, which is the only kind we make.
+    """
     spec = ifctester_ids.Specification(
         name=name,
         minOccurs=1 if required else 0,
@@ -416,6 +606,16 @@ def _property_specification(target: PropertyTarget, present: Sequence[str] | Non
 
 
 def _blind_spot_specification(what: str, remedy: str, present: Sequence[str]) -> tuple[list[Any] | None, str | None]:
+    """Map one blind spot onto specifications, or say why it cannot be mapped.
+
+    Matched on a distinctive fragment of the German wording rather than on an
+    id, because :class:`~ifc_spatial.briefing.BlindSpot` has no id — it is a
+    German sentence with counts interpolated into it. That is a coupling to
+    another module's prose and it is deliberate: the failure mode when the
+    wording changes is that the spot falls through to "no known facet" and is
+    REPORTED as not exportable. It degrades into the honest bucket rather than
+    into silence, which is the only kind of coupling worth having here.
+    """
     if "keine IfcSpace-Elemente" in what:
         return [
             _specification(
@@ -452,6 +652,15 @@ def _blind_spot_specification(what: str, remedy: str, present: Sequence[str]) ->
 
 
 def _openings_hosted_specification(remedy: str, present: Sequence[str] | None) -> Any:
+    """Every window and door must fill an opening cut into something.
+
+    The host is required to be *an element*, not *a wall*: a dormer window sits
+    in a roof and a rooflight in a slab, and a specification that failed those
+    would be reporting a correctly modelled building as defective. The name
+    restriction is therefore a pattern over IFC classes rather than
+    ``IFCWALL`` — what the ``hostedIn`` operator needs is a host, of whatever
+    class.
+    """
     classes = (_intersect((*_WINDOWS, *_DOORS), present) if present else []) or [*_WINDOWS, *_DOORS]
     return _specification(
         name="Fenster und Türen einer Öffnung zugeordnet",
@@ -472,6 +681,14 @@ def _openings_hosted_specification(remedy: str, present: Sequence[str] | None) -
 
 
 def _georeference_specification(remedy: str) -> Any:
+    """Georeferencing, as far as IDS reaches — which is not all the way.
+
+    The blind spot's remedy names two routes, ``IfcMapConversion`` or
+    ``RefLatitude``/``RefLongitude``. Only the second is an attribute of an
+    object, so only the second is an IDS facet. The description says so rather
+    than letting a green row imply the model is georeferenced when it carries
+    neither a map conversion nor a projected CRS.
+    """
     return _specification(
         name="Georeferenzierung am IfcSite",
         description=(
@@ -492,6 +709,13 @@ def _georeference_specification(remedy: str) -> Any:
 def _missing_specification(
     answer: Answer[Any], model: SpatialModel | None, present: Sequence[str] | None
 ) -> tuple[list[Any] | None, str | None]:
+    """One ``MissingFact`` onto specifications, by the shape of ``missing.what``.
+
+    The vocabulary is the envelope's, so the grammar is small: ``Set.Property``,
+    ``IfcClass.Attribute``, ``IfcClass``, or one of the two relation strings the
+    operators build. Anything else is German prose about geometry or about the
+    question itself, and prose is where this stops.
+    """
     missing = answer.missing
     assert missing is not None  # guarded by the caller
     what = missing.what
@@ -585,6 +809,7 @@ def _missing_specification(
 def _property_path_specification(
     pset: str, name: str, remedy: str, present: Sequence[str] | None
 ) -> tuple[list[Any] | None, str | None]:
+    """``Pset_X.Prop`` from an answer, aimed at the classes that carry it."""
     known = [t for t in PROPERTY_TARGETS if t.pset == pset and t.property == name]
     if known:
         target = known[0]
@@ -617,6 +842,14 @@ def _property_path_specification(
 
 
 def _entity_facet(classes: Sequence[str]) -> Entity:
+    """An applicability over one or several concrete classes.
+
+    A single class goes in as a plain value and several as an enumeration
+    restriction, rather than a pattern over a prefix: ``IFCWALL.*`` would also
+    select ``IfcWallType``, and a specification that demands a fire rating on a
+    type object rather than on the wall is a specification the architect cannot
+    satisfy without authoring a property they were never asked for.
+    """
     names = sorted(dict.fromkeys(c.upper() for c in classes))
     if not names:
         raise IdsExportError("Eine IDS-Anwendbarkeit ohne IFC-Klasse gibt es nicht.")
@@ -626,6 +859,13 @@ def _entity_facet(classes: Sequence[str]) -> Entity:
 
 
 def _classes_present(model: SpatialModel) -> list[str]:
+    """The IFC classes this file actually instantiates.
+
+    Every applicability is narrowed to these. Demanding a property on
+    ``IfcDoor`` in a model that publishes no door produces a specification that
+    can only ever be vacuous, and a checker report padded with vacuous rows is
+    one the architect stops reading.
+    """
     try:
         return sorted({element.is_a() for element in model.file.by_type("IfcProduct")})
     except RuntimeError:
@@ -633,6 +873,7 @@ def _classes_present(model: SpatialModel) -> list[str]:
 
 
 def _classes_of(model: SpatialModel | None, global_ids: Sequence[str] | None) -> list[str]:
+    """The classes behind a ``missing.elements`` list, when a model is at hand."""
     if model is None or not global_ids:
         return []
     found: list[str] = []
@@ -645,6 +886,12 @@ def _classes_of(model: SpatialModel | None, global_ids: Sequence[str] | None) ->
 
 
 def _pset_classes(pset: str) -> list[str]:
+    """Which classes a property set belongs to, per the IFC property templates.
+
+    Asked of the schema rather than guessed from the name, so an unknown set
+    yields nothing and the caller says so instead of inventing an applicability
+    from a string like ``Pset_MeineFirma_Bauteile``.
+    """
     import ifcopenshell.util.pset as pset_util
 
     for schema in ("IFC4", "IFC2X3"):
@@ -662,6 +909,13 @@ _OBJECT_ROOT = "IfcObjectDefinition"
 
 
 def _object_class(name: str) -> bool:
+    """Is this a class an IDS applicability can name?
+
+    Asked of the IFC schema, not of a naming convention, because the answer
+    decides whether a finding becomes a specification or a documented refusal.
+    ``IfcRelSpaceBoundary`` and ``IfcGeometricRepresentationContext`` both look
+    like ordinary class names and neither is an object.
+    """
     for schema_name in ("IFC4", "IFC4X3_ADD2", "IFC2X3"):
         try:
             schema = ifcopenshell_wrapper.schema_by_name(schema_name)
@@ -683,6 +937,12 @@ def _intersect(classes: Iterable[str], present: Sequence[str] | None) -> list[st
 
 
 def _append(specifications: list[Any], built: Sequence[Any]) -> None:
+    """Add specifications, skipping any whose name is already in the document.
+
+    The name is the identity a checker shows and a human argues about, so two
+    specifications sharing one is not a duplicate row — it is the same demand
+    printed twice, which reads as two separate things to fix.
+    """
     names = {spec.name for spec in specifications}
     for spec in built:
         if spec.name in names:

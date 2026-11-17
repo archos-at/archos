@@ -1,3 +1,5 @@
+"""HTML template and render helper for single-run tokenomics reports. No project imports."""
+
 from __future__ import annotations
 
 import json

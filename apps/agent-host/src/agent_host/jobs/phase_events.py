@@ -1,3 +1,44 @@
+"""Coarse-grained phase-progress events for deep-research jobs (T4-4).
+
+The UI otherwise shows nothing for several minutes while the deep-research
+graph plans, researches, and writes. This module derives phase transitions
+from the subagent dispatches the orchestrator already makes through the
+``task`` tool (DeepAgents' subagent dispatcher --
+``deepagents.middleware.subagents._build_task_tool``) and the
+``run_research_batch`` tool (the orchestrator-only batched-research tool
+built in ``agent.agents.deep_researcher.tools.research``) -- WITHOUT
+importing or modifying the deep_researcher package itself. The subagent name
+strings ("planner-agent", "writer-agent", ...) are a stable, documented
+contract owned by ``agent.agents.deep_researcher.factory`` (PLANNER_AGENT,
+WRITER_AGENT, ...); they are duplicated here rather than imported so this
+module never needs to import the (off-limits-to-edit) deep_researcher
+package.
+
+Detection hook: ``on_tool_start``/``on_tool_end`` on the standard LangChain
+callback stack already assembled in ``agent_host.jobs.runner`` for every
+deep-research job (the same stack ``AgentEventCallback`` and
+``VerboseTraceCallback`` use). LangChain's ``ToolCallbackManager`` forwards
+the tool's original (pre-string-formatting) argument dict as the ``inputs``
+kwarg alongside the legacy ``input_str`` -- see
+``langchain_core.callbacks.manager.CallbackManagerMixin.on_tool_start``
+docstring: "Recommended for usage instead of input_str when the original
+input is needed." That gives cheap, reliable access to the task tool's
+``subagent_type`` argument and the research batch tool's ``queries`` list
+length without any string parsing.
+
+Citation verification has no callback event of its own: ``verify_citations``/
+``sanitize_report`` run as plain Python in ``DeepResearcherAgent.run()``
+immediately after the writer-agent's ``task`` call returns (see
+``agent.py``), so this module infers ``citation_verification_started`` from
+that ``task`` call's ``on_tool_end``.
+
+Persisted as ``job.phase`` job_events rows -- ``{"type": "job.phase", "data":
+{"phase": ..., ...}}`` -- matching the shape of the other job.* lifecycle
+events already emitted directly in ``agent_host.jobs.runner``
+(job.heartbeat, job.error, job.cancelled, job.cancellation_requested) so the
+existing SSE surface streams them to the UI unchanged.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -23,6 +64,12 @@ JOB_PHASE_EVENT_TYPE = "job.phase"
 
 
 def emit_phase_event(event_store: Any, phase: str, **extra: Any) -> None:
+    """Store one ``job.phase`` job_events row.
+
+    Best-effort like the other job.* lifecycle events written directly in
+    ``agent_host.jobs.runner`` -- a phase-event failure must never fail or even
+    slow down the underlying research job.
+    """
     if event_store is None:
         return
     try:
@@ -32,6 +79,20 @@ def emit_phase_event(event_store: Any, phase: str, **extra: Any) -> None:
 
 
 class PhaseProgressCallback(BaseCallbackHandler):
+    """Detects deep-research phase transitions from tool-call events.
+
+    A single instance is shared for the whole job -- it deliberately does not
+    implement ``for_new_run()``. Per the ADR-0018 convention used elsewhere in
+    this codebase (see ``DeepResearcherAgent._prepare_run`` and
+    ``tools/research.py._run_research_query``), callbacks without
+    ``for_new_run`` are forwarded to researcher workers unchanged rather than
+    replaced with a fresh instance. That is exactly what this callback needs:
+    ``task``/``run_research_batch`` are orchestrator-only tools that
+    researcher workers never call themselves, so sharing one instance across
+    the whole job (rather than resetting per subagent/worker) is both correct
+    and required for the "emit once" phases to actually dedupe.
+    """
+
     def __init__(self, event_store: Any, max_research_concurrency: int | None = None) -> None:
         super().__init__()
         self._event_store = event_store
@@ -54,6 +115,13 @@ class PhaseProgressCallback(BaseCallbackHandler):
 
     @staticmethod
     def _inputs_dict(input_str: str, kwargs: dict) -> dict | None:
+        """Return the tool's original argument dict, cheaply and defensively.
+
+        Prefers the ``inputs`` kwarg LangChain forwards alongside
+        ``input_str`` (the pre-stringification dict -- see module docstring).
+        Falls back to best-effort parsing of ``input_str`` for callers/tool
+        wrappers that don't populate ``inputs``.
+        """
         inputs = kwargs.get("inputs")
         if isinstance(inputs, dict):
             return inputs

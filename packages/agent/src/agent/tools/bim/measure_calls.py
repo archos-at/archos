@@ -1,3 +1,5 @@
+"""Turns a validated input into the engine call for its operation, or into the refusal that says what is missing."""
+
 from collections.abc import Sequence
 from typing import Any
 

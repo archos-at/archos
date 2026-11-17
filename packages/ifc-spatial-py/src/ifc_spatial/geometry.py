@@ -1,3 +1,24 @@
+"""Plane, clip and box helpers — the parts of the TS geometry pass that survive.
+
+IfcOpenShell replaces most of `pass.ts`: bounding boxes, areas, footprints and
+volumes are one call each on `ifcopenshell.util.shape`. What it does **not**
+supply is the reference plane an architect means by "die Fassade", and the
+constructive operators are all measured from that plane. So three things stay
+hand-written, and they are ported here rather than re-invented:
+
+1. :func:`dominant_vertical_plane` — the element's largest vertical planar
+   cluster, which is the glazing plane of a window and the face of a wall.
+2. :func:`outermost_parallel_face` — the plane re-seated onto a REAL outermost
+   face. The TS package learnt this the hard way: binning faces by normal alone
+   put the sample house's north facade at y = 4.4221, which lies on no surface of
+   the building (a blend of faces at 4.409 and 4.521), and every overhang
+   measured from it was 0.28 m too large.
+3. :func:`clip_polygon` — Sutherland–Hodgman against the light prism's convex
+   half-spaces. A vertex-inside test would miss this file entirely: the roof is
+   376 triangles over 108 m², and a triangle spanning the whole prism can have
+   every corner outside it.
+"""
+
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -17,6 +38,25 @@ VERTICAL_TOLERANCE = 0.05
 
 @dataclass(frozen=True)
 class Plane:
+    """A seated reference plane: where it sits, which way it looks, how strongly.
+
+    ``support`` is **not a face area** and is deliberately not called one. It is
+    the summed area of every triangle that voted this bin into the seating, and
+    the sum double-counts: coincident and overlapping triangles are added
+    together, and both facings of a surface land in the same bin because the
+    winding is unreliable. On the sample house's south wall
+    ``3cUkl32yn9qRSPvBJVyWy4`` it comes to **23.527 m²** over 30 triangles, while
+    the union of those same triangles projected onto the plane — the real outer
+    face — is **17.776 m²**. Published as an area, that is a 32 % overstatement
+    of a facade, in a package whose whole point is that a number an architect
+    signs must be right.
+
+    It is kept because the seating needs it: the winner is chosen by offset among
+    the bins that clear a fraction of the largest bin's vote, and that comparison
+    is between like and like. It is a **selection weight**, and the name now says
+    so, so that no caller can read it as a surface. ``facade_plane_of`` used to
+    publish it as ``"area"`` under „(m)"; it does not any more.
+    """
 
     normal: np.ndarray
     point: np.ndarray
@@ -24,6 +64,7 @@ class Plane:
 
 
 def triangle_normals_areas(triangles: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Unit normals and areas of an (F, 3, 3) triangle array."""
     cross = np.cross(triangles[:, 1] - triangles[:, 0], triangles[:, 2] - triangles[:, 0])
     doubled = np.linalg.norm(cross, axis=1)
     ok = doubled > 1e-12
@@ -33,6 +74,23 @@ def triangle_normals_areas(triangles: np.ndarray) -> tuple[np.ndarray, np.ndarra
 
 
 def dominant_plane(triangles: np.ndarray) -> np.ndarray | None:
+    """The unit normal of the element's largest planar cluster, any orientation.
+
+    :func:`dominant_vertical_plane` throws the horizontal faces away BEFORE it
+    looks for the winner, so it answers "which vertical face is biggest" even on
+    a body that is overwhelmingly flat. This answers the prior question — what
+    plane is this element mostly made of — and it is what tells a wall from a
+    slab.
+
+    The failure it exists to catch: ``azimuth`` on the sample house's ground slab
+    ``3cUkl32yn9qRSPvBJVyWgQ``. The slab's 7.9 m² of vertical EDGE faces were the
+    only ones the vertical filter kept, so a floor plate reported a compass
+    bearing of 0.0° / „N" off its own rim. Its dominant plane is horizontal
+    (``|n_z| = 1``) by two orders of magnitude of area, and a floor plate has no
+    facade bearing to report.
+
+    ``None`` for a mesh with no non-degenerate triangle.
+    """
     normals, areas = triangle_normals_areas(triangles)
     usable = np.linalg.norm(normals, axis=1) > 0
     if not usable.any():
@@ -62,6 +120,17 @@ def dominant_plane(triangles: np.ndarray) -> np.ndarray | None:
 
 
 def dominant_vertical_plane(triangles: np.ndarray) -> np.ndarray | None:
+    """The unit normal of the element's largest vertical planar cluster.
+
+    Vertical faces are binned by their quantised normal — both facings folded
+    together, because the winding of an exported mesh is not a reliable statement
+    about which side is outside — and the bin with the greatest total AREA wins.
+    Area rather than triangle count: a finely tessellated sliver must not
+    outvote a 26 m² wall face.
+
+    ``None`` when the element has no vertical surface at all (a slab, a flat
+    roof). That is undecidable, not zero: a floor plate has no bearing.
+    """
     normals, areas = triangle_normals_areas(triangles)
     vertical = np.abs(normals[:, 2]) < VERTICAL_TOLERANCE
     if not vertical.any():
@@ -88,6 +157,23 @@ def dominant_vertical_plane(triangles: np.ndarray) -> np.ndarray | None:
 
 
 def outermost_parallel_face(triangles: np.ndarray, normal: np.ndarray) -> Plane | None:
+    """The outermost face of an element parallel to ``normal``.
+
+    Triangles are binned by offset along the normal (both facings, since the
+    winding is unreliable), near-equal offsets are merged, slivers are dropped,
+    and the surviving bin with the greatest offset wins. That is the wall's outer
+    leaf, the opening's outer face, the roof's fascia — the surface an architect
+    points at, rather than the area-weighted average of every parallel face.
+
+    Slivers cannot win the seating: a face carries the plane only if it holds at
+    least :data:`FACE_AREA_FRACTION` of the largest parallel face's area, so a
+    3 cm chamfer or a reveal return does not move the facade 3 cm outward.
+
+    The returned :class:`Plane` carries ``support``, not an area. What this
+    function measures per bin is a sum of triangle areas, and a sum is the wrong
+    operation for an area whenever two triangles overlap — read its docstring
+    before publishing that number anywhere.
+    """
     normals, areas = triangle_normals_areas(triangles)
     parallel = np.abs(normals @ normal) >= PARALLEL_DOT
     if not parallel.any():
@@ -125,10 +211,17 @@ def outermost_parallel_face(triangles: np.ndarray, normal: np.ndarray) -> Plane 
 
 
 def signed_distance(points: np.ndarray, plane_normal: np.ndarray, plane_point: np.ndarray) -> np.ndarray:
+    """How far each point lies in front of the plane. Negative is behind."""
     return (np.atleast_2d(points) - plane_point) @ plane_normal
 
 
 def clip_polygon(polygon: Sequence[np.ndarray], normal: np.ndarray, point: np.ndarray) -> list[np.ndarray]:
+    """Sutherland–Hodgman: keep the part of ``polygon`` with ``dot(x−p, n) ≥ 0``.
+
+    The prism is convex, so clipping successively against its four half-spaces is
+    exact — the result is the true intersection polygon, not an approximation of
+    it.
+    """
     out: list[np.ndarray] = []
     n = len(polygon)
     if n == 0:
@@ -150,6 +243,7 @@ def clip_polygon(polygon: Sequence[np.ndarray], normal: np.ndarray, point: np.nd
 
 
 def box_gap(a: tuple[np.ndarray, np.ndarray], b: tuple[np.ndarray, np.ndarray]) -> np.ndarray:
+    """Per-axis separation of two boxes; negative where they already overlap."""
     return np.maximum(a[0] - b[1], b[0] - a[1])
 
 
@@ -174,6 +268,31 @@ def box_corners(box: tuple[np.ndarray, np.ndarray]) -> np.ndarray:
 
 
 def plan_footprint(triangles: np.ndarray) -> Any | None:
+    """The element's outline in plan, as a shapely polygon — or ``None``.
+
+    Answers „is this (x, y) inside the room" WITHOUT asking OCCT to classify a
+    point against a solid, which is the whole reason this exists.
+
+    ``geom.tree.select(point)`` needs a closed, orientable solid to classify
+    against. ArchiCAD writes its `IfcSpace` bodies as `Brep` shells that OCCT
+    accepts into the tree — `select_box` finds them — and will not classify as
+    solids, so the point query returns nothing for every room in the file. On
+    `AC20-Institute-Var-2.ifc` that was **82 of 82 spaces**, and `clear_height`
+    answered „kein Rasterpunkt lag im Raumkörper" about an 11.6 × 11.4 m
+    seminar room. The operator then blamed the room's shape („zu schmal oder zu
+    zerklüftet"), the agent fell back to the declared storey height, and a
+    structural 3.00 m was reported where the modelled room is 2.70 m.
+
+    A mesh needs no such classification. The triangles are already in world
+    coordinates and they already build for these rooms — 82 of 82 — so the
+    footprint is the union of the DOWNWARD-facing ones, which for a prismatic
+    room is exactly its floor. Downward-facing rather than all of them because
+    the silhouette of a mesh with sloped soffits is larger than its floor, and
+    because it halves the union.
+
+    ``None`` when the mesh has no usable horizontal face, so the caller can keep
+    whatever it did before rather than treat an empty polygon as an empty room.
+    """
     from shapely.geometry import Polygon
     from shapely.ops import unary_union
 

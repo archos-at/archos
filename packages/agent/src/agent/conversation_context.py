@@ -1,3 +1,28 @@
+"""Ingest-only conversation context: a human turn the agent must SEE, not answer.
+
+Why this exists
+---------------
+The agent's conversation history IS its LangGraph checkpoint, keyed on
+``thread_id == conversation_id``. Only what passes through the agent lands there.
+Collaboration (ADR-0034) deliberately suppresses the agent for a message addressed
+to a *person* by not invoking it at all — which is right about tokens and was wrong
+about memory: Matthias tags Anna, Anna answers, and then ``@Piloti given that,
+recheck`` refers to nothing, because neither turn ever reached the checkpoint.
+
+The rule is **"always send, never always judge"**: every human message reaches the
+agent tagged with whether it is addressed to it. The server already decides that
+deterministically (``prepareMessage`` → ``addressees``), so routing stays binding and
+never becomes a model's guess. A message that is *not* addressed to the agent arrives
+as **context only**: it is appended to the conversation state and nothing is
+generated, streamed, or charged.
+
+This module is the agent-tier half of that (the socket reads the flat
+``context_only`` and ``author_name`` fields of a v2 ``user_message``): the bounded
+attribution formatting, and the indirection the WebSocket front end uses to reach the
+compiled chat graph without importing it (``agent_host`` owns the socket, ``agent``
+owns the graph).
+"""
+
 from __future__ import annotations
 
 import logging
@@ -18,12 +43,18 @@ _appender: ContextAppender | None = None
 
 @dataclass(frozen=True)
 class ContextOnlyMessage:
+    """A human turn to ingest without answering."""
 
     text: str
     author: str | None = None
 
 
 def _cap(value: str, max_chars: int) -> str:
+    """Strip and cap *value*, preferring a line boundary.
+
+    Same shape as ``project_context.normalize_project_context`` so every piece of
+    injected context is bounded the same way.
+    """
     value = value.strip()
     if len(value) <= max_chars:
         return value
@@ -33,21 +64,44 @@ def _cap(value: str, max_chars: int) -> str:
 
 
 def format_context_turn(message: ContextOnlyMessage, *, author: str | None = None) -> str:
+    """Render the ingested turn as bounded, attributed text.
+
+    *author* wins over the client-supplied name — the socket holder IS the writer, so
+    the verified principal is the trustworthy source and a client cannot attribute
+    text to a colleague in the agent's own history.
+
+    The result is the human's words with a name in front. Nothing product-authored is
+    added, so the agent never reads invented narration as if a user had typed it.
+    """
     name = _cap(author or message.author or "", MAX_CONTEXT_AUTHOR_CHARS)
     body = _cap(message.text, MAX_CONTEXT_MESSAGE_CHARS)
     return f"{name}: {body}" if name else body
 
 
 def register_context_appender(appender: ContextAppender | None) -> None:
+    """Publish the coroutine that appends a turn to a conversation's checkpoint.
+
+    Called once per chat-agent build. Last registration wins (a process hosts one
+    chat workflow); ``None`` clears it, which makes ingestion a logged no-op rather
+    than an error — a lost context message degrades the agent's memory and must never
+    break the socket.
+    """
     global _appender
     _appender = appender
 
 
 def get_context_appender() -> ContextAppender | None:
+    """Return the registered appender, if the chat agent has been built."""
     return _appender
 
 
 async def append_conversation_context(thread_id: str | None, text: str) -> bool:
+    """Append *text* to *thread_id*'s conversation state. Never raises.
+
+    Returns whether it landed. ``False`` means the agent's history is missing this
+    turn — worth a log, never worth an error frame: the message itself is already
+    persisted in the BFF's ``messages`` table, which is what the humans read.
+    """
     if not thread_id or not text:
         return False
     appender = _appender

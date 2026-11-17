@@ -1,3 +1,5 @@
+"""Reading a stair from the model: its sources, its body, and the declared counts reconciled against the geometry."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -24,10 +26,35 @@ from .operators import DIMENSION_TOLERANCE
 
 
 def _sources(*ids: str | None) -> list[str]:
+    """The ``from_`` list: every element that fed the answer, once, in order.
+
+    Deduplicated because the subject of these operators is often its own source —
+    ``stairGeometry(<flight>)`` measures the flight it was handed — and a
+    ``from`` list that names the same GlobalId twice reads as two independent
+    pieces of evidence.
+    """
     return list(dict.fromkeys([i for i in ids if i]))
 
 
 def _read_body(model: SpatialModel, element: Any) -> _Body:
+    """One solid → every flight in it, its landings, and what it refused.
+
+    The reader used to assume that one body is one flight, and took the chord
+    from the first tread centre to the last as the direction of travel. On the
+    Institute's „Treppe-EG" — a three-flight dogleg written as ONE ``IfcStair``
+    with no parts and no ``PredefinedType``, so nothing in the file announces the
+    flights — that chord runs diagonally across the stairwell. Everything
+    measured against it was measured against the wrong axis: the „Nutzbreite"
+    it reported, **0.318 m**, is the depth of one tread across that diagonal —
+    a step's going, near enough — on a flight that is **1.500 m** wide. A 4.7×
+    understatement of the one number OIB 4's Nutzbreite question turns on, and
+    in the direction that fails a stair which complies.
+
+    So the levels are split into runs first — at the landings and at the turns —
+    and each run is measured on its own axis. Whatever cannot be split into a
+    straight run is refused with the measurement that decided it, never averaged
+    into a number that looks like a stair.
+    """
     geo = model.geometry(element.GlobalId)
     if geo is None:
         return _Body(flights=[], landings=0, refusals=[], levels=0)
@@ -62,6 +89,12 @@ def _read_body(model: SpatialModel, element: Any) -> _Body:
 
 
 def _spread(values: list[float]) -> dict[str, float]:
+    """Mean, extremes and spread of a set of measurements.
+
+    ``spread`` is max − min and not a standard deviation: an architect fixes the
+    two steps at the ends of the range, not a distribution, and OIB 4's demand
+    that risers be equal is a statement about exactly that difference.
+    """
     array = np.array(values, dtype=float)
     return {
         "mean": float(array.mean()),
@@ -75,6 +108,12 @@ def _spread(values: list[float]) -> dict[str, float]:
 
 
 def _declared_count(model: SpatialModel, elements: list[Any]) -> tuple[int | None, str | None]:
+    """``NumberOfRiser`` off the first element that declares it, with its source.
+
+    Read with ``declared_property`` and not ``declared_quantity``, because a
+    riser COUNT carries no unit and must not be run through a length conversion —
+    in a millimetre model that path would turn 18 risers into 0.018.
+    """
     for element in elements:
         value = model.declared_property(element, _RISER_COUNT_NAMES)
         if isinstance(value, bool) or not isinstance(value, (int, float)):
@@ -86,6 +125,13 @@ def _declared_count(model: SpatialModel, elements: list[Any]) -> tuple[int | Non
 def _declared_length(
     model: SpatialModel, elements: list[Any], names: tuple[str, ...]
 ) -> tuple[DeclaredQuantity | None, str | None]:
+    """The first declared length among ``names``, in metres, with its element.
+
+    ``declared_quantity`` rather than ``declared_property`` because this one DOES
+    carry a unit: ``Pset_StairCommon.RiserHeight`` is an ``IfcPositiveLengthMeasure``
+    stated in the file's own length unit, so a millimetre export declares 175.0
+    and means 0.175 m.
+    """
     for element in elements:
         quantity = model.declared_quantity(element, names)
         if quantity is not None:
@@ -101,6 +147,17 @@ def _reconcile(
     declared_on: str | None,
     method: str,
 ) -> tuple[dict[str, Any], str | None]:
+    """One measured number against one declared number — the triangulated pair.
+
+    Returns the block that goes into the answer's value and the German sentence
+    (or ``None``) that the disagreement is worth. The sentence is
+    ``envelope.triangulate``'s own, unchanged: the reader must not be able to tell
+    whether a schedule/geometry conflict was found on a room area or on a riser.
+
+    The two ``undecidable`` branches below stand for ONE missing route, never for
+    both — the early return covers that case — but they still carry real German,
+    because a placeholder that can only surface in a bug surfaces in a bug.
+    """
     if measured is None and declared_quantity is None:
         return {"value": None, "declared": None, "agreement": None}, None
 
@@ -146,6 +203,7 @@ def _reconcile(
 
 
 def _parts_of(element: Any) -> list[Any]:
+    """``IfcRelAggregates`` parts of an assembly, in file order."""
     out: list[Any] = []
     for rel in getattr(element, "IsDecomposedBy", []) or []:
         for part in rel.RelatedObjects or []:
@@ -155,12 +213,19 @@ def _parts_of(element: Any) -> list[Any]:
 
 
 def _is_landing(element: Any) -> bool:
+    """A landing, by the only statement IFC makes about one.
+
+    ``IfcSlab.PredefinedType = LANDING`` — not the name. Names are „Podest",
+    „Landing", „Zwischenpodest" and „Slab:Generic 200mm:314159" depending on the
+    exporter, and a name test would classify by locale.
+    """
     if not element.is_a("IfcSlab"):
         return False
     return str(getattr(element, "PredefinedType", "") or "").upper() == "LANDING"
 
 
 def _flight_parts(element: Any) -> tuple[list[Any], list[Any], list[Any]]:
+    """An assembly's parts, split into flights, landings and everything else."""
     flights, landings, other = [], [], []
     for part in _parts_of(element):
         if part.is_a("IfcStairFlight") or part.is_a("IfcRampFlight"):

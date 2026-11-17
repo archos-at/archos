@@ -1,3 +1,5 @@
+"""HTML template and render helper for comparison-mode tokenomics reports. No project imports."""
+
 from __future__ import annotations
 
 import json

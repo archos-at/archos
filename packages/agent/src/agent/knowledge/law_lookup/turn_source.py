@@ -1,3 +1,18 @@
+"""Which source a lookup reads this turn: the released record the turn carries, by its country.
+
+The BFF puts the released source records with a ``lookup`` block of the
+countries the turn reads into its knowledge context (``context/sources.ts``).
+The lookup reads the one for the site's country, else the only one the turn
+carries. A record is parsed once per revision (records do not change under a
+revision id), into the same :class:`LawSource` a repository record becomes.
+
+With none, the lookup reads the repository record it is configured with, the
+fallback while a country's record is not yet published (ADR-0174, amendment
+2026-11-11), and logs that it did, once per process and source. A source the
+turn could not carry (``sources_dropped``) is said in the answer path, never
+dropped silently.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -14,6 +29,7 @@ _FELL_BACK: set[str] = set()
 
 
 def turn_source() -> TurnSource | None:
+    """The released source this turn reads: the site country's, else the only one carried; None without one."""
     context = turn_knowledge_context()
     usable = [source for source in context.sources if "lookup" in source.config]
     if context.site_country:
@@ -22,6 +38,7 @@ def turn_source() -> TurnSource | None:
 
 
 def released_law_source(source: TurnSource) -> LawSource:
+    """The turn's record as a lookup reads it, built once per revision."""
     return _released(source.revision_id, source)
 
 
@@ -36,6 +53,7 @@ _UNREADABLE: set[str] = set()
 
 
 def note_unreadable(key: str, revision_id: str) -> None:
+    """Log, once per process and revision, that a released record could not be read and the fallback answers."""
     if revision_id in _UNREADABLE:
         return
     _UNREADABLE.add(revision_id)
@@ -45,6 +63,7 @@ def note_unreadable(key: str, revision_id: str) -> None:
 
 
 def note_fallback(law: LawSource) -> None:
+    """Log, once per process and source, that a lookup read the repository record for want of a released one."""
     if law.source.id in _FELL_BACK:
         return
     _FELL_BACK.add(law.source.id)
@@ -56,6 +75,7 @@ def note_fallback(law: LawSource) -> None:
 
 
 def dropped_note(law: LawSource) -> str:
+    """The line an answer carries when the turn could not carry a released source of this source's country."""
     country = law.source.territory[:2].lower()
     dropped = [key for key in turn_knowledge_context().sources_dropped if key.split("-", 1)[0] == country]
     if not dropped:
@@ -71,6 +91,11 @@ WITHHELD_PREFIX = "Not executed:"
 
 
 def withheld_note(law: LawSource) -> str:
+    """The refusal when the fallback record's own country is one this turn may not read; empty otherwise.
+
+    The chat binding is not withheld by country where the turn carries a released source (``law_gate``), so the
+    fallback is checked here, by its record's territory: it is never a way past the gate.
+    """
     from agent.common.knowledge_context import get_turn_knowledge_context
     from agent.common.law_gate import withheld_notice_for_country
 

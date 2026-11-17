@@ -1,3 +1,47 @@
+"""One run of a research job at a time, though the orchestrator delivers at least once (ADR-0150).
+
+Hatchet may start a second copy of a run while the first is alive: a worker it
+lost touch with (a partition, a stalled event loop) keeps running while the
+engine hands the task to another. Each copy takes ownership here before it
+runs the agent, with a compare-and-set on ``job_info``; a copy that loses
+returns without running.
+
+THE RULE. A copy owns the job when, in one locked transaction:
+
+* the job is ``submitted`` (no run has started it): it moves to ``running``; or
+* the job is ``running`` and its run has shown no sign of life for
+  ``STALE_SECONDS``: no ``job_info`` write and no event (the run emits a
+  ``job.heartbeat`` every 30 s, ``runner.HEARTBEAT_INTERVAL_SECONDS``). That is
+  a previous attempt that never finished; taking it over touches
+  ``updated_at``, so a third copy sees the job alive, and so does the ghost
+  reaper, which reads the same two signs. The window is the ghost reaper's
+  (``routes/job_reaper.GHOST_JOB_TIMEOUT_SECONDS`` is this number), the one
+  this tier already trusts to call a run dead; a shorter one would take over a
+  run still building its workflow, which emits nothing for a while.
+
+Anything else loses: a terminal job, or a ``running`` one whose run is alive.
+A copy that finds the job alive polls for ``STALE_SECONDS`` and a margin
+before it gives up, because a retry Hatchet started after a worker died can
+arrive before that worker's last heartbeat has aged out. A copy that gives up
+ends its Hatchet run as done ("duplicate"), deliberately: failing it instead
+would spend the job's retries while the live run works, and the on-failure
+task would then write FAILURE over that live run. The cost: if the live run
+dies after the copy gave up, nothing is left to retry it and the ghost reaper
+fails the job, visibly.
+
+WHY NOT THE ATTEMPT NUMBER. Hatchet's ``retry_count`` cannot tell a duplicate
+from a rescue: two copies of one delivery share it, and the engine reassigns a
+lost worker's task without spending a retry, so a rescue can carry the same
+number as the run it replaces. A higher number is no proof either, since the
+attempt before may still be running on a partitioned worker. Liveness is the
+one thing that says the previous attempt is gone, so the rule rests on it and
+the attempt number is only logged.
+
+The lock is a no-op ``UPDATE`` on the job's row taken first in the
+transaction: on Postgres a row lock, on SQLite the database write lock, so two
+copies decide one after the other and the second sees the first one's write.
+"""
+
 from __future__ import annotations
 
 import asyncio
@@ -42,6 +86,7 @@ async def _last_sign_of_life(session, job_id: str, updated_at: datetime | None) 
 
 
 async def try_take(store, job_id: str, now: datetime | None = None) -> Verdict:
+    """One locked compare-and-set: whether this copy now owns the run of ``job_id``."""
     from sqlalchemy import select
     from sqlalchemy import update
 
@@ -67,6 +112,7 @@ async def try_take(store, job_id: str, now: datetime | None = None) -> Verdict:
 
 
 async def take_ownership(db_url: str, job_id: str, attempt: int | None = None) -> bool:
+    """Whether this copy may run the agent for ``job_id``; waits a while for a run that may have died."""
     from nat.front_ends.fastapi.async_jobs.job_store import JobStore
 
     from .event_store import EventStore

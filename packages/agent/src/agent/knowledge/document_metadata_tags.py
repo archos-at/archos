@@ -13,6 +13,20 @@ from agent.knowledge.document_metadata_constants import logger
 
 
 def update_tags(store, collection: str, filename: str, tags: list[str] | None) -> bool:
+    """Replace the machine's ``tags`` on an existing metadata row (sync).
+
+    The one-sentence ``summary`` is NEVER touched — this is the backfill
+    seam, distinct from :meth:`register` (which owns the summary). An empty
+    or ``None`` ``tags`` clears the column (stored as SQL NULL, which decodes
+    back to ``None``).
+
+    A row whose tags a person chose is left alone, like :meth:`register`
+    leaves it: a machine write never overrules a person's. A person's own
+    edit goes through :meth:`set_tags_by_person`.
+
+    Returns ``True`` when a row was updated, ``False`` when no metadata row
+    exists for ``(collection, filename)`` or its tags are a person's.
+    """
     import json
 
     from sqlalchemy import text
@@ -37,22 +51,47 @@ def update_tags(store, collection: str, filename: str, tags: list[str] | None) -
 
 
 def set_tags_by_person(store, collection: str, filename: str, tags: list[str] | None) -> bool:
+    """Store the tags a PERSON chose, and mark them as theirs (sync).
+
+    From then on neither a re-ingest (:meth:`register`) nor the backfill
+    (:meth:`update_tags`) replaces them. An empty list is a choice too — "no
+    tags" — and is kept the same way. ``False`` when no row exists.
+    """
     return store._set_person_list(collection, filename, "tags", tags)
 
 
 def set_topics_by_person(store, collection: str, filename: str, topics: list[str] | None) -> bool:
+    """Store the topics a PERSON chose, and mark the row as theirs (sync).
+
+    The topic twin of :meth:`set_tags_by_person`, on the same marker, so a
+    re-ingest keeps them (see :meth:`register`). ``False`` when no row exists.
+    """
     return store._set_person_list(collection, filename, "topics", topics)
 
 
 def get_person_tags_batch(store, collection: str, filenames: list[str]) -> dict[str, list[str]]:
+    """The tags a PERSON chose, for the rows among ``filenames`` that have them.
+
+    A row whose person cleared every tag answers ``[]`` — still a choice, and
+    distinct from a row that is absent (the machine's tags, or no row).
+    Fail-open to ``{}``.
+    """
     return store._person_list_batch(collection, filenames, "tags")
 
 
 def get_person_topics_batch(store, collection: str, filenames: list[str]) -> dict[str, list[str]]:
+    """The topics a PERSON chose, with the same answer shape as :meth:`get_person_tags_batch`."""
     return store._person_list_batch(collection, filenames, "topics")
 
 
 def get_topic_vocabulary(store, collection: str, limit: int = MAX_TOPIC_VOCABULARY) -> list[str]:
+    """The topics this collection already uses, most frequent first (sync).
+
+    What ingestion offers the model to reuse, so one office's "Attika" stays
+    "Attika". A topic counts once per document, whatever its case; the
+    spelling kept is the most frequent one, and ties sort alphabetically.
+    Fail-open to ``[]``.
+    """
     from sqlalchemy import text
 
     try:
@@ -85,6 +124,7 @@ def get_topic_vocabulary(store, collection: str, limit: int = MAX_TOPIC_VOCABULA
 
 
 def _set_person_list(store, collection: str, filename: str, column: str, values: list[str] | None) -> bool:
+    """Store a JSON list a PERSON chose in ``column`` and mark the row ``tags_set_by = 'person'``."""
     import json
 
     from sqlalchemy import text
@@ -113,6 +153,7 @@ def _set_person_list(store, collection: str, filename: str, column: str, values:
 
 
 def _person_list_batch(store, collection: str, filenames: list[str], column: str) -> dict[str, list[str]]:
+    """The JSON list in ``column`` for the rows among ``filenames`` a PERSON set. Fail-open to ``{}``."""
     if not filenames:
         return {}
     from sqlalchemy import bindparam

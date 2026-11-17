@@ -1,3 +1,34 @@
+"""Walk an Outlook archive in a fixed order, a page of messages at a time.
+
+**The position is the cursor.** Messages are numbered in one depth-first order
+over the mail folders (a folder's own messages, then its subfolders, in the
+order the archive stores them). The order depends only on the archive, so a
+position the BFF saved in one slice names the same message in the next, on
+whichever replica opens the archive. Every item counts, mail or not, so that a
+calendar entry skipped today cannot shift the numbers under a retry.
+
+**Only the mail tree is walked.** An archive holds more than the folders a
+person sees: search folders, views, and in an ``.ost`` a whole ``Root - Public``
+store. The walk starts at the person's folder tree, the ``IPM_SUBTREE`` of the
+mailbox when there is one, the single non-system top folder of a ``.pst``
+otherwise (``Top of Personal Folders``, under whatever name the Outlook that
+wrote it used).
+
+**Not every item is a mail.** Appointments, contacts, tasks and notes are
+counted and named but not read: the import is for correspondence.
+
+**A mail carries what threads it.** The import files archived mail into the
+same E-Mail-Verläufe inbound mail goes to (DECISION D12, D33), so a message
+reads the properties a thread is matched on, the ones an RFC 5322 message
+carries as headers: its Message-ID, In-Reply-To and References
+(``PR_INTERNET_MESSAGE_ID``, ``PR_IN_REPLY_TO_ID``, ``PR_INTERNET_REFERENCES``),
+and Outlook's own conversation, ``PR_CONVERSATION_INDEX``, the bytes an
+inbound mail carries base64-encoded as its ``Thread-Index`` header ([MS-OXOMSG]
+2.2.1.3). All three are handed over as stored: the BFF parses the ids and
+derives the conversation GUID once (``lib/mail-thread/mail-threading.ts``), so
+an archived and an inbound message of one conversation cannot disagree.
+"""
+
 from __future__ import annotations
 
 import base64
@@ -97,16 +128,21 @@ class _Folder:
     count: int
 
 
-class ArchiveError(ValueError): ...
+class ArchiveError(ValueError):
+    """The file is not an archive libpff can read, or the position names nothing."""
 
 
-class AttachmentTooLargeError(ArchiveError): ...
+class AttachmentTooLargeError(ArchiveError):
+    """The attachment is larger than the caller will take; its bytes were not read."""
 
 
-class UnreadableItemError(ArchiveError): ...
+class UnreadableItemError(ArchiveError):
+    """One item of a readable archive is damaged. The import skips it and goes on."""
 
 
 class Archive:
+    """An open archive. Not thread-safe; callers hold :attr:`lock`."""
+
     def __init__(self, handle: pypff.file, source: object | None = None) -> None:
         self._handle = handle
         self._source = source
@@ -115,6 +151,7 @@ class Archive:
         self.lock = threading.Lock()
 
     def page(self, start: int, limit: int) -> MessagePage:
+        """Up to ``limit`` messages from ``start`` on."""
         if start < 0 or start > self.total:
             raise ArchiveError(f"position {start} is outside an archive of {self.total} items")
         messages = []
@@ -126,6 +163,7 @@ class Archive:
         return MessagePage(messages=tuple(messages), next_position=end if end < self.total else None, total=self.total)
 
     def attachment(self, position: int, index: int, max_bytes: int) -> tuple[AttachmentInfo, bytes]:
+        """The attachment ``index`` of the message at ``position``, with its bytes."""
         message = self._message_at(position)
         if index < 0 or index >= message.number_of_attachments:
             raise ArchiveError(f"message {position} has no attachment {index}")
@@ -147,6 +185,7 @@ class Archive:
         self._handle.close()
 
     def _read_or_skip(self, entry: _Folder, local: int, position: int) -> ArchiveMessage:
+        """The message, or an ``unreadable`` item when this one message is damaged."""
         try:
             return _read_message(entry.folder.get_sub_message(local), position, entry.path)
         except OSError as error:
@@ -156,6 +195,7 @@ class Archive:
             )
 
     def _damaged(self, error: OSError, what: str) -> UnreadableItemError:
+        """``error`` as damage to ``what``, unless the object store caused it (then that is raised)."""
         remote = getattr(self._source, "last_error", None)
         if remote is not None:
             raise remote from error
@@ -169,6 +209,7 @@ class Archive:
         return entry.folder.get_sub_message(local)
 
     def _from(self, start: int) -> Iterator[tuple[int, _Folder, int]]:
+        """(position, folder, index in folder) for every message from ``start`` on."""
         offset = 0
         for entry in self._folders:
             if offset + entry.count <= start:
@@ -180,6 +221,7 @@ class Archive:
 
 
 def open_archive(file_object) -> Archive:  # noqa: ANN001 - any seekable binary file
+    """Open ``file_object`` as an Outlook archive, or raise :class:`ArchiveError`."""
     handle = pypff.file()
     try:
         handle.open_file_object(file_object)
@@ -197,6 +239,7 @@ def _mail_folders(root: pypff.folder) -> Iterator[_Folder]:
 
 
 def _mail_root(root: pypff.folder) -> pypff.folder:
+    """The folder a person's mail tree hangs from (see the module notes)."""
     children = [root.get_sub_folder(i) for i in range(root.number_of_sub_folders)]
     for child in children:
         subtree = _child_named(child, "IPM_SUBTREE") if child.name == "Root - Mailbox" else None
@@ -271,6 +314,7 @@ def _sender(message: pypff.message, props: dict[int, object]) -> Address | None:
 
 
 def _recipients(message: pypff.message) -> tuple[tuple[Address, ...], ...]:
+    """To, Cc and Bcc, each in the order the recipient table keeps them."""
     table = message.recipients
     lists: dict[int, list[Address]] = {_RECIPIENT_TO: [], _RECIPIENT_CC: [], _RECIPIENT_BCC: []}
     if table is None:
@@ -316,6 +360,7 @@ def _attachment_info(attachment: pypff.attachment, index: int, html: str) -> Att
 
 
 def _properties(item: pypff.item, wanted: set[int]) -> dict[int, object]:
+    """The first value of each wanted tag across the item's record sets."""
     found: dict[int, object] = {}
     for record_set in item.record_sets:
         for tag, value in _entries(record_set, wanted).items():
@@ -339,6 +384,7 @@ def _value(entry: pypff.record_entry) -> object:
 
 
 def _rtf(message: pypff.message) -> bytes | None:
+    """The decompressed RTF body. libpff raises on a malformed one; that body is then absent."""
     try:
         return message.rtf_body
     except OSError:
@@ -352,6 +398,7 @@ def _decode_markup(raw: bytes | None) -> str:
 
 
 def _smtp(*candidates: object) -> str:
+    """The first candidate that is an internet address (an Exchange DN is not)."""
     for candidate in candidates:
         text = _text(candidate)
         if text and "@" in text:
@@ -360,6 +407,7 @@ def _smtp(*candidates: object) -> str:
 
 
 def _base64(value: object) -> str | None:
+    """Binary property bytes as base64, the way a mail header carries them."""
     if not isinstance(value, bytes) or not value:
         return None
     return base64.b64encode(value).decode("ascii")

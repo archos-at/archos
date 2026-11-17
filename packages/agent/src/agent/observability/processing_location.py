@@ -1,3 +1,15 @@
+"""Where each chat generation was processed, on its Langfuse generation (ADR-0167).
+
+The chat-request contract (``common/llm_factory``) asks ``common/residency`` where each call goes and stamps the
+answer on the reply's ``response_metadata["processing_route"]``. The agent runtime's span exporter keeps that
+object in the generation span's ``nat.metadata`` JSON (``chat_responses[].message.response_metadata``), the same
+carrier the usage processor reads OpenRouter's cost from. This processor lifts it onto the generation as
+``processing_location``, ``subprocessor`` and ``processing_location_compliant`` observation metadata.
+
+A direct generation (``direct_trace.observed_generation``) is stamped by the seam itself, through the route sink;
+this processor covers the generations the agent runtime builds.
+"""
+
 from __future__ import annotations
 
 import json
@@ -34,6 +46,10 @@ def _find_route(node: Any, depth: int = 0) -> dict[str, Any] | None:
 
 
 def route_attributes(attributes: dict[str, Any]) -> dict[str, Any]:
+    """The observation metadata a generation span's own response side says about its route. Pure.
+
+    Only ``chat_responses`` is read: the input side replays earlier replies, whose route is theirs.
+    """
     if not is_generation_span(attributes):
         return {}
     for key, value in attributes.items():
@@ -44,6 +60,7 @@ def route_attributes(attributes: dict[str, Any]) -> dict[str, Any]:
 
 
 def _route_in(metadata_json: Any) -> dict[str, Any] | None:
+    """The route on the response side of one serialized ``nat.metadata`` value, or None."""
     if not isinstance(metadata_json, str) or ROUTE_KEY not in metadata_json:
         return None
     try:
@@ -63,6 +80,7 @@ try:
     from nat.observability.processor.processor import Processor
 
     class ProcessingLocationProcessor(Processor[Span, Span]):
+        """Stamp each chat generation's processing location onto its span. Never raises."""
 
         async def process(self, item: Span) -> Span:
             try:

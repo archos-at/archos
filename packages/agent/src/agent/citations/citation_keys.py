@@ -1,3 +1,5 @@
+"""Reading a citation key the model wrote: file name, shelf qualifier, page, or an estate path."""
+
 from __future__ import annotations
 
 import logging
@@ -27,6 +29,18 @@ SCOPE_QUALIFIER_TOKEN_RE = re.compile(rf"\s*\(({_SCOPE_QUALIFIER_ALTERNATION})\)
 
 
 def parse_citation_ref(key: str) -> tuple[str, Shelf | None, int | None]:
+    """Extract (filename, shelf, page_number) from a citation key.
+
+    Handles: "report.pdf, p.15", "report.pdf, page 15", "report.pdf",
+    "report.pdf, p.15, Table 1", "Plan.pdf (Projektwissen), p.3"
+
+    ``shelf`` is the :class:`Shelf` the key's qualifier NAMES, or None when the
+    key is unqualified — which is the common case, because a filename is only
+    qualified when the same name was retrieved from two different shelves in one
+    turn. Reading a qualifier is not shelf INFERENCE: the qualifier was written
+    from a stated shelf, and legacy keys are the one place the label is all
+    that was persisted.
+    """
     page_match = PAGE_RE.search(key)
     page = int(page_match.group(1)) if page_match else None
     if page_match:
@@ -46,6 +60,7 @@ def parse_citation_ref(key: str) -> tuple[str, Shelf | None, int | None]:
 
 
 def key_file_names(key: str, filename: str) -> list[str]:
+    """The file names a citation key may mean: its parsed ``filename``, or each one a path-shaped key stands for."""
     from_path = citation_key_of_path(path_in_citation(key) or "")
     return from_path[0] if from_path is not None else [filename]
 
@@ -60,6 +75,12 @@ _ESTATE_PATH_LEAF_RE = re.compile(
 
 
 def path_in_citation(text: str) -> str | None:
+    """The estate path ``text`` cites, exactly: from its mount to the leaf's extension.
+
+    A file name may hold commas (``Bescheid, Stand 2024.pdf``), so the path ends at its extension,
+    and text after it (a page, a dash, a closing parenthesis) stays. A leaf without a known extension
+    ends where the locus (``p.3``, ``S. 3``) or the shelf qualifier begins, never at the first comma.
+    """
     start = _ESTATE_PATH_START_RE.search(text)
     if start is None:
         return None
@@ -73,6 +94,15 @@ def path_in_citation(text: str) -> str | None:
 
 
 def citation_key_of_path(text: str) -> tuple[list[str], Shelf | None] | None:
+    """``(file names, shelf)`` a path-shaped citation names; ``None`` when ``text`` is no estate path.
+
+    The model reads paths since ADR-0133 (a hit's ``Path:``, a ``read_file`` header), so a citation
+    written as ``/project/Gutachten/Brandschutzkonzept.pdf.md, p.3`` is likely. The file names it may
+    mean are the leaf's candidates, as the estate resolves them (``estate_paths.file_name_candidates``:
+    ``x.pdf.md`` is ``x.pdf`` or itself, ``Plan.md`` itself or ``Plan``); the registry matches any. The
+    mount states the shelf, the way a qualifier does. Verification would otherwise drop the citation and
+    the answer lose its source without a word; this is that correction held by code, not prompt prose.
+    """
     from agent.common.estate_paths import MOUNT_SHELVES
     from agent.common.estate_paths import file_name_candidates
     from agent.common.estate_paths import mount_of_path
@@ -90,16 +120,29 @@ def citation_key_of_path(text: str) -> tuple[list[str], Shelf | None] | None:
 
 
 def entry_shelf(entry: SourceEntry) -> Shelf | None:
+    """The shelf a registry entry sits on; ``None`` when unknown.
+
+    Prefers the STATED shelf. The collection-name fallback exists only for
+    entries captured before the knowledge layer emitted ``Shelf:`` (an older
+    deploy's tool output replayed into this registry) and goes away with
+    :func:`legacy_shelf_for_collection_name`.
+    """
     return parse_shelf(entry.shelf) or legacy_shelf_for_collection_name(entry.collection)
 
 
 def parse_citation_key(key: str) -> tuple[str, int | None]:
+    """(filename, page) from a citation key — :func:`parse_citation_ref` without the shelf.
+
+    Kept as the narrow form for the many call sites that only ever needed the
+    document's name and page (wire serialization, chunk merging, display).
+    """
     filename, _scope, page = parse_citation_ref(key)
     return filename, page
 
 
 @dataclass
 class ParsedURL:
+    """Pre-parsed URL components cached at registration time."""
 
     host: str
     path: str

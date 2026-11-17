@@ -1,3 +1,5 @@
+"""The canvas activity card: what happened on a canvas this turn."""
+
 from typing import Annotated
 from typing import Literal
 

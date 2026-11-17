@@ -1,3 +1,5 @@
+"""Text helpers for the briefing: metres, plurals, shortening and wrapping, and the coverage line."""
+
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -8,6 +10,12 @@ from ifc_spatial.briefing_records import Coverage
 
 
 def _coverage_line(coverage: Coverage) -> str:
+    """Render one ``n of m`` fact.
+
+    The three branches are the whole point. An empty population, an unresolved
+    population and a partly resolved one are three different findings, and only
+    the third is about the building.
+    """
     if coverage.of == 0:
         return f"{coverage.what}: dieser Export enthält keine solchen Elemente"
     if coverage.n == 0:
@@ -21,6 +29,11 @@ def _coverage_line(coverage: Coverage) -> str:
 
 
 def _metres(value: float) -> str:
+    """``+2.85`` / ``±0.00`` / ``−2.60``, matching the layout in §8.1.
+
+    ``±0.00`` rather than ``+0.00`` because a storey at datum is the reference
+    every other elevation is read against, and the plan convention says so.
+    """
     if abs(value) < 0.005:
         return "±0.00"
     return f"{'+' if value > 0 else '−'}{abs(value):.2f}"

@@ -1,3 +1,5 @@
+"""Message utilities for extracting content from conversation history."""
+
 from __future__ import annotations
 
 import logging
@@ -9,6 +11,12 @@ logger = logging.getLogger(__name__)
 
 
 def content_to_text(content: object) -> str:
+    """Normalize LLM message content to plain text.
+
+    Chat models may return ``content`` as a string or as a list of content
+    blocks (e.g. ``[{"type": "text", "text": "..."}]``); the parsing helpers
+    below all expect a string.
+    """
     if isinstance(content, str):
         return content
     if isinstance(content, list):
@@ -25,6 +33,15 @@ def content_to_text(content: object) -> str:
 
 
 def response_text(response: object) -> str:
+    """The text a model call answered with, whatever shape the provider returned it in.
+
+    A message's ``content`` is a string on some providers and a list of blocks
+    on others (the Responses API, Anthropic): ``[{"type": "reasoning", ...},
+    {"type": "text", "text": "..."}]``. ``BaseMessage.text`` is LangChain's own
+    answer to that: the text blocks joined, everything else skipped. Calling
+    ``.strip()`` on the list crashed card generation (#653); ``str()`` on it
+    fed Python repr to a JSON parser, a judge and an embedding.
+    """
     if isinstance(response, BaseMessage):
         return response.text
     if isinstance(response, dict):
@@ -33,6 +50,17 @@ def response_text(response: object) -> str:
 
 
 def get_latest_user_query(messages: list[BaseMessage]) -> str:
+    """Return the most recent user-authored message content.
+
+    Iterates through messages in reverse order to find the latest
+    HumanMessage, which represents the user's most recent query.
+
+    Args:
+        messages: List of conversation messages.
+
+    Returns:
+        The content of the latest user message, or empty string if none found.
+    """
     for message in reversed(messages):
         if isinstance(message, HumanMessage):
             return content_to_text(message.content)

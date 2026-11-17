@@ -1,3 +1,12 @@
+"""The per-turn ContextVar registries, bound for exactly the life of one turn.
+
+Five things a tool or prompt reaches through a ContextVar during the turn —
+the citation registry, the card registry, the image-view budget, the
+memory-write log and the restricted notes earlier turns were shown — are bound
+here and unbound in one place, so no one of them can outlive the turn or leak
+into the next.
+"""
+
 from __future__ import annotations
 
 import asyncio
@@ -39,6 +48,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class TurnRegistries:
+    """The registries bound for this turn, and what they recorded once it ended."""
 
     cards: CardRegistry
     memory_writes: tuple[str, ...] = field(default_factory=tuple)
@@ -50,6 +60,14 @@ class TurnRegistries:
 
 
 async def load_session_registry(conversation_id: str | None) -> SourceRegistry:
+    """Hydrate the conversation's citation registry off the event loop, fail-open.
+
+    The hydrating read is a blocking cache round-trip (a cold-cache socket
+    timeout on Dragonfly), so it rides a thread. On ANY failure a fresh
+    registry is returned: the turn keeps its citations isolated rather than
+    dying without an answer, and the failure cannot lose the other setup
+    branches it is gathered with.
+    """
     try:
         return await asyncio.to_thread(get_or_create_session_registry, conversation_id)
     except Exception:  # noqa: BLE001 - a cold cache must not cost the turn its answer
@@ -58,6 +76,7 @@ async def load_session_registry(conversation_id: str | None) -> SourceRegistry:
 
 
 async def load_turn_shown_notes(conversation_id: str | None) -> ShownNotes:
+    """The restricted notes earlier turns were shown, off the event loop; empty on any failure."""
     try:
         return await asyncio.to_thread(load_shown_notes, conversation_id)
     except Exception:  # noqa: BLE001 - a cold cache must not cost the turn its answer
@@ -66,6 +85,7 @@ async def load_turn_shown_notes(conversation_id: str | None) -> ShownNotes:
 
 
 def _registry_collections(registry: SourceRegistry) -> tuple[str, ...]:
+    """The distinct collections of a citation registry's sources; empty on any fault."""
     try:
         return tuple(dict.fromkeys(source.collection for source in registry.all_sources() if source.collection))
     except Exception:  # noqa: BLE001 - a stage fact is never worth a failed turn
@@ -85,6 +105,18 @@ async def turn_registries(
     personal_memory: str | None = None,
     answer_message_id: str | None = None,
 ) -> AsyncIterator[TurnRegistries]:
+    """Bind the five per-turn registries; unbind and persist on exit, however it exits.
+
+    ``memory_digest`` is the memory digest the agent is shown this turn; the
+    memory log keeps it for the ``remember`` tool (ADR-0087). ``shown_notes`` is
+    what earlier turns were shown of restricted memory, and
+    ``restricted_scope`` the restricted collections of this turn's signed
+    scope: on exit this turn's restricted lines and restricted writes are added
+    to the record under them, so a later turn still counts them as evidence.
+    ``temporary`` and ``personal_memory`` are the turn context's (ADR-0180),
+    kept on the memory log for the ``remember`` tool and the prompt, and
+    ``answer_message_id`` the answer a personal note of this turn is stored under.
+    """
     earlier = shown_notes or ShownNotes()
     cards = get_or_create_card_registry(conversation_id)
     cards.clear()
@@ -127,10 +159,17 @@ async def _persist(conversation_id: str) -> None:
 
 
 def schedule_registry_persist(conversation_id: str) -> None:
+    """Persist the turn's citation registry to the shared cache off the TTFT path.
+
+    Best-effort (ADR-0020 cross-replica/restart source recovery): nothing
+    downstream reads its result, so it must not sit between "answer ready"
+    and the first streamed token.
+    """
     task = asyncio.get_running_loop().create_task(_persist(conversation_id))
     _persist_tasks.add(task)
     task.add_done_callback(_persist_tasks.discard)
 
 
 def pending_persist_tasks() -> frozenset[asyncio.Task]:
+    """The persistence tasks still running (for tests and shutdown)."""
     return frozenset(_persist_tasks)

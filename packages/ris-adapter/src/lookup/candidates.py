@@ -1,3 +1,13 @@
+"""[2] Which documents this call will consider. CAP: three.
+
+Two sources, in this order, because one is verified and free and the other is
+neither: the norm registry (``configs/norms/*/registry.yml``, ADR-0025) holds
+checked pointers for the core building law, and a live OGD-RIS search planned
+by ``ris_search``'s own planner covers everything else. A caller who passed an
+address — a RIS URL or a document number — skips both: an address is not a
+guess to be improved.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -25,6 +35,7 @@ LIVE_PAGE_SIZE = 20
 
 @dataclass(frozen=True)
 class Candidate:
+    """A document this call MIGHT read, with everything a citation needs."""
 
     title: str
     url: str = ""  # fetchable full text; empty for a reference-only entry
@@ -44,6 +55,11 @@ class Candidate:
 async def collect_candidates(
     client, planner, question, address: Address, trace: LookupTrace, catalog_path: str, as_of: str = ""
 ):
+    """At most three documents: the address, else the catalog, else live RIS.
+
+    On a past day (``as_of``) only live version documents in force on it: an
+    address or a catalog pointer names today's consolidation (``as_of.py``).
+    """
     if as_of:
         return await live_candidates(client, planner, question, address, trace, as_of)
     addressed = candidate_from_address(address)
@@ -60,6 +76,7 @@ async def collect_candidates(
 
 
 def candidate_from_address(address: Address) -> Candidate | None:
+    """The document the caller addressed directly — a RIS URL or a document number."""
     if address.url:
         return Candidate(title="", url=address.url, citation_url=address.url, origin="address")
     if not address.document_number:
@@ -78,6 +95,12 @@ def candidate_from_address(address: Address) -> Candidate | None:
 
 
 def catalog_candidates(question: str, address: Address, catalog_path: str) -> list[Candidate]:
+    """Verified pointers from the norm registry, jurisdiction-filtered.
+
+    The same two calls ``ris_search``'s catalog shortcut makes, in the same
+    order: match on the topic, then drop every other state's law — a Tyrolean
+    project must never be handed the Viennese Bauordnung.
+    """
     if not _CATALOG_AVAILABLE:
         return []
     catalog = load_registry(catalog_path or None)
@@ -89,6 +112,12 @@ def catalog_candidates(question: str, address: Address, catalog_path: str) -> li
 
 
 def candidate_from_entry(entry) -> Candidate:
+    """One norm-registry entry as a candidate, unavailability stated verbatim.
+
+    The two "Not in RIS" sentences are the catalog's own
+    (``register._format_catalog_entry``): a norm that exists with no reachable
+    full text is a fact the answer must state, not a silent gap.
+    """
     unavailable = ""
     if not entry.is_ris:
         unavailable = (
@@ -109,6 +138,12 @@ def candidate_from_entry(entry) -> Candidate:
 
 
 def candidate_from_hit(hit: RisHit) -> Candidate:
+    """One live RIS hit as a candidate.
+
+    ``full_law_url`` beats the single-paragraph document URL: the extractor
+    works on §§ and the consolidated law is the document that HAS them. Case
+    law has no full-law URL and falls back to its own text.
+    """
     return Candidate(
         title=hit.title,
         url=hit.full_law_url or hit.fetch_url,
@@ -124,6 +159,7 @@ def candidate_from_hit(hit: RisHit) -> Candidate:
 async def live_candidates(
     client, planner, question, address: Address, trace: LookupTrace, as_of: str = ""
 ) -> list[Candidate]:
+    """A live OGD-RIS search, planned by the same LLM ``ris_search`` uses; on ``as_of``, versions of that day."""
     plan = await search_plan(planner, question, address, trace)
     try:
         params = _build_search_params(
@@ -142,6 +178,7 @@ async def live_candidates(
 
 
 def versions_on(hits, as_of: str, trace: LookupTrace) -> list[Candidate]:
+    """The version documents in force on ``as_of``, each read as itself, never the whole law of today."""
     day = parse_day(as_of)
     kept = [hit for hit in hits if day is not None and in_force_on(hit.metadata, day)]
     trace.versions_dropped = len(hits) - len(kept)
@@ -161,6 +198,7 @@ def versions_on(hits, as_of: str, trace: LookupTrace) -> list[Candidate]:
 
 
 async def search_plan(planner, question: str, address: Address, trace: LookupTrace) -> dict:
+    """The effective search parameters, planned when a planner is configured."""
     effective = {
         "application": trace.application or ("LrKons" if address.federal_state else "BrKons"),
         "query": question,
@@ -175,6 +213,7 @@ async def search_plan(planner, question: str, address: Address, trace: LookupTra
 
 
 async def _planned(planner, effective: dict, address: Address) -> dict:
+    """Run the planner; the caller's arguments survive a planner failure."""
     try:
         plan = await planner(
             effective["query"], effective["application"], effective["title"], effective["federal_state"], "", ""

@@ -1,3 +1,33 @@
+"""The checks every answer already passes through, as Langfuse scores (ADR-0089).
+
+The answer pipeline grades every turn before the reader sees it: citation
+verification drops what it cannot verify, the quote check finds wording no
+passage holds and patches it, the dialect pass repairs blocks, a card that
+misses its schema is repaired or dropped, and the overconfidence guard caps the
+surfaced confidence. All of that was recorded somewhere (the citation-events
+ledger, a wire status, a trace metadata blob) and none of it was a *score*, so
+Langfuse could not chart it over time, put it next to the user's vote, compare
+it across prompt versions or feed it to an annotation queue.
+
+This module turns those runtime checks into scores on the turn's trace:
+
+* :data:`SCORE_DEFINITIONS` is the one list of score names Grid writes, with
+  their type and range. ``scripts/langfuse_provision.py`` creates a Langfuse
+  score config from each, and ``docs/observability/langfuse.md`` documents them,
+  so a name cannot exist in one place and not the others
+  (``packages/agent/tests/observability/test_langfuse_scores.py`` holds them together).
+* The ``*_scores`` builders are pure: a check's outcome in, scores out.
+* :func:`emit_scores` posts them to ``POST /api/public/scores`` on a small
+  bounded pool, the way ``common.citation_events`` posts its batches: never
+  raises, never waits, drops past a backlog ceiling rather than growing.
+
+Each score's id is derived from (trace, writer, name[, item]), so a retried or
+repeated post upserts rather than double-counts.
+
+Availability is capability: without ``LANGFUSE_HOST`` and the key pair (the
+deployment injects them where the Langfuse tier exists) every call is a no-op.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -376,6 +406,7 @@ _UNHEALTHY_SEVERITIES = frozenset({"warn", "error"})
 
 @dataclass(frozen=True)
 class RuntimeScore:
+    """One score to write on a trace."""
 
     name: str
     value: float | str
@@ -395,6 +426,7 @@ def _boolean(name: str, value: bool, comment: str | None = None) -> RuntimeScore
 
 
 def turn_outcome_scores(result: Any) -> list[RuntimeScore]:
+    """Scores from a finished turn's ``TurnResult``: what the reader was shown."""
     scores: list[RuntimeScore] = []
     confidence = getattr(result, "answer_confidence", None)
     if confidence:
@@ -410,6 +442,7 @@ def turn_outcome_scores(result: Any) -> list[RuntimeScore]:
 
 
 def proposal_cards(cards: Iterable[Any]) -> int:
+    """How many of a turn's cards show a stored proposal (they carry its ``proposal_id``)."""
     count = 0
     for keyed in cards:
         card = getattr(keyed, "card", keyed)
@@ -419,6 +452,7 @@ def proposal_cards(cards: Iterable[Any]) -> int:
 
 
 def work_report_scores(result: Any) -> list[RuntimeScore]:
+    """A work turn's report against what the turn filed; nothing on any other turn."""
     meta = getattr(result, "answer_meta", None) or {}
     if not isinstance(meta, dict) or meta.get("kind") != "work":
         return []
@@ -428,10 +462,12 @@ def work_report_scores(result: Any) -> list[RuntimeScore]:
 
 
 def work_unfiled_scores(dropped: int) -> list[RuntimeScore]:
+    """How many of a work report's ``proposed`` lines named no proposal this turn filed; zero included."""
     return [RuntimeScore("work-proposals-unfiled", float(max(0, dropped)))]
 
 
 def answer_check_scores(level: str | None, open_points: Sequence[str] = ()) -> list[RuntimeScore]:
+    """The answer check's level and the open points it read, or that it was unavailable (ADR-0139)."""
     if level is None:
         return [_boolean("confidence-judge-unavailable", True)]
     named = RuntimeScore(
@@ -441,6 +477,7 @@ def answer_check_scores(level: str | None, open_points: Sequence[str] = ()) -> l
 
 
 def answer_check_unavailable_scores(reason: dict[str, Any]) -> list[RuntimeScore]:
+    """Why the answer check gave no level (``claim_judge.Unavailable.to_wire``), with the call's facts."""
     facts = [
         reason.get("error_type"),
         f"finish_reason {reason['finish_reason']}" if reason.get("finish_reason") else None,
@@ -455,10 +492,12 @@ def answer_check_unavailable_scores(reason: dict[str, Any]) -> list[RuntimeScore
 
 
 def dropped_citation_scores(dropped: int) -> list[RuntimeScore]:
+    """How many citations the verifier removed because they did not resolve; zero included."""
     return [RuntimeScore("citations-dropped-labelled", float(max(0, dropped)))]
 
 
 def look_scores(*, looks: int, drawing_value: bool, region_look_first: bool) -> list[RuntimeScore]:
+    """The turn's looks (ADR-0128): how many, and whether a region look came before a stated drawing value."""
     scores = [RuntimeScore("look-count", float(max(0, looks)))]
     if drawing_value:
         scores.append(_boolean("looked-before-measurement", region_look_first))
@@ -470,6 +509,13 @@ SEARCH_TOOLS = frozenset({"knowledge_search"})
 
 
 def file_tool_scores(tools: Iterable[str], literal_searches: int = 0) -> list[RuntimeScore]:
+    """Which office-file moves a turn used, from the basenames of the tools it called, one per call.
+
+    ``literal_searches`` is how many of the ``knowledge_search`` calls ran in a literal mode
+    (``action_rows.emit_literal_search``): those count as navigation, the rest as search, so the
+    score separates the eval's arms. Nothing for a turn that called no tool at all; ``none`` for a
+    turn that called tools but none of these.
+    """
     calls = list(tools)
     if not calls:
         return []
@@ -487,6 +533,7 @@ def file_tool_scores(tools: Iterable[str], literal_searches: int = 0) -> list[Ru
 
 
 def thread_reply_scores(verdict: str) -> list[RuntimeScore]:
+    """A thread turn's ``thread_reply`` verdict as a score: ``replied`` true, ``skipped`` false, else none."""
     if verdict not in ("replied", "skipped"):
         return []
     return [_boolean("thread-answered-in-place", verdict == "replied")]
@@ -503,6 +550,7 @@ _SCORE_ID_NAMESPACE = uuid.UUID("6f1c2a52-4f7e-4f43-9c39-2f0f8a8f6d5e")
 
 
 def score_id(*, trace_id: str, writer: str, name: str, item: str | None = None) -> str:
+    """The id a score is upserted under: one per (trace, writer, name, item)."""
     return str(uuid.uuid5(_SCORE_ID_NAMESPACE, f"{trace_id}:{writer}:{name}:{item or ''}"))
 
 
@@ -516,10 +564,12 @@ def _credentials() -> tuple[str, str, str] | None:
 
 
 def scores_enabled() -> bool:
+    """Whether this process can write scores: the Langfuse tier is deployed and its keys reached us."""
     return _credentials() is not None
 
 
 def score_body(score: RuntimeScore, *, trace_id: str, writer: str, environment: str | None) -> dict[str, Any]:
+    """The ``POST /api/public/scores`` body for one score. Pure."""
     body: dict[str, Any] = {
         "id": score_id(trace_id=trace_id, writer=writer, name=score.name, item=score.item),
         "traceId": trace_id,
@@ -553,6 +603,11 @@ def _post(host: str, auth: tuple[str, str], body: dict[str, Any]) -> None:
 
 
 def emit_scores(scores: Iterable[RuntimeScore], *, writer: str, trace_id: str | None = None) -> int:
+    """Queue ``scores`` for the current turn's trace; how many were queued. Never raises, never waits.
+
+    ``trace_id`` defaults to the trace this context runs in
+    (``observability.turn_trace.current_trace_id_hex``).
+    """
     global _pending
     try:
         credentials = _credentials()

@@ -1,3 +1,38 @@
+"""The model handle: one IFC file, its geometry, and its spatial tree.
+
+This is the Python counterpart of `buildGraph` + `runGeometryPass` in the
+TypeScript package, and it is deliberately much smaller. The reason is the whole
+point of the spike: **the graph does not have to be built.** IfcOpenShell holds
+the file with every inverse attribute already resolved, so the relation edges the
+TS parser materialises into a CSR index (`voids`, `fills`, `interfaceOf`,
+`containsElement`, `connects`) are attribute reads here, and the geometry index
+is one multi-threaded iterator pass over the same file.
+
+## The setting that decides whether the numbers are true
+
+``settings.set("use-world-coords", True)``. Without it,
+``ifcopenshell.geom.create_shape`` returns coordinates in the element's OWN
+placement frame, and every one of them looks perfectly plausible: the sample
+house's north window measures 1.81 × 1.21 m either way, sits at a sill of 0.0 m
+instead of 0.90 m, and the roof overhang comes out as a number that is simply
+wrong. It is set once, here, and never left to a caller.
+
+## Two trees, and why the geometry index is not one of them
+
+- ``SpatialModel.tree`` is ``ifcopenshell.geom.tree`` — the OCCT UB-tree used
+  for ray casting and volume selection. It is built from a NATIVE (BRep)
+  iterator, which is both faster (0.9 s against 6.8 s for ``add_file`` on the
+  sample house) and exact: ``select_ray`` reports the intersection with the real
+  surface, not with a triangle that approximates it.
+- ``SpatialModel.geometry(global_id)`` is a per-element triangulation, kept
+  because areas, bounding boxes, facade planes and prism clipping are all
+  measurements over faces, and because ``ifcopenshell.util.shape`` reads them
+  straight off that triangulation.
+
+Both are lazy and both are cached. A caller that only asks topological questions
+pays for neither, which is the disclosure ladder §8.2 asks for.
+"""
+
 from __future__ import annotations
 
 import os
@@ -48,6 +83,22 @@ DERIVED_BOUNDARY_MAX_PRODUCTS = 2000
 
 
 class ModelUnreadableError(RuntimeError):
+    """This file cannot be opened, and a reason a person can act on.
+
+    Every failure mode of ``ifcopenshell.open`` reaches a caller as a different
+    exception type — ``OSError`` for an empty file, ``FileNotFoundError`` for a
+    missing one, ``ifcopenshell.Error`` for a header it cannot parse,
+    ``SchemaError`` for a schema it does not implement — and a **segmentation
+    fault** for a file truncated mid-entity, which no ``except`` clause can
+    catch. A consumer that has to enumerate four exception types and still gets
+    killed by the fifth cannot state a reason, and stating a reason is this
+    library's entire job.
+
+    So the constructor pre-flights the bytes and raises exactly this, with a
+    German ``reason``, for everything it can see coming. It is a refusal about
+    the FILE, which is why it is not an ``Answer``: an undecidable answer claims
+    "the model was read and cannot say", and here there is no model.
+    """
 
     def __init__(self, path: str, reason: str) -> None:
         self.path = path
@@ -56,6 +107,7 @@ class ModelUnreadableError(RuntimeError):
 
 
 class ModelTooLargeError(ModelUnreadableError):
+    """The file is real and too big to read here — a stated limit, not a hang."""
 
     def __init__(self, path: str, size: int, limit: int) -> None:
         self.size = size
@@ -71,6 +123,18 @@ class ModelTooLargeError(ModelUnreadableError):
 
 
 def _preflight(path: str, max_bytes: int) -> None:
+    """Everything about the bytes that can be checked before this process parses them.
+
+    The truncation check is the one that matters. ``ifcopenshell.open`` **crashes
+    the process** on a file cut mid-entity — measured on this corpus: a Duplex
+    export truncated to 100 000 and to 300 000 bytes both segfault, while the
+    same file cut at a line boundary parses fine. A crash cannot be caught, cannot
+    be reported and takes the request with it, so the only defence is to refuse
+    before handing the bytes over. A complete SPF file ends with
+    ``END-ISO-10303-21;``; a truncated download essentially never does.
+
+    Last comes a trial parse in a child; the design doc's worker (§11) remains the real answer.
+    """
     if not isinstance(path, (str, os.PathLike)):
         raise ModelUnreadableError(str(path), "Kein Dateipfad übergeben.")
     path = os.fspath(path)
@@ -108,6 +172,16 @@ def _preflight(path: str, max_bytes: int) -> None:
 
 
 class UnknownElementError(KeyError):
+    """The caller could not look — as opposed to having looked and found nothing.
+
+    ``envelope.py`` reserves the exception for exactly this: ``decidable=False``
+    means the question was well-formed and this file cannot answer it, which is a
+    claim about the EXPORT. An id that is not in the model supports no claim
+    about the export whatsoever; the id is wrong, or it belongs to a different
+    file, or it was invented. Handing that back as an undecidable would let a
+    hallucinated GlobalId be reported as "das Modell sagt dazu nichts" — the one
+    failure mode this library exists to prevent.
+    """
 
     def __init__(self, global_id: str, method: str) -> None:
         self.global_id = global_id
@@ -119,6 +193,30 @@ class UnknownElementError(KeyError):
 
 
 class WrongKindError(TypeError):
+    """The operator was aimed at an element it does not apply to — a CALLER mistake.
+
+    The sibling of :class:`UnknownElementError`, and it exists for the same
+    reason. ``envelope.py`` gives ``decidable=False`` one meaning: the question
+    is well-formed and THIS EXPORT cannot answer it. Such an answer carries
+    ``missing.remedy``, and the remedy is an instruction to an architect — set
+    the property, switch on the export option, re-export with geometry.
+
+    Asking ``floorArea`` of a wall or ``clearOpeningWidth`` of a curtain-wall
+    pane is not that. Nothing is absent from the file, the architect has nothing
+    to change, and there is no CAD setting that would make a plate answer a
+    question about a door. The adversarial review measured what publishing it as
+    a finding costs: a sweep of 1 850 ``measure``/``relations`` calls over the
+    five fixtures produced **316** answers rendered as „NICHT ENTSCHEIDBAR:
+    dieser Export liefert … nicht. Das ist ein Befund über den EXPORT" — the most
+    common non-answer in the system, and every one of them an accusation against
+    an export that was fine.
+
+    So a wrong kind raises, exactly as an unknown GlobalId does. The tool layer
+    turns it into a ``ToolError``, which the agent reads as "a problem with the
+    arguments, not with the building" — which is the truth. ``suggestion`` names
+    the operator that WOULD answer the question, so the refusal is still a route
+    forward rather than a dead end.
+    """
 
     def __init__(
         self,
@@ -147,6 +245,7 @@ class WrongKindError(TypeError):
 
 @dataclass
 class ElementGeometry:
+    """One element's triangulated body, in world coordinates and metres."""
 
     global_id: str
     verts: np.ndarray
@@ -156,6 +255,7 @@ class ElementGeometry:
 
     @property
     def triangles(self) -> np.ndarray:
+        """(F, 3, 3) — the faces expanded into coordinates."""
         return self.verts[self.faces]
 
 
@@ -168,6 +268,14 @@ class Storey:
 
 @dataclass(frozen=True)
 class DeclaredQuantity:
+    """A quantity the file states, in SI, with the arithmetic that got it there.
+
+    ``raw`` and ``unit_label`` are kept beside ``value`` on purpose: an architect
+    reading a disagreement needs to see the number the way their own software
+    prints it (``68.10 SQUARE FOOT``) as well as the number this library
+    compares against (``6.327 m²``). Reporting only the converted value would
+    make a correct conversion indistinguishable from a wrong one.
+    """
 
     path: str
     value: float
@@ -177,6 +285,14 @@ class DeclaredQuantity:
 
 
 def _unit_scale_to_si(unit: Any) -> float:
+    """The factor from an ``IfcNamedUnit`` to its SI base — the same walk
+    ``ifcopenshell.util.unit.calculate_unit_scale`` does for a whole project,
+    applied to one unit that may override it.
+
+    ``convert_unit`` cannot serve here: it matches on unit NAMES, and the name of
+    a conversion-based unit (``'SQUARE FOOT'``) is not in its SI table. The
+    conversion factor is on the entity, so it is read off the entity.
+    """
     scale = 1.0
     guard = 0
     while unit is not None and unit.is_a("IfcConversionBasedUnit") and guard < 8:
@@ -208,6 +324,7 @@ def _unit_label(unit: Any) -> str | None:
 
 
 class SpatialModel:
+    """An opened IFC file plus everything the operators need to measure it."""
 
     def __init__(self, path: str, *, max_bytes: int = MAX_FILE_BYTES) -> None:
         _preflight(path, max_bytes)
@@ -238,6 +355,22 @@ class SpatialModel:
 
 
     def by_id(self, global_id: str, method: str) -> Any:
+        """The entity, or :class:`UnknownElementError`. Never a silent ``None``.
+
+        ``file.by_guid`` is not strict enough to build this on directly, and both
+        of its lenient paths are dangerous here:
+
+        - ``by_guid(None)`` returns ``None`` rather than raising, and the caller
+          then dies of ``AttributeError: 'NoneType' object has no attribute
+          'GlobalId'`` several frames away from the mistake;
+        - ``by_guid(123)`` falls through to lookup **by entity id** and hands
+          back ``#123=IfcArbitraryOpenProfileDef`` — a real entity, of the wrong
+          kind, for an id nobody asked about. An operator would then measure a
+          profile definition and report it as the answer.
+
+        So the type is checked, and the entity that comes back must actually
+        carry the GlobalId that was asked for.
+        """
         if not isinstance(global_id, str) or not global_id.strip():
             raise UnknownElementError(str(global_id), method)
         try:
@@ -277,6 +410,15 @@ class SpatialModel:
 
 
     def storey_of(self, element: Any) -> Any | None:
+        """The storey this element belongs to, through containment OR aggregation.
+
+        Both routes are needed and the TS parser walks both: a wall is
+        *contained* in a storey (``IfcRelContainedInSpatialStructure``) while an
+        ``IfcSpace`` is *aggregated* into it (``IfcRelAggregates``). Reading only
+        containment returns ``None`` for every room in this file — and a sill
+        height measured against a missing datum is the defect ``sill_and_head``
+        refuses to produce.
+        """
         if element.is_a("IfcBuildingStorey"):
             return element
         seen = set()
@@ -322,6 +464,11 @@ class SpatialModel:
 
     @cached_property
     def true_north(self) -> float | None:
+        """Angle from model +Y to true north, radians, or ``None``.
+
+        ``None`` is the honest answer and is what makes :func:`azimuth` refuse:
+        the model's +Y axis is north only if somebody said so.
+        """
         for ctx in self.file.by_type("IfcGeometricRepresentationContext"):
             if ctx.is_a("IfcGeometricRepresentationSubContext"):
                 continue
@@ -345,6 +492,13 @@ class SpatialModel:
 
 
     def geometry(self, global_id: str) -> ElementGeometry | None:
+        """This element's triangulated body, or ``None`` when it never had one.
+
+        A miss is emphatically not an error. Half the nodes in a real IFC never
+        had a body (``IfcWindowLiningProperties``, curtain-wall shells whose
+        panels carry the geometry instead), and a wall that lost its body in
+        export is a finding worth reporting in the same words.
+        """
         if global_id in self._geometry:
             return self._geometry[global_id]
         element = self.file.by_guid(global_id)
@@ -353,6 +507,19 @@ class SpatialModel:
         return geo
 
     def geometry_failure(self, global_id: str) -> str | None:
+        """*Why* this element has no body — ``None`` when it has one.
+
+        Two failures wear the same missing geometry and want different sentences.
+        The ArchiCAD 18 export in the corpus makes the case: **94 of its 100
+        ``IfcSpace`` entities carry a full ``Body`` representation and OCCT
+        cannot build a single one of them** (``Failed to process shape``). Telling
+        that architect "dieses Bauteil trägt keinen Körper" sends them to check an
+        export setting that is already correct; the actual problem is a room
+        boundary the kernel rejects.
+
+        Returns ``"no-representation"``, ``"empty-mesh"``, or
+        ``"shape-failed: …"`` with the kernel's own message.
+        """
         return self._geometry_failure.get(global_id)
 
     def _shape_of(self, element: Any) -> ElementGeometry | None:
@@ -396,6 +563,13 @@ class SpatialModel:
         )
 
     def triangulation(self, global_id: str) -> Any | None:
+        """The live IfcOpenShell triangulation, for ``util.shape``'s own readers.
+
+        ``get_footprint_area`` / ``get_area`` / ``get_volume`` take the
+        triangulation object rather than arrays, so this hands back a shape this
+        object owns and holds a reference to. Cached: shaping the sample house's
+        living room costs ~3 ms and gets asked for repeatedly.
+        """
         shape = self._shapes.get(global_id)
         if shape is None:
             element = self.file.by_guid(global_id)
@@ -407,6 +581,11 @@ class SpatialModel:
         return shape.geometry
 
     def geometry_pass(self) -> dict[str, ElementGeometry]:
+        """Shape every product in one multi-threaded iterator pass.
+
+        The TS package's `runGeometryPass` equivalent, and the only place a
+        model-wide number (the plan centre, the model diagonal) can come from.
+        """
         if self._pass_done:
             return {k: v for k, v in self._geometry.items() if v is not None}
         t0 = time.perf_counter()
@@ -433,6 +612,14 @@ class SpatialModel:
 
     @cached_property
     def plan_centre(self) -> np.ndarray | None:
+        """The middle of the model in plan — which side of a facade is "out".
+
+        A plane has two normals and the winding of an exported mesh does not
+        reliably say which one faces the weather. Outward is therefore decided
+        geometrically: of the two normals, the one pointing AWAY from this point.
+        Right for every facade of a convex-ish building, wrong for the inner face
+        of a courtyard wing — which is stated in a caveat, never hidden.
+        """
         if self.bounds is None:
             return None
         low, high = self.bounds
@@ -446,6 +633,39 @@ class SpatialModel:
         return float(np.linalg.norm(high - low))
 
     def space_contacts(self, contact: float = 0.05) -> dict[str, set[str]]:
+        """For every IfcSpace, the elements whose solids touch it. Computed once.
+
+        This is the model-wide primitive behind :func:`bounds`, :func:`opens_to`,
+        :func:`enclosed_by` and :func:`adjacent_spaces`, and it exists in this
+        shape for a measured reason. ``geom.tree.select(element, extend=d)``
+        performs a real OCCT offset of the subject solid, and the cost is a
+        property of the SUBJECT, not of the tolerance: offsetting one window of
+        this file (a frame with mullions) takes **2.9 s** at any extend, while
+        offsetting one space (a prism) takes **0.55 s**. Asking the question from
+        the window's side would cost 2.9 s per window; asking it from the space's
+        side costs 0.55 s per room, once, and answers it for every window in that
+        room at dictionary speed.
+
+        ``extend=0`` is not an option: without an offset the query is a strict
+        intersection test and two solids that merely touch — a window in its
+        reveal, a wall against a room — do not register. Measured: the window
+        returns nothing at all at ``extend=0``.
+
+        ## The budget, and why the map can come back short
+
+        One offset costs 0.5–2 s and the loop is over every space in the file, so
+        the cost is unbounded in the model: a 4 MB office export with 99 rooms
+        spent **212 seconds** here, all of it inside a single ``opens_to()`` call
+        about a single window. That is a hang in a request process, so the loop
+        now stops at :data:`CONTACT_BUDGET_SECONDS` and sets
+        :attr:`contacts_complete` to ``False``. Callers must read that flag: a
+        truncated map looks exactly like a building with fewer neighbours.
+
+        Most callers do not need the map at all — :meth:`contacts_of` answers
+        "what touches THIS room" with one offset. The model-wide map is only
+        needed for the inverse question ("which rooms touch this wall"), and that
+        is the only place that pays for it.
+        """
         key = round(contact, 6)
         contacts = self._space_contacts.setdefault(key, {})
         if not self.derivable_boundaries:
@@ -472,6 +692,11 @@ class SpatialModel:
 
     @cached_property
     def product_count(self) -> int:
+        """How many ``IfcProduct`` entities this file holds — one cheap read.
+
+        Known straight after opening, before any geometry, which is what makes
+        it usable as an admission test.
+        """
         try:
             return len(self.file.by_type("IfcProduct"))
         except RuntimeError:
@@ -479,9 +704,21 @@ class SpatialModel:
 
     @cached_property
     def derivable_boundaries(self) -> bool:
+        """Whether deriving space boundaries from the solids may be attempted.
+
+        See :data:`DERIVED_BOUNDARY_MAX_PRODUCTS`. ``False`` is a refusal, and
+        the operators turn it into an undecidable answer that names the count.
+        """
         return self.product_count <= DERIVED_BOUNDARY_MAX_PRODUCTS
 
     def contacts_of(self, space: Any, contact: float = 0.05) -> set[str]:
+        """What touches ONE space — one OCCT offset, cached, no model-wide loop.
+
+        The question ``bounds(space)`` actually asks. Splitting it out of
+        :meth:`space_contacts` is what turns a 212 s answer on a 99-room model
+        into a 2 s one, because 98 of those offsets were computed for a question
+        nobody had asked.
+        """
         key = round(contact, 6)
         cached = self._space_contacts.setdefault(key, {})
         if not self.derivable_boundaries:
@@ -503,6 +740,12 @@ class SpatialModel:
 
     @cached_property
     def tree(self) -> Any:
+        """The OCCT spatial tree — ``select``, ``select_box``, ``select_ray``.
+
+        Built from a NATIVE (BRep) iterator rather than ``tree.add_file``: same
+        results, 0.9 s instead of 6.8 s on the sample house, because it skips the
+        triangulation the tree does not need.
+        """
         import ifcopenshell.ifcopenshell_wrapper as wrapper
 
         t0 = time.perf_counter()
@@ -518,6 +761,22 @@ class SpatialModel:
 
 
     def declared_property(self, element: Any, names: Iterable[str]) -> Any:
+        """The first non-null property value matching ``names``, across every pset.
+
+        The sibling of :meth:`declared_quantity` for values that carry no unit —
+        ``IsExternal``, ``LoadBearing``, ``FireRating``. No conversion is
+        possible or wanted here; a boolean in ``Pset_WallCommon`` and the same
+        boolean in a vendor pset mean the same thing.
+
+        Searched across all psets for the same reason quantities are: the name
+        is standardised (``IsExternal``) but the SET it lands in is not —
+        ``Pset_WallCommon``, ``Pset_MemberCommon``, ``Pset_PlateCommon`` and a
+        dozen vendor variants all carry it, and a lookup pinned to one of them
+        reports „nicht deklariert" about a file that declares it.
+
+        ``None`` means no pset carries any of these names, which is a fact about
+        the EXPORT and has to stay distinguishable from a declared ``False``.
+        """
         psets = ue.get_psets(element, qtos_only=False) or {}
         for key in names:
             for values in psets.values():
@@ -529,6 +788,41 @@ class SpatialModel:
         return None
 
     def declared_quantity(self, element: Any, names: Iterable[str]) -> DeclaredQuantity | None:
+        """The declared quantity best matching ``names``, converted to SI.
+
+        Deliberately not restricted to ``Qto_SpaceBaseQuantities``: exports
+        publish room areas in ``BaseQuantities`` (Revit, Trapelo), in
+        ``SpaceQuantities`` (Allplan), in ``GSA Space Areas`` (the GSA Duplex),
+        and a triangulation that only looked at the canonical name would report
+        "die Datei deklariert keine Fläche" about a file that declares it. The
+        pset the value was found in travels back so the reader can see which
+        dialect this export speaks.
+
+        Three things this has to get right, each of which it got wrong on the
+        corpus before:
+
+        **The unit.** A quantity is stated in the file's own unit, and the file's
+        area unit is INDEPENDENT of its length unit — the sample house measures
+        in millimetres and declares areas in square metres, while the Trapelo
+        export measures in feet and declares them in square feet. Scaling by
+        ``unit_scale ** 2`` would be wrong in both directions. The right tool is
+        ``ifcopenshell.util.unit.get_property_unit``, which returns the
+        quantity's OWN unit when it overrides the project, and the project unit
+        for that measure otherwise; the conversion chain is then walked to SI.
+        Before this, ``floor_area`` compared 6.33 m² of measured geometry against
+        68.10 declared **square feet** and reported the export as 91 % wrong.
+
+        **Quantity sets outrank property sets.** ``get_psets`` merges
+        ``IfcElementQuantity`` and ``IfcPropertySet`` into one dictionary, and
+        iterating it in insertion order let ``PSet_Revit_Dimensions.Area`` — a
+        Revit dimension echo — beat the real ``Qto_SpaceBaseQuantities``. Real
+        quantity sets are searched first.
+
+        **Name order is priority order.** ``names`` is ranked by the caller;
+        looping psets on the outside made the answer depend on export order
+        instead, so ``Area`` in the first pset beat ``NetFloorArea`` in the
+        second.
+        """
         wanted = list(names)
         verbose = ue.get_psets(element, qtos_only=False, verbose=True) or {}
         quantity_sets = set(ue.get_psets(element, qtos_only=True) or {})
@@ -555,6 +849,7 @@ class SpatialModel:
         return None
 
     def _quantity_scale(self, entity_id: int | None) -> tuple[float, str | None]:
+        """The factor from a quantity's declared unit to SI, and that unit's name."""
         if entity_id is None:
             return 1.0, None
         try:

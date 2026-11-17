@@ -1,3 +1,9 @@
+"""The text parsers for tool results, by tool name: which grammar a replayed tool result is read back in.
+
+A live turn reads a tool's ``GroundingHit`` records (``extraction``); a turn replayed from its text has
+only this. The built-in registrations are at the bottom of this file, in the order they are tried.
+"""
+
 from collections.abc import Callable
 
 from agent.citations.entries import SourceEntry
@@ -17,10 +23,17 @@ def register_source_parser(
     match_fn: Callable[[str], bool],
     parser_fn: SourceParser,
 ) -> None:
+    """Register a parser for a tool name pattern.
+
+    Args:
+        match_fn: Predicate on lowercase tool name.
+        parser_fn: (content, tool_name) -> list[SourceEntry]
+    """
     _PARSER_REGISTRY.append((match_fn, parser_fn))
 
 
 def parser_for(tool_name: str) -> SourceParser | None:
+    """The first registered parser whose predicate matches ``tool_name`` (lowercased), or ``None``."""
     name_lower = tool_name.lower()
     for match_fn, parser_fn in _PARSER_REGISTRY:
         if match_fn(name_lower):

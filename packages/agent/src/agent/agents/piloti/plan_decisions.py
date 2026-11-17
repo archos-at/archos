@@ -1,3 +1,13 @@
+"""The decision model's pre-selection for a research plan: genre and depth.
+
+A commissioned Prüfung and a commissioned Gutachten are different documents
+with different lengths, and the planner used to guess the shape from prose
+alone. The decision model (ADR-0064) reads the request and the project facts
+once and proposes a genre and a depth; the planner is told, and may still
+follow the request where it disagrees. Additive, like every decision: it
+suggests, it never withholds.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -34,6 +44,7 @@ QUESTIONS: dict[str, dict[str, Any]] = {
 
 @dataclass(frozen=True)
 class PlanShape:
+    """What the decision proposed; ``None`` where it was not confident."""
 
     genre: str | None = None
     depth: str | None = None
@@ -46,6 +57,7 @@ class PlanShape:
 async def decide_plan_shape(
     question: str, project_facts: str | None, *, organization_id: str | None = None, transport: Any = None
 ) -> PlanShape:
+    """One decision call before the planner runs; never raises, never blocks the plan."""
     state = {"request": question[:1500], "project": (project_facts or "")[:1500]}
     decision = await decide(state, QUESTIONS, slot=SLOT, organization_id=organization_id, transport=transport)
     if decision is None:

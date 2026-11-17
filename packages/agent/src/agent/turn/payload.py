@@ -1,3 +1,13 @@
+"""What one user message states about how to answer it.
+
+The chat socket hands the workflow the v2 ``user_message`` itself
+(``wire_v2.UserMessage``): its fields are flat and typed, so nothing is parsed
+out of the text. ``nat run``, ``nat eval`` and a single-shot HTTP turn hand it
+the question as a plain string, which is the whole question and states nothing
+else. The turn's intent (the composer's "Asking about <file>" subject) is set
+from it here, once per turn, because retrieval reads the same ContextVars.
+"""
+
 from dataclasses import dataclass
 from typing import Literal
 from typing import NamedTuple
@@ -15,6 +25,20 @@ from agent.common.wire_v2 import UserMessage
 
 @dataclass(frozen=True)
 class SubjectVersion:
+    """The document version the composer says this turn is about.
+
+    Additive beside the focused FILE NAME, and a different question from it.
+    The name is a retrieval identity — which chunks to prefer — and it is only
+    ever as good as the index: a version nobody has published has no chunks at
+    all, so the focus filter matches nothing and falls open to the whole corpus
+    (``packages/knowledge-layer/src/register.py``). This says WHICH version, by
+    id, and what editorial state it is in, so the turn can read the bytes
+    instead of hoping the index has them.
+
+    Every field is optional and unvalidated here on purpose: it arrives from a
+    client, the BFF re-checks tenancy on the read, and an incomplete triple is
+    simply not a subject version.
+    """
 
     document_id: str | None = None
     version_id: str | None = None
@@ -22,6 +46,13 @@ class SubjectVersion:
 
     @property
     def is_open(self) -> bool:
+        """Whether this names a version retrieval cannot see.
+
+        The open states of the lifecycle (``lifecycle-types.ts``,
+        ``OPEN_DOCUMENT_VERSION_STATES``). ``published`` is deliberately NOT a
+        membership test that could grow a hole: anything not in this set is
+        left to retrieval, which is the behaviour that already works.
+        """
         return bool(self.document_id) and bool(self.version_id) and self.state in _OPEN_VERSION_STATES
 
 
@@ -32,17 +63,25 @@ TurnSurface = Literal["chat", "review_canvas", "annotation_thread"]
 
 
 def thread_reply_requested(message: UserMessage) -> bool:
+    """Whether ``message`` asks for its answer in an Anmerkung's thread: the flag AND a region naming the mark."""
     region = message.focus_region
     return bool(message.reply_in_thread) and region is not None and bool(region.annotation_id)
 
 
 def turn_surface(focus_region: FocusRegion | None, *, reply_in_thread: bool) -> TurnSurface:
+    """``annotation_thread`` for a thread reply, ``review_canvas`` for a box, else ``chat``. Pure."""
     if reply_in_thread:
         return "annotation_thread"
     return "review_canvas" if focus_region is not None else "chat"
 
 
 class TurnInputs(NamedTuple):
+    """Everything one user message states about how to answer it.
+
+    The focus fields are read back from the turn ContextVars that
+    :func:`extract_turn_inputs` sets — retrieval reads the same vars, so the
+    state carries exactly the (normalised) subject retrieval sees.
+    """
 
     query_text: str
     data_sources: list[str] | None
@@ -56,10 +95,19 @@ class TurnInputs(NamedTuple):
 
     @property
     def surface(self) -> TurnSurface:
+        """Where the question was asked: :func:`turn_surface` of this turn's fields."""
         return turn_surface(self.focus_region, reply_in_thread=self.reply_in_thread)
 
 
 def extract_turn_inputs(request: UserMessage | str) -> TurnInputs:
+    """The inputs a turn is built from, with the turn's intent set for retrieval.
+
+    Always sets the intent: a turn without a subject clears the previous
+    turn's, because the ContextVars outlive one turn.
+
+    Raises:
+        TypeError: for anything but a ``UserMessage`` or a plain question.
+    """
     if isinstance(request, str):
         set_turn_intent()
         set_turn_reasoning_effort(None)

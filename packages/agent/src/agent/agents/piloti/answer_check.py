@@ -1,3 +1,13 @@
+"""What a Piloti turn hands the answer check, and what it makes of the reply (ADR-0139).
+
+The check itself, one model call grading the answer against its evidence, is
+``common/claim_judge.py``. This module is the Piloti side of it: which
+evidence a turn registered (:func:`evidence_for`), the turn's judge and turn
+context (:func:`turn_check`), and the call with its scores
+(:func:`check_answer`). ``answer_pipeline.finalize_answer`` runs it on the
+final text, after the quote stamps.
+"""
+
 from __future__ import annotations
 
 import re
@@ -32,6 +42,30 @@ _REFERENCE_LINE_RE = re.compile(r"^\s*$|\[\d+\]|<?https?://")
 
 
 def prose_without_references(content: str) -> str:
+    """The answer's own sentences, with any trailing reference list removed.
+
+    The normative brake and the per-sentence stamps judge what the ANSWER
+    asserts, and a bibliography asserts nothing: a source line names the
+    instrument the brake's strong tier matches, so leaving it in floored
+    purely descriptive answers to "low" under a reason that was not true of a
+    single sentence the model wrote.
+
+    Only a genuinely TRAILING list is cut: a heading is a cut point only when
+    every line after it points at a source (a URL or a „[n]" marker) or is
+    blank; otherwise the search moves to the previous heading, and failing
+    that nothing is removed. Erring towards keeping text is the safe
+    direction: a reference line that survives costs a hedge, a verdict that
+    is dropped costs a claim about the law.
+
+    Known gap, left open deliberately: ANY tail line carrying a URL or a „[n]"
+    marker is cut, so a verdict smuggled into an all-references tail with a
+    marker on it („- Damit ist der Raum unzulässig [1]") is cut too. Keeping
+    the lines the normative brake fires on was measured and is inverted: a
+    compliance bibliography is a list of exactly the instrument names the
+    brake's strong tier matches (11 of 14 genuine entries fire). A real
+    finite-verb test needs a POS
+    tagger; a heuristic that cuts the wrong way is worse than the gap.
+    """
     if not isinstance(content, str):
         return ""
     for match in reversed(list(_REFERENCES_SECTION_RE.finditer(content))):
@@ -43,6 +77,7 @@ def prose_without_references(content: str) -> str:
 
 @dataclass(frozen=True)
 class TurnCheck:
+    """The turn's judge and the turn context it reads beside the evidence (profile, inventory, building law)."""
 
     judge: JudgeFn | None = None
     context: tuple[str, ...] = ()
@@ -50,6 +85,7 @@ class TurnCheck:
 
 @dataclass(frozen=True)
 class Answered:
+    """What the pipeline knows about the final answer when the check runs."""
 
     messages: Sequence[Any]
     content: str
@@ -63,6 +99,12 @@ class Answered:
 
 
 def turn_check(state: Any, llm: Any) -> TurnCheck:
+    """The turn's check: its judge on the org's follow-ups model (override, BYOK), and the turn context.
+
+    The context carries the turn's ``<building_law>`` block, the records' statement of which edition binds
+    at the site and since when (ADR-0175). The answer was told to state the binding edition from it; a
+    check without it found every such statement unbacked and graded the answer low (dev QC, 2026-11-12).
+    """
     from agent.common.claim_judge import llm_judge
     from agent.common.law_gate import turn_building_law_block
     from agent.common.model_overrides import AgentGroup
@@ -79,15 +121,18 @@ def turn_check(state: Any, llm: Any) -> TurnCheck:
 
 
 def quoted_spans(answer_text: str) -> list[str]:
+    """The quotations in the answer body long enough to check, as written; the check reads which of them held."""
     return [inner for _, inner, _ in _quoted_spans(_answer_body_before_sources(answer_text), MIN_QUOTE_LEN)]
 
 
 def _question(messages: Sequence[Any]) -> str:
+    """The newest question: the last ``HumanMessage``'s text."""
     human = next((msg for msg in reversed(messages) if isinstance(msg, HumanMessage)), None)
     return content_to_text(human.content) if human is not None else ""
 
 
 def _passages(answered: Answered) -> list[Passage]:
+    """The answer's cited passages under the ``[N]`` it shows, then every other passage registered, once each."""
     passages: list[Passage] = []
     seen: set[tuple[str, str]] = set()
     cited = [(f"[{s.number}] {s.entry.citation_key}", s.entry, True) for s in answered.cited if s.number is not None]
@@ -100,6 +145,13 @@ def _passages(answered: Answered) -> list[Passage]:
 
 
 def evidence_for(answered: Answered, context: Sequence[str] = (), reason: str | None = None) -> Evidence:
+    """Everything the turn registered that the answer could rest on.
+
+    Passages; this turn's workspace records, never Piloti's own earlier words
+    (``workspace_records``), and the turn context; the measurements and
+    readings, a cited place's among them; and which quotations the server's
+    quote check found in their passage.
+    """
     passages = _passages(answered)
     not_found = [quote.quote for quote in answered.unverified_quotes]
     not_found += [stamp["text"] for stamp in answered.quote_stamps if stamp.get("status") == "not_found"]
@@ -124,6 +176,13 @@ def evidence_for(answered: Answered, context: Sequence[str] = (), reason: str | 
 async def check_answer(
     answered: Answered, check: TurnCheck | None, self_report: str | None, reason: str | None
 ) -> tuple[dict[str, Any] | None, tuple[str, ...]]:
+    """One judge call on an answer that graded itself (``self_report``), read with its confidence ``reason``.
+
+    The check wire-ready (``unavailable`` with its reason without a judge or a usable reply) and the open
+    points the answer names, which cap its level (``markers.surface_checked_confidence``); ``(None, ())``
+    when it graded nothing. Scored, and an unavailable check's cause is the trace's
+    ``answer_check_unavailable``.
+    """
     from agent.observability.langfuse_trace_attributes import record_trace_metadata
 
     if self_report is None:

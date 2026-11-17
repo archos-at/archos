@@ -1,3 +1,5 @@
+"""Room classification: matching a room's name against the lexicon."""
+
 from __future__ import annotations
 
 import re
@@ -16,6 +18,12 @@ from .model import SpatialModel
 
 
 def classify_rooms(model: SpatialModel) -> list[ClassifiedRoom]:
+    """Run the lexicon over every space once.
+
+    Shared by :func:`inventory` and :func:`briefing` so the counts in the text
+    block and the lists a caller requests cannot disagree — two independent
+    classifiers over one model is a contradiction waiting to be quoted.
+    """
     lit_rooms = _window_assignment(model)
     out: list[ClassifiedRoom] = []
 
@@ -113,6 +121,18 @@ def match_quality(normalised: str, term: str) -> str | None:
 
 
 def normalise(raw: str) -> str:
+    """Fold a room name into the lexicon's alphabet.
+
+    NFC first: an exporter may write ``ü`` as ``u`` + combining diaeresis, in
+    which case the umlaut rules below would not see a ``ü`` at all and ``Küche``
+    would fold to ``kuche`` while a differently-encoded sibling folded to
+    ``kueche``. Same building, two classifications, depending on the exporter's
+    Unicode habits.
+
+    The umlaut expansion runs BEFORE the generic diacritic strip, so ``ü``
+    becomes ``ue`` (matching a file that already spells it ``Kueche``) rather
+    than ``u``.
+    """
     text = unicodedata.normalize("NFC", raw).lower()
     for umlaut, expansion in (("ä", "ae"), ("ö", "oe"), ("ü", "ue"), ("ß", "ss")):
         text = text.replace(umlaut, expansion)
@@ -124,6 +144,15 @@ def normalise(raw: str) -> str:
 
 
 def _by_type(model: SpatialModel, ifc_type: str) -> list[Any]:
+    """Instances of a type, or an empty list when the SCHEMA has no such type.
+
+    ``IfcSpatialZone`` and ``IfcMapConversion`` are IFC4 entities and raise on
+    an IFC2X3 file rather than returning nothing. The distinction is real — "the
+    schema cannot express this" is not "the file omitted it" — but for every
+    count in this module the two produce the same number, and letting a
+    RuntimeError escape would make the briefing refuse to render at all for an
+    entire schema generation.
+    """
     try:
         return list(model.file.by_type(ifc_type))
     except RuntimeError:
@@ -131,10 +160,35 @@ def _by_type(model: SpatialModel, ifc_type: str) -> list[Any]:
 
 
 def _spaces_of(model: SpatialModel) -> list[Any]:
+    """Spaces AND spatial zones — :func:`find_blind_spots` counts both, so this
+    must too."""
     return [*_by_type(model, "IfcSpace"), *_by_type(model, "IfcSpatialZone")]
 
 
 def _window_assignment(model: SpatialModel) -> set[str] | None:
+    """Rooms with at least one window assigned, or ``None`` when this model
+    cannot say.
+
+    Three states, and the third is why this returns an ``Optional`` rather than
+    a possibly-empty set:
+
+      - the file declares ``IfcRelSpaceBoundary`` — read it;
+      - it does not, but the geometric contact map has already been built by an
+        earlier ``opens_to`` / ``bounds`` call — read that, at dictionary speed;
+      - neither — return ``None``, and the classifier leaves the window signal
+        out entirely.
+
+    The third state is the one the TS version does not have, because its
+    ``openModel`` derives boundaries eagerly during the geometry pass. Here the
+    contact map costs 6 s for four rooms, and running it from a room-name
+    lexicon would make the cheapest operator in the package the most expensive
+    one. What must not happen is the silent version of that: treating "not
+    computed" as "no window", which would push every Aufenthaltsraum's
+    confidence down by 0.05 for a reason that has nothing to do with the file.
+
+    Reads ``SpatialModel``'s contact cache directly because that module is the
+    spike's frozen parity spec and may not be edited to expose an accessor.
+    """
     lit: set[str] = set()
     boundaries = _by_type(model, "IfcRelSpaceBoundary")
     if boundaries:

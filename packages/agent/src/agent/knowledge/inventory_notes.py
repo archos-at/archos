@@ -1,3 +1,12 @@
+"""The two inventory paragraphs a turn varies: files still being read, and the one shelf a listing asked about. Pure.
+
+The inventory itself is the same bytes until a file settles; these two are
+per turn. Split out so the conversation layout (the chat agent's ``context_layout``)
+can send the inventory once at the head of the conversation and these in the
+turn's note, while ``inventory.render_inventory_block`` keeps rendering all of
+it in one block for every other prompt.
+"""
+
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -12,6 +21,7 @@ _IN_FLIGHT_MAX_NAMED = 5
 
 
 def in_flight_paragraph(in_flight: Sequence[str] | None) -> str | None:
+    """The paragraph naming files still being indexed, or None when there are none. Pure."""
     pending = [name for name in (in_flight or []) if name]
     if not pending:
         return None
@@ -29,6 +39,7 @@ def in_flight_paragraph(in_flight: Sequence[str] | None) -> str | None:
 
 
 def focus_paragraph(focus_shelf: Shelf | str | None) -> str | None:
+    """The sentence naming the one shelf a listing question asked about, or None. Pure."""
     focused = parse_shelf(focus_shelf)
     if focused is None:
         return None

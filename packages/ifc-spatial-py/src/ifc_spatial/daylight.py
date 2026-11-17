@@ -1,3 +1,49 @@
+"""Room daylight geometry — how deep a room runs, what sits over it, where the sun is.
+
+Three operators that `operators.py` leaves open, all of them named in §5 and §7 of
+`docs/roadmap/agent-spatial-reasoning.md`. They share one subject: an OIB 3
+daylight question is not settled by `light_entry_area` alone.
+
+## Why depth is a separate number from area
+
+`light_entry_area` answers *how much glass per square metre of floor*. It cannot
+answer *how far back the floor runs from that glass*, and the two are different
+questions about the same room. Daylight falls off with distance from the
+aperture; a 5.66 m deep living room under a 2.20 m ceiling — a depth-to-height
+ratio of 2.57 — is lit differently at its back wall than the 3.46 m bedroom next
+to it at 1.57, and both may carry the same percentage of window. :func:`room_depth`
+supplies the missing half, always **relative to a named facade**, because a
+corner room has two and the answer changes with the choice. The choice is
+therefore part of the answer, not an implementation detail.
+
+Depth is measured by projecting the room's own FOOTPRINT onto the facade normal,
+never by reading an axis-aligned bounding box. For the sample house the two agree
+to the millimetre because the building is square to the model axes; for a room
+skewed 30° to them, the AABB extent is the diagonal of the room and is too large
+by up to 40 %, silently, in exactly the direction that makes a deep room look
+compliant. The whole point of naming a facade is that the measurement is taken
+against IT.
+
+## Why above/below have to exist
+
+Nothing in the operator vocabulary can say what is directly over an element. That
+is how one finds the storey above a flat, the terrace over a living room, the
+slab a downstand hangs from — and, for daylight, the roof over the window whose
+overhang `overhang()` measures. :func:`above` and :func:`below` cast the same
+kind of ray :func:`~ifc_spatial.operators.clear_height` does, with the same
+exclusions, for the same reason: an unfiltered upward ray off the sample house's
+ground slab reports a **couch at 0.135 m** as the thing above the floor.
+
+## Why the sun position refuses more often than it answers
+
+:func:`sun_position` is real astronomy over a real coordinate, and it is
+undecidable for every model that does not carry one. A building has no compass
+bearing until somebody states its latitude, longitude and true north; computing a
+solar altitude against an assumed 0° north and an assumed Austrian latitude would
+produce a number that looks like a measurement and is a guess about the two facts
+the file withholds.
+"""
+
 from __future__ import annotations
 
 import datetime as dt
@@ -30,6 +76,19 @@ CURTAIN_WALL_TYPES = ("IfcPlate", "IfcMember", "IfcCurtainWall")
 
 
 def _footprint_points(triangles: np.ndarray) -> np.ndarray | None:
+    """The room's plan outline as a point set, from its horizontal faces.
+
+    The same both-windings discipline as
+    :func:`~ifc_spatial.operators._footprint_area`, and for the same reason: a
+    Revit IFC2X3 ``IfcSpace`` can be wound inside-out, and keeping only the
+    up-facing triangles then yields an empty silhouette rather than a footprint.
+    Both projections are taken and the one with the larger union area wins.
+
+    The points are the union polygon's own vertices, not the triangle corners,
+    so an L-shaped room contributes its re-entrant corner and nothing interior.
+    ``None`` when the solid has no horizontal face at all — the caller falls
+    back to every vertex, which for a prism is the same silhouette.
+    """
     import shapely
     import shapely.ops
 
@@ -71,11 +130,28 @@ def _footprint_points(triangles: np.ndarray) -> np.ndarray | None:
 
 
 def _extent_along(points: np.ndarray, direction: np.ndarray) -> float:
+    """How far a plan point set reaches along a horizontal direction, in metres.
+
+    This is the whole argument of the operator in two lines: the extent is taken
+    along the FACADE's normal, so a room turned 30° to the model grid measures
+    its true depth. ``operators.extent`` would report the axis-aligned box, whose
+    Y span for that room is ``depth·cos30 + width·sin30`` — for the sample
+    house's living room rotated 30° that would be 9.53 m against a real 5.66 m,
+    a 68 % overstatement with no sign on the answer that anything went wrong.
+    """
     projected = points @ direction
     return float(projected.max() - projected.min())
 
 
 def _aperture_area(model: SpatialModel, element: Any) -> float | None:
+    """The clear opening this window or door admits light through, m².
+
+    Straight through ``FillsVoids → RelatingOpeningElement`` onto
+    :func:`~ifc_spatial.operators._clear_opening_area`, exactly as
+    :func:`~ifc_spatial.operators.light_entry_area` does — the two operators must
+    rank facades and sum areas off the same number, or a room's chosen facade and
+    its reported light-entry area could come from different windows.
+    """
     for rel in getattr(element, "FillsVoids", []) or []:
         area = op._clear_opening_area(model, rel.RelatingOpeningElement)
         if area:
@@ -84,6 +160,23 @@ def _aperture_area(model: SpatialModel, element: Any) -> float | None:
 
 
 def _facade_candidates(model: SpatialModel, space_global_id: str, bounding: list[Any]) -> list[dict[str, Any]]:
+    """Every external wall bounding this room, ranked by the daylight it carries.
+
+    An aperture counts towards a wall when the wall HOSTS it
+    (``hosted_in``) and the aperture faces outside — the same
+    :func:`~ifc_spatial.operators._faces_outside` test that keeps an interior
+    door out of a Lichteintrittsfläche. Without it the sample house's bedroom
+    would rank its 12 cm plasterboard partition (which hosts a 1.71 m² door to
+    the hall) level with the external north wall's 2.19 m² window, and a depth
+    measured perpendicular to the partition is the room's WIDTH, not its depth.
+
+    Curtain-wall glazing is deliberately not an aperture here. The living room is
+    bounded by 15 ``IfcMember`` mullions and 6 ``IfcPlate`` panes that carry no
+    ``IfcOpeningElement`` and are not hosted in any wall; counting them would
+    require a second, differently-defined aperture measure. They are reported in
+    the caveat instead, so the reader can see that a west-facing glass wall was
+    not in the ranking.
+    """
     external: dict[str, dict[str, Any]] = {}
     for element in bounding:
         if model.kind_of(element) != "element":
@@ -129,6 +222,13 @@ def _facade_candidates(model: SpatialModel, space_global_id: str, bounding: list
 
 
 def _facade_geometry(model: SpatialModel, facade_id: str, method: str) -> tuple[np.ndarray, Answer[Any] | None, bool]:
+    """The outward horizontal normal of a facade, via ``facadePlaneOf``.
+
+    Returns ``(normal, refusal, outward)``. The normal is flattened into the
+    horizontal plane and re-normalised: a wall leaning 2° out of plumb still
+    defines one depth direction in plan, and carrying its Z component into the
+    projection would shorten the measured depth by the cosine of the lean.
+    """
     plane = op.facade_plane_of(model, facade_id)
     if not plane.decidable or plane.value is None:
         return (
@@ -174,6 +274,45 @@ def room_depth(
     space_global_id: str,
     facade_element_global_id: str | None = None,
 ) -> Answer[dict[str, Any]]:
+    """How far a room runs back from its daylight facade, in metres.
+
+    Three numbers plus the reasoning behind them: ``depth`` perpendicular to a
+    named facade, ``width`` along it, and ``depthToHeight`` — the ratio a
+    daylight rule of thumb is stated in — against the room's **lichte Höhe**.
+
+    ## Why the clear height and not the space solid's height
+
+    :func:`~ifc_spatial.operators.clear_height` measures floor to the lowest
+    thing actually above it; the ``IfcSpace`` body's Z extent measures what the
+    modeller drew. On this fixture those are 2.200 m and 2.500 m — a 30 cm
+    suspended ceiling that the room solid does not know about. Taken on the
+    bedroom's 3.4625 m depth the ratio is 1.574 against the honest height and
+    1.385 against the modelled one, and the modelled one is the flattering side.
+    A depth-to-height ratio computed against a height that no occupant will ever
+    stand under is not a daylight number.
+
+    ## Why a facade must be named, and how one is picked
+
+    A corner room has two external walls and two different depths — for the
+    sample house's living room, 5.655 m from the north facade and 9.3075 m from
+    the east. There is no room depth without a facade, so when the caller does
+    not name one this picks the **external wall carrying the largest outward
+    aperture** and reports the ranking it chose from, every candidate with its
+    aperture area. The reader can see the runner-up and disagree.
+
+    ## Why the footprint and not the bounding box
+
+    The extent is taken along the facade's own normal over the room's projected
+    footprint. On this fixture the two routes agree because the building is
+    square to the model axes; on a room turned to the grid, the axis-aligned box
+    reports the room's diagonal spread and overstates the depth without any sign
+    that it did. See :func:`_extent_along`.
+
+    ``depth × width`` is returned beside the measured floor area precisely so
+    that the reconciliation is visible: they agree to 1e-11 m² on the two
+    rectangular rooms here and differ by 1.2 % on the living room, which is not
+    a rectangle. No verdict, no threshold: OIB names the limits.
+    """
     method = f"roomDepth({space_global_id})"
     subject = op._require(model, space_global_id, method)
     if model.kind_of(subject) != "space":
@@ -284,6 +423,14 @@ def _no_facade(
     candidates: list[dict[str, Any]],
     curtain_wall: list[Any],
 ) -> Answer[Any]:
+    """No external wall of this room carries a measurable outward aperture.
+
+    Undecidable rather than "pick the biggest external wall". A room's depth is
+    only defined against the facade its daylight comes through; measuring
+    perpendicular to whichever external wall happens to be longest would produce
+    a confident number about a direction nobody chose, and it would be the room's
+    WIDTH as often as its depth.
+    """
     if candidates:
         what = "keine außenliegende Fensteröffnung an den Außenwänden dieses Raums"
         remedy = (
@@ -333,6 +480,7 @@ def _depth_caveat(
     bounding: Answer[Any],
     caller_supplied: bool,
 ) -> str:
+    """Everything the depth is not valid without, in one German paragraph."""
     parts: list[str] = [
         "Tiefe und Breite sind aus dem Grundriss des Raumkörpers gemessen, auf die Fassadennormale bzw. auf "
         "die Fassadenrichtung projiziert — NICHT aus der achsparallelen Hüllbox. Für einen zur Modellachse "
@@ -431,6 +579,15 @@ def _depth_caveat(
 
 
 def _is_excluded(element: Any) -> bool:
+    """Air and furniture — the two classes that make an overhead ray lie.
+
+    ``clear_height`` tests ``element.is_a(FURNISHING[0])``, which catches
+    ``IfcFurniture`` and ``IfcSystemFurnitureElement`` too because both are
+    IFC4 subtypes of ``IfcFurnishingElement``. Every entry of the tuple is
+    checked here anyway: in IFC2X3 the subtype relation does not exist, and a
+    single-entry test would let an IFC2X3 ``IfcFurniture`` decide a room's
+    headroom.
+    """
     if element.is_a() in AIR_TYPES:
         return True
     for kind in op.FURNISHING:
@@ -443,6 +600,7 @@ def _is_excluded(element: Any) -> bool:
 
 
 def _overhead(model: SpatialModel, global_id: str, upward: bool, samples: int) -> Answer[list[dict[str, Any]]]:
+    """The shared body of :func:`above` and :func:`below`."""
     direction = "above" if upward else "below"
     method = f"{direction}({global_id}, samples={samples})"
     subject = op._require(model, global_id, method)
@@ -555,16 +713,59 @@ def _record(found: dict[str, dict[str, Any]], model: SpatialModel, element: Any,
 
 
 def above(model: SpatialModel, global_id: str, samples: int = OVERHEAD_SAMPLES) -> Answer[list[dict[str, Any]]]:
+    """What sits directly over this element, nearest first, with the vertical gap.
+
+    The operator §7 of the design document calls ``above(element)`` and lists as
+    "bbox overlap + elevation". A bounding-box overlap is not enough: it reports
+    the roof as being over every element in the building, and it cannot tell a
+    slab resting on a wall from one 2 m clear of it. So this casts the same
+    upward rays :func:`~ifc_spatial.operators.clear_height` does, from a grid
+    over the element's own top, and keeps the same exclusions.
+
+    ## What the exclusions are worth, measured on this file
+
+    Unfiltered, the nearest five things "above" the sample house's ground slab
+    `3cUkl32yn9qRSPvBJVyWgQ` are a chair at 0.119 m, a second chair at 0.124 m, a
+    couch at 0.135 m, a bed at 0.203 m and a dining chair at 0.225 m. Filtered,
+    the first real answer is the roof at 1.993 m and the suspended ceilings at
+    2.200 m. Furniture is not what is above a floor in any sense a building code
+    uses.
+
+    ## Reading the result
+
+    ``gap`` is the smallest clearance any grid point found, ``gapMax`` the
+    largest, ``samples`` the number of grid points over which the element stands.
+    A gap of ``0`` means contact or interpenetration, not "measured zero". The
+    empty list is a decidable answer — free sky, or the underside of the lowest
+    slab — and must not be rendered as "nicht ermittelbar".
+    """
     return _overhead(model, global_id, upward=True, samples=samples)
 
 
 def below(model: SpatialModel, global_id: str, samples: int = OVERHEAD_SAMPLES) -> Answer[list[dict[str, Any]]]:
+    """What sits directly under this element, nearest first, with the vertical gap.
+
+    The mirror of :func:`above`, and the operator that finds the storey below, the
+    slab a room stands on, the beam a duct is hung under. Everything in
+    :func:`above`'s docstring applies with the sign reversed, including the
+    contact rule: the window `3cUkl32yn9qRSPvBJVyWcE` sits in a wall it touches,
+    and this reports that wall at 0 m rather than at the 0.90 m where the wall's
+    far side happens to be.
+    """
     return _overhead(model, global_id, upward=False, samples=samples)
 
 
 
 
 def _by_type(model: SpatialModel, ifc_type: str) -> list[Any]:
+    """``file.by_type`` that survives a schema which has never heard of the type.
+
+    ``IfcMapConversion`` arrived in IFC4, and asking an IFC2X3 file for it raises
+    ``RuntimeError: Entity with name 'IfcMapConversion' not found in schema
+    'IFC2X3'`` — not an empty list. ``units-feet.ifc`` is such a file, and an
+    unguarded lookup turns "dieses Modell ist nicht georeferenziert" into a
+    traceback. ``operators._has`` guards the same call for the same reason.
+    """
     try:
         return list(model.file.by_type(ifc_type))
     except RuntimeError:
@@ -572,6 +773,19 @@ def _by_type(model: SpatialModel, ifc_type: str) -> list[Any]:
 
 
 def _compound_angle(value: Any) -> float | None:
+    """An ``IfcCompoundPlaneAngleMeasure`` in decimal degrees, sign included.
+
+    The tuple is ``(degrees, minutes, seconds[, millionths of a second])``, and
+    the schema requires every component to carry the SAME sign — which means the
+    sign of a coordinate west of Greenwich or south of the equator can live in a
+    component that is not the first. The sample house declares
+    ``(0, -7, -34, -450321)``: reading the sign off ``degrees`` alone gives
+    ``+0.126°``, putting the building in Essex instead of west London, and every
+    solar azimuth after it is wrong by half a degree with nothing to show for it.
+
+    So the sign is taken from the first non-zero component and applied to the
+    magnitude of the whole.
+    """
     if not value:
         return None
     try:
@@ -588,6 +802,7 @@ def _compound_angle(value: Any) -> float | None:
 
 
 def _site_coordinates(model: SpatialModel) -> tuple[float, float, str] | None:
+    """``(latitude, longitude, site GlobalId)`` from ``IfcSite``, or ``None``."""
     for site in _by_type(model, "IfcSite"):
         latitude = _compound_angle(getattr(site, "RefLatitude", None))
         longitude = _compound_angle(getattr(site, "RefLongitude", None))
@@ -600,6 +815,18 @@ def _site_coordinates(model: SpatialModel) -> tuple[float, float, str] | None:
 
 
 def _map_conversion_north(model: SpatialModel) -> float | None:
+    """North from ``IfcMapConversion``, radians from model +Y, or ``None``.
+
+    ``XAxisAbscissa``/``XAxisOrdinate`` give the model +X axis in the map's own
+    frame, so grid north back in model coordinates is
+    ``(XAxisOrdinate, XAxisAbscissa)`` and the angle from +Y to it is
+    ``atan2(XAxisOrdinate, XAxisAbscissa)`` — the same convention
+    :attr:`~ifc_spatial.model.SpatialModel.true_north` uses for ``TrueNorth``.
+
+    This is GRID north, not true north. In a UTM zone the two differ by the
+    meridian convergence, up to about 3° at the zone edge, so it is used only
+    when the file states no ``TrueNorth`` and it is named in the caveat.
+    """
     for conversion in _by_type(model, "IfcMapConversion"):
         abscissa = getattr(conversion, "XAxisAbscissa", None)
         ordinate = getattr(conversion, "XAxisOrdinate", None)
@@ -612,6 +839,7 @@ def _map_conversion_north(model: SpatialModel) -> float | None:
 
 
 def _julian_day(when: dt.datetime) -> float:
+    """Julian Day of a UTC instant — the Gregorian conversion from Meeus §7."""
     year, month = when.year, when.month
     if month <= 2:
         year -= 1
@@ -623,6 +851,27 @@ def _julian_day(when: dt.datetime) -> float:
 
 
 def _solar_azimuth_altitude(when: dt.datetime, latitude: float, longitude: float) -> dict[str, float]:
+    """Solar azimuth and altitude, degrees — Michalsky (1988) / the Astronomical
+    Almanac's low-precision algorithm.
+
+    Michalsky, J. J. (1988), *The Astronomical Almanac's algorithm for approximate
+    solar position (1950–2050)*, Solar Energy 40(3):227–235. Stated accuracy
+    **0.01°** over 1950–2050, which is what :data:`SOLAR_TOLERANCE_DEGREES`
+    carries. Measured against the two published references in
+    ``tests/test_daylight.py`` this implementation lands within 0.006°.
+
+    Implemented rather than imported because this package's whole dependency set
+    is ``numpy``, ``shapely``, ``ifcopenshell`` — twenty lines of arithmetic do
+    not justify a fourth.
+
+    The result is the **geometric** (true) position. Atmospheric refraction lifts
+    the apparent sun by about 0.02° at 40° altitude and by up to 0.57° at the
+    horizon; it is not applied, because a shadow is cast by the geometric sun and
+    every downstream use here is a shadow.
+
+    Azimuth is degrees clockwise from true north (east = 90°); altitude is
+    degrees above the horizon and goes negative at night, which is a real answer.
+    """
     n = _julian_day(when) - 2451545.0
     hour = when.hour + when.minute / 60.0 + (when.second + when.microsecond / 1e6) / 3600.0
 
@@ -657,6 +906,14 @@ def _solar_azimuth_altitude(when: dt.datetime, latitude: float, longitude: float
 
 
 def _parse_instant(when_iso: str, method: str) -> tuple[dt.datetime | None, Answer[Any] | None]:
+    """The timestamp as a UTC instant, or a refusal.
+
+    A timestamp without a zone is refused rather than assumed to be UTC. Austria
+    runs UTC+1 in winter and UTC+2 in summer; reading ``2026-06-21T12:00:00`` as
+    UTC puts the sun 30° east of where it stood over the site, which is two hours
+    of shadow and precisely the error nobody re-checks because the input looked
+    complete.
+    """
     try:
         parsed = dt.datetime.fromisoformat(str(when_iso).replace("Z", "+00:00"))
     except TypeError, ValueError:
@@ -696,6 +953,47 @@ def sun_position(
     latitude: float | None = None,
     longitude: float | None = None,
 ) -> Answer[dict[str, Any]]:
+    """Where the sun stands over this building at a given instant — or nothing.
+
+    Azimuth (degrees clockwise from true north) and altitude (degrees above the
+    horizon) for ``when_iso``, plus the direction TOWARDS the sun expressed in the
+    model's own coordinates, which is what :func:`~ifc_spatial.operators.ray` and
+    :func:`~ifc_spatial.operators.obstructions` take as an argument.
+
+    ## This is where the sun is, not what is shaded
+
+    **Keine Besonnungsstudie.** A sun position says the sun stood 61.9° up and
+    178.9° round at that moment; it says nothing about whether the neighbour's
+    gable was in the way, whether the balcony above cut the beam, or how many
+    hours of sun the window received over a day. Those are shading questions, and
+    they need the sun direction plus :func:`~ifc_spatial.operators.obstructions`
+    plus a model of everything outside the property line that this file does not
+    contain. The caveat says so in the answer, every time.
+
+    ## Undecidable unless the file is georeferenced
+
+    ``IfcSite.RefLatitude`` / ``RefLongitude`` is where a project states where it
+    is. Without them there is no sun to compute, and this returns undecidable
+    with the German remedy — never a default latitude. An assumed 48°N Vienna on
+    a Vorarlberg project is out by 1.4° of solar altitude, and an assumed north
+    on a building rotated 40° is out by 40°; both would arrive as `computed`
+    numbers with a tolerance, which is the single substitution this library
+    exists to prevent.
+
+    ``latitude``/``longitude`` may be passed to override the file. That is a
+    legitimate route — a surveyor's coordinate is better than an exporter's
+    default — and it is loudly caveated, because the number then rests on the
+    caller and not on the model.
+
+    ## Accuracy
+
+    Michalsky (1988), the Astronomical Almanac's own low-precision algorithm:
+    **0.01° over 1950–2050**, carried as the answer's ``tolerance``, widened to
+    0.1° outside that span. Validated in ``tests/test_daylight.py`` against the
+    NREL SPA reference case and three U.S. Naval Observatory almanac positions;
+    the largest deviation found was 0.006°. The position is geometric — no
+    refraction — because shadows are cast by the geometric sun.
+    """
     method = f"sunPosition({when_iso})"
     when, refusal = _parse_instant(when_iso, method)
     if refusal is not None:
@@ -839,6 +1137,15 @@ def _sun_caveat(
 
 
 def _not_georeferenced(model: SpatialModel, method: str) -> Answer[Any]:
+    """No coordinate, so no sun. The remedy names the CAD action, not the entity.
+
+    Two different files land here and they need different sentences. A file with
+    an ``IfcMapConversion`` but no ``IfcSite`` coordinate IS georeferenced — into
+    a projected coordinate system whose back-conversion to latitude and longitude
+    needs the projection's own parameters and a library this package does not
+    have. Telling that architect "das Modell ist nicht georeferenziert" would be
+    false, and they would go and set something that is already set.
+    """
     map_conversion = _by_type(model, "IfcMapConversion")
     if map_conversion:
         crs = getattr(map_conversion[0], "TargetCRS", None)

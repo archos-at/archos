@@ -1,3 +1,31 @@
+"""Commissioning a run for a question this turn will not answer itself.
+
+## What changed, and why it is not a submit any more
+
+An escalated question used to be submitted straight to the worker from here:
+``submit_agent_job`` with no conversation and no run row, a stub sentence
+written into the thread („Deep research job submitted. Job ID: …") and a job id
+carried on the state for the frontend to hang a panel off. Nothing else in the
+product knew that work existed — it could not be listed, stopped, filed or
+named — because the only record of it was a string in a message.
+
+It is now commissioned through the BFF, which is the single writer of the
+workspace (ADR-0003) and the owner of the run primitive (ADR-0055, ADR-0062):
+``POST /api/internal/tasks`` with ``op: "research"``. The BFF writes the
+``task_runs`` row, mints the run's message in this thread, submits the job with
+that run's id, and answers with where the run narrates itself. The turn's own
+answer then carries those two ids and no prose at all — the block IS the
+narration.
+
+## Echo, never sign
+
+Same rule as ``tools/tasks/client.py``, for the same reason: the internal token
+and the signing secret are one secret, so a tier that minted its own envelope
+would be choosing the acting person with a credential that only authenticates
+the service. The envelope the BFF minted for this turn is forwarded
+byte-for-byte, and a turn without one cannot commission anything.
+"""
+
 from __future__ import annotations
 
 import asyncio
@@ -25,6 +53,7 @@ CONVERSATION_CONFINED_CODE = "CONVERSATION_CONFINED"
 
 @dataclass(frozen=True)
 class CommissionedRun:
+    """Where the commissioned run narrates itself."""
 
     run_id: str
     run_message_id: str | None
@@ -32,6 +61,7 @@ class CommissionedRun:
 
 
 class CommissionRefused(RuntimeError):
+    """The question could not become a run. Carries what the reader may be told."""
 
     def __init__(
         self,
@@ -76,6 +106,13 @@ def _payload(
 
 
 def _refusal_from(error: DelegationError) -> CommissionRefused:
+    """The route's status, as the one sentence the turn has to act on.
+
+    403/404 are the authorization ladder's answer to „you may not commission
+    here" — the ladder answers 404 for a project the caller cannot reach on
+    purpose, so the two are one case. 409 means the envelope named no thread,
+    which is a bug in the caller rather than something the reader did.
+    """
     if error.status == 403 and error.code == CONVERSATION_CONFINED_CODE:
         return CommissionRefused("confined", str(error))
     if error.status in (403, 404):
@@ -92,6 +129,11 @@ async def commission_research_run(
     data_sources: list[str] | None = None,
     documents: PlanDocuments | None = None,
 ) -> CommissionedRun:
+    """Turn this turn's question into a run, and say where it narrates itself.
+
+    Raises :class:`CommissionRefused` for every refusal, so the caller has one
+    thing to catch and one place to decide what the reader is told.
+    """
     project_id = project_context.get_project_id_from_context()
     if not project_id:
         raise CommissionRefused("no_project", "this conversation is not in a project")

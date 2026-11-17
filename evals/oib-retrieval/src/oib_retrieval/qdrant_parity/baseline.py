@@ -1,3 +1,19 @@
+"""What the Chroma path measured: the fixed reference the Qdrant numbers are read against.
+
+Chroma, its Postgres German mirror and the ``$contains`` channel left the stack in
+one change (ADR-0115), so their path cannot be run again. These are its numbers
+from the final gate run of 2026-10-13 (``docs/audit/qdrant-gates-2026-10.md``,
+"Results"): the OIB Punkt corpus, the production embedder at 3,072 dimensions, the
+same golden, overview and hard-case fixtures this harness reads, the same machine
+as that run's Qdrant numbers.
+
+They are comparable to a ``--embedder production`` run on that corpus and nothing
+else: a ``hashed`` run, or a changed fixture, compares against a different corpus,
+and the report says so beside every reference row. A threshold that once read
+"at least Chroma" now reads "at least these numbers"; moving one is a decision for
+the gate report, never an edit here to make a run pass.
+"""
+
 from __future__ import annotations
 
 from oib_retrieval.qdrant_parity.evaluation import RankScores

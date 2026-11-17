@@ -1,3 +1,5 @@
+"""Reusable Grid response card generation from a query and research context."""
+
 import asyncio
 import json
 import logging
@@ -21,6 +23,11 @@ _CARDS_RESPONSE_FORMAT: dict[str, Any] = {"type": "json_object"}
 
 
 def _coerce_to_card_list(parsed: Any) -> list[Any] | None:
+    """Normalize a parsed JSON value into a list of card dicts.
+
+    Accepts the structured-output object wrapper (``{"cards": [...]}``), a bare
+    array, or a single card object.
+    """
     if isinstance(parsed, dict):
         if isinstance(parsed.get("cards"), list):
             return parsed["cards"]
@@ -31,6 +38,12 @@ def _coerce_to_card_list(parsed: Any) -> list[Any] | None:
 
 
 def _parse_cards_text(raw_text: Any) -> list[Any] | None:
+    """Tolerantly extract a card list from a raw LLM response.
+
+    Handles code-fence wrapping and leading/trailing prose (which would break a
+    whole-string ``json.loads``) by salvaging the first balanced ``[...]`` or
+    ``{...}`` span. Returns None when nothing parseable is found.
+    """
     text = response_text(raw_text).strip()
     if text.startswith("```"):
         text = text.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
@@ -60,6 +73,13 @@ def _parse_cards_text(raw_text: Any) -> list[Any] | None:
 
 
 async def _ainvoke_card_llm(llm: Any, messages: list[Any]) -> Any:
+    """Invoke the card LLM, requesting JSON output when the provider supports it.
+
+    Chat models get a request-scoped ``response_format`` binding (json_object)
+    so OpenAI-compatible providers guarantee syntactically valid JSON. Providers
+    that reject the parameter fall back to a plain call (the tolerant parser
+    then handles prose-wrapped JSON).
+    """
     if isinstance(llm, BaseChatModel):
         try:
             return await llm.bind(response_format=_CARDS_RESPONSE_FORMAT).ainvoke(messages)
@@ -88,10 +108,26 @@ class CardGenerationResult:
 
 
 async def generate_cards(llm: Any, query: str, research_context: str) -> list[dict[str, Any]] | None:
+    """:func:`generate_cards_result` reduced to its cards; ``None`` on any miss."""
     return (await generate_cards_result(llm, query, research_context)).cards
 
 
 async def generate_cards_result(llm: Any, query: str, research_context: str) -> CardGenerationResult:
+    """Generate validated Grid response cards from a query and research context.
+
+    Best-effort helper shared by the synchronous chat path and the async job
+    runner: returns ``None`` (never raises) when the LLM is missing, the
+    inputs are empty, or generation/validation fails.
+
+    Args:
+        llm: A LangChain-compatible chat model exposing ``ainvoke``.
+        query: The original user question.
+        research_context: The final answer/report to derive cards from.
+
+    Returns:
+        The validated cards, or ``cards=None`` if none could be produced —
+        with ``failed`` saying whether that was an outcome or an accident.
+    """
     if llm is None or not query or not research_context:
         return CardGenerationResult(cards=None)
 

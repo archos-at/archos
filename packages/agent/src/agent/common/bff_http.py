@@ -1,3 +1,44 @@
+"""The agent's one client of the BFF's internal routes (``/api/internal/*``, ``/api/mcp``).
+
+Every call this tier makes to the BFF goes out through :func:`send` (or the
+:func:`get_json` / :func:`post_json` / :func:`request_json` wrappers), which own
+the four things each caller used to copy:
+
+* **Where.** :func:`internal_base_url`: ``FRONTEND_INTERNAL_URL``, else
+  ``FRONTEND_URL``, else ``http://frontend:3000``. Every deployment sets the
+  first (compose and Pulumi); the second is a local-dev convenience older
+  clients honoured, kept so nobody's ``.env`` stops working.
+* **The service credential.** ``INTERNAL_API_TOKEN`` in
+  :data:`INTERNAL_TOKEN_HEADER`. No token, no request: the call raises
+  :class:`BffNotConfiguredError` before anything leaves the process, because an
+  empty token is refused by the BFF anyway and a request without one only
+  turns a configuration fault into a misleading 401.
+* **No redirects, no proxies, HTTP only.** A 3xx from an internal route means
+  an auth middleware intercepted the call (AuthKit sending it to a sign-in
+  page); following it would drop the body, the envelope and the token, or
+  hand the token to wherever ``Location`` points. The refusal names the status
+  and never the destination. The opener is built from a bare
+  ``OpenerDirector``, so it carries no ``FileHandler`` (a misconfigured base
+  URL cannot read ``file:///``) and no ``ProxyHandler`` (the token never
+  travels through an egress proxy an environment variable configured; the BFF
+  is always in-cluster or loopback).
+* **Errors.** Every failure is a :class:`BffError`. Each domain client
+  subclasses it with its own name (``FilingError``, ``TurnContextError``, …),
+  so a caller's ``except`` keeps working and a caller that only needs "the BFF
+  did not answer" can catch the base.
+
+The signed request-context envelope is echoed, never signed
+(``packages/agent/src/agent/tools/AGENTS.md``): :class:`SignedEnvelope` carries the two
+strings the BFF minted and :meth:`SignedEnvelope.headers` forwards them
+byte-for-byte.
+
+Tests fake the transport at ONE place: ``bff_http._opener`` (the attribute or
+its ``open``). :func:`send` reads the module global at call time, so either
+patch reaches every client. ``packages/agent/tests/common/test_bff_http_ratchet.py``
+keeps a second redirect guard, base-URL read or token header from appearing
+anywhere else.
+"""
+
 from __future__ import annotations
 
 import json
@@ -20,15 +61,18 @@ REQUEST_CONTEXT_SIGNATURE_HEADER = "X-Request-Context-Sig"
 
 
 def internal_base_url() -> str:
+    """The BFF's base URL, without a trailing slash."""
     url = os.environ.get(INTERNAL_URL_ENV) or os.environ.get(FALLBACK_URL_ENV) or DEFAULT_BASE_URL
     return url.rstrip("/")
 
 
 def internal_token() -> str | None:
+    """The service token, or ``None`` when it is unset or empty."""
     return os.environ.get(INTERNAL_TOKEN_ENV) or None
 
 
 class BffError(RuntimeError):
+    """A call to the BFF failed. ``status`` is the HTTP status when there was one, ``code`` the BFF's error code."""
 
     def __init__(self, message: str, *, status: int | None = None, code: str | None = None) -> None:
         super().__init__(message)
@@ -37,18 +81,19 @@ class BffError(RuntimeError):
 
 
 class BffNotConfiguredError(BffError):
-    ...
+    """No service token: nothing was sent."""
 
 
 class BffUnreachableError(BffError):
-    ...
+    """The request did not complete: connection, DNS, timeout, or a body that could not be read."""
 
 
 class BffMalformedResponseError(BffError):
-    ...
+    """The BFF answered 2xx with a body that is not JSON."""
 
 
 class BffRefusedError(BffError):
+    """The BFF answered with a non-2xx status (a 3xx included). ``body`` is its JSON error envelope, or ``{}``."""
 
     def __init__(self, message: str, *, status: int, body: dict[str, Any]) -> None:
         code = body.get("code")
@@ -58,22 +103,26 @@ class BffRefusedError(BffError):
 
     @property
     def error_text(self) -> str | None:
+        """The envelope's ``error`` sentence (``{error, code, details}``, ``lib/api/handler.ts``), when non-blank."""
         error = self.body.get("error")
         return error if isinstance(error, str) and error.strip() else None
 
 
 @dataclass(frozen=True)
 class SignedEnvelope:
+    """The turn's request-context envelope as the BFF minted it. Both halves, or this is not one."""
 
     header: str
     signature: str
 
     def headers(self) -> dict[str, str]:
+        """The two headers that say who this is, forwarded exactly as they arrived."""
         return {REQUEST_CONTEXT_HEADER: self.header, REQUEST_CONTEXT_SIGNATURE_HEADER: self.signature}
 
 
 @dataclass(frozen=True)
 class BffResponse:
+    """A 2xx answer: its status, content type and raw body."""
 
     status: int
     content_type: str
@@ -81,6 +130,7 @@ class BffResponse:
     server_timing: str = ""
 
     def json(self) -> Any:
+        """The body parsed as JSON. An empty body is not JSON either: raises :class:`BffMalformedResponseError`."""
         try:
             return json.loads(self.body.decode("utf-8"))
         except (ValueError, UnicodeDecodeError) as exc:
@@ -90,12 +140,14 @@ class BffResponse:
 
 
 class _RefuseRedirects(urllib.request.HTTPRedirectHandler):
+    """Raise on every redirect, naming the status and never the destination."""
 
     def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: ANN001, ARG002
         raise urllib.error.HTTPError(req.full_url, code, "unexpected redirect from an internal route", headers, fp)
 
 
 def _build_opener() -> urllib.request.OpenerDirector:
+    """HTTP(S) only, redirects refused, no proxies. A bare director: ``build_opener`` would add the defaults back."""
     opener = urllib.request.OpenerDirector()
     for handler in (
         urllib.request.HTTPHandler,
@@ -130,6 +182,12 @@ def send(
     query: Mapping[str, str] | None = None,
     headers: Mapping[str, str] | None = None,
 ) -> BffResponse:
+    """One request to ``path`` on the BFF, with the service token. Blocking: call it off the event loop.
+
+    ``body`` is sent as JSON when it is not ``None``. ``headers`` are added to
+    (and may not replace) the token. Raises :class:`BffNotConfiguredError`,
+    :class:`BffRefusedError` or :class:`BffUnreachableError`.
+    """
     token = internal_token()
     if not token:
         raise BffNotConfiguredError(f"{INTERNAL_TOKEN_ENV} is not configured")
@@ -174,14 +232,17 @@ def request_json(
     query: Mapping[str, str] | None = None,
     headers: Mapping[str, str] | None = None,
 ) -> Any:
+    """:func:`send`, and the answer parsed as JSON."""
     return send(method, path, timeout=timeout, body=body, query=query, headers=headers).json()
 
 
 def get_json(
     path: str, *, timeout: float, query: Mapping[str, str] | None = None, headers: Mapping[str, str] | None = None
 ) -> Any:
+    """``GET`` ``path`` and parse the answer. See :func:`send`."""
     return request_json("GET", path, timeout=timeout, query=query, headers=headers)
 
 
 def post_json(path: str, body: Any, *, timeout: float, headers: Mapping[str, str] | None = None) -> Any:
+    """``POST`` ``body`` as JSON to ``path`` and parse the answer. See :func:`send`."""
     return request_json("POST", path, timeout=timeout, body=body, headers=headers)

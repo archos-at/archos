@@ -1,3 +1,13 @@
+"""[2] Which documents this call will consider. CAP: three.
+
+Two sources, in this order, because one is verified and free and the other is
+neither: the norm catalog (``configs/norms/*/registry.yml``, ADR-0025) holds
+checked pointers for the core building law, and a live search of the source,
+planned by the search planner, covers everything else. A caller who passed an
+address (a source URL or a document number) skips both: an address is not a
+guess to be improved.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -25,6 +35,7 @@ VERSIONS_PAGE_SIZE = 100
 
 @dataclass(frozen=True)
 class Candidate:
+    """A document this call MIGHT read, with everything a citation needs."""
 
     title: str
     url: str = ""  # fetchable full text; empty for a reference-only entry
@@ -44,6 +55,7 @@ class Candidate:
 
 @dataclass(frozen=True)
 class Search:
+    """What one call's live search needs: the source, its client, the planner, the catalog's path."""
 
     law: LawSource
     client: object
@@ -52,6 +64,12 @@ class Search:
 
 
 async def collect_candidates(search: Search, question: str, address: Address, trace: LookupTrace, as_of: str = ""):
+    """At most three documents: the address, else the catalog, else the live search.
+
+    On a past day (``as_of``) only live version documents in force on it: an
+    address or a catalog pointer names today's consolidation (``as_of.py``).
+    A day of today or later never reaches here as ``as_of`` (``as_of.reads_today``).
+    """
     if as_of:
         return await dated_candidates(search, question, address, trace, as_of)
     addressed = candidate_from_address(address, search.law)
@@ -72,6 +90,7 @@ async def collect_candidates(search: Search, question: str, address: Address, tr
 
 
 def _signals_case_law(question: str, law: LawSource) -> bool:
+    """Whether the question asks for case law (the record's words), which no statute catalog answers."""
     signals = law.lookup.case_law_signals
     if not signals:
         return False
@@ -80,6 +99,7 @@ def _signals_case_law(question: str, law: LawSource) -> bool:
 
 
 def candidate_from_address(address: Address, law: LawSource) -> Candidate | None:
+    """The document the caller addressed directly: a source URL or a document number."""
     if address.url:
         return Candidate(title="", url=address.url, citation_url=address.url, origin="address")
     if not address.document_number:
@@ -94,6 +114,11 @@ def candidate_from_address(address: Address, law: LawSource) -> Candidate | None
 
 
 def listed_candidates(question: str, address: Address, law: LawSource) -> list[Candidate] | None:
+    """The documents a source without a search lists in its record, matched by title; None for a searchable source.
+
+    A portal that publishes each statute as a page (``web_document``) names its documents in the record;
+    the one the reference or the question names is read, and a source that lists one document reads it.
+    """
     documents = getattr(law.access.config, "documents", None)
     if law.lookup.search or not documents:
         return None
@@ -107,6 +132,11 @@ def listed_candidates(question: str, address: Address, law: LawSource) -> list[C
 
 
 def catalog_candidates(question: str, address: Address, search: Search) -> list[Candidate]:
+    """Verified pointers from the norm catalog, jurisdiction-filtered.
+
+    Match on the topic, then drop every other territory's law: a project in one
+    territory must never be handed another's building code.
+    """
     from agent.common.norm_registry import focus_entries
     from agent.common.norm_registry import load_registry
     from agent.common.norm_registry import match_entries
@@ -120,6 +150,11 @@ def catalog_candidates(question: str, address: Address, search: Search) -> list[
 
 
 def candidate_from_entry(entry, law: LawSource) -> Candidate:
+    """One catalog entry as a candidate, unavailability stated verbatim.
+
+    A norm that exists with no reachable full text is a fact the answer must
+    state, not a silent gap.
+    """
     in_source = bool(entry.application and entry.document_number)
     name = law.wording.source
     unavailable = ""
@@ -142,6 +177,19 @@ def candidate_from_entry(entry, law: LawSource) -> Candidate:
 
 
 def candidate_from_hit(hit, law: LawSource, *, whole_law: bool = True) -> Candidate:
+    """One live hit as a candidate.
+
+    The whole law beats the single-provision document: the extractor works on
+    provisions and the consolidated law is the document that HAS them. Case
+    law has no whole-law URL and falls back to its own text. A version of a
+    past day is read as itself (``whole_law=False``), never the law of today.
+
+    A version's in-force date is stated only when the document read IS that
+    version. Today's consolidated law is not the hit's version, so it carries
+    no date of the hit's: a search hit of a 2016 version, read as today's law,
+    was cited as „Fassung 2016-10-25" for a question about 2026 (dev QC
+    2026-11-12).
+    """
     engine = law.engine
     reads_today = whole_law and bool(hit.full_law_url)
     url = hit.full_law_url if reads_today else hit.fetch_url
@@ -162,6 +210,7 @@ def candidate_from_hit(hit, law: LawSource, *, whole_law: bool = True) -> Candid
 async def live_candidates(
     search: Search, question: str, address: Address, trace: LookupTrace, as_of: str = ""
 ) -> list[Candidate]:
+    """A live search of the source, planned when a planner is configured; on ``as_of``, versions of that day."""
     if not search.law.lookup.search:
         return []
     plan = await search_plan(search, question, address, trace)
@@ -174,6 +223,16 @@ async def live_candidates(
 async def dated_candidates(
     search: Search, question: str, address: Address, trace: LookupTrace, as_of: str
 ) -> list[Candidate]:
+    """On a past day: the named provision's versions of that day, found by the act's title; else the planned search.
+
+    A caller who names the act and the provision has said which law it is, so the act's title is the search,
+    with no full-text terms and no planner rewrite: the words of a question („which guidelines are binding")
+    rarely stand in the provision that answers it, and a source with no version date for a collection answers
+    a full-text search with today's hits or none (dev QC 2026-11-12: three provinces' building ordinances
+    missed). Where the record's search takes the provision (``{provision}``), the search is narrowed to it
+    first: a large act holds more versions than a page. An act named with no provision is the planned search's,
+    which looks for the provision that answers.
+    """
     if not (address.law and address.sections and search.law.lookup.search):
         return await live_candidates(search, question, address, trace, as_of)
     plan = {
@@ -195,6 +254,7 @@ async def dated_candidates(
 
 
 def _takes_provision(law: LawSource) -> bool:
+    """Whether the record's search operation narrows to one provision (a ``{provision}`` argument)."""
     try:
         operation = law.access.operation(law.lookup.search)
     except Exception:  # noqa: BLE001 — an access type with no operations narrows nothing
@@ -204,6 +264,7 @@ def _takes_provision(law: LawSource) -> bool:
 
 
 async def _hits(search: Search, args: dict[str, str]) -> list:
+    """The search's hits; a failed search is no hits, because a tool must always hand the agent a string."""
     try:
         result = await search.client.search(args)
     except SourceRequestError as exc:
@@ -216,6 +277,7 @@ async def _hits(search: Search, args: dict[str, str]) -> list:
 
 
 def _search_args(law: LawSource, plan: dict, as_of: str, *, page_size: int = LIVE_PAGE_SIZE) -> dict[str, str]:
+    """The plan as the record's search operation's arguments (its templates name them)."""
     args = {
         "application": plan["collection"],
         "query": plan["terms"],
@@ -231,6 +293,11 @@ def _search_args(law: LawSource, plan: dict, as_of: str, *, page_size: int = LIV
 
 
 def versions_on(hits, as_of: str, trace: LookupTrace, law: LawSource, address: Address | None = None):
+    """The version documents in force on ``as_of``, each read as itself, never the whole law of today.
+
+    With an address, only the addressed provisions' documents, where a hit states its provision: a version
+    document holds one provision, and the act's other provisions of that day answer nothing about it.
+    """
     day = parse_day(as_of)
     kept = [hit for hit in hits if day is not None and in_force_on(hit.metadata, day, law.engine)]
     trace.versions_dropped = len(hits) - len(kept)
@@ -240,6 +307,7 @@ def versions_on(hits, as_of: str, trace: LookupTrace, law: LawSource, address: A
 
 
 def _holds_addressed(hit, address: Address, law: LawSource) -> bool:
+    """Whether a version document holds an addressed provision; true when either side names none."""
     field = law.engine.provision_field
     stated = hit.metadata.get(field, "") if field else ""
     if not stated or not address.sections:
@@ -249,6 +317,7 @@ def _holds_addressed(hit, address: Address, law: LawSource) -> bool:
 
 
 async def search_plan(search: Search, question: str, address: Address, trace: LookupTrace) -> dict:
+    """The effective search, planned when a planner is configured."""
     effective = {
         "collection": trace.collection or search.law.lookup.statute(subdivision=bool(address.territory)).id,
         "terms": question,
@@ -263,6 +332,7 @@ async def search_plan(search: Search, question: str, address: Address, trace: Lo
 
 
 async def _planned(planner, effective: dict, address: Address) -> dict:
+    """Run the planner; the caller's arguments survive a planner failure."""
     try:
         plan = await planner(
             effective["terms"], effective["collection"], effective["title"], effective["territory"], "", ""

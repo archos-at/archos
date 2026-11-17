@@ -1,3 +1,34 @@
+"""Shared, backend-agnostic document classification helpers.
+
+The ingestor runs two light LLM passes over freshly-extracted document text at
+ingestion time:
+
+1. A one-sentence summary (``summarize_document_text``) — surfaced in the Files
+   metadata panel and in the per-turn ``available_documents`` prompt line.
+2. A controlled set of document tags (``classify_document_tags``) —
+   document type + OIB discipline — stored alongside the summary.
+
+The ingestor supplies the extracted text; everything downstream of it — the
+prompt, the LLM call, and the defensive parsing — lives here, beside the tag
+vocabulary the API routes validate against.
+
+Both helpers are fully fail-open: any missing LLM, LLM error, timeout, or
+unparseable output resolves to ``None`` and never disturbs ingestion.
+
+Public, reusable vocabulary (the single source of truth for tags):
+
+* ``DOCUMENT_TYPE_TAGS`` — ordered, immutable tuple of document-type tags.
+* ``DISCIPLINE_TAGS`` — ordered, immutable tuple of the six OIB discipline tags.
+* ``ALLOWED_TAGS`` — a ``frozenset`` union of the two, the closed vocabulary the
+  deterministic post-filter validates against.
+
+The classification prompt is *built from* these constants, so the instructions
+the LLM sees and the vocabulary the post-filter enforces can never drift apart.
+Any future user-facing tag-edit endpoint MUST validate against these same
+constants so free-form, semantically-duplicate categories (e.g. "Feuerschutz"
+vs the canonical "Brandschutz") can never enter storage.
+"""
+
 from __future__ import annotations
 
 import json
@@ -88,6 +119,7 @@ DOC_CLASS_QUESTION = (
 
 
 def suggest_doc_class(text: str, file_name: str, *, organization_id: str | None = None) -> str | None:
+    """A Dokumentart for a person to confirm, or ``None`` (unsure, ``other``, or no decision)."""
     if not text or not text.strip():
         return None
     try:
@@ -116,6 +148,14 @@ FALLBACK_SUMMARY_MAX_CHARS = 200
 
 
 def fallback_summary_from_text(text: str | None, max_chars: int = FALLBACK_SUMMARY_MAX_CHARS) -> str | None:
+    """Deterministic, LLM-free summary derived from already-extracted text.
+
+    Used when LLM summary generation failed/timed out but tag classification
+    succeeded: the ``summaries.summary`` column is NOT NULL, so tags need an
+    anchor row. Returns the first ``max_chars`` characters of ``text`` collapsed
+    to a single line and ellipsized, or ``None`` when no usable text exists (so
+    the caller skips registration exactly as it would with no summary).
+    """
     if not text:
         return None
     single_line = " ".join(text.split())
@@ -129,6 +169,20 @@ def fallback_summary_from_text(text: str | None, max_chars: int = FALLBACK_SUMMA
 
 
 def summarize_document_text(text_content: str, file_name: str, llm) -> str | None:
+    """Generate a one-sentence summary from already-extracted document text.
+
+    The ingestor obtains ``text_content`` from its chunks; this function owns
+    the prompt, the LLM call, and the response parsing.
+
+    Args:
+        text_content: Representative document text (e.g. first + last chunk).
+        file_name: Filename, for log context only.
+        llm: A LangChain-style LLM exposing ``.invoke``. ``None`` → no summary.
+
+    Returns:
+        A one-sentence summary, or ``None`` if no LLM was provided or generation
+        failed.
+    """
     if llm is None:
         return None
 
@@ -157,6 +211,7 @@ def summarize_document_text(text_content: str, file_name: str, llm) -> str | Non
 
 
 def _build_tag_prompt(text: str, file_name: str) -> str:
+    """Build the German tag-classification prompt with the closed vocabularies."""
     doc_types = ", ".join(DOCUMENT_TYPE_TAGS)
     disciplines = ", ".join(DISCIPLINE_TAGS)
     return (
@@ -182,6 +237,13 @@ def _build_tag_prompt(text: str, file_name: str) -> str:
 
 
 def _parse_tags(raw: str) -> list[str] | None:
+    """Defensively parse an LLM response into a validated tag list.
+
+    Strips code fences, decodes the JSON array, keeps only strings that are in
+    the allowed vocabulary (deduplicated, order-preserving), and caps the result
+    at :data:`MAX_TAGS`. Any parse problem — or an empty result after filtering —
+    yields ``None``.
+    """
     if not raw:
         return None
 
@@ -252,6 +314,7 @@ TAG_DECISION_TIMEOUT_S = 5.0
 
 
 def tag_questions() -> dict[str, dict]:
+    """The decision's questions, built from the vocabulary so the two cannot drift."""
     from agent.common.decisions import choice
     from agent.common.decisions import noul
 
@@ -271,6 +334,7 @@ def tag_questions() -> dict[str, dict]:
 
 
 def tags_from_decision(decision) -> list[str] | None:
+    """The tags a decision earns: the type, then the disciplines; ``None`` when it chose no type at 0.8."""
     chosen, distribution = decision.choice("type")
     if chosen not in DOCUMENT_TYPE_TAGS or distribution.get(chosen, 0.0) < TYPE_THRESHOLD:
         return None
@@ -288,6 +352,7 @@ def tags_from_decision(decision) -> list[str] | None:
 
 
 def decide_document_tags(text: str, file_name: str, *, organization_id: str | None = None) -> list[str] | None:
+    """Tags from the decision model; ``None`` when no decision ran, so the caller falls back."""
     if not text or not text.strip():
         return None
     try:
@@ -307,6 +372,25 @@ def decide_document_tags(text: str, file_name: str, *, organization_id: str | No
 
 
 def classify_document_tags(text: str, file_name: str, llm, *, organization_id: str | None = None) -> list[str] | None:
+    """Classify document text into 0–5 controlled tags.
+
+    The decision model first (:func:`decide_document_tags`); the generative
+    call only when no decision ran. Fully fail-open: a missing LLM, an LLM
+    error, or any unparseable/invalid output resolves to ``None``. Returned
+    tags are always a subset of :data:`ALLOWED_TAGS` (unknown tags are dropped
+    deterministically, so the LLM cannot invent vocabulary).
+
+    Args:
+        text: Representative document text (same source the summary uses).
+        file_name: Filename, used both as a classification hint and log context.
+        llm: A LangChain-style LLM exposing ``.invoke``, the fallback. ``None``
+            and no decision → no tags.
+        organization_id: The uploading organization, for its BYOK and ZDR
+            policy; ingestion runs outside any request context.
+
+    Returns:
+        A validated, non-empty list of tags, or ``None``.
+    """
     decided = decide_document_tags(text, file_name, organization_id=organization_id)
     if decided:
         logger.info("[TAGS] Decided %s -> %s", file_name, decided)
@@ -339,6 +423,21 @@ def reconcile_image_tags(
     content_type: str | None,
     segment_types: Iterable[str],
 ) -> list[str] | None:
+    """Make sure an uploaded image the vision model saw as a photograph says ``Foto``.
+
+    The tag classifier reads TEXT — for an image, the vision model's caption —
+    so it never saw the pixels the vision model did. A photo with a sparse
+    caption came out with no type at all, while the vision model had already
+    said "photograph". ``Foto`` is ADDED, first; what the classifier read from
+    the caption stays: a photo of the ground-floor plan pinned on the site
+    office wall is a Foto AND a Grundriss, and a photo of a fire door keeps its
+    Brandschutz. Capped at ``MAX_TAGS``, dropping from the end, so ``Foto`` and
+    the classifier's first reading survive.
+
+    Only for an image whose dominant content is pictorial (``content_type ==
+    "image"``): a scanned plan is typed ``drawing`` and keeps the classifier's
+    plan type alone. Deterministic and model-free.
+    """
     if content_type != "image" or PHOTO_SEGMENT_TYPE not in set(segment_types):
         return tags
     rest = [tag for tag in (tags or []) if tag != PHOTO_TAG]
@@ -384,6 +483,7 @@ def _build_topic_prompt(text: str, file_name: str, existing: Sequence[str]) -> s
 
 
 def normalize_topic(raw: object) -> str | None:
+    """A topic as stored: trimmed, one space, bounded; ``None`` when it is not a usable term."""
     if not isinstance(raw, str):
         return None
     term = " ".join(raw.replace(" ", " ").split()).strip(" .,;:-–—\"'„“")
@@ -395,6 +495,12 @@ def normalize_topic(raw: object) -> str | None:
 
 
 def parse_topics(content: str, existing: Sequence[str] = ()) -> list[str] | None:
+    """Keep the confident, new-information topics, spelled as the project already spells them.
+
+    Pure. A reply that is not the JSON array asked for yields ``None``; so does
+    one whose every topic was dropped. Order is the model's (most relevant
+    first), duplicates by case are dropped, and the result is capped.
+    """
     if not content:
         return None
     body = content.strip()
@@ -436,6 +542,11 @@ def suggest_topics(
     *,
     existing: Sequence[str] = (),
 ) -> list[str] | None:
+    """The model's confident topics for a document, or ``None``. Fully fail-open.
+
+    Runs beside the summary and the tags at ingest, on the same text and the
+    same summary model (so it lands on the same cost ledger and trace).
+    """
     if llm is None or not text or not text.strip():
         return None
     try:

@@ -1,3 +1,13 @@
+"""Discovery of the platform's builtin (filesystem) skills.
+
+Builtin skills are SKILL.md files shipped with the backend under
+``packages/agent/src/agent/skills/builtin/<collection>/<name>/SKILL.md`` — the same
+substrate layout deepagents' ``discover_skill_collections`` reads (collection =
+mid-level dir, skill = leaf dir). Unlike deepagents' warn-and-continue scan,
+GRID's own discovery validates STRICTLY: a malformed builtin skill is a
+deployment error, never a silent skip.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -23,10 +33,18 @@ LEGACY_SKILL_NAMES: dict[str, str] = {
 
 
 def canonical_skill_name(name: str) -> str:
+    """The current name for ``name``, following one renamed builtin; any other name as given."""
     return LEGACY_SKILL_NAMES.get(name, name)
 
 
 def discover_builtin_skills(root: Path = BUILTIN_SKILLS_DIR) -> tuple[Skill, ...]:
+    """Strictly parse every ``<root>/<collection>/<name>/SKILL.md`` file.
+
+    Raises on any contract violation (missing frontmatter, name mismatch,
+    oversized/empty description, reserved-metadata misuse) — the platform
+    corpus is trusted and must stay valid. Returns skills in deterministic
+    (collection, name) order.
+    """
     skills: list[Skill] = []
     if not root.is_dir():
         raise FileNotFoundError(f"Builtin skills dir missing: {root}")

@@ -1,3 +1,5 @@
+"""Separating elements: the walls, floors and doors that keep a fire in its compartment, and their fire ratings."""
+
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -19,6 +21,64 @@ from .model import SpatialModel
 
 
 def separating_elements(model: SpatialModel, space_a: str, space_b: str) -> Answer[dict[str, Any]]:
+    """The elements between two spaces — the wall, the slab, and the door in it.
+
+    :func:`~ifc_spatial.operators.bounds` gives each space's boundary; this is
+    their INTERSECTION, plus the two things an intersection alone gets wrong.
+
+    ## A shared bounding element is not necessarily a separating one
+
+    A continuous south facade bounds every room along it and separates none of
+    them. So each shared element is classified rather than reported flat, by two
+    independent geometric tests, and an element passing **either** is
+    ``separating``:
+
+    1. **Achsentest** — the two room bodies are disjoint along one axis, and the
+       element lies inside that gap (within :data:`SEPARATION_SLACK`) while
+       overlapping both rooms on the other two. This is what catches the
+       partition and misses the facade.
+    2. **Sichtlinie** — the straight segment between the two room centroids
+       passes through the element's body. This catches the floor slab between a
+       room and the room above it, where the gap is zero-width and the slab's
+       body reaches into the space solid.
+
+    Either test alone loses a real fire wall on ordinary geometry, and losing
+    one is the dangerous direction, so the union is taken and every element says
+    which test found it. Elements that pass neither are still reported, under
+    ``shared`` with their reason — nothing is dropped silently.
+
+    When the spaces carry no body at all (a topology-only export), no test can
+    run: the shared bounding elements are reported as ``separating`` with
+    ``why`` saying betweenness was **not** checked. Excluding an element on no
+    evidence would be worse.
+
+    ## The openings, because the door is the weak point
+
+    For every separating element the opening chain is walked
+    (:func:`~ifc_spatial.operators.hosts` → ``filler_of``) and each filler comes
+    back under ``openings`` with its OWN declared ``FireRating``. A REI 90
+    wall with an undeclared door in it is a finding, and it is invisible if only
+    the wall is reported.
+
+    ## FireRating, and the sentence that is worth more than a number
+
+    Every element carries ``Pset_*Common.FireRating`` exactly as declared, and
+    ``None`` when no pset carries it — searched across all psets and inherited
+    from the type, because the SET the property lands in is not standardised.
+    ``Ifc4_SampleHouse.ifc`` declares it on **none** of its 75 products, which
+    is the most common finding in Austrian exports and the reason the caveat
+    says so in full rather than leaving an empty field to be read as "kein
+    Feuerwiderstand".
+
+    A property present but EMPTY is not a declaration either, and is reported as
+    if it were absent — see :func:`_fire_rating`. ``AC20-FZK-Haus.ifc`` carries
+    ``FireRating = ''`` on four ArchiCAD placeholders and nothing else; reading
+    those as declarations turned a finding about the export into a finding about
+    the design.
+
+    No verdict: whether REI 90 is sufficient is a question about the
+    Bestimmung, and the Bestimmung answers it.
+    """
     method = f"separatingElements({space_a}, {space_b})"
     first = op._require(model, space_a, method)
     second = op._require(model, space_b, method)
@@ -118,6 +178,12 @@ def separating_elements(model: SpatialModel, space_a: str, space_b: str) -> Answ
 
 
 def _separating_axis(geo_a: Any, geo_b: Any) -> tuple[int, float, float] | None:
+    """The one axis the two bodies are disjoint on, and the gap between them.
+
+    ``None`` when they overlap on every axis (interpenetrating rooms — a finding
+    in itself) or on more than one (diagonal neighbours, which share a corner
+    and no separating element).
+    """
     a_low, a_high = geo_a.box
     b_low, b_high = geo_b.box
     gaps: list[tuple[int, float, float]] = []
@@ -139,6 +205,7 @@ def _classify(
     axis: tuple[int, float, float] | None,
     testable: bool,
 ) -> tuple[str, str]:
+    """``separating`` or ``shared``, and the German reason."""
     if not testable:
         return (
             "separating",
@@ -181,6 +248,7 @@ def _classify(
 
 
 def _in_gap(geo: Any, geo_a: Any, geo_b: Any, axis: tuple[int, float, float]) -> bool:
+    """Does this body sit in the gap between the two rooms, and span both?"""
     index, low, high = axis
     e_low, e_high = geo.box
     if float(e_low[index]) < low - SEPARATION_SLACK or float(e_high[index]) > high + SEPARATION_SLACK:
@@ -198,6 +266,13 @@ def _in_gap(geo: Any, geo_a: Any, geo_b: Any, axis: tuple[int, float, float]) ->
 
 
 def _segment_hits_box(start: np.ndarray, end: np.ndarray, box: tuple[np.ndarray, np.ndarray]) -> bool:
+    """Slab method: does the segment ``start → end`` cross this axis-aligned box?
+
+    The 3D form of the test a plan drawing does by eye. Written out rather than
+    delegated to ``tree.select_ray`` because the ray would report the FIRST hit
+    only — and the question here is asked once per candidate element, not once
+    per pair.
+    """
     direction = np.asarray(end, dtype=float) - np.asarray(start, dtype=float)
     low, high = np.asarray(box[0], dtype=float), np.asarray(box[1], dtype=float)
     t_enter, t_exit = 0.0, 1.0
@@ -218,6 +293,7 @@ def _segment_hits_box(start: np.ndarray, end: np.ndarray, box: tuple[np.ndarray,
 
 
 def _openings_in(model: SpatialModel, global_id: str) -> list[dict[str, Any]]:
+    """The windows and doors sitting in this element, each with its own FireRating."""
     hosted = op.hosts(model, global_id)
     if not hosted.decidable or not hosted.value:
         return []
@@ -347,6 +423,26 @@ def _separating_caveat(
 
 
 def _fire_rating(model: SpatialModel, element: Any) -> str | None:
+    """The declared ``FireRating`` of one element, or ``None`` — blank is ``None``.
+
+    The single place this property is turned into an answer, because the empty
+    string has to mean the same thing at every one of them.
+
+    ``AC20-FZK-Haus.ifc`` carries ``FireRating = ''`` on four ArchiCAD
+    placeholder properties (two ``IfcDoor``, two ``IfcWindow``) and declares a
+    fire resistance nowhere else. ``''`` is not ``None``, so every reader of the
+    raw property counted those four as declarations:
+    :func:`_declares_fire_rating` answered ``True`` and
+    :func:`_separating_caveat` therefore told the reader the gap was „eine Lücke
+    in genau diesen Bauteilen" — a finding about the DESIGN, addressed to the
+    architect — where the truth is a finding about the EXPORT, addressed to
+    whoever runs the CAD, with a different remedy attached. ``_opening_entry``
+    published ``{'fireRating': '', 'fireRatingDeklariert': True}``: a declared
+    class that is blank.
+
+    Whitespace counts as blank for the same reason: ``' '`` is what a cleared
+    field leaves behind, and it is not a fire resistance class either.
+    """
     value = model.declared_property(element, ("FireRating",))
     if value is None:
         return None
@@ -355,6 +451,21 @@ def _fire_rating(model: SpatialModel, element: Any) -> str | None:
 
 
 def _fire_rating_scan(model: SpatialModel) -> tuple[bool, int]:
+    """``(does any product declare a FireRating, how many declare it BLANK)``.
+
+    The difference between "this wall has no fire rating" and "this export has
+    no fire ratings at all" is the difference between a finding about a building
+    and a finding about a file, and only the second one is true here. The blank
+    count is carried alongside because a file with four empty placeholders looks
+    from the outside like the first case and is the second.
+
+    Memoised on the ``SpatialModel`` and not in a module-level table, for the
+    reason :mod:`~ifc_spatial.circulation` gives for its own memo: one model
+    instance is one content hash, so a memo that lives and dies with it cannot
+    serve an answer derived from different bytes. The scan reads every product's
+    psets once — 75 products on the sample house — and
+    :func:`separating_elements` may be called once per room pair.
+    """
     cached = getattr(model, _FIRE_RATING_MEMO, None)
     if isinstance(cached, tuple):
         return cached
@@ -374,4 +485,5 @@ def _fire_rating_scan(model: SpatialModel) -> tuple[bool, int]:
 
 
 def _declares_fire_rating(model: SpatialModel) -> bool:
+    """Does ANY product in this file declare a NON-BLANK FireRating?"""
     return _fire_rating_scan(model)[0]

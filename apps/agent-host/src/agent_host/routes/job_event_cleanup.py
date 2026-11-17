@@ -1,3 +1,5 @@
+"""The job event retention sweep: expired events, job rows and chat checkpoints deleted in one pass."""
+
 from __future__ import annotations
 
 import asyncio
@@ -14,6 +16,15 @@ async def run_event_cleanup(
     is_postgres: bool,
     delete_grace_seconds: int = 604800,
 ) -> dict[str, int]:
+    """
+    Execute one cleanup cycle: time-based event pruning + removal of events for expired jobs.
+
+    Returns what the cycle removed; all zeros when another pod held the lock.
+
+    On PostgreSQL, acquires a transaction-level advisory lock (pg_try_advisory_xact_lock)
+    so concurrent pods skip the cycle rather than doing redundant work. The lock is
+    automatically released on commit/rollback, avoiding leak risks.
+    """
     from ..jobs.access import cleanup_job_access
     from ..jobs.access import ensure_job_access_table
     from ..jobs.access import expire_terminal_jobs

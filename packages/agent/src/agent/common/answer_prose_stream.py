@@ -1,3 +1,42 @@
+"""The answer's prose while the model is still writing it, safe to show.
+
+The final call writes one ```answer_json envelope: the masthead fields
+(``MASTHEAD_FIELDS`` in :mod:`agent.common.answer_envelope`) first, then the
+``answer`` string, then the cards. The strict schema and every example put them
+in that order, and the order is load-bearing (ADR-0066): a masthead written
+after ``answer`` cannot stand above the prose until the terminal frame. This
+reads the string out of the raw token stream as it grows and hands back what
+may be shown NOW, JSON-unescaped.
+
+- ``[N]`` citation markers stream as they are written, whole: a half-written
+  ``[1`` is held until its bracket closes. The reader shows them as pending
+  citations until the sources section below is verified (ADR-0066).
+- ``[[card:N]]`` markers stream whole too, so the reader can hold the card's
+  place from the moment it is written; the card fills it once its object
+  closes, after the prose.
+- The sources section is not shown. It is collected in :attr:`sources_text`,
+  so the moment the string closes the caller can verify it against the
+  registry and settle every marker already on screen.
+- The fields written BEFORE ``answer`` (the masthead: ``kind``, ``topic``,
+  ``context``, ``verdict``, ``summary``) are read into :attr:`masthead` the
+  moment the ``answer`` key appears, so they can stand above the prose before
+  its first word instead of being inserted over it at the end.
+- The cards written AFTER it are read one complete object at a time
+  (:meth:`take_cards`), so each can fill its place as soon as it is written.
+
+A reply that is not an envelope streams nothing: a tool-calling round can
+write a line of preamble before its tool call, and prose outside an envelope
+cannot be told apart from it until the round ends.
+
+Pure and synchronous; ``feed`` returns the delta to show, possibly empty.
+
+``feed`` runs once per token on the event loop, so no buffer that grows with
+the reply is rebuilt per token: ``text += token`` on an attribute copies all of
+``text`` (CPython reuses the string in place only for a local), which made a
+long card or a long held line quadratic. What accumulates is kept as parts and
+joined once, when it is read.
+"""
+
 from __future__ import annotations
 
 import json
@@ -25,6 +64,7 @@ _ESCAPES = {'"': '"', "\\": "\\", "/": "/", "b": "\b", "f": "\f", "n": "\n", "r"
 
 
 class AnswerProseStream:
+    """Feed raw reply text; get back the display-safe prose delta."""
 
     def __init__(self) -> None:
         self._raw = ""  # reply text not yet consumed by the state machine
@@ -47,13 +87,16 @@ class AnswerProseStream:
 
     @property
     def emitted(self) -> str:
+        """Everything shown so far."""
         return _joined(self._emitted)
 
     @property
     def sources_text(self) -> str:
+        """The sources section, heading line first, once the prose reached it."""
         return _joined(self._sources)
 
     def feed(self, text: str) -> str:
+        """Consume ``text`` and return what may be shown now."""
         if self._state == "off" or not text:
             return ""
         if self.closed:
@@ -95,6 +138,7 @@ class AnswerProseStream:
         self._state = "prose"
 
     def _decode(self) -> str:
+        """The complete JSON-string characters, decoded; close at the quote."""
         out: list[str] = []
         raw, i = self._raw, 0
         while i < len(raw):
@@ -119,10 +163,12 @@ class AnswerProseStream:
         return "".join(out)
 
     def take_cards(self) -> list[dict]:
+        """The cards completed since the last call, in array order."""
         taken, self._cards = self._cards, []
         return taken
 
     def _scan_cards(self) -> None:
+        """Move every complete object of the ``cards`` array out of ``_tail``."""
         if not self._in_cards:
             match = _CARDS_KEY_RE.search(self._tail)
             if match is None:
@@ -145,6 +191,7 @@ class AnswerProseStream:
             self._tail, self._card = self._tail[end:], None
 
     def _next_card(self) -> _ObjectScan | None:
+        """The scan of the cards array's next element, once it has begun."""
         start = self._tail.find("{")
         if start < 0 or self._tail[:start].strip(" \n\t,"):
             return None
@@ -152,6 +199,7 @@ class AnswerProseStream:
         return _ObjectScan()
 
     def _release(self, decoded: str) -> str:
+        """Add ``decoded`` to ``_pending``; show its longest prefix that nothing can still change."""
         if self._code_held and not self.closed and "\n" not in decoded and "`" not in decoded:
             self._code_parts.append(decoded)  # the span stays open; nothing to show
             return ""
@@ -183,6 +231,13 @@ class AnswerProseStream:
         return shown
 
     def _through_lines(self, text: str) -> tuple[str, str, bool]:
+        """Split off every complete line, and turn to ``sources`` at its heading.
+
+        Returns ``(shown, rest, hold_line)``: ``rest`` is the unfinished last
+        line, or everything from the sources heading on; ``hold_line`` says
+        the line began a line and is still short enough to turn out to be a
+        heading, so none of it may be shown yet.
+        """
         shown = ""
         line_start = self._line_start
         skip = self._scanned  # no newline before this in the text kept last time
@@ -200,6 +255,13 @@ class AnswerProseStream:
             line_start, skip = True, 0
 
     def _held(self, line: str) -> int:
+        """How many trailing characters of the unfinished ``line`` must wait.
+
+        An inline code span still open holds from its backtick on (until its
+        closing one arrives, ``m[2, 3]`` cannot be told from a grouped
+        citation, which would be expanded into two pills); otherwise a marker
+        still being written. ``_ticks`` counts the backticks in ``line``.
+        """
         code = 0 if self._ticks % 2 == 0 else len(line) - line.index("`")
         if code == len(line):
             return code  # the whole line waits; no marker can hold more
@@ -207,10 +269,15 @@ class AnswerProseStream:
 
 
 def _is_short(line: str) -> bool:
+    """Whether ``line`` has at most ``_LINE_HOLD`` visible characters."""
     return len(line) <= _LINE_HOLD or _SHORT_LINE_RE.match(line) is not None
 
 
 def _object_prefix(text: str) -> dict | None:
+    """The JSON object whose members ``text`` opens with, closed after its last member.
+
+    ``{"kind": "ruling", "summary": "…",`` → ``{"kind": "ruling", "summary": "…"}``.
+    """
     start = text.find("{")
     if start < 0:
         return None
@@ -225,6 +292,7 @@ def _object_prefix(text: str) -> dict | None:
 
 
 def _joined(parts: list[str]) -> str:
+    """``parts`` as one string, left joined so the next read joins only what came since."""
     if len(parts) > 1:
         parts[:] = ["".join(parts)]
     return parts[0] if parts else ""
@@ -232,6 +300,7 @@ def _joined(parts: list[str]) -> str:
 
 @dataclass
 class _ObjectScan:
+    """The scan of a JSON object, fed its text from the opening brace on as it arrives."""
 
     parts: list[str] = field(default_factory=list)  # the object's text read so far
     depth: int = 0
@@ -239,6 +308,7 @@ class _ObjectScan:
     escaped: bool = False
 
     def read(self, text: str) -> int | None:
+        """Read the object's next ``text``; the index in it just past the object, or None while incomplete."""
         for index, char in enumerate(text):
             if self._closes_on(char):
                 self.parts.append(text[: index + 1])
@@ -247,9 +317,11 @@ class _ObjectScan:
         return None
 
     def text(self) -> str:
+        """The object's text, once ``read`` found its end."""
         return "".join(self.parts)
 
     def _closes_on(self, char: str) -> bool:
+        """Read one character; whether it is the brace that closes the object."""
         if self.in_string:
             self._string_char(char)
         elif char == '"':
@@ -262,6 +334,7 @@ class _ObjectScan:
         return False
 
     def _string_char(self, char: str) -> None:
+        """Read one character inside a string: an escape, or the closing quote."""
         if self.escaped:
             self.escaped = False
         elif char == "\\":
@@ -271,6 +344,16 @@ class _ObjectScan:
 
 
 def _expanded_after(shown_parts: list[str], pending: str) -> str:
+    """``pending`` with its grouped markers expanded, read in the context of what was shown.
+
+    Only a grouped marker inside ``pending`` can change it: a marker cannot
+    straddle the two, because its unfinished head is held (``_held_tail``) and
+    one broken by a newline reads differently from its expansion within
+    ``shown``, which sends it down the fallback below. So ``pending`` with no
+    candidate is returned as it is, without re-reading (or joining) everything
+    shown before it, which per token made a long answer quadratic on the event
+    loop.
+    """
     if _GROUPED_CITATION_RE.search(pending) is None:
         return pending
     shown = _joined(shown_parts)
@@ -281,6 +364,7 @@ def _expanded_after(shown_parts: list[str], pending: str) -> str:
 
 
 def _held_tail(text: str) -> int:
+    """How many trailing characters must wait: a marker still being written."""
     match = _MARKER_PREFIX_RE.search(text)
     if match is None:
         return 0
@@ -288,6 +372,13 @@ def _held_tail(text: str) -> int:
 
 
 def _escape(raw: str, i: int) -> tuple[str, int]:
+    """Decode the JSON escape at ``raw[i]``; width 0 when it is not complete yet.
+
+    The answering call is not in JSON mode, so the model may write what is not
+    JSON: ``C:\\user`` unescaped, a lone surrogate, an unknown escape. Those are
+    shown as written, backslash included, rather than stall the stream; the
+    terminal frame cannot parse such an envelope either and shows it raw.
+    """
     if i + 1 >= len(raw):
         return "", 0
     code = raw[i + 1]
@@ -308,6 +399,7 @@ def _escape(raw: str, i: int) -> tuple[str, int]:
 
 
 def _surrogate_pair(raw: str, i: int, high: int) -> tuple[str, int]:
+    """Join the high surrogate at ``raw[i]`` with its partner, or show it as written."""
     if i + 8 > len(raw):
         return "", 0
     if raw[i + 6 : i + 8] != "\\u":

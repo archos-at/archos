@@ -1,3 +1,23 @@
+"""Experiment: German compound splitting for the BM25 channel, index and query side.
+
+Neither German analyzer splits closed compounds, so „Verfahren“ never reaches
+„Nachweisverfahren“ (the ``compound_only`` hard cases score 0 on every lexical
+channel). This measures what splitting would buy, without touching production's
+write path: the corpus points are copied into a second scope of the same
+collection whose BM25 vector is built from the chunk text PLUS the parts of its
+compounds; the dense vector, payload and text index are the original ones. The
+query side appends the parts of the question's compounds to the BM25 candidates
+(``retrieval.bm25_candidates``), and prices them on the split corpus. Everything
+else is production's ``_retrieve_sync`` reading that scope.
+
+The splitter is CharSplit (Tuggener 2016) as packaged on PyPI by ``split-words``
+(MIT, pure Python, its n-gram table shipped in the wheel, no runtime download):
+``uv pip install split-words==0.1.3``. It is not a dependency of anything: the
+variant is skipped when it is absent. CharSplit always proposes a split, so a
+proposal is kept only when both parts are words of this corpus (four letters or
+more, standing alone in some chunk, a linking „s“ dropped from the first part).
+"""
+
 from __future__ import annotations
 
 import contextlib
@@ -19,6 +39,12 @@ _NAMESPACE = uuid.UUID("5f1d2c9e-7a43-4b0e-9d6a-3c2b1e0f8a77")
 
 @dataclass(frozen=True)
 class Variant:
+    """A sweep variant reading the decompounded scope under ``ranking``.
+
+    ``query_parts`` False splits the index only: a question keeps its words
+    whole, so „Verfahren“ reaches „Nachweisverfahren“ while „Brandabschnittsfläche“
+    is not widened to every „Brand“ and „Fläche“.
+    """
 
     ranking: Any
     query_parts: bool = True
@@ -33,6 +59,7 @@ def available() -> bool:
 
 
 class Decompounder:
+    """Splits German compounds into parts that are words of a given vocabulary."""
 
     def __init__(self, texts: Sequence[str]):
         from split_words import Splitter
@@ -51,6 +78,7 @@ class Decompounder:
         return None
 
     def parts(self, word: str) -> tuple[str, ...]:
+        """The parts of ``word`` (recursively, first part and head), or nothing when it is no compound here."""
         key = word.lower()
         if key in self._cache:
             return self._cache[key]
@@ -65,6 +93,7 @@ class Decompounder:
         return found
 
     def expand(self, text: str) -> list[str]:
+        """Every part of every compound in ``text``, in order, deduplicated."""
         seen: dict[str, None] = {}
         for word in _WORD.findall(text):
             for part in self.parts(word):
@@ -73,6 +102,7 @@ class Decompounder:
 
 
 def build_split_scope(decompounder: Decompounder, source_scope: str) -> dict[str, int]:
+    """Copy ``source_scope``'s points into :data:`SPLIT_SCOPE` with BM25 over text plus compound parts."""
     from knowledge_layer.vector_store import DENSE
     from knowledge_layer.vector_store import LEXICAL
     from knowledge_layer.vector_store import SCOPE_FIELD
@@ -111,6 +141,14 @@ def build_split_scope(decompounder: Decompounder, source_scope: str) -> dict[str
 
 @contextlib.contextmanager
 def query_side(decompounder: Decompounder, corpus_texts: Sequence[str], *, query_parts: bool = True) -> Iterator[None]:
+    """BM25 candidates gain the parts of the question's compounds, priced on the split corpus.
+
+    Every candidate's document frequency is counted over the decompounded
+    chunk texts in Python when it is a part, or (``query_parts`` False) when
+    any compound holds it: the text index the pricing reads holds the original words only, so
+    it would count „verfahren“ where it stands alone and miss every
+    „Nachweisverfahren“ the split BM25 vector now matches.
+    """
     from knowledge_layer.vector_store import retrieval
 
     documents = [set(_WORD.findall(text.lower())) | set(decompounder.expand(text)) for text in corpus_texts]

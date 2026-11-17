@@ -1,3 +1,5 @@
+"""The tool description the model reads: how to ask, which operation to pick, and the rules that keep answers honest."""
+
 _TOOL_DESCRIPTION = (
     "MEASURE the project's IFC/BIM model — geometry, topology and spatial relationships — and report "
     "every number with the provenance it came with. Use this when the answer is a DIMENSION, a "

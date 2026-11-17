@@ -1,3 +1,30 @@
+"""Turning a raw transcript into text a member would have typed.
+
+The transcription model brings the punctuation and capitalisation. Whether it
+also drops hesitation sounds is up to the model and, on OpenRouter, to a prompt
+the provider may or may not honour (unverified, see
+``docs/architecture/voice-dictation.md``). This module is the part that does not
+depend on either: it removes the fillers a model left in, deterministically, so
+the composer never receives "äh, also ähm".
+
+Two rules shape the word list:
+
+* **Only sounds that are never words.** ``äh``, ``ähm``, ``öhm``, ``uh``,
+  ``uhm``, ``erm``, ``hmm``. ``eh`` stays (German "eh schon"), ``er`` stays
+  (German "he"), ``mhm`` stays (it means yes).
+* **"um" is a German preposition**, so it is removed only where the preposition
+  cannot stand: as a sentence's first word followed by a comma or an ellipsis
+  ("Um, I think …"), or as an aside between commas ("and, um, the"). "Es geht um
+  die Fluchtwege" and "um, sagen wir, acht Uhr" keep it. ``umm`` with two or
+  more m is never German and always goes.
+
+Audio-event tags go too: ElevenLabs Scribe writes ``[pause]`` for room noise
+(seen in a live test), and a bracketed note is never something a member meant
+to type into a chat. A transcript that is only a known silence hallucination
+(Whisper-class models write subtitle credits over silence) becomes empty, so
+silence inserts nothing.
+"""
+
 from __future__ import annotations
 
 import re
@@ -35,11 +62,13 @@ _SILENCE_HALLUCINATIONS = (
 
 
 def _next_word(match: re.Match[str]) -> str:
+    """The whole word whose first letter the match consumed, lowercased."""
     word = re.match(r"\w+", match.string[match.start("next") :])
     return word.group(0).lower() if word else ""
 
 
 def _drop_filler(match: re.Match[str]) -> str:
+    """The text a filler leaves behind: nothing, and a capital where it opened a sentence."""
     groups = match.groupdict()
     following = groups.get("next") or ""
     if groups.get("lead") is not None:
@@ -52,6 +81,7 @@ def _drop_filler(match: re.Match[str]) -> str:
 
 
 def _tidy(text: str) -> str:
+    """Repair the punctuation a removed filler leaves: doubled commas, a comma before a full stop."""
     text = re.sub(r"[ \t]{2,}", " ", text)
     text = re.sub(r"\s+([,.!?;:])", r"\1", text)
     text = re.sub(r",(?:\s*,)+", ",", text)
@@ -61,12 +91,14 @@ def _tidy(text: str) -> str:
 
 
 def is_silence_hallucination(text: str) -> bool:
+    """Whether the whole transcript is a known silence hallucination."""
     normalized = re.sub(r"[^\w\s-]", "", text.lower()).strip()
     normalized = re.sub(r"\s+", " ", normalized)
     return any(normalized.startswith(phrase) for phrase in _SILENCE_HALLUCINATIONS) and len(normalized) < 80
 
 
 def clean_transcript(raw: str | None) -> str:
+    """The transcript without fillers and silence hallucinations; ``""`` when nothing was said."""
     text = _AUDIO_EVENT_RE.sub(" ", raw or "").strip()
     if not text or is_silence_hallucination(text):
         return ""

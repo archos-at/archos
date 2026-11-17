@@ -206,7 +206,7 @@ _TITLE_RE = re.compile(r"<title[^>]*>(.*?)</title>", re.IGNORECASE | re.DOTALL)
 
 
 
-# #content holds 759,015 of 759,687 characters of the Bauordnung für Wien page (2026-09-04); the rest is site furniture at the front.
+# #content holds 759,015 of 759,687 characters of a Bauordnung für Wien page (2026-09-04); the rest is site furniture.
 def html_to_text(
     markup: str, content_selector: str = "#content", drop_selectors: tuple[str, ...] = (".sr-only",)
 ) -> tuple[str, str]:

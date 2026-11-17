@@ -1,3 +1,17 @@
+"""One bounded repair of a card the model shaped wrong — on the small model, not a round.
+
+The retry path ``emit_card`` offers hands the failed shape back and lets the
+model try again, which is right and costs a full-context call: 40-80k tokens
+re-sent so that four fields can be renamed. With cards in the envelope there
+is no retry, and a wrong shape would be a dropped card. This is the middle:
+the failed object, the validator's clauses and the type's whole shape go to
+the card model (``card_llm``, the role that already builds cards post-hoc for
+deep research) in a message of a few thousand tokens, and what comes back goes
+through the same validator. Bounded once per card, bounded in time, and a
+failure keeps the answer exactly as it is — a card is an enhancement of an
+answer that already exists.
+"""
+
 from __future__ import annotations
 
 import asyncio
@@ -41,6 +55,13 @@ def _prompt(card: dict[str, Any], refusal: str, answer: str) -> list[Any]:
 
 
 async def repair_card(llm: Any, card: dict[str, Any], refusal: str, answer: str) -> dict[str, Any] | None:
+    """The corrected card object, or ``None`` when the repair did not produce one.
+
+    ``None`` on a timeout, a provider error, unparseable output, or a reply
+    that is not one object of the same type — every one of them logged, none
+    of them raised: the caller already holds the answer and decides what a
+    missing card means (it records it).
+    """
     try:
         response = await asyncio.wait_for(_ainvoke_card_llm(llm, _prompt(card, refusal, answer)), CARD_REPAIR_TIMEOUT_S)
     except TimeoutError:

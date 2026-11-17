@@ -1,3 +1,24 @@
+"""Client for the Austrian OGD-RIS API (Rechtsinformationssystem des Bundes).
+
+Implements the "OGD-RIS Service" v2.6 REST API documented in the
+"OGD-RIS API Handbuch V2_6" (https://data.bka.gv.at/ris/api/v2.6/).
+
+Two capabilities:
+
+- ``search()``   — query a RIS application (Bundesrecht, Landesrecht,
+  Judikatur, ...) and normalize the JSON search result into ``RisHit``
+  objects carrying document numbers, titles, metadata, and content URLs.
+- ``fetch_document_text()`` — download an entire document (law paragraph,
+  full consolidated law, court decision, ...) from the RIS citizen
+  application and convert its HTML/XML payload to plain text.
+
+The search result payload is JSON converted from the XML response schemas
+(OGD_*_Response.xsd), so element cardinality is ambiguous: a node holding
+one child is a dict while the same node with several children is a list.
+All parsing here therefore goes through ``_as_list``/deep-search helpers
+and never assumes a fixed shape.
+"""
+
 from __future__ import annotations
 
 import asyncio
@@ -59,6 +80,7 @@ DEFAULT_BASE_URL = _ACCESS.config.base_url
 
 
 def source_record():
+    """This adapter's source record (``configs/sources``): its hosts, and how an address states a work's identifier."""
     return _SOURCE
 
 
@@ -74,32 +96,47 @@ _DOC_PREFIX_SEGMENTS: tuple[tuple[str, str], ...] = tuple(_ACCESS.table("documen
 
 
 def search_terms(args: dict[str, Any]) -> dict[str, str]:
+    """The ``terms`` parameters of the record's ``search`` operation for ``args``."""
     return _ACCESS.params("search", args, group="terms")
 
 
 def federal_state_param(federal_state: str) -> str:
+    """The Landesrecht search parameter for a Bundesland name, e.g. ``Bundesland.SucheInWien``; empty if unknown."""
     return _ACCESS.table("federal_state").lookup(federal_state) if federal_state else ""
 
 
 def public_host(url: str) -> str:
+    """A RIS URL on the public host the citations, the catalog and the fetch use."""
     return _ENGINE.public_host(url)
 
 
 def _parse_hit(ref: Any) -> RisHit:
+    """One OgdDocumentReference node as a RisHit, with the record's host rewrites."""
     return ris_xml._parse_hit(ref, _ENGINE.config.host_rewrites)
 
 
 def parse_search_response(payload: dict[str, Any]) -> RisSearchResult:
+    """Parse a raw OGD-RIS JSON response into a RisSearchResult (the ``ris_xml`` engine).
+
+    Raises:
+        RisError: When the payload carries an ``OgdSearchResult.Error`` node.
+    """
     return _ENGINE.search(payload)
 
 
 def html_to_text(markup: str) -> tuple[str, str]:
+    """Convert a RIS HTML/XML document to (title, plain text) (the ``ris_xml`` engine)."""
     return _ENGINE.text(markup)
 
 
 
 
 class RisClient:
+    """Async client for OGD-RIS search and document fetching.
+
+    Reuses one HTTP connection pool, retries transient failures with
+    exponential backoff, and keeps a small TTL cache of fetched documents.
+    """
 
     def __init__(
         self,
@@ -122,6 +159,14 @@ class RisClient:
         self._doc_cache: dict[str, tuple[float, RisDocument]] = {}
 
     def _http_client(self) -> httpx.AsyncClient:
+        """The client whose requests the public-source fetcher makes, for the ``at-ris`` record.
+
+        There is no other path: RIS is read from the fetcher's pod, which reaches
+        public addresses and nothing in the cluster, and the guard runs there
+        (:mod:`public_sources.egress`). Without a fetcher configured, a RIS
+        request is refused (:class:`RisError`). A transport handed in (tests)
+        stands in for the network.
+        """
         if self._client is None or self._client.is_closed:
             try:
                 transport = source_transport(RIS_SOURCE_ID, inner=self._transport)
@@ -131,6 +176,7 @@ class RisClient:
         return self._client
 
     def _new_client(self, transport: httpx.AsyncBaseTransport | None) -> httpx.AsyncClient:
+        """``trust_env=False`` always: an environment proxy would take a request past the guard."""
         return httpx.AsyncClient(
             timeout=self.timeout,
             follow_redirects=True,
@@ -144,14 +190,22 @@ class RisClient:
         )
 
     async def _reject_non_ris_hop(self, request: httpx.Request) -> None:
+        """Refuse a request — original or redirected — that has left RIS."""
         self._validate_document_url(str(request.url))
 
     async def aclose(self) -> None:
+        """Close the pooled HTTP connection (idempotent)."""
         if self._client is not None and not self._client.is_closed:
             await self._client.aclose()
         self._client = None
 
     async def _get_with_retries(self, url: str, params: dict[str, str] | None = None) -> httpx.Response:
+        """GET with exponential backoff on transport errors and 5xx responses.
+
+        HTTP 500 responses carrying a structured ``OgdSearchResult.Error`` are
+        NOT retried — they are deterministic validation errors the caller must
+        surface to the agent.
+        """
         last_error: Exception | None = None
         client = self._http_client()  # once per request, not per retry
         for attempt in range(self.max_retries):
@@ -189,6 +243,17 @@ class RisClient:
         page: int = 1,
         page_size: int = 20,
     ) -> RisSearchResult:
+        """Run a search against the application's controller endpoint.
+
+        Args:
+            application: RIS application code (e.g. ``BrKons``, ``LrKons``, ``Vfgh``).
+            params: Additional query parameters (e.g. ``{"Suchworte": "..."}``).
+            page: 1-based result page.
+            page_size: Documents per page — one of 10, 20, 50, 100.
+
+        Raises:
+            RisError: For unknown applications, transport failures, or API errors.
+        """
         if application not in CONTROLLER_FOR_APPLICATION:
             valid = ", ".join(sorted(CONTROLLER_FOR_APPLICATION))
             raise RisError(f"Unknown RIS application '{application}'. Valid applications: {valid}")
@@ -211,6 +276,16 @@ class RisClient:
         return parse_search_response(payload)
 
     async def fetch_document_text(self, url: str) -> RisDocument:
+        """Fetch an entire document from RIS and convert it to plain text.
+
+        Args:
+            url: An ``https`` URL on an allowed RIS host. HTML and XML payloads
+                are converted to text; binary payloads (PDF/RTF) are rejected
+                with a hint to use the document's HTML variant.
+
+        Raises:
+            RisError: For disallowed URLs, transport failures, or binary payloads.
+        """
         url = public_host(url)
         self._validate_document_url(url)
 
@@ -257,6 +332,18 @@ class RisClient:
 
 
 def build_document_url(reference: str, application: str = "") -> str:
+    """Build a citizen-application document URL from a bare document number.
+
+    Args:
+        reference: RIS document number, e.g. ``NOR40217157`` or ``JWT_2020130074_20210415J00``.
+        application: Optional application code (``BrKons``, ``Vfgh``, ...) to
+            disambiguate the URL path segment. When omitted the segment is
+            inferred from the document-number prefix.
+
+    Raises:
+        RisError: When the reference is not a plausible document number or the
+            application/path segment cannot be determined.
+    """
     reference = reference.strip()
     if not re.fullmatch(r"[A-Za-z0-9_.\-]+", reference):
         raise RisError(

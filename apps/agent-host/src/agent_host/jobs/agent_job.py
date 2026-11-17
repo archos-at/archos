@@ -1,3 +1,31 @@
+"""One research job, in phases: claim, prepare, run, persist, finish.
+
+The ``research-run`` task (``jobs/research_workflow.py``, through
+``jobs/worker.py``) awaits ``run_agent_job`` with the job's payload. This is the one place a research job runs
+(ADR-0021), and the function reads as its phases, each a function with one job:
+
+- ``_claim``: the job store's RUNNING write, refused when a cancel or the reaper
+  finalized the job between its submit and here;
+- ``_prepare_models``, ``_prepare_tools`` and ``_bind_request``: the agent's
+  config, its models with every dial (overrides, thinking level, BYOK, zero
+  data retention), its tools, and the request metadata a background run has to
+  supply by hand because it has no inbound request;
+- ``_run``: the agent, inside its workflow span, cost tracking and card channel;
+- ``_persist``: the post-report passes, the cards and the marks the run left on
+  its answer, folded into the job output;
+- ``_finish``: the terminal SUCCESS write, the thread turn and the
+  notification, each gated on this run owning the verdict.
+
+``_finish_failed`` and ``_release`` are the failure and ``finally`` paths;
+``runner._finalize_cancelled_run`` is the cancelled one. ``JobScope`` carries
+what those terminal paths close, whether or not setup got that far. The
+helpers each phase calls live in ``jobs/runner.py``; what a finished run's state
+says (report, sources, the marks on its answer) is read in ``jobs/run_result.py``.
+
+A parameter of ``run_agent_job`` is a payload key: removing or renaming one
+needs its old name in ``worker.RETIRED_PAYLOAD_KEYS``.
+"""
+
 from __future__ import annotations
 
 import asyncio
@@ -48,6 +76,8 @@ _PROCESS_KNOBS = frozenset({"configure_logging", "log_level"})
 
 @dataclass(frozen=True)
 class JobRequest:
+    """The job's payload: ``run_agent_job``'s parameters less the logging knobs, one field each."""
+
     db_url: str
     config_file_path: str
     job_id: str
@@ -81,6 +111,7 @@ class JobRequest:
 
     @property
     def identity(self) -> dict:
+        """Who the job runs for, captured at submit: project, organization and user ids."""
         return (self.usage_context or {}).get("identity") or {}
 
     @property
@@ -89,11 +120,14 @@ class JobRequest:
 
     @property
     def expect_run(self) -> bool:
+        """A job with a run id was submitted for a ``task_runs`` row: a 404 there is "not yet", and retried."""
         return self.run_id is not None
 
 
 @dataclass
 class JobScope:
+    """What the terminal paths close or finalize, filled in as the phases get that far."""
+
     job_store: Any = None
     monitor: CancellationMonitor | None = None
     event_store: Any = None
@@ -139,6 +173,10 @@ async def run_agent_job(
     request_envelope: dict | None = None,
     knowledge_context: dict | None = None,
 ):
+    """Run any registered agent as a research job, cancellable, traced under its caller's span.
+
+    The parameters are the queue payload; ``JobRequest`` documents each one.
+    """
     request = JobRequest(**{name: value for name, value in locals().items() if name not in _PROCESS_KNOBS})
     scope = JobScope()
     _prepare_process(scope, request, configure_logging, log_level)
@@ -154,11 +192,14 @@ async def run_agent_job(
 
 
 class RunStoppedError(TimeoutError):
+    """The orchestrator stopped a run nobody cancelled: its execution timeout (``RESEARCH_RUN_TIMEOUT_SECONDS``)."""
+
     def __init__(self) -> None:
         super().__init__("wall-clock: the research run exceeded its execution timeout")
 
 
 async def _cancelled_by_a_person(scope: JobScope, request: JobRequest) -> bool:
+    """Whether the cancel route (or the platform kill) recorded this cancel: it writes INTERRUPTED first."""
     from nat.front_ends.fastapi.async_jobs.job_store import JobStatus
     from nat.front_ends.fastapi.async_jobs.job_store import JobStore
 
@@ -167,6 +208,13 @@ async def _cancelled_by_a_person(scope: JobScope, request: JobRequest) -> bool:
 
 
 async def _finish_cancelled(scope: JobScope, request: JobRequest) -> None:
+    """Record a run that was cancelled: a person's cancel is INTERRUPTED, any other stop a FAILURE.
+
+    A person's cancel reaches the run after the cancel route wrote INTERRUPTED,
+    through the ``CancellationMonitor`` or Hatchet's cancel. A cancellation with
+    no INTERRUPTED recorded is Hatchet ending the run at its execution timeout:
+    that is a FAILURE with the time-limit message, never "cancelled by user".
+    """
     if not await _cancelled_by_a_person(scope, request):
         await finish_failed(scope, request, RunStoppedError())
         return
@@ -182,6 +230,7 @@ async def _finish_cancelled(scope: JobScope, request: JobRequest) -> None:
 
 
 def _prepare_process(scope: JobScope, request: JobRequest, configure_logging: bool, log_level: int) -> None:
+    """The per-job process setup: the job's auth token, trace-tag injection, logging."""
     if request.auth_token:
         from ._auth_context import job_auth_token
 
@@ -210,6 +259,7 @@ def _prepare_process(scope: JobScope, request: JobRequest, configure_logging: bo
 
 
 async def _execute(scope: JobScope, request: JobRequest) -> None:
+    """Claim, prepare, run, persist, finish: the job's happy path, phase by phase."""
     if not await _claim(scope, request):
         logger.info("Job %s already terminal before start; aborting run", request.job_id)
         return
@@ -243,6 +293,13 @@ async def _execute(scope: JobScope, request: JobRequest) -> None:
 
 
 async def _claim(scope: JobScope, request: JobRequest) -> bool:
+    """Write RUNNING unless the job is already terminal; whether this run goes ahead.
+
+    Guarded, not unconditional: a cancel (INTERRUPTED) or the ghost reaper
+    (FAILURE) may have finalized the job while its run waited on Hatchet, and
+    an unconditional write would resurrect a reaped job or lose a cancel (a run
+    the cancel could not stop on Hatchet has only this status as its signal).
+    """
     from nat.front_ends.fastapi.async_jobs.job_store import JobStatus
     from nat.front_ends.fastapi.async_jobs.job_store import JobStore
 
@@ -255,6 +312,7 @@ async def _claim(scope: JobScope, request: JobRequest) -> bool:
 
 
 async def _run(scope: JobScope, request: JobRequest, run: RunContext, *, agent_cls: type, models, tools) -> Any:
+    """Run the agent inside its workflow span, its cost tracking and its card channel; its raw result."""
     from agent.common.cost_tracking import BudgetSnapshot
     from agent.common.cost_tracking import track_llm_costs
     from agent.common.profiler import track_agent_profile
@@ -307,6 +365,7 @@ async def _run(scope: JobScope, request: JobRequest, run: RunContext, *, agent_c
 
 
 def _callbacks(scope: JobScope, request: JobRequest, fn_config: Any) -> tuple[list[Any], bool]:
+    """The agent's callbacks, and the event store and run ledger they write through; and whether verbose."""
     from agent.common import VerboseTraceCallback
     from agent.common import is_verbose
     from agent.common.nat_step_repair import SpanClosingProfilerHandler
@@ -341,6 +400,7 @@ def _callbacks(scope: JobScope, request: JobRequest, fn_config: Any) -> tuple[li
 
 
 async def _release(scope: JobScope, request: JobRequest) -> None:
+    """Close what the job opened, on every path: the ledger, the event buffer, the monitor, the token."""
     if scope.ledger is not None:
         await scope.ledger.close()
     if scope.event_store is not None and hasattr(scope.event_store, "flush"):

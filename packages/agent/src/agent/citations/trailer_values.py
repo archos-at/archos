@@ -1,3 +1,5 @@
+"""Trailer-value grounding: a copyable value (a number, a class, a deadline) needs a Fundstelle this turn."""
+
 from __future__ import annotations
 
 import logging
@@ -36,12 +38,20 @@ _VALUE_MIN_MATCHABLE_NAME_CHARS = 4
 
 
 def _copyable_value_present(text: str) -> bool:
+    """Whether ``text`` states a Zahl, Klasse or Frist a reader would copy."""
     if not text:
         return False
     return bool(_VALUE_ZAHL_RE.search(text) or _VALUE_KLASSE_RE.search(text) or _VALUE_DEADLINE_RE.search(text))
 
 
 def _turn_source_names(turn_sources: Sequence[SourceEntry]) -> frozenset[str]:
+    """Normalised names of the documents this turn retrieved.
+
+    Both identities a trailer Fundstelle could name — the indexed basename and
+    the display title — reduced through ``normalize_document_name``, exactly
+    like :func:`agent_authored_document_names`. Short names are dropped at the
+    match, not here.
+    """
     from agent.common.provenance import normalize_document_name
 
     names: set[str] = set()
@@ -54,6 +64,7 @@ def _turn_source_names(turn_sources: Sequence[SourceEntry]) -> frozenset[str]:
 
 
 def _names_turn_source(signal: str, names: frozenset[str]) -> bool:
+    """Whether a Fundstelle signal names a document this turn retrieved."""
     from agent.common.provenance import normalize_document_name
 
     named = normalize_document_name(signal)
@@ -66,6 +77,18 @@ def drop_ungrounded_trailer_values(
     meta: dict[str, Any] | None,
     turn_sources: Sequence[SourceEntry],
 ) -> dict[str, Any] | None:
+    """Drop trailer VALUES no retrieved source stands behind; the prose survives.
+
+    Operates on the GATED ``answer_meta`` wire dict (``gate_answer_meta`` has
+    already run): a verdict whose value carries a Zahl/Klasse/Frist but whose
+    ``reference`` names no turn source is dropped; a takeaway item whose text
+    carries one is dropped unless its ``detail`` names one; a ``detail`` (on a
+    takeaway item or the callout) that carries one itself but names none is
+    dropped while its claim stays. Fields without a value are never touched,
+    and with no turn sources the gate abstains. Returns ``None`` when no
+    anatomy survives — the same empty-means-absent contract ``gate_answer_meta``
+    keeps.
+    """
     if not meta:
         return None
     sources = list(turn_sources or [])

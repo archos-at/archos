@@ -1,3 +1,5 @@
+"""Plan measures: extent, floor area and the footprint they rest on."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -21,6 +23,16 @@ from .model import SpatialModel
 
 
 def extent(model: SpatialModel, global_id: str) -> Answer[dict[str, Any]]:
+    """The element's bounding box and its three axis-aligned dimensions, in metres.
+
+    ``ifcopenshell.util.shape.get_bbox`` over the world-coordinate vertices.
+
+    The box is **axis-aligned to the MODEL**, not to the element: a wall running
+    at 30° in plan has a bounding box far wider and deeper than the wall, and
+    reporting that box's ``width`` as the wall's length would be wrong by a
+    factor. When the element's own facade plane shows it is skewed to the model
+    axes, the answer says so in a caveat rather than leaving the reader to notice.
+    """
     method = f"extent({global_id})"
     subject = _require(model, global_id, method)
     geo, missing = _geometry_or_answer(model, subject, method)
@@ -56,6 +68,31 @@ def extent(model: SpatialModel, global_id: str) -> Answer[dict[str, Any]]:
 
 
 def floor_area(model: SpatialModel, global_id: str, declared_area: float | None = None) -> Answer[float]:
+    """The element's floor area in m² — for a space, its usable plan area.
+
+    BESSER, twice over:
+
+    1. The TS operator sums the XY-projected areas of downward-facing triangles.
+       :func:`_footprint_area` projects them and takes the shapely UNION, so two
+       horizontal faces at different heights over the same plan — a stepped
+       floor, a slab modelled with its screed — cannot double-count. It also
+       measures from **both** sides, because an inside-out ``IfcSpace`` is not
+       rare; see that function for the 0 m² room that made it necessary.
+    2. The declared quantity is found here instead of being passed in. The TS
+       operator takes ``declaredArea`` as a parameter because that library has no
+       property access, so a host that forgets to read the quantity set gets a
+       single-route answer. This searches every pset — which matters, because the
+       corpus publishes room areas under four different names in four dialects
+       (``BaseQuantities``, ``SpaceQuantities``, ``GSA Space Areas``,
+       ``PSet_Revit_Dimensions``) and a search restricted to the canonical
+       ``Qto_SpaceBaseQuantities`` finds none of them — and converts the value
+       out of the file's own unit, because an export in square feet is not a
+       disagreement with an export in square metres.
+
+    Agreement raises confidence in the schedule; DISAGREEMENT is a finding about
+    the export the architect can act on. :func:`~ifc_spatial.envelope.triangulate`
+    writes the German caveat and reports the measured value when the two differ.
+    """
     subject_id = global_id
     method = (
         f"floorArea({subject_id})" if declared_area is None else f"floorArea({subject_id}, declared={declared_area})"
@@ -112,6 +149,7 @@ def floor_area(model: SpatialModel, global_id: str, declared_area: float | None 
 
 
 def _vector_text(value: Any) -> str:
+    """A vector as it should read back in a `method`, whatever was passed in."""
     try:
         return "[" + ", ".join(f"{float(c):.3f}" for c in value) + "]"
     except TypeError, ValueError:
@@ -119,6 +157,31 @@ def _vector_text(value: Any) -> str:
 
 
 def _footprint_area(triangles: np.ndarray) -> float:
+    """The plan area of a solid, measured from whichever side its faces point.
+
+    ``util.shape.get_footprint_area`` keeps only triangles whose normal points
+    **towards** the given direction, so it silently returns ``0.0`` for a mesh
+    wound inside-out. Which is exactly what a Revit IFC2X3 ``IfcSpace`` is: the
+    Duplex apartment's *Hallway* has 28 downward-facing faces, no upward ones,
+    and reported **0 m² of floor** against a declared 7.80 m² — with a caveat
+    claiming the element has no horizontal surfaces, which was false. A confident
+    zero is the worst thing this library can produce, because zero is a number an
+    agent will put in a sentence.
+
+    Asking IfcOpenShell for the other direction is not a fix: ``direction=(0, 0,
+    -1)`` builds a degenerate basis inside ``get_footprint_area`` and raises
+    ``GEOSException: Points of LinearRing do not form a closed linestring``
+    (0.8.5, ``util/shape.py:611``) — so the down-facing projection is done here.
+    The method is the same one: keep the faces whose normal points along the
+    direction, project them to the plane, and take the shapely UNION so
+    overlapping horizontal faces cannot double-count.
+
+    Both projections are taken and the larger wins. For a closed solid the two
+    silhouettes have the same area, so nothing changes where the winding was
+    already right: the sample house's rooms still measure 15.41678125 /
+    51.994825 / 8.69350625 m², identical to the IfcOpenShell values the parity
+    suite asserts.
+    """
     import shapely
     import shapely.ops
 

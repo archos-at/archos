@@ -1,3 +1,22 @@
+"""Per-document metadata store (SQLAlchemy).
+
+One row per ``(collection, filename)`` holding everything the system knows about
+an ingested document beyond its chunks: the one-sentence ``summary``, the
+controlled ``tags``, the explicit ``doc_class`` ("Dokumentart"), the
+user-facing ``display_title``, the ``folder_path`` the document is filed
+under (ADR-0049), and the ``provenance`` of a document Piloti wrote and a
+person released (ADR-0054). The table is named ``document_metadata`` because
+it is exactly that — the summary is only one of several columns.
+
+Historically this was the ``summaries`` table (class ``SummaryStore``). A
+startup migration renames that table in place the first time the store opens
+against an older database, so existing rows are preserved untouched — see
+:meth:`DocumentMetadataStore._ensure_schema`.
+
+Configurable SQLite/PostgreSQL storage, following the same pattern as EventStore
+in the jobs system.
+"""
+
 from __future__ import annotations
 
 import threading
@@ -92,6 +111,14 @@ __all__ = [
 
 
 class DocumentMetadataStore:
+    """SQLAlchemy-based store for per-document metadata.
+
+    Features:
+    - Automatic SQLite/PostgreSQL support based on db_url
+    - Connection pooling with TTL-based cache management
+    - Both sync and async operations supported
+    - In-place migration of the legacy ``summaries`` table + added columns
+    """
 
     """SQLAlchemy-based store for per-document metadata.
 

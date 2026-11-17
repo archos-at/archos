@@ -1,3 +1,15 @@
+"""The handful of replies the agent sends without a model writing them.
+
+Each reaches the reader verbatim as an assistant message, so each is written in
+the product's voice: German, formal address, one sentence on what happened and
+one on what to do next — the same register as the plan-cancellation receipt in
+``agents/piloti/conversation.py``. They live in one leaf module because two
+places must agree on them: the nodes that send them, and the post-answer gate
+(``stages/memory_reflection.py``) that must not reflect on, or offer follow-ups
+under, a turn that produced one. Building that gate's prefix list from these
+names is what stops a rewording from silently unhooking it.
+"""
+
 GENERIC_ERROR_MESSAGE = (
     "Bei der Recherche zu Ihrer Frage ist ein Fehler aufgetreten. Bitte versuchen Sie es noch einmal."
 )

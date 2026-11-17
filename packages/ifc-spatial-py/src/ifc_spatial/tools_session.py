@@ -1,3 +1,5 @@
+"""The session a tool list shares: the model table, the run wrapper and the open_model and briefing tools."""
+
 from __future__ import annotations
 
 import os
@@ -49,6 +51,18 @@ def _model_table() -> tuple[Callable[[SpatialModel], str], Callable[[Any], Spati
 
 
 def run(fn: Callable[[], Any]) -> Any:
+    """An operator that raises :class:`UnknownElementError` means the caller
+    could not look, which is a different thing from having looked and found
+    nothing — so it becomes a tool error, while every "the file cannot say"
+    stays a successful result carrying ``decidable: false``. Collapsing the
+    two would let a typo in a GlobalId read as a finding about the building.
+
+    :class:`WrongKindError` is the same class of mistake one step further in:
+    the id is real and the question does not apply to it. It is a caller
+    error too — an architect cannot re-export their way out of a wall being
+    asked for its clear opening width — so it also becomes a ``ToolError``
+    and never a finding about the export.
+    """
     try:
         return fn()
     except UnknownElementError as error:

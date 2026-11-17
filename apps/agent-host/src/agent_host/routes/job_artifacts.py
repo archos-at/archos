@@ -1,3 +1,5 @@
+"""A job's artifacts read back from its events: tool calls, outputs and the sources they found."""
+
 from __future__ import annotations
 
 import logging
@@ -6,6 +8,7 @@ logger = logging.getLogger(__name__)
 
 
 def _extract_event_metadata(event: dict) -> tuple[dict, dict]:
+    """Extract data and metadata from an event dict."""
     data = event.get("data", {}) if isinstance(event.get("data"), dict) else {}
     metadata = event.get("metadata", {}) if isinstance(event.get("metadata"), dict) else {}
     if not metadata and isinstance(data, dict):
@@ -14,6 +17,12 @@ def _extract_event_metadata(event: dict) -> tuple[dict, dict]:
 
 
 def _process_tool_start(event: dict, data: dict, metadata: dict, tool_call_map: dict[str, dict]) -> None:
+    """Process a tool.start event and add to tool_call_map.
+
+    Stored events (IntermediateStepEvent.to_sse_dict) carry ``id``/``name`` at
+    the top level and the tool input directly under ``data`` — not nested one
+    level deeper.
+    """
     tool_id = event.get("id", "")
     tool_call_map[tool_id] = {
         "id": tool_id,
@@ -27,6 +36,12 @@ def _process_tool_start(event: dict, data: dict, metadata: dict, tool_call_map: 
 
 
 def _process_tool_end(event: dict, data: dict, metadata: dict, tool_call_map: dict[str, dict]) -> None:
+    """Process a tool.end event and update tool_call_map.
+
+    tool.start and tool.end are separate events with distinct ``id``s, so the
+    running entry is matched by tool name (the emitter resolves the name from
+    the run_id on both sides).
+    """
     tool_output = data.get("output")
     tool_name = event.get("name", "")
 
@@ -51,6 +66,7 @@ def _process_tool_end(event: dict, data: dict, metadata: dict, tool_call_map: di
 
 
 def _normalize_url(url: str) -> str:
+    """Normalize URL for consistent deduplication."""
     from urllib.parse import urlparse
     from urllib.parse import urlunparse
 
@@ -72,6 +88,7 @@ def _normalize_url(url: str) -> str:
 
 
 def _is_valid_url(url: str) -> bool:
+    """Check if string is a valid HTTP/HTTPS URL."""
     return bool(url and url.lower().startswith(("http://", "https://")))
 
 
@@ -83,6 +100,7 @@ def _process_artifact_update(
     sources_found: set[str],
     sources_cited: set[str],
 ) -> None:
+    """Process an artifact.update event and add to outputs."""
     artifact_type = data.get("type")
     content = data.get("content")
 
@@ -109,6 +127,19 @@ def _process_artifact_update(
 
 
 async def get_job_artifacts(db_url: str, job_id: str) -> dict | None:
+    """
+    Extract artifacts from stored events.
+
+    Returns a simplified structure with all tool calls, outputs, and source counts.
+    Frontend categorizes tools by name (task=subagent, write_todos=middleware, etc.).
+
+    Args:
+        db_url: Database URL for event store.
+        job_id: Job ID to fetch artifacts for.
+
+    Returns:
+        Dict with 'tools', 'outputs', and 'sources' (counts), or None if no artifacts found.
+    """
     from ..jobs.event_store import EventStore
 
     try:

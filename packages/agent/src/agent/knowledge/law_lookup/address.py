@@ -1,3 +1,17 @@
+"""[1] The address the caller's words already carry. Deterministic, no LLM.
+
+A legal question usually states where its answer sits: a provision, a named
+law, a territory. Reading that out is text matching, not reasoning, and doing
+it here is what lets the rest of the pipeline skip both LLM calls (the search
+planner AND the provision picker) whenever the caller already named one.
+
+Every word read here is the source's (its ``lookup.locus`` and its territory
+choices, compiled in ``locus.py``). Pure: every function takes strings and the
+source and returns values. The one exception is the turn's site, a request fact
+read from the knowledge context; it is isolated in its own function so the rest
+stays testable without a request context.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -26,6 +40,7 @@ _MAX_RANGE_SPAN = 1000
 
 @dataclass(frozen=True)
 class Address:
+    """What the caller's words already say about WHERE the answer sits."""
 
     kind: str = ""  # a unit's sign ("§", "Art") or ""
     number: str = ""
@@ -40,14 +55,17 @@ class Address:
 
     @property
     def has_section(self) -> bool:
+        """Whether a provision was named: the deterministic path's trigger."""
         return bool(self.kind and self.number)
 
     @property
     def sections(self) -> tuple[str, ...]:
+        """Every addressed number: the list when one was named, else the one."""
         return self.numbers or ((self.number,) if self.number else ())
 
 
 def _first_section(text: str, grammar: Grammar) -> tuple[str, str, int]:
+    """``(kind, number, where)`` of the first provision of the preferred unit, else the next; ``("", "", -1)``."""
     for unit in grammar.units:
         match = grammar.first[unit.sign].search(text)
         if match:
@@ -56,6 +74,13 @@ def _first_section(text: str, grammar: Grammar) -> tuple[str, str, int]:
 
 
 def _list_from(text: str, kind: str, start: int, grammar: Grammar) -> tuple[tuple[str, ...], int]:
+    """Every provision a list starting at ``start`` names, and where the list ends.
+
+    Ranges expanded (:func:`_extend`); a part, item or letter after an item is
+    part of it; after one, only a SIGNED item continues the list. Not capped:
+    :func:`parse_address` addresses the first :data:`MAX_ADDRESSED_SECTIONS`
+    and reports the rest as unread.
+    """
     first = grammar.signed[kind].match(text, start)
     if first is None:
         return (), start
@@ -74,6 +99,7 @@ def _list_from(text: str, kind: str, start: int, grammar: Grammar) -> tuple[tupl
 
 
 def _next_item(text: str, kind: str, join: re.Match[str], grammar: Grammar, *, qualified: bool):
+    """The item after ``join``: signed always; bare only after an unqualified item, and not an ordinal."""
     signed = grammar.signed[kind].match(text, join.end())
     if signed or qualified:
         return signed
@@ -84,6 +110,10 @@ def _next_item(text: str, kind: str, join: re.Match[str], grammar: Grammar, *, q
 
 
 def _extend(items: list[str], digits: str, letter: str, *, ranged: bool) -> None:
+    """Add one item, or the range from the last one to it ("7a to 9" → 8, 9; "5a-5c" → 5b, 5c).
+
+    A range that does not ascend names nothing anyone meant, and adds nothing.
+    """
     if not ranged:
         items.append(digits + letter)
         return
@@ -102,11 +132,18 @@ def _extend(items: list[str], digits: str, letter: str, *, ranged: bool) -> None
 
 
 def section_in(text: str, grammar: Grammar) -> tuple[str, str]:
+    """The first ``(kind, number)`` a text names, or ``("", "")``."""
     kind, number, _where = _first_section(text, grammar)
     return kind, number
 
 
 def parse_address(question: str, instrument: str, jurisdiction: str, law: LawSource) -> Address:
+    """Read the address out of the caller's arguments.
+
+    The ``instrument`` argument outranks the question for the provision and the
+    law: it is what the caller chose to state as an address, while the question
+    is prose that may mention a provision in passing.
+    """
     grammar = law.grammar
     instrument = law.public_host((instrument or "").strip())
     url = instrument if law.addressable(instrument) else ""
@@ -137,6 +174,7 @@ def parse_address(question: str, instrument: str, jurisdiction: str, law: LawSou
 
 
 def _law_name(instrument: str, url: str, number: str, grammar: Grammar) -> str:
+    """The named law inside ``instrument``, with the provisions and parts taken out."""
     if url or number:
         return ""
     rest = instrument
@@ -152,10 +190,12 @@ def _law_name(instrument: str, url: str, number: str, grammar: Grammar) -> str:
 
 
 def _normalize(text: str) -> str:
+    """Lowercase and expand umlauts, as the norm catalog matches (``norm_registry._normalize``)."""
     return text.strip().lower().replace("ä", "ae").replace("ö", "oe").replace("ü", "ue").replace("ß", "ss")
 
 
 def territory_in(text: str, law: LawSource) -> str:
+    """The first of the source's territories a text names, in the record's probe order; ``""`` for none."""
     territory = law.lookup.territory
     if not text or territory is None:
         return ""
@@ -167,6 +207,7 @@ def territory_in(text: str, law: LawSource) -> str:
 
 
 def _territory_fact(normalized: str, territory) -> str | None:
+    """The territory a structured fact line names (``federal_state=<token>``); None when the text has none."""
     if not territory.fact_keys:
         return None
     keys = "|".join(re.escape(_normalize(key)) for key in territory.fact_keys)
@@ -179,6 +220,13 @@ def _territory_fact(normalized: str, territory) -> str | None:
 
 
 def assumed_territory(jurisdiction: str, instrument: str, question: str, law: LawSource) -> tuple[str, str]:
+    """The territory to work in, and WHERE it came from.
+
+    Precedence is the caller's explicit word, then the instrument they named,
+    then the question, then the turn's site. Both halves travel: a miss states
+    the assumption AND its source, because "because you said so" and "because
+    the project is there" call for different corrections.
+    """
     for value, origin in (
         (jurisdiction, TERRITORY_FROM_ARGUMENT),
         (instrument, TERRITORY_FROM_INSTRUMENT),
@@ -191,6 +239,12 @@ def assumed_territory(jurisdiction: str, instrument: str, question: str, law: La
 
 
 def territory_sentence(address: Address, law: LawSource) -> str:
+    """The assumed jurisdiction and where it came from, as one sentence.
+
+    Rendered on a HIT as well as on a miss: ``focus_entries`` silently drops
+    every other territory's law, so the assumption that did the dropping has to
+    be visible in the result it produced.
+    """
     word = law.wording.subdivision
     if not address.territory:
         return (
@@ -201,6 +255,12 @@ def territory_sentence(address: Address, law: LawSource) -> str:
 
 
 def _territory_of_site(law: LawSource) -> tuple[str, str]:
+    """The territory of the turn's site, or ``("", "")``.
+
+    The first node on the site's chain (from its knowledge context, ADR-0175)
+    that the source names; no text is read. No placed site, one outside the
+    source's territories, or no turn at all (tests) is none, which is not an error.
+    """
     names = law.lookup.territory.names if law.lookup.territory else {}
     try:
         from agent.common.knowledge_context import turn_knowledge_context

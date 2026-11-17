@@ -1,3 +1,5 @@
+"""SSE connection manager for graceful shutdown support."""
+
 from __future__ import annotations
 
 import asyncio
@@ -12,6 +14,14 @@ logger = logging.getLogger(__name__)
 
 
 class SSEConnectionManager:
+    """
+    Manages active SSE connections for graceful shutdown.
+
+    Tracks active SSE streams and provides a mechanism to signal
+    shutdown to all active connections, allowing them to terminate
+    gracefully instead of hanging during server shutdown.
+    """
+
     def __init__(self):
         self._active_connections: set[asyncio.Task] = set()
         self._shutdown_event = asyncio.Event()
@@ -19,16 +29,33 @@ class SSEConnectionManager:
 
     @property
     def is_shutting_down(self) -> bool:
+        """Check if shutdown has been signaled."""
         return self._shutdown_event.is_set()
 
     @property
     def active_count(self) -> int:
+        """Return the number of active SSE connections."""
         return len(self._active_connections)
 
     def signal_shutdown(self) -> None:
+        """
+        Signal shutdown to all SSE connections (sync, for use from signal handlers).
+
+        This is a synchronous method that just sets the shutdown event flag.
+        SSE generators will notice this flag and exit gracefully.
+        """
         self._shutdown_event.set()
 
     async def wait_or_shutdown(self, timeout: float) -> bool:
+        """
+        Wait for the specified timeout or until shutdown is signaled.
+
+        Args:
+            timeout: Maximum seconds to wait.
+
+        Returns:
+            True if shutdown was signaled, False if timeout elapsed normally.
+        """
         try:
             await asyncio.wait_for(self._shutdown_event.wait(), timeout=timeout)
             return True  # Shutdown was signaled
@@ -36,17 +63,20 @@ class SSEConnectionManager:
             return False  # Normal timeout, no shutdown
 
     async def register(self, task: asyncio.Task) -> None:
+        """Register an SSE connection task."""
         async with self._lock:
             self._active_connections.add(task)
             logger.debug("SSE connection registered, active count: %d", len(self._active_connections))
 
     async def unregister(self, task: asyncio.Task) -> None:
+        """Unregister an SSE connection task."""
         async with self._lock:
             self._active_connections.discard(task)
             logger.debug("SSE connection unregistered, active count: %d", len(self._active_connections))
 
     @asynccontextmanager
     async def track_connection(self) -> AsyncGenerator[None]:
+        """Context manager to track an SSE connection's lifecycle."""
         task = asyncio.current_task()
         if task:
             await self.register(task)
@@ -57,6 +87,12 @@ class SSEConnectionManager:
                 await self.unregister(task)
 
     async def shutdown(self, timeout: float = 5.0) -> None:
+        """
+        Signal shutdown to all active SSE connections.
+
+        Args:
+            timeout: Maximum seconds to wait for connections to close gracefully.
+        """
         logger.info("SSE connection manager shutting down, %d active connections", len(self._active_connections))
 
         self._shutdown_event.set()
@@ -87,6 +123,7 @@ class SSEConnectionManager:
                 )
 
     def reset(self) -> None:
+        """Reset the manager state (for testing)."""
         self._active_connections.clear()
         self._shutdown_event.clear()
 
@@ -95,6 +132,7 @@ _connection_manager: SSEConnectionManager | None = None
 
 
 def get_connection_manager() -> SSEConnectionManager:
+    """Get the global SSE connection manager instance."""
     global _connection_manager
     if _connection_manager is None:
         _connection_manager = SSEConnectionManager()
@@ -102,6 +140,7 @@ def get_connection_manager() -> SSEConnectionManager:
 
 
 def reset_connection_manager() -> None:
+    """Reset the global connection manager (for testing)."""
     global _connection_manager
     if _connection_manager is not None:
         _connection_manager.reset()

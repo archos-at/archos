@@ -1,3 +1,38 @@
+"""A mail body as plain text, whichever of its three forms the message kept.
+
+Shared by the two places mail arrives: an inbound message to a project's
+address (:mod:`agent_host.mail.read`) and a message in an Outlook archive
+(:mod:`agent_host.mail_archive.reader`). A message stores its body as plain text,
+HTML, RTF, or several of them. The Outlook.com fixture keeps RTF only for most
+of its 183 items, and the Enron fixture plain text only, so every form has to
+read. Plain text wins when it is there, because it is what the sender's client
+wrote; HTML is next; RTF (libpff hands it over decompressed) is last.
+
+HTML reads as a browser shows it: the markup's own line breaks and
+indentation are one space (outside ``<pre>``), and a block element ends a
+line. A table keeps its cells apart: each cell but a row's last ends in
+`` | ``, so "Stellplätze | 12" does not read "Stellplätze12" (RT-X3).
+
+What a reader cannot see is not text (ADR-0137, amendment of 2026-11-03): a
+mail is indexed as the project's data, and a ``display:none`` paragraph that
+tells a model what to do is the oldest trick for putting words into an index
+that no person ever read. Dropped from HTML before it is read: ``script``,
+``style``, ``head``, ``title`` and ``template``; an element hidden by its inline
+style (``display:none``, ``visibility:hidden``, ``mso-hide:all``, a zero
+``font-size`` or ``opacity``, a zero ``height`` or ``max-height`` with
+``overflow:hidden``; ``font-size`` and ``visibility`` are inherited, so a child
+that sets them back is read); the ``hidden`` attribute and ``aria-hidden="true"``; and a
+tracking pixel (an image 0 or 1 pixel wide or high). An image's ``alt`` is never
+read in any case. From every form, plain and RTF too: zero-width characters,
+the soft hyphen and the bidi controls, which split a word so a search misses it
+or turn a name around on screen. A colour equal to the background is not
+detected: the background can come from any ancestor or a stylesheet.
+
+Encapsulated HTML (an RTF body with ``\\fromhtml1``) needs no separate path:
+its markup lives in ``{\\*\\htmltag ...}`` destinations, which an RTF reader
+skips, so what is left is the text a reader saw.
+"""
+
 from __future__ import annotations
 
 import re
@@ -62,6 +97,7 @@ class BodyText:
 
 
 def decode(raw: bytes | str | None) -> str:
+    """Bytes from libpff as text: UTF-8 for a Unicode archive, the ANSI code page for an old one."""
     if raw is None:
         return ""
     if isinstance(raw, str):
@@ -73,6 +109,7 @@ def decode(raw: bytes | str | None) -> str:
 
 
 def html_to_text(markup: str) -> str:
+    """What a mail client shows of ``markup``, line breaks and table cells kept apart."""
     markup = _NOT_XML.sub("", markup)
     if not markup.strip():
         return ""
@@ -98,12 +135,14 @@ def html_to_text(markup: str) -> str:
 
 
 def _unseen(root: lxml_html.HtmlElement) -> list[lxml_html.HtmlElement]:
+    """Every element nothing inside of can be seen, by its attributes, outermost and inner alike."""
     return [
         element for element in root.iter() if isinstance(element.tag, str) and element is not root and _hidden(element)
     ]
 
 
 def _hidden(element: lxml_html.HtmlElement) -> bool:
+    """Hidden with everything inside it: no descendant can take it back."""
     if element.get("hidden") is not None or (element.get("aria-hidden") or "").strip().lower() == "true":
         return True
     style = _declarations(element.get("style") or "")
@@ -114,6 +153,13 @@ def _hidden(element: lxml_html.HtmlElement) -> bool:
 
 
 def _blank_unseen_text(root: lxml_html.HtmlElement) -> None:
+    """Blank the text an inherited ``font-size:0`` or ``visibility:hidden`` hides.
+
+    Both are inherited, and a child may set them back: a responsive mail puts
+    ``font-size:0`` on the cell that holds its columns, to swallow the spaces
+    between them, and gives each column its own size. So only the text whose
+    nearest declaration hides it goes, and the elements stay.
+    """
     unseen: dict[lxml_html.HtmlElement, bool] = {}
     for element in root.iter():
         if not isinstance(element.tag, str):
@@ -129,12 +175,14 @@ def _blank_unseen_text(root: lxml_html.HtmlElement) -> None:
 
 
 def _blank_text(element: lxml_html.HtmlElement) -> None:
+    """Drop the text an element holds itself: its own text and its children's tails, never the children."""
     element.text = None
     for child in element:
         child.tail = None
 
 
 def _declarations(style: str) -> dict[str, str]:
+    """An inline ``style`` as lowercase property → value, ``!important`` and spaces dropped; the last one wins."""
     declarations: dict[str, str] = {}
     for declaration in style.lower().split(";"):
         name, colon, value = declaration.partition(":")
@@ -165,6 +213,7 @@ def _parse_bytes(markup: str) -> lxml_html.HtmlElement | None:
 
 
 def _collapse_whitespace(root: lxml_html.HtmlElement) -> None:
+    """Fold the markup's own line breaks and indentation to one space, as a browser does."""
     for element in root.iter():
         if element.text and isinstance(element.tag, str) and not _preformatted(element):
             element.text = _MARKUP_SPACE.sub(" ", element.text)
@@ -178,6 +227,7 @@ def _preformatted(element: lxml_html.HtmlElement) -> bool:
 
 
 def body_text(plain: bytes | str | None, markup: bytes | str | None, rtf: bytes | str | None) -> BodyText:
+    """The body as text, from the best form stored, bounded."""
     for source, convert, raw in (
         ("plain", decode, plain),
         ("html", lambda value: html_to_text(decode(value)), markup),

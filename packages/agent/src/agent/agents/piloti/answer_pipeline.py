@@ -1,3 +1,19 @@
+"""Post-answer verification: what happens to the model's text before a reader sees it.
+
+Stages over ``(messages, registry)``, in this order: DSML strip, envelope
+split, grouped-citation expansion and control-marker extraction
+(``_extract``), envelope card registration, citation and quote verification
+with the turn's ONE repair (an unresolvable ``[N]`` is removed, and no
+verification marker ever reaches the prose: ADR-0125, amended), the dialect validator
+(``common/answer_dialect``), sanitisation, the restated-mindmap drop,
+re-citing the composed cards, the ``answer_meta`` gates, card suppression,
+callout resolution, the quote-line stamps (``common/quote_stamps``), and
+last the answer check (``common/claim_judge``) the confidence comes from. Not all pure:
+card registration, re-citing and suppression write the turn's card registry.
+:func:`finalize_answer` runs them and returns a :class:`FinalAnswer`; the
+agent copies its signal fields onto the state (``ledger.assemble_result``).
+"""
+
 from __future__ import annotations
 
 import asyncio
@@ -83,6 +99,7 @@ _CARD_MARKER_NUMBER_RE = re.compile(r"\[\[card:(\d+)\]\]")
 
 @dataclass(frozen=True)
 class CitedSource:
+    """A registry entry the answer cites, with the ``[N]`` label it carries."""
 
     entry: SourceEntry
     number: int | None
@@ -90,6 +107,11 @@ class CitedSource:
 
 @dataclass(frozen=True)
 class FinalAnswer:
+    """The answer as the reader gets it, plus every signal the chat node reads.
+
+    ``answered`` is False when the run produced no answer message at all; the
+    defaults below are then the conservative ones the state documents.
+    """
 
     messages: list[Any]
     answered: bool
@@ -117,6 +139,8 @@ class FinalAnswer:
 
 
 def answer_index(messages: Sequence[Any]) -> int | None:
+    """The answer message, by the SAME selector the chat node uses: the last
+    AIMessage that is not a tool call."""
     for index in range(len(messages) - 1, -1, -1):
         message = messages[index]
         if isinstance(message, AIMessage) and not message.tool_calls:
@@ -126,6 +150,7 @@ def answer_index(messages: Sequence[Any]) -> int | None:
 
 @dataclass(frozen=True)
 class _Extracted:
+    """The prose with both control grammars stripped, and what they said."""
 
     content: str
     meta: AnswerMeta | None
@@ -136,6 +161,7 @@ class _Extracted:
 
 
 def _skills_applied(meta: AnswerMeta | None) -> tuple[str, ...]:
+    """The envelope's ``skills_applied`` as clean names, deduped, in the model's order."""
     if meta is None or not meta.skills_applied:
         return ()
     names: list[str] = []
@@ -147,6 +173,17 @@ def _skills_applied(meta: AnswerMeta | None) -> tuple[str, ...]:
 
 
 def _extract(raw: str) -> _Extracted:
+    """Strip DSML leaks, split the envelope, extract both control markers.
+
+    The envelope comes apart FIRST: a research reply is one ```answer_json
+    object whose ``answer`` field is the prose, so until it is split the two
+    tail-anchored marker detectors would be reading JSON instead of the
+    answer's final lines. The envelope's CONTROL fields are the canonical
+    carriers; the bracket markers stay understood as the fallback and are
+    stripped regardless, so neither grammar ever reaches the reader.
+    Escalation is OR-ed: either channel saying "insufficient" is the model
+    saying it.
+    """
     content = strip_and_salvage_dsml_tool_calls(raw)
     content, meta = extract_answer_envelope(content)
     content = expand_grouped_citations(content)
@@ -163,6 +200,14 @@ def _extract(raw: str) -> _Extracted:
 
 
 def _handed_markers(messages: Sequence[Any]) -> set[int]:
+    """The ``[[card:N]]`` numbers a TOOL handed the model this turn.
+
+    A tool that pushes a system card (``write_file`` → ``document_draft``,
+    ``surface_documents`` → ``document_grid``) answers with the marker to
+    write, so the numbers in its replies are taken. Read off the transcript rather than off the registry's size:
+    the registry says how many cards exist, the replies say which of them the
+    model was told to address by number.
+    """
     handed: set[int] = set()
     for message in messages:
         if not isinstance(message, ToolMessage):
@@ -173,6 +218,15 @@ def _handed_markers(messages: Sequence[Any]) -> set[int]:
 
 
 def _envelope_index(number: int, handed: Collection[int]) -> int | None:
+    """Which card of the envelope's ``cards`` array the model's ``[[card:N]]`` names; ``None`` for a tool's own.
+
+    The one reading of the taught rule (``cards/envelope._MARKER_RULE``), for
+    the terminal's renumbering and the live stream's alike
+    (:meth:`LiveAnswer.place`): a number a tool handed out is a registry
+    position already; past the highest handed one, N is array card
+    ``N - offset``; at or below it, a model that ignored the offset wrote an
+    array number, the only reading left.
+    """
     if number in handed:
         return None
     offset = max(handed, default=0)
@@ -187,6 +241,23 @@ def _renumber_envelope_markers(
     count: int,
     fallbacks: dict[int, str] | None = None,
 ) -> str:
+    """The envelope's card markers moved from array numbers to registry positions.
+
+    The taught rule (``cards/envelope._MARKER_RULE``) numbers the ``cards``
+    array from 1, and from after the highest marker a tool handed out this
+    turn when there was one, so the model's numbers never collide with a
+    tool's. N therefore names array card ``N - offset`` (``offset`` = the
+    highest handed number, 0 when none), and that card becomes the registry
+    position it landed at (``positions``). A marker a tool handed out keeps its
+    number: it already IS a registry position. A model that ignored the offset
+    and wrote a number at or below it is read as an array number, the only
+    reading left. The marker of a card that was DROPPED is removed, so the
+    reader never meets a marker with nothing behind it and no later card
+    slides onto its neighbour's place; a dropped card that left content behind
+    (``fallbacks``: a retired type laid out as Markdown) puts that content at
+    its marker instead, or after the prose when the answer placed none. A
+    marker past the array is left alone, as it always was.
+    """
     if count == 0:
         return content
     fallbacks = dict(fallbacks or {})
@@ -219,6 +290,20 @@ async def _register_envelope_cards(
     messages: Sequence[Any],
     card_repair: CardRepairFn | None,
 ) -> str:
+    """Validate the envelope's cards into the turn's registry; the prose with its markers resolved.
+
+    The same validator and the same two closed channels ``emit_card`` runs
+    (``cards/envelope.validate_model_card``), so the envelope buys a card no
+    softer standard than the tool would. A shape miss goes to the repair once
+    — a bounded call on the small card model, never a round — and a card that
+    still fails is dropped and recorded (``status:card:invalid:N``). Cards
+    register in array order after whatever the tools pushed, and the prose's
+    markers are moved to those positions. Registering is where a card that
+    proposes a change (``project_profile_patch``) gets its server proposal
+    (``cards/envelope.register_envelope_card``): the one place the model's cards
+    become final. Fail-open throughout: no registry
+    bound (a CLI run) means the answer ships without cards, as it always did.
+    """
     from agent.cards.catalog import retired_card_markdown
     from agent.cards.envelope import envelope_card_objects
     from agent.cards.envelope import register_envelope_card
@@ -256,6 +341,7 @@ async def _register_envelope_cards(
 async def _checked_envelope_card(
     payload: Any, index: int, content: str, card_repair: CardRepairFn | None
 ) -> dict[str, Any] | None:
+    """One envelope card validated, repaired once on a shape miss, or ``None`` (recorded)."""
     from agent.cards.envelope import REFUSED_SHAPE
     from agent.cards.envelope import validate_model_card
     from agent.cards.formula_card import stated_result_fields
@@ -287,6 +373,16 @@ async def _checked_envelope_card(
 
 
 def this_turn(messages: Sequence[Any]) -> list[Any]:
+    """The messages of THIS turn: everything after the last human message.
+
+    The transcript now carries the previous turn's tool calls and results
+    (``conversation._answer_update`` writes the whole turn back), so a scan
+    that means "this turn" must stop at the turn boundary: a previous turn's
+    search must not count as this turn's lookup — a follow-up answered from
+    the transcript against an empty registry would otherwise ship the
+    "nothing retrieved" refusal — and a marker a tool handed out last turn
+    must not be a number this turn's cards have to skip.
+    """
     for index in range(len(messages) - 1, -1, -1):
         if isinstance(messages[index], HumanMessage):
             return list(messages[index + 1 :])
@@ -294,6 +390,7 @@ def this_turn(messages: Sequence[Any]) -> list[Any]:
 
 
 def _source_lookup_attempted(messages: Sequence[Any]) -> bool:
+    """Whether any data-source tool ran this turn (pass this turn's messages)."""
     return any(
         isinstance(msg, ToolMessage) and get_source_id_for_tool(getattr(msg, "name", "") or "") is not None
         for msg in messages
@@ -304,6 +401,7 @@ RECORD_TOOLS = frozenset({"project_lookup"})
 
 
 def _passage_lookup_attempted(messages: Sequence[Any]) -> bool:
+    """Whether a data-source tool that answers in passages ran (pass this turn's messages)."""
     return any(
         isinstance(msg, ToolMessage)
         and (name := getattr(msg, "name", "") or "") not in RECORD_TOOLS
@@ -313,11 +411,13 @@ def _passage_lookup_attempted(messages: Sequence[Any]) -> bool:
 
 
 def handed_this_turn(messages: Sequence[Any]) -> frozenset[int]:
+    """The ``[[card:N]]`` numbers a tool handed the model since the last human message."""
     return frozenset(_handed_markers(this_turn(messages)))
 
 
 @dataclass(frozen=True)
 class _Verified:
+    """The answer after citation and quote verification (and maybe a repair)."""
 
     content: str
     verification: Any
@@ -331,6 +431,14 @@ def _verify(
     with_nearest: bool = False,
     numbering: Sequence[SourceEntry | None] | None = None,
 ) -> _Verified:
+    """Citations against the registry, then quoted spans against the passages.
+
+    ``verify_citations`` only proves a cited SOURCE is real, not that a QUOTED
+    sentence appears in it; ``verify_quoted_spans`` catches the "real section,
+    fabricated quote" pattern. Fail-open: a quote is kept, never stripped, and the quote gate lowers confidence.
+    ``with_nearest`` asks for each misquote's nearest cited passage, a search
+    over every cited page that only a patch about to run reads.
+    """
     verification = verify_citations(
         content, registry, reference_sources=numbering, drop_unresolved=True, check_locus=True
     )
@@ -349,6 +457,14 @@ async def _verify_with_quote_patch(
     patch: RepairFn | None,
     numbering: Sequence[SourceEntry | None] | None = None,
 ) -> _Verified:
+    """Verify, correct the misremembered quotes in place, and verify what ships.
+
+    The one repair (ADR-0067). A removed citation is not repaired: the settled
+    snapshot has already dropped it where the reader can see. Only a quote's
+    wording changes, between its own quotation marks, so every ``[N]``, every
+    card number and every other byte the reader has read stays put. What ships
+    is re-verified, so an unpatched quote still carries its marker.
+    """
     verified = await asyncio.to_thread(
         partial(_verify, with_nearest=patch is not None, numbering=numbering), content, registry
     )
@@ -369,6 +485,7 @@ async def _verify_with_quote_patch(
 
 @dataclass(frozen=True)
 class _Grounding:
+    """What the answer is grounded in, once verification has spoken."""
 
     content: str
     citation_grounded: bool = False
@@ -386,6 +503,14 @@ def _entry_for(citation: dict[str, Any], registry: SourceRegistry) -> SourceEntr
 
 
 def _cited_sources(valid_citations: Sequence[dict[str, Any]], registry: SourceRegistry) -> tuple[CitedSource, ...]:
+    """The registry entries the model actually cited in THIS answer, first-cited order.
+
+    Only these become chips, never the cumulative session registry. The
+    ``[N]`` label rides along: only the verifier knows that binding, and the
+    FE folds the written source list and the chip row into one provenance
+    block from it. A citation of a source retrieved on an earlier turn is
+    still a citation the verifier resolved: it earns its chip.
+    """
     cited: list[CitedSource] = []
     seen: set[int] = set()
     for citation in valid_citations:
@@ -399,6 +524,15 @@ def _cited_sources(valid_citations: Sequence[dict[str, Any]], registry: SourceRe
 
 
 def _ground(verified: _Verified, registry: SourceRegistry) -> _Grounding:
+    """Resolve the surviving citations into the sources the answer cites.
+
+    Nothing is attached that the model did not cite. A single-source fallback
+    used to append the registry's one source when no citation survived; the
+    registry is cumulative across the conversation, so that source could be
+    two turns old and about another question. It was the one place the system
+    invented an attribution, and it is gone (ADR-0125): an answer without a
+    surviving citation shows its sentences as what they are.
+    """
     content = verified.content
     if verified.unverified_quotes:
         logger.info(
@@ -417,6 +551,24 @@ def _ground(verified: _Verified, registry: SourceRegistry) -> _Grounding:
 
 
 def _require_retrieval(lookup_attempted: bool, tools: Sequence[BaseTool], *, ruling: bool) -> bool:
+    """An empty registry after a lookup: recorded, refused for a ruling, labelled for everything else.
+
+    Distinguishes "retrieval genuinely failed" from "the agent answered
+    without ever querying a data source". A greeting, a shelf listing from the
+    inventory or a reply from project context has nothing to cite. So does a
+    record lookup (`RECORD_TOOLS`): the caller passes whether a passage search
+    ran.
+
+    When a passage search ran and found nothing, the answer used to be
+    replaced by a canned „nothing retrieved" message, whatever it said. It now
+    ships with every sentence labelled as the model's own knowledge and a
+    banner saying the search found nothing (ADR-0125): an answer the reader can
+    see is unsourced serves them better than none. A ``ruling`` is the
+    exception and is still refused: it exists to carry a copyable legal value,
+    and a value without a source is the fabrication the trailer gate refuses
+    everywhere else. Returns whether the lookup found nothing (the banner's
+    signal).
+    """
     if not lookup_attempted:
         logger.debug("Piloti: answered without querying any data-source tool; no verification")
         return False
@@ -437,6 +589,13 @@ def _recite_surface_cards(
     cited: tuple[CitedSource, ...],
     removed_citations: Sequence[dict[str, Any]] = (),
 ) -> None:
+    """Hold the ``[N]`` in this turn's composed surfaces to the prose's citations (``cards/surface_citations``).
+
+    Each card is replaced in place, never removed: the registry has no
+    removal, and dropping one would shift every later ``[[card:N]]``. A
+    surface that cannot stand once its blank ``Text`` is gone comes back as
+    the card left standing, or with that leaf marked, never as stored.
+    """
     from agent.cards.registry import get_card_registry
     from agent.cards.surface_citations import recite_surface
 
@@ -458,6 +617,19 @@ def settle_streamed_citations(
     *,
     kind: str | None = None,
 ) -> SettledStream | None:
+    """The streamed prose with its ``[N]`` markers settled, and the sources they name.
+
+    The same steps :func:`finalize_answer` runs on the finished answer: verify
+    each source line against the registry, label each marker that did not
+    resolve, mark each quote no retrieved passage holds (:func:`_ground`),
+    sanitise (which closes the gaps), and read the cited sources off the
+    survivors. Run the moment the envelope's ``answer`` string closes, which
+    is before the cards and the pipeline: the pending markers on screen become
+    the answer's own citations, numbered as the terminal frame will number
+    them (ADR-0066). ``kind`` is the envelope's,
+    for the dialect's budget, which the terminal applies too. ``None`` when
+    there is nothing to settle.
+    """
     from .ledger import wire_sources  # ledger imports this module
 
     if not sources_text.strip() or not registry.all_sources():
@@ -478,6 +650,7 @@ def settle_streamed_citations(
 
 @dataclass(frozen=True)
 class SettledStream:
+    """What :func:`settle_streamed_citations` hands the wire, and what a card's markers follow."""
 
     content: str
     sources: list[dict[str, Any]]
@@ -488,6 +661,33 @@ class SettledStream:
 
 
 class LiveAnswer:
+    """What the stream may show before the pipeline has run, gated as the pipeline gates it.
+
+    Three moments of one reply (ADR-0066), each through the functions
+    :func:`finalize_answer` uses, so the stream cannot show what the finished
+    answer would refuse:
+
+    - the masthead, the moment the fields before ``answer`` are written:
+      :func:`gate_answer_meta` and the trailer grounding, everything but the
+      summary's comparison with a prose not yet written;
+    - the prose, when the ``answer`` string closes: verified, renumbered, and
+      the masthead gated again, now against the prose;
+    - each card, when its object closes: the one card validator, its ``[N]``
+      held to the settled numbers.
+
+    The live card list is the terminal's order: the cards tools registered
+    this turn first (:meth:`tool_cards`, as they stand in the registry), then
+    the envelope's, which the pipeline registers after them. The model numbers
+    its ``[[card:N]]`` against its own array, so :meth:`place` moves each
+    marker the stream shows to the position its card will hold, the move
+    ``_register_envelope_cards`` makes on the finished answer. Only a card the
+    terminal DROPS moves the ones after it; the live list keeps its place
+    empty, and the terminal renumbers text and cards together.
+
+    ``settle`` runs in a worker thread with the turn's context copied
+    (``asyncio.to_thread`` in ``turn/answer_stream.py``): no loop-bound
+    objects, no awaiting.
+    """
 
     def __init__(self, registry: SourceRegistry, *, handed: Collection[int] = ()) -> None:
         self._registry = registry
@@ -529,6 +729,12 @@ class LiveAnswer:
         return self._settled
 
     def tool_cards(self) -> list[dict[str, Any]]:
+        """The cards tools registered this turn, in registry order: the head of the terminal's list.
+
+        Read once per answering call, the first time it is asked: no tool runs
+        while the call writes, and the markers placed before the cards arrive
+        must count the same cards the frame then carries.
+        """
         if self._tool_cards is None:
             from agent.cards.registry import get_card_registry
 
@@ -537,6 +743,7 @@ class LiveAnswer:
         return list(self._tool_cards)
 
     def place(self, text: str) -> str:
+        """``text`` with each envelope ``[[card:N]]`` moved behind the tool cards, where the terminal puts it."""
         tools = len(self.tool_cards())
         if not tools and not self._handed:
             return text
@@ -548,6 +755,7 @@ class LiveAnswer:
         return _CARD_MARKER_NUMBER_RE.sub(substitute, text)
 
     def card(self, payload: Any) -> dict[str, Any] | None:
+        """One envelope card as it closes, validated, its ``[N]`` recited; a tool's card never comes through here."""
         from agent.cards.envelope import validate_model_card
         from agent.cards.surface_citations import recite_surface
 
@@ -559,6 +767,9 @@ class LiveAnswer:
 
 
 def _renumbered(cited: tuple[CitedSource, ...], renumber_map: dict[int, int] | None) -> tuple[CitedSource, ...]:
+    """Sanitisation closes the gaps the removals left in the ``[N]`` sequence,
+    so the labels captured before it must follow, or a chip is labelled [3]
+    while the prose that points at it now says [2]."""
     if not renumber_map:
         return cited
     return tuple(
@@ -575,6 +786,32 @@ def _gated_meta(
     turn_sources: Sequence[SourceEntry] | None = None,
     filed_proposals: frozenset[str] = frozenset(),
 ) -> dict[str, Any] | None:
+    """The structured trailer, gated once the text is final.
+
+    Skipped on an escalating turn: this answer is about to be
+    superseded by deep research, and a verdict attached to a discarded answer
+    would decorate the job-submission stub. The takeaway gate judges the
+    PROSE, not the sources apparatus.
+
+    The registry is the turn's captured sources, and the gate needs exactly one
+    fact out of it: which of the documents cited here AGENT wrote. A verdict
+    is the one place an answer names a Fundstelle for a value the reader
+    copies, so it is the one place an approved office document must not be able
+    to stand in for the OIB.
+
+    Past the envelope gates, every trailer VALUE (a Zahl, Klasse or Frist in a
+    verdict, a takeaway or a detail) must name a Fundstelle this turn retrieved
+    (``drop_ungrounded_trailer_values``) — a headline number with no source
+    behind it is the fabrication the citation check cannot see, because the
+    trailer carries no ``[N]`` markers. ``turn_sources`` is this turn's capture
+    log; ``None`` (the default) reads the ambient one, so tests pin the gate by
+    passing entries explicitly.
+
+    A work report's ``proposed`` line whose ``ref`` names no proposal this
+    turn filed (``filed_proposals``, read off the workspace results) is
+    dropped: it would send the person to decide something that does not
+    exist. How many is scored on every work turn (``work-proposals-unfiled``).
+    """
     if extracted.meta is None or extracted.escalation_requested:
         return None
     gated = gate_answer_meta(
@@ -602,6 +839,20 @@ _CARD_MARKER_RE = re.compile(r"\[\[card:\d+\]\]")
 
 
 def _should_suppress_meta_cards(content: str, gated_meta: dict[str, Any] | None) -> bool:
+    """Whether a short overview's trailer cards should be dropped.
+
+    Pure, so tests pin it without a registry: ``False`` when there is nothing
+    to drop, when the prose reaches the floor, or when the answer carries a
+    copyable value (a verdict, or ``kind=ruling`` which exists to carry one).
+    A short walkthrough/direct answer with takeaways/callout/summary but no
+    verdict is the shape that pays full-context card generations for prose
+    the reader finishes in one screen.
+
+    A work turn (``kind=work``, ADR-0123) is exempt like a ruling: its report
+    IS the answer, and its prose is short by design. Suppressing it dropped
+    the report of every work turn that read and proposed nothing a system
+    card stood for.
+    """
     if not gated_meta:
         return False
     try:
@@ -616,6 +867,32 @@ def _should_suppress_meta_cards(content: str, gated_meta: dict[str, Any] | None)
 
 
 def _suppress_cards(content: str, gated_meta: dict[str, Any] | None) -> tuple[str, dict[str, Any] | None, bool]:
+    """Drop unearned cards on a short overview; ``(content, meta, suppressed)``.
+
+    Clears the turn's card registry, the cards tools registered this turn
+    (fail-open when unbound), and strips ``[[card:N]]`` markers so no dangling
+    marker reaches the reader. Logs the drop: a turn that came back with no cards
+    must read as "suppressed", never as "the model never tried". Mechanical — no
+    prompt wording, no doctrine change.
+
+    The drop is SPLIT: cards go, but the gated trailer goes only when it was
+    never earned. At or above the takeaway floor the takeaways stay (with the
+    rest of the gated meta); below it the meta shrinks to the callout alone —
+    a warning or Frist the reader must see whatever the prose length — and to
+    nothing when there is no callout either.
+
+    One veto, read off the registry snapshot before anything is cleared: any
+    ``FLOOR_EXEMPT_CARD_TYPES`` card keeps the cards, the markers and the meta,
+    and a ``surface`` counts by the leaves it holds (``is_floor_exempt``).
+    A tool's card is the product, not the trailer: a short drafting answer
+    (kind=direct, <400 chars, no verdict) matches the floor exactly, and
+    clearing it would eat the announcement of the work just done. A card that
+    shows the model is the answer to "zeig mir": clearing it left "im Modell
+    markiert" with nothing on screen, or "Wählen Sie das Modell aus" with no
+    tiles. The answer's proof needs no veto: the Fundstelle the verdict rests
+    on is a cited blockquote in the prose (the retired ``legal_basis`` card's
+    content), and suppression never touches the prose.
+    """
     if not _should_suppress_meta_cards(content, gated_meta):
         return content, gated_meta, False
     try:
@@ -659,6 +936,7 @@ def _suppress_cards(content: str, gated_meta: dict[str, Any] | None) -> tuple[st
 
 
 def _held_to_dialect(content: str, meta: AnswerMeta | None) -> DialectResult:
+    """The answer held to the dialect and its kind's budget, the census on the trace (``common/answer_dialect``)."""
     dialect = validate_dialect(content, meta.kind if meta is not None else None)
     if dialect.census or dialect.repairs:
         record_trace_metadata(answer_dialect=dialect.as_trace())
@@ -667,6 +945,12 @@ def _held_to_dialect(content: str, meta: AnswerMeta | None) -> DialectResult:
 
 
 def _trailer_captures(turn_sources: Sequence[SourceEntry] | None) -> list[SourceEntry]:
+    """The capture log the trailer-value gate reads: this turn's reads.
+
+    The caller passes the turn log explicitly because the capture ContextVar is
+    already reset when finalization runs; ``None`` (direct callers, tests)
+    falls back to the ambient log.
+    """
     return list(turn_sources if turn_sources is not None else get_turn_captures())
 
 
@@ -681,6 +965,18 @@ async def finalize_answer(
     measured_values: Sequence[str] = (),
     check: TurnCheck | None = None,
 ) -> FinalAnswer:
+    """Run every post-answer stage and return the answer as the reader gets it.
+
+    ``turn_sources`` is this turn's capture, which the caller must pass when it
+    finalises AFTER ``end_turn_capture``: the ContextVar is back to its prior
+    value by then, so the trailer-grounding veto would read an empty list and
+    abstain on every turn. ``None`` falls back to the ambient log for direct
+    callers. ``measured_values`` and ``check`` are the answer check's (``answer_check``).
+
+    Raises :class:`EmptySourceRegistryError` when a data-source lookup ran,
+    nothing came back, and the answer is a ``ruling``: a ruling without a
+    source has nothing to show. Any other answer ships labelled.
+    """
     index = answer_index(messages)
     if index is None or not messages[index].content:
         return FinalAnswer(messages=list(messages), answered=False)
@@ -764,6 +1060,7 @@ def _emit_answer_scores(
     readings: Sequence[str],
     grounding: _Grounding,
 ) -> None:
+    """``look-count``, ``looked-before-measurement`` (ADR-0128) and ``citations-dropped-labelled`` at the turn's end."""
     from agent.tools.look.cards import drawing_value_status
 
     drawing_value, region_look_first = drawing_value_status(looks, content, cited, readings)

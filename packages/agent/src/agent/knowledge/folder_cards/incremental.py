@@ -1,3 +1,29 @@
+"""Update a card from what changed instead of rewriting it (ADR-0127).
+
+Every card the builder writes leaves a :class:`Manifest` in the agent database
+(``queue.put_manifest``): a fingerprint per direct child document (title,
+Dokumentart, tags, summary, Fassung, superseded_by), the ``abstract_hash`` per
+child folder (or its document names when it has no card), the description's
+fingerprint, the prompt version, and how many incremental updates followed the
+last full build. The next build diffs the folder's current inputs against it.
+
+:func:`plan` picks one of three ways, each cheaper than the next is safe:
+
+* ``prune``: only documents went away and no child folder changed. The key facts
+  citing a removed document are dropped and the abstract is kept; no model call.
+* ``incremental``: the model gets the old abstract, the key facts that survived the
+  prune, and the diff alone (full detail for added and changed documents, names for
+  removed ones), and returns the updated card.
+* ``full``: the card is written from all the folder's inputs, as for a new card.
+  Always when there is no prior card or manifest, the prompt version or the
+  person's description changed, the diff touches more than half the current
+  children, or :data:`MAX_INCREMENTS` incremental updates happened since the last
+  full build: a card edited forever from diffs drifts from what the folder holds,
+  and the safety rebuild bounds that drift.
+
+All of it is pure; the worker does the I/O.
+"""
+
 from __future__ import annotations
 
 import hashlib
@@ -27,15 +53,18 @@ def _digest(value: Any) -> str:
 
 
 def document_fingerprint(document: ChildDocument) -> str:
+    """What the card reads of one document, as one value: any change to it is a ``changed`` child. Pure."""
     return _digest(asdict(document))
 
 
 def folder_fingerprint(folder: ChildFolder) -> str:
+    """A child folder's card (its abstract hash), or its document names when it has none. Pure."""
     return folder.abstract_hash or _digest(list(folder.documents))
 
 
 @dataclass(frozen=True)
 class Manifest:
+    """The inputs a stored card was written from."""
 
     documents: Mapping[str, str]
     folders: Mapping[str, str]
@@ -69,6 +98,7 @@ class Manifest:
 
 
 def manifest_of(inputs: FolderInputs, *, increments: int = 0) -> Manifest:
+    """The manifest a card written from ``inputs`` leaves behind. Pure."""
     return Manifest(
         documents={document.file_name: document_fingerprint(document) for document in inputs.documents},
         folders={folder.name: folder_fingerprint(folder) for folder in inputs.folders},
@@ -86,6 +116,7 @@ def _split(before: Mapping[str, str], after: Mapping[str, str]) -> tuple[list[st
 
 @dataclass(frozen=True)
 class Diff:
+    """Children by name: what entered, left, or changed since the card was written."""
 
     added: tuple[str, ...] = ()
     removed: tuple[str, ...] = ()
@@ -103,6 +134,7 @@ class Diff:
         return self.size == len(self.removed)
 
     def counts(self) -> dict[str, int]:
+        """Diff sizes, as trace metadata."""
         return {
             "diff_added": len(self.added) + len(self.folders_added),
             "diff_removed": len(self.removed) + len(self.folders_removed),
@@ -111,6 +143,7 @@ class Diff:
 
 
 def diff(before: Manifest, after: Manifest) -> Diff:
+    """``after`` against ``before``. Pure."""
     documents = _split(before.documents, after.documents)
     folders = _split(before.folders, after.folders)
     return Diff(*(tuple(part) for part in (*documents, *folders)))
@@ -125,6 +158,7 @@ class Plan:
 
 
 def plan(existing: Mapping[str, Any] | None, manifest: Manifest | None, inputs: FolderInputs) -> Plan:
+    """How to bring the stored card up to ``inputs``. Pure."""
     if not existing or not existing.get("abstract") or manifest is None:
         return Plan("full", reason="no prior card")
     current = manifest_of(inputs)
@@ -144,6 +178,7 @@ def plan(existing: Mapping[str, Any] | None, manifest: Manifest | None, inputs: 
 
 
 def surviving_facts(key_facts: Iterable[Mapping[str, Any]], children: Iterable[str]) -> list[dict[str, Any]]:
+    """The stored key facts whose every cited document is still a direct child. Pure."""
     current = set(children)
     kept = []
     for fact in key_facts:

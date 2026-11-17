@@ -1,3 +1,20 @@
+"""BIM query client — deterministic read access to a project's IFC models.
+
+Same separation of concerns as :mod:`agent.knowledge.project_memory`: the
+``app`` database has exactly one owner, the Next.js BFF, and the backend
+never opens a connection to it. The ``ifc_query`` tool posts to the internal
+endpoint ``POST /api/internal/bim/query`` over the compose network,
+authenticated with the shared service token (``INTERNAL_API_TOKEN`` set on
+both services).
+
+Why a structured query instead of retrieval: a model question ("how many
+external walls on the ground floor", "total net floor area per storey") has an
+exact answer that is a SQL aggregate. Retrieving text about the model and
+asking a language model to count would turn a fact into a guess. The retrieval
+path still exists for the model — an ingested Markdown digest — but it answers
+"what is this model of", not "how many".
+"""
+
 from __future__ import annotations
 
 import logging
@@ -14,18 +31,44 @@ _LONG_TIMEOUT_SECONDS = 35
 
 
 def _timeout_for(query: dict[str, Any]) -> int:
+    """Seconds to wait, by how much of the model the op has to read."""
     return _LONG_TIMEOUT_SECONDS if query.get("op") in _LONG_OPERATIONS else _REQUEST_TIMEOUT_SECONDS
 
 
 class BimQueryUnavailableError(bff_http.BffError):
-    ...
+    """The internal endpoint could not be reached or refused the request.
+
+    Distinct from "the model has no such elements": the tool must tell the user
+    it could not look rather than that it looked and found nothing.
+    """
 
 
 class BimQueryRejectedError(bff_http.BffError, ValueError):
-    ...
+    """The endpoint understood the request and refused it as malformed.
+
+    Distinct from :class:`BimQueryUnavailableError`, and the distinction is the
+    whole point: an unavailable service is nothing the agent can do anything
+    about, while a rejected query is a mistake it can correct and retry. Every
+    4xx used to be reported as "the model service is unavailable", so a
+    `group_by` typo, an invented filter key, or the deliberate "gt/gte/lt/lte
+    need a numeric value" message dead-ended the turn — with the agent
+    instructed to state nothing about the building, on a correctable slip.
+    """
 
 
 def _issue_summary(details: Any) -> str:
+    """`query.filter.filters: Unrecognized key(s) …` for the first few issues.
+
+    The BFF's top-level text for a schema failure is the generic "Invalid
+    request body"; everything a caller can act on is in the Zod issue list —
+    which key it did not recognise, which operator needs a number.
+
+    Only ``path`` and ``message`` are read, and never ``received``/``input``:
+    a message is either Zod's own (naming the key the CALLER invented) or one
+    of this schema's four hand-written ones, none of which interpolate a
+    value. A value in a property filter is a value out of the tenant's model
+    and does not belong in a log line or an agent's context.
+    """
     if not isinstance(details, list):
         return ""
     parts: list[str] = []
@@ -42,6 +85,15 @@ def _issue_summary(details: Any) -> str:
 
 
 def _rejection_message(exc: bff_http.BffRefusedError) -> str:
+    """The endpoint's own explanation of why it refused, or a bare status.
+
+    The envelope is ``{error, code, details}`` — see `errorResponse` in
+    `lib/api/handler.ts`. It was read as ``message``, a key the BFF has never
+    emitted, so every 4xx degraded to the bare status and the whole point of
+    :class:`BimQueryRejectedError` was lost: the deliberate, correctable texts
+    ("gt/gte/lt/lte need a numeric value", the unrecognised filter key named
+    by `.strict()`) reached the agent as "the query was refused (400)".
+    """
     body = exc.body
     headline = body.get("error") or body.get("message")
     headline = headline if isinstance(headline, str) and 0 < len(headline) <= 300 else ""
@@ -53,6 +105,7 @@ def _rejection_message(exc: bff_http.BffRefusedError) -> str:
 
 
 def is_correctable(exc: bff_http.BffRefusedError) -> bool:
+    """A 4xx the caller can fix by changing the request; not an auth or rate refusal."""
     return 400 <= exc.status < 500 and exc.status not in (401, 403, 429)
 
 
@@ -65,6 +118,16 @@ def run_bim_query(
     model_name: str | None = None,
     compare_with_name: str | None = None,
 ) -> dict[str, Any]:
+    """Execute one structured query against a project's BIM model.
+
+    Returns the endpoint's JSON body verbatim. A body with ``resolved: false``
+    is a normal outcome (no model, several models, extraction still running) and
+    carries a ``message`` written for the user; the caller reports it rather
+    than treating it as a failure.
+
+    :raises BimQueryUnavailableError: transport failure, missing service token,
+        or a non-2xx status — i.e. cases where nothing was looked up at all.
+    """
     payload: dict[str, Any] = {"organizationId": organization_id, "query": query}
     if project_id:
         payload["projectId"] = project_id

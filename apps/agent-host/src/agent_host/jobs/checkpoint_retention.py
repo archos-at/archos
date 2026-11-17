@@ -1,3 +1,21 @@
+"""Age-based retention for the interactive chat checkpoint store (P0 #1, chat).
+
+LangGraph writes a full-state checkpoint per super-step, keyed by ``thread_id``
+(the conversation id), into ``CHECKPOINT_DB``. Unlike a deep-research run a
+chat conversation has **no terminal event**, so nothing ever drops these rows —
+they accumulate with every turn across every conversation forever
+(``checkpoints``/``checkpoint_blobs``/``checkpoint_writes``). The deep path is
+purged on completion (``worker._purge_deep_checkpoint``); the chat path needs an
+**age reaper** instead.
+
+We drop whole threads that have been idle longer than the retention window,
+using the checkpoint's own ISO-8601 ``ts`` field (``Checkpoint.ts``) as the
+last-activity signal — no schema change. LangGraph resumes only from a thread's
+latest checkpoint, so an idle thread that returns after being reaped simply
+starts a fresh conversation (the same semantics as the deep-run purge). One
+replica does the work per cycle via a Postgres transaction-level advisory lock.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -17,11 +35,22 @@ def _is_postgres(dsn: str) -> bool:
 
 
 def _cutoff_iso(retention_seconds: int, now: datetime | None = None) -> str:
+    """ISO-8601 cutoff; threads whose newest ``ts`` is below this are stale.
+
+    LangGraph stamps ``ts`` as ``datetime.now(UTC).isoformat()`` (UTC, ``+00:00``
+    suffix), so a lexical ``<`` comparison against another UTC-isoformat string
+    is chronological.
+    """
     now = now or datetime.now(UTC)
     return (now - timedelta(seconds=retention_seconds)).isoformat()
 
 
 def reap_idle_threads(dsn: str | None, retention_seconds: int, now: datetime | None = None) -> int:
+    """Delete every checkpoint row for threads idle longer than the window.
+
+    Returns the number of threads reaped. Best-effort and never raises: a
+    retention sweep must never take down the request path.
+    """
     if not dsn or retention_seconds <= 0:
         return 0
     try:
