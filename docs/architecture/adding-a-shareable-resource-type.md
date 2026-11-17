@@ -45,8 +45,7 @@ and `ownership-notice.ts` tells the resource's owners through the
 `resource.ownership_taken` inbox type, whose copy names no resource kind. A new
 type inherits all three by its probe and its `describeRef`.
 
-**The inbox read path.** `lib/inbox/service.ts` has no conversation literal in
-435 lines. Emission, read-time re-authorization, redaction, projection and the
+**The inbox read path.** `lib/inbox/inbox-listing.ts`, with the item view in `lib/inbox/inbox-item-view.ts`, has no conversation literal. Emission, read-time re-authorization, redaction, projection and the
 deep link all resolve through the registry.
 
 **Authorization.** There are no per-resource-type permissions in
@@ -91,7 +90,7 @@ An inbox type need not belong to a shareable resource; the steps are the same.
    would stay completed and its uploader never told.
 6. Settle it when what it announced is answered or gone:
    `resolveInboxItemsFor`, `resolveInboxItemsAnchoredOn`,
-   `markInboxItemsInertAnchoredOn` (`lib/inbox/service.ts`). A `collapse` row
+   `markInboxItemsInertAnchoredOn` (`lib/inbox/inbox-resolution.ts`). A `collapse` row
    takes the anchor of its NEWEST emission (`upsertInboxItems` sets
    `anchor_id = excluded.anchor_id`), so settling it by the anchor of the
    occurrence that just ended misses the row whenever a later one folded in.

@@ -1121,7 +1121,7 @@ filter in that address (`filter=unread|all|archived`, „Für mich“ unwritten,
 The row offers only what the reader can do, and the server says what that is:
 every request on a mark (`annotation.assigned_to_you`, `piloti.asks_you`,
 `annotation.mentioned`) carries `answerIn` (`InboxItemView`, decided in
-`lib/inbox/service.ts` with `canWriteDocument`, once per document on the page):
+`lib/inbox/inbox-answer-places.ts` with `canWriteDocument`, once per document on the page):
 
 | `answerIn` | When | The row offers |
 |---|---|---|

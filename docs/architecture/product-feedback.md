@@ -329,7 +329,7 @@ The announcement rows are written into the **platform organization**, because
 the reporter's tenant has no business holding the platform's mail. Platform
 owners mostly work inside some tenant organization, and the inbox used to list
 only the active organization's rows. So the inbox service reads in **lanes**
-(`apps/workspace/bff/inbox/service.ts`):
+(`apps/workspace/bff/inbox/inbox-lanes.ts`):
 
 - the tenant lane: the active organization, and the types `visibleInboxTypes`
   allows;
