@@ -27,6 +27,7 @@ export interface ModelValidationResult {
 
 const CATALOG_TTL_MS = 5 * 60 * 1000
 const CATALOG_CACHE_KEY = 'openrouter:catalog'
+// v3: v1 cached a Set (JSON turns it into {}, issue #242), v2 bare ids; older entries live in the shared cache up to CATALOG_TTL_MS after a deploy.
 const ZDR_CACHE_KEY = 'openrouter:zdr-endpoints:v3'
 
 function baseUrl(): string {
@@ -113,6 +114,7 @@ function stringList(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []
 }
 
+// Live shape of GET /endpoints/zdr, verified 2026-09: {data: [{model_id, provider_name, tag, supported_parameters, context_length}]}; only model_id names the model, tag and name only look like ids.
 function parseZdrEndpoint(raw: unknown): ZdrEndpoint | null {
   if (!raw || typeof raw !== 'object') return null
   const entry = raw as Record<string, unknown>

@@ -26,6 +26,7 @@ export function activeSecretBackend(): SecretBackend {
 }
 
 export function keyFingerprint(apiKey: string): string {
+  // Only provider-issued, high-entropy keys may pass: a low-entropy secret is brute-forceable from a 64-bit fingerprint.
   return createHash('sha256').update(apiKey, 'utf8').digest('hex').slice(0, 16)
 }
 

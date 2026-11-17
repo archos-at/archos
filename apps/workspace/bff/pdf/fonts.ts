@@ -4,6 +4,7 @@ import { Font } from '@react-pdf/renderer'
 
 const WORDMARK_FILE = join(process.cwd(), 'shared', 'brand', 'fonts', 'Switzer-Semibold.woff2')
 
+// General Sans is not embedded: the brand ships only the variable font, which rendered wrong in pdftoppm (2026-10-29).
 const WORDMARK_FAMILY = 'Switzer'
 
 let wordmarkFace: { fontFamily: string; fontWeight?: 'bold' } | null = null

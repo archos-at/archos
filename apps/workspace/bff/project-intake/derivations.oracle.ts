@@ -1,3 +1,4 @@
+// Source of record: OIB-Richtlinien, Begriffsbestimmungen, Ausgabe Mai 2023.
 import type { ProjectPrimitiveValue } from '@/lib/project-profile/types'
 import type { DerivationRule } from './types'
 

@@ -1,3 +1,4 @@
+// Austrian postal codes: GeoNames, https://www.geonames.org, CC BY 4.0.
 import lines from './austrian-postal-codes.json'
 
 let table: Map<string, Map<string, string>> | null = null

@@ -116,6 +116,7 @@ export async function deleteOfficeShelfDocument(
   if (!doc) throw new NotFoundError()
   await assertNoActiveHold(session.organizationId, 'document', documentId)
 
+  // Purging by bare filename once deleted a human document's chunks; collectionFileRef returns null for a row that owns none.
   const purgeRef = collectionFileRef(doc)
   const chunksPurged = purgeRef
     ? // Permanent: the document is gone, and its Fassung links with it (ADR-0099).

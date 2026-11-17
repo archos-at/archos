@@ -22,12 +22,14 @@ export const en: LegalContent = {
           `${OPERATOR}, ${ADDRESS}.`,
           `Contact: ${EMAIL}`,
           'Legal form: flexible company (FlexCo), in formation. Company register: not yet registered. We will add the company register number, the competent company register court and the VAT ID number (UID) after registration.',
+          // TODO(owner): name the supervisory authority pursuant to ECG after registration and trade licensing.
           'Business purpose: development and operation of software for architecture and planning firms. We will add the supervisory authority pursuant to ECG after registration. Applicable trade regulations: Gewerbeordnung 1994, available at ris.bka.gv.at.',
         ],
       },
       {
         heading: 'Purpose of the service',
         paragraphs: [
+          // TODO(owner): sentence reworded on 2026-10-29 (positioning: workspace, not a research tool); the legal statement is unchanged. For counsel review.
           PRODUCT_NAME + ' (formerly Piloti) is the workspace for architecture and planning firms. Project knowledge, documents and models sit in one place, and ' + PRODUCT_NAME + ' takes over the rule-based work there with the help of AI. Building law is one of these capabilities: ' + PRODUCT_NAME + ' finds passages in the Austrian OIB-Richtlinien and the legal sources published in the Rechtsinformationssystem des Bundes (RIS) and cites them for verification. ' + PRODUCT_NAME + ' does not provide legal advice; see the Terms of Use and the AI Transparency notice.',
         ],
       },
@@ -146,6 +148,7 @@ export const en: LegalContent = {
       {
         heading: '1. Scope of service',
         paragraphs: [
+          // TODO(owner): sentence reworded on 2026-10-29 (positioning: workspace, not a research tool); the legal statement is unchanged. For counsel review.
           PRODUCT_NAME + ' is the workspace for architecture and planning firms, in which an organization runs its projects, documents and models; ' + PRODUCT_NAME + ' supports the work there with AI. The service includes research in Austrian building regulations (OIB-Richtlinien and RIS legal sources). It retrieves, summarizes and cites regulatory content and project documents provided by your organization.',
         ],
       },
@@ -180,6 +183,7 @@ export const en: LegalContent = {
         heading: '6. Availability and support',
         paragraphs: [
           'The service is provided without a guaranteed service level unless agreed otherwise in writing. Planned maintenance and dependencies on external providers (identity, AI models, web search) can affect availability.',
+          // TODO(owner): add agreed SLA and support terms if applicable.
         ],
       },
       {
@@ -192,11 +196,13 @@ export const en: LegalContent = {
         heading: '8. Liability',
         paragraphs: [
           'Liability for slight negligence is excluded to the extent permitted by law; mandatory liability (e.g. for personal injury, under the Produkthaftungsgesetz) remains unaffected. The operator is not liable for decisions made in reliance on AI-generated output contrary to Section 2.',
+          // TODO(owner): complete the limitation-of-liability clause with counsel.
         ],
       },
       {
         heading: '9. Final provisions',
         paragraphs: [
+          // TODO(owner): agree and name a place of jurisdiction; until then the statutory one applies.
           'Austrian law applies, excluding its conflict-of-law rules and the UN Sales Convention. Mandatory consumer-protection venues apply to consumers. Should individual provisions be invalid, the remainder stays in force.',
         ],
       },
@@ -212,6 +218,7 @@ export const en: LegalContent = {
       {
         heading: 'You are interacting with an AI system',
         paragraphs: [
+          // TODO(owner): sentence reworded on 2026-10-29 (positioning: workspace, not a research tool); the legal statement is unchanged. For counsel review.
           PRODUCT_NAME + ' answers your questions and works in your projects using large language models (LLMs). Chat answers, research reports and legal-basis cards are AI-generated content. ' + PRODUCT_NAME + ' marks the sources it cites so every statement can be verified against the source it is based on, such as a project document, an OIB-Richtlinie or a RIS provision.',
         ],
       },
@@ -224,6 +231,7 @@ export const en: LegalContent = {
       {
         heading: 'Limits and human oversight',
         paragraphs: [
+          // TODO(owner): sentence reworded on 2026-10-29 (positioning: workspace, not a research tool); the legal statement is unchanged. For counsel review.
           'AI-generated answers can be wrong, incomplete or outdated even when they sound confident. ' + PRODUCT_NAME + ' is classified as a limited-risk AI application: it does not make decisions about buildings, permits or persons — professional review of every answer against the cited primary source is a required part of its intended use. Do not use ' + PRODUCT_NAME + ' output as the sole basis for safety-relevant planning decisions.',
         ],
       },

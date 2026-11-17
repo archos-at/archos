@@ -10,6 +10,7 @@ export {
   type ThreadMatchStrength,
 } from './mail-thread-vocabulary'
 
+// Threading follows RFC 8621 §3 and RFC 5256 §2.1; no maintained JS implementation of JWZ or JMAP threading existed on 2026-10-22.
 export const PRESELECTABLE_STRENGTHS: readonly ThreadMatchStrength[] = ['reference', 'thread_index']
 
 export const SUBJECT_MATCH_WINDOW_DAYS = 60
@@ -22,6 +23,7 @@ const MAX_REFERENCES = 50
 const MAX_BASE_SUBJECT = 500
 const DAY_MS = 86_400_000
 
+// RFC 5322 §3.6.4: the left part of a Message-ID is case-sensitive, the domain is not.
 export function normalizeMessageId(raw: string | null | undefined): string | null {
   if (!raw) return null
   let id = raw.trim()

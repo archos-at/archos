@@ -22,12 +22,14 @@ export const de: LegalContent = {
           `${OPERATOR}, ${ADDRESS}.`,
           `Kontakt: ${EMAIL}`,
           'Rechtsform: Flexible Kapitalgesellschaft (FlexCo), in Gründung. Firmenbuch: Noch nicht eingetragen. Firmenbuchnummer, Firmenbuchgericht und UID-Nummer ergänzen wir nach der Eintragung.',
+          // TODO(owner): die Aufsichtsbehörde gemäß ECG nach Eintragung und Gewerbeanmeldung nennen.
           'Unternehmensgegenstand: Entwicklung und Betrieb von Software für Architektur- und Planungsbüros. Die Aufsichtsbehörde gemäß ECG ergänzen wir nach der Eintragung. Anwendbare gewerberechtliche Vorschriften: Gewerbeordnung 1994, abrufbar unter ris.bka.gv.at.',
         ],
       },
       {
         heading: 'Zweck des Dienstes',
         paragraphs: [
+          // TODO(owner): Satz am 2026-10-29 neu gefasst (Positionierung: Workspace statt Recherchewerkzeug); die rechtliche Aussage ist unverändert. Zur anwaltlichen Prüfung.
           PRODUCT_NAME + ' (vormals Piloti) ist der Workspace für Architektur- und Planungsbüros. Projektwissen, Unterlagen und Modelle liegen an einem Ort, und ' + PRODUCT_NAME + ' übernimmt dort mit Unterstützung von KI die regelgeleitete Arbeit. Baurecht ist eine dieser Fähigkeiten: ' + PRODUCT_NAME + ' findet Stellen in den österreichischen OIB-Richtlinien und den im Rechtsinformationssystem des Bundes (RIS) veröffentlichten Rechtsquellen und zitiert sie zur Überprüfung. ' + PRODUCT_NAME + ' erbringt keine Rechtsberatung; siehe Nutzungsbedingungen und KI-Transparenzhinweis.',
         ],
       },
@@ -146,6 +148,7 @@ export const de: LegalContent = {
       {
         heading: '1. Leistungsumfang',
         paragraphs: [
+          // TODO(owner): Satz am 2026-10-29 neu gefasst (Positionierung: Workspace statt Recherchewerkzeug); die rechtliche Aussage ist unverändert. Zur anwaltlichen Prüfung.
           PRODUCT_NAME + ' ist der Workspace für Architektur- und Planungsbüros, in dem eine Organisation ihre Projekte, Unterlagen und Modelle führt; ' + PRODUCT_NAME + ' unterstützt die Arbeit darin mit KI. Zum Leistungsumfang gehört die Recherche im österreichischen Baurecht (OIB-Richtlinien und RIS-Rechtsquellen). ' + PRODUCT_NAME + ' ruft Vorschrifteninhalte und von Ihrer Organisation bereitgestellte Projektdokumente ab, fasst sie zusammen und zitiert sie.',
         ],
       },
@@ -180,6 +183,7 @@ export const de: LegalContent = {
         heading: '6. Verfügbarkeit und Support',
         paragraphs: [
           'Der Dienst wird ohne zugesichertes Service-Level bereitgestellt, sofern nicht schriftlich anderes vereinbart ist. Geplante Wartungen und Abhängigkeiten von externen Anbietern (Identität, KI-Modelle, Websuche) können die Verfügbarkeit beeinträchtigen.',
+          // TODO(owner): vereinbarte SLA- und Support-Regelungen ergänzen, falls zutreffend.
         ],
       },
       {
@@ -192,11 +196,13 @@ export const de: LegalContent = {
         heading: '8. Haftung',
         paragraphs: [
           'Die Haftung für leichte Fahrlässigkeit ist im gesetzlich zulässigen Umfang ausgeschlossen; zwingende Haftung (z. B. für Personenschäden, nach dem Produkthaftungsgesetz) bleibt unberührt. Der Betreiber haftet nicht für Entscheidungen, die entgegen Punkt 2 im Vertrauen auf KI-generierte Ausgaben getroffen wurden.',
+          // TODO(owner): die Haftungsbeschränkungsklausel anwaltlich vervollständigen.
         ],
       },
       {
         heading: '9. Schlussbestimmungen',
         paragraphs: [
+          // TODO(owner): einen Gerichtsstand vereinbaren und nennen; bis dahin gilt der gesetzliche.
           'Es gilt österreichisches Recht unter Ausschluss der Verweisungsnormen und des UN-Kaufrechts. Für Verbraucher gelten zwingende Verbrauchergerichtsstände. Sollten einzelne Bestimmungen unwirksam sein, bleibt der Rest wirksam.',
         ],
       },
@@ -212,6 +218,7 @@ export const de: LegalContent = {
       {
         heading: 'Sie interagieren mit einem KI-System',
         paragraphs: [
+          // TODO(owner): Satz am 2026-10-29 neu gefasst (Positionierung: Workspace statt Recherchewerkzeug); die rechtliche Aussage ist unverändert. Zur anwaltlichen Prüfung.
           PRODUCT_NAME + ' beantwortet Ihre Fragen und arbeitet in Ihren Projekten mit großen Sprachmodellen (LLMs). Chat-Antworten, Rechercheberichte und Rechtsgrundlagen-Karten sind KI-generierte Inhalte. ' + PRODUCT_NAME + ' kennzeichnet die zitierten Quellen, sodass jede Aussage anhand der zugrunde liegenden Quelle überprüft werden kann, etwa eines Projektdokuments, einer OIB-Richtlinie oder einer RIS-Fundstelle.',
         ],
       },
@@ -224,6 +231,7 @@ export const de: LegalContent = {
       {
         heading: 'Grenzen und menschliche Aufsicht',
         paragraphs: [
+          // TODO(owner): Satz am 2026-10-29 neu gefasst (Positionierung: Workspace statt Recherchewerkzeug); die rechtliche Aussage ist unverändert. Zur anwaltlichen Prüfung.
           'KI-generierte Antworten können falsch, unvollständig oder veraltet sein, auch wenn sie überzeugend klingen. ' + PRODUCT_NAME + ' ist als KI-Anwendung mit begrenztem Risiko eingestuft: Es trifft keine Entscheidungen über Gebäude, Genehmigungen oder Personen — die fachliche Prüfung jeder Antwort anhand der zitierten Primärquelle ist Teil der bestimmungsgemäßen Verwendung. Verwenden Sie ' + PRODUCT_NAME + '-Ausgaben nicht als alleinige Grundlage sicherheitsrelevanter Planungsentscheidungen.',
         ],
       },

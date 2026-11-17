@@ -108,6 +108,7 @@ async function runBootstrap(): Promise<string[]> {
       getDb().transaction(async (tx) => {
     const lockRows = Array.from(
       await tx.execute<{ locked: boolean }>(
+        // Transaction-scoped on purpose: a session lock on a pooled connection can be released on another and then never, so every later boot would skip provisioning.
         sql`SELECT pg_try_advisory_xact_lock(${BOOTSTRAP_LOCK_KEY}) AS locked`
       )
     )
