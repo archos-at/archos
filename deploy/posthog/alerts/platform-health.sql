@@ -159,7 +159,8 @@ workloads AS (
     SELECT
         concat(res['k8s.deployment.name'], res['k8s.statefulset.name'], res['k8s.daemonset.name']) AS name,
         maxIf(latest, metric IN ('k8s.deployment.desired', 'k8s.statefulset.desired_pods', 'k8s.daemonset.desired_scheduled_nodes')) AS want,
-        maxIf(hi15, metric IN ('k8s.deployment.available', 'k8s.statefulset.ready_pods', 'k8s.daemonset.ready_nodes')) AS best15
+        maxIf(hi15, metric IN ('k8s.deployment.available', 'k8s.statefulset.ready_pods', 'k8s.daemonset.ready_nodes')) AS best15,
+        maxIf(if(spans15, 1, 0), metric IN ('k8s.deployment.available', 'k8s.statefulset.ready_pods', 'k8s.daemonset.ready_nodes')) = 1 AS covered15
     FROM s
     WHERE metric IN ('k8s.deployment.desired', 'k8s.deployment.available', 'k8s.statefulset.desired_pods', 'k8s.statefulset.ready_pods', 'k8s.daemonset.desired_scheduled_nodes', 'k8s.daemonset.ready_nodes')
     GROUP BY name
@@ -193,8 +194,8 @@ SELECT
 FROM pods
 UNION ALL
 SELECT
-    concat('Below desired replicas for 15 min: ', arrayStringConcat(groupArrayIf(name, want > 0 AND best15 < want), ', ')),
-    toFloat(countIf(want > 0 AND best15 < want))
+    concat('Below desired replicas for 15 min: ', arrayStringConcat(groupArrayIf(name, covered15 AND want > 0 AND best15 < want), ', ')),
+    toFloat(countIf(covered15 AND want > 0 AND best15 < want))
 FROM workloads
 UNION ALL
 SELECT

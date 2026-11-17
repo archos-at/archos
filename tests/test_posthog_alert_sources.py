@@ -54,3 +54,27 @@ def test_posthog_sql_naming_a_former_app_host_also_names_the_current_one() -> No
         "Since a domain move PostHog records the new host only, so a filter on the former one reads "
         "zero (2026-11-15: production alerts went blind). Match both hosts: " + "; ".join(stale)
     )
+
+
+def _rules(sql: str) -> list[tuple[str, str]]:
+    blocks = re.split(r"\n(?=SELECT\n)", _code(sql))
+    return [(label.group(1), block) for block in blocks if (label := re.search(r"'([^']*for 15 min[^']*)'", block))]
+
+
+def test_every_15_minute_rule_needs_a_series_covering_the_window() -> None:
+    sql = (ALERTS / "platform-health.sql").read_text()
+    guard = re.findall(
+        r"minIf\(m\.timestamp, m\.timestamp > now\(\) - INTERVAL 15 MINUTE\) < now\(\) - INTERVAL 12 MINUTE"
+        r"\s+AND max\(m\.timestamp\) > now\(\) - INTERVAL 5 MINUTE AS spans15",
+        _code(sql),
+    )
+    assert len(guard) == sql.count("AS lo15,"), "every area reading lo15 defines spans15 over both ends of the window"
+    rules = _rules(sql)
+    assert rules, "no rule says 'for 15 min'"
+    guarded_ctes = {name for name, body in re.findall(r"\n(\w+) AS \((.*?)\n\)", _code(sql), re.S) if "spans15" in body}
+    unguarded = [
+        label
+        for label, block in rules
+        if "spans15" not in block and not set(re.findall(r"\bFROM (\w+)", block)) & guarded_ctes
+    ]
+    assert not unguarded, f"{unguarded} fire on a single sample: require spans15"
