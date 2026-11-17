@@ -1,12 +1,6 @@
 'use client'
 
-/**
- * PROTOTYPE, not for merge: three ways a person's own files could work (concept for ticket 81), drawn with the
- * Dateien page's real parts. `?v=page` is a Dateien page of the person's own under „Mein Bereich“, `?v=chat` has no
- * page and works from the chat, `?v=office` is a folder of the person's own inside the Büroablage, and `?v=switch` is
- * one Dateien page with a switch between the project's files and the person's own (`&shelf=own`). `?v=all` is the
- * same rail and switch with „Alle Projekte“ chosen at the top (`&page=files|automation`, `&shelf=own`).
- */
+// PROTOTYPE, not for merge: the person's own Ablage beside the project's, and the chat beside the rail (concept for ticket 81).
 
 import type { JSX, ReactNode } from 'react'
 import { useState } from 'react'
@@ -63,7 +57,6 @@ const OFFICE_FILES: FileItem[] = [
   makeFile('f4', 'Bauordnung_Kommentar.pdf', '', { folderId: 'f-law' }),
 ]
 
-/** The rail the concept settled on for now: the switcher names the project or „Mein Bereich“, the chats are the reader's own. */
 function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null, projectFilesOpen = false, section, shelfRows, ownShelf, gear = false }: { own: boolean; ownFiles?: boolean; officeShelfOpen?: boolean; openChat?: number | null; projectFilesOpen?: boolean; section?: 'files' | 'automation'; shelfRows?: 'project' | 'own'; ownShelf?: 'idle' | 'open'; gear?: boolean | 'menu' | 'none' }): JSX.Element {
   return (
     <SidebarProvider className="h-full min-h-0 w-auto shrink-0">
@@ -72,7 +65,6 @@ function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null,
           <SidebarBrand iconRail={false} />
           <div className="relative mt-1 flex items-center gap-1.5">
             <ProjectSwitcher projects={[OWN, ...PROJECTS]} activeProjectId={own ? 'none' : 'p-1'} />
-            {/* The switcher's own menu, drawn open: the project's settings are its first entry, above the way to another. */}
             {gear === 'menu' && (
               <div className="bg-sheet shadow-md absolute left-0 right-0 top-full z-50 mt-1.5 rounded-[16px] p-1.5">
                 <div className="text-name flex h-9 items-center gap-2.5 rounded-control px-2.5 font-medium">
@@ -89,7 +81,6 @@ function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null,
                 ))}
               </div>
             )}
-            {/* The project's settings stand with its name: no section of their own, and none without a project. */}
             {gear === true && !own && (
               <span title="Projekteinstellungen" className="bg-sheet shadow-press text-muted-foreground flex size-10 shrink-0 items-center justify-center rounded-control">
                 <Settings className="size-4" aria-hidden />
@@ -98,7 +89,6 @@ function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null,
           </div>
         </SidebarHeader>
         <SidebarContent className="mt-3 flex-1 gap-0 overflow-y-auto px-3 py-px">
-          {/* The sections stand under every choice of the switcher, „Alle Projekte“ included. */}
           <SidebarMenu className="mb-6 gap-0.5">
             <NavRow icon={Folder} label="Ablage" within={Boolean(shelfRows)} active={!shelfRows && ownShelf !== 'open' && (section === 'files' || projectFilesOpen || (ownFiles && openChat === null && !officeShelfOpen))} />
             {shelfRows && (
@@ -110,11 +100,14 @@ function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null,
             {!gear && <NavRow icon={LayoutGrid} label="Übersicht" />}
             <NavRow icon={Zap} label="Automatisierung" active={section === 'automation'} />
           </SidebarMenu>
-          <a href="#" className="bg-sheet shadow-press flex h-9 shrink-0 items-center justify-center gap-2 rounded-control text-sm font-medium">
+          <a href="#" className="bg-sheet shadow-press flex h-9 shrink-0 items-center justify-center gap-2 rounded-control text-[13px] font-medium">
             <Plus className="size-4" aria-hidden />
             Neuer Chat
           </a>
-          <GroupLabel>Chats</GroupLabel>
+          <div className="text-muted-foreground text-meta mt-5 flex h-7 items-center gap-1 px-3 font-medium">
+            Letzte Chats
+            <ChevronDown className="size-3.5 shrink-0" aria-hidden />
+          </div>
           <ul className="flex flex-col gap-0.5">
             {ALL_CHATS.map((chat, index) => (
               <ChatRow key={chat.title} chat={chat} current={index === openChat} showProject indent={false} />
@@ -152,7 +145,6 @@ function Browser({ files, folders, openFolder = null }: { files: FileItem[]; fol
   )
 }
 
-/** Who reads this place: the same pill the chat carries. */
 function OnlyYou(): JSX.Element {
   return (
     <span className="bg-sheet shadow-press text-name inline-flex h-7 items-center gap-1.5 rounded-full px-2.5">
@@ -162,7 +154,6 @@ function OnlyYou(): JSX.Element {
   )
 }
 
-/** The page-level switch: the scope the top names, or the person's own. */
 function OwnSwitch({ scope, own, ownLabel }: { scope: string; own: boolean; ownLabel: string }): JSX.Element {
   const on = 'bg-sheet shadow-xs rounded-[4px] px-3 py-1.5'
   const off = 'text-muted-foreground px-3 py-1.5'
@@ -210,7 +201,6 @@ const OWN_RUNS: TaskRunView[] = [
   run({ id: 'o2', kind: 'deep-research', title: 'Montags: neue Fassungen der Richtlinien zusammenfassen', createdAt: new Date(Date.now() - 50 * 60 * 60 * 1000).toISOString() }),
 ]
 
-/** E: „Alle Projekte“ at the top keeps the sections; each page switches between every project's and the person's own. */
 function AllProjects({ page, own }: { page: 'files' | 'automation'; own: boolean }): JSX.Element {
   const [filter, setFilter] = useState<TaskFilter>('all')
   return (
@@ -238,10 +228,6 @@ function AllProjects({ page, own }: { page: 'files' | 'automation'; own: boolean
   )
 }
 
-/**
- * D: one Dateien page. The track beside the tools says whose files these are: a project's (its name opens the list
- * of projects) or the person's own. `top` is what the rail's switcher shows; `?pos=title` makes the two the title.
- */
 function SwitchPage({ own, top, titleSwitch, mode, menuOpen, settingsOpen }: { own: boolean; top: 'project' | 'all'; titleSwitch: boolean; mode: string; menuOpen: boolean; settingsOpen: boolean }): JSX.Element {
   const [view, setView] = useState<FileView>('cards')
   const search = useFileSearch(projectSearchScope('proj-demo'))
@@ -257,19 +243,15 @@ function SwitchPage({ own, top, titleSwitch, mode, menuOpen, settingsOpen }: { o
     <>
       <Rail own={top === 'all'} section="files" gear={mode === 'cards' || mode === 'wide' ? (settingsOpen ? 'menu' : 'none') : mode !== 'track'} shelfRows={mode === 'rail' ? (own ? 'own' : 'project') : undefined} ownShelf={mode === 'foot' ? (own ? 'open' : 'idle') : undefined} />
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        {/* The page's own title row, drawn over the frame's („Dateien“): the place is called Ablage here, and the
-            choice between the project's and the person's own stands at the title, in one of two positions. */}
-        <div className={`bg-background absolute left-8 right-8 top-[10px] z-40 flex flex-col justify-between ${tall ? 'h-[152px]' : 'h-[68px]'}`}>
-          {/* Where the reader stands. In a project „Meine Ablage“ opens at the folder that carries the project's name. */}
-          {/* No crumb above the title where the track under it says whose Ablage this is. */}
-          <span className="text-muted-foreground text-meta flex items-center gap-1.5">{tall ? '' : own ? 'Meine Ablage' : project.name}</span>
-          {tall && <h1 className="text-page-title">Ablage</h1>}
+        <div className={`bg-background absolute left-8 right-8 top-[10px] z-40 flex flex-col justify-between ${tall ? 'h-[126px] justify-start gap-1' : 'h-[68px]'}`}>
+          <span className="text-muted-foreground text-meta flex items-center gap-1.5">{own ? 'Projektunabhängig' : project.name}</span>
+          {tall && <h1 className="text-page-title -mt-1">Ablage</h1>}
           {mode === 'wide' && (
-            <div className="bg-desk grid max-w-[620px] grid-cols-2 rounded-[10px] p-1">
+            <div className="bg-desk mt-4 grid max-w-[620px] grid-cols-2 rounded-[10px] p-1">
               {sides.map((side) => (
-                <div key={side.label} className={`flex h-12 items-center gap-2.5 px-4 ${side.picked ? 'bg-sheet shadow-xs rounded-[8px]' : ''}`}>
+                <div key={side.label} className={`flex h-11 items-center gap-2.5 px-4 ${side.picked ? 'bg-sheet shadow-xs rounded-[8px]' : ''}`}>
                   <side.icon className={`size-4 shrink-0 ${side.picked ? '' : 'text-muted-foreground'}`} aria-hidden />
-                  <span className={`text-[15px] leading-5 ${side.picked ? 'font-semibold' : 'text-muted-foreground font-medium'}`}>{side.label}</span>
+                  <span className={`text-sm ${side.picked ? 'font-medium' : 'text-muted-foreground font-normal'}`}>{side.label}</span>
                   <span className="text-muted-foreground text-meta ml-auto shrink-0">{side.off ? 'Kein Projekt' : side.icon === FolderLock ? 'Nur Sie' : 'Team'}</span>
                 </div>
               ))}
@@ -330,7 +312,7 @@ function SwitchPage({ own, top, titleSwitch, mode, menuOpen, settingsOpen }: { o
           )}
           </div>
         </div>
-        <div className={tall ? 'flex min-h-0 flex-1 flex-col pt-[84px]' : 'contents'}>
+        <div className={tall ? 'flex min-h-0 flex-1 flex-col pt-[58px]' : 'contents'}>
         <ProjectSectionFrame projectId="dev" projectName={own ? (top === 'all' ? 'Alle Projekte' : project.name) : project.name} pathname="/app/projects/dev/files" inboundMail={!own}>
           <ProjectSectionActions>
             <FilesHeaderControls
@@ -356,7 +338,6 @@ function SwitchPage({ own, top, titleSwitch, mode, menuOpen, settingsOpen }: { o
   )
 }
 
-/** A: a Dateien page of the person's own, the project's page with another owner. */
 function OwnPage(): JSX.Element {
   const [view, setView] = useState<FileView>('cards')
   const search = useFileSearch(projectSearchScope('proj-demo'))
@@ -396,7 +377,6 @@ function MenuRow({ icon: Icon, children, picked = false }: { icon: typeof Upload
   )
 }
 
-/** Between a chat and the person's own Ablage: a file in a chat is kept with one press, and the paperclip offers what was kept. */
 function FromChat(): JSX.Element {
   return (
     <>
@@ -451,7 +431,6 @@ function FromChat(): JSX.Element {
   )
 }
 
-/** C: no new place. The Büroablage holds one folder per person that only that person can open. */
 function InOfficeShelf(): JSX.Element {
   return (
     <>
@@ -469,7 +448,6 @@ function InOfficeShelf(): JSX.Element {
   )
 }
 
-/** The chat beside the rail as the concept now has it: bound to no project (`me`), or just started in one (`new`). */
 function Talk({ place, settingsOpen }: { place: string; settingsOpen: boolean }): JSX.Element {
   const own = place === 'me'
   return (

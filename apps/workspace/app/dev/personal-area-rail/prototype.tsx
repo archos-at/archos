@@ -1,11 +1,6 @@
 'use client'
 
-/**
- * PROTOTYPE, not for merge: three ways the rail could hold a personal area next to the projects
- * (concept for ticket 81). Built from the rail's real parts so the shots show the product's own
- * geometry. `?v=a|b|c|d|e|f|g` picks the variant, `?place=me|project|new` where the reader is
- * (`new`, in f: a chat just started). F is E with a top that stays on the project the reader works in.
- */
+// PROTOTYPE, not for merge: ways the rail could hold a person's own chats next to the projects (concept for ticket 81).
 
 import type { JSX, ReactNode } from 'react'
 import { useSearchParams } from 'next/navigation'
@@ -16,6 +11,7 @@ import {
   ChevronRight,
   Folder,
   FolderLock,
+  Library,
   LayoutGrid,
   LockKeyhole,
   MessageSquare,
@@ -84,7 +80,6 @@ if (typeof window !== 'undefined') {
 
 const shortName = (id?: string): string | undefined => PROJECTS.find((p) => p.id === id)?.short
 
-/** A section row, with the rail's own classes (`RailNavItem` in `app-sidebar.tsx`). */
 export function NavRow({ icon: Icon, label, active = false, within = false, badge = 0, hint }: { icon: LucideIcon; label: string; active?: boolean; within?: boolean; badge?: number; hint?: string }): JSX.Element {
   return (
     <SidebarMenuItem>
@@ -92,8 +87,8 @@ export function NavRow({ icon: Icon, label, active = false, within = false, badg
         asChild
         isActive={active}
         className={cn(
-          'text-foreground h-9 gap-[11px] rounded-control px-3 text-sm font-medium',
-          active ? 'hover:bg-transparent data-[active=true]:bg-transparent font-semibold data-[active=true]:font-semibold' : cn('hover:bg-selected', within && 'font-semibold')
+          'text-muted-foreground h-9 gap-[11px] rounded-control px-3 text-[13px] font-normal hover:text-foreground',
+          active ? 'text-foreground data-[active=true]:text-foreground hover:bg-transparent data-[active=true]:bg-transparent font-medium data-[active=true]:font-medium' : cn('hover:bg-selected', within && 'text-foreground font-medium')
         )}
       >
         <a href="#" aria-current={active ? 'page' : undefined}>
@@ -108,14 +103,13 @@ export function NavRow({ icon: Icon, label, active = false, within = false, badg
   )
 }
 
-const SUB_ROW = 'relative flex h-8 min-w-0 items-center gap-2 rounded-control pl-[39px] pr-3 text-name'
+const SUB_ROW = 'relative flex h-8 min-w-0 items-center gap-2 rounded-control pl-[39px] pr-3 text-[13px]'
 
-/** A chat under a section, with the rail's own row (`rail-chats.tsx`), plus where it belongs. */
 export function ChatRow({ chat, current = false, showProject = false, indent = true, markOwn = false }: { chat: Chat; current?: boolean; showProject?: boolean; indent?: boolean; markOwn?: boolean }): JSX.Element {
   const tag = showProject ? shortName(chat.project) : undefined
   return (
     <li className="relative list-none">
-      <a href="#" className={cn(SUB_ROW, !indent && 'pl-3', current ? 'text-foreground font-semibold' : 'text-muted-foreground hover:bg-selected hover:text-foreground')}>
+      <a href="#" className={cn(SUB_ROW, !indent && 'pl-3', current ? 'text-foreground font-medium' : 'text-muted-foreground hover:bg-selected hover:text-foreground')}>
         {current && <span aria-hidden className="bg-sheet absolute inset-0 rounded-control shadow-xs" />}
         <span className="relative min-w-0 flex-1 truncate">{chat.title}</span>
         {chat.shared && <UsersRound aria-label="Geteilt" className="relative size-3.5 shrink-0" />}
@@ -129,9 +123,8 @@ export function ChatRow({ chat, current = false, showProject = false, indent = t
 export function MoreRow({ label, indent = true }: { label: string; indent?: boolean }): JSX.Element {
   return (
     <li className="list-none">
-      <a href="#" className={cn(SUB_ROW, 'text-muted-foreground hover:bg-selected gap-1', !indent && 'pl-3')}>
+      <a href="#" className={cn(SUB_ROW, 'text-muted-foreground text-meta gap-1 font-medium', !indent && 'pl-3')}>
         <span className="truncate">{label}</span>
-        <ChevronRight className="size-3.5 shrink-0" aria-hidden />
       </a>
     </li>
   )
@@ -176,7 +169,6 @@ function PersonalSections({ currentChat }: { currentChat: number | null }): JSX.
   )
 }
 
-/** A: the switcher at the top chooses the place. „Mein Bereich“ is its first entry; the rail lists that place's sections. */
 function VariantA({ me }: { me: boolean }): JSX.Element {
   return (
     <>
@@ -191,7 +183,6 @@ function VariantA({ me }: { me: boolean }): JSX.Element {
   )
 }
 
-/** B: two floors. „Mein Bereich“ always stands at the top, the project under it; the one the reader is in is open. */
 function VariantB({ me }: { me: boolean }): JSX.Element {
   return (
     <>
@@ -225,7 +216,6 @@ function VariantB({ me }: { me: boolean }): JSX.Element {
   )
 }
 
-/** C: chats first. One list of all chats, each saying where it belongs; the projects are a list above it. */
 function VariantC({ me }: { me: boolean }): JSX.Element {
   return (
     <>
@@ -272,10 +262,6 @@ function VariantC({ me }: { me: boolean }): JSX.Element {
   )
 }
 
-/**
- * D: two zones. The switcher at the top chooses the place and lists what belongs to it; the chats under it are the
- * reader's own, the same list wherever they are.
- */
 export const ALL_CHATS: Chat[] = [MY_CHATS[0]!, MY_CHATS[1]!, { title: 'Abgleich Statik, Planstand Oktober', project: 'p-1', shared: true }, MY_CHATS[2]!, MY_CHATS[3]!]
 
 function VariantD({ me }: { me: boolean }): JSX.Element {
@@ -317,12 +303,7 @@ function VariantD({ me }: { me: boolean }): JSX.Element {
   )
 }
 
-/**
- * E: no place switcher for „Mein Bereich“. The top names the project of the open chat (or none) and is the way to
- * another; every chat says where it belongs; the person's own things stand at the foot, with the person.
- */
 function VariantE({ me, sticky = false, current, noneLabel }: { me: boolean; sticky?: boolean; current?: number | null; noneLabel?: string }): JSX.Element {
-  // G: the top follows the open chat, and for a chat without a project it states that instead of asking for one.
   const none = { id: 'none', name: noneLabel ?? '' }
   const showProject = sticky || !me
   const open = current === undefined ? (me ? 0 : 1) : current
@@ -365,11 +346,11 @@ export function Foot({ personalDoor = false, officeShelfOpen = false, ownShelf }
         <div className="text-muted-foreground text-meta flex min-h-6 items-end px-3 pb-1.5 font-medium">{OFFICE}</div>
         <SidebarMenu className="gap-0.5">
           <NavRow icon={Archive} label="Büroablage" active={officeShelfOpen} />
+          <NavRow icon={Library} label="Grundlagen" />
           <NavRow icon={Search} label="Suche" />
           <NavRow icon={Bell} label="Postfach" badge={3} />
         </SidebarMenu>
       </nav>
-      {/* The person's own Ablage beside the office's: neither belongs to a project. */}
       {ownShelf && (
         <SidebarMenu className="mb-2 gap-0.5">
           <NavRow icon={FolderLock} label="Meine Ablage" active={ownShelf === 'open'} />
@@ -385,10 +366,8 @@ export function Foot({ personalDoor = false, officeShelfOpen = false, ownShelf }
   )
 }
 
-/** The page beside the rail: enough of a chat to say where the reader is and who reads along. */
 export function Page({ me, fresh = false, noneLabel = 'Ohne Projekt' }: { me: boolean; fresh?: boolean; noneLabel?: string }): JSX.Element {
   const project = PROJECTS[0]!.name
-  // „Alle Projekte“: the chat is bound to no project and may look into every one the reader can open.
   const across = me && noneLabel === 'Alle Projekte'
   return (
     <main className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -419,7 +398,6 @@ export function PersonalAreaRailPreview(): JSX.Element {
   const place = params?.get('place') ?? 'me'
   const me = place === 'me'
   const fresh = place === 'new'
-  // What the top says for a chat without a project (g): `?label=`.
   const noneLabel = params?.get('label') ?? 'Ohne Projekt'
   return (
     <div className="bg-background text-foreground flex h-dvh overflow-hidden">
