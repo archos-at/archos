@@ -4402,3 +4402,25 @@ check_in mt_0238 "SELECT count(*) FROM project_memory WHERE organization_id = 'o
 apply_in mt_0238 0238_memory_topics.sql
 check_in mt_0238 "SELECT count(*) FROM personal_memory WHERE organization_id = 'org_0238' AND topic IS NULL" "1" "0238 applies again after its down, and no note has a topic"
 echo "==> 0238 memory topics and their down migration verified"
+
+# ---------------------------------------------------------------------------
+# Migration 0241: a ledger row names its model once. A provider id written
+# twice is folded to the id; an id once, one with no provider prefix and a
+# NULL stay as they are. The down changes nothing, and 0241 applies again.
+# ---------------------------------------------------------------------------
+echo "==> verifying the 0241 model folded once and its down migration on um_0241"
+migrate_before um_0241 0241_usage_events_model_once
+sql_in um_0241 <<SQL
+INSERT INTO llm_usage_events (organization_id, model, generation_id) VALUES
+  ('org_0241', 'openai/gpt-6.1-terraopenai/gpt-6.1-terra', 'a-doubled'),
+  ('org_0241', 'openai/gpt-6.1-terra', 'b-once'),
+  ('org_0241', 'gpt-4ogpt-4o', 'c-no-prefix'),
+  ('org_0241', NULL, 'd-none');
+SQL
+STATE_0241="SELECT string_agg(generation_id || '=' || coalesce(model, 'null'), ',' ORDER BY generation_id) FROM llm_usage_events WHERE organization_id = 'org_0241'"
+apply_in um_0241 0241_usage_events_model_once.sql
+check_in um_0241 "$STATE_0241" "a-doubled=openai/gpt-6.1-terra,b-once=openai/gpt-6.1-terra,c-no-prefix=gpt-4ogpt-4o,d-none=null" "0241 folds a doubled provider id and touches no other row"
+apply_in um_0241 0241_usage_events_model_once.down.sql
+apply_in um_0241 0241_usage_events_model_once.sql
+check_in um_0241 "$STATE_0241" "a-doubled=openai/gpt-6.1-terra,b-once=openai/gpt-6.1-terra,c-no-prefix=gpt-4ogpt-4o,d-none=null" "0241 applies again after its down and folds nothing twice"
+echo "==> 0241 model folded once and its down migration verified"

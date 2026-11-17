@@ -1688,6 +1688,13 @@
       "when": 1795500000000,
       "tag": "0240_knowledge_index_run_handed",
       "breakpoints": true
+    },
+    {
+      "idx": 241,
+      "version": "7",
+      "when": 1795600000000,
+      "tag": "0241_usage_events_model_once",
+      "breakpoints": true
     }
   ]
 }
