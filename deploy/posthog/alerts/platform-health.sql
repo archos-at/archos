@@ -104,10 +104,10 @@ WITH s AS (
         min(m.timestamp) AS first_ts,
         min(m.value) AS lo,
         max(m.value) AS hi,
-        -- Samples in the last 15 min, the first at least 12 min old: a "for 15 min"
-        -- rule needs a series that covers the window, not one sample of a new pod.
-        countIf(m.timestamp > now() - INTERVAL 15 MINUTE) > 0
-            AND minIf(m.timestamp, m.timestamp > now() - INTERVAL 15 MINUTE) < now() - INTERVAL 12 MINUTE AS spans15,
+        -- Sampled from at least 12 min ago until the last 5 (scrapes are 30-60 s apart):
+        -- a "for 15 min" rule needs a series covering the window, not one stray sample.
+        minIf(m.timestamp, m.timestamp > now() - INTERVAL 15 MINUTE) < now() - INTERVAL 12 MINUTE
+            AND max(m.timestamp) > now() - INTERVAL 5 MINUTE AS spans15,
         minIf(m.value, m.timestamp > now() - INTERVAL 15 MINUTE) AS lo15,
         maxIf(m.value, m.timestamp > now() - INTERVAL 15 MINUTE) AS hi15
     FROM posthog.metrics AS m
@@ -223,10 +223,10 @@ WITH s AS (
         argMax(m.value, m.timestamp) AS latest,
         min(m.value) AS lo,
         max(m.value) AS hi,
-        -- Samples in the last 15 min, the first at least 12 min old: a "for 15 min"
-        -- rule needs a series that covers the window, not one sample of a new pod.
-        countIf(m.timestamp > now() - INTERVAL 15 MINUTE) > 0
-            AND minIf(m.timestamp, m.timestamp > now() - INTERVAL 15 MINUTE) < now() - INTERVAL 12 MINUTE AS spans15,
+        -- Sampled from at least 12 min ago until the last 5 (scrapes are 30-60 s apart):
+        -- a "for 15 min" rule needs a series covering the window, not one stray sample.
+        minIf(m.timestamp, m.timestamp > now() - INTERVAL 15 MINUTE) < now() - INTERVAL 12 MINUTE
+            AND max(m.timestamp) > now() - INTERVAL 5 MINUTE AS spans15,
         minIf(m.value, m.timestamp > now() - INTERVAL 15 MINUTE) AS lo15,
         maxIf(m.value, m.timestamp > now() - INTERVAL 15 MINUTE) AS hi15
     FROM posthog.metrics AS m
@@ -291,10 +291,10 @@ WITH s AS (
         argMax(m.value, m.timestamp) AS latest,
         min(m.value) AS lo,
         max(m.value) AS hi,
-        -- Samples in the last 15 min, the first at least 12 min old: a "for 15 min"
-        -- rule needs a series that covers the window, not one sample of a new pod.
-        countIf(m.timestamp > now() - INTERVAL 15 MINUTE) > 0
-            AND minIf(m.timestamp, m.timestamp > now() - INTERVAL 15 MINUTE) < now() - INTERVAL 12 MINUTE AS spans15,
+        -- Sampled from at least 12 min ago until the last 5 (scrapes are 30-60 s apart):
+        -- a "for 15 min" rule needs a series covering the window, not one stray sample.
+        minIf(m.timestamp, m.timestamp > now() - INTERVAL 15 MINUTE) < now() - INTERVAL 12 MINUTE
+            AND max(m.timestamp) > now() - INTERVAL 5 MINUTE AS spans15,
         minIf(m.value, m.timestamp > now() - INTERVAL 15 MINUTE) AS lo15,
         minIf(m.value, m.timestamp > now() - INTERVAL 30 MINUTE) AS lo30
     FROM posthog.metrics AS m
@@ -349,10 +349,10 @@ WITH s AS (
         any(sr.resource) AS res,
         min(m.value) AS lo,
         max(m.value) AS hi,
-        -- Samples in the last 15 min, the first at least 12 min old: a "for 15 min"
-        -- rule needs a series that covers the window, not one sample of a new pod.
-        countIf(m.timestamp > now() - INTERVAL 15 MINUTE) > 0
-            AND minIf(m.timestamp, m.timestamp > now() - INTERVAL 15 MINUTE) < now() - INTERVAL 12 MINUTE AS spans15,
+        -- Sampled from at least 12 min ago until the last 5 (scrapes are 30-60 s apart):
+        -- a "for 15 min" rule needs a series covering the window, not one stray sample.
+        minIf(m.timestamp, m.timestamp > now() - INTERVAL 15 MINUTE) < now() - INTERVAL 12 MINUTE
+            AND max(m.timestamp) > now() - INTERVAL 5 MINUTE AS spans15,
         minIf(m.value, m.timestamp > now() - INTERVAL 15 MINUTE) AS lo15,
         max(m.count) - min(m.count) AS calls
     FROM posthog.metrics AS m
