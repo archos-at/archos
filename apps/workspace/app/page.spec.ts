@@ -42,6 +42,7 @@ const visit = async (searchParams: { 'sign-in'?: string } = {}): Promise<string>
   throw new Error('HomePage returned without redirecting')
 }
 
+
 describe('HomePage redirect', () => {
   beforeEach(() => {
     vi.stubEnv('REQUIRE_AUTH', 'true')

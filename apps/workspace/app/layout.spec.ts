@@ -309,8 +309,7 @@ describe('an organization upload limit', () => {
 
 describe('the transport ceiling clears the largest file any route admits', () => {
   afterEach(() => {
-    vi.stubEnv('FILE_UPLOAD_MAX_SIZE_MB', undefined)
-    vi.stubEnv('BIM_MAX_IFC_BYTES', undefined)
+    vi.unstubAllEnvs()
   })
 
   test('defaults to the IFC ceiling, not the document limit', () => {

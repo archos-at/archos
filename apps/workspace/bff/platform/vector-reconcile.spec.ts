@@ -13,7 +13,12 @@ vi.mock('drizzle-orm', async (importOriginal) => ({
   eq: (column: unknown, value: unknown) => ({ column, value }),
 }))
 vi.mock('@/lib/db/schema/documents', () => ({
-  documents: { collectionName: 'collection_name', filename: 'filename', authoredBy: 'authored_by' },
+  documents: {
+    collectionName: 'collection_name',
+    filename: 'filename',
+    authoredBy: 'authored_by',
+    publishedVersionId: 'published_version_id',
+  },
 }))
 
 const syncAllProjectFacts = vi.fn()
@@ -23,6 +28,7 @@ vi.mock('@/lib/cross-project/project-facts-mirror', () => ({
 
 import { getDb } from '@/lib/db'
 import { asDb } from '@/test-utils/db-fixtures'
+import { agentDocumentFilename } from '@/lib/documents/agent-namespace'
 import { DOCUMENT_FACTS_BATCH, PROJECT_FACTS_FAILURE_NAME, reconcileOrphanedVectors } from './vector-reconcile'
 
 describe('reconcileOrphanedVectors: the project facts half', () => {
@@ -49,7 +55,7 @@ describe('reconcileOrphanedVectors: the project facts half', () => {
 
 const fetchMock = vi.fn()
 
-type Row = { collectionName: string; filename: string; authoredBy: string }
+type Row = { collectionName: string; filename: string; authoredBy: string; publishedVersionId?: string | null }
 
 function stubRows(rows: Row[], now: Row[] = rows) {
   const from = () =>
@@ -106,7 +112,32 @@ describe('reconcileOrphanedVectors', () => {
     vi.unstubAllEnvs()
   })
 
-  it('does not let a machine-authored row shield an orphan that shares its name', async () => {
+  it('keeps the passages of a published agent document, which its row owns', async () => {
+    const published = agentDocumentFilename('doc_1', 'Brandschutzkonzept.md')
+    stubRows([{ collectionName: 'proj_a', filename: published, authoredBy: 'agent', publishedVersionId: 'ver_1' }])
+    fetchMock.mockResolvedValueOnce(listResponse([published, 'geloescht.pdf']))
+    fetchMock.mockResolvedValueOnce(deleteResponse(3))
+
+    const result = await reconcileOrphanedVectors()
+
+    expect(result.orphansFound).toBe(1)
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ file_ids: ['geloescht.pdf'] })
+  })
+
+  it('keeps a document that was published between the scan and the re-read before the delete', async () => {
+    const filename = agentDocumentFilename('doc_2', 'Entwurf.md')
+    stubRows(
+      [{ collectionName: 'proj_a', filename, authoredBy: 'agent' }],
+      [{ collectionName: 'proj_a', filename, authoredBy: 'agent', publishedVersionId: 'ver_1' }],
+    )
+    fetchMock.mockResolvedValueOnce(listResponse([filename]))
+
+    await reconcileOrphanedVectors()
+
+    expect(fetchMock.mock.calls.some(([, init]) => (init as RequestInit | undefined)?.method === 'DELETE')).toBe(false)
+  })
+
+  it('does not let an unpublished machine-authored row shield an orphan that shares its name', async () => {
     stubRows([{ collectionName: 'proj_a', filename: 'sicherheitskonzept.pdf', authoredBy: 'agent' }])
     fetchMock.mockResolvedValueOnce(listResponse(['sicherheitskonzept.pdf']))
     fetchMock.mockResolvedValueOnce(deleteResponse(7))
