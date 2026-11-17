@@ -23,7 +23,7 @@
 > and the non-geometry plans (`acoustic_check`, `parking_requirement`, …). Their
 > content is now Markdown the renderer draws: `:::compare`, `:::check`,
 > `:::procedure`, `:::cases` and `:::metrics`
-> (`shared/components/MarkdownRenderer/answer-atoms.tsx`, `directive-shape.ts`),
+> (`shared/components/MarkdownRenderer/answer-*.tsx`, `directive-shape.ts`),
 > and the follow-up questions are `FollowUpChips.tsx`. What is still a card:
 > the schematics (`schematics/`), `calculation`, the anatomy cards the masthead
 > draws (`verdict_header`, `key_takeaways`, `callout`), the proposal and system
@@ -206,7 +206,7 @@ Red is forbidden here: tightening is a cost, not an error, and error red is for 
 - Radius: cards `rounded-lg` (12px), inner panels `rounded-md` (8px), chips `rounded-md`, status pills `rounded-full`.
 - Elevation: `shadow-xs` and nothing else in the transcript. Never two shadows in one card. In dark mode elevation is carried by the token, not by a `dark:` variant — see tokens.css:216–241.
 - **No card inside a card.** The opened panels the retired `condition_tree` / `process_map` drew (`rounded-md border` on the same surface) were the legal form. A surface is not a card-in-card: it has no frame of its own. Tabs and Row are layout on the answer surface, and each leaf keeps its own register.
-- Every table and every drawing fits its own box. A drawing scales with the column (`SchematicCanvas`) and never scrolls sideways; a Markdown table scrolls inside its own `overflow-x-auto` (`answer-atoms.tsx`), except `:::compare`, which stacks (§A9).
+- Every table and every drawing fits its own box. A drawing scales with the column (`SchematicCanvas`) and never scrolls sideways; a Markdown table scrolls inside its own `overflow-x-auto` (`answer-tables.tsx`), except `:::compare`, which stacks (§A9).
 - **Design to 636px desktop / ~314px phone** (§0.5.3), not to the gallery's `max-w-2xl`.
 
 ### A5. How a card announces its type — the shape vocabulary
@@ -319,7 +319,7 @@ wherever the thing being sized is a finger (`design-language.md`, Touch).
    1px per unit and never has to know the phone scale.
 6. **A comparison stacks by its own width**, not the viewport: `:::compare`
    becomes one block per variant under 30rem of its own box
-   (`answer-atoms.tsx`).
+   (`answer-compare.tsx`).
 
 ---
 
@@ -400,7 +400,7 @@ Binding links get a solid 3px left edge on their row block; interpretive links g
 - **Signature: a win-tally strip** under each column header — one small dot per row that column wins, derived from `highlight_index`. A reader sees "this option wins 4 of 6" before reading a single row. Exactly the summary a table cannot give, and it needs no new field.
 - `recommendation` moves out of the card footer (line 98) into the **winning column's foot**, tinted, with the ThumbsUp. It belongs to a column, not to the card.
 **Unmistakable.** Vertical rules and no horizontal ones, plus the tally strip. `typed_table` is deliberately the exact inverse.
-**Degradation.** Schema guarantees ≥2 options and the backend pads short rows to `''` and nulls out-of-range highlights (`_square_rows`, models.py:650–666), so the grid is always square — render '—' muted for empties (already line 88). 4+ options → `overflow-x-auto` with the criterion column `position: sticky; left: 0`. **Narrow, the comparison transposes**: one option per block, criteria as rows inside it. It shipped for `:::compare` (`CompareStackFrame` and `CompareVariantCard` in `answer-atoms.tsx`) and is keyed to the comparison's OWN width, not the viewport: the container query is `@max-[30rem]/compare`, so a phone, a side panel and a narrow window all get it, and it is covered by `directives.spec.tsx` (`compare-stack`). That transposition is the mobile *design*, not a fallback — three columns at ~100px each with „Brandabschnittsfläche" in them is unreadable at any type size.
+**Degradation.** Schema guarantees ≥2 options and the backend pads short rows to `''` and nulls out-of-range highlights (`_square_rows`, models.py:650–666), so the grid is always square — render '—' muted for empties (already line 88). 4+ options → `overflow-x-auto` with the criterion column `position: sticky; left: 0`. **Narrow, the comparison transposes**: one option per block, criteria as rows inside it. It shipped for `:::compare` (`CompareStackFrame` and `CompareVariantCard` in `answer-compare.tsx`) and is keyed to the comparison's OWN width, not the viewport: the container query is `@max-[30rem]/compare`, so a phone, a side panel and a narrow window all get it, and it is covered by `directives.spec.tsx` (`compare-stack`). That transposition is the mobile *design*, not a fallback — three columns at ~100px each with „Brandabschnittsfläche" in them is unreadable at any type size.
 **Effort: L.**
 
 #### `typed_table` *(retired, ADR-0069)*
