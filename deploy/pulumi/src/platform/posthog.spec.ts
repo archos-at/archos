@@ -5,7 +5,7 @@ import { loadConfig } from '../config'
 import { POSTHOG_DEFAULT_HOST, POSTHOG_DEFAULT_PROJECT_TOKEN } from '../config/posthog'
 import { posthogEnv } from "../app/posthog-env";
 import { parseCollectorConfig, pipeline } from "../test-support/collector";
-import { BFF_SERVICE_NAME } from "../app/config";
+import { BFF_SERVICE_NAME, appOrigin } from "../app/config";
 import { BFF_JOBS_SERVICE_NAME } from "../app/bff-jobs-env";
 
 /**
@@ -208,13 +208,22 @@ describe("the Python tiers' PostHog pair", () => {
   const appCfg = (host: string, projectToken: string, releaseId = "") =>
     ({
       posthog: { host, projectToken, logsEnabled: false, sessionReplay: false, replaySampleRate: "0.2", releaseId },
+      ingress: { appDomain: "app.archos.tech" },
     }) as unknown as Parameters<typeof posthogEnv>[0];
 
-  it("emits both names when both are set", () => {
+  it("emits both names when both are set, and the app's host beside them", () => {
     expect(posthogEnv(appCfg("https://eu.i.posthog.com", "phc_x"))).toEqual([
       { name: "POSTHOG_HOST", value: "https://eu.i.posthog.com" },
       { name: "POSTHOG_PROJECT_TOKEN", value: "phc_x" },
+      { name: "POSTHOG_APP_HOST", value: "app.archos.tech" },
     ]);
+  });
+
+  it("names the app host the BFF reads off its redirect URI, so a filter on app_host keeps Python errors", () => {
+    pulumi.runtime.setAllConfig({ ...baseStackConfig(), ...POSTHOG });
+    const cfg = loadConfig();
+    const appHost = posthogEnv(cfg).find((e) => e.name === "POSTHOG_APP_HOST")?.value;
+    expect(appHost).toBe(new URL(`${appOrigin(cfg)}/api/auth/callback`).host);
   });
 
   it.each([
@@ -254,10 +263,12 @@ describe("the Python tiers' PostHog pair", () => {
       expect(await withPosthog(POSTHOG, name, type), name).toEqual([
         { name: "POSTHOG_HOST", value: "https://eu.i.posthog.com/" },
         { name: "POSTHOG_PROJECT_TOKEN", value: "phc_test_token" },
+        { name: "POSTHOG_APP_HOST", value: "app.example.test" },
       ]);
       expect(await withPosthog({}, name, type), name).toEqual([
         { name: "POSTHOG_HOST", value: POSTHOG_DEFAULT_HOST },
         { name: "POSTHOG_PROJECT_TOKEN", value: POSTHOG_DEFAULT_PROJECT_TOKEN },
+        { name: "POSTHOG_APP_HOST", value: "app.example.test" },
       ]);
       expect(await withPosthog({ "grid-oib:posthogHost": "" }, name, type), name).toEqual([]);
     }

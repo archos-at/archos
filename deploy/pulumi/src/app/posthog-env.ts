@@ -9,7 +9,7 @@ type EnvVar = k8s.types.input.core.v1.EnvVar;
  * The Python tiers' PostHog pair (`POSTHOG_HOST`, `POSTHOG_PROJECT_TOKEN`), or
  * nothing unless both are configured, plus `POSTHOG_RELEASE_ID` when the deploy
  * resolved a release for the backend image (posthog-python reads it itself and
- * sends it as `$release_id`). Exported for `posthog.spec.ts`.
+ * sends it as `$release_id`), plus the BFF's `app_host`. Exported for `posthog.spec.ts`.
  */
 export function posthogEnv(cfg: DeployConfig): EnvVar[] {
   const { host, projectToken, releaseId } = cfg.posthog;
@@ -17,6 +17,7 @@ export function posthogEnv(cfg: DeployConfig): EnvVar[] {
   return [
     { name: "POSTHOG_HOST", value: host },
     { name: "POSTHOG_PROJECT_TOKEN", value: projectToken },
+    { name: "POSTHOG_APP_HOST", value: cfg.ingress.appDomain },
     ...(releaseId === "" ? [] : [{ name: "POSTHOG_RELEASE_ID", value: releaseId }]),
   ];
 }

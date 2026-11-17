@@ -35,6 +35,7 @@ def configured_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("APP_ENV", "Staging")
     monkeypatch.setenv("OTEL_SERVICE_NAME", "grid-agent-worker")
     monkeypatch.setenv("GIT_SHA", "abc1234")
+    monkeypatch.setenv(posthog_client.APP_HOST_ENV, "app.dev.archos.tech")
 
 
 @pytest.fixture
@@ -85,7 +86,12 @@ def test_builds_one_client_with_the_promised_options(configured_env: None, fake_
         "disable_geoip": True,
         "enable_exception_autocapture": False,
         "before_send": posthog_client._scrub_event,
-        "super_properties": {"environment": "staging", "service": "grid-agent-worker", "release": "abc1234"},
+        "super_properties": {
+            "environment": "staging",
+            "service": "grid-agent-worker",
+            "release": "abc1234",
+            "app_host": "app.dev.archos.tech",
+        },
         "in_app_modules": ["agent", "agent_host"],
     }
 
@@ -94,6 +100,7 @@ def test_absent_super_properties_are_omitted(monkeypatch: pytest.MonkeyPatch) ->
     monkeypatch.delenv("APP_ENV", raising=False)
     monkeypatch.delenv("OTEL_SERVICE_NAME", raising=False)
     monkeypatch.delenv("GIT_SHA", raising=False)
+    monkeypatch.delenv(posthog_client.APP_HOST_ENV, raising=False)
 
     assert posthog_client.super_properties() == {}
 
@@ -154,7 +161,20 @@ def test_every_event_carries_the_super_properties_and_no_geoip(sent: list[dict[s
     assert properties["environment"] == "staging"
     assert properties["service"] == "grid-agent-worker"
     assert properties["release"] == "abc1234"
+    assert properties["app_host"] == "app.dev.archos.tech"
     assert properties["$geoip_disable"] is True
+
+
+def test_an_exception_names_the_deployment_it_came_from(sent: list[dict[str, Any]]) -> None:
+    # Staging and production both run APP_ENV=production: without app_host a
+    # production filter on it drops every Python error.
+    posthog_client.capture_exception(ValueError("x"))
+
+    assert sent[0]["event"] == "$exception"
+    assert (sent[0]["properties"]["environment"], sent[0]["properties"]["app_host"]) == (
+        "staging",
+        "app.dev.archos.tech",
+    )
 
 
 def test_the_deploys_release_id_links_every_event(sent: list[dict[str, Any]], monkeypatch: pytest.MonkeyPatch) -> None:
