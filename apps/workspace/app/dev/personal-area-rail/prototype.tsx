@@ -15,6 +15,7 @@ import {
   BookMarked,
   ChevronRight,
   Folder,
+  FolderLock,
   LayoutGrid,
   LockKeyhole,
   MessageSquare,
@@ -357,7 +358,7 @@ function VariantE({ me, sticky = false, current, noneLabel }: { me: boolean; sti
   )
 }
 
-export function Foot({ personalDoor = false, officeShelfOpen = false }: { personalDoor?: boolean; officeShelfOpen?: boolean }): JSX.Element {
+export function Foot({ personalDoor = false, officeShelfOpen = false, ownShelf }: { personalDoor?: boolean; officeShelfOpen?: boolean; ownShelf?: 'idle' | 'open' }): JSX.Element {
   return (
     <SidebarFooter className="shrink-0 gap-0 p-0 px-3 pb-3 pt-4">
       <nav aria-label={OFFICE} className="mb-2 w-full">
@@ -368,6 +369,12 @@ export function Foot({ personalDoor = false, officeShelfOpen = false }: { person
           <NavRow icon={Bell} label="Postfach" badge={3} />
         </SidebarMenu>
       </nav>
+      {/* The person's own Ablage beside the office's: neither belongs to a project. */}
+      {ownShelf && (
+        <SidebarMenu className="mb-2 gap-0.5">
+          <NavRow icon={FolderLock} label="Meine Ablage" active={ownShelf === 'open'} />
+        </SidebarMenu>
+      )}
       {personalDoor && (
         <SidebarMenu className="mb-2 gap-0.5">
           <NavRow icon={LockKeyhole} label="Mein Bereich" />

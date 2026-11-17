@@ -11,7 +11,7 @@
 import type { JSX, ReactNode } from 'react'
 import { useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Check, FileText, Folder, FolderInput, LayoutGrid, LockKeyhole, Paperclip, Plus, Upload, Zap } from 'lucide-react'
+import { Check, ChevronDown, FileText, Settings, Folder, FolderInput, LayoutGrid, LockKeyhole, Paperclip, Plus, Upload, Zap } from 'lucide-react'
 
 import { ProjectSectionActions, ProjectSectionFrame } from '@/components/shell/project-section-frame'
 import { ProjectSwitcher } from '@/components/shell/project-switcher'
@@ -64,21 +64,33 @@ const OFFICE_FILES: FileItem[] = [
 ]
 
 /** The rail the concept settled on for now: the switcher names the project or „Mein Bereich“, the chats are the reader's own. */
-function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null, projectFilesOpen = false, section }: { own: boolean; ownFiles?: boolean; officeShelfOpen?: boolean; openChat?: number | null; projectFilesOpen?: boolean; section?: 'files' | 'automation' }): JSX.Element {
+function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null, projectFilesOpen = false, section, shelfRows, ownShelf, gear = false }: { own: boolean; ownFiles?: boolean; officeShelfOpen?: boolean; openChat?: number | null; projectFilesOpen?: boolean; section?: 'files' | 'automation'; shelfRows?: 'project' | 'own'; ownShelf?: 'idle' | 'open'; gear?: boolean }): JSX.Element {
   return (
     <SidebarProvider className="h-full min-h-0 w-auto shrink-0">
       <Sidebar collapsible="icon" data-scope="project" aria-label="Navigation">
         <SidebarHeader className="shrink-0 gap-0 p-0 px-3">
           <SidebarBrand iconRail={false} />
-          <div className="mt-1 flex items-center">
+          <div className="mt-1 flex items-center gap-1.5">
             <ProjectSwitcher projects={[OWN, ...PROJECTS]} activeProjectId={own ? 'none' : 'p-1'} />
+            {/* The project's settings stand with its name: no section of their own, and none without a project. */}
+            {gear && !own && (
+              <span title="Projekteinstellungen" className="bg-sheet shadow-press text-muted-foreground flex size-10 shrink-0 items-center justify-center rounded-control">
+                <Settings className="size-4" aria-hidden />
+              </span>
+            )}
           </div>
         </SidebarHeader>
         <SidebarContent className="mt-3 flex-1 gap-0 overflow-y-auto px-3 py-px">
           {/* The sections stand under every choice of the switcher, „Alle Projekte“ included. */}
           <SidebarMenu className="mb-6 gap-0.5">
-            <NavRow icon={Folder} label="Ablage" active={section === 'files' || projectFilesOpen || (ownFiles && openChat === null && !officeShelfOpen)} />
-            <NavRow icon={LayoutGrid} label="Übersicht" />
+            <NavRow icon={Folder} label="Ablage" within={Boolean(shelfRows)} active={!shelfRows && ownShelf !== 'open' && (section === 'files' || projectFilesOpen || (ownFiles && openChat === null && !officeShelfOpen))} />
+            {shelfRows && (
+              <ul className="flex flex-col gap-0.5 pt-0.5">
+                {!own && <ChatRow chat={{ title: 'Projektablage' }} current={shelfRows === 'project'} />}
+                <ChatRow chat={{ title: 'Meine Ablage' }} current={shelfRows === 'own'} />
+              </ul>
+            )}
+            {!gear && <NavRow icon={LayoutGrid} label="Übersicht" />}
             <NavRow icon={Zap} label="Automatisierung" active={section === 'automation'} />
           </SidebarMenu>
           <a href="#" className="bg-sheet shadow-press flex h-9 shrink-0 items-center justify-center gap-2 rounded-control text-sm font-medium">
@@ -93,7 +105,7 @@ function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null,
             <MoreRow label="Alle Chats" indent={false} />
           </ul>
         </SidebarContent>
-        <Foot officeShelfOpen={officeShelfOpen} />
+        <Foot officeShelfOpen={officeShelfOpen} ownShelf={ownShelf} />
         <SidebarRail aria-label="Breite ändern" />
       </Sidebar>
     </SidebarProvider>
@@ -213,7 +225,7 @@ function AllProjects({ page, own }: { page: 'files' | 'automation'; own: boolean
  * D: one Dateien page. The track beside the tools says whose files these are: a project's (its name opens the list
  * of projects) or the person's own. `top` is what the rail's switcher shows; `?pos=title` makes the two the title.
  */
-function SwitchPage({ own, top, titleSwitch }: { own: boolean; top: 'project' | 'all'; titleSwitch: boolean }): JSX.Element {
+function SwitchPage({ own, top, titleSwitch, mode, menuOpen }: { own: boolean; top: 'project' | 'all'; titleSwitch: boolean; mode: string; menuOpen: boolean }): JSX.Element {
   const [view, setView] = useState<FileView>('cards')
   const search = useFileSearch(projectSearchScope('proj-demo'))
   const project = PROJECTS[0]!
@@ -221,17 +233,41 @@ function SwitchPage({ own, top, titleSwitch }: { own: boolean; top: 'project' | 
   const off = 'text-muted-foreground px-3 py-1.5'
   return (
     <>
-      <Rail own={top === 'all'} section="files" />
+      <Rail own={top === 'all'} section="files" gear={mode !== 'track'} shelfRows={mode === 'rail' ? (own ? 'own' : 'project') : undefined} ownShelf={mode === 'foot' ? (own ? 'open' : 'idle') : undefined} />
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         {/* The page's own title row, drawn over the frame's („Dateien“): the place is called Ablage here, and the
             choice between the project's and the person's own stands at the title, in one of two positions. */}
-        <div className="bg-background absolute left-8 right-8 top-[10px] z-10 flex h-[68px] flex-col justify-between">
+        <div className="bg-background absolute left-8 right-8 top-[10px] z-40 flex h-[68px] flex-col justify-between">
           {/* Where the reader stands. In a project „Meine Ablage“ opens at the folder that carries the project's name. */}
           <span className="text-muted-foreground text-meta flex items-center gap-1.5">
             {own ? 'Meine Ablage' : project.name}
           </span>
           <div className="flex h-11 items-center gap-4">
-          {titleSwitch ? (
+          {mode === 'rail' || mode === 'foot' ? (
+            <h1 className="text-page-title">{own ? 'Meine Ablage' : mode === 'foot' ? 'Ablage' : 'Projektablage'}</h1>
+          ) : mode === 'menu' ? (
+            <div className="relative">
+              <h1 className="text-page-title hover:bg-desk -ml-2 inline-flex items-center gap-2 rounded-control px-2 py-1">
+                {own ? 'Meine Ablage' : 'Projektablage'}
+                <ChevronDown className="text-muted-foreground size-5" aria-hidden />
+              </h1>
+              {menuOpen && (
+                <div className="bg-sheet shadow-md absolute left-0 top-full z-20 mt-2 w-72 rounded-[16px] p-1.5">
+                  {[
+                    { label: 'Projektablage', hint: project.short, on: !own },
+                    { label: 'Meine Ablage', hint: 'Nur Sie', on: own },
+                  ].map((item) => (
+                    <div key={item.label} className={`text-name flex h-10 items-center gap-2.5 rounded-control px-2.5 ${item.on ? 'bg-desk' : ''}`}>
+                      <Folder className="text-muted-foreground size-4 shrink-0" aria-hidden />
+                      <span className="min-w-0 flex-1 truncate font-medium">{item.label}</span>
+                      <span className="text-muted-foreground text-meta">{item.hint}</span>
+                      {item.on && <Check className="size-4 shrink-0" aria-hidden />}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : titleSwitch ? (
             <div className="bg-desk flex rounded-[8px] p-1 text-[17px] leading-6 font-semibold">
               <span className={own ? 'text-muted-foreground px-4 py-1.5 font-medium' : 'bg-sheet shadow-xs rounded-control px-4 py-1.5'}>{top === 'project' ? 'Projektablage' : 'Kein Projekt ausgewählt'}</span>
               <span className={own ? 'bg-sheet shadow-xs rounded-control px-4 py-1.5' : 'text-muted-foreground px-4 py-1.5 font-medium'}>Meine Ablage</span>
@@ -411,7 +447,7 @@ export default function PersonalFilesPreview(): JSX.Element {
   const variant = params?.get('v') ?? 'page'
   return (
     <I18nProvider initialLocale="de" fixedLocale>
-      <div className="bg-background text-foreground flex h-dvh overflow-hidden">{variant === 'talk' ? <Talk place={params?.get('place') ?? 'me'} /> : variant === 'all' ? <AllProjects page={params?.get('page') === 'automation' ? 'automation' : 'files'} own={params?.get('shelf') === 'own'} /> : variant === 'switch' ? <SwitchPage own={params?.get('shelf') === 'own'} top={params?.get('top') === 'all' ? 'all' : 'project'} titleSwitch={params?.get('pos') === 'title'} /> : variant === 'office' ? <InOfficeShelf /> : variant === 'chat' ? <FromChat /> : <OwnPage />}</div>
+      <div className="bg-background text-foreground flex h-dvh overflow-hidden">{variant === 'talk' ? <Talk place={params?.get('place') ?? 'me'} /> : variant === 'all' ? <AllProjects page={params?.get('page') === 'automation' ? 'automation' : 'files'} own={params?.get('shelf') === 'own'} /> : variant === 'switch' ? <SwitchPage own={params?.get('shelf') === 'own'} top={params?.get('top') === 'all' ? 'all' : 'project'} mode={params?.get('mode') ?? 'track'} menuOpen={params?.get('open') === '1'} titleSwitch={params?.get('pos') === 'title'} /> : variant === 'office' ? <InOfficeShelf /> : variant === 'chat' ? <FromChat /> : <OwnPage />}</div>
     </I18nProvider>
   )
 }
