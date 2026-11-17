@@ -1,22 +1,4 @@
-"""The old names of the service headers, read beside the new: drop after release 2026-W48.
-
-The headers the BFF sends lose the product's name (`x-grid-budget` becomes
-`x-budget`; docs/contributing/code-conventions.md#no-brand-names). The BFF and
-this tier roll out side by side, and jobs queued before a deploy keep the
-names they were stored with, so the move is expand, switch, contract:
-
-- expand (#1333): this middleware copies a header that arrives under its new
-  name onto its old one, so every reader here, still reading the old name, sees it;
-- switch (the release after): the senders send the new names;
-- contract (the release after that): the readers read the new names and this
-  goes. The list of readers is in ``apps/workspace/bff/http/legacy-header-names.ts``.
-
-A header already present under its old name is left as it is. Only the names
-in ``SERVICE_HEADERS`` are copied: ``x-`` alone is every proxy's prefix. The
-BFF's WebSocket proxy strips the same list from what a browser sends
-(``apps/workspace/bff/proxy/ws-upgrade-headers.js``), and
-``tests/test_legacy_headers.py`` holds the two lists equal.
-"""
+# drop after release 2026-W48
 
 from __future__ import annotations
 

@@ -258,7 +258,7 @@ def reference_values(terms: list[str]) -> list[str]:
     """
     from knowledge_layer.references import KINDS
     from knowledge_layer.references import spellings
-    from knowledge_layer.vector_store import prefilter
+    from knowledge_layer.vector_store import plan
     from knowledge_layer.vector_store import reference_value
 
     values: list[str] = []
@@ -267,7 +267,7 @@ def reference_values(terms: list[str]) -> list[str]:
         if sep and kind in KINDS and key.strip() == key and key:
             values.extend(reference_value(kind, spelling) for spelling in spellings(kind, key))
             continue
-        pushdown = prefilter.plan(doc_class=None, folder=None, file_name=None, refers_to=term)
+        pushdown = plan(doc_class=None, folder=None, file_name=None, refers_to=term)
         values.extend(pushdown.references)
     return list(dict.fromkeys(values))
 
@@ -278,7 +278,7 @@ def _reading_clauses(filters: GroupedSearchFilters) -> list[dict[str, Any]]:
     Raises :class:`MatchesNothing` when ``refers_to`` was asked and named no
     reference: dropping the condition would widen the search instead.
     """
-    from knowledge_layer.vector_store import prefilter
+    from knowledge_layer.vector_store import Pushdown
 
     parts: list[dict[str, Any]] = []
     if filters.document_ids:
@@ -294,7 +294,7 @@ def _reading_clauses(filters: GroupedSearchFilters) -> list[dict[str, Any]]:
         references = tuple(reference_values(filters.refers_to))
         if not references:
             raise MatchesNothing
-        parts.extend(prefilter.Pushdown(hide_superseded=False, references=references).clauses(user_shelf=False))
+        parts.extend(Pushdown(hide_superseded=False, references=references).clauses(user_shelf=False))
     return parts
 
 

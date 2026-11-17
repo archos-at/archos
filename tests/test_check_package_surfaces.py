@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import importlib
 import importlib.util
-import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -29,7 +29,6 @@ def checker():
 @pytest.fixture
 def repo(tmp_path, monkeypatch):
     subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
-    (tmp_path / "ci").mkdir()
     add(tmp_path, f"{SEARCH}/__init__.py", INIT)
     add(tmp_path, f"{SEARCH}/ranked_search.py", "class RankedSearch: ...\n_private = 1\n")
     add(tmp_path, f"{SEARCH}/fusion.py", "from knowledge_layer.search.ranked_search import RankedSearch\n")
@@ -44,11 +43,11 @@ def add(repo: Path, path: str, text: str) -> None:
     subprocess.run(["git", "add", path], cwd=repo, check=True)
 
 
-def baseline(repo: Path) -> dict:
-    return json.loads((repo / "ci" / "package_surface_baseline.json").read_text())
+def flagged_lines(err: str, path: str) -> set[int]:
+    return {int(line) for line in re.findall(rf"^  - {re.escape(path)}:(\d+): names ", err, flags=re.MULTILINE)}
 
 
-def test_each_way_of_naming_a_submodule_from_outside_counts(checker, repo):
+def test_each_way_of_naming_a_submodule_from_outside_is_a_finding(checker, repo, capsys):
     add(
         repo,
         "tests/test_x.py",
@@ -61,41 +60,79 @@ def test_each_way_of_naming_a_submodule_from_outside_counts(checker, repo):
         '    monkeypatch.setattr("knowledge_layer.search.ranked_search._private", 2)\n',
     )
 
-    assert checker.main(["--rebaseline"]) == 0
+    assert checker.main([]) == 1
 
-    assert baseline(repo) == {"tests/test_x.py": {"knowledge_layer.search.ranked_search": 4}}
+    assert flagged_lines(capsys.readouterr().err, "tests/test_x.py") == {1, 2, 3, 7}
 
 
-def test_a_new_reference_fails_and_names_the_surface(checker, repo, capsys):
-    assert checker.main(["--rebaseline"]) == 0
+def test_a_docstring_naming_a_submodule_is_not_a_finding(checker, repo):
+    add(
+        repo,
+        "tests/test_x.py",
+        'def test():\n    """Uses knowledge_layer.search.ranked_search, in prose."""\n',
+    )
+
+    assert checker.main([]) == 0
+
+
+def test_a_finding_names_the_package_import_when_the_name_is_exported(checker, repo, capsys):
     add(repo, "app.py", "from knowledge_layer.search.ranked_search import RankedSearch\n")
 
     assert checker.main([]) == 1
 
-    err = capsys.readouterr().err
-    assert "app.py: 1 reference(s) to knowledge_layer.search.ranked_search, 0 allowed" in err
-    assert "`from knowledge_layer.search import RankedSearch`" in err
+    assert (
+        "app.py:1: names knowledge_layer.search.ranked_search. Import "
+        "`from knowledge_layer.search import RankedSearch`, its surface"
+    ) in capsys.readouterr().err
 
 
-def test_a_dropped_reference_must_lower_the_baseline_and_update_lowers_it(checker, repo):
-    add(repo, "app.py", "from knowledge_layer.search import ranked_search\n")
-    assert checker.main(["--rebaseline"]) == 0
-    add(repo, "app.py", "from knowledge_layer.search import RankedSearch\n")
+def test_a_finding_names_the_package_when_the_name_is_not_exported(checker, repo, capsys):
+    add(repo, "app.py", "from knowledge_layer.search.ranked_search import _private\n")
 
-    assert checker.main([]) == 0  # a shrink passes; --update locks it in
-    assert checker.main(["--update"]) == 0
-    assert baseline(repo) == {}
+    assert checker.main([]) == 1
 
-
-def test_update_never_raises_or_adds(checker, repo):
-    assert checker.main(["--rebaseline"]) == 0
-    add(repo, "app.py", "from knowledge_layer.search import ranked_search\n")
-
-    assert checker.main(["--update"]) == 1
-    assert baseline(repo) == {}
+    assert "app.py:1: names knowledge_layer.search.ranked_search. Import a name from `knowledge_layer.search`" in (
+        capsys.readouterr().err
+    )
 
 
-def test_the_real_tree_is_held_at_its_baseline():
+@pytest.mark.parametrize(
+    "path",
+    [
+        "packages/knowledge-layer/tests/test_search.py",
+        "packages/knowledge-layer/testing/helpers.py",
+        "tests/knowledge_layer_tests/test_search.py",
+    ],
+)
+def test_a_white_box_suite_is_never_a_finding(checker, repo, path):
+    add(
+        repo,
+        path,
+        "import knowledge_layer.search.ranked_search\n"
+        "from knowledge_layer.search.ranked_search import RankedSearch\n"
+        'PATCH = "knowledge_layer.search.ranked_search._private"\n',
+    )
+
+    assert checker.main([]) == 0
+
+
+def test_a_sibling_subpackage_is_outside_the_package(checker, repo, capsys):
+    add(
+        repo,
+        "packages/knowledge-layer/src/knowledge_layer/ingest/worker.py",
+        "from knowledge_layer.search.ranked_search import RankedSearch\n",
+    )
+
+    assert checker.main([]) == 1
+
+    assert "ingest/worker.py:1: names knowledge_layer.search.ranked_search." in capsys.readouterr().err
+
+
+def test_code_inside_the_package_imports_its_siblings(checker, repo):
+    assert checker.main([]) == 0
+
+
+def test_the_real_tree_names_no_submodule_from_outside():
     done = subprocess.run(
         [sys.executable, "scripts/check_package_surfaces.py"], cwd=ROOT, capture_output=True, text=True, check=False
     )

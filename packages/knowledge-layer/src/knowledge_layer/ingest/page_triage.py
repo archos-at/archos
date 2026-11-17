@@ -230,7 +230,7 @@ def _page_signals(page: Any, page_number: int, text: str, min_paths: int) -> Pag
 
 def _measure_page(doc: Any, index: int, text: str, min_paths: int) -> PageSignals:
     """One page's signals, under the PDFium lock; a page pdfium cannot read is measured from its text."""
-    from knowledge_layer.ingest.pdfium_lock import pdfium_lock
+    from knowledge_layer.ingest.pdfium_guard import pdfium_lock
 
     number = index + 1
     with pdfium_lock():
@@ -250,7 +250,7 @@ def _open_pdf(pdf_path: str) -> tuple[Any, int]:
     """``(document, page count)``, opened under the PDFium lock; closed again if it cannot be counted."""
     import pypdfium2 as pdfium
 
-    from knowledge_layer.ingest.pdfium_lock import pdfium_lock
+    from knowledge_layer.ingest.pdfium_guard import pdfium_lock
 
     with pdfium_lock():
         doc = pdfium.PdfDocument(pdf_path)
@@ -270,7 +270,7 @@ def read_page_signals(pdf_path: str, page_texts: dict[int, str], *, min_paths: i
     held (``pdfium_lock``) for the open, each page and the close, not for the
     whole document, so a long PDF does not stall the other ingest workers.
     """
-    from knowledge_layer.ingest.pdfium_lock import pdfium_lock
+    from knowledge_layer.ingest.pdfium_guard import pdfium_lock
 
     try:
         doc, pages = _open_pdf(pdf_path)

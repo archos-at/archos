@@ -141,35 +141,36 @@ def _load(collection: str, organization_id: str) -> _Collection:
 def _publish_point(collection: str, card: dict[str, Any]) -> None:
     """Embed ``card`` with the production embedder and write its point into ``collection``'s scope."""
     try:
-        from knowledge_layer.vector_store import folders
+        from knowledge_layer.vector_store import embedding_text
         from knowledge_layer.vector_store import get_store
+        from knowledge_layer.vector_store import upsert_folder_card
 
         from agent.knowledge.factory import get_active_retriever
 
         retriever = get_active_retriever()
-        text = folders.embedding_text(card["folder_path"], card.get("abstract"), card.get("key_facts"))
+        text = embedding_text(card["folder_path"], card.get("abstract"), card.get("key_facts"))
         vector = retriever.embed_query(text)
-        folders.upsert_folder_card(get_store(retriever.embedding_identity()), collection, card, vector)
+        upsert_folder_card(get_store(retriever.embedding_identity()), collection, card, vector)
     except Exception:  # noqa: BLE001 — the card is written; its point is derived
         logger.warning("folder cards: no Qdrant point for %s in %s", card.get("folder_path"), collection, exc_info=True)
 
 
 def _restamp_point(collection: str, folder_path: str, status: str) -> None:
     try:
-        from knowledge_layer.vector_store import folders
         from knowledge_layer.vector_store import get_store
+        from knowledge_layer.vector_store import set_folder_card_status
 
-        folders.set_folder_card_status(get_store(), collection, folder_path, status)
+        set_folder_card_status(get_store(), collection, folder_path, status)
     except Exception:  # noqa: BLE001
         logger.warning("folder cards: could not restamp the point of %s in %s", folder_path, collection, exc_info=True)
 
 
 def _drop_point(collection: str, folder_path: str) -> None:
     try:
-        from knowledge_layer.vector_store import folders
+        from knowledge_layer.vector_store import delete_folder_card
         from knowledge_layer.vector_store import get_store
 
-        folders.delete_folder_card(get_store(), collection, folder_path)
+        delete_folder_card(get_store(), collection, folder_path)
     except Exception:  # noqa: BLE001
         logger.warning("folder cards: could not delete the point of %s in %s", folder_path, collection, exc_info=True)
 

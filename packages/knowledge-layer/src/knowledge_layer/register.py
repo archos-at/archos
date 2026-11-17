@@ -331,8 +331,8 @@ def _setup_backend(config: KnowledgeRetrievalConfig, summary_llm_obj=None) -> tu
     Returns:
         Tuple of (backend_name, backend_config_dict)
     """
-    import knowledge_layer.ingest.adapter  # noqa: F401
-    import knowledge_layer.search.retriever  # noqa: F401
+    from knowledge_layer.ingest import LlamaIndexIngestor  # noqa: F401
+    from knowledge_layer.search import LlamaIndexRetriever  # noqa: F401
 
     backend_config: dict = {
         "generate_summary": config.generate_summary,
@@ -348,24 +348,15 @@ def _setup_backend(config: KnowledgeRetrievalConfig, summary_llm_obj=None) -> tu
 
 
 # Lazy search imports: folder_channel alone cost 136 ms on the first turn (measured 2026-10-27).
-_SEARCH_PATH_MODULES = (
-    "knowledge_layer.browse.tool",
-    "knowledge_layer.search.folder_channel",
-    "knowledge_layer.read_passage.tool",
-    "knowledge_layer.search.requery",
-    "agent.observability.retrieval_trace",
-)
-
-
 def _warm_search_path_sync(retriever: Any) -> None:
     warm = getattr(retriever, "warm_components", None)
     if callable(warm):
         warm()
     import agent.observability.retrieval_trace  # noqa: F401 - warm-up import
-    import knowledge_layer.browse.tool  # noqa: F401 - warm-up import
-    import knowledge_layer.read_passage.tool  # noqa: F401 - warm-up import
-    import knowledge_layer.search.folder_channel  # noqa: F401 - warm-up import
-    import knowledge_layer.search.requery  # noqa: F401 - warm-up import
+    from knowledge_layer.browse import list_files  # noqa: F401 - warm-up import
+    from knowledge_layer.read_passage import read_passage  # noqa: F401 - warm-up import
+    from knowledge_layer.search import folder_routes  # noqa: F401 - warm-up import
+    from knowledge_layer.search import judge_sufficiency  # noqa: F401 - warm-up import
 
 
 async def _warm_search_path(retriever: Any) -> None:

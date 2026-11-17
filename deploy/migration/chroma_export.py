@@ -190,7 +190,9 @@ def _persistent_client(persist_dir: Path, scratch: Path):
 
 
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
+    parser = argparse.ArgumentParser(
+        description=f"Export every Chroma collection, vectors included, to the neutral format {FORMAT}."
+    )
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--persist-dir", type=Path, help="A Chroma persist directory (copied before it is opened).")
     source.add_argument("--url", help="A running Chroma server, http(s)://host[:port].")

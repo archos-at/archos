@@ -380,9 +380,15 @@ def recorded_database(get: Get) -> bool:
         return False
 
 
+USAGE = (
+    "usage: pr_selection.py BASE\n"
+    "environment (all optional): GITHUB_TOKEN, GITHUB_REPOSITORY, GITHUB_API_URL, GITHUB_HEAD_REF"
+)
+
+
 def main(argv: list[str]) -> int:
     if len(argv) != 2:
-        print(__doc__, file=sys.stderr)
+        print(USAGE, file=sys.stderr)
         return 2
     token = os.environ.get("GITHUB_TOKEN", "")
     previous, recorded = None, False

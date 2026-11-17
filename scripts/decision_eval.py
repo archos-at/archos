@@ -313,7 +313,9 @@ def write_csv(rows: list[Row], path: Path) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description="Decision eval: does the decision model answer the turn-start questions right, in German?"
+    )
     parser.add_argument("--questions", type=Path, default=DEFAULT_QUESTIONS)
     parser.add_argument("--follow-ups", type=Path, default=DEFAULT_FOLLOW_UPS)
     parser.add_argument("--out", type=Path, default=None)

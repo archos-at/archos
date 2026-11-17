@@ -475,7 +475,9 @@ async def _run(parts: list[str]) -> dict[str, Any]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description="Office-experience decision eval: does Jev serve the similar-projects path well, in German?"
+    )
     parser.add_argument("parts", nargs="*", help=f"any of {', '.join(PARTS)}; default every one")
     parser.add_argument("--out", type=Path, default=None)
     args = parser.parse_args(argv)

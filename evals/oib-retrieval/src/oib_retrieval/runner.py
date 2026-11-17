@@ -345,7 +345,7 @@ def print_scores(scores: Scores, stream) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(description="Drive the harness and print the report.")
     parser.add_argument(
         "--embedder",
         default="hashed",

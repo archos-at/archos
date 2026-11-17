@@ -27,7 +27,6 @@ from __future__ import annotations
 import argparse
 import asyncio
 import functools
-import importlib
 import os
 import sys
 import tempfile
@@ -71,7 +70,9 @@ def _patch_http() -> None:
 
 
 def _patch_retriever() -> None:
-    retriever = importlib.import_module("knowledge_layer.search.retriever").LlamaIndexRetriever
+    from knowledge_layer.search import LlamaIndexRetriever
+
+    retriever = LlamaIndexRetriever
 
     def timed(phase: str, method: Any) -> Any:
         @functools.wraps(method)
@@ -127,7 +128,9 @@ def _in_tree(argv: list[str]) -> None:
 def main(argv: list[str] | None = None) -> int:
     argv = sys.argv[1:] if argv is None else argv
     _in_tree(argv)
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser = argparse.ArgumentParser(
+        description="Startup probe: what a chat turn does before its first model call, in milliseconds."
+    )
     parser.add_argument("questions", nargs="+", help="asked in order, in one process")
     parser.add_argument("--config", type=Path, default=CONFIG)
     args = parser.parse_args(argv)

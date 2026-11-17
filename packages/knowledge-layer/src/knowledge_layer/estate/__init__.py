@@ -26,6 +26,8 @@ __all__ = [
     "EstateBackend",
     "GrepRefused",
     "PagesRefused",
+    "_chunk_hit",
+    "_page_hit",
     "compile_query",
     "document_licence",
     "glob_files",

@@ -594,7 +594,6 @@ class TestTheContract:
 
     def test_the_refusal_that_sent_the_model_back_to_a_search_is_gone(self):
         assert "Provide `clause=`" not in rp._READ_PASSAGE_DESCRIPTION
-        assert "Provide `clause=`" not in (rp.read_passage.__doc__ or "")
 
     def test_returns_describes_the_outline_as_an_index(self):
         returns = rp._READ_PASSAGE_DESCRIPTION.split("Returns:")[1]

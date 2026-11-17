@@ -50,12 +50,12 @@ def add_project_facts_routes(router: APIRouter):
         if not collection_name.startswith(PROJECT_COLLECTION_PREFIX):
             raise HTTPException(status_code=400, detail="project facts belong to a project collection")
         try:
-            from knowledge_layer.vector_store import retrieval
+            from knowledge_layer.vector_store import set_project_facts
         except ImportError as e:  # the knowledge layer's store extra is not installed here
             raise HTTPException(status_code=409, detail="this deployment has no Qdrant store") from e
         try:
             applied = await asyncio.to_thread(
-                retrieval.set_project_facts, collection_name, request.facts.to_store(), request.status
+                set_project_facts, collection_name, request.facts.to_store(), request.status
             )
         except Exception as e:
             logger.exception("Mirroring project facts onto %s failed", collection_name)

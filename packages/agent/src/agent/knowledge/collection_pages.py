@@ -76,6 +76,7 @@ def read_chunks(collection: str, file_name: str) -> list[tuple[str, dict[str, An
 
 def _document_hits(collection: str, file_name: str) -> list[Any]:
     """Every chunk of one file, in reading order (``reads.in_document_order``)."""
-    from knowledge_layer.vector_store import reads
+    from knowledge_layer.vector_store import fetch
+    from knowledge_layer.vector_store import in_document_order
 
-    return reads.in_document_order(reads.fetch(collection, {"file_name": file_name}, MAX_CHUNKS))
+    return in_document_order(fetch(collection, {"file_name": file_name}, MAX_CHUNKS))

@@ -1315,7 +1315,7 @@ def run_north_star(questions: list[dict], args: argparse.Namespace, stamp: str) 
 
 def main(argv: list[str] | None = None) -> int:
     os.chdir(ROOT)
-    args = parse_args(argv, description=__doc__)
+    args = parse_args(argv)
     if args.compare:
         return write_compare(*args.compare)
     if args.report:

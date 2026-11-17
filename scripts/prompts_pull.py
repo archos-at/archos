@@ -124,7 +124,7 @@ def build_client() -> PromptApi | None:
 
 def main(argv: list[str] | None = None) -> int:
     """Pull one prompt version into the committed prompt file and print what happened."""
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(description="Bring a Langfuse version of the platform prompt into review.")
     parser.add_argument("--label", default="production", help="the Langfuse label to pull (default: production)")
     parser.add_argument("--name", default=PROMPT_NAME, help="the Langfuse prompt name")
     args = parser.parse_args(argv)

@@ -230,7 +230,9 @@ def _stop(proc: subprocess.Popen) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description="Turn census: run one chat question through the real agent and count what it cost."
+    )
     parser.add_argument("question", nargs="?")
     parser.add_argument("--runs", type=int, default=1)
     parser.add_argument("--out", type=Path, default=Path("/tmp/turn_census"))

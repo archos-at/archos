@@ -188,7 +188,9 @@ def report(get: Get, repo: str, days: int, now: datetime) -> str:
 
 
 def main(argv: list[str]) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
+    parser = argparse.ArgumentParser(
+        description="How long a change takes to reach people, measured from the Actions API."
+    )
     parser.add_argument("--days", type=int, default=7)
     args = parser.parse_args(argv)
     get = reuse_green_run.github_get(

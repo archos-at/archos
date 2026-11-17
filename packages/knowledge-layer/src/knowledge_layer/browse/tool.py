@@ -477,15 +477,15 @@ async def _folder_scope(search_config: Any, folder: str) -> tuple[set[str], str 
     """The collections that hold files in ``folder`` or below, and the folder as the points spell it.
 
     The key is the folder in its stored spelling (so „Plaene“ finds „Pläne“) as
-    :func:`prefilter.folder_key` writes it onto every point; ``(set(), None)`` when no file is filed there.
+    :func:`folder_key` writes it onto every point; ``(set(), None)`` when no file is filed there.
     """
-    from knowledge_layer.vector_store import prefilter
+    from knowledge_layer.vector_store import folder_key
 
     rows = await _turn_rows(search_config)
     resolved = _folder_matches(rows, folder)
     if resolved is None:
         return set(), None
-    return {row.collection for row in rows if _in_folder(row, resolved)}, prefilter.folder_key(resolved)
+    return {row.collection for row in rows if _in_folder(row, resolved)}, folder_key(resolved)
 
 
 async def exact_search(

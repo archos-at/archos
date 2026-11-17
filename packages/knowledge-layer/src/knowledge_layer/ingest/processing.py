@@ -50,8 +50,8 @@ from typing import Any
 from agent.common.cache import get_json
 from agent.common.cache import set_json
 
-from .pdfium_lock import detached_pil
-from .pdfium_lock import pdfium_lock
+from .pdfium_guard import detached_pil
+from .pdfium_guard import pdfium_lock
 
 logger = logging.getLogger(__name__)
 

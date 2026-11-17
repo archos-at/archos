@@ -169,7 +169,7 @@ def _collection_is_empty(ingestor) -> bool:
 
 def _get_oib_ingestor():
     """The ingestor this module prepares jobs with and reads the collection through. It runs nothing."""
-    import knowledge_layer.ingest.adapter  # noqa: F401
+    from knowledge_layer.ingest import LlamaIndexIngestor  # noqa: F401
 
     return get_ingestor("llamaindex")
 

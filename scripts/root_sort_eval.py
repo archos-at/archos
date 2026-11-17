@@ -381,7 +381,9 @@ def markdown_summary(report: dict[str, Any]) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description='Root-sort eval: how often a "sure" placement is right, and where the sure cut belongs.'
+    )
     parser.add_argument("--out", type=Path, default=FIXTURE.parent / f"eval_{date.today().isoformat()}.json")
     args = parser.parse_args(argv)
     if not (os.environ.get("OPENROUTER_API_KEY") or os.environ.get("DECISIONS_API_KEY")):

@@ -23,6 +23,11 @@ import sys
 from collections.abc import Iterable
 from typing import Any
 
+USAGE = (
+    "usage: python3 ci/dependabot_merge.py <update-type> <directory>\n"
+    "       gh api repos/OWNER/REPO/rules/branches/BASE | python3 ci/dependabot_merge.py rules"
+)
+
 MERGES = frozenset({"version-update:semver-minor", "version-update:semver-patch"})
 
 HELD_DIRECTORIES = ("/deploy/pulumi",)
@@ -74,7 +79,7 @@ def main(argv: list[str]) -> int:
         print(f"reviews={required_reviews(rules)}")
         return 0
     if len(argv) != 3:
-        print(__doc__, file=sys.stderr)
+        print(USAGE, file=sys.stderr)
         return 2
     merge, reason = decide(argv[1], argv[2])
     print(f"merge={'true' if merge else 'false'}")

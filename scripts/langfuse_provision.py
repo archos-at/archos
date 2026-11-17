@@ -311,7 +311,9 @@ def _client() -> Any:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser = argparse.ArgumentParser(
+        description="Bring a Langfuse project in line with what Grid declares, or say what that would change."
+    )
     parser.add_argument("--apply", action="store_true", help="create what is missing (default: only print the plan)")
     args = parser.parse_args(argv)
     api = _client()

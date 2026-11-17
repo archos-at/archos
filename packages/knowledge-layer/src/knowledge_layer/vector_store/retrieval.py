@@ -61,7 +61,7 @@ def bm25_candidates(query: str, extra_terms: Sequence[str] = ()) -> list[str]:
     return list(dict.fromkeys(kept))
 
 
-def search(
+def search_chunks(
     scope: str,
     *,
     office_id: str | None,

@@ -269,7 +269,9 @@ def show_sheets(directory: Path, key: str) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
+    parser = argparse.ArgumentParser(
+        description="Decision eval for reading a page image: Jev 1.14's image input as an ingest page reader."
+    )
     parser.add_argument("--sheets", type=Path, help="a directory of real sheet images, answered ungraded")
     args = parser.parse_args()
     key = os.environ.get("DECISIONS_API_KEY") or os.environ.get("OPENROUTER_API_KEY")

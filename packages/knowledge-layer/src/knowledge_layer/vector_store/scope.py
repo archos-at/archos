@@ -29,7 +29,7 @@ A read over an office's own scopes (``schema.TENANT_PREFIXES``: the shelf,
 a project, a session) also carries the office it reads as. :class:`ScopeRead`
 is that pair, and it cannot be built for a tenant scope without an office: the
 search reads (``search.hybrid_search``, ``search.grouped_search``,
-``similar.find_similar``, ``retrieval.search``, ``retrieval.find_text``) AND
+``similar.find_similar``, ``retrieval.search_chunks``, ``retrieval.find_text``) AND
 :func:`office_condition` into their filter, so a scope name that reached the
 list by mistake (another office's ``proj_``) still returns nothing of the
 other office. Writes, deletes and maintenance reads stay on :func:`scope_filter`.

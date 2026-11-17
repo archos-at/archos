@@ -343,7 +343,11 @@ def summary(counts: dict[str, int], depth: int = 2) -> list[tuple[str, int, int]
 
 def main(argv: list[str] | None = None) -> int:
     """CLI entry point: check (or ratchet) the brand-prose baseline and return an exit code."""
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description="Keep the retired product names out of everything people and agents read, "
+        "and the current one out of code.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--update", action="store_true", help="Lower and remove baseline entries; never raise one.")
     mode.add_argument(

@@ -53,14 +53,23 @@ from knowledge_layer.vector_store import Export
 from knowledge_layer.vector_store import InvalidExport
 from knowledge_layer.vector_store import QdrantStore
 from knowledge_layer.vector_store import ScopeReport
-from knowledge_layer.vector_store import import_vectors
+from knowledge_layer.vector_store import expected_ids
+from knowledge_layer.vector_store import identity_refusals
+from knowledge_layer.vector_store import import_scope
+from knowledge_layer.vector_store import ingested_since_export
 from knowledge_layer.vector_store import make_client
+from knowledge_layer.vector_store import orphan_scopes
+from knowledge_layer.vector_store import prune_scope
+from knowledge_layer.vector_store import qdrant_scopes
+from knowledge_layer.vector_store import record_import
+from knowledge_layer.vector_store import recorded_import
+from knowledge_layer.vector_store import verify_scope
 
 logger = logging.getLogger("import_vectors")
 
 
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
+    parser = argparse.ArgumentParser(description="Load a vector export into Qdrant, without re-embedding (ADR-0115).")
     parser.add_argument("--in", dest="export", type=Path, required=True, help="The export directory.")
     parser.add_argument("--collection", action="append", help="Only this collection (repeatable).")
     parser.add_argument("--dry-run", action="store_true", help="Read and check the export; write nothing.")
@@ -90,14 +99,14 @@ def _run_one(
 ) -> ScopeReport:
     scoped = QdrantStore(store.client, identity)
     if args.verify_only:
-        newer = import_vectors.ingested_since_export(export, name, scoped)
-        report, ids = ScopeReport(name), import_vectors.expected_ids(export, name, export.id_set(name), newer)
+        newer = ingested_since_export(export, name, scoped)
+        report, ids = ScopeReport(name), expected_ids(export, name, export.id_set(name), newer)
     else:
-        report, ids = import_vectors.import_scope(export, name, scoped, dry_run=args.dry_run)
+        report, ids = import_scope(export, name, scoped, dry_run=args.dry_run)
     if args.prune:
-        report.pruned = import_vectors.prune_scope(ids, name, scoped, dry_run=args.dry_run)
+        report.pruned = prune_scope(ids, name, scoped, dry_run=args.dry_run)
     if args.verify:
-        verification = import_vectors.verify_scope(ids, name, scoped)
+        verification = verify_scope(ids, name, scoped)
         report.export_count, report.qdrant_count = verification.export_count, verification.qdrant_count
         report.missing, report.extra, report.sampled = verification.missing, verification.extra, verification.sampled
     return report
@@ -106,7 +115,7 @@ def _run_one(
 def _orphans(store: QdrantStore, scopes: list[str], names: list[str], args: argparse.Namespace) -> list[ScopeReport]:
     """A report per scope Qdrant holds and the export does not: pruned with ``--prune``, a gap under ``--verify``."""
     reports = []
-    for scope in import_vectors.orphan_scopes(names, scopes):
+    for scope in orphan_scopes(names, scopes):
         report = ScopeReport(scope, export_count=0, qdrant_count=store.count(scope))
         if args.prune:
             report.pruned = report.qdrant_count
@@ -150,7 +159,7 @@ def _fallback_identity(export: Export, names: list[str]) -> dict[str, str] | Non
 
 
 def _refused(store: QdrantStore, export: Export, names: list[str], fallback: Mapping[str, str] | None) -> bool:
-    refusals = import_vectors.identity_refusals(store, export, names, fallback)
+    refusals = identity_refusals(store, export, names, fallback)
     for name, reason in refusals.items():
         logger.error("[refused] %s: %s", name, reason)
     return bool(refusals)
@@ -169,7 +178,7 @@ def main(argv: list[str] | None = None) -> int:
         client = make_client()
         client.get_aliases()
         store = QdrantStore(client)
-        scopes = [] if args.collection else import_vectors.qdrant_scopes(store)
+        scopes = [] if args.collection else qdrant_scopes(store)
     except Exception as exc:  # noqa: BLE001 - an unreachable Qdrant is the same hard stop whatever the cause
         logger.error("Could not reach Qdrant: %s", exc)
         return 2
@@ -217,7 +226,7 @@ def _already_imported(store: QdrantStore, args: argparse.Namespace) -> bool:
     """Refuse a run that would write into a Qdrant an earlier import already verified, unless ``--force``."""
     if not _writes(args) or args.force:
         return False
-    marker = import_vectors.recorded_import(store)
+    marker = recorded_import(store)
     if marker is None:
         return False
     logger.error(
@@ -232,7 +241,7 @@ def _record_if_complete(store: QdrantStore, export: Export, args: argparse.Names
     """Mark the collections once a full import verified in step, so the next one is refused."""
     if code != 0 or not args.verify or not _writes(args) or args.collection:
         return
-    import_vectors.record_import(store, export)
+    record_import(store, export)
     logger.info("Recorded the import in the Qdrant collections: a later run that writes needs --force")
 
 

@@ -108,7 +108,10 @@ def payload(source_id: str, key: str) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(
+        description="A repository source record as the change-request payload an operator's agent proposes "
+        "through the platform door."
+    )
     parser.add_argument("--check", action="store_true", help="fail when a committed payload is stale")
     args = parser.parse_args(argv)
     stale = []

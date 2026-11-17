@@ -93,6 +93,8 @@ def test_a_jsdoc_type_block_counts_as_a_whole(checker, repo):
         "import argparse\nargparse.ArgumentParser(description=__doc__)\n",
         "def f():\n    ...\nTEXT = f.__doc__\n",
         "import inspect\nTEXT = inspect.getdoc(len)\n",
+        "from inspect import getdoc\nTEXT = getdoc(len)\n",
+        'TEXT = getattr(len, "__doc__")\n',
     ],
 )
 def test_reading_a_docstring_fails_and_names_the_explicit_field(checker, repo, capsys, code):

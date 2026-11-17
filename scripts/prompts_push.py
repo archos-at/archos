@@ -194,7 +194,9 @@ def publish(client: PromptApi, text: str, *, name: str, label: str, sha: str) ->
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description="Publish the committed platform prompt to Langfuse, or say what publishing would change."
+    )
     parser.add_argument(
         "--label", default=None, help="the Langfuse label (check default: production; --apply requires it)"
     )

@@ -57,7 +57,7 @@ Checked against pypdfium2 5.14.0 and pdfminer as installed; the declared floor i
   has edges and no stroke; AutoCAD SHX text is plotted as linework, so a vector
   page can have no characters at all.
 * **PDFium is not thread-safe.** Every call holds `pdfium_lock`
-  (`knowledge_layer.ingest.pdfium_lock`), which `look` shares. Copy raw points out
+  (`knowledge_layer.ingest.pdfium_guard`), which `look` shares. Copy raw points out
   under the lock in one pass and do all Python work outside it.
 
 The frame mapping, after subtracting the box origin:

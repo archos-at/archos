@@ -201,7 +201,9 @@ def record(golden_path: Path, corpus_dir: Path, *, model: str, base_url: str) ->
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(
+        description="Record the VECTOR channel's file-level ranking for every golden question."
+    )
     parser.add_argument("--golden", default=None)
     parser.add_argument("--corpus", default="data/oib")
     parser.add_argument("--out", default=None)

@@ -159,7 +159,9 @@ def print_reports(paths: list[str], args: argparse.Namespace) -> int:
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser = argparse.ArgumentParser(
+        description="Intake eval: does the Erfassungs-Agent set a project up right from its documents?"
+    )
     parser.add_argument("--model", default=None, help="OpenRouter model id (default: the config's boot fallback)")
     parser.add_argument("--runs", type=int, default=1, help="Runs of the whole reading (default 1)")
     parser.add_argument("--out", type=Path, default=None, help="Report directory (default /tmp/intake_eval/<time>)")

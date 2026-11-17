@@ -181,7 +181,9 @@ def check_scoped(errors: list[str], update: bool = False) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     """CLI entry point: validate the concept index and return an exit code."""
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(
+        description="Keep the paths written in agent guides and docs pointing at files that exist."
+    )
     parser.add_argument("--list", action="store_true", help="List the path claims found and exit 0.")
     parser.add_argument("--update", action="store_true", help=f"Rewrite {BASELINE} to the current counts.")
     args = parser.parse_args(argv)

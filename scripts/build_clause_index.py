@@ -464,7 +464,9 @@ def collect_pdfs(corpus_dir: str, prefix: str | tuple[str, ...]) -> list[str]:
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
+    parser = argparse.ArgumentParser(
+        description="Build the Punkt -> (file_name, pages) index for the OIB retrieval eval harness."
+    )
     parser.add_argument(
         "--corpus-dir", default=DEFAULT_CORPUS_DIR, help=f"PDF directory (default: {DEFAULT_CORPUS_DIR})"
     )

@@ -616,7 +616,9 @@ def load_inputs(embedder_name: str, cache_dir: Path) -> Inputs:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description="``task be:eval:qdrant-parity``: run the Qdrant retrieval gates on the OIB corpus."
+    )
     parser.add_argument("--embedder", choices=("production", "hashed"), default="production")
     parser.add_argument("--qdrant-url", default=os.environ.get("QDRANT_TEST_URL") or "http://localhost:6333")
     parser.add_argument("--rounds", type=int, default=5, help="timed passes over every question (G2)")

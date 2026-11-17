@@ -214,11 +214,11 @@ class LlamaIndexRetriever(BaseRetriever):
         self, collection_name: str, pattern: str, filters: dict[str, Any] | None = None, user_regex: bool = False
     ) -> dict[str, int] | None:
         """``file_name -> chunks that hold the pattern's words`` (``qdrant.retrieval.candidate_counts``), or None."""
-        from knowledge_layer.vector_store import retrieval as qdrant_retrieval
+        from knowledge_layer.vector_store import candidate_counts as qdrant_candidate_counts
 
         office = office_for([collection_name])
         return await asyncio.to_thread(
-            qdrant_retrieval.candidate_counts,
+            qdrant_candidate_counts,
             collection_name,
             pattern,
             filters,
@@ -250,12 +250,13 @@ class LlamaIndexRetriever(BaseRetriever):
         start_from: tuple[int, int] | None = None,
     ) -> list[Chunk]:
         from knowledge_layer.vector_store import CHUNK_ORDINAL_FIELD
-        from knowledge_layer.vector_store import reads as qdrant_reads
+        from knowledge_layer.vector_store import fetch as qdrant_fetch
+        from knowledge_layer.vector_store import fetch_from as qdrant_fetch_from
 
         if start_from is None:
-            hits = qdrant_reads.fetch(collection_name, filters, limit, order_by)
+            hits = qdrant_fetch(collection_name, filters, limit, order_by)
         else:
-            hits = qdrant_reads.fetch_from(collection_name, filters, start_from, limit)
+            hits = qdrant_fetch_from(collection_name, filters, start_from, limit)
         chunks = [self._chunk_from_hit(hit) for hit in hits]
         for rank, (chunk, hit) in enumerate(zip(chunks, hits, strict=True)):
             chunk.retrieval_rank = rank
@@ -275,10 +276,10 @@ class LlamaIndexRetriever(BaseRetriever):
         if not pattern or limit <= 0:
             return []
         from knowledge_layer.vector_store import CHUNK_ORDINAL_FIELD
-        from knowledge_layer.vector_store import retrieval as qdrant_retrieval
+        from knowledge_layer.vector_store import find_text as qdrant_find_text
 
         office = office_for([collection_name])
-        hits = qdrant_retrieval.find_text(
+        hits = qdrant_find_text(
             collection_name, pattern, filters, limit, office_id=office, user_regex=user_regex, stem_phrases=stem_phrases
         )
         chunks = [self._chunk_from_hit(hit) for hit in hits]
@@ -302,7 +303,7 @@ class LlamaIndexRetriever(BaseRetriever):
         (``knowledge_layer.register``).
         """
         self._ensure_initialized()
-        from knowledge_layer.vector_store import retrieval  # noqa: F401 - the read path's imports, paid here
+        from knowledge_layer.vector_store import find_text  # noqa: F401 - the read path's imports, paid here
 
     def _warm_sync(self, query: str) -> None:
         self._ensure_initialized()
@@ -422,13 +423,13 @@ class LlamaIndexRetriever(BaseRetriever):
         dense ranking restricted to chunks containing it. ``hybrid_search`` off
         leaves the dense channel alone.
         """
-        from knowledge_layer.vector_store import retrieval as qdrant_retrieval
+        from knowledge_layer.vector_store import search_chunks
 
         query_vector = self._embed_query_cached(query)
         lexical_text, terms = "", []
         if self.hybrid_search:
             lexical_text, terms = self._lexical_inputs(query, collection_name)
-        hits = qdrant_retrieval.search(
+        hits = search_chunks(
             collection_name,
             office_id=office_for([collection_name]),
             vector=query_vector,
@@ -463,13 +464,13 @@ class LlamaIndexRetriever(BaseRetriever):
         filters: dict[str, Any] | None,
         boost: dict[str, Any] | None,
     ) -> list[tuple[str, list[Chunk]]]:
-        from knowledge_layer.vector_store import retrieval as qdrant_retrieval
+        from knowledge_layer.vector_store import search_grouped as qdrant_search_grouped
 
         self._ensure_initialized()
         lexical_text, terms = "", []
         if self.hybrid_search:
             lexical_text, terms = self._lexical_inputs(query, collection_names)
-        grouped = qdrant_retrieval.search_grouped(
+        grouped = qdrant_search_grouped(
             collection_names,
             office_id=office_for(collection_names),
             vector=self._embed_query_cached(query),
@@ -521,6 +522,6 @@ class LlamaIndexRetriever(BaseRetriever):
 
     async def health_check(self) -> bool:
         """Whether Qdrant, the one store this retriever reads, answers."""
-        from knowledge_layer.vector_store import retrieval as qdrant_retrieval
+        from knowledge_layer.vector_store import healthy as qdrant_healthy
 
-        return await asyncio.to_thread(qdrant_retrieval.healthy)
+        return await asyncio.to_thread(qdrant_healthy)

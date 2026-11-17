@@ -115,7 +115,10 @@ def write_baseline(path: Path, counts: dict[str, int]) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     """CLI entry point: check (or ratchet) the nesting baseline and return an exit code."""
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description="Keep a third level of nesting out of Python functions that do not have one yet.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--update", action="store_true", help="Lower and remove baseline entries; never raise one.")
     mode.add_argument("--rebaseline", action="store_true", help="Record the tree as it is, growth included.")

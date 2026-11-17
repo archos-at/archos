@@ -226,7 +226,7 @@ class RefreshDocumentFactsRequest(BaseModel):
 async def refresh_document_facts(collections: list[str]) -> dict[str, Any]:
     """Copy every document's person-set facts onto its points again, collection by collection.
 
-    The repair behind ``knowledge_layer.vector_store.writes.refresh_facts``, which
+    The repair behind ``knowledge_layer.vector_store.copy_facts``, which
     never raises: a copy that failed after a person's edit (tags, Dokumentart,
     a Fassung link, a folder) leaves the old value on the points, and the
     pre-filters that read it (the cross-project search's tag filters, the
@@ -235,7 +235,7 @@ async def refresh_document_facts(collections: list[str]) -> dict[str, Any]:
     process has no Qdrant store, which the BFF reads as nothing to repair.
     """
     try:
-        from knowledge_layer.vector_store import writes
+        from knowledge_layer.vector_store import copy_facts
     except ImportError as exc:  # the knowledge layer's store extra is not installed here
         raise HTTPException(status_code=409, detail="this deployment has no Qdrant store") from exc
 
@@ -244,7 +244,7 @@ async def refresh_document_facts(collections: list[str]) -> dict[str, Any]:
     failures: list[dict[str, str]] = []
     for collection in targets:
         try:
-            files_refreshed += await asyncio.to_thread(writes.copy_facts, collection)
+            files_refreshed += await asyncio.to_thread(copy_facts, collection)
         except Exception as exc:
             logger.warning("refresh-document-facts: %s failed: %s", collection, exc)
             failures.append({"collection": collection, "error": str(exc)})

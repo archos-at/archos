@@ -119,7 +119,9 @@ def render(cases: list[dict[str, Any]]) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    parser = argparse.ArgumentParser(
+        description="Turn down-voted answers from the feedback CSV export into DRAFT answer-suite cases."
+    )
     parser.add_argument("csv", type=Path, help="the feedback export")
     parser.add_argument("--out", type=Path, required=True, help="where to write the draft cases")
     args = parser.parse_args(argv)

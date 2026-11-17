@@ -28,9 +28,9 @@ import sys
 from collections import Counter
 
 from knowledge_layer.vector_store import Physical
+from knowledge_layer.vector_store import current_collection
 from knowledge_layer.vector_store import legacy_remaining
 from knowledge_layer.vector_store import make_client
-from knowledge_layer.vector_store import rebuild
 from knowledge_layer.vector_store import rename_collection
 
 logger = logging.getLogger("qdrant_rename_payload_keys")
@@ -39,7 +39,9 @@ DEFAULT_PAGE_SIZE = 256
 
 
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
+    parser = argparse.ArgumentParser(
+        description="Rewrite the German payload keys of every point in place to their English names (ADR-0115)."
+    )
     parser.add_argument("physical", choices=["all", *(p.value for p in Physical)], help="Which physical collection.")
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--apply", action="store_true", help="Write. Without it nothing is changed.")
@@ -62,7 +64,7 @@ def main(argv: list[str] | None = None) -> int:
     physicals = list(Physical) if args.physical == "all" else [Physical(args.physical)]
     try:
         client = make_client()
-        collections = {physical: rebuild.current_collection(client, physical) for physical in physicals}
+        collections = {physical: current_collection(client, physical) for physical in physicals}
     except Exception as exc:  # noqa: BLE001 - unreachable and alias-less are the same hard stop
         logger.error("Could not read the aliases from Qdrant: %s", exc)
         return 2

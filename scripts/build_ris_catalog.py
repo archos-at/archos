@@ -230,7 +230,10 @@ async def _main(norms_root: Path, *, dry_run: bool, proxy_from_env: bool = False
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description="Verify the norm registry's RIS pointers live against OGD-RIS and merge them back.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument(
         "--norms-dir",
         type=Path,

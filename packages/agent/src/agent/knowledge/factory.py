@@ -439,10 +439,11 @@ def _mirror_facts(collection: str, file_names: list[str] | None = None, *, folde
 
     mark_files(collection, file_names)
     try:
-        from knowledge_layer.vector_store import writes
+        from knowledge_layer.vector_store import FOLDER_FACTS
+        from knowledge_layer.vector_store import refresh_facts
     except ImportError:  # the knowledge layer's store extra is not installed here
         return
-    writes.refresh_facts(collection, file_names, fields=writes.FOLDER_FACTS if folders_only else None)
+    refresh_facts(collection, file_names, fields=FOLDER_FACTS if folders_only else None)
 
 
 def register_summary(

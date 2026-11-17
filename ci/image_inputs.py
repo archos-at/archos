@@ -262,7 +262,9 @@ def registry_lookup(owner: str) -> Published:
 
 
 def main(argv: list[str]) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
+    parser = argparse.ArgumentParser(
+        description="Name each image by what goes into it, and decide which images a CI run must build."
+    )
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("hashes").add_argument("rev", nargs="?", default="HEAD")
     sub.add_parser("inputs").add_argument("image", choices=[image.name for image in IMAGES])

@@ -38,7 +38,9 @@ def _upload(client: httpx.Client, url: str, pdf: Path, headers: dict[str, str]) 
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
+    parser = argparse.ArgumentParser(
+        description="Upload every PDF in a directory to the base corpus, through the backend's admin route."
+    )
     parser.add_argument("directory", type=Path, help="Directory holding the PDFs (searched recursively).")
     parser.add_argument("--url", default=os.environ.get("BACKEND_URL", "http://localhost:8000"))
     args = parser.parse_args(argv)

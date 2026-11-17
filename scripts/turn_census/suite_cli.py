@@ -70,7 +70,10 @@ def build_parser(description: str | None) -> argparse.ArgumentParser:
     return parser
 
 
-def parse_args(argv: list[str] | None, *, description: str | None) -> argparse.Namespace:
+DESCRIPTION = "Answer suite: the reference questions through the real agent, timed and checked."
+
+
+def parse_args(argv: list[str] | None, *, description: str = DESCRIPTION) -> argparse.Namespace:
     parser = build_parser(description)
     args = parser.parse_args(argv)
     if args.corpus is not None and not args.ingest:

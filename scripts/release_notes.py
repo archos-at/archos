@@ -206,7 +206,9 @@ def cmd_week(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(
+        description="Release notes: lint the reno notes, publish them to the website and to the app."
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
     lint = sub.add_parser("lint", help="check the notes against the house rules")

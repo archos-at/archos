@@ -190,7 +190,9 @@ def command(task_exe: str, decided: Plan) -> list[str]:
 
 def main(argv: list[str]) -> int:
     """Print the plan, then run it unless `--dry-run`; the exit status is the run's."""
-    parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
+    parser = argparse.ArgumentParser(
+        description="Run the part of the local gate a change can break: `task verify:fast`."
+    )
     parser.add_argument("--all", action="store_true", help="run every tier whole")
     parser.add_argument("--dry-run", action="store_true", help="print the plan and stop")
     parser.add_argument("--base", default=DEFAULT_BASE, help="the ref to diff against (its merge base with HEAD)")

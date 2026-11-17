@@ -145,7 +145,7 @@ def _dense_page_texts(pdf_path: str, max_objects: int) -> dict[int, dict[str, An
         return {}
     import pypdfium2 as pdfium
 
-    from knowledge_layer.ingest.pdfium_lock import pdfium_lock
+    from knowledge_layer.ingest.pdfium_guard import pdfium_lock
 
     try:
         with pdfium_lock():

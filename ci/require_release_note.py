@@ -38,6 +38,8 @@ import re
 import subprocess
 import sys
 
+USAGE = "usage: require_release_note.py <base-sha> <head-sha>"
+
 NOTES_PREFIX = "releasenotes/notes/"
 
 PRODUCT_PATTERNS = [
@@ -98,7 +100,7 @@ def has_note(files: list[str]) -> bool:
 
 def main(argv: list[str]) -> int:
     if len(argv) != 3:
-        print(__doc__, file=sys.stderr)
+        print(USAGE, file=sys.stderr)
         return 2
     base, head = argv[1], argv[2]
     files = changed_files(base, head)

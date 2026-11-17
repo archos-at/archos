@@ -256,7 +256,7 @@ def check(errors: list[str]) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     """CLI entry point: validate the ADR directory, or print the next number."""
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description="Keep the ADR directory and its index telling the same story.")
     parser.add_argument("--next", action="store_true", help="Print the next free ADR number and exit.")
     args = parser.parse_args(argv)
 

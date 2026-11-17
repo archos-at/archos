@@ -29,7 +29,9 @@ from agent.tools.bim.capability_gaps import render_report  # noqa: E402
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(
+        description="What models asked the spatial surface for and did not get — as a report."
+    )
     parser.add_argument("--path", type=Path, default=None, help="ledger to read (default: CAPABILITY_GAP_LOG)")
     arguments = parser.parse_args()
 

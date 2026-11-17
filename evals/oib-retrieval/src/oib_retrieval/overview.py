@@ -765,7 +765,9 @@ def format_report(report: Report) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     """Print the harness report (human entry point; gating lives in pytest)."""
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description="File-level golden recall for broad/exact/paraphrased OIB queries (backlog item 12)."
+    )
     parser.add_argument("--golden", default=str(default_golden_path()))
     parser.add_argument("--k", type=int, default=None, help="Cutoff (default: production top_k).")
     args = parser.parse_args(argv)

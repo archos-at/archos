@@ -156,7 +156,6 @@ backend:
   - 'ci/brand_names_baseline.json'
   - 'ci/comment_baseline.json'
   - 'ci/english_names_baseline_py.json'
-  - 'ci/package_surface_baseline.json'
   - 'ci/size_baseline.json'
   - 'contracts/cards/schemas.json'
   - 'contracts/thread-index.json'

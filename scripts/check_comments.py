@@ -42,7 +42,7 @@ EXCLUDED = re.compile(
 DIRECTIVE = re.compile(
     r"noqa|type:\s*ignore|ty:\s*ignore|nosemgrep|nosec\b|NOSONAR|isort:|@deprecated|pragma|pyright:|mypy:|fmt:\s*(off|on|skip)|ruff:|"
     r"eslint-|oxlint-|biome-ignore|prettier-ignore|@ts-(expect-error|ignore|nocheck|check)|"
-    r"istanbul ignore|c8 ignore|v8 ignore|@vitest-environment|@jest-environment|@disk-inputs|"
+    r"istanbul ignore|c8 ignore|v8 ignore|@vitest-environment|@jest-environment|@disk-inputs|drop after release|"
     r"@type\s*\{|@typedef|@param\s*\{|@returns?\s*\{|@template|@satisfies|@import|"
     r"webpack[A-Z]|@vite-ignore|/// <reference|#!|-\*- coding|@license|@preserve"
 )
@@ -148,6 +148,11 @@ def docstring_reads(path: str, source: str) -> list[str]:
             lines.add(node.lineno)
         elif isinstance(node, ast.Attribute) and node.attr == "getdoc":
             lines.add(node.lineno)
+        elif isinstance(node, ast.Name) and node.id == "getdoc":
+            lines.add(node.lineno)
+        elif isinstance(node, ast.Call) and getattr(node.func, "id", "") == "getattr" and len(node.args) > 1:
+            if isinstance(node.args[1], ast.Constant) and node.args[1].value == "__doc__":
+                lines.add(node.lineno)
     return [f"{path}:{line}: {DOC_READ}" for line in sorted(lines)]
 
 

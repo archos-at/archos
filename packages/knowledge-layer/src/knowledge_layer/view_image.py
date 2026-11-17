@@ -753,9 +753,9 @@ async def _gate(
     if not try_consume_image_view("overview" if overview else "region"):
         return None, _spent(tool)
     try:
-        from knowledge_layer.ingest import adapter as _adapter
+        from knowledge_layer.ingest import _get_vlm_api_key
 
-        if not _adapter._get_vlm_api_key():
+        if not _get_vlm_api_key():
             return None, (
                 f"[{tool}] Image viewing is unavailable: no vision-model "
                 "API key is configured, so no model in this deployment can consume images."

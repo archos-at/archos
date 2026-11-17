@@ -34,17 +34,18 @@ def lexical_inputs(
     never gates a search.
     """
     from agent.common import german_text
-    from knowledge_layer.vector_store import retrieval as qdrant_retrieval
+    from knowledge_layer.vector_store import bm25_candidates as qdrant_bm25_candidates
+    from knowledge_layer.vector_store import term_frequencies as qdrant_term_frequencies
 
     from .hybrid import extract_exact_terms
     from .hybrid import selective_terms
 
     exact = extract_exact_terms(query) if extract_exact_terms is not None else []
-    candidates = qdrant_retrieval.bm25_candidates(query, extra_terms=expansion_terms(query))
+    candidates = qdrant_bm25_candidates(query, extra_terms=expansion_terms(query))
     try:
         if len(df_cache) >= _EXACT_TERM_DF_CACHE_MAX:
             df_cache.clear()
-        total, frequencies = qdrant_retrieval.term_frequencies(collection_names, [*candidates, *exact], cache=df_cache)
+        total, frequencies = qdrant_term_frequencies(collection_names, [*candidates, *exact], cache=df_cache)
     except Exception as e:  # noqa: BLE001 - same fail-open as the Chroma path's pricing
         logger.warning("Term frequencies unavailable (%s); BM25 and exact terms unpriced", e)
         return bm25_text(query), exact

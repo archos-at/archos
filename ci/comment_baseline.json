@@ -874,7 +874,7 @@
   "packages/knowledge-layer/src/knowledge_layer/ingest/parsed_store.py": 40,
   "packages/knowledge-layer/src/knowledge_layer/ingest/pdf_text.py": 68,
   "packages/knowledge-layer/src/knowledge_layer/ingest/pdf_visuals.py": 9,
-  "packages/knowledge-layer/src/knowledge_layer/ingest/pdfium_lock.py": 39,
+  "packages/knowledge-layer/src/knowledge_layer/ingest/pdfium_guard.py": 39,
   "packages/knowledge-layer/src/knowledge_layer/ingest/photo_facts.py": 30,
   "packages/knowledge-layer/src/knowledge_layer/ingest/processing.py": 124,
   "packages/knowledge-layer/src/knowledge_layer/ingest/reader_version.py": 22,

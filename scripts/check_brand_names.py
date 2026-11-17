@@ -256,7 +256,10 @@ def tightened(current: dict[str, int], baseline: dict[str, int]) -> dict[str, in
 
 def main(argv: list[str] | None = None) -> int:
     """CLI entry point: check (or ratchet) the brand-name baseline and return an exit code."""
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description="Keep the product's name out of every new code and infrastructure identifier.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--update", action="store_true", help="Lower and remove baseline entries; never raise one.")
     mode.add_argument("--rebaseline", action="store_true", help="Record the tree as it is, new hits included.")

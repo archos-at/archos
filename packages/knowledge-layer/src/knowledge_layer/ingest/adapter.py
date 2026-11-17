@@ -101,9 +101,9 @@ from .pdf_text import _raster_count  # noqa: F401
 from .pdf_text import _read_pdf_page  # noqa: F401
 from .pdf_text import _strip_watermark_lines  # noqa: F401
 from .pdf_text import unreadable_pdf_verdict  # noqa: F401
-from .pdfium_lock import close_bitmap
-from .pdfium_lock import detached_pil
-from .pdfium_lock import pdfium_lock
+from .pdfium_guard import close_bitmap
+from .pdfium_guard import detached_pil
+from .pdfium_guard import pdfium_lock
 from .vision_calls import VISION_GENERATION_NAME  # noqa: F401 - re-exported, the generation's name
 from .vision_calls import VLM_FLEET_CONCURRENCY  # noqa: F401 - re-exported
 from .vision_calls import VLM_RATE_LIMIT_RETRIES  # noqa: F401 - re-exported
@@ -2848,12 +2848,12 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
         reads under ``reading_for_maintenance`` and names no office (ADR-0163).
         """
         from agent.knowledge.base import READING_ORDER
+        from knowledge_layer.vector_store import fetch as qdrant_fetch
         from knowledge_layer.vector_store import reading_for_maintenance
-        from knowledge_layer.vector_store import reads as qdrant_reads
 
         try:
             with reading_for_maintenance():
-                hits = qdrant_reads.fetch(collection_name, {"file_name": file_name}, 5, READING_ORDER)
+                hits = qdrant_fetch(collection_name, {"file_name": file_name}, 5, READING_ORDER)
         except Exception as e:
             logger.warning("Reconciliation: failed to fetch chunks for %s in %s: %s", file_name, collection_name, e)
             return None
@@ -3835,12 +3835,10 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                         )
                     self._assert_still_owner(job_id)
                     attempted = [record.chunk_id for record in records]
-                    from knowledge_layer.vector_store import writes as qdrant_writes
+                    from knowledge_layer.vector_store import write_chunks as qdrant_write_chunks
 
                     with _stage(stages, "write"):
-                        qdrant_writes.write_chunks(
-                            collection_name, file_name, records, identity=identity, config=config
-                        )
+                        qdrant_write_chunks(collection_name, file_name, records, identity=identity, config=config)
 
                     if self._deleted_while_indexing(config, collection_name):
                         self._discard_partial_version(collection_name, file_name, attempted)

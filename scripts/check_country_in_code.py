@@ -356,7 +356,10 @@ def summarise(found: dict[str, list[Hit]]) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     """CLI entry point: check (or ratchet) the country-in-code baseline and return an exit code."""
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description="Keep a country's specifics out of every new line of source code.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--update", action="store_true", help="Lower and remove baseline entries; never raise one.")
     mode.add_argument("--rebaseline", action="store_true", help="Record the tree as it is, new hits included.")

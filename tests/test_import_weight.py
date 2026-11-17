@@ -79,6 +79,9 @@ def test_a_conftest_every_test_loads_loads_nothing_heavy(conftest):
 def test_every_knowledge_layer_tool_module_is_an_entry_point():
     from importlib.metadata import entry_points
 
+    from knowledge_layer.browse import list_files
+    from knowledge_layer.read_passage import read_passage
+
     plugins = {entry.value for entry in entry_points(group="nat.plugins")}
 
-    assert {"knowledge_layer.register", "knowledge_layer.browse.tool", "knowledge_layer.read_passage.tool"} <= plugins
+    assert {"knowledge_layer.register", list_files.__module__, read_passage.__module__} <= plugins

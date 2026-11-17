@@ -33,7 +33,8 @@ class RankedSearch:
     """The state of one ranked search: its scope, its budgets, and what each stage left out."""
 
     def __init__(self, engine: Any, outcome: Any, args: Any, targets: list, base_collection: str, budgets: tuple):
-        from knowledge_layer.vector_store import prefilter as qdrant_prefilter
+        from knowledge_layer.vector_store import plan as qdrant_plan
+        from knowledge_layer.vector_store import post_filtered as qdrant_post_filtered
 
         self.engine = engine
         self.outcome = outcome
@@ -41,7 +42,7 @@ class RankedSearch:
         self.targets = targets
         self.base_collection = base_collection
         self.top_k, self.max_per_document = budgets
-        self.pushdown = qdrant_prefilter.plan(
+        self.pushdown = qdrant_plan(
             doc_class=args.doc_class,
             folder=args.folder,
             file_name=args.file_name,
@@ -49,7 +50,7 @@ class RankedSearch:
             refers_to=args.refers_to,
         )
         self.candidate_k = self._candidate_k(
-            qdrant_prefilter.post_filtered(title_contains=args.title_contains, file_name=args.file_name)
+            qdrant_post_filtered(title_contains=args.title_contains, file_name=args.file_name)
         )
         self.family_key = None
         self.family_task = None
@@ -190,7 +191,7 @@ class RankedSearch:
             return results, []
 
     async def _retrieve_collection(self, entry, search_query: str | None = None):
-        from knowledge_layer.vector_store import prefilter as qdrant_prefilter
+        from knowledge_layer.vector_store import without_files as qdrant_without_files
 
         coll = entry.collection
         retriever = self.engine.retriever
@@ -208,7 +209,7 @@ class RankedSearch:
         )
         if self.hidden_revisions.get(coll) and getattr(result, "chunks", None):
             result = result.model_copy(
-                update={"chunks": qdrant_prefilter.without_files(result.chunks, self.hidden_revisions[coll])}
+                update={"chunks": qdrant_without_files(result.chunks, self.hidden_revisions[coll])}
             )
         _tag_with_collection(result, entry)
         if coll != self.base_collection:

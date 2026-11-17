@@ -200,7 +200,9 @@ def _commit() -> str:
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser = argparse.ArgumentParser(
+        description="Memory-shelves eval: on which shelf do the two memory writers file a note?"
+    )
     parser.add_argument("--model", default=None, help="OpenRouter model id (default: the stage's boot fallback)")
     parser.add_argument("--runs", type=int, default=3, help="Runs per case and pass (default 3)")
     parser.add_argument("--workers", type=int, default=6)

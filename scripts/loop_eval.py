@@ -852,7 +852,7 @@ def run(questions: Sequence[Question], base_url: str, timeout: float) -> list[Ob
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(description="Loop eval: what the agentic-loop changes did to the SHAPE of a turn.")
     parser.add_argument("--questions", type=Path, default=DEFAULT_QUESTIONS)
     parser.add_argument("--out", type=Path, help="Where to write this run's CSV.")
     parser.add_argument("--compare", nargs=2, type=Path, metavar=("BEFORE", "AFTER"))

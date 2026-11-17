@@ -371,7 +371,9 @@ async def _run_all(args: argparse.Namespace, fixture: dict[str, Any]) -> list[Ru
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description="The licensed-seam eval: how well answers use licensed norm text, and whether any of it leaks."
+    )
     parser.add_argument("--out", type=Path, default=Path("/tmp/licensed-eval"))
     parser.add_argument("--arm", choices=(*ARMS, "all"), default="all")
     parser.add_argument("--runs", type=int, default=2)

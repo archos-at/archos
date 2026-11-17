@@ -414,7 +414,11 @@ def main():
     parser = argparse.ArgumentParser(
         description="Test Knowledge Layer adapter compliance",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=__doc__,
+        epilog=(
+            "Quick mode (--quick) checks registration only.\n"
+            "Full mode also ingests and retrieves a test PDF, and needs OPENROUTER_API_KEY.\n"
+            "Exit codes: 0 all tests passed, 1 some tests failed, 2 configuration error."
+        ),
     )
 
     parser.add_argument("--backend", "-b", required=True, help="Backend name (llamaindex, or an adapter under test)")

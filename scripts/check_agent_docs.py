@@ -175,7 +175,7 @@ def check_growth(counts: dict[str, int], errors: list[str]) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     """CLI entry point: check every tracked AGENTS.md and return an exit code."""
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description="Check that every ``AGENTS.md`` actually reaches Claude Code.")
     parser.add_argument("--list", action="store_true", help="List the guides found and exit 0.")
     parser.add_argument("--update", action="store_true", help=f"Rewrite {BASELINE} to the current line counts.")
     args = parser.parse_args(argv)
