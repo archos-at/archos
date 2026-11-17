@@ -4,7 +4,8 @@
  * PROTOTYPE, not for merge: three ways a person's own files could work (concept for ticket 81), drawn with the
  * Dateien page's real parts. `?v=page` is a Dateien page of the person's own under „Mein Bereich“, `?v=chat` has no
  * page and works from the chat, `?v=office` is a folder of the person's own inside the Büroablage, and `?v=switch` is
- * one Dateien page with a switch between the project's files and the person's own (`&shelf=own`).
+ * one Dateien page with a switch between the project's files and the person's own (`&shelf=own`). `?v=all` is the
+ * same rail and switch with „Alle Projekte“ chosen at the top (`&page=files|automation`, `&shelf=own`).
  */
 
 import type { JSX, ReactNode } from 'react'
@@ -21,6 +22,8 @@ import { FileFilterMenu } from '@/features/documents/components/file-filter-menu
 import { FilesHeaderControls } from '@/features/documents/components/files-header-controls'
 import type { FileItem, FolderItem } from '@/features/documents/components/project-file-workspace'
 import { ProjectUppyUpload } from '@/features/documents/components/project-uppy-upload'
+import { TaskList } from '@/features/tasks/components/task-list'
+import type { TaskFilter, TaskRunView } from '@/features/tasks/lib/task-view'
 import { useFileSearch } from '@/features/documents/hooks/use-file-search'
 import type { FileView } from '@/features/documents/hooks/use-view-preference'
 import { NO_FILE_FILTERS } from '@/features/documents/lib/file-filters'
@@ -61,7 +64,7 @@ const OFFICE_FILES: FileItem[] = [
 ]
 
 /** The rail the concept settled on for now: the switcher names the project or „Mein Bereich“, the chats are the reader's own. */
-function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null, projectFilesOpen = false }: { own: boolean; ownFiles?: boolean; officeShelfOpen?: boolean; openChat?: number | null; projectFilesOpen?: boolean }): JSX.Element {
+function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null, projectFilesOpen = false, section }: { own: boolean; ownFiles?: boolean; officeShelfOpen?: boolean; openChat?: number | null; projectFilesOpen?: boolean; section?: 'files' | 'automation' }): JSX.Element {
   return (
     <SidebarProvider className="h-full min-h-0 w-auto shrink-0">
       <Sidebar collapsible="icon" data-scope="project" aria-label="Navigation">
@@ -72,7 +75,14 @@ function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null,
           </div>
         </SidebarHeader>
         <SidebarContent className="mt-3 flex-1 gap-0 overflow-y-auto px-3 py-px">
-          {(ownFiles || !own) && (
+          {section && (
+            <SidebarMenu className="mb-6 gap-0.5">
+              <NavRow icon={Folder} label="Dateien" active={section === 'files'} />
+              <NavRow icon={LayoutGrid} label="Übersicht" />
+              <NavRow icon={Zap} label="Automatisierung" active={section === 'automation'} />
+            </SidebarMenu>
+          )}
+          {!section && (ownFiles || !own) && (
             <SidebarMenu className="mb-6 gap-0.5">
               <NavRow icon={Folder} label="Dateien" active={projectFilesOpen || (own && ownFiles && openChat === null && !officeShelfOpen)} />
               {!own && <NavRow icon={LayoutGrid} label="Übersicht" />}
@@ -128,6 +138,82 @@ function OnlyYou(): JSX.Element {
       <LockKeyhole className="size-3.5" aria-hidden />
       Nur Sie
     </span>
+  )
+}
+
+/** The page-level switch: the scope the top names, or the person's own. */
+function OwnSwitch({ scope, own, ownLabel }: { scope: string; own: boolean; ownLabel: string }): JSX.Element {
+  const on = 'bg-sheet shadow-xs rounded-[4px] px-3 py-1.5'
+  const off = 'text-muted-foreground px-3 py-1.5'
+  return (
+    <div className="flex items-center gap-3">
+      {own && <OnlyYou />}
+      <div className="bg-desk text-name flex rounded-control p-0.5 font-medium">
+        <span className={own ? off : on}>{scope}</span>
+        <span className={own ? on : off}>{ownLabel}</span>
+      </div>
+    </div>
+  )
+}
+
+const PROJECT_FOLDERS: FolderItem[] = PROJECTS.map((project) => ({ id: project.id, parentId: null, name: project.name, path: `/${project.name}` }))
+const PROJECT_FOLDER_FILES: FileItem[] = PROJECTS.flatMap((project, index) => Array.from({ length: [286, 112, 64, 31][index] ?? 12 }, (_, n) => makeFile(`${project.id}-${n}`, `Datei_${n}.pdf`, '', { folderId: project.id })))
+
+const run = (overrides: Partial<TaskRunView>): TaskRunView => ({
+  id: 'task-0',
+  kind: 'document',
+  title: '',
+  goal: null,
+  status: 'succeeded',
+  review: null,
+  reviewReason: null,
+  filedDocumentId: null,
+  conversationId: null,
+  runMessageId: null,
+  taskId: null,
+  trigger: 'schedule',
+  requesterUserId: 'user_anna',
+  requesterName: 'Anna Berger',
+  createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+  finishedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+  error: null,
+  ...overrides,
+})
+const ALL_RUNS: TaskRunView[] = [
+  run({ id: 'a1', kind: 'deep-research', title: 'Seestadt D12 · Wöchentlicher Brandschutz-Abgleich', status: 'running', runSummary: { status: 'running', rounds: 2, docs: 7 } }),
+  run({ id: 'a2', title: 'Amtshaus Favoriten · Planstand der Statik prüfen', requesterName: 'Maria Huber' }),
+  run({ id: 'a3', title: 'Lände 3 · Jour fixe vorbereiten', requesterName: 'Jonas Weber', createdAt: new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString() }),
+]
+const OWN_RUNS: TaskRunView[] = [
+  run({ id: 'o1', title: 'Agenda vor jedem Jour fixe vorbereiten' }),
+  run({ id: 'o2', kind: 'deep-research', title: 'Montags: neue Fassungen der Richtlinien zusammenfassen', createdAt: new Date(Date.now() - 50 * 60 * 60 * 1000).toISOString() }),
+]
+
+/** E: „Alle Projekte“ at the top keeps the sections; each page switches between every project's and the person's own. */
+function AllProjects({ page, own }: { page: 'files' | 'automation'; own: boolean }): JSX.Element {
+  const [filter, setFilter] = useState<TaskFilter>('all')
+  return (
+    <>
+      <Rail own section={page} />
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <header className="flex flex-wrap items-end justify-between gap-4 px-8 pb-4 pt-6">
+          <div className="flex flex-col gap-1">
+            <span className="text-muted-foreground text-meta">{own ? 'Nur für Sie' : 'Alle Projekte'}</span>
+            <h1 className="text-page-title">{page === 'files' ? 'Dateien' : 'Automatisierung'}</h1>
+          </div>
+          <OwnSwitch scope="Alle Projekte" own={own} ownLabel={page === 'files' ? 'Meine Dateien' : 'Meine'} />
+        </header>
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+          {page === 'files' ? (
+            own ? <Browser key="own" files={OWN_FILES} folders={OWN_FOLDERS} /> : <Browser key="all" files={PROJECT_FOLDER_FILES} folders={PROJECT_FOLDERS} />
+          ) : (
+            <div className="px-8">
+              <TaskList projectId="preview" tasks={own ? OWN_RUNS : ALL_RUNS} filter={filter} onFilterChange={setFilter} onSelectTask={() => {}} />
+            </div>
+          )}
+        </div>
+      </div>
+    </>
   )
 }
 
@@ -294,7 +380,7 @@ export default function PersonalFilesPreview(): JSX.Element {
   const variant = params?.get('v') ?? 'page'
   return (
     <I18nProvider initialLocale="de" fixedLocale>
-      <div className="bg-background text-foreground flex h-dvh overflow-hidden">{variant === 'switch' ? <SwitchPage own={params?.get('shelf') === 'own'} /> : variant === 'office' ? <InOfficeShelf /> : variant === 'chat' ? <FromChat /> : <OwnPage />}</div>
+      <div className="bg-background text-foreground flex h-dvh overflow-hidden">{variant === 'all' ? <AllProjects page={params?.get('page') === 'automation' ? 'automation' : 'files'} own={params?.get('shelf') === 'own'} /> : variant === 'switch' ? <SwitchPage own={params?.get('shelf') === 'own'} /> : variant === 'office' ? <InOfficeShelf /> : variant === 'chat' ? <FromChat /> : <OwnPage />}</div>
     </I18nProvider>
   )
 }
