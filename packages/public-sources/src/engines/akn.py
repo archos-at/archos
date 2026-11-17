@@ -1,3 +1,17 @@
+"""``akn``: Akoma Ntoso (OASIS LegalDocML 1.0) into anchored passages.
+
+One engine for every publisher of the standard: Fedlex (CH), legislation.gov.uk
+(UK, ``/data.akn``), LegalDocML.de from NeuRIS (DE), the EU's Formex successors.
+Each provision already carries an ``eId``, the anchor a citation keeps. What a
+publisher decides differently is configuration: which element is the unit of a
+passage (``article`` for Fedlex, ``section`` for the UK), which inline elements
+are notes rather than law (Fedlex's ``authorialNote`` footnotes cite the
+amending act, and read inline they split a sentence of the provision in two).
+
+Parsing is lxml's, with entity resolution and network access off: the bytes
+come from the outside and are treated as such.
+"""
+
 from __future__ import annotations
 
 import copy
@@ -105,6 +119,7 @@ _BLOCKS = {"paragraph", "subparagraph", "item", "point", "listIntroduction", "li
 
 
 def _block_text(element) -> str:
+    """The element's text with a line per block, a block's ``num`` on the line it numbers ("2 Sie …")."""
     parts: list[str] = []
     after_num = False
 

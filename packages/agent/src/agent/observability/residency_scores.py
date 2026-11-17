@@ -1,3 +1,9 @@
+"""The score residency produces (ADR-0167), declared into ``SCORE_DEFINITIONS``.
+
+Written by the model seam (``common/residency.record_route``) once per distinct route on a trace, so a turn of
+fifty calls to one endpoint posts one score, and a turn that also reached a second endpoint posts a second.
+"""
+
 from __future__ import annotations
 
 from .score_definition import ScoreDefinition

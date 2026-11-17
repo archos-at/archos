@@ -35,7 +35,6 @@ def vector(seed: str) -> list[float]:
 
 
 class FakeEmbedder:
-
     def __init__(self) -> None:
         self.batches: list[list[str]] = []
 

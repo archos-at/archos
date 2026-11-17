@@ -39,8 +39,6 @@ HARNESS: dict[str, str] = {
 _EXEMPLAR = re.compile(r"^### (ns-[a-z0-9-]+)\s*$", re.MULTILINE)
 
 
-
-
 def _region_ok(value: Any) -> bool:
     try:
         x, y, w, h = (float(part) for part in value)
@@ -108,8 +106,6 @@ def by_fixture(rows: list[dict]) -> dict[str, list[dict]]:
     return {name: group for name in FIXTURES if (group := [row for row in rows if row["fixture"] == name])}
 
 
-
-
 def doc_exemplars(path: Path = DOC) -> dict[str, bool]:
     text = path.read_text(encoding="utf-8")
     found = {}
@@ -118,8 +114,6 @@ def doc_exemplars(path: Path = DOC) -> dict[str, bool]:
         end = heads[index + 1].start() if index + 1 < len(heads) else len(text)
         found[head.group(1)] = "**Horizon.**" in text[head.end() : end]
     return found
-
-
 
 
 def report_lines(runs: list[Any], meta: dict[str, Any] | None = None) -> list[str]:

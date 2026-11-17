@@ -1,3 +1,92 @@
+"""Telling the user what the turn is actually doing, while it does it.
+
+Everything a Grid turn currently reports about itself is an accident of
+observability. The agent runtime's ``StepAdaptor`` watches the LangChain instrumentation and
+turns LLM/tool/function spans into ``system_intermediate_message`` frames; the
+frontend then guesses an activity label by regex-matching the raw agent-runtime
+function name. Nothing in this repo ever *said* anything. The holes that leaves are not
+edge cases — they are the longest stretches of the turn: context loading before
+the graph starts, and the whole answer phase behind a generic label.
+
+This module is the other direction: the agent states what it is doing at the
+moment it does it.
+
+Keys, not sentences
+-------------------
+
+It states it as a **stable key plus interpolation values**, never as a finished
+sentence. The first cut of this module emitted German prose in a ``text``
+field and the frontend rendered it verbatim, so an English-locale reader got
+German — a regression the whole product rule exists to prevent: **nothing in
+emitted data is language-specific**. What travels now is
+
+``key``
+    a stable dotted id (``status.retrieval.withQuery``, ``status.escalation``)
+    that the frontend resolves against its own dictionary. It is an identifier,
+    not copy: renaming one is a wire change.
+``values``
+    the interpolation data ONLY, ``dict[str, str]``. Everything else the event
+    knows (an intent, a depth, a source count, the classifier's reason) travels
+    as its own field, because those are telemetry for the details panel and not
+    slots in a sentence.
+
+Which means every value in ``values`` must survive being dropped into an
+English sentence. Three rules, applied per value:
+
+1. **A proper noun travels as itself.** A skill's authored ``grid-title``
+   ("Brandschutznachweis") is that office's name for their own working method;
+   it is the same word in every locale, and translating it would be inventing a
+   name nobody uses.
+2. **A name the PRODUCT chose travels as an id.** "OIB-Wissen", "Ihre
+   Unterlagen", "im Gebäudemodell" are product copy wearing a proper noun's
+   clothes — and the preposition and the conjunction joining two of them are
+   pure German grammar. So a corpus travels as ``knowledge``/``ris``/``web``/
+   ``documents``/``ifc`` and the frontend both names and joins them.
+3. **Prose is never a value.** An escalation ``reason`` is a free-text sentence
+   an LLM wrote; it cannot be interpolated into an English line without
+   smuggling a German clause into it. The live line therefore says only the
+   DECISION, from a fixed enum, phrased entirely by the frontend. The reason
+   still travels — as the ``reason`` FIELD, which the Herleitung already renders
+   as the model's own words, attributed and secondary. (Because it is still
+   read by a user there, ``intent_classification.j2`` no longer pins it to
+   German: it asks for the language of the user's own query.)
+
+The user query quoted in a retrieval line is the reader's own words echoed
+back, so it is neither prose we wrote nor a name we chose — it goes back out
+exactly as it came in.
+
+What earns a line
+-----------------
+
+A status line must complete the sentence "…so the reader knows that ___" with
+a noun from an ARCHITECT's world — a law, a document, a working method, a
+check. If the only honest completion names a mechanism (a function, a class, a
+catalog size, a character count), it is telemetry, and telemetry travels with
+``channel="technical"`` so it can sit in the opt-in panel and never on the
+live line. Two further rules follow from that:
+
+- **A constant is not an event.** Something that is true on every single turn
+  tells the reader nothing by being announced. Where a phase cannot vary, it
+  is either not emitted or gated on the thing that does vary.
+- **Volume is a design constraint.** The live line REPLACES rather than
+  accumulates, so a phase that would fire several times a second is aggregated
+  into one event instead. One good sentence beats three true ones.
+
+How it reaches the user
+-----------------------
+
+**Each event is a typed step on the chat wire** (``common/wire_v2.py``,
+``docs/design/chat-wire-v2.md`` §b). :func:`emit_step` writes it to the running
+graph's custom stream through LangGraph's own ``get_stream_writer()``, and the
+chat socket stamps and sends it. Outside a graph run there is no stream, so a
+producer that runs there (the setup phase in ``_run``) builds its step with a
+``*_step`` builder and ``_run`` yields it. Under ``ainvoke`` (a deep-research
+job worker) the writer is a no-op.
+
+**The step id is load-bearing.** The same id again replaces the row, so each
+status gets its own ``status:<slot>`` id and the skills substrate
+(``skills.events``) one per skill."""
+
 from __future__ import annotations
 
 import logging
@@ -30,6 +119,7 @@ logger = logging.getLogger(__name__)
 
 
 def emit(body: EventBody) -> None:
+    """Write one wire body to the running graph's custom stream. Outside a graph run, nothing."""
     try:
         writer = get_stream_writer()
     except RuntimeError, KeyError:  # no graph run: outside any runnable, or in a runnable outside a graph
@@ -42,6 +132,7 @@ _step_scope: ContextVar[Scope] = ContextVar("step_scope", default="chat")
 
 @contextmanager
 def step_scope(scope: Scope) -> Iterator[None]:
+    """Stamp every step emitted inside this block with ``scope``."""
     token = _step_scope.set(scope)
     try:
         yield
@@ -51,6 +142,7 @@ def step_scope(scope: Scope) -> Iterator[None]:
 
 @dataclass
 class SubagentFrame:
+    """The subagent invocation the code running here belongs to (AG-UI 1.0 subagents)."""
 
     run_id: str
     parent_run_id: str | None
@@ -65,10 +157,12 @@ SUBAGENT_FAILED_MESSAGE = "The subagent failed; the turn goes on without its res
 
 
 def current_subagent() -> SubagentFrame | None:
+    """The subagent invocation running in this context, if any."""
     return _subagent.get()
 
 
 def _clip(text: str | None, limit: int) -> str | None:
+    """``text`` on one line and at most ``limit`` characters, or None when empty."""
     flat = " ".join((text or "").split())
     if not flat:
         return None
@@ -79,6 +173,16 @@ def _clip(text: str | None, limit: int) -> str | None:
 async def subagent_run(
     name: str, *, description: str | None = None, parent_tool_call_id: str | None = None
 ) -> AsyncIterator[SubagentFrame]:
+    """Run the block as one subagent invocation: SUBAGENT_STARTED, its steps attributed, then FINISHED or ERROR.
+
+    A nested block names the enclosing invocation as its parent. A failure is
+    reported and re-raised: whether the turn goes on is the caller's to decide,
+    as AG-UI leaves it to the parent agent. A cancellation reports nothing (the
+    turn's terminal closes every open group), and neither does LangGraph's
+    ``GraphBubbleUp``, which is a pause, not a failure: pausing a run is
+    ADR-0140's. Outside a graph run every emit is a no-op, so a deep-research
+    job worker pays nothing for it.
+    """
     parent = _subagent.get()
     frame = SubagentFrame(
         run_id=f"sa_{uuid4().hex[:20]}",
@@ -111,6 +215,11 @@ async def subagent_run(
 
 
 def fail_subagent(frame: SubagentFrame, code: str) -> None:
+    """Report ``frame`` failed, once: also for a spawning tool that came back as an error result instead of raising.
+
+    An invocation ends exactly once, so the block it runs in sends no
+    SUBAGENT_FINISHED after this.
+    """
     if frame.failed:
         return
     frame.failed = True
@@ -121,6 +230,11 @@ _INHERIT: Any = object()
 
 
 def emit_step(step: Step, *, started: bool = False, subagent_run_id: str | None = _INHERIT) -> None:
+    """Emit one Herleitung row: STEP_STARTED for a step with a duration, else STEP_FINISHED.
+
+    The row is attributed to the subagent running here, unless the caller
+    names the invocation itself (``None``: the turn's own agent).
+    """
     scope = _step_scope.get()
     if scope != step.scope:
         step = step.model_copy(update={"scope": scope})
@@ -138,15 +252,27 @@ _retrieval_round: ContextVar[int | None] = ContextVar("retrieval_round", default
 
 
 def current_retrieval_round() -> int | None:
+    """The fetch slot the running tool result belongs to, or ``None``."""
     return _retrieval_round.get()
 
 
 def stamp_retrieval_round(round_index: int) -> None:
+    """Make ``round_index`` the current fetch slot for the rest of this context, with no reset.
+
+    The round announcement stamps it, so tool results that land later (and are
+    merged onto one thinking step) still know which fetch they belong to.
+    """
     _retrieval_round.set(round_index)
 
 
 @contextmanager
 def retrieval_round_scope(round_index: int | None) -> Iterator[None]:
+    """Stamp every hit fetched inside this block with ``round_index``.
+
+    ``None`` is a real value: an action-only round (``remember`` / ``emit_card``)
+    is not a fetch and its results belong to no layer of the spine. Resets on
+    exit, so a round never leaks into the next node or the next turn.
+    """
     token = _retrieval_round.set(round_index)
     try:
         yield
@@ -158,11 +284,18 @@ _lane_tool: ContextVar[str | None] = ContextVar("lane_tool", default=None)
 
 
 def current_lane_tool() -> str | None:
+    """The tool whose results are being recorded as lane hits, or ``None``."""
     return _lane_tool.get()
 
 
 @contextmanager
 def lane_tool_scope(tool: str | None) -> Iterator[None]:
+    """Stamp every lane hit recorded inside this block with ``tool``.
+
+    The basename, as :data:`LOCATOR_TOOL_BASENAMES` and the ledger spell it —
+    ``knowledge_search``, ``read_passage`` — not a display name. Resets on
+    exit, so one tool's scope never colours the next one's hits.
+    """
     token = _lane_tool.set((tool or "").strip() or None)
     try:
         yield
@@ -174,10 +307,12 @@ _lane_captured_hits: ContextVar[list[dict[str, Any]] | None] = ContextVar("lane_
 
 
 def begin_lane_capture() -> Token:
+    """Start recording this turn's lane hits. Pair with :func:`end_lane_capture`."""
     return _lane_captured_hits.set([])
 
 
 def end_lane_capture(token: Token) -> None:
+    """Stop recording this turn's lane hits."""
     _lane_captured_hits.reset(token)
 
 
@@ -188,6 +323,16 @@ def record_lane_hit(
     detail: str | None = None,
     shelf: str | None = None,
 ) -> None:
+    """Note one lane hit a tool result carries. No-op when not recording.
+
+    Best-effort by contract (module rule above): emitters call this beside
+    the Trace-Lanes entry they build, and a capture must never break a tool
+    result. Only JSON primitives are stored, so the capture is wire-ready.
+
+    The round and the producing tool are read off their ContextVars rather
+    than passed, so an emitter cannot state one and be running under the
+    other. Both are absent when nothing set them.
+    """
     try:
         log = _lane_captured_hits.get()
         clean = (name or "").strip()
@@ -209,6 +354,7 @@ def record_lane_hit(
 
 
 def get_lane_captures() -> list[dict[str, Any]]:
+    """Every lane hit recorded this turn, in capture order. Caller owns the list."""
     return list(_lane_captured_hits.get() or [])
 
 
@@ -228,6 +374,11 @@ MAX_REASON_CHARS = 160
 
 
 def clip(text: str, limit: int) -> str:
+    """``text`` shortened to ``limit`` characters, ellipsis included in the count.
+
+    The one-liners are budgeted, not truncated by the reader: a status that
+    overflows its line is worse than one that says slightly less.
+    """
     text = " ".join(str(text).split())
     if len(text) <= limit:
         return text
@@ -242,6 +393,19 @@ def status_step(
     channel: Channel = CHANNEL_LIVE,
     **detail: Scalar | list[str] | None,
 ) -> StatusStep:
+    """One status row, id ``status:<slot>``.
+
+    Args:
+        slot: The status slot (``context``, ``routing``, …). Also the step id's
+            suffix, so a second event in the same slot replaces the first.
+        key: The stable dotted id the frontend resolves to a sentence. NOT copy
+            (see the module docstring), and absent on a technical record.
+        values: Interpolation data ONLY, stringified. Empty values are dropped
+            so a template placeholder is either filled or visibly not.
+        channel: :data:`CHANNEL_LIVE` or :data:`CHANNEL_TECHNICAL`.
+        detail: Structured detail that is NOT part of the sentence (a count, a
+            reason, a token). ``None`` is omitted, so absent stays absent.
+    """
     clean = {name: str(value).strip() for name, value in (values or {}).items() if value is not None}
     return StatusStep(
         id=f"{STATUS_STEP_PREFIX}{slot}",
@@ -261,8 +425,10 @@ def emit_status(
     channel: Channel = CHANNEL_LIVE,
     **detail: Scalar | list[str] | None,
 ) -> None:
+    """Emit one :func:`status_step`."""
     emit_step(status_step(slot, key, values=values, channel=channel, **detail))
 
 
 def emit_technical(slot: str, **detail: Scalar | list[str] | None) -> None:
+    """Emit one technical record: no key, no values, only detail an operator counts."""
     emit_status(slot, channel=CHANNEL_TECHNICAL, **detail)

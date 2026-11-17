@@ -1,3 +1,10 @@
+"""Typed client of the BFF's authenticated per-turn prompt-context API.
+
+Requester identity comes only from the original signed capsule, echoed without
+re-signing. An unavailable or refused context is an error, not an empty brief:
+answering without the office's current instructions would silently drop policy.
+"""
+
 from __future__ import annotations
 
 import re
@@ -21,6 +28,7 @@ REQUEST_TIMEOUT_SECONDS = 5
 
 @dataclass(frozen=True)
 class ContextBlocks:
+    """The three prompt blocks, independently nullable and bounded at intake."""
 
     project_context: str | None
     project_memory: str | None
@@ -49,6 +57,7 @@ BASE_KNOWLEDGE_MAX_LABELS = 40
 
 
 def _labels(value: object) -> tuple[dict[str, object], ...]:
+    """The answer-label records, bounded; anything not a list of objects reads as none. Pure."""
     if not isinstance(value, list):
         return ()
     return tuple(item for item in value if isinstance(item, dict))[:BASE_KNOWLEDGE_MAX_LABELS]
@@ -58,6 +67,12 @@ OFFICE_CONVENTIONS_HEADER = "office conventions ("
 
 
 def office_convention_lines(workspace: str | None) -> int:
+    """How many convention lines the WORKSPACE block carries under its header; 0 without one. Pure.
+
+    Counts every ``- `` line after the header, which is right only while the BFF
+    renders the conventions LAST in the block (``renderWorkspaceBlock``); a
+    section added after them would be counted as conventions.
+    """
     if not workspace:
         return 0
     lines = workspace.splitlines()
@@ -68,6 +83,7 @@ def office_convention_lines(workspace: str | None) -> int:
 
 
 def _bounded_lines(value: str | None, max_chars: int) -> str | None:
+    """``value`` cut to whole lines within ``max_chars``; None when nothing is left."""
     if not value or not value.strip():
         return None
     kept: list[str] = []
@@ -81,15 +97,18 @@ def _bounded_lines(value: str | None, max_chars: int) -> str | None:
 
 
 def _personal_memory(value: object) -> str | None:
+    """The asker's personal-memory block, bounded; anything that is not that block reads as none. Pure."""
     block = _bounded_lines(value if isinstance(value, str) else None, PERSONAL_MEMORY_MAX_CHARS)
     return block if block and block.startswith(PERSONAL_MEMORY_HEADER) else None
 
 
 def personal_memory_lines(block: str | None) -> int:
+    """How many notes the personal-memory block carries; 0 without one. Pure."""
     return sum(1 for line in (block or "").splitlines() if line.startswith("- "))
 
 
 class TurnContextError(bff_http.BffError):
+    """Required context could not be loaded; the turn must not answer without it."""
 
     def __init__(self, message: str, *, status: int | None = None) -> None:
         super().__init__(message, status=status)
@@ -108,6 +127,11 @@ _TIMING_TOKEN = re.compile(r"^[a-z][a-z0-9-]{0,31}$")
 
 
 def parse_server_timing(header: str | None) -> dict[str, float | str]:
+    """``Server-Timing`` (W3C) as phase facts: ``bff_<name>_ms`` per metric, ``bff_<name>_desc`` per description. Pure.
+
+    Never raises: a malformed entry is skipped, and anything but a short token
+    is dropped, so nothing a header carries can put content into a trace.
+    """
     facts: dict[str, float | str] = {}
     for entry in (header or "").split(","):
         name, *params = (part.strip() for part in entry.split(";"))
@@ -159,12 +183,19 @@ def _parse_blocks(body: object) -> ContextBlocks:
 
 
 def _model_kinds(value: object) -> frozenset[str] | None:
+    """``{"ifc": true, "dxf": false}`` as the kinds present; anything else is unknown (None). Pure."""
     if not isinstance(value, dict):
         return None
     return frozenset(kind for kind in ("ifc", "dxf") if value.get(kind) is True)
 
 
 def with_base_knowledge(memory: str | None, base_knowledge: str | None) -> str | None:
+    """The memory part of the project context with the office's base knowledge after it, tagged. Pure.
+
+    It rides in the project context so every agent that reads the project
+    (the conversation, deep research) reads which standards the office holds
+    and how far each binds here, without a field of its own on every state.
+    """
     if not base_knowledge:
         return memory
     block = f"<office_base_knowledge>\n{base_knowledge}\n</office_base_knowledge>"
@@ -172,6 +203,7 @@ def with_base_knowledge(memory: str | None, base_knowledge: str | None) -> str |
 
 
 def fetch_turn_context(request: RequestContext, *, query: str | None = None) -> ContextBlocks:
+    """Read fresh context for this signed requester. Blocking; use ``to_thread``."""
     if not bff_http.internal_token():
         raise TurnContextError("INTERNAL_API_TOKEN is not configured for turn context")
     if not request.envelope_header or not request.envelope_signature:

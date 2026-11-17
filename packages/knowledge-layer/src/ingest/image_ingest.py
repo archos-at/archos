@@ -1,3 +1,19 @@
+"""A standalone uploaded image, from its bytes to its Documents: read, screened, then its thumbnail.
+
+An image has no text layer, so nothing of it can be screened before a model
+sees it, and for a long time it was not screened at all: every image ended
+``screening=unchecked`` (320 in fourteen days). Its only content is what the
+vision model read off it, so that text is screened once it exists, exactly as a
+scanned PDF's transcription is (``_screen_transcribed``): ``partial`` when it is
+clean (there was nothing to screen before the model call), ``quarantined`` on a
+match, with the verdict saying the model saw it (``after_transcription``). The
+thumbnail is drawn only after that verdict (ADR-0086).
+
+The read's outcome is the image's coverage record (``coverage.image_coverage``),
+so an image the model could not read is a page ``not_read`` for
+``vision_failed``, on the trace and the job's status, and not only a failed file.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -15,6 +31,7 @@ IMAGE_UNREAD_ERROR = "Image could not be decoded or captioned (corrupted file or
 
 @dataclass
 class ImageRead:
+    """What reading one image left: its Documents (``None`` when the file stops), its photo facts, its coverage."""
 
     documents: list[Any] | None
     photo: Any = None
@@ -22,6 +39,7 @@ class ImageRead:
 
 
 def _screen_reading(ingestor: Any, job: Any, index: int, rules: Any, documents: list[Any]) -> bool:
+    """Screen what the vision model read off the image; True when the file was quarantined."""
     text = "\n\n".join(str(getattr(document, "text", "") or "") for document in documents)
     pages = [(1, text)]
     return ingestor._screen_or_quarantine(job, index, rules, pages, "partial", stream=pages, after_transcription=True)
@@ -41,6 +59,12 @@ def read_standalone_image(
     vision: dict[str, Any],
     stages: dict[str, float],
 ) -> ImageRead:
+    """Read one image with the vision model, screen the reading, then draw its thumbnail.
+
+    ``vision`` holds ``vlm_model``, ``vlm_base_url``, ``vlm_api_key`` and
+    ``extract_charts``. A file that stops (no vision key, unreadable, quarantined)
+    has its status written here and returns no Documents.
+    """
     from knowledge_layer.ingest import adapter as _adapter
     from knowledge_layer.ingest.photo_facts import read_photo_facts
 
@@ -73,6 +97,7 @@ _FORMAT_BY_SUFFIX = {".png": "png", ".jpg": "jpeg", ".jpeg": "jpeg", ".webp": "w
 
 
 def standalone_image_format(file_path: str, file_name: str) -> str | None:
+    """The format of a file that is not a PDF when it is an image: by its magic bytes, else its extension."""
     from pathlib import Path
 
     from .adapter import _looks_like_image

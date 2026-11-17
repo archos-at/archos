@@ -1,3 +1,37 @@
+"""An ``excalidraw`` fence in an answer: the sketch Piloti drew, checked before a reader's browser draws it.
+
+Piloti writes a sketch as a fenced block of Excalidraw's element skeleton
+(``ExcalidrawElementSkeleton``, the input of ``convertToExcalidrawElements``):
+shapes with a ``label``, free text, arrows and lines with ``points`` and
+``start``/``end`` bound by element id, frames around groups. The browser fills
+in what the skeleton leaves out (sizes from labels, arrow ends, ids, seeds).
+ADR-0146 says why the model may write this at all; the doctrine it keeps is in
+``apps/workspace/bff/diagrams/diagram-sources.ts``: a sketch claims no
+dimension.
+
+This module is the server's half of the check, and
+``apps/workspace/bff/diagrams/sketch-fence.ts`` is the browser's. They apply
+the same rules and name a refusal with the same word;
+``packages/agent/tests/common/test_sketch_fence.py`` runs both against one fixture
+file. The server's verdict is what reaches the stored answer: a fence it
+refuses is retagged ``excalidraw-refused`` (:func:`refused_fence_info`), so
+every later reader shows one quiet line instead of trying again, and never
+the JSON.
+The browser checks too, because a fence still streaming, and every answer
+stored before this check, reaches it without the server's verdict.
+
+What is refused is what would draw nothing useful or cost a reader's browser
+more than a sketch is worth: unparseable JSON, a scene over
+:data:`MAX_SKETCH_SOURCE_BYTES` or :data:`MAX_SKETCH_ELEMENTS`, an element type
+outside :data:`SKETCH_ELEMENT_TYPES` (no image, embed or iframe), coordinates
+past :data:`MAX_SKETCH_COORDINATE`, a binding to an id the scene does not hold.
+
+What is only counted is a label that reads like a measurement
+(:data:`_DIMENSION`): the doctrine is a rule about subject, and a label such as
+„Wohnen 30 m²“ may restate a figure a document gives. The count goes to the
+trace, so how often a sketch carries one is visible rather than argued.
+"""
+
 from __future__ import annotations
 
 import json
@@ -41,6 +75,7 @@ _DIMENSION = re.compile(r"\d(?:[.,]\d+)?\s*(?:mm|cm|dm|km|m²|m2|m³|m)(?![a-zä
 
 @dataclass(frozen=True)
 class SketchCheck:
+    """One fence's verdict: drawn or refused (and why), what it holds."""
 
     refusal: str | None = None
     unescaped: bool = False
@@ -81,6 +116,7 @@ def _text(value: Any, *, required: bool) -> str:
 
 
 def _elements(scene: Any) -> list[Any]:
+    """The element list: a bare array, or ``{"title": …, "elements": [...]}``."""
     if isinstance(scene, dict):
         title = scene.get("title")
         if title is not None and (not isinstance(title, str) or len(title) > MAX_SKETCH_TITLE_CHARS):
@@ -108,6 +144,7 @@ def _points(value: Any) -> None:
 
 
 def _element_texts(element: dict[str, Any]) -> list[str]:
+    """Check one element on its own; the words it shows."""
     kind = element.get("type")
     if kind not in SKETCH_ELEMENT_TYPES:
         raise _Refused("unsupported-element")
@@ -132,6 +169,7 @@ def _element_texts(element: dict[str, Any]) -> list[str]:
 
 
 def _references(element: dict[str, Any]) -> list[Any]:
+    """The ids an element points at: an arrow's bound ends, a frame's children."""
     if element.get("type") == "frame":
         return list(element["children"])
     ends = [element.get(end) for end in ("start", "end") if element.get(end) is not None]
@@ -164,6 +202,7 @@ _UNESCAPED = {'"': '"', "\\": "\\", "/": "/", "b": "\b", "f": "\f", "n": "\n", "
 
 
 def _unescaped_once(body: str) -> str:
+    """``body`` with one level of JSON string escaping taken off (``sketch-fence.ts`` ``unescapedOnce``)."""
     return _ESCAPE.sub(lambda match: _UNESCAPED[match.group(1)], body)
 
 
@@ -172,6 +211,7 @@ def _not_json(token: str) -> Any:
 
 
 def check_sketch(body: str) -> SketchCheck:
+    """The verdict on one fence's body (the text between its fences)."""
     if len(body.encode("utf-8")) > MAX_SKETCH_SOURCE_BYTES:
         return SketchCheck(refusal="too-large")
     unescaped = bool(_OVER_ESCAPED.match(body))
@@ -186,17 +226,20 @@ def check_sketch(body: str) -> SketchCheck:
 
 
 def is_sketch_fence(info: str) -> bool:
+    """Whether a fence's info string opens a sketch (``excalidraw``, any case, attributes after it)."""
     words = info.strip().split()
     return bool(words) and words[0].lower() == SKETCH_FENCE_INFO
 
 
 def refused_fence_info(info: str) -> str:
+    """The info string a refused sketch is stored under: the tag swapped, the rest kept."""
     leading = info[: len(info) - len(info.lstrip())]
     rest = info.strip()[len(SKETCH_FENCE_INFO) :]
     return f"{leading}{REFUSED_SKETCH_FENCE_INFO}{rest}"
 
 
 def sketch_census(checks: list[SketchCheck]) -> dict[str, Any]:
+    """The answer's sketches for the trace metadata: drawn, refused by reason, elements, measurement-like labels."""
     return {
         "drawn": sum(1 for check in checks if check.drawn),
         "refused": dict(Counter(check.refusal for check in checks if check.refusal)),

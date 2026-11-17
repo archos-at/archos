@@ -105,7 +105,6 @@ def _document_text(document: dict[str, Any]) -> str:
 
 
 class FixtureOffice:
-
     def __init__(
         self, directory: Path = FIXTURES, scenario: str = DEFAULT_SCENARIO, embed: Embed | None = None
     ) -> None:
@@ -398,7 +397,6 @@ def _served(log_path: Path, conversation_id: str, *, only_served: bool = True) -
 
 
 class FixtureBFF:
-
     def __init__(
         self,
         token: str,

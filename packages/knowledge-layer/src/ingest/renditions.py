@@ -1,3 +1,17 @@
+"""The PDF rendition a Word or presentation original is indexed from (ADR-0071).
+
+The BFF converts these originals to ``_render.pdf`` through Gotenberg and sends
+``extraction_ref`` with the ingest request; ``POST /v1/ingest`` gates the URL
+and hands the job ``config["extraction_paths"]``, positional like
+``original_filenames``. An entry is a local path, or a zero-argument callable
+that downloads one: the route defers every download to the job, the original's
+too (``knowledge_layer.ingest.deferred_files``), because the BFF gives the request ten
+seconds, and everything slow before the job id is a false failure waiting to
+happen.
+
+Shared by both ingestors, so it imports nothing either of them brings.
+"""
+
 from __future__ import annotations
 
 import contextlib
@@ -22,6 +36,11 @@ OFFICE_RENDITION_REQUIRED = (
 
 
 def requires_rendition(file_name: str, file_path: str) -> bool:
+    """Whether this original is one only its rendition may be indexed from.
+
+    The ORIGINAL name's extension first, the temp path's second, as
+    ``office_extractors`` reads them.
+    """
     return (Path(file_name).suffix or Path(file_path).suffix).lower() in RENDITION_INDEXED_EXTENSIONS
 
 
@@ -29,6 +48,14 @@ RENDITION_CONFIG_LISTS = ("extraction_paths", "preview_paths")
 
 
 def align_extraction_paths(job_config: dict[str, Any], kept_indices: list[int]) -> None:
+    """Filter the per-file renditions in lockstep with the files ``submit_job`` kept.
+
+    Both lists are positional like ``original_filenames``: a skipped original
+    must not hand its rendition to the next file. A local rendition whose
+    original was skipped has no job to clean it up, so it goes here when the
+    caller handed cleanup over; a deferred download that never ran left
+    nothing on disk.
+    """
     for key in RENDITION_CONFIG_LISTS:
         if key in job_config:
             _align(job_config, key, kept_indices)
@@ -47,14 +74,32 @@ def _align(job_config: dict[str, Any], key: str, kept_indices: list[int]) -> Non
 
 
 def handed_rendition_paths(config: dict[str, Any]) -> list[str]:
+    """The local renditions the caller handed over, for a job that owns cleanup."""
     return [path for key in RENDITION_CONFIG_LISTS for path in config.get(key) or [] if isinstance(path, str)]
 
 
 def resolve_rendition(config: dict[str, Any], index: int, downloaded: list[str]) -> str | None:
+    """The PDF rendition to extract file ``index`` from, or ``None``.
+
+    The ingestor has no format policy here: a rendition present means "read
+    the bytes from here", whatever the original's extension. A path a deferred
+    download produced is appended to ``downloaded``, which the job deletes
+    whether or not it owns the caller's files. A rendition that cannot be had
+    (gone from disk, or its download failed) is logged and ``None``; for a
+    format indexed only from its rendition the caller then fails the file with
+    ``OFFICE_RENDITION_REQUIRED``.
+    """
     return _resolve(config, "extraction_paths", index, downloaded)
 
 
 def resolve_preview(config: dict[str, Any], index: int, downloaded: list[str]) -> str | None:
+    """The PDF rendition file ``index``'s thumbnail is drawn from, or ``None``.
+
+    Sent for an office original indexed from its own bytes (a spreadsheet),
+    whose pages the job cannot rasterise. Downloaded only once the file's
+    screening has passed (ADR-0086): the route used to draw it in the request,
+    before the job had read a word of the file.
+    """
     return _resolve(config, "preview_paths", index, downloaded)
 
 
@@ -75,6 +120,7 @@ def _resolve(config: dict[str, Any], key: str, index: int, downloaded: list[str]
 
 
 def delete_quietly(paths: list[str]) -> None:
+    """Delete temp files this job owns; one already gone is not an error."""
     for path in paths:
         with contextlib.suppress(OSError):
             os.unlink(path)

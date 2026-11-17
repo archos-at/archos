@@ -38,8 +38,6 @@ def load_questions(path: Path = QUESTIONS) -> list[dict]:
     return [{**row, "set": "files"} for row in load_rows(path)]
 
 
-
-
 def available_needs(schema_path: Path = TOOL_SCHEMA) -> set[str]:
     tools = {tool["name"]: tool for tool in json.loads(schema_path.read_text(encoding="utf-8"))["tools"]}
     found: set[str] = set()
@@ -58,8 +56,6 @@ def applicable(row: dict, available: set[str]) -> bool:
 def split_applicable(rows: list[dict], available: set[str] | None = None) -> tuple[list[dict], list[str]]:
     available = available_needs() if available is None else available
     return [r for r in rows if applicable(r, available)], [str(r["id"]) for r in rows if not applicable(r, available)]
-
-
 
 
 def arm_name(arm: str | None) -> str:
@@ -98,8 +94,6 @@ def configured_tools(config: Path | None = None) -> list[str]:
     config = config or ROOT / "configs" / "config_oib_openrouter.yml"
     loaded = yaml.safe_load(config.read_text(encoding="utf-8"))
     return [str(name) for name in loaded["functions"]["shallow_research_agent"]["tools"]]
-
-
 
 
 def recorded_calls(items: list[dict]) -> list[dict[str, Any]]:
@@ -322,8 +316,6 @@ def _label(item: Any) -> str:
         return str(item)
     tool, args = next(iter(item.items()))
     return tool + "(" + ",".join(f"{k}={v}" for k, v in args.items()) + ")"
-
-
 
 
 def move(call: dict[str, Any]) -> str | None:

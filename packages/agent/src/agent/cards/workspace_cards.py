@@ -1,3 +1,5 @@
+"""The system-emitted workspace cards: surfaced documents, a draft, and a created task."""
+
 from typing import Literal
 
 from pydantic import Field
@@ -7,6 +9,7 @@ from agent.cards.card_model import CardModel
 
 
 class SurfacedDocument(CardModel):
+    """One real document surfaced by a corpus search, with its match evidence."""
 
     file_name: str = Field(min_length=1, description="Exact indexed file name (resolves to the live document row)")
     summary: str | None = Field(default=None, description="One-line description of what the document is")
@@ -19,6 +22,11 @@ class SurfacedDocument(CardModel):
 
 
 class DocumentAnswerSearch(CardModel):
+    """The ``workspace-search`` question a browse ran, so the reader can open the full result.
+
+    Set by ``surface_documents`` only when the files came from that operation; the
+    card then links to the search page with the same text and scope.
+    """
 
     text: str = Field(min_length=1, max_length=500, description="The search text, as the operation was asked")
     scope: Literal["office", "project", "office_shelf"] = Field(
@@ -27,6 +35,13 @@ class DocumentAnswerSearch(CardModel):
 
 
 class DocumentAnswerCard(CardModel):
+    """Project/Büroablage files the user asked to see.
+
+    System-emitted by ``surface_documents``. One file or a short browse
+    choice — same card, the list length is the difference. Never a
+    catalogue. Citations of exactly one project/Büro file peek without
+    this card (``useCitationPeek``).
+    """
 
     type: Literal["document_grid"] = "document_grid"
     title: str = Field(min_length=1, description="Short heading, e.g. 'Relevante Dokumente – Fluchtwege'")
@@ -50,6 +65,25 @@ DocumentVersionState = Literal[
 
 
 class DocumentDraftCard(CardModel):
+    """A document the agent wrote into this conversation's working directory.
+
+    System-emitted by the working directory's ``write_file`` / ``edit_file``, and
+    again by ``file_draft`` once the draft has become a project document.
+
+    **The card has two states, and the difference is three fields.** Unfiled, it
+    reports a file that exists in this conversation and nowhere else: not filed,
+    not indexed, not citable, not in the Files pane. Filed, it names a
+    ``documents`` row — and then it can offer the two things a reader wants,
+    opening it and sending it for review, both through the routes the Files pane
+    itself uses.
+
+    The three fields travel together or not at all: a card carrying a
+    ``document_id`` and no ``version_state`` could not say whether the draft is
+    still submittable, and one carrying a state with no ``version_id`` could not
+    submit it. ``_require_filed_together`` is what refuses the half-filled shape,
+    because the alternative is a card that renders a live-looking control over
+    nothing.
+    """
 
     type: Literal["document_draft"] = "document_draft"
     title: str = Field(min_length=1, description="The document's first heading, or its file name when it has none")
@@ -81,6 +115,24 @@ TaskKind = Literal["compliance_check", "submission_check", "document", "revision
 
 
 class TaskCreatedCard(CardModel):
+    """Work the agent has taken on, as a row somebody can come back to.
+
+    System-emitted by ``create_task``. What it exists to prevent is the answer
+    „ich mache den Einreichcheck bis Freitag“ with nothing behind it: the card is
+    proof there is a row, and the row is what carries the requester's permission,
+    the deadline and — when a person judges the result — the decision that reaches
+    the next attempt (ADR-0051).
+
+    Informational, not interactive. The task is already queued when this renders,
+    so there is no Accept: a control would either repeat the delegation or cancel
+    it, and cancelling delegated work is a Files-and-tasks surface decision, not
+    a chat one.
+
+    ``conversation_id`` is the thread the run writes into, so the card can link a
+    reader to the work rather than only announce it. Absent when the run's
+    conversation could not be created, which is the same degraded shape a
+    scheduled job has had since jobs got conversations at all.
+    """
 
     type: Literal["task_created"] = "task_created"
     task_id: str = Field(min_length=1, description="The task row's id")

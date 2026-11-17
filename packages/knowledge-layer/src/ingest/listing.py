@@ -1,3 +1,19 @@
+"""What a collection's chunks say about each file they come from. Pure.
+
+A listing reads one payload-limited scroll (:data:`LISTING_FIELDS`, no chunk
+text) and folds each file's points into its ``FileInfo``: how many chunks,
+which pages and content types, its size and type, and when it was indexed.
+The document's own facts come from its metadata row, which the routes merge
+in, and the drift checks compare the two (``routes/maintenance.py``,
+``factory.reconcile_collection_summaries``).
+
+A listing outlives the job record (24 hours, ``FILE_TRACKING_RETENTION_SECONDS``),
+so what it shows must come from fields every writer puts on a chunk. Only the
+plain-text reader stamps ``creation_date`` / ``last_modified_date`` /
+``file_type``; every point carries ``indexed_at`` (``vector_store.writes``), so
+the ingest date falls back to it and the type to the file name's.
+"""
+
 from __future__ import annotations
 
 import mimetypes
@@ -25,10 +41,12 @@ _FIRST_SEEN = ("file_size", "file_type", "creation_date", "last_modified_date")
 
 
 def from_epoch(seconds: int | None) -> datetime | None:
+    """An ``indexed_at`` value as an aware UTC datetime; None stays None."""
     return datetime.fromtimestamp(seconds, UTC) if seconds is not None else None
 
 
 def from_iso(value: Any) -> datetime | None:
+    """An ISO timestamp as a datetime, or None when it is absent or not one."""
     if not isinstance(value, str) or not value:
         return None
     try:
@@ -38,6 +56,7 @@ def from_iso(value: Any) -> datetime | None:
 
 
 def files_from_payloads(collection_name: str, payloads: Iterable[Mapping[str, Any] | None]) -> dict[str, FileInfo]:
+    """``file_name -> FileInfo`` for each file the payloads hold chunks of."""
     stats: dict[str, dict[str, Any]] = {}
     for payload in payloads:
         m = payload or {}

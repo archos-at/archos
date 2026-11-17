@@ -1,3 +1,8 @@
+"""Pydantic models for Grid response cards: the discriminated union of every card type, and its validator.
+
+Each card's model lives in a module named after it (``card_model`` holds the
+base and the plain-text rule every text field follows)."""
+
 from typing import Annotated
 
 from pydantic import Field
@@ -5,7 +10,6 @@ from pydantic import TypeAdapter
 
 from agent.cards.calculation_card import CalculationCard
 from agent.cards.canvas_activity_card import CanvasActivityCard
-
 from agent.cards.catalog import CHAT_ONLY_CARD_TYPES
 from agent.cards.catalog import SYSTEM_CARD_TYPES
 from agent.cards.file_operation_card import FileOperationProposalCard
@@ -76,6 +80,25 @@ __all__ = [
 
 
 def validate_cards(raw: list[dict]) -> list[dict]:
+    """Validate a list of model-produced card dicts and return the validated dicts.
+
+    Per-card: one malformed card is logged and skipped instead of discarding
+    the whole batch (LLM output regularly contains one bad item among good
+    ones, and cards are a progressive enhancement — never fail the answer).
+
+    System cards (``SYSTEM_CARD_TYPES``) are dropped here too: this is the
+    post-hoc / batch generation path fed by *model* output, and a system card
+    must only ever come from its owning tool on a sanctioned path (e.g.
+    ``document_grid`` from ``surface_documents``, ``memory_proposal`` from
+    ``remember``). The model is never told these types exist, so any occurrence
+    here is a fabrication — enforce the same invariant ``emit_card`` and the
+    DSML salvage already enforce, closing the last emission path.
+
+    A retired type (``RETIRED_CARD_TYPES``) is no union member at all and
+    fails validation like any unknown name: the report's own Markdown carries
+    its content. Chat-only types (``CHAT_ONLY_CARD_TYPES``) likewise: a surface's
+    ``Text`` ``[N]`` are recited on the chat pipeline only.
+    """
     import logging
 
     logger = logging.getLogger(__name__)

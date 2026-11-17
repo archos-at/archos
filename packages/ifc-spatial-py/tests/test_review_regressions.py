@@ -64,7 +64,6 @@ def handle(tools: list) -> str:
 
 
 class TestAdjacencyIsNotStacking:
-
     def test_a_shared_floor_does_not_make_two_rooms_adjacent(self) -> None:
         model = SpatialModel(str(STACKED))
         answer = op.adjacent_spaces(model, "4Decke00000Space00001")
@@ -104,9 +103,7 @@ class TestLightEntryAreaCountsEachOpeningOnce:
 
 
 class TestTheDoorHeuristicOnlyJudgesDoors:
-
     class _Stub(SpatialModel):
-
         def __init__(self, file) -> None:
             self.file = file
 
@@ -155,7 +152,6 @@ class TestTheDoorHeuristicOnlyJudgesDoors:
 
 
 class TestAnSiPrefixOnAnAreaIsSquared:
-
     @pytest.mark.parametrize(
         ("prefix", "unit_type", "name", "expected"),
         [
@@ -173,10 +169,7 @@ class TestAnSiPrefixOnAnAreaIsSquared:
         assert _unit_scale_to_si(unit) == pytest.approx(expected, rel=1e-12)
 
 
-
-
 class TestACallerMistakeIsNotAFindingAboutTheExport:
-
     def test_asking_a_window_for_a_room_height_raises_instead_of_answering(self, house: SpatialModel) -> None:
         with pytest.raises(WrongKindError) as raised:
             op.clear_height(house, BEDROOM_WINDOW)
@@ -218,7 +211,6 @@ class TestACallerMistakeIsNotAFindingAboutTheExport:
 
 
 class TestTheNoGeometryRefusalIsNotDoublyNegated:
-
     def test_a_missing_body_reads_as_one_negation(self) -> None:
         model = SpatialModel(str(FEET))
         answer = op.extent(model, BODYLESS_WALL)
@@ -240,7 +232,6 @@ class TestTheNoGeometryRefusalIsNotDoublyNegated:
 
 
 class TestTheBriefingDoesNotPromiseGeometryAFileHasNot:
-
     @pytest.mark.parametrize("fixture", [NO_BODIES, FEET, STACKED])
     def test_a_file_with_no_bodies_is_told_so(self, fixture: Path) -> None:
         model = SpatialModel(str(fixture))
@@ -267,7 +258,6 @@ class TestTheBriefingDoesNotPromiseGeometryAFileHasNot:
 
 
 class TestStoreyHeightsAreDeclaredNotMeasured:
-
     def test_the_provenance_is_declared(self, house: SpatialModel) -> None:
         answer = br.storey_heights(house)
         assert answer.provenance == "declared"
@@ -286,7 +276,6 @@ class TestStoreyHeightsAreDeclaredNotMeasured:
 
 
 class TestAgreementIsSaidOutLoud:
-
     def test_a_declared_area_that_agrees_is_not_reported_as_undeclared(self, house: SpatialModel) -> None:
         answer = op.floor_area(house, BEDROOM)
         assert answer.agreement == "agree"
@@ -323,7 +312,6 @@ class TestAgreementIsSaidOutLoud:
 
 
 class TestAFlatElementHasNoCompassBearing:
-
     @pytest.mark.parametrize("slab", [GROUND_SLAB, SIMPLE_FLOOR])
     def test_a_slab_refuses_rather_than_answering_off_its_edge(self, house: SpatialModel, slab: str) -> None:
         answer = op.azimuth(house, slab)
@@ -346,7 +334,6 @@ class TestAFlatElementHasNoCompassBearing:
 
 
 class TestASeatingWeightIsNotAFaceArea:
-
     def test_the_plane_carries_no_field_a_caller_can_read_as_an_area(self, house: SpatialModel) -> None:
         geo = house.geometry(SOUTH_WALL)
         normal = dominant_vertical_plane(geo.triangles)
@@ -380,7 +367,6 @@ class TestASeatingWeightIsNotAFaceArea:
 
 
 class TestAHandedOutTriangulationOutlivesTheNextGeometryCall:
-
     def test_the_volume_readable_before_is_readable_after(self) -> None:
         model = SpatialModel(str(HOUSE))
         triangulation = model.triangulation(BEDROOM)
@@ -405,7 +391,6 @@ class TestAHandedOutTriangulationOutlivesTheNextGeometryCall:
 
 
 class TestAnInvalidRoomKindIsARefusalAndNotATraceback:
-
     def test_a_missing_kind_names_the_three_that_exist(self, tools: list, handle: str) -> None:
         with pytest.raises(ToolError) as raised:
             call(tools, "room_inventory", {"model": handle})
@@ -425,7 +410,6 @@ class TestAnInvalidRoomKindIsARefusalAndNotATraceback:
 
 
 class TestACaptionMayNotDescribeADrawingThatIsNotThere:
-
     def test_an_empty_plan_says_that_nothing_was_drawn(self, tools: list, handle: str) -> None:
         out = call(tools, "view", {"model": handle, "storey": "Roof"})
         assert out["elementsDrawn"] == 0
@@ -465,7 +449,6 @@ def _second_level_export(path: Path) -> SpatialModel:
 
 
 class TestBoundsReturnsEachElementOnce:
-
     def test_a_boundary_written_per_face_yields_one_reference(self, tmp_path: Path) -> None:
         model = _second_level_export(tmp_path / "zweite-ebene.ifc")
         answer = op.bounds(model, BEDROOM)
@@ -498,7 +481,6 @@ class TestBoundsReturnsEachElementOnce:
 
 
 class TestOnlyFacadesWithAnOpeningAreCountedAsSuch:
-
     @staticmethod
     def _blank_external_wall(path: Path) -> SpatialModel:
         file = ifcopenshell.open(str(HOUSE))
@@ -536,7 +518,6 @@ class TestOnlyFacadesWithAnOpeningAreCountedAsSuch:
 
 
 class TestTheDeclaredVolumeSumCoversTheMeasuredSpaces:
-
     @staticmethod
     def _hall_without_a_body(path: Path) -> SpatialModel:
         file = ifcopenshell.open(str(HOUSE))
@@ -568,7 +549,6 @@ class TestTheDeclaredVolumeSumCoversTheMeasuredSpaces:
 
 
 class TestAWindowsDeclaredAreaIsNotAnOpeningArea:
-
     def test_a_window_answers_with_one_route_and_no_contradiction(self, house: SpatialModel) -> None:
         answer = op.floor_area(house, BEDROOM_WINDOW)
         assert answer.decidable
@@ -601,7 +581,6 @@ class TestAWindowsDeclaredAreaIsNotAnOpeningArea:
 
 
 class TestATriangleWithNoDirectionDoesNotVoteOnThePlane:
-
     BAND = np.array([[[0.0, 0.0, 0.0], [1e-6, 0.0, 0.0], [0.0, 1e-6, 0.0]]])
 
     def test_the_band_really_does_pass_an_area_filter_with_a_zero_normal(self) -> None:
@@ -647,7 +626,6 @@ class TestATriangleWithNoDirectionDoesNotVoteOnThePlane:
 
 
 class TestAnUnwrappedHandlerStillCannotLeakATraceback:
-
     def test_overhang_answers_a_typo_with_a_correction(self, tools: list, handle: str) -> None:
         with pytest.raises(ToolError) as raised:
             call(tools, "overhang", {"model": handle, "projecting": "0" * 22, "facade": NORTH_WALL})
@@ -662,7 +640,6 @@ class TestAnUnwrappedHandlerStillCannotLeakATraceback:
 
 
 class TestARoomWhoseBodyIsAShellIsStillMeasurable:
-
     FIXTURE = FIXTURES / "basement-brep-room.ifc"
 
     @pytest.fixture(scope="class")
@@ -725,7 +702,6 @@ class TestARoomWhoseBodyIsAShellIsStillMeasurable:
 
 
 class TestAnExternalWallBoundsMoreThanOneRoom:
-
     FIXTURE = FIXTURES / "exterior-wall-without-isexternal.ifc"
 
     @pytest.fixture(scope="class")
@@ -768,7 +744,6 @@ class TestAnExternalWallBoundsMoreThanOneRoom:
 
 
 class TestAGalleryVoidIsMeasuredDownwardAndNotSideways:
-
     FIXTURE = FIXTURES / "gallery-slab-opening.ifc"
     GALERIE = "2dQFggKBb1fOc1CqZDIDlx"
     LIVING_SPACE = "0Lt8gR_E9ESeGH5uY_g9e9"
@@ -851,7 +826,6 @@ class TestAGalleryVoidIsMeasuredDownwardAndNotSideways:
 
 
 class TestConnectsRefusesForATypeTheExportNeverConnects:
-
     FIXTURE = FIXTURES / "connections-wall-to-wall-only.ifc"
     WALLS = ("3PfS__Y_DBAfq5naM6zD2Z", "2XPyKWY018sA1ygZKgQPtU")
     DOOR = "1Oms875aH3Wg$9l65H2ZGw"
@@ -956,7 +930,6 @@ def _walls_connected_by_type(path: Path) -> SpatialModel:
 
 
 class TestASideIsNotDecidedByTheRoomsWeCouldPlace:
-
     @staticmethod
     def _wall_between(model: SpatialModel):
         for wall in list(model.file.by_type("IfcWall")) + list(model.file.by_type("IfcWallStandardCase")):

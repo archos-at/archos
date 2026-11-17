@@ -336,8 +336,6 @@ def _status_label(status: object) -> str:
     return PROJECT_STATUS_LABELS.get(str(status), str(status))
 
 
-
-
 def project_facts_filter(values: list[str]) -> dict[str, list[str | int]]:
     """The model's flat fact tokens as the BFF's ``projectFacts``: grouped by fact, in token order, de-duplicated.
 
@@ -658,8 +656,6 @@ def _render_search(
     )
 
 
-
-
 def _period(raw: object) -> str:
     period = raw if isinstance(raw, dict) else {}
     start, end = period.get("start"), period.get("end")
@@ -797,8 +793,6 @@ def _reference_order() -> list[str]:
     return list(turn.reference_order) if turn is not None else []
 
 
-
-
 def _project_ref(project: object) -> dict[str, str] | None:
     return (
         {"id": str(project.get("id")), "status": str(project.get("status") or "active")}
@@ -867,8 +861,6 @@ def _observe(action: str, payload: dict[str, Any], outcome: dict[str, Any]) -> N
     emit_retrieval_span(tool_name=PROJECT_LOOKUP_TOOL, search_input={"action": action, **payload}, picks=outcome)
 
 
-
-
 def _only_project_name(records: list[Any]) -> str | None:
     """The project's name when every record is from one project, else None."""
     names = {
@@ -895,8 +887,6 @@ def record_outcome(action: str, body: dict[str, Any], outcome: ActionOutcome) ->
     project = body.get("project") if isinstance(body.get("project"), dict) else {}
     outcome.hits = 1 if project else 0
     outcome.target = plain_text(project.get("name")) or None
-
-
 
 
 async def _lookup(

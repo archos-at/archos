@@ -812,7 +812,6 @@ async def test_a_restricted_note_an_earlier_turn_was_shown_still_restricts(monke
     assert insert.call_args.kwargs["restricted_collections"] == (_RESTRICTED,)
 
 
-
 _PROPOSALS_SCHEMA = Path(__file__).resolve().parents[4] / "apps/workspace/tests/fixtures/proposals.schema.json"
 _PROPOSAL_ID = "55555555-0000-4000-8000-000000000005"
 _HEADER, _SIGNATURE = "eyJzaWduZWQiOiJ0dXJuIn0", "c0ffee"

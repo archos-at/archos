@@ -60,6 +60,7 @@ from . import scoring
 from .fixture import load_answer_key
 from .fixture import load_fixture
 
+#: Four boot-model runs, 2026-10-14: recall 0.94-0.97, stayed-open 0.83-1.00; floor = lowest run less one key.
 DEFAULT_MIN_RECALL = 0.90
 DEFAULT_MIN_STAYED_OPEN = 0.75
 DEFAULT_MAX_COST = 5.0

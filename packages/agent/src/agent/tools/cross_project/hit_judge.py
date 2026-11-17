@@ -1,3 +1,28 @@
+"""Judge what another project handed out: does it show a solution, and is it safe to read (ADR-0064 use 11).
+
+A cross-project search returns another project's passages merged by vector
+score (``searchAcrossProjects``): the nearest text, whether or not it shows how
+the case was solved, and a document somebody uploaded to another project,
+whatever it says. The knowledge layer asks both questions of its own searches
+(``knowledge_layer.search.decisions``); the cross-project path asked neither.
+
+Two nouls per passage, in parallel:
+
+``solved``
+    Does this passage show how a comparable case was solved or decided? The
+    passages are reordered by it, most telling first (decisions and permit
+    records stay ahead of them, as before). When none reaches the threshold and
+    more projects remain, the result says so, so the model pages on instead of
+    answering from passages that only share words with the question.
+``injection``
+    The knowledge layer's own question (``INJECTION_QUESTION``). A flagged
+    passage is named in the preamble as content, never instructions.
+
+What it may never do: drop a passage, withhold a project, or decide access.
+A passage it could not judge keeps its place behind the judged ones. The state
+is the query and the passage, bounded, never the conversation.
+"""
+
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -8,8 +33,10 @@ SLOT = "reference_hits"
 
 PASSAGE_CHARS = 600
 
+# 2026-10-10, 19 questions, 184 passages: all 22 evidence passages scored >= 0.8; 0.5 never fired the hint.
 SOLVED_THRESHOLD = 0.5
 
+# Measured: 7 of 7 planted instructions flagged, none of 184 real passages.
 INJECTION_THRESHOLD = 0.70
 
 SOLVED_QUESTION = {
@@ -35,6 +62,7 @@ SOLVED_QUESTION = {
 
 @dataclass(frozen=True)
 class HitVerdicts:
+    """Per passage, in the order the BFF returned them: p(shows a solution), p(instruction-like)."""
 
     solved: tuple[float | None, ...]
     injection: tuple[float | None, ...]
@@ -52,6 +80,7 @@ class HitVerdicts:
         return tuple(i for i, p in enumerate(self.injection) if p is not None and p >= INJECTION_THRESHOLD)
 
     def order(self) -> list[int]:
+        """Passage indices, judged by p(solved) highest first, then the unjudged in their order. Stable."""
         judged = sorted(
             (i for i, p in enumerate(self.solved) if p is not None), key=lambda i: (-(self.solved[i] or 0.0), i)
         )
@@ -72,6 +101,7 @@ def hit_state(query: str, hit: dict[str, Any]) -> dict[str, Any]:
 
 
 async def judge_hits(query: str, hits: Sequence[dict[str, Any]]) -> HitVerdicts | None:
+    """Both questions over every passage; None when nothing was decided, and the hits stay as they came."""
     from agent.common.decisions import decide_many
 
     if not hits or not query.strip():

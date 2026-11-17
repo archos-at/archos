@@ -1,3 +1,8 @@
+"""The platform operator's kill.
+
+Every submitted or running job interrupted, its Hatchet run cancelled, its verdict reported.
+"""
+
 from __future__ import annotations
 
 import asyncio
@@ -16,6 +21,14 @@ KILL_BATCH = 1000
 
 
 async def stop_interrupted_job(db_url: str, job_id: str, *, reason: str) -> None:
+    """Stop the worker of a job whose INTERRUPTED status the caller just wrote, and report it.
+
+    Shared by the cancel route and the platform kill. Cancelling the Hatchet
+    run (ADR-0150) keeps a job no worker has started from ever running; a
+    running worker sees
+    the INTERRUPTED status through its CancellationMonitor and stops on its own
+    (ADR-0021).
+    """
     from ..jobs import research_workflow
     from ..jobs.event_store import EventStore
 
@@ -31,6 +44,7 @@ async def stop_interrupted_job(db_url: str, job_id: str, *, reason: str) -> None
 
 
 def _find_active_job_ids(db_url: str, statuses: tuple[str, ...], limit: int) -> list[str]:
+    """Every job in one of ``statuses``, oldest first. Sync; run it in an executor."""
     from sqlalchemy import bindparam
     from sqlalchemy import inspect
     from sqlalchemy import text
@@ -49,6 +63,13 @@ def _find_active_job_ids(db_url: str, statuses: tuple[str, ...], limit: int) -> 
 
 
 async def kill_every_active_job(job_store, db_url: str) -> dict:
+    """Interrupt every SUBMITTED or RUNNING job and stop its worker.
+
+    Each job goes through the cancel route's conditional write, so a job that
+    finishes while the sweep runs keeps its own verdict and is counted as
+    already finished. One job's failure is logged and counted; it never stops
+    the others from being killed.
+    """
     from nat.front_ends.fastapi.async_jobs.job_store import JobStatus
 
     loop = asyncio.get_running_loop()

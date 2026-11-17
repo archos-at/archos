@@ -27,7 +27,6 @@ def model() -> SpatialModel:
     return SpatialModel(str(SAMPLE_HOUSE))
 
 
-
 _UNTESSELLATABLE = """ISO-10303-21;
 HEADER;
 FILE_DESCRIPTION(('ViewDefinition [CoordinationView]'),'2;1');
@@ -140,8 +139,6 @@ END-ISO-10303-21;""",
     assert found.path == "BaseQuantities.NetFloorArea"
 
 
-
-
 def _unit_box_triangles(flip: bool) -> np.ndarray:
     x, y, z = 2.0, 3.0, 1.0
     corners = np.array(
@@ -202,8 +199,6 @@ def test_the_sample_house_room_areas_do_not_move(model: SpatialModel) -> None:
         ("3w0zWKm7n8SB1qbfwUzt0G", 8.69350625),
     ):
         assert op.floor_area(model, global_id).value == pytest.approx(expected, abs=1e-9)
-
-
 
 
 def test_an_empty_file_is_refused_with_a_reason(tmp_path: Path) -> None:
@@ -338,8 +333,6 @@ def test_a_valid_header_with_no_entities_is_a_model_not_an_error(tmp_path: Path)
         op.extent(model, "3w0zWKm7n8SB1qbfwUzt0J")
 
 
-
-
 @pytest.mark.parametrize("bad", [None, 123, "", "   ", 4.5, b"3w0zWKm7n8SB1qbfwUzt0J"])
 def test_anything_that_is_not_a_global_id_raises_the_contract_error(model: SpatialModel, bad) -> None:
     with pytest.raises(UnknownElementError):
@@ -359,8 +352,6 @@ def test_an_entity_id_is_not_a_global_id(model: SpatialModel) -> None:
         model.by_id(entity_id, "test")
 
 
-
-
 def test_obstructions_refuses_a_volume_that_is_not_a_prism(model: SpatialModel) -> None:
     for volume in ({}, {"openingId": OPENING}, None, [], "prism"):
         answer = op.obstructions(model, volume)  # type: ignore[arg-type]
@@ -374,8 +365,6 @@ def test_obstructions_on_a_prism_from_another_model_raises(model: SpatialModel) 
     volume = dict(volume, openingId="0000000000000000000000")
     with pytest.raises(UnknownElementError):
         op.obstructions(model, volume)
-
-
 
 
 def test_a_window_with_no_opening_chain_says_why_it_is_empty(model: SpatialModel) -> None:
@@ -410,8 +399,6 @@ END-ISO-10303-21;""",
     assert orphan.value == []
     assert "keine Öffnungskette" in orphan.caveat
     assert "Öffnungen und Füllungen" in orphan.caveat
-
-
 
 
 def test_a_body_the_kernel_rejects_is_not_reported_as_a_missing_body(tmp_path: Path) -> None:
@@ -450,8 +437,6 @@ def test_an_element_with_no_representation_at_all_says_that_instead(model: Spati
     assert model.geometry_failure(orphan.GlobalId) == "no-representation"
 
 
-
-
 @pytest.mark.parametrize("length", [-5.0, 0.0, float("inf"), float("nan")])
 def test_a_ray_with_an_unusable_length_is_undecidable(model: SpatialModel, length: float) -> None:
     answer = op.ray(model, [0.0, 0.0, 1.0], [0.0, 0.0, 1.0], length=length)
@@ -466,8 +451,6 @@ def test_a_ray_with_an_unusable_length_is_undecidable(model: SpatialModel, lengt
 def test_a_ray_with_an_unusable_geometry_is_undecidable(model: SpatialModel, origin, direction) -> None:
     answer = op.ray(model, origin, direction)
     assert answer.decidable is False
-
-
 
 
 def test_bounds_costs_one_offset_not_one_per_room(model: SpatialModel) -> None:

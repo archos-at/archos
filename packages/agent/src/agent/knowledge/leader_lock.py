@@ -1,3 +1,46 @@
+"""Postgres session advisory locks for work that must not run twice at once.
+
+Every session-scoped advisory lock in the backend is taken here, on one engine
+built from ``LOCK_DB_URL`` and nowhere else (ADR-0083). A session lock lives
+as long as the server connection that took it. Behind a transaction pooler
+that connection is not the client's: the lock is acquired on whichever server
+connection PgBouncer hands over, "released" on another, and the first stays
+locked until the pooler recycles it. Nothing raises, and the work the lock
+guarded simply stops running. ``LOCK_DB_URL`` is therefore the direct
+(non-pooled) DSN, and the engine behind it never pools either, so closing a
+lock's connection ends its session.
+
+Transaction-scoped locks (``pg_advisory_xact_lock``) and ``FOR UPDATE SKIP
+LOCKED`` are fine through the pooler and stay on the caller's own connection.
+
+Three shapes:
+
+- :func:`leader_lock` lets a background loop that runs in every replica (e.g.
+  the collection TTL cleanup) elect a single runner per cycle, so N replicas
+  don't redundantly race the same work against the now-shared vector store.
+  Fail-closed: when the election cannot be held (the lock database is
+  unreachable, the query fails) nobody leads, the fault is logged at WARNING and
+  the cycle is skipped. Every caller runs on a schedule, so the next tick tries
+  again, where running unelected would be every replica running the cycle at
+  once. With no Postgres at all (single-node dev, the tests) there is nobody to
+  elect against and the process always leads; that is a configuration, not a
+  fallback.
+- :func:`leader_lock_async` is the same election for a caller on an event loop
+  (the ghost-job reaper): the blocking connect and query run on a thread.
+- :func:`keyed_lock` WAITS, up to ``KEYED_LOCK_TIMEOUT_SECONDS``, for one
+  string key, in this process and, on Postgres, across every replica. The ingestor holds one per (collection,
+  document name) while it replaces a document's previous version, so two jobs
+  for the same name cannot both retire the same predecessor and keep both new
+  versions. Also fail-closed: when the lock cannot be taken in time it RAISES, the
+  ingest attempt fails and the claim queue retries it, rather than replacing a
+  document unguarded across replicas. :func:`keyed_lock_async` is the same wait
+  for a caller on an event loop.
+
+:func:`require_direct_dsns` is the start-up check: a process that is configured
+with Postgres refuses to boot without the direct DSNs it uses, so a missing one
+is one failed boot and not a failure on every request.
+"""
+
 from __future__ import annotations
 
 import asyncio
@@ -19,6 +62,18 @@ def _postgres_configured() -> bool:
 
 
 def require_direct_dsns(*, listen: bool) -> None:
+    """Refuse to start a Postgres process that lacks the direct DSNs it uses.
+
+    Call once at process start. ``listen`` is True for the process that serves the
+    job SSE streams (the web tier) and False for the ones that only take locks
+    (the research and ingest workers). With no Postgres database configured
+    (single-node dev, the tests) there is nothing to check.
+
+    Each DSN must be set and be a PostgreSQL URL. Without this a missing one
+    surfaces late and per use: every SSE stream failing over to polling, or the
+    first lock of the process raising, each looking like an ordinary runtime
+    error and not like a deployment that was never given its direct DSN.
+    """
     if not _postgres_configured():
         return
     needed = [LOCK_DB_ENV, *([LISTEN_DB_ENV] if listen else [])]
@@ -37,6 +92,14 @@ def require_direct_dsns(*, listen: bool) -> None:
 
 
 def _lock_url() -> str | None:
+    """The DSN session locks run on, or None when there is no Postgres to lock on.
+
+    Raises when the process is configured with a Postgres database and no lock
+    DSN (`require_direct_dsns` catches that at start; this is the same rule at the
+    point of use). Quietly running unguarded there would be the fallback this
+    module exists to rule out: two replicas electing themselves leader, two ingest
+    jobs replacing the same document, and nothing in a log to say why.
+    """
     url = os.environ.get(LOCK_DB_ENV)
     if url:
         return url if url.startswith("postgres") else None
@@ -55,6 +118,12 @@ _LOCK_ENGINES_GUARD = threading.Lock()
 
 
 def _lock_engine(url: str):
+    """An engine that never pools: closing a lock's connection ends its session.
+
+    Kept apart from every other engine, because a lock is held for as long as the
+    work it guards takes, and every holder would otherwise pin one of the
+    connections the same work needs for its own writes.
+    """
     with _LOCK_ENGINES_GUARD:
         engine = _lock_engines.get(url)
         if engine is None:
@@ -74,6 +143,7 @@ def _lock_engine(url: str):
 
 
 def _close(conn) -> None:
+    """End the lock's session. On a never-pooled engine that releases whatever it held."""
     if conn is None:
         return
     with contextlib.suppress(Exception):
@@ -81,6 +151,7 @@ def _close(conn) -> None:
 
 
 def _release(conn, unlock_sql: str, params: dict) -> None:
+    """Unlock, then end the session; the close releases the lock even when the unlock fails."""
     from sqlalchemy import text
 
     try:
@@ -91,6 +162,10 @@ def _release(conn, unlock_sql: str, params: dict) -> None:
 
 
 def _try_leader(url: str, lock_id: int):
+    """``(granted, connection)``: the connection holding the lock when it was won, else None.
+
+    Fail-closed: an error is ``(False, None)``, logged. The caller's schedule retries.
+    """
     from sqlalchemy import text
 
     conn = None
@@ -109,6 +184,14 @@ def _try_leader(url: str, lock_id: int):
 
 @contextlib.contextmanager
 def leader_lock(lock_id: int):
+    """Context manager yielding True if this process should run the work.
+
+    Yields False when another replica holds the Postgres advisory lock, and also
+    when the lock cannot be taken at all (logged at WARNING): nobody leads that
+    cycle and the next tick tries again. Releases on exit. Never raises on a
+    database fault; a process that has Postgres but no ``LOCK_DB_URL`` is a
+    configuration error and does raise.
+    """
     url = _lock_url()
     if url is None:
         yield True
@@ -124,6 +207,7 @@ def leader_lock(lock_id: int):
 
 @contextlib.asynccontextmanager
 async def leader_lock_async(lock_id: int):
+    """:func:`leader_lock` for an event loop: connect, lock and unlock run on a thread."""
     election = leader_lock(lock_id)
     granted = await asyncio.to_thread(election.__enter__)
     try:
@@ -155,6 +239,13 @@ def _keyed_lock_timeout_seconds() -> int:
 
 
 def _acquire_keyed(key: str):
+    """The connection holding ``key``'s advisory lock, or None when there is no Postgres to lock on.
+
+    The wait is bounded by ``KEYED_LOCK_TIMEOUT_SECONDS`` (``lock_timeout``
+    on the lock's own session, which advisory lock waits honour). Raises when
+    the lock cannot be taken, a timeout included: the caller must not proceed
+    unguarded.
+    """
     url = _lock_url()
     if url is None:
         return None
@@ -180,6 +271,25 @@ def _acquire_keyed(key: str):
 
 @contextlib.contextmanager
 def keyed_lock(key: str):
+    """Hold ``key`` for the body: other threads here, and other replicas on Postgres, wait.
+
+    Blocking, not a try-lock: the caller has work that must happen, only not at
+    the same time as another holder's. The key is hashed to the advisory lock's
+    32-bit half, so two different keys can share a lock and serialise needlessly,
+    never the reverse.
+
+    A replica that exits, or whose process dies on a live node, closes its
+    connection, and Postgres releases what the session held at once. A node that
+    dies without closing TCP does not: its session, and the lock, stay until the
+    server's TCP keepalives (set in the Postgres deployment) end it. The wait is
+    therefore bounded, by ``KEYED_LOCK_TIMEOUT_SECONDS``.
+
+    Fail-closed: with no Postgres (single-node dev, the tests) only the process
+    lock holds, but with Postgres an unreachable lock database, or a wait that
+    timed out, raises, logged, and the body does not run. The caller's attempt
+    fails and is retried, which is cheaper than two replicas replacing the same
+    document at once.
+    """
     with _process_lock(key):
         conn = _acquire_keyed(key)
         try:
@@ -195,6 +305,12 @@ def keyed_lock(key: str):
 
 @contextlib.asynccontextmanager
 async def keyed_lock_async(key: str):
+    """:func:`keyed_lock` for an event loop: waiting for the lock, taking it and releasing it run on a thread.
+
+    Held across the awaited body. For a start-up step that other replicas run at
+    the same time and that cannot share a transaction, such as LangGraph's
+    ``setup()`` (``CREATE INDEX CONCURRENTLY``). Fail-closed like the sync form.
+    """
     hold = keyed_lock(key)
     await asyncio.to_thread(hold.__enter__)
     try:

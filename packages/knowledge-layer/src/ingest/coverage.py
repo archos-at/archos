@@ -1,3 +1,19 @@
+"""How much of a PDF the ingest read, and why the rest was not read.
+
+A page can need more than its text layer: a drawing is read by the vision model,
+a scan or a garbled text layer is transcribed. Each of those can fail, be cut
+off at a cap, or not happen because no vision model is configured, and until
+now each such page was skipped with a warning in the log. The person saw a
+complete-looking document. This record makes it a number on the document
+("38 von 40 Seiten vollständig gelesen") and says what kept the rest out.
+
+``not_read`` counts pages that needed a vision read (a drawing or a scan) and did
+not get one. Such a page may still have its text layer in the index, so it is
+"not fully read", not "missing".
+
+Shape: ``docs/architecture/document-dossier.md`` (``coverage``).
+"""
+
 from __future__ import annotations
 
 from collections.abc import Collection
@@ -20,6 +36,15 @@ def reading_coverage(
     not_transcribed: int,
     vision_configured: bool,
 ) -> dict[str, Any] | None:
+    """The coverage record of one PDF. Pure; ``None`` for a document without pages.
+
+    ``drawing_pages`` is what the triage called a drawing (``None`` when it could
+    not measure the PDF, and then only what was rendered is known); ``rendered``
+    and ``read`` are the drawing pages rendered and the ones the vision model
+    returned an analysis for. The transcription counts come from the triage's
+    :class:`~knowledge_layer.ingest.transcription.TranscriptionOutcome`;
+    ``not_transcribed`` are the scans left untranscribed for want of a vision model.
+    """
     if page_count <= 0:
         return None
     drawings = len(drawing_pages) if drawing_pages is not None else rendered
@@ -44,6 +69,11 @@ def reading_coverage(
 
 
 def image_coverage(*, read: bool) -> dict[str, Any]:
+    """The coverage record of a standalone image: one page, read by the vision model or not at all. Pure.
+
+    An image has no text layer, so a failed read leaves nothing of it: the record
+    says so (``vision_failed``) rather than the file only vanishing from the index.
+    """
     return {
         "pages": 1,
         "text": 0,

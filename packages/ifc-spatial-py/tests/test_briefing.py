@@ -50,8 +50,6 @@ def _named_spaces(tmp_path: Path, names: list[str]) -> SpatialModel:
     return SpatialModel(str(path))
 
 
-
-
 def test_classifies_german_room_names(german: SpatialModel) -> None:
     rooms = {room.name: room for room in classify_rooms(german)}
     assert rooms["Wohnzimmer"].kind == "habitable_room"
@@ -126,8 +124,6 @@ def test_inventory_without_spaces_is_undecidable_not_empty(spaceless: SpatialMod
     assert "IfcSpace exportieren" in answer.missing.remedy
 
 
-
-
 def _spots(model: SpatialModel) -> dict[str, str]:
     return {spot.what: spot.consequence for spot in find_blind_spots(model)}
 
@@ -176,8 +172,6 @@ def test_unresolved_openings_are_reported_separately_from_a_missing_relation(
     assert not any("ohne auflösbare Wandzuordnung" in k for k in spots)
 
 
-
-
 def test_dialect_publishes_this_file_s_own_vocabulary(house: SpatialModel) -> None:
     entries, scanned, sampled = measure_dialect(house)
     assert scanned > 0 and sampled is False
@@ -194,8 +188,6 @@ def test_absent_decisive_properties_are_named_rather_than_left_invisible(house: 
     assert "ThermalTransmittance" not in absent
 
 
-
-
 def test_storey_heights_carry_the_caveat_that_makes_them_safe(house: SpatialModel) -> None:
     answer = storey_heights(house)
     assert answer.decidable and answer.provenance == "declared"
@@ -210,8 +202,6 @@ def test_storey_heights_are_undecidable_below_two_elevations(spaceless: SpatialM
         pytest.skip("fixture declares two storey elevations")
     assert answer.missing.what == "IfcBuildingStorey.Elevation"
     assert "Höhenlage" in answer.missing.remedy or "Geschoße" in answer.missing.remedy
-
-
 
 
 def test_render_is_deterministic(house: SpatialModel) -> None:

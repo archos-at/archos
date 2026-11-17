@@ -145,8 +145,6 @@ TITLE_MATCH_CHARS = 12
 PageReader = Callable[[str], list[dict[str, Any]]]
 
 
-
-
 @dataclass(frozen=True)
 class Candidate:
     """A line that looks like a numbered heading, before the guards run."""
@@ -365,8 +363,6 @@ def guideline_key(file_name: str) -> str:
     from knowledge_layer.ingest import guideline_key as shared_key
 
     return shared_key(file_name)
-
-
 
 
 def make_page_reader() -> PageReader | None:

@@ -1,3 +1,18 @@
+"""The room: who has the document open, and Piloti's own hand in it (``room``, ``point``, ``highlight``).
+
+``room`` is what lets Piloti resolve „das hier“ and „diese Stelle“ the way a
+colleague at the same table would: it reads who is looking at which page and
+which part of it, which mark each has selected and which box each is drawing.
+``point`` and ``highlight`` are the gesture back: a cursor and a labelled box
+everyone in the document sees, gone when the turn ends (``presence.py``). The
+frame is the canvas's everywhere: shares of the page as shown, origin top left.
+
+The BFF side is the realtime layer's presence snapshot and publish, behind the
+same internal route as the Anmerkungen. A gesture renews Piloti's presence, which
+lapses about 25 s after the last one; ``leave`` takes it down at once. The room
+lists the people in the document, never this conversation's own Piloti.
+"""
+
 from __future__ import annotations
 
 import math
@@ -38,6 +53,7 @@ def _label(label: str, limit: int, *, required: bool) -> str | None:
 
 
 def point_payload(page: object, x: object, y: object, label: str) -> dict[str, Any]:
+    """The ``point`` body, checked here so the model can fix it before the BFF refuses."""
     payload: dict[str, Any] = {"op": "point", "page": _page(page), "x": _share(x, "x"), "y": _share(y, "y")}
     if (text := _label(label, MAX_POINT_LABEL, required=False)) is not None:
         payload["label"] = text
@@ -45,6 +61,7 @@ def point_payload(page: object, x: object, y: object, label: str) -> dict[str, A
 
 
 def highlight_payload(page: object, x: object, y: object, w: object, h: object, label: str) -> dict[str, Any]:
+    """The ``highlight`` body: a box on the page, clamped onto it when it pokes past an edge by a hair."""
     left, top, width, height = _share(x, "x"), _share(y, "y"), _share(w, "w"), _share(h, "h")
     if width <= 0 or height <= 0:
         raise Refused("Error: `highlight` needs `w` and `h` greater than 0.")
@@ -69,6 +86,7 @@ def _num(value: object) -> str:
 
 
 def _box_words(box: object) -> str | None:
+    """A drawn box as „p. 2, x 0.30–0.40, y 0.50–0.60“, or None when there is none."""
     if not isinstance(box, dict):
         return None
     x, y, w, h = (box.get(key) for key in ("x", "y", "w", "h"))
@@ -80,6 +98,7 @@ def _box_words(box: object) -> str | None:
 
 
 def _viewport_words(viewport: object) -> str | None:
+    """Where a reader is looking: the page, and how far down it the view sits (``{page, y}``)."""
     if not isinstance(viewport, dict) or not isinstance(viewport.get("page"), int):
         return None
     try:
@@ -105,6 +124,7 @@ def _peer_line(peer: dict[str, Any]) -> str:
 
 
 def render_room(body: dict[str, Any]) -> str:
+    """Who is in the document and where, as English lines a model can resolve „hier“ against."""
     peers = [peer for peer in body.get("peers") or [] if isinstance(peer, dict)]
     marks = body.get("marks") if isinstance(body.get("marks"), dict) else {}
     named = f"„{body['documentName']}“" if body.get("documentName") else "the document"
@@ -120,6 +140,7 @@ def render_room(body: dict[str, Any]) -> str:
 
 
 def room_observation(body: dict[str, Any]) -> dict[str, Any]:
+    """What the room held, as counts: never a name."""
     peers = [peer for peer in body.get("peers") or [] if isinstance(peer, dict)]
     return {
         "document": body.get("documentId"),

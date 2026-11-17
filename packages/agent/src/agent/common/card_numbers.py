@@ -1,3 +1,30 @@
+"""What makes a run of digits a payment-card number: the content screen's card rules.
+
+Pure, and a leaf: :mod:`agent.common.content_screen` finds the runs and the
+reading, and asks this module whether a stretch of digit groups is a card and
+whether a card printed as one unbroken number has a card's words beside it. Its
+TypeScript twin is ``apps/workspace/bff/upload-screening/card-numbers.ts``; both
+are held to the shared fixture ``tests/fixtures/content_screen_cases.json``.
+
+A card is printed in a few layouts (one unbroken number of 13-19 digits, 4-4-4-4
+with a last group of 1-4, 4-6-5 for American Express, 4-6-4 for Diners), starts
+in a card network's issuer range and passes Luhn.
+
+The checksum alone is a weak gate: one number in ten passes Luhn, and the issuer
+ranges cover a third of all prefixes, so about one long number in thirty looks
+like a card. A number printed in a card's own groups is rare enough elsewhere for
+that to hold. An UNBROKEN number is not: article and EAN codes, order, meter and
+file numbers are printed that way, and a PDF's extraction glues table cells into
+one. So an unbroken number is a card only with a card's word within
+:data:`CARD_CONTEXT_REACH` characters of it (:data:`CARD_CONTEXT_WORDS`), the
+way commercial DLP classifiers raise a bare checksum match only with a keyword
+beside it. The words are matched in the folded text at a word start and may run
+on (``card`` finds ``Cardnumber``, ``karte`` finds ``Kartennr.``); a column's
+label (:data:`CARD_PAGE_LABELS`) counts anywhere on the page. The 4-6-5 and
+4-6-4 layouts are each one network's, so they count only in its range, and a
+row of four-digit groups that all end in 0 or 5 is a dimension chain.
+"""
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -34,6 +61,7 @@ CARD_PAGE_LABELS: tuple[str, ...] = ("kartennummer", "kartennr", "kreditkartennu
 
 
 def luhn_valid(digits: str) -> bool:
+    """The Luhn check every payment-card number carries. Pure."""
     total = 0
     for index, char in enumerate(reversed(digits)):
         value = int(char) * (2 if index % 2 else 1)
@@ -49,6 +77,7 @@ def valid_card(digits: str) -> bool:
 
 
 def card_layout(sizes: tuple[int, ...]) -> bool:
+    """Whether groups of these sizes are a card's layout: unbroken, 4-4-4-4 (last group 1-4), 4-6-5 or 4-6-4."""
     if len(sizes) == 1:
         return 13 <= sizes[0] <= 19
     if sizes in _NETWORK_SPLITS:
@@ -57,20 +86,29 @@ def card_layout(sizes: tuple[int, ...]) -> bool:
 
 
 def wrapped_card_layout(sizes: tuple[int, ...]) -> bool:
+    """A card wrapped at a line end counts in one layout only, four groups of four: table rows are not cards."""
     return sizes == (4, 4, 4, 4)
 
 
 def _network_fits(sizes: tuple[int, ...], digits: str) -> bool:
+    """Whether a network's own layout carries that network's digits (4-6-5 is Amex, 4-6-4 Diners)."""
     prefixes = _NETWORK_SPLITS.get(sizes)
     return prefixes is None or digits[:2] in prefixes
 
 
 def _measures(groups: list[str]) -> bool:
+    """Whether every group of four ends in 0 or 5: a dimension chain in millimetres, not a card.
+
+    A drawing's text layer prints its dimension chains as rows of four-digit
+    millimetre values (``3500 4200 3800 1250``), which pass Luhn in a card's
+    range one time in twenty. A card's four groups all end so one time in 625.
+    """
     fours = [group for group in groups if len(group) == 4]
     return len(fours) >= 3 and all(group[-1] in "05" for group in fours)
 
 
 def _stands_alone(groups: list[str], first: int, last: int) -> bool:
+    """Whether the groups ``first`` to ``last`` are not cut out of a longer number printed in fours."""
     before = first == 0 or len(groups[first - 1]) != 4
     after = last == len(groups) or len(groups[last]) != 4 or last == len(groups) - 1
     return before and after
@@ -79,6 +117,16 @@ def _stands_alone(groups: list[str], first: int, last: int) -> bool:
 def cards_in(
     groups: list[tuple[str, int, int]], layout: Callable[[tuple[int, ...]], bool] = card_layout
 ) -> Iterator[tuple[str, int, int, bool]]:
+    """Each card among a run's digit groups: its digits, its start and end in the run, and whether it is unbroken.
+
+    A card is some consecutive groups that have a card's layout and pass its
+    checksum; the leftmost start wins and takes the longest such stretch. What
+    stands before it (a position) or after it (an expiry, a security code) is
+    not part of it. A group of four digits beside it is, though: it makes the
+    card a piece of a longer number printed in fours, which is judged as a
+    whole, so a table of years gets no sliding window. The last group may be
+    four digits long: it is the security code.
+    """
     digits_of = [digits for digits, _, _ in groups]
     first = 0
     while first < len(groups):
@@ -99,6 +147,13 @@ def cards_in(
 
 
 def context_window(text: str, start: int, end: int, is_letter: Callable[[str], bool]) -> tuple[int, int]:
+    """Where a card's word is looked for around ``text[start:end]``: whole words, :data:`CARD_CONTEXT_REACH` out. Pure.
+
+    The window starts at a word start (a word cut by the left edge is skipped,
+    so ``card`` in ``Ricardo`` does not count, and neither does a word that
+    starts out of reach) and ends at a word end (a word cut by the right edge is
+    read whole, so ``Visa`` at the 47th character counts).
+    """
     begin, stop = max(0, start - CARD_CONTEXT_REACH), min(len(text), end + CARD_CONTEXT_REACH)
     if begin > 0 and is_letter(text[begin - 1]):
         while begin < start and is_letter(text[begin]):
@@ -109,6 +164,11 @@ def context_window(text: str, start: int, end: int, is_letter: Callable[[str], b
 
 
 def has_word(folded: str, words: tuple[str, ...], is_letter: Callable[[str], bool]) -> bool:
+    """Whether one of ``words`` starts a word somewhere in ``folded``. Pure.
+
+    ``folded`` begins at a word start. ``is_letter`` is the screen's own
+    letter test, so a word inside another (``Ricardo``) does not count.
+    """
     for word in words:
         at = folded.find(word)
         while at != -1:

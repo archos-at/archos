@@ -87,8 +87,6 @@ class Inputs:
     embedded_now: int = 0
 
 
-
-
 def indexed_chunks(raw: Sequence[corpus.Chunk]) -> list[IndexedChunk]:
     """The harness chunks with UUID ids (a chunk id that is a UUID is its own Qdrant point id)."""
     return [
@@ -126,8 +124,6 @@ def embed_inputs(inputs: Inputs, embedder: Embedder) -> None:
     inputs.embedded_now = embedder.embedded_now
 
 
-
-
 class Corpus:
     """Lookups over the indexed chunks under production's base filter."""
 
@@ -161,8 +157,6 @@ class Corpus:
 
 def _graded(judgements: Sequence[qrels.Judgements]) -> list[dict]:
     return [dict(judged.graded) for judged in judgements]
-
-
 
 
 def measure_lexical(inputs: Inputs, corpus_view: Corpus, retriever: Any) -> dict[str, Any]:
@@ -328,8 +322,6 @@ def measure_dimension(inputs: Inputs, corpus_view: Corpus, client: Any | None) -
     return result
 
 
-
-
 def environment(qdrant_url: str) -> dict[str, str]:
     info = {
         "python": platform.python_version(),
@@ -456,8 +448,6 @@ def _plain(value: Any) -> Any:
     if isinstance(value, float):
         return round(value, 4)
     return value
-
-
 
 
 def _fmt(value: Any) -> str:
@@ -604,8 +594,6 @@ def render_markdown(report: dict[str, Any]) -> str:
     for verdict in report["verdicts"]:
         lines.append(f"| {verdict['gate']} | {verdict['status']} | {verdict['detail']} |")
     return "\n".join(lines) + "\n"
-
-
 
 
 def load_inputs(embedder_name: str, cache_dir: Path) -> Inputs:

@@ -1,3 +1,5 @@
+"""The file-operation proposal card: moves, renames, new folders and assignments waiting for the person's yes."""
+
 from typing import Literal
 
 from pydantic import Field
@@ -13,6 +15,21 @@ FileOperationKind = Literal["move", "rename", "create_folder", "assign"]
 
 
 class FileOperationItem(CardModel):
+    """One proposed change, in the vocabulary of the operation that owns it.
+
+    Deliberately flat with per-operation fields rather than a nested union: the
+    card is built by the tool, validated once here, and rendered by one
+    component that switches on the CARD's `operation` — a shape the frontend's
+    generated Zod can narrow without a second discriminator inside every row.
+    :meth:`FileOperationProposalCard._require_operation_fields` is what keeps a
+    row from carrying another operation's fields.
+
+    ``document`` is a FILE NAME and never an id. The agent's inventory
+    (``knowledge/inventory.py``) knows files by ``(collection, file_name)`` and
+    has no document ids in it at all, so a card carrying an id would be
+    carrying something the tool invented. The reader's session resolves the
+    name against their own document list when they accept.
+    """
 
     document: str | None = Field(
         default=None,
@@ -48,6 +65,17 @@ class FileOperationItem(CardModel):
 
 
 class FileOperationProposalCard(CardModel):
+    """A workspace change the agent PROPOSES and a person applies.
+
+    System-emitted by ``propose_file_change`` (``packages/agent/src/agent/tools/files/``).
+    Every operation is a write, none of them writes: the tool's own result text
+    says plainly that nothing has changed yet. With ``proposal_id`` the card
+    shows a proposal stored on the server (ADR-0105), which the server applies
+    in the accepting person's session; it then carries the one operation of
+    the call that created it. Without one (an older BFF, a run with no
+    envelope, a refusal) the proposal was not stored: the UI draws the card
+    read-only, saying so, and the browser executes nothing.
+    """
 
     type: Literal["file_operation_proposal"] = "file_operation_proposal"
     title: str = Field(min_length=1, description="Short action title, e.g. 'Vier Dateien in „Einreichung“ verschieben'")
@@ -69,6 +97,13 @@ class FileOperationProposalCard(CardModel):
 
     @model_validator(mode="after")
     def _require_operation_fields(self) -> FileOperationProposalCard:
+        """Every entry must carry what its verb needs, and nothing it does not.
+
+        The card is built in Python, so this is not a guard against a model —
+        it is the guard against a TOOL that grows a fifth caller and forgets a
+        field. A row missing its target renders as a proposal to do nothing,
+        which the reader would accept.
+        """
         required: dict[str, tuple[str, ...]] = {
             "move": ("document", "target_folder"),
             "rename": ("document", "new_display_name"),

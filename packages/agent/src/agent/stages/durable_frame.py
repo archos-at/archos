@@ -1,3 +1,22 @@
+"""A stage's frame, stored on its answer by this tier rather than by the browser alone.
+
+The frame reaches the message row through the browser that receives it
+(``_persistStageOutput`` in the chat stores), so it is lost when no browser is
+attached when the stage ends: the person opened another chat, or closed the
+tab. For a stage that SAVES something the reader was promised to see under the
+answer (memory reflection), that loss breaks the promise, so the stage also
+hands its payload to ``PATCH /api/internal/conversations/{id}/messages/{answer}/stages``.
+The BFF stores it with the browser path's sanitiser and merge, so the two
+writers converge and either may land first (post-answer-stages §11 risk 3).
+
+The write is detached from the stage: it never delays the frame, never counts
+against the stage's timeout, and never fails it. The answer row is written by
+the agent host in the background, possibly after the stage, so a 404 is retried
+on :data:`RETRY_DELAYS_S` and then given up with a named reason, in the log and
+on a profiler span (``stage:<id>:durable``, outcome ``stored`` or ``gave_up``). The notes themselves are already
+stored by then; what is lost is only their place under the answer.
+"""
+
 from __future__ import annotations
 
 import asyncio
@@ -18,10 +37,16 @@ _sleep = asyncio.sleep
 
 
 def stages_path(conversation_id: str, message_id: str) -> str:
+    """The internal route that stores a stage's frame on one answer."""
     return f"/api/internal/conversations/{conversation_id}/messages/{message_id}/stages"
 
 
 def schedule_durable_frame(facts: TurnFacts, stage_id: str, payload: dict[str, Any]) -> asyncio.Task[str] | None:
+    """Start storing ``payload`` on the turn's answer, detached. Never raises.
+
+    ``None`` when the turn cannot be addressed (no envelope, off the chat
+    socket); that is recorded as the outcome instead.
+    """
     try:
         missing = _missing_identity(facts)
         if missing:
@@ -58,6 +83,11 @@ async def _write_and_record(facts: TurnFacts, stage_id: str, message_id: str, pa
 async def write_durable_frame(
     facts: TurnFacts, stage_id: str, message_id: str, payload: dict[str, Any]
 ) -> tuple[int, str]:
+    """``(attempts, reason)``: ``stored``, or why it gave up. Never raises.
+
+    Retried: a 404 (the answer row is not written yet) and a request that did
+    not complete. Final: any other refusal, and a missing service token.
+    """
     missing = _missing_identity(facts)
     if missing or facts.envelope is None or not facts.conversation_id:
         return 0, missing or "no_envelope"
@@ -75,6 +105,7 @@ async def write_durable_frame(
 
 
 async def _attempt(stage_id: str, path: str, body: dict[str, Any], headers: dict[str, str]) -> tuple[str, bool]:
+    """One write: ``(reason, final)``. Not final means the next attempt may succeed."""
     try:
         await asyncio.to_thread(bff_http.send, "PATCH", path, timeout=_REQUEST_TIMEOUT_S, body=body, headers=headers)
     except bff_http.BffNotConfiguredError:
@@ -90,6 +121,7 @@ async def _attempt(stage_id: str, path: str, body: dict[str, Any], headers: dict
 
 
 def _record(facts: TurnFacts, stage_id: str, outcome: str, reason: str, *, attempts: int) -> None:
+    """The outcome, in the log and on one profiler span. Never raises."""
     level = logging.INFO if outcome == "stored" else logging.WARNING
     logger.log(
         level,

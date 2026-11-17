@@ -265,8 +265,6 @@ def _dimensions(model: SpatialModel, global_id: str) -> tuple[float, float]:
     return float(box["width"]), float(box["depth"])
 
 
-
-
 def test_the_largest_circle_in_a_rectangular_room_is_its_own_clear_width(house: SpatialModel) -> None:
     for space, expected in ((BEDROOM, min(_dimensions(house, BEDROOM))), (ENTRANCE_HALL, None)):
         answer = ac.turning_circle(house, space)
@@ -381,8 +379,6 @@ def test_turning_circle_is_aimed_at_a_room(house: SpatialModel) -> None:
     assert "clearApproach" in str(raised.value)
 
 
-
-
 def test_a_real_step_between_two_rooms_is_measured(stepped: SpatialModel) -> None:
     answer = ac.threshold_height(stepped, SYNTH_DOOR)
     assert answer.decidable
@@ -435,8 +431,6 @@ def test_a_window_has_no_threshold(house: SpatialModel) -> None:
         ac.threshold_height(house, BEDROOM_WINDOW)
     assert "IfcDoor" in str(raised.value)
     assert "sillAndHead" in str(raised.value)
-
-
 
 
 def test_a_window_over_a_drop_is_found_with_its_fall_and_its_parapet(stepped_with_railing: SpatialModel) -> None:
@@ -513,8 +507,6 @@ def test_balustrade_check_is_aimed_at_a_room_or_an_opening(house: SpatialModel) 
     assert "IfcSpace" in str(raised.value)
 
 
-
-
 def test_the_free_depth_in_front_of_a_door_is_the_room_behind_it(house: SpatialModel) -> None:
     answer = ac.clear_approach(house, INTERNAL_DOOR)
     assert answer.decidable
@@ -573,8 +565,6 @@ def test_clear_approach_is_aimed_at_an_opening(house: SpatialModel) -> None:
     with pytest.raises(WrongKindError) as raised:
         ac.clear_approach(house, BEDROOM)
     assert "turningCircle" in str(raised.value)
-
-
 
 
 def _answers(model: SpatialModel) -> list[Answer[Any]]:

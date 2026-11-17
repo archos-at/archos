@@ -1,3 +1,5 @@
+"""Small helpers the tools share: clamping, lowering, the node walk, the element selection and the JSON-safe view."""
+
 from __future__ import annotations
 
 import dataclasses
@@ -11,13 +13,19 @@ from ifc_spatial.tools_types import ToolError
 from .model import SpatialModel
 
 
-
 def _select(
     model: SpatialModel,
     args: dict[str, Any],
     limit: int,
     subject_types: tuple[str, ...] = (),
 ) -> tuple[list[Any], int]:
+    """The selection half of `find_elements`, shared with `survey`.
+
+    Kept as one function so the two tools cannot drift: a caller who scopes
+    a survey with `storey="Keller"` has to get exactly the set that
+    `find_elements(storey="Keller")` lists, or the names beside the numbers
+    would be answering a different question than the numbers.
+    """
     wanted_type = _lower(args.get("ifcType"))
     wanted_name = _lower(args.get("nameContains"))
     wanted_storey = _lower(args.get("storey"))
@@ -46,8 +54,6 @@ def _select(
     return matches, total
 
 
-
-
 def _nodes(model: SpatialModel) -> list[Any]:
     return [
         *model.file.by_type("IfcProject"),
@@ -57,6 +63,13 @@ def _nodes(model: SpatialModel) -> list[Any]:
 
 
 def _jsonable(value: Any) -> Any:
+    """Everything this package returns, as plain JSON types.
+
+    Answers, element refs and room proposals all carry a ``to_dict``; NumPy
+    scalars and arrays arrive from the geometry operators and are not JSON at
+    all. Converting here rather than in each handler is what keeps a new
+    operator from silently serialising as ``"<ndarray object at 0x…>"``.
+    """
     if isinstance(value, (str, bool, int)) or value is None:
         return value
     if isinstance(value, float):
@@ -93,6 +106,7 @@ def _clamp(value: Any, low: int, high: int) -> int:
 
 
 def _require(args: dict[str, Any], key: str) -> str:
+    """A required GlobalId, or a mistake the model can correct."""
     value = args.get(key)
     if not isinstance(value, str) or not value.strip():
         raise ToolError(f"{key} fehlt — eine GlobalId angeben (aus find_elements)")

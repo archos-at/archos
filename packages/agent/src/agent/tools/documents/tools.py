@@ -1,3 +1,46 @@
+"""Piloti's file verbs: the drafts' four, and the estate's readers beside them (ADR-0133).
+
+Two shapes, chosen per turn:
+
+* **The drafts alone** (:func:`draft_tools`, a turn with no estate backend):
+  stock DeepAgents tools over :class:`DraftBackend`, as before ADR-0133.
+* **One namespace** (:func:`filesystem_tools`): the same tools over a
+  ``CompositeBackend`` whose default is the read-only estate
+  (``knowledge_layer.estate.backend``) and whose ``/drafts/`` route is the draft store.
+  ``read_file`` then reads both, and renders grounding blocks on the estate
+  (``filesystem.DocumentFilesystem``).
+
+The drafts-only notes follow.
+
+The four file verbs over the drafts, and nothing else.
+
+``ls``, ``read_file``, ``write_file``, ``edit_file`` — stock DeepAgents tools
+over :class:`~agent.tools.documents.draft_store.DraftBackend`. The
+middleware's ``tools=`` allowlist builds only these four: ``glob`` and ``grep``
+buy nothing over one flat directory of at most a handful of files, ``execute``
+has no sandbox behind it, and ``delete`` (DeepAgents 0.7, recursive, offered
+whenever the backend implements it, which ``StoreBackend`` does) would let the
+model drop a draft the reader has a card for.
+
+The descriptions are our own (English, like everything an agent reads; the
+documents the model writes are German), because the tool description is the
+last thing it reads before choosing a verb. Two things
+they deliberately do NOT say:
+
+* **"You must read the file before editing it."** DeepAgents' stock text claims
+  it; nothing enforces it here, and an instruction the system does not check is
+  one the model learns to ignore.
+* **Anything about filing.** The working directory is not the project. What a
+  draft becomes is decided by a person, through the lifecycle API.
+
+The same ``read_file`` reads the turn's skills (ADR-0135): the run's
+``SkillsBackend`` is routed under ``/skills/`` beside the working directory
+(and beside the estate, in the one-namespace shape), read-only, so one verb
+serves all of them and a turn with no conversation still gets ``read_file``
+for its skills. A tool name is unique in a binding, which is why the skills
+do not get a ``read_file`` of their own.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -127,6 +170,15 @@ _READ_SKILLS_ONLY = f"Reads {_SKILL_READ}"
 def filesystem_tools(
     drafts: DraftBackend | None, estate: Any, *, skills: BackendProtocol | None = None
 ) -> list[BaseTool]:
+    """The turn's file verbs over one namespace: the estate's readers, plus the drafts' verbs when there are drafts.
+
+    ``estate`` is the knowledge layer's ``EstateBackend`` (built once, at boot);
+    ``drafts`` the conversation's draft store, or ``None`` on a turn without a
+    conversation; ``skills`` the turn's skills backend, a read-only ``/skills/``
+    route beside ``/drafts/``. The tools are built per turn because the draft
+    store and the skills are; their descriptions are the same on every turn, so
+    the tool payload varies only with whether the two writing verbs are bound.
+    """
     names = [*ESTATE_TOOL_NAMES, *(DRAFT_ONLY_TOOL_NAMES if drafts is not None else ())]
     permissions = list(_PERMISSIONS)
     if skills is not None:
@@ -145,6 +197,12 @@ def filesystem_tools(
 
 
 def draft_tools(backend: DraftBackend | None, *, skills: BackendProtocol | None = None) -> list[BaseTool]:
+    """The verbs for one turn without an estate: the four over the working directory, ``read_file`` over the skills.
+
+    With both, the skills backend is a ``/skills/`` route on a composite whose
+    default is the working directory; with skills alone, ``read_file`` is the
+    only verb. Every path outside the two roots is denied in the tool.
+    """
     if backend is None and skills is None:
         return []
     names = DRAFT_TOOL_NAMES if backend is not None else ("read_file",)
@@ -166,12 +224,19 @@ def draft_tools(backend: DraftBackend | None, *, skills: BackendProtocol | None 
 
 
 async def filesystem_tools_for_turn(estate: Any = None, *, skills: BackendProtocol | None = None) -> list[BaseTool]:
+    """The file verbs for the turn in context.
+
+    Without an estate backend, exactly :func:`draft_tools_for_turn`. With one,
+    the estate's readers are bound on every turn, the drafts' verbs join them
+    when the turn has a working directory, and ``read_file`` reads the skills.
+    """
     if estate is None:
         return await draft_tools_for_turn(skills=skills)
     return filesystem_tools(await _turn_drafts(), estate, skills=skills)
 
 
 async def _turn_drafts() -> DraftBackend | None:
+    """This conversation's draft store; ``None`` with no conversation, or when the store cannot be reached."""
     conversation_id = get_conversation_id_from_context()
     if not conversation_id:
         return None
@@ -183,4 +248,13 @@ async def _turn_drafts() -> DraftBackend | None:
 
 
 async def draft_tools_for_turn(*, skills: BackendProtocol | None = None) -> list[BaseTool]:
+    """The file verbs for the turn in context without an estate; ``[]`` when it has neither drafts nor skills.
+
+    No conversation id means there is nothing to namespace a working directory
+    by (a CLI run, an eval, a job worker), so the turn is offered no draft verbs
+    at all rather than a directory shared by everyone. A store that cannot be
+    reached is the same answer: the turn answers without drafting, which is what
+    every turn did before this existed. ``skills``, the turn's skills backend,
+    is readable either way.
+    """
     return draft_tools(await _turn_drafts(), skills=skills)

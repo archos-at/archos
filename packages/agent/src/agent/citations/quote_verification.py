@@ -1,3 +1,8 @@
+"""Quote verification over an answer.
+
+Each quoted span is checked against the sources it cites, and marked when unverified.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -36,6 +41,16 @@ _QUOTE_SENTENCE_END_RE = re.compile(r"(?<!\d)\.(?!\d)|[!?…]|\n")
 
 
 def _quote_sentence_windows(body: str, start: int, end: int) -> tuple[tuple[int, int], tuple[int, int] | None]:
+    """The sentence holding ``[start, end)`` and the one right after it.
+
+    Returns ``(containing, following_or_None)`` as half-open offsets. A
+    boundary strictly INSIDE the span (``Pkt.`` in the quoted text) does not
+    split its window: the quote is one unit, and only the text around it is
+    judged. The lookahead exists for the two shapes that put the marker one
+    segment late — a citation trailing its sentence (``… Satz. [1] …``) and an
+    abbreviation split (``… „Quote" vgl. … [1].``). A quote two sentences from
+    any marker is unattributed under either window and is flagged.
+    """
     ends = list(_QUOTE_SENTENCE_END_RE.finditer(body))
     win_start = 0
     for match in ends:
@@ -55,6 +70,11 @@ def _quote_sentence_windows(body: str, start: int, end: int) -> tuple[tuple[int,
 
 
 def _quote_cited_numbers(body: str, start: int, end: int) -> set[int]:
+    """The ``[N]`` numbers in the quote's sentence, or in the next one when its own has none.
+
+    Empty is what makes a quote ``uncited``; the numbers are the sources its
+    nearest passage may come from.
+    """
     (win_start, win_end), following = _quote_sentence_windows(body, start, end)
     numbers = {int(n) for n in INLINE_CITATION_RE.findall(body, win_start, win_end)}
     if not numbers and following is not None:
@@ -64,6 +84,12 @@ def _quote_cited_numbers(body: str, start: int, end: int) -> set[int]:
 
 @dataclass(frozen=True)
 class _CitedSources:
+    """What some of the answer's source lines name: registry documents, and links the registry holds.
+
+    A document is its ``(collection, filename)``, page aside; a link is kept as
+    the registry's own URL, normalised, so a cited ``?id=5&utm_source=x``
+    matches the entry filed as ``?id=5``.
+    """
 
     documents: frozenset[tuple[str | None, str]] = frozenset()
     urls: frozenset[str] = frozenset()
@@ -75,6 +101,13 @@ class _CitedSources:
 
 
 class _CitedLookup:
+    """The sources a set of ``[N]`` names, read off ``answer_text``'s source lines.
+
+    Read with the same matchers as the source section, one line at a time, so
+    ``[1]`` resolves to what its line says and not to a neighbour's document.
+    The section is parsed once, on the first question, and each number set is
+    resolved once: only flagged quotes ask, and several share a sentence.
+    """
 
     def __init__(self, answer_text: str, registry: SourceRegistry) -> None:
         self._answer_text = answer_text
@@ -100,6 +133,12 @@ class _CitedLookup:
         return self._memo[key]
 
     def _resolve(self, lines: Sequence[str]) -> _CitedSources:
+        """The sources ``lines`` resolve to, resolved as ``verify_citations`` resolved them.
+
+        Not a filename scan of the line: ``Bauordnung.pdf`` is a substring of
+        ``NÖ Bauordnung.pdf``, and a scan would count the other Bundesland's
+        document as cited (ADR-0067).
+        """
         documents: set[tuple[str | None, str]] = set()
         urls: set[str] = set()
         for line in lines:
@@ -116,6 +155,15 @@ class _CitedLookup:
 def _nearest_cited(
     norm_quote: str, cited: _CitedSources, normalized_chunks: Sequence[tuple[str, SourceEntry]]
 ) -> tuple[SourceEntry | None, float]:
+    """The passage, among the sources the quote's sentence cites, its wording comes closest to.
+
+    Ranked by :func:`closeness`, the measure the quote patch gates on, not by
+    ``normalized_coverage``: coverage scores the longest contiguous run, so a quote
+    with two words changed scores like an invented one, and a neighbouring
+    page that shares one long phrase would outrank the page actually quoted.
+    Every page of a cited document is a candidate; the closest one is it.
+    Returns ``(passage, its closeness)``, ``(None, 0.0)`` when none is cited.
+    """
     best, nearest = -1.0, None
     for chunk, source in normalized_chunks:
         if not cited.holds(source):
@@ -127,15 +175,29 @@ def _nearest_cited(
 
 
 def _flag_reason(too_long: bool, uncited: bool) -> str:
+    """``too_long`` / ``uncited`` joined with ``+``, or ``not_verbatim`` when neither fired."""
     return "+".join(name for name, hit in (("too_long", too_long), ("uncited", uncited)) if hit) or "not_verbatim"
 
 
 def _answer_body_before_sources(answer_text: str) -> str:
+    """Return the answer prose before the ``## Sources``/references section.
+
+    Quote scanning must not touch the source section (source lines legitimately
+    quote titles/URLs). Falls back to the whole text when no section is present.
+    Positions in the returned prefix are valid offsets into ``answer_text``
+    because it is a leading substring.
+    """
     ref_match = REFERENCE_SECTION_RE.search(answer_text)
     return answer_text[: ref_match.start()] if ref_match else answer_text
 
 
 def _quoted_spans(body: str, min_quote_len: int) -> Iterator[tuple[re.Match[str], str, str]]:
+    """Each quotation in ``body`` long enough to check: ``(match, inner text, normalised inner)``.
+
+    Code is not prose and carries nothing to verify (see `code_spans`). It is
+    skipped by OFFSET rather than stripped out, so every match still indexes
+    the text the quote patch (`quote_patch.splice`) will be handed.
+    """
     code = code_spans(body)
     for match in QUOTED_SPAN_RE.finditer(body):
         if inside(match.start(), code):
@@ -149,6 +211,11 @@ def _quoted_spans(body: str, min_quote_len: int) -> Iterator[tuple[re.Match[str]
 
 
 def _verification_chunks(registry: SourceRegistry) -> list[tuple[str, SourceEntry]]:
+    """Every source's text a quote is matched against, normalised, with its source.
+
+    A licensed source's stored excerpt stops at its quote cap; the turn holds its passage whole
+    (``SourceRegistry.licensed_text``, ADR-0164), so a correct quote from later in it still verifies.
+    """
     licensed = getattr(registry, "licensed_text", {})
     return [
         (norm, source)
@@ -166,6 +233,27 @@ def verify_quoted_spans(
     min_quote_len: int = MIN_QUOTE_LEN,
     with_nearest: bool = True,
 ) -> list[UnverifiedQuote]:
+    """Return the quoted spans in the answer body not supported by any chunk text.
+
+    Whole-registry match: a span is "verified" when its normalized form is
+    fuzzily present (coverage ≥ ``threshold``) in the normalized chunk text of
+    ANY knowledge-layer source in the registry. Spans shorter than
+    ``min_quote_len`` (normalized) are skipped. Only the answer BODY is scanned
+    (never the source section). Fail-open: when no source carries chunk text
+    (e.g. URL-only web sources), there is nothing to verify against and an empty
+    list is returned — nothing is ever flagged on a best-effort miss.
+
+    Mechanical gates run first, on every span the fuzzy match would see: a span
+    over ``QUOTE_MAX_WORDS`` words, or with no ``[N]`` in its sentence, is
+    flagged (``reason="too_long"`` / ``"uncited"``) even when it IS verbatim —
+    verbatim is not attributable. Flagged means annotated downstream, never
+    stripped: the sentence stays, the marker names the doubt.
+
+    ``with_nearest`` fills ``UnverifiedQuote.nearest`` for the quote patch, on
+    a ``not_verbatim`` quote only: the patch never corrects the others, and
+    each page of each cited document costs a closeness pass. A caller that
+    never patches (deep research) passes ``False``.
+    """
     body = _answer_body_before_sources(answer_text)
     normalized_chunks = _verification_chunks(registry)
     if not normalized_chunks:

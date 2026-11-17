@@ -20,7 +20,6 @@ PRELUDE_SECTION = "prelude"
 INTERNAL_SECTIONS = frozenset({"operators", "security", "incident"})
 
 
-
 MIN_LENGTH = 20
 MAX_LENGTH = 400
 MAX_SENTENCES = 2
@@ -194,8 +193,6 @@ TEMPLATE_MARKERS = [
 
 def clean(text: str) -> str:
     return " ".join(text.split()).strip()
-
-
 
 
 def lint_note(filename: str, raw: str, valid_sections: set[str]) -> list[str]:

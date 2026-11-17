@@ -1,3 +1,35 @@
+"""Citation-health telemetry: one ledger row per turn per citation defect.
+
+Citation verification (``citations.verification.verify_citations`` /
+``verify_quoted_spans``) already *repairs* a turn — it drops unverifiable
+citations, annotates fabricated quotes, and caps the surfaced confidence. The
+user sees the outcome ("Ohne Quellenangabe", "3 Quellenangabe(n) entfernt",
+"Confidence: low"), but until now nothing recorded it, so nobody could answer
+"how often does this happen, to which organizations, and why?".
+
+This module is the answer. It is the citation-quality sibling of
+``profiler.py`` (timings) and the LLM cost ledger (spend): each research turn
+posts a small batch of events through the token-guarded internal BFF endpoint
+``POST /api/internal/citation-events``, and the platform owner reads the
+aggregate on the platform dashboard.
+
+Design notes:
+
+- **One row per (turn, kind).** Every observed turn emits exactly one
+  ``turn_verified`` baseline row, plus one row per defect detected. That makes
+  "turns observed" and "turns with defect X" both a plain ``COUNT`` — no jsonb
+  digging — and keeps the clean-rate denominator honest.
+- **No user prose ever leaves the backend.** Events carry machine reason keys,
+  counts, and coarse source metadata (origin/lane/tool names). Answer text,
+  quoted spans, and citation lines stay in the agent.
+- **Best-effort and non-blocking.** Emission never raises into the answer path
+  and never delays it: batches go to a daemon thread pool, exactly like the
+  profiler's ``wait=False`` flush.
+- **Correlated with the profiler.** The turn id is borrowed from the active
+  :class:`~agent.common.profiler.AgentProfiler` when one is running, so a
+  citation defect on the dashboard links to that turn's execution timeline.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -49,6 +81,7 @@ _MAX_DETAIL_LABELS = 12
 
 
 def normalize_removal_reason(reason: str) -> str:
+    """Collapse a ``verify_citations`` removal reason to a stable bucket key."""
     text = (reason or "").strip() or "unverifiable"
     if text.startswith(_DUPLICATE_REASON_PREFIX):
         return "duplicate"
@@ -56,6 +89,7 @@ def normalize_removal_reason(reason: str) -> str:
 
 
 def summarize_removal_reasons(removed_citations: list[dict[str, Any]]) -> dict[str, int]:
+    """Count normalized removal reasons across one turn's dropped citations."""
     counter: Counter[str] = Counter()
     for entry in removed_citations:
         raw = entry.get("reason") if isinstance(entry, dict) else None
@@ -71,6 +105,11 @@ _MAX_TARGETS = 10
 
 
 def extract_citation_target(line: str) -> str | None:
+    """Pull the cited URL or document key out of a dropped source line.
+
+    Returns ``None`` when the line carries no recognizable target (the model
+    wrote a bare title), so nothing resembling free prose is ever recorded.
+    """
     if not isinstance(line, str) or not line.strip():
         return None
     url_match = _TARGET_URL_RE.search(line)
@@ -83,6 +122,12 @@ def extract_citation_target(line: str) -> str | None:
 
 
 def summarize_removed_targets(removed_citations: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Which sources were dropped, and why — the diagnostic payload.
+
+    One entry per dropped citation that carried an identifiable target:
+    ``{"target": <url or file key>, "reason": <bucket>}``. Answer prose is
+    never included; a line with no extractable target is simply skipped.
+    """
     targets: list[dict[str, Any]] = []
     for entry in removed_citations:
         if not isinstance(entry, dict):
@@ -96,10 +141,9 @@ def summarize_removed_targets(removed_citations: list[dict[str, Any]]) -> list[d
     return targets
 
 
-
-
 @dataclass
 class CitationEvent:
+    """One citation-health observation for one turn."""
 
     kind: EventKind
     count: int = 1
@@ -116,9 +160,8 @@ class CitationEvent:
         }
 
 
-
-
 def _label_counts(values: list[str | None]) -> dict[str, int]:
+    """Count non-empty labels, capped, for an event's detail blob."""
     counter: Counter[str] = Counter(value for value in values if value)
     return dict(counter.most_common(_MAX_DETAIL_LABELS))
 
@@ -138,6 +181,13 @@ def build_turn_events(
     retrieved_source_labels: list[str] | None = None,
     cited_source_labels: list[str] | None = None,
 ) -> list[CitationEvent]:
+    """Turn one research turn's verification outcome into ledger events.
+
+    Always returns at least the ``turn_verified`` baseline row, so the clean
+    rate has a denominator even for a flawless turn. Pure and side-effect free
+    — :func:`record_turn` does the emitting, and the tests exercise this
+    function directly.
+    """
     removed = removed_citations or []
     source_mix = {
         "origins": _label_counts(source_origins or []),
@@ -221,7 +271,6 @@ def build_turn_events(
     return events
 
 
-
 _REQUEST_TIMEOUT_SECONDS = 5.0
 _MAX_EVENTS_PER_BATCH = 50
 _post_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="citation-events")
@@ -233,12 +282,14 @@ _dropped_batches = 0
 
 
 def _release_pending(_future: Any) -> None:
+    """Free a backlog slot once a batch has been posted (or failed)."""
     global _pending_batches
     with _pending_lock:
         _pending_batches -= 1
 
 
 def _submit_batch(payload: dict[str, Any]) -> bool:
+    """Queue a batch for posting; return False when the backlog is full."""
     global _pending_batches, _dropped_batches
     with _pending_lock:
         if _pending_batches >= _MAX_PENDING_BATCHES:
@@ -265,6 +316,7 @@ def _submit_batch(payload: dict[str, Any]) -> bool:
 
 
 def _events_enabled() -> bool:
+    """Whether citation-health telemetry is emitted (default on)."""
     return (os.environ.get("CITATION_EVENTS_ENABLED") or "true").strip().lower() not in {
         "0",
         "false",
@@ -274,6 +326,7 @@ def _events_enabled() -> bool:
 
 
 def _read_identity() -> dict[str, str | None]:
+    """Organization / conversation for the live request, if any."""
     try:
         from agent.project_context import get_conversation_id_from_context
         from agent.project_context import get_organization_id_from_context
@@ -288,6 +341,7 @@ def _read_identity() -> dict[str, str | None]:
 
 
 def _active_profiler() -> Any | None:
+    """The :class:`AgentProfiler` covering this turn, when one is active."""
     try:
         from agent.common.profiler import agent_profiler_var
 
@@ -301,6 +355,15 @@ def _resolve_context(
     identity: dict[str, str | None] | None,
     job_id: str | None,
 ) -> dict[str, str | None]:
+    """Resolve org / conversation / turn / job for one batch.
+
+    Precedence: an explicitly passed ``identity`` wins, then the active
+    profiler, then the live request context. The profiler tier is what makes
+    async deep-research jobs work — a research worker has no request headers, but
+    the job runner hands ``track_agent_profile`` the identity captured at
+    submit time. Reusing the profiler's ``turn_id`` also links a citation
+    defect to that turn's execution timeline on the platform dashboard.
+    """
     profiler = _active_profiler()
     resolved = dict(identity) if identity is not None else _read_identity()
     for key in ("organization_id", "conversation_id"):
@@ -313,6 +376,7 @@ def _resolve_context(
 
 
 def _post_batch(payload: dict[str, Any]) -> None:
+    """POST one batch to the BFF ledger endpoint. Best-effort, never raises."""
     try:
         bff_http.send("POST", "/api/internal/citation-events", timeout=_REQUEST_TIMEOUT_SECONDS, body=payload)
     except bff_http.BffNotConfiguredError:
@@ -326,6 +390,12 @@ def _post_batch(payload: dict[str, Any]) -> None:
 
 
 def _score_in_langfuse(events: list[CitationEvent], agent: str) -> None:
+    """The same outcome as scores on the turn's trace (``observability.langfuse_scores``). Never raises.
+
+    Independent of the BFF ledger: the ledger answers "how often, for which
+    organization", the scores put each turn's outcome next to its trace, its
+    vote and its prompt version.
+    """
     try:
         from agent.observability.citation_scores import citation_scores
         from agent.observability.langfuse_scores import emit_scores
@@ -343,6 +413,12 @@ def emit_events(
     identity: dict[str, str | None] | None = None,
     wait: bool = False,
 ) -> dict[str, Any] | None:
+    """Post ``events`` for one turn. Returns the payload (or ``None`` if skipped).
+
+    ``wait=True`` posts inline — used by callers with no daemon-safe teardown
+    (tests, job workers that exit immediately after the turn). Everything here
+    is wrapped so a telemetry failure can never surface in an answer.
+    """
     _score_in_langfuse(events, agent)
     if not events or not _events_enabled():
         return None
@@ -388,6 +464,11 @@ def record_turn(
     job_id: str | None = None,
     identity: dict[str, str | None] | None = None,
 ) -> dict[str, Any] | None:
+    """Record one research turn's citation health. Never raises.
+
+    Call once per turn, right after citation + quote verification has settled,
+    from the research agents (shallow and deep).
+    """
     try:
         events = build_turn_events(
             source_count=source_count,
@@ -417,6 +498,11 @@ def record_empty_registry(
     job_id: str | None = None,
     identity: dict[str, str | None] | None = None,
 ) -> dict[str, Any] | None:
+    """Record a turn that captured no sources at all (EmptySourceRegistryError).
+
+    Emitted from the raise site, so the failure shows up on the dashboard next
+    to the softer defects instead of only in the logs. Never raises.
+    """
     try:
         tools = list(unavailable_tools or [])[:_MAX_DETAIL_LABELS]
         event = CitationEvent(

@@ -1,3 +1,5 @@
+"""Shared HTML/CSS/JS constants reused by both single-run and comparison report templates."""
+
 from __future__ import annotations
 
 _CSS = """<style>
@@ -179,6 +181,7 @@ def build_html(
     js_init: str,
     js_renders: str,
 ) -> str:
+    """Assemble a complete self-contained HTML report page."""
     return (
         _HTML_TOP
         + title

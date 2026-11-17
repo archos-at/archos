@@ -1,3 +1,5 @@
+"""Opening a NAMED passage (`read_passage`): the locator beside the search."""
+
 from __future__ import annotations
 
 from agent.lazy_exports import lazy_exports

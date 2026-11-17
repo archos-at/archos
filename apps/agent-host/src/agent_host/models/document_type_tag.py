@@ -1,3 +1,10 @@
+"""The document type a person chose when filing a file: one tag of the controlled vocabulary.
+
+Its own type so a request model names it in one line and the check lives once:
+the store keeps whatever it is handed, so a value outside the vocabulary is a
+422 at the door, not a tag nobody can filter by.
+"""
+
 from typing import Annotated
 
 from pydantic import AfterValidator
@@ -5,6 +12,7 @@ from pydantic import Field
 
 
 def _known_document_type(value: str) -> str:
+    """Only a tag of the controlled vocabulary (``DOCUMENT_TYPE_TAGS``)."""
     from agent.knowledge.document_classification import DOCUMENT_TYPE_TAGS
 
     if value not in DOCUMENT_TYPE_TAGS:

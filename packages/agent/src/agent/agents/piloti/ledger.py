@@ -1,3 +1,14 @@
+"""What leaves the turn on the wire, and what the citation-health ledger records.
+
+The wire carries the sources the model cited in THIS turn's answer (never the
+cumulative session registry) plus this turn's measurements, each on its own
+coarse ``kind`` — and, separately, the identities of the documents this turn
+retrieved but did NOT cite (``read_sources``: document key + lane/kind + page,
+no prose). The ledger row is one batch per turn that consulted a source or
+measured the model; a direct reply has nothing to cite, and counting it would
+inflate the clean rate.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -31,6 +42,13 @@ logger = logging.getLogger(__name__)
 
 
 def citations_removed_summary(removed_citations: Sequence[dict[str, Any]]) -> dict[str, Any] | None:
+    """Summarise ``verify_citations`` drops for the transparency wire.
+
+    ``{"count": int, "reasons": [str, ...]}`` (reasons deduplicated in
+    first-seen order, max 5) only when at least one citation was removed;
+    otherwise ``None`` so the ``citations_removed`` field stays absent. This IS
+    the wire shape — the conversation graph lifts the field unchanged.
+    """
     removed_citations = lost_citations(removed_citations)
     if not removed_citations:
         return None
@@ -45,6 +63,11 @@ def citations_removed_summary(removed_citations: Sequence[dict[str, Any]]) -> di
 
 
 def wire_sources(cited: Sequence[CitedSource]) -> list[dict[str, Any]]:
+    """Wire-ready sources for the Belegt-durch chips / PDF open.
+
+    Serialised per entry so a single malformed source cannot zero out the
+    whole turn's chips: a bad entry is skipped with a warning, the rest render.
+    """
     wire: list[dict[str, Any]] = []
     for source in cited:
         try:
@@ -62,6 +85,20 @@ def read_but_uncited(
     turn_sources: Sequence[SourceEntry],
     cited: Sequence[CitedSource],
 ) -> list[dict[str, Any]] | None:
+    """Retrieved-but-not-cited documents for the ``read_sources`` wire channel.
+
+    One entry per DOCUMENT (first-seen page wins — the frontend folds pages
+    onto one chip anyway), excluding every document the answer cited. Identity
+    is :func:`document_key`, the same grouping the chips use, so a document
+    cited at p.12 never reappears as "read" via its p.30 passage.
+
+    Entries that identify nothing (a bare tool-result source with neither
+    citation key nor URL — see :func:`source_label`) are dropped: a chip that
+    can open nothing is not transparency, it is noise. Serialised per entry
+    like :func:`wire_sources`, so one malformed source cannot zero out the
+    rest. ``None`` when nothing uncited remains, so the field stays absent
+    rather than null-spammed.
+    """
     cited_docs = {document_key(source.entry) for source in cited}
     seen: set[str] = set()
     wire: list[dict[str, Any]] = []
@@ -90,6 +127,18 @@ def record_turn_ledger(
     wire: Sequence[dict[str, Any]],
     capped_reason: CappedReason | None,
 ) -> None:
+    """One citation-health row for this turn. Best-effort: ``record_turn`` never raises.
+
+    ``capped_reason`` is the finished state's own — the guard runs once per
+    turn, where the signals it reads live, and both the ledger row and the wire
+    read that one answer.
+
+    ``source_count`` is THIS turn's retrieval, not the cumulative conversation
+    registry: it is the denominator ``cited_count`` is measured against, and
+    ``cited_count`` has always been per turn. Measurements are on the wire but
+    not in either count; counting one there would report a cited source out
+    of zero retrieved ones.
+    """
     citation_events.record_turn(
         agent="shallow",
         source_count=len(turn_sources),
@@ -108,6 +157,7 @@ def record_turn_ledger(
 
 
 def _claims_without_records(final: FinalAnswer) -> list[BindingClaim]:
+    """The answer's sentences that state law without the records (``common/binding_claims.py``), scored."""
     if not final.answered:
         return []
     cited = [(source.entry, source.number) for source in final.cited]
@@ -124,6 +174,13 @@ def assemble_result(
     turn_measurements: Sequence[MeasurementSource],
     lane_hits: Sequence[dict[str, Any]] = (),
 ) -> ResearchAgentState:
+    """The graph's output plus every signal of the final answer, as the state the
+    conversation graph reads.
+
+    ``answer_measurement_grounded`` was written by the tools node (the only
+    place that sees raw tool results) and is echoed, not recomputed, so both
+    grounding signals reach the conversation graph by the same path.
+    """
     measurement_grounded = bool(graph_result.get("answer_measurement_grounded", False))
     claims = _claims_without_records(final)
     wire = wire_sources(final.cited)

@@ -23,8 +23,6 @@ Box = tuple[float, float, float, float]
 WHOLE_PAGE: Box = (0.0, 0.0, 1.0, 1.0)
 
 
-
-
 def _elements(spec: dict[str, Any]) -> dict[tuple[str, int, str], list[float]]:
     return {
         (drawing["file_name"], page["number"], element["id"]): element["box"]
@@ -60,8 +58,6 @@ def load_questions(path: Path = QUESTIONS, spec: dict[str, Any] | None = None) -
     return rows
 
 
-
-
 def area(box: Box) -> float:
     return max(0.0, box[2]) * max(0.0, box[3])
 
@@ -80,8 +76,6 @@ def iou(a: Box, b: Box) -> float:
 
 def coverage(look: Box, gold: Box) -> float:
     return intersection(look, gold) / area(gold) if area(gold) > 0 else 0.0
-
-
 
 
 def is_look(name: str) -> bool:
@@ -144,8 +138,6 @@ def gold_scores(looks: list[dict[str, Any]], golds: list[dict[str, Any]]) -> lis
     return scores
 
 
-
-
 def parity_available() -> bool:
     try:
         return 'type: Literal["look"]' in CARD_MODELS.read_text(encoding="utf-8") and (
@@ -163,8 +155,6 @@ def look_parity(n_looks: int, cards: list[Any], available: bool | None = None) -
         len(card.get("items") or [None]) for card in cards if isinstance(card, dict) and card.get("type") == "look"
     )
     return {"card": items >= n_looks, "step": None}
-
-
 
 
 def visual_checks(
@@ -186,8 +176,6 @@ def visual_checks(
     if gold and look_on:
         checks["gold_covered"] = all(s["coverage"] >= COVERAGE_MIN for s in gold_scores(looks_of(calls), gold))
     return checks
-
-
 
 
 def _row_cells(rows: list[Any], gold: list[dict[str, Any]], available: bool) -> tuple[str, str, str, str]:

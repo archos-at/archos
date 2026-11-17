@@ -1,3 +1,11 @@
+"""A selected provision, as the thing a reader cites.
+
+Everything a citation needs and nothing it does not: the work's short title,
+the provision, the key the answer copies, the text, and an honest score. The
+naming decisions made here each carry their reason in the function that makes
+them: they are what the rest of the system reads a law source by.
+"""
+
 from __future__ import annotations
 
 import re
@@ -23,6 +31,7 @@ LIST_MAX_CHARS = 2 * SECTION_MAX_CHARS
 
 @dataclass(frozen=True)
 class Passage:
+    """One citable passage: what the reader gets and what the parser reads."""
 
     title: str
     url: str
@@ -36,11 +45,13 @@ class Passage:
 
 
 def build_passages(selections: list[Selection], address: Address, law: LawSource) -> list[Passage]:
+    """Render every selected provision into a citable passage."""
     limit = passage_limit(address, sum(len(selection.picks) for selection in selections))
     return [passage for selection in selections for passage in _passages_for(selection, address, limit, law)]
 
 
 def _passages_for(selection: Selection, address: Address, limit: int, law: LawSource) -> list[Passage]:
+    """The passages of ONE document, each cut to ``limit`` characters."""
     candidate = selection.fetched.candidate
     document = selection.fetched.document
     title = document_title(candidate, document, law)
@@ -67,6 +78,7 @@ def _passages_for(selection: Selection, address: Address, limit: int, law: LawSo
 
 
 def passage_limit(address: Address, picks: int) -> int:
+    """Characters per passage: a named provision whole, a list sharing one budget, a ranked hit a chunk."""
     if not address.has_section:
         return PASSAGE_MAX_CHARS
     if len(address.sections) <= 1:
@@ -75,6 +87,12 @@ def passage_limit(address: Address, picks: int) -> int:
 
 
 def collection_for(candidate: Candidate, law: LawSource) -> str:
+    """Where in the source this text came from, as a collection id: ``<namespace>/<collection>/<territory>``.
+
+    Not a knowledge-base collection: the source is not one. It carries the same
+    FACT the ``Collection:`` line carries for a corpus hit (which body of law
+    this is), and the lanes read the doc_class, never this string.
+    """
     parts = [law.namespace, candidate.collection or law.lookup.unplaced_collection]
     if candidate.territory:
         parts.append(candidate.territory)
@@ -82,11 +100,18 @@ def collection_for(candidate: Candidate, law: LawSource) -> str:
 
 
 def citation_for(title: str, clause_label: str, version_date: str, law: LawSource) -> str:
+    """``<short title>, § 63 Abs 1 (Fassung 2026-03-14)``: the key the answer copies.
+
+    The version parenthetical is emitted ONLY when the source stated an
+    in-force date for this document. A date in a page title is the RETRIEVAL
+    stamp, not a version; in a citation key it would make the key change daily.
+    """
     key = ", ".join(part for part in (title.strip(), clause_label.strip()) if part) or law.wording.untitled
     return f"{key} (Fassung {version_date})" if version_date else key
 
 
 def title_noise(law: LawSource) -> tuple[re.Pattern[str], re.Pattern[str]]:
+    """The source's title prefix (its own name) and its retrieval-date suffix, as regexes."""
     prefix, suffix = law.wording.title_prefix, law.wording.title_suffix
     prefix_re = rf"^\s*{re.escape(prefix)}\s*[-–—:]+\s*" if prefix else r"(?!)"
     words = r"\s+".join(re.escape(word) for word in suffix.split())
@@ -95,16 +120,19 @@ def title_noise(law: LawSource) -> tuple[re.Pattern[str], re.Pattern[str]]:
 
 
 def clean_title(raw: str, law: LawSource) -> str:
+    """A title without the source's name before it and the retrieval stamp after it."""
     prefix, suffix = title_noise(law)
     return suffix.sub("", prefix.sub("", raw or ""))
 
 
 def document_title(candidate: Candidate, document, law: LawSource) -> str:
+    """The short title a citation names, without the retrieval stamp."""
     raw = candidate.title or document.title or ""
     return clean_title(raw, law).strip(" ,-–—") or law.wording.untitled
 
 
 def score_for(rank: int, addressed: bool) -> float:
+    """See :data:`SCORE_ADDRESSED`: a rank, stated honestly, not a similarity."""
     if addressed:
         return SCORE_ADDRESSED
     return max(0.5, SCORE_RANKED_TOP - rank * SCORE_RANK_STEP)

@@ -1,3 +1,15 @@
+"""What the operator rewrite of payload keys changes on one point (``schema.LEGACY_FIELDS``).
+
+Points written before the English rename hold ``punkt_id``, ``richtlinie``, ``chunking: "punkt"`` and a
+``project_facts`` object with German keys and tokens. :func:`rewrite_payload` says what to write and
+what to delete so the point reads exactly as a freshly ingested one. It is pure; the batching, the
+dry run and the verification live in ``scripts/qdrant_rename_payload_keys.py``, and the procedure is
+``docs/deployment/qdrant-payload-rename-runbook.md``.
+
+Delete this module, the script and the runbook section with the read fallback once the rewrite has run on
+every collection.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -24,12 +36,14 @@ _FACTS_PREFIX = f"{PROJECT_FACTS_FIELD}."
 
 @dataclass(frozen=True)
 class PayloadRewrite:
+    """Fields to set on a point, then top-level keys to delete from it (in that order, so a crash keeps both)."""
 
     set: dict[str, Any]
     delete: tuple[str, ...]
 
     @property
     def fields(self) -> tuple[str, ...]:
+        """The names this rewrite touches, for a dry run's tally."""
         return (*self.set, *self.delete)
 
 
@@ -42,6 +56,7 @@ def _english_token(key: str, value: Any) -> Any:
 
 
 def _facts(facts: Mapping[str, Any]) -> dict[str, Any] | None:
+    """The ``project_facts`` object under its English keys and tokens; None when it already is."""
     legacy_leaves = {
         new: old.removeprefix(_FACTS_PREFIX) for new, old in LEGACY_FIELDS.items() if old.startswith(_FACTS_PREFIX)
     }
@@ -58,6 +73,11 @@ def _facts(facts: Mapping[str, Any]) -> dict[str, Any] | None:
 
 
 def rewrite_payload(payload: Mapping[str, Any]) -> PayloadRewrite | None:
+    """The rewrite that brings ``payload`` to the English spelling, or None when it already is.
+
+    The English key wins over a legacy one on the same point (a re-ingest wrote it after the rename), and
+    the legacy key is deleted either way. Running it twice changes nothing the second time.
+    """
     to_set: dict[str, Any] = {}
     to_delete: list[str] = []
     for new, old in LEGACY_FIELDS.items():
@@ -78,7 +98,6 @@ def rewrite_payload(payload: Mapping[str, Any]) -> PayloadRewrite | None:
     return PayloadRewrite(set=to_set, delete=tuple(to_delete))
 
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -95,6 +114,7 @@ def _pages(client: QdrantClient, collection: str, page_size: int) -> Iterator[li
 
 
 def _operations(rewrites: dict[Any, PayloadRewrite]) -> list[Any]:
+    """Every SET first, then the DELETEs grouped by key set: one request per page, in the order a crash can survive."""
     sets = [
         models.SetPayloadOperation(set_payload=models.SetPayload(payload=rewrite.set, points=[point_id]))
         for point_id, rewrite in rewrites.items()
@@ -112,6 +132,7 @@ def _operations(rewrites: dict[Any, PayloadRewrite]) -> list[Any]:
 
 
 def legacy_remaining(client: QdrantClient, collection: str) -> Counter[str]:
+    """Points that still hold each German key (or the German ``chunking`` value), counted exactly."""
     left: Counter[str] = Counter()
     for old in dict.fromkeys(LEGACY_FIELDS.values()):
         has_key = models.Filter(must_not=[models.IsEmptyCondition(is_empty=models.PayloadField(key=old))])
@@ -123,6 +144,7 @@ def legacy_remaining(client: QdrantClient, collection: str) -> Counter[str]:
 
 
 def rename_collection(client: QdrantClient, collection: str, *, apply: bool, page_size: int) -> int:
+    """Rewrite (or, without ``apply``, count) one collection's points; returns how many points need or got it."""
     missing = sorted(INDEXED_FIELDS - set(client.get_collection(collection).payload_schema or {}))
     if apply:
         created = ensure_payload_indexes(client, collection)

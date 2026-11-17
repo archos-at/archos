@@ -62,6 +62,12 @@ was deleted rather than moved.
 | `aiq-piloti-riso` | moved | A designer making a print needs the series rules as much as an agent does | [`packages/brand/art/riso/README.md`](../../packages/brand/art/riso/README.md#making-a-print) |
 | `aiq-deploy` | deleted | A deployment runbook, and the upstream blueprint's: it cloned NVIDIA's repository and deployed with Helm | [`docs/deployment/`](../deployment/), [`scripts/README.md`](../../scripts/README.md) |
 
+Ours today, by that rule:
+
+| Skill | Fires | Why it is a skill |
+|---|---|---|
+| `verify-on-dev` | automatically, after a change reaches dev or when an agent's answer or tool call needs explaining | It is run through two MCP servers only an agent session holds: the office door on dev to act, the platform MCP gateway's Langfuse route to read the trace. A person does the same in the app and Langfuse's UI |
+
 ## Installed
 
 Third-party skills sit in the same manifest, pinned to a commit and locked in

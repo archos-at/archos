@@ -113,7 +113,6 @@ class ResearchAgentState(BaseModel):
     cached_turn_context: str | None = None
     cached_conversation_context: str | None = None
 
-
     @property
     def observed_routing(self) -> ObservedRouting:
         """What kind of turn this was, read off what the turn did.

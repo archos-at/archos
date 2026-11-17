@@ -1,3 +1,5 @@
+"""A ``SourceEntry`` as the JSON the client receives."""
+
 from __future__ import annotations
 
 import logging
@@ -22,6 +24,21 @@ logger = logging.getLogger(__name__)
 
 
 def source_entry_to_wire(entry: SourceEntry, *, number: int | None = None) -> dict[str, Any]:
+    """Serialize a :class:`SourceEntry` for the citation wire (SSE / WS).
+
+    The frontend opens document previews from structured ``file_name`` /
+    ``page`` / ``collection`` fields rather than inventing filenames from free
+    text. ``content`` still carries a human-readable line (optional leading
+    origin token + citation key or title) for legacy parsers and chip labels.
+
+    ``number`` is the citation's ``[N]`` label in the verified answer — the one
+    fact the frontend cannot recover on its own, because the ``[N]``→source
+    binding lives in ``verify_citations``' ``valid_citations`` and nowhere else.
+    Carrying it lets the UI render ONE provenance block (numbered, colored,
+    clickable) instead of the LLM-written "## Sources" list AND a chip row that
+    each hold half the truth. Omitted when unknown, so every existing caller and
+    every persisted message keeps working unchanged.
+    """
     origin_token = source_origin_token(entry)
     origin = origin_token.strip("[]").lower() if origin_token else None
 
@@ -78,6 +95,8 @@ def source_entry_to_wire(entry: SourceEntry, *, number: int | None = None) -> di
 
 
 def _line_fields(entry: SourceEntry, use: EditionUse | None) -> dict[str, Any]:
+    """What the citation's line states: its edition's role, route and dates from the records, and what the
+    passage's producer stated about the text itself (design §6.7; ``docs/design/citations.md``)."""
     return {
         **(role_fields(use) or office_line_fields(entry)),
         "public_url": entry.public_url or (use.source_url if use else None),
@@ -87,11 +106,19 @@ def _line_fields(entry: SourceEntry, use: EditionUse | None) -> dict[str, Any]:
 
 
 def _wire_revision(entry: SourceEntry) -> dict[str, str] | None:
+    """``{index?, date?}`` of the Fassung an entry's text is, or None when its producer stated neither."""
     revision = {"index": entry.revision_index, "date": entry.revision_date}
     return {key: value for key, value in revision.items() if value} or None
 
 
 def _wire_project(entry: SourceEntry) -> dict[str, str] | None:
+    """``{id, name, status[, federalStateNote]}`` of the other project an entry came from, or None.
+
+    ``federalStateNote`` is the project's Bundesland line verbatim, warning included.
+    It is omitted when the producer stated none (older messages, a replayed
+    turn whose text carries no ``Bundesland:`` line), and the browser reads
+    absence as null.
+    """
     if not entry.project_id:
         return None
     project = {"id": entry.project_id, "name": entry.project_name or "", "status": entry.project_status or "active"}
@@ -119,6 +146,14 @@ _READ_SOURCE_WIRE_KEYS = frozenset(
 
 
 def read_source_to_wire(entry: SourceEntry) -> dict[str, Any]:
+    """Serialize a :class:`SourceEntry` for the read-but-uncited wire (``read_sources``).
+
+    The same derivation as :func:`source_entry_to_wire` — the same document
+    identity the chips group on, the same kind/lane placement — minus every
+    key that carries prose or a claim: no passage, no locator line, no score,
+    no citation number, no binding classification. What travels names the
+    document and where it sits, nothing more.
+    """
     return {key: value for key, value in source_entry_to_wire(entry).items() if key in _READ_SOURCE_WIRE_KEYS}
 
 
@@ -126,6 +161,7 @@ _WIRE_SNIPPET_MAX_CHARS = 1200
 
 
 def _wire_snippet(chunk_text: str | None) -> str | None:
+    """The retrieved passage, bounded, or None when the producer carried none."""
     text = (chunk_text or "").strip()
     if not text:
         return None

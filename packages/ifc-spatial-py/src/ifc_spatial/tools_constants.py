@@ -1,3 +1,5 @@
+"""The tool surface vocabulary: its relations, measures, fire and envelope aspects, and limits."""
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -7,7 +9,6 @@ from . import accessibility as acc
 from . import circulation as circ
 from . import clearance as clr
 from . import daylight as dl
-
 from . import operators as op
 from . import relations as extra
 from . import stairs as st

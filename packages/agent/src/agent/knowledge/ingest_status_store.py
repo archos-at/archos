@@ -1,3 +1,86 @@
+"""Shared, cross-replica store for ingestion job status.
+
+Ingestion *executes* on the replica that accepted the upload (a bounded local
+thread pool), but its status must be readable from ANY replica — otherwise a
+``GET /v1/documents/{job_id}/status`` poll routed elsewhere 404s. This persists
+each ``IngestionJobStatus`` (a Pydantic model → JSON) to Postgres so every
+replica serves the same answer. It reuses the DocumentMetadataStore engine cache and the
+summaries database (``SUMMARY_DB``, falling back to ``NAT_JOB_STORE_DB_URL``).
+
+Best-effort / fail-open: with no DB configured (local dev) every write is a
+no-op and every read comes back empty. The adapter keeps the jobs of its own
+process in memory to run them; nothing it keeps there answers another process.
+
+THE FILES OF A COLLECTION ARE READ FROM HERE, NOT FROM THE PROCESS THAT RAN THEM.
+A job row carries one ``file_details`` entry per file, and the row is the only
+record of a file that failed or is still being read: it has no chunks in Qdrant.
+The ``api`` process lists, looks up and deletes files, the ``ingest-worker``
+indexes them (ADR-0076, ADR-0082), so what a file's status is must be asked of
+the store (``collection_jobs``) and a failed file's record removed from it
+(``forget_file``). ``collection_name`` is a column for that reason.
+
+A LIVE ROW IS A CLAIM SOMEBODY HAS TO KEEP MAKING. The job itself runs in one
+process's thread pool, so a restart ends it without a word, and the row used to
+say ``processing`` forever: the BFF showed the file as in progress and refused
+its re-ingest as already running. Every row therefore carries the process that
+wrote it (``owner``) and a ``heartbeat_at`` that process refreshes while the job
+is live (``heartbeat``). A pending or processing row whose heartbeat is older
+than ``STALE_AFTER_SECONDS`` has lost its owner, and is read as ``failed`` with
+the stable, retryable reason ``interrupted`` (``get``, ``find_live``,
+``fail_interrupted``). The job is not re-run on its own: what it needs to run
+again (the downloaded temp file, a presigned URL that expires in minutes, the
+job config) is not persisted, so the honest answer is a failure the reader can
+retry.
+
+THE OWNER, WHILE IT LIVES, IS RIGHT ABOUT ITS JOB. A stale heartbeat is
+evidence of death, not proof: an owner cut off from the database for longer
+than ``STALE_AFTER_SECONDS`` is still running, and another replica may settle
+its row as interrupted meanwhile. When the owner writes again, its write wins
+(``put`` is an unconditional upsert) and the row goes back to what the owner
+knows: processing, or completed with its chunks indexed. The alternative, a
+settled row the owner can no longer overwrite, is a lie about a live job: it
+tells ``find_live`` nothing runs (so a retried dispatch starts a second job on
+the same document) and reports ``failed`` for a file whose chunks are indexed.
+The BFF may already have written ``failed`` from the settled row; it asks
+about such an ``interrupted:`` failure again for 30 minutes after the row's
+last write (``reconcile-status.ts``) and adopts a completed or live answer, and
+a retry in the meantime dispatches again and finds the revived job through
+``find_live`` while it runs. Settling clears ``owner`` so
+the owner's ``heartbeat`` refreshes fewer rows than it asked for, which is how
+the adapter learns to re-write its jobs within one beat rather than at its next
+status change.
+
+A RUN THAT HAS BEEN TOLD TO STOP WRITES NO LIVE OR FAILED STATUS AGAIN. This is
+the same mechanism seen from the other side. A person's cancel clears ``owner``
+like every settle, so to the worker it looks exactly like another replica's
+wrong ``interrupted``, and nothing in the row says which of the two happened.
+The worker can tell: its run was cancelled (the claim guard ``run_prepared``
+is given, false for a person's stop, a newer upload and a timeout alike), or it
+was not. So the rule above is the owner's only while its run goes on, and the
+adapter's ``_persist`` drops every write of a stopped run except ``completed``:
+its next beat used to turn the person's ``cancelled`` back into ``processing``
+within thirty seconds, and a failure after the stop ended the row ``failed``.
+``completed`` is still written over ``cancelled``, because a single-file job
+past its last ownership check has its chunks indexed, and a row frozen at
+``cancelled`` would report a searchable file as stopped (the BFF re-checks a
+cancelled document for thirty minutes and adopts it, ``resolveCancelledRow``).
+``put`` stays unconditional; the check is where the knowledge is, in the run.
+One gap stays open: a write that lands after the cancel settled the row and
+before the cancel reached the worker makes the row live again until the run's
+own last word (``ingest_workflow._stopped``) settles it once more.
+
+A JOB HATCHET HOLDS IS WAITING, NOT LOST. Written PENDING by the replica that
+accepted it, it is vouched for by nobody until a worker runs it, so the dispatch
+holds its row (``ingest_run_hold``): before ``held_until`` it is never stale.
+The last attempt releases the hold, so a worker lost on it leaves the row to
+settle interrupted. A person's cancel settles the row ``cancelled`` at once and
+releases the hold with it (a cancelled run is not tried again, and a row its
+dying worker wrote live once more must not stay held for the rest of the
+schedule). The run that stops settles the row again when it finds it live;
+either tells the BFF (``ingest_settle_push``), as the run's last word on any
+other end does.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -90,6 +173,7 @@ def _ensure_table(url: str) -> None:
 
 
 def _add_missing_columns(conn, url: str) -> None:
+    """Additive migration: owner, heartbeat_at, dispatch_key and collection_name, then their indexes."""
     heartbeat_type = "TIMESTAMP WITH TIME ZONE" if _is_postgres(url) else "DATETIME"
     columns = {**_ADDED_COLUMNS, "heartbeat_at": heartbeat_type, "held_until": heartbeat_type}
     present = {column["name"] for column in inspect(conn).get_columns("ingest_jobs")}
@@ -122,6 +206,7 @@ def _from_now(url: str, seconds: int) -> str:
 
 
 def _stale_predicate(url: str) -> str:
+    """SQL: this row's owner has stopped vouching for it. Built from constants only."""
     return (
         f"(((heartbeat_at IS NOT NULL AND heartbeat_at < {_ago(url, STALE_AFTER_SECONDS)}) "
         f"OR (heartbeat_at IS NULL AND updated_at < {_ago(url, _LEGACY_STALE_AFTER_SECONDS)})) "
@@ -134,6 +219,7 @@ def _is_live(status: IngestionJobStatus) -> bool:
 
 
 def interrupted(status: IngestionJobStatus) -> IngestionJobStatus:
+    """``status`` as the failure a lost owner leaves: every unfinished file failed, retryable."""
     failed = status.model_copy(deep=True)
     failed.status = JobState.FAILED
     failed.error_message = INTERRUPTED_MESSAGE
@@ -151,6 +237,14 @@ def interrupted(status: IngestionJobStatus) -> IngestionJobStatus:
 
 
 def cancelled(status: IngestionJobStatus) -> IngestionJobStatus:
+    """``status`` as a job a person stopped: terminal ``cancelled``, unfinished files stopped.
+
+    Not ``interrupted``: nothing failed, so the job carries no failure facts and
+    is not retryable-by-rule — a person starts it again if they want it. Files
+    the job had not finished cannot keep a live file state (the listing would
+    show them being read forever), so they are recorded FAILED, and their own
+    message says they were stopped (``FileStatus`` has no neutral state).
+    """
     stopped = status.model_copy(deep=True)
     stopped.status = JobState.CANCELLED
     stopped.error_message = CANCELLED_MESSAGE
@@ -165,6 +259,15 @@ def cancelled(status: IngestionJobStatus) -> IngestionJobStatus:
 
 
 def _settle_lost(conn, url: str, status: IngestionJobStatus) -> IngestionJobStatus | None:
+    """Write the ``interrupted`` failure a lost owner leaves, unless the owner beat again since it was read.
+
+    The state written, or None when the conditional update matched no row: the
+    owner beat (or wrote) between the read and this update, so the row is live
+    and the caller must read it again rather than report a state that was never
+    stored. ``owner`` is cleared so the owner, if it is alive after all, sees its
+    heartbeat miss this row (see the module docstring). A person's cancel never
+    reaches here: it settles the row itself (``settle_cancelled``).
+    """
     settled = interrupted(status)
     result = conn.execute(
         # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
@@ -189,6 +292,19 @@ def _read(conn, job_id: str) -> IngestionJobStatus | None:
 
 
 def put(status: IngestionJobStatus) -> bool:
+    """Upsert a job's status as this process's; whether it is stored. Never raises.
+
+    Ingestion must not break on a DB blip, but the caller must know when a
+    write was lost: a terminal status that never lands leaves the row live, and
+    once its heartbeat ages another replica settles it as interrupted although
+    the job finished. The adapter retries a failed write on its heartbeat.
+    With no database configured there is nothing to store, which is success.
+
+    Writing a row is vouching for it: ``owner`` becomes this process and
+    ``heartbeat_at`` now, and the write wins over a row another replica settled
+    as interrupted (see the module docstring). ``dispatch_key`` is read from
+    ``status.metadata`` and kept when a later write does not carry it.
+    """
     url = _db_url()
     if not url:
         return True
@@ -225,6 +341,14 @@ def put(status: IngestionJobStatus) -> bool:
 
 
 def _write_cancelled(conn, url: str, job_id: str) -> bool:
+    """Write ``cancelled`` over a live row; whether there was one.
+
+    The hold goes with the owner: a cancelled run is not tried again, so nothing
+    is left to vouch for. Should its worker write the row live once more and
+    then die (see the module docstring), the row is stale after
+    ``STALE_AFTER_SECONDS`` like any other, not held for the rest of the run's
+    schedule (``ingest_workflow.hold_seconds``, over thirty hours).
+    """
     status = _read(conn, job_id)
     if status is None or not _is_live(status):
         return False
@@ -241,6 +365,16 @@ def _write_cancelled(conn, url: str, job_id: str) -> bool:
 
 
 def settle_cancelled(job_id: str) -> bool:
+    """Settle a live row as ``cancelled``; whether one was live. Never raises.
+
+    Called twice for a person's stop: by the cancel itself
+    (``agent_host.jobs.ingest_dispatch.cancel``), and by the run that sees
+    itself cancelled (``ingest_workflow._stopped``), in case it wrote the row
+    live again before the cancel reached it. ``cancelled`` is the honest state,
+    not the ``interrupted`` a lost owner leaves. Best effort: a row another
+    writer already settled (a job that finished in the race) is left as it is,
+    and False also covers a write that failed.
+    """
     url = _db_url()
     if not url:
         return False
@@ -260,6 +394,13 @@ def settle_cancelled(job_id: str) -> bool:
 
 
 def heartbeat(job_ids: Iterable[str]) -> int | None:
+    """Refresh ``heartbeat_at`` on this process's rows for ``job_ids``; how many rows. Never raises.
+
+    Fewer rows than ids means a row is not this process's any more (another
+    replica settled it while this one could not beat) or was never written; the
+    caller re-writes those jobs. None when nothing could be asked: no database,
+    or the update failed.
+    """
     ids = list(job_ids)
     url = _db_url()
     if not url:
@@ -282,6 +423,12 @@ def heartbeat(job_ids: Iterable[str]) -> int | None:
 
 
 def get(job_id: str) -> IngestionJobStatus | None:
+    """Return a persisted status from any replica, or None. Never raises.
+
+    A live row whose owner stopped beating comes back ``failed`` with reason
+    ``interrupted``, and is stored that way. When the owner beat again between
+    the read and the settling write, the row as it now stands comes back.
+    """
     url = _db_url()
     if not url:
         return None
@@ -301,6 +448,10 @@ def get(job_id: str) -> IngestionJobStatus | None:
 
 
 def _as_read(conn, url: str, status_json: str, stale: bool) -> IngestionJobStatus | None:
+    """A stored row as a reader sees it: a live row whose owner is gone is settled as interrupted first.
+
+    None only when the row vanished between the read and the settling write.
+    """
     status = IngestionJobStatus.model_validate_json(status_json)
     if not (stale and _is_live(status)):
         return status
@@ -308,6 +459,13 @@ def _as_read(conn, url: str, status_json: str, stale: bool) -> IngestionJobStatu
 
 
 def find_live(dispatch_key: str) -> IngestionJobStatus | None:
+    """The live job some replica holds for this dispatch, or None. Never raises.
+
+    What makes ``POST /v1/ingest`` idempotent across replicas: a retried
+    dispatch of the same object for the same document gets the job already
+    running. A row whose owner is gone is settled as interrupted on the way and
+    does not count.
+    """
     url = _db_url()
     if not url or not dispatch_key:
         return None
@@ -340,6 +498,12 @@ def find_live(dispatch_key: str) -> IngestionJobStatus | None:
 
 
 def fail_interrupted() -> int:
+    """Settle live rows whose owner is gone as ``interrupted``; how many. Never raises.
+
+    Run once when an ingestor starts, so what a restart stranded is settled
+    without waiting for someone to poll it. A row whose owner died moments
+    before this restart is not stale yet; ``get`` settles it when it is read.
+    """
     url = _db_url()
     if not url:
         return 0
@@ -366,11 +530,26 @@ def fail_interrupted() -> int:
     return settled
 
 
-
 _IN_FLIGHT_SCAN_LIMIT = 200
 
 
 def in_flight_files(collections: Iterable[str]) -> dict[str, list[str]]:
+    """Filenames still being ingested, per collection. Never raises.
+
+    THE AGENT HAS TO KNOW A FILE IS COMING. Ingestion is asynchronous, and the
+    per-turn inventory is built from the SUMMARIES table, which is written only
+    when a job finishes — so a document uploaded seconds ago is invisible to the
+    turn in exactly the way it is invisible to retrieval, and the model answers
+    confidently without the one document the question is about.
+
+    This is the missing half of that: not what has been read, but what is being
+    read. Callers put it in the prompt so the answer can say so.
+
+    Bounded by the owner's heartbeat and ``_IN_FLIGHT_SCAN_LIMIT``, and
+    filtered in Python rather than in SQL because ``status_json`` is a text
+    column and JSON predicates are not portable between the Postgres and SQLite
+    backings this store supports.
+    """
     wanted = {c for c in collections if c}
     if not wanted:
         return {}
@@ -421,10 +600,20 @@ def in_flight_files(collections: Iterable[str]) -> dict[str, list[str]]:
 
 
 def _submitted(status: IngestionJobStatus) -> datetime:
+    """When the job was submitted, as the naive UTC the adapter writes it (a zone is dropped, not converted)."""
     return status.submitted_at.replace(tzinfo=None)
 
 
 def collection_jobs(collection_name: str, within_seconds: int) -> list[IngestionJobStatus]:
+    """Every job of ``collection_name`` written in the last ``within_seconds``, oldest submission first.
+
+    What a process that did not run the jobs reads to say which files of a
+    collection failed or are still being read (see the module docstring). A
+    live row whose owner is gone comes back settled as interrupted, as in
+    ``get``. With no database configured nothing is stored and the answer is
+    empty. A database error raises: a file listing built without these rows
+    would omit the files nobody else can tell about, and say nothing of it.
+    """
     url = _db_url()
     if not url:
         return []
@@ -444,6 +633,15 @@ def collection_jobs(collection_name: str, within_seconds: int) -> list[Ingestion
 
 
 def forget_file(collection_name: str, file_name: str) -> int:
+    """Remove ``file_name`` from the finished jobs of ``collection_name``; how many jobs named it.
+
+    A file that failed has no chunks, so its job row is the only record of it
+    and a delete has nothing else to remove. A job left with no file is deleted
+    with its row. A job still running keeps its files: its worker owns that
+    record, and a file deleted while it is read is the ingest's business
+    (``document_presence``). Raises on a database error, so a delete that
+    could not forget the file does not report that it did.
+    """
     url = _db_url()
     if not url:
         return 0
@@ -480,6 +678,11 @@ def forget_file(collection_name: str, file_name: str) -> int:
 
 
 def forget_collection(collection_name: str) -> None:
+    """Remove every job row of a deleted collection (best-effort).
+
+    A name that is used again would otherwise list the files of the collection
+    that held it before.
+    """
     url = _db_url()
     if not url:
         return
@@ -497,6 +700,12 @@ def forget_collection(collection_name: str) -> None:
 
 
 def prune_expired(older_than_seconds: int) -> int:
+    """Delete rows nobody vouches for that were last written over ``older_than_seconds`` ago; how many. Never raises.
+
+    What bounds the table, and how long a failed file stays listed: a finished
+    job's row is its last record. A row a worker could still claim is never
+    deleted (``_stale_predicate``).
+    """
     url = _db_url()
     if not url:
         return 0
@@ -519,6 +728,7 @@ def prune_expired(older_than_seconds: int) -> int:
 
 
 def delete(job_id: str) -> None:
+    """Remove a persisted status row (best-effort)."""
     url = _db_url()
     if not url:
         return

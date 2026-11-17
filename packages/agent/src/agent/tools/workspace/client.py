@@ -1,3 +1,27 @@
+"""Piloti as a client of Piloti's own MCP server (ADR-0122): one stateless ``tools/call`` per call.
+
+The server (``POST /api/mcp`` on the BFF) is the agent surface of the product;
+external agents reach it with OAuth, this tier reaches it by ECHOING the turn's
+signed request-context envelope, exactly as ``tools/tasks/client.py`` does.
+Echo, never sign: the BFF verifies the two strings, builds the acting person's
+pinned session and runs the operation under that person's rights. A run with no
+envelope has no acting person and the tool refuses (``register.py``).
+
+## Why this is not the agent runtime's ``mcp_client`` group
+
+The agent runtime's MCP client connects once, in a lifecycle task created at build time, and
+its streamable-HTTP transport sends every request from tasks spawned inside that
+task (``anyio`` ``tg.start_soon`` copies the CONNECT-time contextvars). An auth
+provider that read the envelope from a contextvar would therefore see no turn at
+all, or the first turn's, and send one person's identity on another's call. This
+module reads nothing itself: the caller passes the envelope it read inside the
+turn's own context, and every call opens, sends and closes its own request, so
+there is no connection a second turn could inherit.
+
+The server is stateless, so there is no ``initialize`` handshake to repeat: a
+call is one JSON-RPC POST that names the protocol version in its header.
+"""
+
 from __future__ import annotations
 
 import json
@@ -26,6 +50,13 @@ ERROR_PREFIX = "Error: "
 
 @dataclass(frozen=True)
 class ToolResult:
+    """A ``tools/call`` answer: the text the model reads, and the result's ``structuredContent`` when it has one.
+
+    ``structured`` is for the code around the model, never shown to it. It is ``None`` for a tool-level
+    error (``isError``): a refusal is words, not a shape to act on. It is ``None`` too for an answer the
+    server capped (``discovery.ts`` ``success``: a cut answer carries no ``structuredContent``), which is
+    a read that ran, so whether the call failed is ``is_error``, never the missing shape.
+    """
 
     text: str
     structured: dict[str, Any] | None = None
@@ -33,12 +64,14 @@ class ToolResult:
 
 
 class WorkspaceError(bff_http.BffError):
+    """The server refused, or could not be reached. Carries what the model may be told."""
 
     def __init__(self, message: str, *, status: int | None = None) -> None:
         super().__init__(message, status=status)
 
 
 def request_headers(envelope: SignedEnvelope, answer_message_id: str | None = None) -> dict[str, str]:
+    """The MCP headers beside the token: protocol, mode, the echoed envelope and the answer being written."""
     headers = {
         "Accept": "application/json, text/event-stream",
         "MCP-Protocol-Version": PROTOCOL_VERSION,
@@ -51,6 +84,7 @@ def request_headers(envelope: SignedEnvelope, answer_message_id: str | None = No
 
 
 def _jsonrpc_from(raw: str, content_type: str) -> dict[str, Any]:
+    """The JSON-RPC message in a JSON body, or in the last ``data:`` event of an SSE one."""
     if "text/event-stream" in content_type:
         events = [line[5:].strip() for line in raw.splitlines() if line.startswith("data:")]
         raw = next((event for event in reversed(events) if event), "")
@@ -61,6 +95,7 @@ def _jsonrpc_from(raw: str, content_type: str) -> dict[str, Any]:
 
 
 def _http_refusal(exc: bff_http.BffRefusedError) -> WorkspaceError:
+    """The server's own sentence when it sent one (a JSON-RPC error or ``{"error"}``), else the status."""
     error = exc.body.get("error")
     detail = error.get("message") if isinstance(error, dict) else error
     base = f"the workspace server refused the call ({exc.status})"
@@ -69,6 +104,7 @@ def _http_refusal(exc: bff_http.BffRefusedError) -> WorkspaceError:
 
 
 def _structured_content(message: dict[str, Any]) -> dict[str, Any] | None:
+    """The result's ``structuredContent`` when it is an object and the result is not a tool-level error."""
     result = message.get("result")
     if not isinstance(result, dict) or result.get("isError"):
         return None
@@ -77,11 +113,13 @@ def _structured_content(message: dict[str, Any]) -> dict[str, Any] | None:
 
 
 def _is_error(message: dict[str, Any]) -> bool:
+    """Whether the result is a tool-level error (``isError``): the call did not run."""
     result = message.get("result")
     return isinstance(result, dict) and bool(result.get("isError"))
 
 
 def _result_text(message: dict[str, Any]) -> str:
+    """The text of a ``tools/call`` result; a tool-level error is prefixed so the model reads it as one."""
     error = message.get("error")
     if isinstance(error, dict):
         raise WorkspaceError(str(error.get("message") or "the workspace server answered with an error"))
@@ -98,12 +136,20 @@ def _result_text(message: dict[str, Any]) -> str:
 def call_tool(
     name: str, arguments: dict[str, Any], envelope: SignedEnvelope, *, answer_message_id: str | None = None
 ) -> str:
+    """One MCP ``tools/call``; the result text. See :func:`call_tool_result` for the rest of the answer."""
     return call_tool_result(name, arguments, envelope, answer_message_id=answer_message_id).text
 
 
 def call_tool_result(
     name: str, arguments: dict[str, Any], envelope: SignedEnvelope, *, answer_message_id: str | None = None
 ) -> ToolResult:
+    """One MCP ``tools/call``; the text and the ``structuredContent``. Blocking: call it through ``asyncio.to_thread``.
+
+    Raises :class:`WorkspaceError` for a refusal or a transport failure, so the
+    tool has one thing to catch. A tool-level error (``isError``) is NOT raised:
+    it is the server teaching the model what to fix, and is returned as text.
+    ``answer_message_id`` names the answer the turn writes (:data:`ANSWER_MESSAGE_HEADER`); None sends none.
+    """
     body = {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": name, "arguments": arguments}}
     try:
         response = bff_http.send(

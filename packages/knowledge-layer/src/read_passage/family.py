@@ -1,3 +1,7 @@
+"""The family overview: every Fassung-free member of a Richtlinie family, read in turn, and the trailer that says
+which members the corpus lacks or could not read.
+"""
+
 from __future__ import annotations
 
 import asyncio
@@ -23,6 +27,7 @@ _MAX_FAMILY_SCOPE_CHUNKS = 2
 
 @dataclass(frozen=True)
 class FamilyMember:
+    """One part of a Richtlinie, read: its scope passage and its Gliederung."""
 
     number: str
     title: str
@@ -33,6 +38,13 @@ class FamilyMember:
 
 @dataclass(frozen=True)
 class FamilyOverview:
+    """Every part of one Richtlinie the corpus holds, ready to be rendered.
+
+    ``chunks`` are the scope passages in member order, which the search puts
+    ahead of its own hits so a citation resolves to each part; ``trailer`` is
+    the one block of Gliederungen that follows the fan-out (ADR-0061: a
+    decoration travels inside the block or the reader loses the records).
+    """
 
     label: str
     members: tuple[FamilyMember, ...]
@@ -42,10 +54,12 @@ class FamilyOverview:
 
     @property
     def opened_files(self) -> frozenset[str]:
+        """The documents this overview OPENED: every member's file, read as ``read_passage`` reads it."""
         return frozenset(chunk.file_name for chunk in self.chunks if getattr(chunk, "file_name", None))
 
     @property
     def preamble(self) -> str:
+        """What the family IS, above the results: the parts, where they are, and that they are open."""
         numbers = ", ".join(member.number for member in self.members)
         count = f"{len(self.members)} part" if len(self.members) == 1 else f"{len(self.members)} parts"
         span = "Result 1 is" if len(self.chunks) == 1 else f"Results 1 to {len(self.chunks)} are"
@@ -59,10 +73,26 @@ class FamilyOverview:
 
 
 class FamilyUnreadable(RuntimeError):
-    ...
+    """The corpus lists the family, and not one of its parts could be read.
+
+    Distinct from ``None``, which is "no such family here": a listed family
+    that yields nothing is an overview that was attempted and lost, and the
+    search that asked for it has to say so rather than look like an ordinary
+    two-document search.
+    """
 
 
 def _family_trailer(members: Sequence[FamilyMember]) -> str:
+    """One ``## Gliederung`` section per member, and the instruction once.
+
+    The instruction says what a Gliederung is and is not, and that holds for
+    all of them, so it is stated once at the end rather than after each.
+
+    The single-document line budget is SPLIT across the members: four of them
+    at 80 lines each is 4 to 6k tokens of index framing far less evidence.
+    With the depth-2 headings already dropped (:func:`_read_member`), a member
+    of a four-part family prints its 20 top-level Punkte.
+    """
     budget = max(1, _MAX_OUTLINE_LINES // max(1, len(members)))
     lines: list[str] = []
     for member in members:
@@ -71,6 +101,12 @@ def _family_trailer(members: Sequence[FamilyMember]) -> str:
 
 
 def _member_title(file_name: str) -> str:
+    """What a member is called in its Gliederung heading.
+
+    The derived OIB title, which is what a citation chip prints and what
+    :func:`_matches` accepts back as ``document=``, so the heading doubles as
+    the argument for opening one of its Punkte.
+    """
     from agent.common.norm_registry import guess_display_title
 
     try:
@@ -80,6 +116,14 @@ def _member_title(file_name: str) -> str:
 
 
 async def _corpus_families(base: Any) -> list[Any]:
+    """The Richtlinien-Familien the BASE shelf holds, from whichever source knows.
+
+    Three sources, cheapest first. The turn's own family list is derived from
+    the base shelf before the inventory cap can drop a member, so it is the one
+    that is always complete. The inventory rows answer a turn that bound no
+    list, and the collection's registered documents answer a run with no turn
+    around it at all.
+    """
     from agent.common.norm_registry import oib_families
     from agent.common.source_kinds import Shelf
 
@@ -104,6 +148,12 @@ async def _corpus_families(base: Any) -> list[Any]:
 
 
 async def _read_member(target: PassageTarget, number: str) -> FamilyMember | None:
+    """One member, read as an outline. ``None`` when the store holds none of it.
+
+    That miss is how a family stays honest about the corpus: a member the
+    deployment does not carry contributes no passage, no Gliederung and no
+    line in the preamble.
+    """
     outline = await outline_for([target], _fetch_query(target.file_name, None, None))
     if not outline.chunks:
         if outline.failures:
@@ -119,6 +169,14 @@ async def _read_member(target: PassageTarget, number: str) -> FamilyMember | Non
 
 
 async def family_overview(entries: Sequence[Any], family_key: str) -> FamilyOverview | None:
+    """Every part of Richtlinie ``family_key`` the corpus holds, in one object.
+
+    ``entries`` is the turn's collection scope; the corpus is the base shelf,
+    so a turn that may not read it gets ``None`` rather than an overview of
+    somebody's own copy of a Richtlinie. ``None`` also when the corpus holds no
+    such family. A family it does hold, of which no member could be read,
+    raises :class:`FamilyUnreadable`.
+    """
     from agent.common.source_kinds import Shelf
 
     base = next((entry for entry in entries if getattr(entry, "shelf", None) is Shelf.BASE), None)

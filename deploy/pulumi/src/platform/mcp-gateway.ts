@@ -57,6 +57,32 @@ export const LANGFUSE_PLATFORM_TOOLS = [
   "getHealth",
 ] as const;
 
+export const LANGFUSE_TRACE_TOOLS = {
+  pinned: ["listObservations"],
+  schema: ["getObservationFilterSchema", "getObservationFieldSchema"],
+  unpinnable: ["getObservation", "getObservationFilterValues"],
+} as const;
+
+export const orgTraceTag = (organizationId: string): string => `org:${organizationId}`;
+
+function langfuseTools(traceOrgs: "all" | readonly string[]): Pick<McpServer, "tools" | "pinnedToTags"> {
+  if (traceOrgs === "all") {
+    return {
+      tools: [
+        ...LANGFUSE_PLATFORM_TOOLS,
+        ...LANGFUSE_TRACE_TOOLS.pinned,
+        ...LANGFUSE_TRACE_TOOLS.schema,
+        ...LANGFUSE_TRACE_TOOLS.unpinnable,
+      ],
+    };
+  }
+  if (traceOrgs.length === 0) return { tools: LANGFUSE_PLATFORM_TOOLS };
+  return {
+    tools: [...LANGFUSE_PLATFORM_TOOLS, ...LANGFUSE_TRACE_TOOLS.pinned, ...LANGFUSE_TRACE_TOOLS.schema],
+    pinnedToTags: { tools: LANGFUSE_TRACE_TOOLS.pinned, tags: traceOrgs.map(orgTraceTag) },
+  };
+}
+
 export function mcpServers(cfg: DeployConfig): McpServer[] {
   return [
     ...(cfg.langfuse.enabled
@@ -67,7 +93,7 @@ export function mcpServers(cfg: DeployConfig): McpServer[] {
             authority: cfg.langfuse.domain,
             credential: { secretName: LANGFUSE_SECRETS_NAME, secretKey: LANGFUSE_SECRET_KEYS.otlpBasicAuth },
             timeout: "300s",
-            tools: LANGFUSE_PLATFORM_TOOLS,
+            ...langfuseTools(cfg.mcpGateway.langfuseTraceOrgs),
           },
         ]
       : []),

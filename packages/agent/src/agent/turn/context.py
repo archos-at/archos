@@ -1,3 +1,12 @@
+"""Per-turn context: who is asking, and what the agent must know before it answers.
+
+The three fetches — the platform-lessons digest, the live prompt context
+(or legacy project-memory digest), and the post-answer stage flags — share
+nothing but the request context, so they run as one ``asyncio.gather``: on a
+cold cache each was a round-trip on the time-to-first-token path, paid one
+after the other.
+"""
+
 from __future__ import annotations
 
 import asyncio
@@ -41,6 +50,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class TurnContext:
+    """What one turn injects into the agent, plus the request-scoped stage facts."""
 
     project_context: str | None
     platform_lessons: str | None
@@ -62,10 +72,19 @@ class TurnContext:
 
     @property
     def confined(self) -> bool:
+        """The turn may draw on, or the conversation already drew on, a restricted folder (ADR-0087, ADR-0088).
+
+        Such a conversation may not commission a run, hand work over or propose
+        a profile patch, because each is read by the whole project, so both
+        flags above are False whenever this is True. The BFF refuses all three
+        on its own; this keeps the model from offering them.
+        """
         return bool(self.restricted_scope) or self.recorded_restricted
 
 
 def thread_id_for_turn(conversation_id: str | None) -> str:
+    """The checkpoint thread: the conversation id, or a fresh one when the
+    request carries none (a single-shot call has no history to load)."""
     if conversation_id:
         logger.info("Thread ID for checkpointing: %s", conversation_id)
         return conversation_id
@@ -75,6 +94,12 @@ def thread_id_for_turn(conversation_id: str | None) -> str:
 
 
 def turn_identity(request: RequestContext, conversation_id: str | None) -> dict[str, str | None]:
+    """Who the turn is for, in the shape the cost and profiler ledgers take.
+
+    Handed to both explicitly: left to their defaults, each re-reads the
+    signed envelope through the accessor helpers (base64 + HMAC-SHA256 + JSON,
+    three more times per turn) to learn what the one parse already knows.
+    """
     return {
         "organization_id": request.organization_id,
         "user_id": request.user_id,
@@ -84,11 +109,28 @@ def turn_identity(request: RequestContext, conversation_id: str | None) -> dict[
 
 
 def _claim(value: str | None) -> str | None:
+    """A token claim as one line, None when empty: the template renders an unknown name as ``""``."""
     line = " ".join((value or "").split())
     return line or None
 
 
 def user_info_for(request: RequestContext | None) -> dict[str, Any] | None:
+    """Who is asking, as the prompts' ``user_info``: name, email and office, or None for nobody.
+
+    Two carriers, one per kind of caller, and each field from the first that
+    has it:
+
+    1. The verified access token, while someone is signed in. WorkOS puts the
+       name, email and office there through the environment's JWT template
+       (``name``, ``email``, ``organization_name``;
+       docs/deployment/workos-provisioning.md). It also covers a caller with no
+       BFF in front of it, such as a WorkOS Connect client.
+    2. The signed request-context envelope's ``requester``, which every turn the
+       BFF starts carries, including the ones nobody is signed in for: a
+       scheduled run, a woken thread. The BFF fills it from the session it
+       mints the envelope for, live or pinned (``requesterOf``,
+       ``resolvePerson``), and re-reads it at every mint and renewal.
+    """
     principal = get_current_principal()
     requester = (request.requester if request is not None else None) or {}
     token = (
@@ -107,6 +149,15 @@ def user_info_for(request: RequestContext | None) -> dict[str, Any] | None:
 
 
 def signed_restricted_collections(request: RequestContext) -> list[str]:
+    """The restricted-folder collections this turn may draw on (ADR-0087, ADR-0088).
+
+    What the live digest may serve restricted memory for. The BFF puts them in a
+    scope only for an interactive chat turn of a session cleared for them; of
+    those, the turn keeps the ones it may draw on with the conversation's
+    current audience (:func:`agent.knowledge.restricted_use.begin_restricted_use`).
+    A scope read from the unsigned header fallback (no envelope) gets none,
+    because nothing vouches for it.
+    """
     if not request.envelope_header:
         return []
     use = current_restricted_use()
@@ -115,6 +166,15 @@ def signed_restricted_collections(request: RequestContext) -> list[str]:
 
 
 def settle_restriction(context: TurnContext, request: RequestContext) -> TurnContext:
+    """``context`` with the turn's restriction as it stands after setup.
+
+    Called once the setup gather is done, because two of its members can
+    confine the conversation on their own: restricted memory served into the
+    digest, and a subject document in a restricted folder, are each recorded by
+    the BFF and noted on the bound use. Withdraws deep research and tasks from
+    a confined turn; a conversation that drew on a restricted folder stays
+    refused for both (the BFF refuses them too).
+    """
     use = current_restricted_use()
     drawable = tuple(signed_restricted_collections(request))
     recorded = bool(use is not None and use.confined) or drew_on_other_projects()
@@ -135,6 +195,14 @@ async def _live_memory_digest(
     *,
     fallback: str | None = None,
 ) -> str | None:
+    """This turn's project-memory digest.
+
+    The digest header is frozen for the connection's life, so memory written
+    mid-session would not reach the agent until a reconnect: re-fetch a LIVE
+    digest per turn. A successful fetch is authoritative even when empty
+    (memory may have been cleared); only a failed fetch keeps ``fallback``, the
+    connection-time digest.
+    """
     if not (request.project_id or request.organization_id):
         return fallback
     try:
@@ -152,6 +220,15 @@ async def _live_memory_digest(
 
 
 async def _bff_context_blocks(request: RequestContext, query_text: str) -> ContextBlocks:
+    """The compact-handshake blocks, with restricted memory when this turn may draw on it.
+
+    ``fetch_turn_context`` serves open memory only. A turn whose verified scope
+    carries restricted-folder collections (ADR-0087, ADR-0088) also asks the live
+    digest endpoint, the one that admits the restricted notes' folders for the
+    conversation, and takes its digest instead: it is a superset of the open one.
+    Both run at once so the extra round-trip is not paid in sequence; when the
+    live fetch fails the open digest stands.
+    """
     if not signed_restricted_collections(request):
         return await asyncio.to_thread(fetch_turn_context, request, query=query_text)
     blocks, live_digest = await asyncio.gather(
@@ -169,6 +246,20 @@ async def _context_blocks(request: RequestContext, query_text: str) -> ContextBl
 
 
 async def _turn_flags(request: RequestContext, resolve_stages: bool) -> TurnFlags:
+    """What this turn may do, decided per TURN, not per socket.
+
+    The feature header is written once at the WS upgrade and frozen, so an
+    operator switching something off never reached an already-open tab — the
+    opposite of what a kill switch is for.
+
+    The round-trip is now skipped only when there is NO ORGANIZATION to evaluate
+    against. It used to be skipped whenever no stage had a model to run on,
+    because the answer could then change nothing; that stopped being true when
+    the same call started carrying whether deep research may be offered, which
+    is per-org and decides something on every turn. Without an organization both
+    answers are the permissive defaults anyway — the BFF resolves an absent
+    tenant the same way — so nothing is bought by asking.
+    """
     if not request.organization_id:
         return TurnFlags(enabled_stages=frozenset())
     flags = await resolve_turn_flags(
@@ -187,6 +278,13 @@ async def _turn_flags(request: RequestContext, resolve_stages: bool) -> TurnFlag
 
 
 async def _platform_lessons(conversation_id: str | None) -> LessonsResolution:
+    """The bounded fleet-wide lessons digest with its holdout arm and lesson ids.
+
+    Platform-scoped, so fetched regardless of project/org context; the module
+    TTL-caches, so the per-turn cost is ~zero between refreshes and the thread
+    hop only exists for the cold fetch. Fails open: a digest that could not be
+    read is one the prompts do without, and the turn then claims no arm.
+    """
     try:
         return await asyncio.to_thread(resolve_platform_lessons, conversation_id)
     except Exception:  # noqa: BLE001 - an advisory digest must never cost the turn
@@ -195,12 +293,15 @@ async def _platform_lessons(conversation_id: str | None) -> LessonsResolution:
 
 
 def _signed_envelope(request: RequestContext) -> SignedEnvelope | None:
+    """The turn's envelope as it arrived, for a stage that writes for the asker after the request is gone."""
     if not request.envelope_header or not request.envelope_signature:
         return None
     return SignedEnvelope(header=request.envelope_header, signature=request.envelope_signature)
 
 
 def _record_base_knowledge(blocks: ContextBlocks) -> None:
+    """The office's base-knowledge entries the turn was shown (ADR-0163), so Langfuse
+    can compare answers with and without the office's own standards."""
     if blocks.base_knowledge is None:
         return
     lines = blocks.base_knowledge.splitlines()
@@ -210,6 +311,7 @@ def _record_base_knowledge(blocks: ContextBlocks) -> None:
 
 
 def _record_context_facts(blocks: ContextBlocks) -> None:
+    """What the turn was shown, on its trace: counts and flags, never a block's text."""
     if blocks.workspace is not None:
         record_trace_metadata(office_conventions_lines=office_convention_lines(blocks.workspace))
     _record_base_knowledge(blocks)
@@ -275,6 +377,16 @@ async def load_turn_context(
     query_text: str,
     resolve_stages: bool,
 ) -> TurnContext:
+    """Gather everything the turn injects that lives behind a round-trip.
+
+    Legacy context is fail-open as a whole. Each branch above already degrades
+    on its own, but the composition can still raise (an unexpected error out of
+    a reader, or out of ``compose_project_context``), and this call is one member
+    of the setup gather: a dead branch must cost the LIVE CONTEXT, never the turn and
+    never its siblings. The empty context is what a turn with no project and no
+    memory already runs on. Compact BFF context is required: any load failure
+    must fail the turn rather than silently answer without authenticated policy.
+    """
     try:
         return await _load_turn_context(
             request, conversation_id=conversation_id, query_text=query_text, resolve_stages=resolve_stages

@@ -1,5 +1,6 @@
-from __future__ import annotations
+"""Tolerances and vocabulary the operators share: the numbers that decide an answer, each named once."""
 
+from __future__ import annotations
 
 COORDINATE_TOLERANCE = 0.005
 DIMENSION_TOLERANCE = 2 * COORDINATE_TOLERANCE

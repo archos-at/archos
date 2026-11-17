@@ -1,3 +1,27 @@
+"""How long a process takes to become useful, by phase (ADR-0082: cold start).
+
+Every role's scale-out is bounded by its cold start: a KEDA replica is only
+capacity once it can claim, and a ``chat`` or ``api`` replica once it serves. This measures the
+phases that cost the time, so the role-scoped boot is decided on readings from
+the cluster rather than a laptop:
+
+- ``ready``: the process's age when it can do its work, interpreter start
+  included (read from ``/proc``, so the imports before any code here ran count).
+- ``load_config`` and ``workflow_build``: the agent runtime's config load and
+  ``WorkflowBuilder.from_config``, the two steps every role pays.
+- Under the role ``research-job``, the same two phases once per job: the
+  research worker builds a workflow for every job it runs, not once per process.
+
+Each reading is one ``grid.boot.phase_seconds`` histogram point with ``role`` and
+``phase`` attributes (``chat`` and ``api`` are ``PROCESS_ROLE``'s two web values,
+``research-worker`` and ``ingest-worker`` the workers; ``research-job`` is below),
+and one ``[boot-timing]`` log line. A reading taken before
+a meter provider exists would go to a no-op instrument, so readings wait in the
+process until ``flush``, which a role calls once a workflow is built: building it
+is what installs the provider (``otlp_metrics``). The research worker is ready before its
+first job builds one, so that job's build flushes the worker's reading too.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -33,6 +57,7 @@ def _phase_histogram():
 
 
 def process_age_seconds(proc: str = "/proc") -> float | None:
+    """Seconds since this process started, by the kernel's clock; None off Linux."""
     try:
         with open(f"{proc}/uptime", encoding="ascii") as f:
             uptime = float(f.read().split()[0])
@@ -49,6 +74,7 @@ _pending_lock = threading.Lock()
 
 
 class BootClock:
+    """The phases of one role's start. Readings wait in the process until ``flush``."""
 
     def __init__(self, role: str) -> None:
         self.role = role
@@ -67,12 +93,14 @@ class BootClock:
             self.record(name, time.monotonic() - started)
 
     def ready(self) -> None:
+        """The process can do its work now: record its age as the ``ready`` phase."""
         age = process_age_seconds()
         if age is not None:
             self.record("ready", age)
 
 
 def flush() -> None:
+    """Hand every pending reading to the histogram; call once a workflow is built."""
     global _pending
     with _pending_lock:
         pending, _pending = _pending, []

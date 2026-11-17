@@ -1,3 +1,5 @@
+"""A retrieved LlamaIndex node as the universal ``Chunk``: its score, its content type and its citation."""
+
 import logging
 import math
 import uuid
@@ -10,6 +12,15 @@ logger = logging.getLogger(__name__)
 
 
 def unit_score(score: Any) -> float:
+    """A hit's cosine as ``Chunk.score`` holds it: within ``[0, 1]``, total on every input.
+
+    Anti-correlated results floor at ``0.0`` rather than going negative:
+    ``Chunk.score`` is contractually ``[0, 1]``, and "worse than unrelated" and
+    "unrelated" are the same decision for every consumer. ``None``, ``NaN`` and
+    garbage return ``0.0`` and never raise: ``normalize``'s except-branch does
+    not drop a bad chunk, it substitutes one whose content is
+    ``str(raw_result)``, which then occupies a top-k slot and can be cited.
+    """
     try:
         value = float(score)
     except TypeError, ValueError:
@@ -28,6 +39,10 @@ _CONTENT_TYPES = {
 
 
 def chunk_from_node(raw_result: Any) -> Chunk:
+    """A LlamaIndex ``NodeWithScore`` as the universal ``Chunk``, with the citation a reader sees.
+
+    Total: a result it cannot read becomes a placeholder chunk scored 0, never an exception.
+    """
     try:
         if raw_result is None:
             raise ValueError("raw_result is None")
@@ -67,6 +82,7 @@ def chunk_from_node(raw_result: Any) -> Chunk:
 
 
 def _page_number(label: Any) -> int | None:
+    """The page label as an int, or ``None`` when there is none or it is not a number."""
     if label is None:
         return None
     try:
@@ -78,6 +94,7 @@ def _page_number(label: Any) -> int | None:
 def _display_citation(
     content_type: ContentType, metadata: dict[str, Any], file_name: str, page_number: int | None, content: str
 ) -> str:
+    """The citation a reader sees for a hit: the page, and what on it (a table, an image, a drawing, a text anchor)."""
     if content_type == ContentType.TABLE and "table_index" not in metadata:
         return f"{file_name}, p.{page_number}" if page_number else file_name
     if content_type == ContentType.TABLE:

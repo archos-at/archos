@@ -1,3 +1,5 @@
+"""Utilities for auth-related request classification and trace enrichment."""
+
 import hmac
 import logging
 import os
@@ -24,6 +26,7 @@ TRACE_ACCESS_CHANNELS = frozenset(
 
 
 def _load_trace_user_identity_mode() -> str:
+    """Read and normalize the trace user identity tagging mode."""
     raw = os.getenv("TRACE_USER_IDENTITY_MODE", "none").strip().lower()
     aliases = {
         "0": "none",
@@ -46,11 +49,13 @@ def _load_trace_user_identity_mode() -> str:
 
 
 def _load_trace_user_identity_secret() -> str | None:
+    """Read the secret used to pseudonymize trace user identity."""
     secret = os.getenv("TRACE_USER_IDENTITY_HMAC_SECRET", "").strip()
     return secret or None
 
 
 def _load_trace_client_id_mode() -> str:
+    """Read and normalize the trace client-id tagging mode."""
     raw = os.getenv("TRACE_CLIENT_ID_MODE", "none").strip().lower()
     aliases = {
         "0": "none",
@@ -72,6 +77,7 @@ def _load_trace_client_id_mode() -> str:
 
 
 def _load_trace_client_id_secret() -> str | None:
+    """Read the secret used to pseudonymize trace client identity."""
     secret = os.getenv("TRACE_CLIENT_ID_HMAC_SECRET", "").strip()
     if secret:
         return secret
@@ -79,6 +85,7 @@ def _load_trace_client_id_secret() -> str | None:
 
 
 def _load_trace_client_ip_headers() -> list[str]:
+    """Read preferred client IP headers in lookup order."""
     raw = os.getenv("TRACE_CLIENT_IP_HEADERS", "x-real-ip,x-forwarded-for")
     return [header.strip().lower() for header in raw.split(",") if header.strip()]
 
@@ -103,15 +110,18 @@ LEGACY_TRACE_TAG_PREFIX = "aiq."
 
 
 def _header(headers: dict[bytes, bytes], meaning: str) -> str | None:
+    """The header ``meaning`` names, under its name or else its legacy one."""
     name, legacy = HEADERS[meaning]
     return _extract_header_text(headers, name) or _extract_header_text(headers, legacy)
 
 
 def is_headless_request(headers: dict[bytes, bytes]) -> bool:
+    """Return ``True`` for headless callers that should skip the clarifier."""
     return (_header(headers, "mode") or "").lower() == "headless"
 
 
 def _build_pseudonymous_trace_user_id(principal_type: str, principal_sub: str, secret: str | None) -> str | None:
+    """Return a stable pseudonymous trace user ID derived from the verified principal."""
     if not secret:
         return None
 
@@ -120,6 +130,7 @@ def _build_pseudonymous_trace_user_id(principal_type: str, principal_sub: str, s
 
 
 def _build_pseudonymous_trace_client_id(client_value: str, secret: str | None) -> str | None:
+    """Return a stable pseudonymous client ID derived from client network identity."""
     if not secret or not client_value:
         return None
 
@@ -127,6 +138,7 @@ def _build_pseudonymous_trace_client_id(client_value: str, secret: str | None) -
 
 
 def _extract_auth_transport(headers: dict[bytes, bytes]) -> str:
+    """Return the request auth transport shape."""
     auth = headers.get(b"authorization", b"").decode()
     if auth.startswith("Bearer "):
         return "bearer"
@@ -139,6 +151,7 @@ def _extract_auth_transport(headers: dict[bytes, bytes]) -> str:
 
 
 def _extract_header_text(headers: dict[bytes, bytes], name: str) -> str | None:
+    """Return a decoded header value for a lowercase header name."""
     value = headers.get(name.encode())
     if not value:
         return None
@@ -147,6 +160,7 @@ def _extract_header_text(headers: dict[bytes, bytes], name: str) -> str | None:
 
 
 def _extract_client_ip(headers: dict[bytes, bytes], scope: Scope, header_names: list[str]) -> str | None:
+    """Return the best available client IP from trusted headers or ASGI scope."""
     for header_name in header_names:
         value = _extract_header_text(headers, header_name)
         if not value:
@@ -164,6 +178,7 @@ def _extract_client_ip(headers: dict[bytes, bytes], scope: Scope, header_names: 
 
 
 def _extract_explicit_access_channel(headers: dict[bytes, bytes], *, allow_override: bool) -> str | None:
+    """Return an explicit low-cardinality access-channel override header when present."""
     if not allow_override:
         return None
 
@@ -184,6 +199,7 @@ def _infer_access_channel(
     *,
     allow_explicit_override: bool,
 ) -> str:
+    """Infer a low-cardinality access channel for observability."""
     if explicit := _extract_explicit_access_channel(headers, allow_override=allow_explicit_override):
         return explicit
 
@@ -203,12 +219,14 @@ def _infer_access_channel(
 
 
 def _is_verified_trace_user(user: dict[str, Any]) -> bool:
+    """Return whether the resolved request user is a verified authenticated principal."""
     principal_sub = user.get("sub")
     principal_type = str(user.get("type") or "")
     return bool(principal_sub and principal_type not in {"anonymous", "internal", "unverified_jwt"})
 
 
 def _build_trace_user_tags(user: dict[str, Any], mode: str, secret: str | None) -> dict[str, str]:
+    """Return trace tags for verified user identities according to policy."""
     if mode == "none" or not _is_verified_trace_user(user):
         return {}
 
@@ -249,6 +267,7 @@ def _build_common_trace_tags(
     client_id_secret: str | None,
     client_ip_headers: list[str],
 ) -> dict[str, str]:
+    """Return always-on low-risk trace tags describing request origin and auth shape."""
     auth_transport = _extract_auth_transport(headers)
     tags = {
         "caller.type": str(user.get("type") or "unknown"),
@@ -272,6 +291,7 @@ def _build_common_trace_tags(
 
 
 def _tag_current_ddtrace_span(tags: dict[str, str]) -> None:
+    """Attach user tags to the active Datadog span when ddtrace is installed."""
     if not tags:
         return
 
@@ -292,6 +312,7 @@ def _tag_current_ddtrace_span(tags: dict[str, str]) -> None:
 
 
 def _tag_current_otel_span(tags: dict[str, str]) -> None:
+    """Attach user tags to the active OpenTelemetry span when present."""
     if not tags:
         return
 
@@ -319,6 +340,7 @@ def build_request_trace_tags(
     client_id_secret: str | None,
     client_ip_headers: list[str],
 ) -> dict[str, str]:
+    """Build request classification and optional pseudonymous identity trace tags."""
     tags = _build_common_trace_tags(
         headers,
         scope,
@@ -348,6 +370,7 @@ def attach_request_to_active_trace(
     client_id_secret: str | None,
     client_ip_headers: list[str],
 ) -> dict[str, str]:
+    """Attach request classification and optional pseudonymous identity to active trace spans."""
     tags = build_request_trace_tags(
         headers,
         scope,

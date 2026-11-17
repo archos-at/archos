@@ -1,3 +1,28 @@
+"""What makes a German social-insurance number or tax identification number: the content screen's German rules.
+
+Pure, and a leaf, like :mod:`agent.common.svnr_numbers` (the Austrian
+social-security number): :mod:`agent.common.content_screen` parses where a
+number is printed and asks this module whether it is one. The TypeScript twin
+is ``apps/workspace/bff/upload-screening/de-numbers.ts``; both are held to the
+shared fixture ``tests/fixtures/content_screen_cases.json``.
+
+* ``de_svnr``, the Rentenversicherungsnummer (``15 070649 C 103``): the area
+  (two digits), the birth date DDMMYY, the first letter of the birth name, a
+  serial of two digits and a check digit. The letter becomes its two-digit
+  place in the alphabet; each of the twelve digits is multiplied by
+  ``2 1 2 5 7 1 2 1 2 1 2 1``, the products' digit sums are added, and the sum
+  mod 10 is the check digit. The letter in the middle is what makes the shape
+  rare, so no label is needed.
+* ``de_tax_id``, the steuerliche Identifikationsnummer (``36 574 261 809``):
+  eleven digits, never a leading zero; in the first ten, exactly one digit
+  repeats, two or three times; the last is ISO 7064 MOD 11,10. Eleven digits
+  are a phone, order or meter number as often, and about one in eleven of them
+  passes, so it counts only with a tax-ID label on the page (:data:`TAX_ID_LABELS`).
+
+``python-stdnum``'s ``de.idnr`` is the oracle the tests hold :func:`valid_de_tax_id`
+to; it has no Rentenversicherungsnummer.
+"""
+
 from __future__ import annotations
 
 from agent.common.screen_chars import _digit_touches
@@ -23,6 +48,7 @@ def _digit_sum(value: int) -> int:
 
 
 def valid_de_svnr(compact: str) -> bool:
+    """A Rentenversicherungsnummer, compact (``15070649C103``): shape, area, birth day and month, check digit. Pure."""
     if len(compact) != 12 or not compact.isascii():
         return False
     head, letter, tail = compact[:8], compact[8], compact[9:]
@@ -37,6 +63,7 @@ def valid_de_svnr(compact: str) -> bool:
 
 
 def valid_de_tax_id(digits: str) -> bool:
+    """A steuerliche Identifikationsnummer: eleven digits, no leading zero, one repeated digit, MOD 11,10. Pure."""
     if len(digits) != 11 or not digits.isascii() or not digits.isdigit() or digits[0] == "0":
         return False
     counts: dict[str, int] = {}
@@ -60,9 +87,13 @@ def mask_de_tax_id(digits: str) -> str:
     return f"•• ••• ••• •{digits[-2:]}"
 
 
-
-
 def de_svnr_at(text: str, start: int, soft: frozenset[int]) -> tuple[str, int] | None:
+    """The Rentenversicherungsnummer printed at ``start``: its compact form and where it ends.
+
+    ``AA DDMMYY L SS C``: whitespace may stand after the area, after the date,
+    after the letter and before the check digit (``15 070649 C 103``,
+    ``15070649C103``). The letter is an ASCII capital.
+    """
     area = _digits_at(text, start, 2)
     date_at = _skip_separator(text, start + 2, "")
     date = _digits_at(text, date_at, 6)
@@ -82,6 +113,10 @@ def de_svnr_at(text: str, start: int, soft: frozenset[int]) -> tuple[str, int] |
 
 
 def de_tax_id_at(text: str, start: int, soft: frozenset[int]) -> tuple[str, int] | None:
+    """The tax identification number printed at ``start``: its eleven digits and where it ends.
+
+    Unbroken, or in groups of 2-3-3-3 joined by whitespace (``36 574 261 809``).
+    """
     unbroken = _digits_at(text, start, 11)
     found = (unbroken, start + 11) if unbroken is not None else _grouped_tax_id(text, start)
     if found is None or _digit_touches(text, found[1], soft) or not valid_de_tax_id(found[0]):
@@ -90,6 +125,7 @@ def de_tax_id_at(text: str, start: int, soft: frozenset[int]) -> tuple[str, int]
 
 
 def _grouped_tax_id(text: str, start: int) -> tuple[str, int] | None:
+    """Eleven digits printed 2-3-3-3, each group after a run of whitespace, and where they end."""
     first = _digits_at(text, start, 2)
     if first is None:
         return None

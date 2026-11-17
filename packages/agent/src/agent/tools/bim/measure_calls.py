@@ -1,3 +1,5 @@
+"""Turns a validated input into the engine call for its operation, or into the refusal that says what is missing."""
+
 from collections.abc import Sequence
 from typing import Any
 
@@ -8,13 +10,10 @@ from agent.tools.bim.measure_vocab import RELATIONS
 from agent.tools.bim.measure_vocab import ROOM_KINDS
 from agent.tools.bim.measure_vocab import VIEW_MODES
 
-
 _EngineCall = tuple[str, dict[str, Any]]
 
 
-
 _SUBJECT_OPERATIONS = frozenset({"element", "relations", "measure", "element_profile", "clearance", "distance"})
-
 
 
 _VOCABULARIES: dict[str, Sequence[str]] = {
@@ -34,7 +33,6 @@ _MODE_ADVICE = (
     "For a lichte Breite use operation='measure' with measure='clearWidth' on the opening, and "
     "for a lichte Höhe measure='clearHeight' on the room."
 )
-
 
 
 _ADVICE = {"kind": _KIND_ADVICE, "mode": _MODE_ADVICE}

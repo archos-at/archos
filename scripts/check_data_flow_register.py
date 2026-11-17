@@ -144,7 +144,6 @@ SKIPPED_PARTS = (
 
 @dataclass
 class Register:
-
     rows: list[dict] = field(default_factory=list)
     in_cluster: dict = field(default_factory=dict)
     public_sources: list[dict] = field(default_factory=list)

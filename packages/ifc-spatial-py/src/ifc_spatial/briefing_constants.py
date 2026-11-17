@@ -1,3 +1,5 @@
+"""Limits, match thresholds and the room-use vocabulary the briefing shares, each named once."""
+
 from __future__ import annotations
 
 from typing import Literal
@@ -19,7 +21,6 @@ DECISIVE_PROPERTIES: tuple[tuple[str, str], ...] = (
     ("Höhe", "Height"),
     ("Brüstungshöhe", "SillHeight"),
 )
-
 
 
 RoomUseKind = Literal["habitable_room", "ancillary_room", "circulation"]

@@ -50,8 +50,6 @@ def _diff(report: overview.Report) -> str:
     return "\n" + overview.format_report(report)
 
 
-
-
 def test_the_golden_set_has_thirty_entries_ten_per_cohort(entries):
     by_cohort: dict[str, int] = {}
     for entry in entries:
@@ -129,8 +127,6 @@ def test_the_loader_rejects_an_expected_file_production_filters_out(tmp_path):
         )
 
 
-
-
 def test_the_broad_overview_query_reaches_neither_deterministic_channel(index):
     assert overview.sparse_terms_for(index, "was weißt du über die oib 2") == []
     assert (
@@ -142,8 +138,6 @@ def test_the_precise_rewrite_of_the_same_intent_fires(index):
     assert overview.exact_terms_for("OIB-Richtlinie 2") == ["OIB-Richtlinie 2"]
     assert overview.exact_terms_for("OIB-RL 2") == ["OIB-RL"]
     assert overview.sparse_terms_for(index, "Brandschutz im Wohnhaus") != []
-
-
 
 
 def test_the_cutoff_is_production_top_k(report):
@@ -178,8 +172,6 @@ def test_paraphrase_cohort_recall_has_a_floor(report):
     scores = _cohort(report, "paraphrase")
     assert scores.recall >= 0.90, _diff(report)
     assert scores.mrr >= 0.45, _diff(report)
-
-
 
 
 def test_the_vector_channel_is_recorded(report):

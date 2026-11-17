@@ -1,3 +1,30 @@
+"""Reading a document's stored page text (ADR-0134), or rebuilding it from its chunks when there is none.
+
+The ingest writes ``<version dir>/_text/pages.md`` and ``index.json`` per version
+(``ingest/page_text_store.py``, schema 1). This is the read side, and the one
+place the agent's file tools (``knowledge_layer.estate.backend``) get a page from:
+
+1. **Never from a model-supplied path.** The caller has already resolved the
+   document from the turn's scoped rows; here a ``(collection, file name)`` pair
+   goes through the BFF's scoped lookup (``/api/internal/document-file``, the
+   turn's envelope echoed, the same call ``look`` makes) to the published
+   version's storage key, and only the key's own directory is read. The
+   read-only SeaweedFS credential could read the whole bucket, so the key is
+   never built from anything the model wrote.
+2. **The index must name the document.** ``index.json`` repeats the document id
+   and version the BFF resolved when it was written. A file whose id is not the
+   looked-up document's, or whose version is not the one the key's ``v<n>``
+   directory names, is refused: it is somebody else's text, or an older one.
+3. **Absent is normal.** The base corpus, images, spreadsheets and every document
+   uploaded before the backfill have no ``_text/``. They are rebuilt from their
+   chunks (``collection_pages.read_pages``: breadcrumbs stripped, overlap
+   removed), and the result says so, because a page break inside a chunk is
+   approximate.
+
+Fail-open everywhere: any lookup, fetch or parse failure is "no stored text", and
+the caller falls back to the chunks.
+"""
+
 from __future__ import annotations
 
 import asyncio
@@ -30,6 +57,7 @@ _VERSION_SEGMENT = re.compile(r"/v(\d+)/")
 
 @dataclass(frozen=True)
 class Page:
+    """One page of a document as a reader serves it."""
 
     number: int
     text: str
@@ -43,6 +71,7 @@ class Page:
 
 @dataclass
 class PageText:
+    """A document's pages, and where they came from."""
 
     pages: list[Page]
     origin: str
@@ -71,6 +100,7 @@ async def _resolve(collection: str, file_name: str) -> Any:
 
 
 def _fetch(key: str, bucket: str | None, byte_range: tuple[int, int] | None) -> bytes | None:
+    """One object (or a byte range of it) on the read-only credential; ``None`` on any failure, NoSuchKey included."""
     from agent.common import seaweed_s3
 
     try:
@@ -87,6 +117,7 @@ def _fetch(key: str, bucket: str | None, byte_range: tuple[int, int] | None) -> 
 
 
 def _read_chunks(collection: str, file_name: str) -> list[tuple[Any, str, dict[str, Any]]] | None:
+    """The file's chunks in reading order, as their own text: no breadcrumb, no repeated overlap."""
     from agent.knowledge.collection_pages import _document_hits
     from agent.knowledge.collection_pages import own_page_texts
 
@@ -100,17 +131,25 @@ def _read_chunks(collection: str, file_name: str) -> list[tuple[Any, str, dict[s
 
 
 def text_prefix(storage_key: str) -> str | None:
+    """``<dir>/_text/`` for a version's storage key, the ``buildPageTextPrefix`` rule; ``None`` without a directory."""
     if "/" not in storage_key:
         return None
     return f"{storage_key.rsplit('/', 1)[0]}/{TEXT_DIRECTORY}"
 
 
 def key_version(storage_key: str) -> int | None:
+    """The version a storage key's ``v<n>`` directory names, or ``None`` (a first version's key has none)."""
     found = _VERSION_SEGMENT.findall(storage_key)
     return int(found[-1]) if found else None
 
 
 def check_index(index: Any, *, document_id: str | None, storage_key: str) -> str | None:
+    """Why ``index.json`` may not be served for this document; ``None`` when it may. Pure.
+
+    ``schema``: not a schema-1 index. ``mismatch``: it names another document,
+    or another version than the key's directory. A lookup that returned no
+    document id cannot vouch for the file, so that is a mismatch too.
+    """
     if not isinstance(index, dict) or index.get("schema_version") != SCHEMA_VERSION:
         return "schema"
     meta = index.get("file")
@@ -138,6 +177,7 @@ def _page_entries(index: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def pages_from_body(index: dict[str, Any], body: bytes, *, base: int = 0, wanted: set[int] | None = None) -> list[Page]:
+    """The pages ``index`` describes, cut out of ``body`` (which starts at byte ``base`` of ``pages.md``). Pure."""
     pages: list[Page] = []
     for entry in _page_entries(index):
         number = entry["page"]
@@ -154,6 +194,11 @@ def pages_from_body(index: dict[str, Any], body: bytes, *, base: int = 0, wanted
 
 
 def pages_from_chunks(rows: list[tuple[Any, str, dict[str, Any]]]) -> list[Page]:
+    """A rebuild: each chunk's own text under the page it starts on, in reading order. Pure.
+
+    A chunk with no page label (a text file, a spreadsheet) is page 1: such a
+    file has no pages, and the caller serves it as one window.
+    """
     texts: dict[int, list[str]] = {}
     types: dict[int, set[str]] = {}
     for label, text, metadata in rows:
@@ -185,6 +230,12 @@ async def read_stored(
     resolve: Resolver | None = None,
     fetch: Fetcher | None = None,
 ) -> PageText | None:
+    """The stored pages of the published version, or ``None`` when there are none to serve.
+
+    ``wanted`` limits the read to those pages, by one range request over their
+    span; ``None`` reads every page. A refused index is ``None`` too, with the
+    reason logged: the caller rebuilds, which is what it would do without one.
+    """
     resolve = resolve or _resolve
     fetch = fetch or _fetch
     try:
@@ -238,6 +289,11 @@ async def _fetch_part(fetch: Fetcher, key: str, bucket: str | None, byte_range: 
 
 
 async def rebuild(collection: str, file_name: str, *, read_chunks: ChunkReader | None = None) -> PageText | None:
+    """The document's pages rebuilt from its chunks; ``None`` when it has none. Raises when the store is down.
+
+    An outage is not evidence that a file has no text, so it is never ``None``
+    (``collection_pages.read_pages`` holds the same line).
+    """
     rows = await asyncio.to_thread(read_chunks or _read_chunks, collection, file_name)
     if not rows:
         return None
@@ -255,6 +311,7 @@ async def read_pages(
     read_chunks: ChunkReader | None = None,
     stored: bool = True,
 ) -> PageText | None:
+    """The stored pages when there are any, else the rebuild; ``None`` when the document has neither."""
     if stored:
         found = await read_stored(collection, file_name, wanted=wanted, resolve=resolve, fetch=fetch)
         if found is not None:

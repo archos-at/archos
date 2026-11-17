@@ -1,3 +1,22 @@
+"""The conversation graph: one answering agent, escalation as its own edge.
+
+Every turn enters the agent with its full tool set. That agent decides,
+per turn and in the answer envelope, what the turn is: a direct reply (no
+source consulted, no self-assessment), a researched answer (sources retrieved,
+cited, graded), or a hand-off to deep research (``escalate_to_deep`` with a
+reason). There is no classifier in front of it (ADR-0052): a label decided
+before the answer could only ever withhold capabilities the answer turned out
+to need, and the classes it produced — "meta", "listing", "out of scope" — are
+all shapes the answering model can choose itself.
+
+So this module adds exactly two things to :class:`ChatAgent`: the
+escalation edge (clarifier, then deep research, unless the reader has already
+declined a plan), and the conversation-scoped state the checkpointer persists
+between turns — the message history and that sticky refusal. Everything else a
+turn carries out is a field of the agent's own finished state, lifted by
+:data:`ANSWER_LIFTS` rather than recomputed here.
+"""
+
 import contextlib
 import logging
 from collections.abc import AsyncIterator
@@ -118,6 +137,8 @@ ANSWER_LIFTS: tuple[tuple[str, str], ...] = (
 
 
 def _error_update(message: str) -> dict[str, Any]:
+    """The node update for a failed turn: a retry-able error, never an
+    escalation — deep research does not fix a transient or a bug."""
     return {
         "messages": [AIMessage(content=message)],
         "routing_decision": "error",
@@ -126,10 +147,20 @@ def _error_update(message: str) -> dict[str, Any]:
 
 
 def _no_sources_message(research_type: str, exc: EmptySourceRegistryError) -> str:
+    """Only fires when a data-source tool was actually queried and yielded
+    nothing citable — it must not blame the search tools for unrelated failures."""
     return format_no_sources_message(research_type, exc.unavailable_tools, exc.available_count)
 
 
 def _escalation_update(message: BaseMessage, result: ResearchAgentState) -> dict[str, Any]:
+    """The deep research report supersedes this answer: carry the ASK and no
+    fact about the answer it replaces — no self-assessment, no skills-ran
+    signal, no truncation note, no anatomy.
+
+    Those fields are absent rather than nulled: ``run`` resets every
+    turn-scoped field at turn entry and this node is the only writer before the
+    hand-off, so they are still at their defaults when this returns.
+    """
     return {
         "messages": [message],
         "escalate_to_deep": True,
@@ -142,6 +173,18 @@ def _escalation_update(message: BaseMessage, result: ResearchAgentState) -> dict
 def _answer_update(
     message: BaseMessage, result: ResearchAgentState, turn_messages: Sequence[BaseMessage] = ()
 ) -> dict[str, Any]:
+    """A finished answer with everything the agent decided about it.
+
+    The WHOLE turn is written back — the tool calls, their results, then the
+    answer — not the answer alone: the passages this answer was written from
+    are the context the next turn's follow-up needs, and re-fetching what the
+    transcript just held was the round every follow-up paid. The results are
+    cut to the passages the answer CITED (``history.compact_tool_results``);
+    an uncited passage keeps its header so the next turn knows it exists.
+    Older turns are pruned to what was said when the next turn's history is
+    built (``history.history_window``), so the budget holds answers, plus
+    one turn of cited evidence.
+    """
     update: dict[str, Any] = {field: getattr(result, source) for source, field in ANSWER_LIFTS}
     cited = {
         str(source.get("citation_key"))
@@ -156,6 +199,12 @@ def _answer_update(
 
 
 def _stripped(content: str) -> str:
+    """The answer text with any control marker removed.
+
+    the agent's own pipeline already strips these; this is the defensive
+    second pass, so no marker can reach a reader even if a message other than
+    the one that pipeline cleaned ends up being the answer.
+    """
     without_escalation, _ = detect_and_strip_escalation_marker(content)
     clean, _, _ = detect_and_strip_confidence_marker(without_escalation)
     return clean
@@ -169,6 +218,19 @@ def _finalize_answer(
     turn_messages: Sequence[BaseMessage] = (),
     confined: bool = False,
 ) -> dict[str, Any]:
+    """The node update for a finished research turn, from its answer message and
+    the structured signals the agent extracted in its own ``run()``.
+
+    Those signals are authoritative; non-string content passes through
+    untouched with no signal at all.
+
+    ``deep_research_allowed=False`` turns an ask into a plain answer here, at
+    the point where the two updates diverge, rather than at the routing edge.
+    The edge is too late: by then ``_escalation_update`` has already dropped
+    everything the answer knew about itself and replaced the message with the
+    ask, so suppressing the route there ends the turn on a promise instead of
+    an answer.
+    """
     content = message.content
     if not isinstance(content, str):
         return {"messages": [message]}
@@ -190,6 +252,12 @@ def _finalize_answer(
 
 
 def _answer_only(text: str) -> dict[str, Any]:
+    """A turn that ends with one sentence and no research behind it.
+
+    ``routing_decision`` is "meta" rather than "error": nothing failed, the
+    capability is simply absent, and an error turn would invite the reader to
+    retry something that cannot succeed.
+    """
     return {
         "messages": [AIMessage(content=text)],
         "routing_decision": "meta",
@@ -198,6 +266,8 @@ def _answer_only(text: str) -> dict[str, Any]:
 
 
 def _answer_message(new_messages: list[BaseMessage]) -> BaseMessage | None:
+    """The answer among the messages the agent added: the last AIMessage
+    that is not a tool call, else whatever came last."""
     final = next((m for m in reversed(new_messages) if isinstance(m, AIMessage) and not m.tool_calls), None)
     if final is not None:
         return final
@@ -227,6 +297,10 @@ def _deep_handoff(
 
 
 def _plan_cancelled(original_query: str | None) -> Command:
+    """An explicit cancellation is the one refusal that may end the turn without
+    an answer: the user chose it over the shallow option sitting right next to
+    it. It still gets a receipt — a silent end reads as a crash — and declines
+    deep for the rest of the conversation, so re-asking yields the answer."""
     logger.info("Conversation: Plan cancelled by user, ending the turn with a receipt")
     return Command(
         goto=END,
@@ -242,6 +316,11 @@ def _plan_cancelled(original_query: str | None) -> Command:
 
 
 def _plan_rejected(original_query: str | None) -> Command:
+    """A rejected plan is not a cancelled question. The question is right there
+    in the messages and the agent can answer it; ending here told a user
+    who had just said "no" twice to retype the question the product was already
+    holding. Fall through to the agent and remember the rejection for the
+    rest of the conversation so ``_should_escalate`` never offers plan two."""
     logger.info("Conversation: Plan rejected by user, answering on the shallow path instead")
     return Command(
         goto="shallow_research",
@@ -255,6 +334,17 @@ def _plan_rejected(original_query: str | None) -> Command:
 
 
 class ConversationGraph:
+    """One conversation with the agent, across turns.
+
+    1. The agent answers, with every tool it has.
+    2. If its envelope asks for deep research, the clarifier confirms a plan
+       and deep research runs (as an async job when a submitter is wired).
+
+    The checkpointer holds what a conversation is: the message history and the
+    reader's standing refusal of a research plan. Everything else is reset per
+    turn (:data:`TURN_SCOPED_FIELDS`).
+    """
+
     def __init__(
         self,
         research_fn: Callable[[ResearchAgentState], Awaitable[ResearchAgentState]],
@@ -266,6 +356,13 @@ class ConversationGraph:
         checkpointer: BaseCheckpointSaver | None = None,
         validate_deep_research_tools_fn: Callable[[list[str] | None], tuple[bool, str]] | None = None,
     ) -> None:
+        """Cards are emitted by the answering agent via the ``emit_card`` tool,
+        not generated here; the checkpointer defaults to an in-memory saver.
+
+        ``clarifier_fn`` is None when the deployment runs without a clarifier;
+        the hand-off then goes straight to deep research, exactly as it does
+        for a turn whose caller asked to skip it (``state.skip_clarifier``).
+        """
         self.research_fn = research_fn
         self.deep_research_fn = deep_research_fn
         self.clarifier_fn = clarifier_fn
@@ -336,6 +433,7 @@ class ConversationGraph:
         )
 
     async def _run_research(self, research_state: ResearchAgentState) -> ResearchAgentState | dict[str, Any]:
+        """the agent's result, or the error update for a failed call."""
         try:
             return await self.research_fn(research_state)
         except EmptySourceRegistryError as exc:
@@ -361,7 +459,7 @@ class ConversationGraph:
         if isinstance(result, dict):
             return result
         if not result.messages:
-            logger.error("Piloti returned no messages")
+            logger.error("The agent returned no messages")
             return _error_update(GENERIC_ERROR_MESSAGE)
         new_messages = result.messages[len(trimmed) :]
         message = _answer_message(new_messages)
@@ -380,6 +478,28 @@ class ConversationGraph:
         return update
 
     async def _commission_run(self, state: ConversationState) -> dict[str, Any]:
+        """Hand the question to a run, and answer with nothing but where it is.
+
+        The turn used to answer „Deep research job submitted. Job ID: …", which
+        was the whole record of the work: a sentence. The run now has a row and
+        a message of its own in this thread (ADR-0062), and THAT message is the
+        narration — so this turn's answer is empty on purpose, and carries the
+        two ids the reader's client needs to show the block that just appeared.
+
+        A refusal never costs the reader their answer: everything except a full
+        queue and a REFUSED CAPABILITY falls back to running the research in
+        process, which is the same path a deployment with no worker takes. What
+        is lost then is the block, not the work.
+
+        Those two exceptions are not the same kind of thing. A full queue is a
+        `retry later`. A ``forbidden`` is the tenant not having deep research at
+        all, and the inline fallback would answer it by running deep research
+        anyway — in process, with no second check, straight past the gate the
+        route just applied. `_finalize_answer` normally stops a turn long before
+        it reaches here, so this path is what remains when the capability was
+        withdrawn mid-conversation or a flag lookup failed open; either way the
+        route's `no` is the authoritative one.
+        """
         assert self.commission_run_fn is not None
         try:
             run = await self.commission_run_fn(state)
@@ -474,6 +594,17 @@ class ConversationGraph:
         return graph.compile(checkpointer=self.checkpointer)
 
     async def _merged_digest(self, graph_config: RunnableConfig, state: ConversationState) -> list[str] | None:
+        """The digest this turn runs with: checkpoint lines, then the caller's.
+
+        Append-only, exactly as the agent merges a turn's reads at its end: the
+        digest never shrinks within a conversation, so a caller that supplies
+        lines (a resumed run, a replayed turn) may add but never replace. The
+        checkpoint is read here rather than written over, because the field is
+        conversation-scoped: a run that supplies nothing must keep what the
+        checkpoint holds, and a fresh thread with a caller digest keeps the
+        caller's. ``None`` when neither has anything, so an absent digest stays
+        absent rather than becoming an empty list the nodes read as a value.
+        """
         caller = list(state.already_read_digest or [])
         checkpoint: list[str] = []
         try:
@@ -489,6 +620,22 @@ class ConversationGraph:
     async def stream(
         self, state: ConversationState, thread_id: str | None = None
     ) -> AsyncIterator[EventBody | ConversationState]:
+        """Run one turn on ``thread_id``'s conversation: the wire bodies as it runs, then the final state.
+
+        The graph runs under ``astream`` (chat wire v2 §b): every producer
+        inside it, the agent's inner graph behind its agent-runtime function included,
+        writes its bodies through ``get_stream_writer()``, and they come out
+        here in order. Only the ROOT graph's values are the turn's state; a
+        subgraph's are its own.
+
+        The graph input is every turn-scoped field of the fresh ``state`` plus
+        its new messages: a field listed is overwritten with this turn's value
+        (its default, for the outputs), a field omitted keeps its checkpointed
+        value — which is how ``deep_research_declined`` stays sticky. The
+        digest is the exception that proves it: conversation-scoped, so the
+        caller's lines MERGE with the checkpoint's (append-only) instead of
+        overwriting them, and the merged value is what the graph runs with.
+        """
         graph_config: RunnableConfig = {"configurable": {"thread_id": thread_id}}
         logger.info("Conversation: Starting turn")
         input_state = {name: getattr(state, name) for name in TURN_SCOPED_FIELDS}
@@ -512,6 +659,15 @@ class ConversationGraph:
         yield ConversationState.model_validate(final)
 
     async def append_context_message(self, thread_id: str, text: str) -> None:
+        """Append a human turn to *thread_id*'s history WITHOUT running the graph.
+
+        The agent-tier half of ingest-only context (ADR-0034 addendum): a
+        colleague's message that the server ruled is NOT addressed to the agent
+        still has to be in the agent's memory, or a later "given that, recheck"
+        refers to nothing. ``aupdate_state`` writes a checkpoint through the
+        ``messages`` reducer and schedules no task, so no node runs and no
+        token is spent. Only ``messages`` grows; nothing turn-scoped is touched.
+        """
         if not thread_id or not text:
             return
         graph_config: RunnableConfig = {"configurable": {"thread_id": thread_id}}
@@ -520,4 +676,5 @@ class ConversationGraph:
 
     @property
     def graph(self) -> CompiledStateGraph:
+        """Get the compiled LangGraph for direct access."""
         return self._graph

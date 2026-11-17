@@ -1,3 +1,7 @@
+"""Finding estate paths: resolving a name inside the estate, the did-you-mean suggestions, the children of a
+folder and the glob over the file names.
+"""
+
 from __future__ import annotations
 
 import difflib
@@ -26,6 +30,7 @@ def _names_of(file: EstateFile) -> set[str]:
 
 
 def resolve_in(files: Sequence[EstateFile], parsed: EstatePath) -> Resolution:
+    """:meth:`EstateBackend.resolve` over a given list of files. Pure."""
     if parsed.mount is None or parsed.leaf is None:
         return Resolution(file=None)
     wanted = {fold(name) for name in file_name_candidates(parsed.leaf)} | {fold(parsed.leaf)}
@@ -44,6 +49,7 @@ def resolve_in(files: Sequence[EstateFile], parsed: EstatePath) -> Resolution:
 
 
 def _suggestions(files: Sequence[EstateFile], parsed: EstatePath) -> list[str]:
+    """Up to three listable paths whose leaf is close to the asked one; never a restricted document's."""
     wanted = fold(parsed.leaf or "")
     scored: list[tuple[float, str]] = []
     for file in files:
@@ -57,6 +63,7 @@ def _suggestions(files: Sequence[EstateFile], parsed: EstatePath) -> list[str]:
 
 
 def children(files: Sequence[EstateFile], path: str | None) -> list[str]:
+    """The entries directly below ``path``: subfolders (ending in ``/``) and files, sorted. Pure."""
     try:
         parsed = parse_estate_path(path, directory=True)
     except PathRefused:
@@ -75,12 +82,26 @@ def children(files: Sequence[EstateFile], path: str | None) -> list[str]:
 
 
 def _glob_flags() -> int:
+    """The glob dialect: ``*`` ``**`` ``?`` ``[abc]`` ``{a,b}``, as the stock ``glob`` tool reads it.
+
+    Deep Agents matches with wcmatch too, so a pattern means here what it means
+    to the stock tool. Case is folded by :func:`fold` on both sides, so no
+    IGNORECASE flag is needed.
+    """
     from wcmatch import glob as wcglob
 
     return wcglob.GLOBSTAR | wcglob.BRACE | wcglob.DOTGLOB
 
 
 def glob_files(files: Sequence[EstateFile], pattern: str, path: str | None = None) -> list[EstateFile]:
+    """The files ``pattern`` matches below ``path`` (default: every estate mount), in path order. Pure.
+
+    A pattern without ``/`` matches the file's name at any depth, as the stock
+    tool's does; one with ``/`` matches the path below the search root, and an
+    absolute one (``/project/**/*.pdf``) the whole path. Names compare folded
+    (case, NFC, ä/ae, ß/ss), and a document matches by its served leaf
+    (``Plan.pdf.md``) or its file name (``Plan.pdf``), so ``*.pdf`` finds PDFs.
+    """
     from wcmatch import glob as wcglob
 
     wanted = fold((pattern or "").strip())

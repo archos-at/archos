@@ -1,3 +1,10 @@
+"""A permit record from another project, as the text of a citable source.
+
+What ``project_lookup`` (:mod:`.register`) shows of each permit record a search
+returned: its title, the procedure and every requirement, capped to one
+source's length. Pure: a record in, text out; ``register`` builds the hit.
+"""
+
 from __future__ import annotations
 
 from datetime import date
@@ -8,6 +15,7 @@ from agent.knowledge.permit_extraction import canonical_requirement_kind
 
 
 def plain_text(value: object) -> str:
+    """``value`` as one line, whitespace collapsed; ``""`` for ``None``."""
     return " ".join(str(value).split()) if value is not None else ""
 
 
@@ -21,12 +29,14 @@ _PERMIT_REQUIREMENT_KIND = {"condition": "Auflage", "information_request": "Nach
 
 
 def permits_of(body: dict[str, Any]) -> list[dict[str, Any]]:
+    """The permit records of a search answer that name their project, file and collection."""
     raw = body.get("permits") if isinstance(body.get("permits"), list) else []
     usable = (item for item in raw if isinstance(item, dict) and isinstance(item.get("project"), dict))
     return [item for item in usable if item.get("fileName") and item.get("collection")]
 
 
 def _german_day(value: object) -> str:
+    """``2020-03-12`` as ``12.03.2020``; anything else as it came."""
     try:
         return date.fromisoformat(str(value)).strftime("%d.%m.%Y")
     except ValueError:
@@ -72,6 +82,7 @@ PERMIT_BODY_MAX_CHARS = 2400
 
 
 def capped_body(text: str) -> tuple[str, bool]:
+    """``text`` cut to PERMIT_BODY_MAX_CHARS, and whether it was cut; the renderer marks a cut body itself."""
     if len(text) <= PERMIT_BODY_MAX_CHARS:
         return text, False
     return text[:PERMIT_BODY_MAX_CHARS].rstrip(), True

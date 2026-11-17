@@ -1,3 +1,5 @@
+"""The measure vocabulary: operations, relations, measures, kinds, and the tokens the model may name."""
+
 import logging
 from collections.abc import Sequence
 from typing import Any
@@ -11,7 +13,6 @@ from agent.tools.bim.failures import unrunnable_text
 logger = logging.getLogger(__name__)
 
 
-
 _rejected_text = rejected_text
 
 
@@ -19,7 +20,6 @@ _unrunnable_text = unrunnable_text
 
 
 _too_large_text = too_large_text
-
 
 
 OPERATIONS: tuple[str, ...] = (
@@ -48,7 +48,6 @@ OPERATIONS: tuple[str, ...] = (
 VALID_OPERATIONS = frozenset(OPERATIONS)
 
 
-
 NON_MEASURING_OPERATIONS: frozenset[str] = frozenset(
     {
         "briefing",
@@ -59,8 +58,6 @@ NON_MEASURING_OPERATIONS: frozenset[str] = frozenset(
         "shopping_list",
     }
 )
-
-
 
 
 RELATIONS: dict[str, str] = {
@@ -80,9 +77,7 @@ RELATIONS: dict[str, str] = {
 }
 
 
-
 GEOMETRIC_RELATIONS = frozenset({"bounds", "enclosedBy", "opensTo", "adjacentSpaces", "above", "below"})
-
 
 
 MEASURES: dict[str, str] = {
@@ -149,7 +144,6 @@ MEASURES: dict[str, str] = {
 }
 
 
-
 DISTANCE_MODES = {
     "min": (
         "gap between the two axis-aligned BOUNDING BOXES. 0 means the boxes overlap — it does NOT "
@@ -165,7 +159,6 @@ DISTANCE_MODES = {
         "measure/clearHeight on the room"
     ),
 }
-
 
 
 FIRE_ASPECTS = {
@@ -190,7 +183,6 @@ FIRE_ASPECTS = {
 }
 
 
-
 ENVELOPE_ASPECTS = {
     "thermalEnvelope": (
         "which elements form the boundary between heated inside and outside, grouped by kind, each "
@@ -209,24 +201,19 @@ ENVELOPE_ASPECTS = {
 }
 
 
-
 VIEW_MODES = {
     "highlight": "mark these elements red on the full plan — 'where is this in the building'",
     "only": "draw nothing but these elements — 'what does this look like'",
 }
 
 
-
 KINDS = ("project", "site", "building", "storey", "space", "element", "opening", "group")
-
 
 
 ROOM_KINDS = ("habitable_room", "ancillary_room", "circulation")
 
 
-
 MAX_BATCH = 50
-
 
 
 PROFILE_KINDS = ("expensive",)
@@ -236,12 +223,15 @@ def _enum_lines(entries: dict[str, str], indent: str = "    ") -> str:
     return "\n".join(f"{indent}{name} — {meaning}" for name, meaning in entries.items())
 
 
-
-
 def _literal(*groups) -> Any:
+    """A ``Literal`` over these vocabularies, in the order they were written.
+
+    Order is part of the contract: the tuple becomes the ``enum`` array in the
+    schema the model is handed, and an enum that reshuffles between restarts
+    invalidates every prefix cache in front of it.
+    """
     names = dict.fromkeys(name for group in groups for name in group)
     return Literal[tuple(names)]  # type: ignore[valid-type]
-
 
 
 _KIND_FIELD: dict[str, str] = {
@@ -251,9 +241,7 @@ _KIND_FIELD: dict[str, str] = {
 }
 
 
-
 _ALL_KINDS: tuple[str, ...] = (*KINDS, *FIRE_ASPECTS, *ENVELOPE_ASPECTS, *PROFILE_KINDS)
-
 
 
 _CASE_FOLDED: dict[str, tuple[str, ...]] = {
@@ -264,7 +252,6 @@ _CASE_FOLDED: dict[str, tuple[str, ...]] = {
 }
 
 
-
 _LEGACY_TOKENS: dict[str, dict[str, str]] = {
     "room_kind": {"aufenthaltsraum": "habitable_room", "nebenraum": "ancillary_room", "erschliessung": "circulation"},
     "kind": {"fluchtniveau": "escape_level"},
@@ -272,11 +259,13 @@ _LEGACY_TOKENS: dict[str, dict[str, str]] = {
 
 
 def _canonical(asked: str, vocabulary: Sequence[str]) -> str:
+    """The vocabulary's own spelling of ``asked``, or ``asked`` unchanged when it is in no vocabulary."""
     wanted = asked.strip().lower()
     return next((known for known in vocabulary if known.lower() == wanted), asked)
 
 
 def _record_misses(data: dict[str, Any]) -> None:
+    """Write every value that is in no vocabulary to the capability ledger."""
     operation = str(data.get("operation") or "").strip().lower()
     checks = (
         ("operation", VALID_OPERATIONS),

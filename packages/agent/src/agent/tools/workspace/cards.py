@@ -1,3 +1,22 @@
+"""The ``operation_proposal`` card, for a write the server turned into a proposal (ADR-0122, ADR-0105).
+
+When ``workspace__call`` runs a WRITE operation, the server (``lib/agent-api/discovery.ts``)
+changes nothing: it stores an ``operation`` proposal in the turn's conversation and answers with
+``structuredContent`` ``{ decision: 'propose', proposalId, summary, operation }``. That is the
+contract this module reads, and nothing else of the result. The proposal already exists, so unlike
+``propose_file_change`` (``tools/files/cards.py``) this tier asks the BFF for nothing: it puts the
+card in front of the reader, carrying the server's ``proposal_id``, and the card shows and decides
+that object.
+
+The card is added to the turn's registry and never replaced, so its position (``cardKey`` is
+``type-index``) stays stable. A model that repeats a call gets the SAME ``proposal_id`` back (the
+server files one open proposal per call), and a second card for it would be a second control for one
+decision, so a proposal that already has a card in the registry gets none.
+
+No card channel (a CLI run, an eval, the job worker) means no card: the proposal still waits in the
+person's inbox, and the caller says so in the result text.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -19,6 +38,7 @@ PROPOSE_DECISION = "propose"
 
 @dataclass(frozen=True)
 class OperationProposal:
+    """The proposal a write came back as: what the card shows and which server object it decides."""
 
     proposal_id: str
     operation: str
@@ -26,6 +46,12 @@ class OperationProposal:
 
 
 def proposal_from(structured: object) -> OperationProposal | None:
+    """The proposal in a ``call-operation`` result's ``structuredContent``, or ``None`` when it is not one.
+
+    A read, a refusal and any other answer carry no ``decision: 'propose'`` and come back ``None``.
+    A proposal whose id is not a UUID is not trusted either: an id on a card is always one the BFF
+    returned, and the card schema refuses anything else.
+    """
     if not isinstance(structured, dict) or structured.get("decision") != PROPOSE_DECISION:
         return None
     proposal_id, operation, summary = (structured.get(key) for key in ("proposalId", "operation", "summary"))
@@ -41,6 +67,12 @@ def proposal_from(structured: object) -> OperationProposal | None:
 
 
 def emit_operation_proposal_card(proposal: OperationProposal, call_input: dict[str, Any] | None) -> bool:
+    """Show ``proposal`` as a card; ``True`` when the reader has one for it (new, or already there).
+
+    ``call_input`` is what the model called the operation with, ``{params, query, body}``, shown to
+    the person beside the summary. ``False`` means there is no card channel bound or the card does
+    not validate, and the proposal then waits in the inbox only.
+    """
     registry = get_card_registry()
     if registry is None:
         return False
@@ -64,12 +96,12 @@ def emit_operation_proposal_card(proposal: OperationProposal, call_input: dict[s
     return True
 
 
-
 REVISION_COMPARE_OPERATION = "document-revision-compare"
 REVISION_COMPARE_CARD_TYPE = "revision_compare"
 
 
 def _compare_changes(structured: dict[str, Any], page: int) -> list[dict[str, Any]]:
+    """The boxes of a comparison result that sit on ``page`` and can be drawn, clamped onto it."""
     from agent.tools.look.cards import clamp_region
 
     changes: list[dict[str, Any]] = []
@@ -88,12 +120,22 @@ def _compare_summary(structured: dict[str, Any]) -> list[str]:
 
 
 def _compare_name(structured: dict[str, Any], key: str) -> str | None:
+    """A file name the comparison returned, or ``None`` (the card then labels the side by its role)."""
     value = structured.get(key)
     name = value.strip()[:255] if isinstance(value, str) else ""
     return name or None
 
 
 def emit_revision_compare_card(structured: object, call_input: dict[str, Any] | None) -> int | None:
+    """Show a ``document-revision-compare`` result as a card; its number in the turn (``[[card:N]]``), or ``None``.
+
+    ``call_input`` is what the model called the operation with: the newer document is
+    ``params.id``, the older ``body.older`` and the page ``body.page`` (1 when absent, as
+    the route defaults it). Only the ids, the file names the result carries
+    (``older_name``/``newer_name``, when present), the page and what the comparison
+    returned go on the card: an address, never a picture. A result without sentences (a refusal, a truncated
+    answer) has no card, and a pair already shown on the same page gets no second one.
+    """
     registry = get_card_registry()
     if registry is None or not isinstance(structured, dict) or not isinstance(call_input, dict):
         return None

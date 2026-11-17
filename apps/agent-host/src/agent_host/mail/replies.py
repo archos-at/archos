@@ -1,3 +1,28 @@
+"""The sender's own words, apart from what they quoted and without their signature.
+
+A reply carries the whole conversation below it: "Am 02.10.2026 um 10:15
+schrieb …:", Outlook's "Von:/Gesendet:/An:/Betreff:" block, "-----Original
+Message-----". Filed as it arrived, every message would repeat the ones before
+it, and a statement the sender only quoted would read as theirs. So the body is
+cut at the first such header: what stands above it is the sender's own text,
+what stands below is a list of quoted blocks, each with the header that
+introduced it. The signature and a mail disclaimer are cut from the own text.
+
+The splitting is ``mail-parser-reply`` (MIT, German and English rules), bought
+rather than written: the header and signature patterns of a dozen mail clients
+in two languages are the library's whole job. It is a heuristic, which is why
+the original message is kept (DECISION D6). ``keep_hyphen_lists`` stops it
+from taking a "- item" list for a signature.
+
+Two things are done before the library sees the text, because its signature
+pattern starts with ``\\s*^`` and so costs the square of any whitespace run
+(measured: 20,000 tabs in one line, 7.5 s; 8,000 empty lines, 12 s):
+blank-line runs are collapsed to one empty line and horizontal whitespace
+runs are cut at :data:`~.limits.MAX_WHITESPACE_RUN`. The library strips every
+line anyway, so a reader sees the same text. Past
+:data:`~.limits.MAX_SPLIT_CHARS` the text is not split at all.
+"""
+
 from __future__ import annotations
 
 import re
@@ -30,6 +55,7 @@ class SplitText:
 
 
 def split_replies(text: str) -> SplitText:
+    """``text`` as the sender's own words and the blocks they quoted."""
     if len(text) > limits.MAX_SPLIT_CHARS:
         return SplitText(own=text, quoted=(), signature_removed=False, split=False)
     prepared = _bounded_whitespace(text)
@@ -58,4 +84,5 @@ def _bounded_whitespace(text: str) -> str:
 
 
 def _unquoted(text: str) -> str:
+    """The quoted text without its ``>`` markers."""
     return _QUOTE_MARKER.sub("", text).strip()

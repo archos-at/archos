@@ -1,3 +1,31 @@
+"""The sandboxed fetcher: the one process that talks to public sources.
+
+``POST /v1/fetch`` takes ``{source, method, url, headers, body}`` from a caller
+in the cluster (:class:`public_sources.routing.FetcherTransport`) and makes
+that request through :func:`public_sources.egress.guarded_client` of the named
+source. It answers with the source's status, body and the headers in
+:data:`public_sources.routing.RETURNED_HEADERS`; a refused request is a 403
+carrying ``x-public-source-refused`` with the reason, a source that did not
+answer a 502.
+
+It keeps no secret and no tenant data: a keyed source's key arrives with the
+request (``credential``), is set after the strip on that one request only, is
+never logged and never kept on a client another request reuses. Its Deployment
+(``deploy/pulumi/src/app/public-source-fetcher.ts``) can reach public addresses
+and DNS only. Logs carry the source, host, path, status and size, never the
+query string: a search term is derived from somebody's question.
+
+``POST /v1/extract`` takes a PDF's bytes and answers its text
+(:mod:`public_sources.pdf`): a third party's file is parsed here, in the pod
+with no secret and no way into the cluster, and never in a backend pod. At
+most :data:`public_sources.pdf.MAX_PDF_READERS` parse at once, each on a
+thread of the readers' own pool; a further one is answered 503 at once rather
+than queued, so waiting parses never hold the event loop's default pool, which
+resolves every ``/v1/fetch`` host.
+
+Run: ``python -m public_sources.fetcher`` (``PORT``, default 8095).
+"""
+
 from __future__ import annotations
 
 import asyncio
@@ -38,6 +66,7 @@ def _refused(reason: str) -> Response:
 
 
 def make_app(*, transport: httpx.AsyncBaseTransport | None = None) -> Starlette:
+    """The fetcher app. ``transport`` replaces the guarded network in tests only."""
     clients: dict[str, httpx.AsyncClient] = {}
 
     def client_for(source) -> httpx.AsyncClient:
@@ -101,6 +130,7 @@ class _TooLarge(Exception):
 
 
 class _Readers:
+    """The PDF readers' slots and their own threads, apart from the pool that resolves hosts."""
 
     def __init__(self) -> None:
         from public_sources.pdf import MAX_PDF_READERS
@@ -110,6 +140,7 @@ class _Readers:
 
 
 def _busy() -> Response:
+    """Every reader is taken: answered now, since a queued parse would outlive the caller's wait and hold a slot."""
     from public_sources.pdf import MAX_PDF_READERS
 
     logger.info("extract refused: %s readers busy", MAX_PDF_READERS)
@@ -118,6 +149,18 @@ def _busy() -> Response:
 
 
 async def _extract(request: Request, readers: _Readers) -> Response:
+    """``POST /v1/extract``: a PDF's text, parsed here, where a hostile file reaches nothing.
+
+    The body is the PDF (at most the egress ceiling), ``max_pages`` a query
+    parameter. Answers ``{pages, page_count, title}``, or ``{code, message}``
+    with :class:`public_sources.pdf.PdfError`'s code: 422 for the file, 413 for
+    a body past the ceiling, 503 (``pdf_parse_timeout``) when every reader is
+    busy. The parse runs in a child process with its deadline, memory ceiling
+    and bare environment (:func:`public_sources.pdf.parse_pdf`). A caller that
+    gives up does not cancel it, but nothing waits for a slot, and the deadline
+    (45 s) ends before the caller's wait (50 s), so a slot is held at most that
+    long. Logs carry the size and the outcome, never the text.
+    """
     from public_sources.pdf import MAX_PDF_PAGES
     from public_sources.pdf import PdfError
     from public_sources.pdf import parse_pdf
@@ -151,6 +194,7 @@ async def _extract(request: Request, readers: _Readers) -> Response:
 
 
 async def _send_for(source, credential, client_for, transport, request: tuple[str, str, dict, bytes]):
+    """Send through the source's shared client, or, with a key, through a client of this request alone."""
     method, url, headers, body = request
     if credential is None:
         return await _send(client_for(source), method, url, headers, body)
@@ -159,6 +203,7 @@ async def _send_for(source, credential, client_for, transport, request: tuple[st
 
 
 def _log_fetched(source_id: str, url: str, status: int, size: int) -> None:
+    """Source, host, path, status and size: never the query string, which can come from a question."""
     parsed = urlparse(url)
     logger.info(
         "fetched source=%s host=%s path=%s status=%s bytes=%s", source_id, parsed.hostname, parsed.path, status, size
@@ -167,6 +212,11 @@ def _log_fetched(source_id: str, url: str, status: int, size: int) -> None:
 
 @dataclass(frozen=True)
 class _ConfiguredSource:
+    """A source configured in the database (ADR-0174): its id and hosts, as the caller sent them.
+
+    The fetcher holds no record of it. What it still holds on its own: public
+    addresses only, GET or POST, the header strip, and the hosts at every hop.
+    """
 
     id: str
     hosts: tuple[str, ...]
@@ -176,6 +226,7 @@ class _ConfiguredSource:
 
 
 def _source_of(payload: dict):
+    """The repository record named, or a configured source's hosts; never a repository id with other hosts."""
     source_id = str(payload["source"])
     hosts = payload.get("hosts")
     if hosts is None:
@@ -211,6 +262,7 @@ async def _send(client: httpx.AsyncClient, method: str, url: str, headers: dict,
 
 
 async def _bounded_body(response: httpx.Response) -> bytes:
+    """The body, refused past :data:`MAX_BODY_BYTES` while it streams rather than after."""
     chunks: list[bytes] = []
     size = 0
     async for chunk in response.aiter_bytes():

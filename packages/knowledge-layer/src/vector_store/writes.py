@@ -1,3 +1,16 @@
+"""The adapter's writes beyond the store's primitives: a file's chunks, and the facts people set.
+
+Ingestion embeds a file's chunks once and writes them here (:func:`write_chunks`),
+with what the collection name used to only imply made explicit on every point
+(:func:`enrichment`) and the facts the metadata store already holds for the
+file. Qdrant is the only vector store (ADR-0115): a write that fails raises,
+and the file fails where a person can see it.
+
+The facts a person sets (tags, Dokumentart, Fassung, folder) live in Postgres,
+their authority. :func:`refresh_facts` copies them onto the file's points
+after every change, so a pre-filter sees what the post-filter would.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -30,6 +43,11 @@ logger = logging.getLogger(__name__)
 
 
 def facts_by_file(scope: str, file_names: Iterable[str] | None = None) -> dict[str, dict[str, Any]]:
+    """The person-set facts of each file in ``scope`` (only of ``file_names`` when given), from the metadata store.
+
+    Given names, only their rows are read: a change to one file must not load
+    every document of the scope.
+    """
     if file_names is None:
         from agent.knowledge import get_available_documents
 
@@ -42,6 +60,22 @@ def facts_by_file(scope: str, file_names: Iterable[str] | None = None) -> dict[s
 
 
 def enrichment(scope: str, config: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """What the collection name only implied, made explicit on every point.
+
+    ``office_id`` comes from the ingest job (the BFF's ``x-grid-organization-id``)
+    or, for the Büroablage, from the collection name itself; ``project_id``
+    and ``grid_document_id`` from the job. The project's facts and status
+    come from the job too (the BFF reads them off the project when it
+    dispatches), so a new document is boosted and filtered like its siblings
+    from its first search; a later change reaches it through
+    ``PUT /v1/collections/{c}/project-facts``. ``indexed_at`` is when the
+    chunks were written: what a collection's ``updated_at`` is read from,
+    and what the 24-hour reaper of conversation uploads measures. The licence
+    mark (``licence_class``, ``ai_processing_attested``, ``quote_max_chars``,
+    ``knowledge_edition_id``, ``country_id``, ``released``) is copied from the job
+    when it names one, so a re-ingest keeps what
+    ``PUT /v1/collections/{c}/knowledge-mark`` set.
+    """
     config = config or {}
     office_id = config.get("organization_id")
     if not office_id:
@@ -66,6 +100,11 @@ def enrichment(scope: str, config: Mapping[str, Any] | None = None) -> dict[str,
 
 
 def licence_mark(scope: str, config: Mapping[str, Any]) -> dict[str, Any]:
+    """The licence mark and knowledge edition the ingest job names; a field the job leaves out is not written.
+
+    A class outside ``schema.LICENCE_CLASSES`` is left out and logged rather than
+    failing the file: the mark is a copy the knowledge-mark route can set again.
+    """
     mark: dict[str, Any] = {}
     licence = config.get(LICENCE_CLASS_FIELD)
     if licence in LICENCE_CLASSES:
@@ -101,6 +140,14 @@ def write_chunks(
     identity: Mapping[str, str],
     config: Mapping[str, Any] | None = None,
 ) -> int:
+    """Write one file's embedded chunks into ``scope``; returns the points written.
+
+    A point id is derived from its chunk id (``payload.point_id``), so a retry
+    of the same records overwrites, never duplicates. A fact the metadata store
+    does not hold yet (None) leaves the job's own value; the refresh that
+    follows the store's write (:func:`refresh_facts`) settles it. Raises when
+    the collection holds another embedder's vectors (``schema.ensure_collection``).
+    """
     base = enrichment(scope, config)
     facts = facts_by_file(scope, [file_name]).get(file_name, {})
     base.update({key: value for key, value in facts.items() if value is not None})
@@ -111,6 +158,20 @@ FOLDER_FACTS = frozenset({"folder_path", FOLDER_FIELD})
 
 
 def copy_facts(scope: str, file_names: Iterable[str] | None = None, *, fields: Iterable[str] | None = None) -> int:
+    """Copy the person-set facts of these files (all of ``scope`` when None) onto their points; the files copied.
+
+    Raises when the metadata store or Qdrant fails. :func:`refresh_facts` is
+    the call after a person's edit, which must not fail over its copy; the
+    weekly vector reconcile calls this one through
+    ``POST /v1/maintenance/refresh-document-facts`` so a failure is counted.
+
+    The facts of every file go in bounded batches, not one request per file
+    (a folder rename re-files a whole subtree). A file with no stored
+    Dokumentart gets its own one back (``QdrantStore.restore_chunk_doc_classes``),
+    so clearing a person's class is copied too. ``fields`` limits the copy
+    to those facts (:data:`FOLDER_FACTS` after a folder move), and the
+    Dokumentart is then put back only when it is one of them.
+    """
     store = get_store()
     facts = facts_by_file(scope, file_names)
     wanted = set(fields) if fields is not None else None
@@ -123,6 +184,14 @@ def copy_facts(scope: str, file_names: Iterable[str] | None = None, *, fields: I
 
 
 def refresh_facts(scope: str, file_names: Iterable[str] | None = None, *, fields: Iterable[str] | None = None) -> None:
+    """:func:`copy_facts`, after the metadata store changed a fact. Never raises.
+
+    The store has the change, a person's edit must not fail over its copy,
+    the Postgres post-filters stay as the backstop, and the weekly vector
+    reconcile copies every live collection's facts again (its document facts
+    half, ``lib/platform/vector-reconcile.ts``), which repairs a copy that
+    failed here.
+    """
     try:
         copy_facts(scope, file_names, fields=fields)
     except Exception:  # noqa: BLE001 - see the docstring

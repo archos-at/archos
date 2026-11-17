@@ -1,3 +1,8 @@
+"""The schematic cards and the sub-structures they share.
+
+Sections, stairs, dimensions, setbacks, egress, daylight, guardrails and fire access.
+"""
+
 from typing import Literal
 
 from pydantic import Field
@@ -12,6 +17,11 @@ Provenance = Literal["declared", "computed", "inferred"]
 
 
 class NormReference(CardModel):
+    """A verifiable pointer into a regulation (the atom of grounding).
+
+    Every required value MUST carry one so the architect can verify it against
+    the source. Never fabricate a reference.
+    """
 
     document: str = Field(min_length=1, description="Regulation name, e.g. 'OIB-Richtlinie 2', 'ÖNORM B 1600'")
     section: str | None = Field(default=None, description="Clause/table, e.g. 'Pkt. 5.1.1', 'Tabelle 1b'")
@@ -20,6 +30,27 @@ class NormReference(CardModel):
 
 
 class DimensionCheck(CardModel):
+    """One measured dimension drawn on a schematic and checked against a limit.
+
+    `value` is the project's actual measurement (drawn to scale); `required` is
+    the OIB limit. If `value` is unknown, leave it null and set status
+    'needs_input'.
+
+    ## Why a number here carries where it came from
+
+    This block used to be `label / value / required / unit / comparator /
+    status` and nothing else, and that made the card the least honest surface in
+    the product. `ifc_measure` answers „gemessen: 2.47 m (±5 mm) — aus der
+    Geometrie berechnet, nicht deklariert“, the assistant repeats that in the
+    prose, and the card beside it drew **2.47 m ✓** — indistinguishable from a
+    figure the architect had stated in their own file. The card is the part a
+    reviewer screenshots into a submission, so the surface that dropped the
+    qualifier was the surface most likely to be forwarded without it.
+
+    Three fields close that, and all three are OPTIONAL: a card built from the
+    Bestimmung alone (a limit with no model behind it) has nothing to put in
+    them, and a null here means "not stated", never "declared".
+    """
 
     label: str = Field(min_length=1, description="What is measured, e.g. 'lichte Durchgangsbreite'")
     value: float | None = Field(default=None, description="Actual measurement (drawn); null if unknown")
@@ -59,6 +90,7 @@ class DimensionCheck(CardModel):
 
 
 class SectionStorey(CardModel):
+    """One storey in a building cross-section, drawn as a band to scale."""
 
     label: str = Field(min_length=1, description="Storey label, e.g. 'EG', '1.OG', 'KG'")
     height_m: float = Field(gt=0, description="Clear storey height in metres (drawn to scale)")
@@ -66,6 +98,7 @@ class SectionStorey(CardModel):
 
 
 class SectionMarker(CardModel):
+    """A horizontal reference line at a given height in the section."""
 
     label: str = Field(min_length=1, description="What the line marks, e.g. 'Fluchtniveau', 'GK4-Grenze'")
     height_m: float = Field(description="Height above ground datum in metres")
@@ -73,6 +106,7 @@ class SectionMarker(CardModel):
 
 
 class SetbackSide(CardModel):
+    """A required distance from the building footprint to one parcel edge."""
 
     side: Literal["front", "back", "left", "right"] = Field(description="Which edge")
     required_m: float = Field(description="Required setback in metres (OIB/Bauordnung)")
@@ -81,6 +115,7 @@ class SetbackSide(CardModel):
 
 
 class EgressSegment(CardModel):
+    """One straight run of an escape path, drawn end-to-end with the next."""
 
     label: str = Field(min_length=1, description="Segment label, e.g. 'Raum → Gang', 'Gang → Treppenhaus'")
     length_m: float = Field(gt=0, description="Run length in metres (drawn to scale)")
@@ -88,6 +123,13 @@ class EgressSegment(CardModel):
 
 
 class BuildingSectionCard(CardModel):
+    """A to-scale building cross-section (schematic) drawn from storey heights.
+
+    Emit for height/Gebäudeklasse/Fluchtniveau questions where seeing the
+    building against threshold lines helps (e.g. 'am I below the GK4 limit with
+    a Fluchtniveau of 9.8 m?'). Draws stacked storeys, the ground line, and
+    dashed marker lines (Fluchtniveau, GK/Hochhaus limits) with labels.
+    """
 
     type: Literal["building_section"]
     title: str = Field(min_length=1, description="Title, e.g. 'Gebäudeschnitt – Höhenprüfung'")
@@ -98,6 +140,13 @@ class BuildingSectionCard(CardModel):
 
 
 class StairDiagramCard(CardModel):
+    """A staircase drawn to scale (schematic section) with step-geometry checks.
+
+    Emit for stair questions (e.g. 'does a flight of 17 steps with 18 cm
+    Steigung, 27 cm Auftritt and 100 cm width fit?'). Draws the step profile to
+    scale and checks riser/going/width and the comfort rule (2×Steigung +
+    Auftritt ≈ 59–65 cm) against OIB 4.
+    """
 
     type: Literal["stair_diagram"]
     title: str = Field(min_length=1, description="Title, e.g. 'Treppenlauf – Steigungsverhältnis'")
@@ -110,6 +159,16 @@ class StairDiagramCard(CardModel):
 
 
 class DimensionDiagramCard(CardModel):
+    """A parametric accessibility/geometry schematic with dimension arrows.
+
+    Emit for clearance questions (door width, ramp gradient, turning circle,
+    corridor width, threshold, a barrier-free lift cabin). The renderer picks a
+    prebuilt template for `shape` and draws each dimension arrow where it is
+    measured, coloured by status — preventing the Stocklichte-vs-Durchgangslichte
+    misread. `lift_cabin` took over the cabin half of the retired
+    `elevator_requirement` card: Kabinenbreite, Kabinentiefe and lichte
+    Türbreite, drawn on a cabin plan.
+    """
 
     type: Literal["dimension_diagram"]
     title: str = Field(min_length=1, description="Title, e.g. 'Rampe – Neigung & Breite'")
@@ -125,6 +184,17 @@ class DimensionDiagramCard(CardModel):
 
 
 class SetbackPlanCard(CardModel):
+    """A top-down site plan (schematic): parcel, footprint, setbacks, coverage and GFZ.
+
+    Emit for Abstandsflächen/Bauwich questions ('does the building keep the
+    required Abstände?') and for Bebauungsdichte/Bebauungsgrad/GFZ questions.
+    Draws the parcel, the required-setback envelope, and the building
+    footprint, with a distance arrow per side coloured by status, and — where
+    `coverage` or `density` is given — a readout of Bebauungsgrad (built area /
+    parcel) and GFZ (BGF / parcel) against the Bebauungsplan's limits. The
+    renderer computes the ratios from the areas; the model supplies areas and
+    limits only. The readout took over the retired `density_check` card.
+    """
 
     type: Literal["setback_plan"]
     title: str = Field(min_length=1, description="Title, e.g. 'Abstandsflächen – Lageplan'")
@@ -162,6 +232,14 @@ class SetbackPlanCard(CardModel):
 
     @model_validator(mode="after")
     def _plan_or_areas(self) -> SetbackPlanCard:
+        """The plan needs its four dimensions; a pure density question needs the parcel area instead.
+
+        A Bebauungsgrad or GFZ question with no parcel geometry leaves ``sides``
+        empty and gives ``parcel_area_m2``: the card draws the readout and no
+        plan. Requiring the dimensions there would leave a model (or the
+        repair model) only one way to pass, inventing a parcel the renderer
+        then draws to scale (``_CARD_HONESTY``).
+        """
         dimensions = (self.parcel_width_m, self.parcel_depth_m, self.building_width_m, self.building_depth_m)
         if all(value is not None for value in dimensions):
             return self
@@ -174,6 +252,7 @@ class SetbackPlanCard(CardModel):
 
     @model_validator(mode="after")
     def _ratio_units(self) -> SetbackPlanCard:
+        """A ratio's unit, when the model gave none: ``%`` for Bebauungsgrad, none for GFZ (never ``cm``)."""
         if self.coverage is not None and "unit" not in self.coverage.model_fields_set:
             self.coverage = self.coverage.model_copy(update={"unit": "%"})
         if self.density is not None and "unit" not in self.density.model_fields_set:
@@ -182,6 +261,12 @@ class SetbackPlanCard(CardModel):
 
 
 class EgressDiagramCard(CardModel):
+    """A schematic escape-route (Fluchtweg) path with the total length checked.
+
+    Emit for escape-route-length questions ('is a Fluchtweg of 12 m + 26 m
+    permitted?'). Draws the path segment-by-segment from the worst-case point to
+    the exit and checks the total against the OIB 2 limit (typically 40 m).
+    """
 
     type: Literal["egress_diagram"]
     title: str = Field(min_length=1, description="Title, e.g. 'Fluchtweg – Gehweglänge'")
@@ -193,6 +278,7 @@ class EgressDiagramCard(CardModel):
 
 
 class Obstruction(CardModel):
+    """An object blocking daylight (opposing building, own projection)."""
 
     distance_m: float = Field(gt=0, description="Horizontal distance from the window in metres")
     height_m: float = Field(description="Height of the obstruction above the window sill in metres")
@@ -200,6 +286,13 @@ class Obstruction(CardModel):
 
 
 class DaylightIncidenceCard(CardModel):
+    """A daylight (Belichtung) schematic: the 45° free-light line vs obstructions.
+
+    Emit for daylight/Belichtung questions (OIB 3). Draws a window section, the
+    45° free-light-incidence line from the window's lower edge, any obstruction,
+    and a glass-area-vs-floor-area check. The renderer does the 45° geometry —
+    the model supplies distances/heights only.
+    """
 
     type: Literal["daylight_incidence"]
     title: str = Field(min_length=1, description="Title, e.g. 'Belichtung – freier Lichteinfall'")
@@ -213,6 +306,12 @@ class DaylightIncidenceCard(CardModel):
 
 
 class GuardrailCheckCard(CardModel):
+    """An Absturzsicherung (guardrail) elevation with the interacting limits.
+
+    Emit for guardrail/railing questions (OIB 4). Draws the railing to scale and
+    checks height (>=100 cm, >=110 cm where Absturzhöhe > 12 m), max opening
+    (<=12 cm cube), bottom gap, and shades the no-climb zone.
+    """
 
     type: Literal["guardrail_check"]
     title: str = Field(min_length=1, description="Title, e.g. 'Absturzsicherung Dachterrasse'")
@@ -227,6 +326,7 @@ class GuardrailCheckCard(CardModel):
 
 
 class StagingAreaPlan(CardModel):
+    """The fire-brigade Aufstellfläche geometry."""
 
     width: DimensionCheck = Field(description="Aufstellfläche width (m)")
     length: DimensionCheck = Field(description="Aufstellfläche length (m)")
@@ -234,6 +334,13 @@ class StagingAreaPlan(CardModel):
 
 
 class FireAccessPlanCard(CardModel):
+    """A fire-brigade access (Feuerwehrzufahrt) site plan schematic.
+
+    Emit for fire-access questions (OIB 2 / TRVB). Top-down plan: access route
+    from the road, the Aufstellfläche beside the facade, and the reach distance
+    from the Aufstellfläche to the farthest necessary entrance (typically
+    <=80 m). Numeric minimums vary by Land — always corpus-grounded per check.
+    """
 
     type: Literal["fire_access_plan"]
     title: str = Field(min_length=1, description="Title, e.g. 'Feuerwehrzufahrt & Aufstellfläche'")

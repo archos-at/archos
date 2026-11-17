@@ -54,8 +54,6 @@ def feet() -> SpatialModel:
     return SpatialModel(str(FEET))
 
 
-
-
 def test_bedroom_depth_times_width_is_its_floor_area(model: SpatialModel) -> None:
     answer = dl.room_depth(model, BEDROOM)
     assert answer.decidable
@@ -197,8 +195,6 @@ def test_a_space_the_kernel_cannot_build_is_reported_as_such(no_north: SpatialMo
     assert "Geometriekern" in answer.missing.what
 
 
-
-
 def test_above_the_bedroom_is_the_roof_and_below_it_is_the_ground_slab(model: SpatialModel) -> None:
     over = dl.above(model, BEDROOM)
     under = dl.below(model, BEDROOM)
@@ -286,7 +282,6 @@ def test_a_grid_that_tested_nothing_refuses_instead_of_answering_empty(model: Sp
     assert answer.value is None
     assert answer.missing.what == "kein Rasterpunkt lag über bzw. unter diesem Bauteil"
     assert "samples" in answer.missing.remedy
-
 
 
 SPA_REFERENCE = {
@@ -451,8 +446,6 @@ def test_the_caveat_says_a_sun_position_is_not_a_besonnungsstudie(model: Spatial
     assert "nicht, was beschattet ist" in caveat
     assert "Michalsky" in caveat
     assert "ohne Refraktion" in caveat
-
-
 
 
 def test_no_operator_here_ever_delivers_a_verdict(model: SpatialModel) -> None:

@@ -1,9 +1,23 @@
+"""What a hit's file is, read from the store at query time.
+
+Its Dokumentart, display title and folder, and the agent's filters over them.
+"""
+
 import logging
 
 logger = logging.getLogger(__name__)
 
 
 def resolve_doc_classes(chunks) -> dict[tuple[str, str], str]:
+    """Resolve the authoritative ``doc_class`` for each hit's document.
+
+    The summary store is the source of truth for ``doc_class`` at retrieval time
+    (see the Phase B design decision); chunk metadata is only a fallback for
+    standalone deployments that ship no summary DB. This builds a
+    ``(collection, file_name) -> stored doc_class`` map by looking each distinct
+    document up once via the factory. Fail-open: any store error (or missing
+    store) yields an empty/partial map and callers fall back to chunk metadata.
+    """
     resolved: dict[tuple[str, str], str] = {}
     try:
         from agent.knowledge.factory import get_document_doc_classes
@@ -44,6 +58,12 @@ def resolve_doc_classes(chunks) -> dict[tuple[str, str], str]:
 
 
 def hit_doc_class(chunk, resolved: dict[tuple[str, str], str]) -> str | None:
+    """Authoritative ``doc_class`` for a single hit: stored value wins.
+
+    Prefers the store-resolved value (:func:`resolve_doc_classes`) over the
+    ``doc_class`` stamped into chunk metadata at ingestion time, falling back to
+    the chunk metadata when the store has no value for the document.
+    """
     metadata = chunk.metadata or {}
     collection = metadata.get("collection")
     if collection and chunk.file_name:
@@ -54,6 +74,14 @@ def hit_doc_class(chunk, resolved: dict[tuple[str, str], str]) -> str | None:
 
 
 def resolve_display_titles(chunks) -> dict[tuple[str, str], str]:
+    """Resolve the stored ``display_title`` for each hit's document (batched).
+
+    Mirrors :func:`resolve_doc_classes`: the document_metadata store is the
+    source of truth for the user-facing name. Builds a ``(collection, file_name)
+    -> stored display_title`` map with one batched query per in-scope collection.
+    Fail-open: any store error yields an empty/partial map and callers fall back
+    to the derived default (:func:`~agent.common.norm_registry.guess_display_title`).
+    """
     resolved: dict[tuple[str, str], str] = {}
     try:
         from agent.knowledge.factory import get_document_display_titles
@@ -94,6 +122,14 @@ def resolve_display_titles(chunks) -> dict[tuple[str, str], str]:
 
 
 def hit_display_title(chunk, resolved: dict[tuple[str, str], str]) -> str | None:
+    """User-facing document name for a single hit: stored override wins.
+
+    Precedence: the admin-editable stored ``display_title`` (source of truth) →
+    the deterministic default derived from the OIB filename convention
+    (:func:`~agent.common.norm_registry.guess_display_title`) → ``None`` for a
+    document with neither (e.g. a project upload), where the caller keeps the raw
+    filename because that IS the user-meaningful name for their own files.
+    """
     metadata = chunk.metadata or {}
     collection = metadata.get("collection")
     if collection and chunk.file_name:
@@ -111,6 +147,17 @@ def hit_display_title(chunk, resolved: dict[tuple[str, str], str]) -> str | None
 
 
 def resolve_folder_paths(chunks) -> dict[tuple[str, str], str]:
+    """Resolve the stored ``folder_path`` for each hit's document (batched).
+
+    Mirrors :func:`resolve_doc_classes` and :func:`resolve_display_titles`: the
+    document_metadata store is the source of truth for where a document is
+    FILED, and the folder is deliberately NOT baked into the chunk vectors
+    (ADR-0049) — a folder rename moves the path, and a value baked into every
+    chunk would have to be rewritten chunk by chunk or go stale. Reading it here,
+    once per collection, is what makes a rename take effect with no re-ingest.
+    Fail-open: any store error yields an empty/partial map, which reads as
+    "filed at the root".
+    """
     resolved: dict[tuple[str, str], str] = {}
     try:
         from agent.knowledge.factory import get_document_folder_paths
@@ -151,6 +198,7 @@ def resolve_folder_paths(chunks) -> dict[tuple[str, str], str]:
 
 
 def hit_folder_path(chunk, resolved: dict[tuple[str, str], str]) -> str | None:
+    """Folder path for a single hit, or ``None`` when it sits at the root."""
     collection = (chunk.metadata or {}).get("collection")
     if collection and chunk.file_name:
         return resolved.get((collection, chunk.file_name))
@@ -158,6 +206,15 @@ def hit_folder_path(chunk, resolved: dict[tuple[str, str], str]) -> str | None:
 
 
 def _folder_matches(stored: str | None, requested: str) -> bool:
+    """True when a hit is filed in ``requested`` OR anywhere beneath it.
+
+    The subtree is the point of a materialised path: asking for ``Brandschutz``
+    must also return ``Brandschutz/Fluchtwege``, and must NOT return
+    ``Brandschutzkonzepte`` — which is exactly what the ``/`` boundary below
+    enforces. Comparison is case-insensitive because the agent retypes the
+    folder name from the inventory, and slashes are trimmed so ``/Brandschutz/``
+    and ``Brandschutz`` are the same request.
+    """
     have = (stored or "").strip().strip("/").casefold()
     want = (requested or "").strip().strip("/").casefold()
     if not want:
@@ -168,6 +225,12 @@ def _folder_matches(stored: str | None, requested: str) -> bool:
 
 
 def _file_name_matches(chunk_name: str | None, requested: str) -> bool:
+    """True when a hit is the file the agent named.
+
+    Exact (case-insensitive) first; then either name contains the other so
+    ``Brandschutzplan.pdf`` matches ``Brandschutzplan_EG.pdf``. Display titles
+    are ``title_contains``'s job — this is the indexed name.
+    """
     have = (chunk_name or "").strip().casefold()
     want = (requested or "").strip().casefold()
     if not have or not want:
@@ -182,6 +245,18 @@ def apply_agent_filters(
     file_name: str | None = None,
     folder: str | None = None,
 ) -> list:
+    """Narrow a merged candidate list by the agent-supplied filters.
+
+    Filters run post-merge so they apply uniformly across every collection
+    layer (base, session, project). ``doc_class`` uses the same store-authoritative
+    resolution as the Dokumentart line (:func:`hit_doc_class`), so a platform-owner
+    reclassification takes effect without re-ingest. ``title_contains`` matches the
+    raw file name OR the resolved display title, case-insensitively. ``file_name``
+    matches the indexed name only — the agent already has a name. ``folder``
+    keeps only documents filed in that project folder OR anywhere under it
+    (ADR-0049), resolved from the same store for the same reason: a folder
+    rename applies immediately, with nothing re-ingested.
+    """
     resolved_classes = resolve_doc_classes(chunks) if doc_class else {}
     resolved_titles = resolve_display_titles(chunks) if title_contains else {}
     requested_folder = (folder or "").strip().strip("/") or None

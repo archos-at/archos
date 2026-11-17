@@ -83,8 +83,6 @@ class Plan:
         )
 
 
-
-
 def _paged(fetch: Any) -> list[Any]:
     """Every row of a page-numbered listing."""
     rows: list[Any] = []
@@ -185,8 +183,6 @@ def read_state(api: Any) -> dict[str, Any]:
     }
 
 
-
-
 def _create_score_config(api: Any, definition: ScoreDefinition) -> None:
     from langfuse.api.commons.types.config_category import ConfigCategory
 
@@ -285,8 +281,6 @@ def apply(api: Any, plan: Plan) -> None:
         )
     for item in plan.dataset_items:
         api.dataset_items.create(dataset_name=GOLDEN_DATASET_NAME, **item)
-
-
 
 
 def render(plan: Plan) -> str:

@@ -1,3 +1,15 @@
+"""How a failed tool call is written for the model that has to fix it.
+
+A tool failure reaches the model as the text of a ``ToolMessage``, so that text
+is the whole of what the turn can act on — and what anything reading tool
+results is handed. Two properties matter. It names each problem in one clause,
+because an argument the model cannot see it got wrong is one it retries
+unchanged. And it carries no URL: pydantic appends
+``https://errors.pydantic.dev/...`` to every error it renders, and a URL in a
+tool result used to register as a web source, so the Herleitung showed a source
+card for a host nobody had searched.
+"""
+
 from __future__ import annotations
 
 from pydantic import ValidationError
@@ -14,6 +26,13 @@ FAILURE_IS_NOT_A_FACT = (
 
 
 def render_tool_error(exc: Exception) -> str:
+    """The text a failed tool call returns: the problems, then what to do about them.
+
+    Annotated ``Exception`` rather than ``BaseException`` on purpose:
+    ``ToolNode`` reads this annotation to decide which exceptions it may hand
+    the handler (``langgraph.prebuilt.tool_node._infer_handled_types``) and
+    raises on a type that is not an ``Exception`` subclass.
+    """
     validation = _validation_error(exc)
     if validation is None:
         return f"Error: {render_error_detail(exc)}. {FAILURE_IS_NOT_A_FACT}"
@@ -25,6 +44,11 @@ def render_tool_error(exc: Exception) -> str:
 
 
 def render_error_detail(exc: BaseException) -> str:
+    """The problems alone, for a caller whose own sentence already frames them.
+
+    One clause per rejected field for a validation failure, the exception's own
+    message otherwise. Never a traceback and never a documentation link.
+    """
     validation = _validation_error(exc)
     if validation is None:
         return f"{type(exc).__name__}: {_without_pydantic_links(str(exc))}"
@@ -32,10 +56,21 @@ def render_error_detail(exc: BaseException) -> str:
 
 
 def is_argument_rejection(exc: BaseException) -> bool:
+    """True when the tool never ran because the model's arguments failed its schema.
+
+    ``render_tool_error`` hands that back to the model, which fixes the call:
+    a recovered model mistake, not a failure of the tool.
+    """
     return _validation_error(exc) is not None
 
 
 def _validation_error(exc: BaseException) -> ValidationError | None:
+    """The validation failure this exception is about, unwrapped.
+
+    ``ToolNode`` wraps the ``ValidationError`` raised by argument validation in
+    a ``ToolInvocationError`` that restates it, so the wrapper is asked for the
+    original before its own message is used.
+    """
     if isinstance(exc, ValidationError):
         return exc
     source = getattr(exc, "source", None)
@@ -43,6 +78,11 @@ def _validation_error(exc: BaseException) -> ValidationError | None:
 
 
 def _clauses(exc: ValidationError) -> list[str]:
+    """One ``<field>: <problem>`` per rejected entry, with the value when it is short.
+
+    An entry with no location (a union tag that matches nothing) is about the
+    call and not about a field, so it states the problem alone.
+    """
     clauses: list[str] = []
     for error in exc.errors():
         location = ".".join(str(part) for part in error.get("loc", ()))
@@ -52,6 +92,7 @@ def _clauses(exc: ValidationError) -> list[str]:
 
 
 def _got(value: object) -> str:
+    """The rejected value in parentheses, or nothing when it is not a short scalar."""
     if value is None or not isinstance(value, (str, int, float, bool)):
         return ""
     shown = repr(value)
@@ -59,5 +100,6 @@ def _got(value: object) -> str:
 
 
 def _without_pydantic_links(text: str) -> str:
+    """The message with every line that points at pydantic's error index dropped."""
     kept = [line for line in text.splitlines() if _PYDANTIC_DOCS_HOST not in line]
     return " ".join(line.strip() for line in kept if line.strip())

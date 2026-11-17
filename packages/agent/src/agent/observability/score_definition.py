@@ -1,3 +1,10 @@
+"""The shape of one declared Langfuse score (``ScoreDefinition``), apart from the list of them.
+
+Its own module so a part that declares scores of its own (``base_knowledge_scores``)
+builds them without importing ``langfuse_scores``, which spreads them into
+``SCORE_DEFINITIONS``. ``langfuse_scores`` re-exports both names.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -8,6 +15,7 @@ DataType = Literal["NUMERIC", "CATEGORICAL", "BOOLEAN"]
 
 @dataclass(frozen=True)
 class ScoreDefinition:
+    """One score name Grid writes, and the Langfuse score config that describes it."""
 
     name: str
     data_type: DataType

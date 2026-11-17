@@ -1,3 +1,45 @@
+"""A public PDF's text, by ingestion's own text pass, behind the guard third-party bytes need.
+
+A country publishes much of its law as PDF: the OIB guidelines, a Land's
+gazette, a municipality's ordinance, an authority's guide. A capture of one
+(ADR-0170) keeps its text so a quote can be checked (KC-6), and a source whose
+documents are PDFs (``pdf_document``) reads its pages as passages.
+
+There is one PDF pipeline. The text is :func:`knowledge_layer.ingest.pdf_page_texts`,
+the text pass every PDF the corpus indexes goes through (watermarks dropped,
+dense pages read by PDFium, each page on its own), so a quote that holds
+against a capture holds against what the agent later retrieves from the same
+document. This module adds only what the bytes being a stranger's asks for:
+
+* **Bytes, pages and text are capped.** The body is capped by the egress
+  ceiling (:data:`public_sources.egress.MAX_BODY_BYTES`); a PDF of more than
+  :data:`MAX_PDF_PAGES` pages is refused (``pdf_too_many_pages``), a number the
+  deadline reaches (about 0.09 s a page, measured on gesetze-im-internet.de's
+  PDFs); the text is cut at :data:`MAX_TEXT_CHARS`, at a page boundary, and the
+  note says up to which page.
+* **A child process, held.** The parse runs in
+  :mod:`public_sources.pdf_reader` (``python -I -m``), killed after
+  :data:`PARSE_TIMEOUT_SECONDS`, which stays well below the BFF's budget for a
+  capture so the door answers ``pdf_parse_timeout`` rather than "try again".
+  It may map at most :data:`MEMORY_LIMIT_BYTES`, writes no core file, and
+  starts with an environment of :data:`CHILD_ENV_KEYS` only, never the
+  server's secrets. At most :data:`MAX_PDF_READERS` run at once.
+* **A refusal names its reason.** :class:`PdfError` carries a ``code``:
+  ``pdf_encrypted`` (it needs a password), ``pdf_malformed`` (no PDF the reader
+  can open, or too many unreadable pages by ingestion's own verdict),
+  ``pdf_too_many_pages``, ``pdf_parse_timeout``, and ``pdf_reader_failed``
+  (the reader stopped: its memory ceiling, or a crash, with its exit status).
+
+Pages are joined with a form feed (``\\f``), as ``pdftotext`` joins them: the
+quote check reads it as whitespace, so a quote over a page break still holds,
+and the page of a quote is the number of form feeds before it, plus one.
+
+A page with no text layer (a scan) keeps an empty text and :attr:`PdfText.note`
+names it. Ingestion transcribes such a page with the vision model; this read
+does not, so a quote from a scanned page cannot be checked yet (a follow-up:
+the same transcription, here).
+"""
+
 from __future__ import annotations
 
 import json
@@ -26,11 +68,13 @@ _parse_here = False
 
 
 def allow_parsing_here() -> None:
+    """Let :func:`read_pdf` parse in this process without a fetcher: for the fixture runner and tests only."""
     global _parse_here
     _parse_here = True
 
 
 class PdfError(ValueError):
+    """A PDF that cannot be read. ``code`` is the problem's code, stable for a caller to branch on."""
 
     def __init__(self, code: str, message: str) -> None:
         super().__init__(message)
@@ -45,12 +89,14 @@ class PdfText:
 
     @property
     def text(self) -> str | None:
+        """The pages joined by a form feed; ``None`` when no page has a text layer (a scan)."""
         if not any(page.strip() for page in self.pages):
             return None
         return PAGE_BREAK.join(self.pages)
 
     @property
     def note(self) -> str:
+        """What a reader of :attr:`text` must know: pages with no text layer, or pages past the text cap."""
         notes = []
         blank = [str(number) for number, page in enumerate(self.pages, start=1) if not page.strip()]
         if blank:
@@ -68,6 +114,7 @@ class PdfText:
 
 
 def is_pdf(content: bytes, content_type: str | None = None) -> bool:
+    """Whether the body is a PDF: by its declared type, or by its magic bytes when a server says octet-stream."""
     kind = (content_type or "").split(";", 1)[0].strip().lower()
     return kind == PDF_CONTENT_TYPE or content[:1024].lstrip().startswith(b"%PDF-")
 
@@ -77,6 +124,7 @@ def _child_env() -> dict[str, str]:
 
 
 def _stopped(done: subprocess.CompletedProcess) -> PdfError:
+    """Why a child gave no answer, by its exit status: a signal (the memory ceiling, a crash) or an exit code."""
     if done.returncode < 0:
         try:
             name = signal.Signals(-done.returncode).name
@@ -92,6 +140,17 @@ def _stopped(done: subprocess.CompletedProcess) -> PdfError:
 
 
 def read_pdf(content: bytes, *, max_pages: int = MAX_PDF_PAGES) -> PdfText:
+    """The text of ``content``: read by the public-source fetcher, never in a pod that reaches the cluster.
+
+    With ``PUBLIC_SOURCE_FETCHER_URL`` set (every backend role, Compose
+    included) the bytes go to the fetcher's ``/v1/extract``, which runs
+    :func:`parse_pdf` in its sandbox: no secrets, no service-account token,
+    public egress only. Without it the read is refused (``pdf_reader_failed``),
+    unless the process said in code that it may parse here
+    (:func:`allow_parsing_here`: the fixture runner, a test). The fetcher
+    itself calls :func:`parse_pdf`. Raises :class:`PdfError`. Blocking: an
+    async caller runs it with ``asyncio.to_thread``.
+    """
     fetcher_url = os.environ.get(ENV_FETCHER_URL, "").strip()
     if fetcher_url:
         return _extracted_by(fetcher_url, content, max_pages)
@@ -104,6 +163,7 @@ def read_pdf(content: bytes, *, max_pages: int = MAX_PDF_PAGES) -> PdfText:
 
 
 def _extracted_by(fetcher_url: str, content: bytes, max_pages: int) -> PdfText:
+    """POST the bytes to the fetcher's ``/v1/extract``; its refusal keeps its code."""
     import httpx
 
     endpoint = fetcher_url.rstrip("/") + "/v1/extract"
@@ -134,6 +194,11 @@ def parse_pdf(
     memory_limit: int = MEMORY_LIMIT_BYTES,
     max_chars: int = MAX_TEXT_CHARS,
 ) -> PdfText:
+    """Parse ``content`` here, in a child process killed after ``timeout`` seconds. Raises :class:`PdfError`.
+
+    Only the fetcher's ``/v1/extract`` (and a test) calls this; every other
+    caller uses :func:`read_pdf`. Blocking.
+    """
     if not _READERS.acquire(timeout=timeout):
         raise PdfError("pdf_parse_timeout", f"{MAX_PDF_READERS} PDFs were being read for {timeout:g} seconds")
     try:

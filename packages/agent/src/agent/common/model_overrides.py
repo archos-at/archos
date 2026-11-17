@@ -1,3 +1,28 @@
+"""Runtime model selection per agent group (``X-Grid-Model-Overrides``).
+
+Which model an *agent group* runs on is decided at runtime, not in the workflow
+YAML (see docs/architecture/org-model-configuration.md and ADR-0014). The BFF
+resolves it and forwards the base64url-encoded JSON header::
+
+    X-Grid-Model-Overrides: base64url({"shallow_research": "vendor/model", ...})
+
+That map is already the EFFECTIVE selection — the BFF merges the
+platform-owner defaults (``platform_model_defaults``, admin-controlled, applies
+to every tenant that has not chosen otherwise) with the org's own active
+configuration version, which wins per group. This module deliberately knows
+nothing about those two layers: one map arrives, it is applied.
+
+The backend treats the header as advisory *model selection only*: every other
+generation parameter (max_tokens, reasoning_effort, base_url, api_key) still
+comes from the workflow YAML (the platform owner's per-group reasoning level
+arrives separately, from ``platform_reasoning_efforts`` through
+``reasoning_settings``; the YAML value is its fallback), so an override can
+never re-point traffic at a different provider or credential. Unknown groups
+and malformed ids are dropped; a missing/broken header means "use the YAML
+models" (fail-open to the config's boot fallback, never an error — model
+selection must not take chat down).
+"""
+
 import base64
 import json
 import logging
@@ -45,6 +70,18 @@ _MODEL_ID_RE = re.compile(r"^[A-Za-z0-9_.:-]{1,64}(/[A-Za-z0-9_.:-]{1,128})?$")
 
 
 class AgentGroup(StrEnum):
+    """Semantic agent groups that a platform or org admin can independently re-model.
+
+    Groups deliberately sit *above* the YAML LLM names: they are stable,
+    user-meaningful selection points, while the YAML remains free to reshuffle
+    which named LLM serves which role. They are also the granularity at which
+    the platform default and the org override meet — an org that pinned only
+    ``deep_research`` still follows the platform default everywhere else. The
+    registry mirror lives in
+    ``apps/workspace/bff/model-config/agent-groups.ts`` (which additionally
+    carries the OpenRouter capability requirements per group) — keep the two
+    id sets in sync.
+    """
 
     CLARIFIER = "clarifier"
     RESEARCH = "shallow_research"
@@ -56,6 +93,11 @@ class AgentGroup(StrEnum):
 
 
 def parse_model_overrides(raw: str | None) -> dict[str, str]:
+    """Decode and sanitize a raw header value into ``{group: model_id}``.
+
+    Tolerates padded/unpadded base64url. Silently drops unknown group ids and
+    model ids that don't look like OpenRouter slugs.
+    """
     if not raw:
         return {}
     try:
@@ -69,6 +111,7 @@ def parse_model_overrides(raw: str | None) -> dict[str, str]:
 
 
 def sanitize_model_overrides(data: object) -> dict[str, str]:
+    """Reduce an untrusted mapping to ``{known_group: plausible_model_id}``."""
     if not isinstance(data, dict):
         logger.warning("Ignoring model overrides: expected JSON object, got %s", type(data).__name__)
         return {}
@@ -101,12 +144,13 @@ _overrides_cache_lock = threading.Lock()
 
 
 def reset_overrides_cache() -> None:
+    """Test hook: clear the in-process resolution cache."""
     with _overrides_cache_lock:
         _overrides_cache.clear()
 
 
 class _NoTrustChannel(RuntimeError):
-    ...
+    """No ``INTERNAL_API_TOKEN``: the org's configuration cannot be asked for."""
 
 
 _no_trust_channel_logged = False
@@ -124,6 +168,13 @@ def _log_no_trust_channel_once() -> None:
 
 
 def _fetch_org_config(organization_id: str) -> tuple[dict[str, str], bool, ProcessingPolicy]:
+    """One HTTP round-trip to the BFF's internal model-overrides endpoint.
+
+    Returns ``(overrides, zdr_only)`` — the org's EFFECTIVE model selection
+    (platform defaults with the org's own choices layered on top, merged
+    BFF-side) plus its Zero-Data-Retention policy (whether every OpenRouter
+    request must pin to a ZDR endpoint).
+    """
     token = os.environ.get("INTERNAL_API_TOKEN")
     if not token:
         raise _NoTrustChannel()
@@ -148,6 +199,15 @@ def _fetch_org_config(organization_id: str) -> tuple[dict[str, str], bool, Proce
 
 
 def _resolve_org_config(organization_id: str | None) -> _OverridesCacheEntry | None:
+    """Cached resolution of an org's overrides + ZDR policy (shared hot path).
+
+    In-process memo first, then the shared tier, then one BFF round-trip (see
+    the tier comment at the TTL constants); errors are negative-cached
+    in-process. The model selection fails OPEN (no overrides: the YAML models
+    still answer); the ZDR bit fails CLOSED (pinned), because a ZDR tenant's
+    prompts must not reach a retaining endpoint while the BFF is briefly away.
+    Returns ``None`` only when no org id is available.
+    """
     if not organization_id:
         return None
 
@@ -213,11 +273,23 @@ def _resolve_org_config_locked(organization_id: str) -> _OverridesCacheEntry:
 
 
 def resolve_org_model_overrides(organization_id: str | None) -> dict[str, str]:
+    """The effective model selection for an org, by org id (fail-open to {}).
+
+    Includes the platform-owner defaults — the BFF merges them in before
+    answering, so a group the org never touched still resolves to the
+    admin-chosen model rather than the YAML boot fallback.
+    """
     entry = _resolve_org_config(organization_id)
     return entry.overrides if entry is not None else {}
 
 
 def resolve_org_zdr_only(organization_id: str | None) -> bool:
+    """Whether the org pins every OpenRouter request to a ZDR endpoint.
+
+    Resolved by org id via the same cached internal round-trip as the model
+    overrides. Fails CLOSED: an unreadable setting answers ``True``. Callers
+    outside this module go through ``common/openrouter.data_policy_for``.
+    """
     entry = _resolve_org_config(organization_id)
     if residency.active_cell() is not None:  # a cell's promise is zero retention: the org switch cannot lift it
         return True
@@ -225,6 +297,10 @@ def resolve_org_zdr_only(organization_id: str | None) -> bool:
 
 
 def resolve_org_processing_policy(organization_id: str | None, *, cached_only: bool = False) -> ProcessingPolicy | None:
+    """The org's processing policy (purposes, cell); the fail-closed one when it cannot be read.
+
+    ``cached_only`` reads the in-process cache alone and never blocks: None on a miss (``residency``'s async check).
+    """
     if cached_only:
         hit = _overrides_cache.get(organization_id or "")
         return hit.processing if hit is not None and hit.expires_at > time.monotonic() else None
@@ -233,6 +309,25 @@ def resolve_org_processing_policy(organization_id: str | None, *, cached_only: b
 
 
 def get_model_overrides_from_context() -> dict[str, str]:
+    """The current request's model overrides.
+
+    Reads the ``x-grid-model-overrides`` header first (present on BFF-fronted
+    requests; a WebSocket connection keeps its upgrade-time value, preserving
+    the documented per-conversation pinning). When the header is absent —
+    endpoints the BFF does not front, or a failed best-effort injection — falls
+    back to resolving the org's *effective* selection via the internal endpoint
+    (the platform-owner defaults with the org's own overrides layered on top),
+    mirroring BYOK credential resolution.
+
+    Returns ``{}`` when no overrides apply — callers then use the
+    YAML-configured models unchanged.
+
+    When the signed envelope arrived, its ``modelOverrides`` is the only source:
+    the raw header is unsigned, and a client that set it could run any agent
+    group on any model at the organization's expense. Only a request with no
+    envelope (a job worker run that carries none, which injects the header
+    itself; the CLI) reads it.
+    """
     from agent.project_context import _read_header
     from agent.project_context import get_signed_request_context
 
@@ -252,12 +347,29 @@ def get_model_overrides_from_context() -> dict[str, str]:
 
 
 def get_zdr_only_from_context() -> bool:
+    """Whether the current request's org enforces Zero-Data-Retention routing.
+
+    Org-scoped policy (not part of the per-conversation model-overrides header),
+    so it is always resolved by org id via the internal endpoint. Returns
+    ``False`` when no org applies — anonymous deployments impose no extra
+    routing restriction.
+    """
     from agent.project_context import get_organization_id_from_context
 
     return resolve_org_zdr_only(get_organization_id_from_context())
 
 
 def _rebind_instance_method_patches(original: object, copy_obj: object) -> None:
+    """Rebind instance-level method wrappers (e.g. the agent runtime's ``patch_with_retry``) to the copy.
+
+    The agent runtime's LLM builders wrap every public method of the chat model with retry
+    wrappers stored in the instance ``__dict__`` as ``types.MethodType`` bound
+    to the *original* instance. Pydantic ``model_copy`` shallow-copies
+    ``__dict__``, so without rebinding every call on the override copy keeps
+    executing against the original instance — the copied ``model_name`` field
+    looks overridden, but the request payload still carries the original's
+    model. Rebind any such instance-level bound methods to the copy.
+    """
     try:
         attrs = list(vars(copy_obj).items())
     except TypeError:
@@ -268,6 +380,14 @@ def _rebind_instance_method_patches(original: object, copy_obj: object) -> None:
 
 
 def override_model(llm: object, model_id: str) -> object:
+    """Return a copy of a LangChain chat model pointed at ``model_id``.
+
+    Uses pydantic ``model_copy`` so the returned object is a real chat model
+    (``bind_tools``/``with_structured_output`` keep working) that shares the
+    underlying HTTP client with the original — the model name only changes the
+    per-request payload. Returns the original llm unchanged when it doesn't
+    expose a recognizable model field.
+    """
     field = None
     if hasattr(llm, "model_name"):
         field = "model_name"
@@ -286,6 +406,19 @@ def override_model(llm: object, model_id: str) -> object:
 
 
 def override_reasoning_effort(llm: object, effort: str) -> object:
+    """Return a copy of a chat model set to the platform owner's thinking level.
+
+    Like :func:`override_model`, uses ``model_copy`` so the result is a real chat
+    model sharing the underlying HTTP client, and rebinds the agent runtime's instance-level
+    retry wrappers to the copy. Request-scoped: the shared build-time instance is
+    never mutated.
+
+    The value is passed through verbatim — OpenRouter maps a requested effort to
+    the nearest level the effective model supports, server-side (see the NOTE in
+    ``llm_factory``). Returns the original llm unchanged when it exposes no
+    ``reasoning_effort`` field, so a non-OpenAI-shaped model is a no-op rather
+    than an error.
+    """
     if not hasattr(llm, "reasoning_effort") or not hasattr(llm, "model_copy"):
         logger.debug("Cannot apply reasoning effort to %s: no reasoning_effort field", type(llm).__name__)
         return llm
@@ -301,12 +434,23 @@ def override_reasoning_effort(llm: object, effort: str) -> object:
 
 
 def _merge_zdr_extra_body(extra_body: object) -> dict[str, object]:
+    """Return a NEW extra_body dict with Zero-Data-Retention provider routing.
+
+    The merge itself is ``openrouter.DataPolicy.apply``; this name stays for its callers.
+    """
     from agent.common.openrouter import ZERO_DATA_RETENTION
 
     return ZERO_DATA_RETENTION.apply(extra_body if isinstance(extra_body, dict) else None)
 
 
 def apply_zdr_routing(llm: object) -> object:
+    """Return a copy of an OpenRouter chat model pinned to ZDR endpoints.
+
+    No-op for non-OpenRouter models or when the routing is already present.
+    Raises ``openrouter.ZdrRoutingError`` when an OpenRouter model cannot carry
+    it, where this used to return the unpinned model and send the request
+    anyway. See ``openrouter.pin_chat_model``.
+    """
     from agent.common.openrouter import ZERO_DATA_RETENTION
     from agent.common.openrouter import pin_chat_model
 
@@ -314,6 +458,16 @@ def apply_zdr_routing(llm: object) -> object:
 
 
 def is_reasoning_incompatible_error(err: BaseException) -> bool:
+    """True when a provider rejected the call because the model cannot disable reasoning.
+
+    An org override can point a ``reasoning_effort: none`` role at a
+    reasoning-mandatory model (e.g. ``x-ai/grok-4.5``);
+    OpenRouter then 400s with "Reasoning is mandatory for this endpoint and
+    cannot be disabled". ``llm_factory`` uses this to re-send the call at the
+    lowest reasoning effort instead of failing it. Matched conservatively: the message must
+    mention reasoning AND carry a mandatory/cannot-disable/400 signal, so
+    ordinary reasoning-themed content errors do not trigger a fallback.
+    """
     msg = str(err).lower()
     if "reasoning" not in msg:
         return False
@@ -327,6 +481,23 @@ def apply_model_override(
     zdr_only: bool | None = None,
     reasoning_effort: str | None = None,
 ) -> object:
+    """Apply the current request's LLM policy for ``group`` to ``llm``.
+
+    Three independent, request-scoped transforms — each applied on a copy, never
+    mutating the shared build-time instance:
+
+    - Model override: re-point the group at the org's chosen model, if any.
+    - Reasoning effort: set the platform owner's thinking level for the group,
+      if one is pinned (Platform → Models). PLATFORM-scoped, not per-org, and
+      resolved separately from the model: an org may choose its own model while
+      the fleet's reasoning spend stays a platform decision.
+    - Zero-Data-Retention: pin OpenRouter traffic to ZDR endpoints when the org
+      enforces its ZDR policy (``provider.zdr`` + ``data_collection: deny``).
+
+    ``overrides`` / ``zdr_only`` / ``reasoning_effort`` may be passed explicitly
+    when the caller already read them (e.g. captured before scheduling
+    background work); otherwise they default to the live request context.
+    """
     if overrides is None:
         overrides = get_model_overrides_from_context()
     if zdr_only is None:

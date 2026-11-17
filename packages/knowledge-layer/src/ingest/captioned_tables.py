@@ -1,3 +1,26 @@
+"""Captioned tables in a Richtlinie: read as tables, indexed as tables.
+
+The requirements the OIB states per Gebäudeklasse live in tables (Tabelle 1a,
+1b, 2a, 3 …), and page text extraction reads a table row by row ACROSS its
+columns. Tabelle 3 of OIB-Richtlinie 2 reached the model as "an der obersten an
+der obersten an der obersten Stelle des Treppen- Stelle des Treppen- …": the
+four Gebäudeklassen interleaved, no value attributable to a column. In the
+September 2026 census the agent then searched „Tabelle 3 GK 4 REI 60" round
+after round for a legible copy (three extra research calls, ~15 s), or gave up
+and answered "Anforderungen der Tabelle 3" without a single value.
+
+pdfplumber's table finder reads the same page correctly, one row per
+requirement and one column per GK. So a table that carries a caption („Tabelle
+3: …"), or continues one from the previous page, is taken OUT of the page text
+and indexed on its own: a Markdown table under its caption, split into row
+groups that each repeat the header so no chunk loses its columns, addressable
+as ``clause_id = "Tabelle 3"`` exactly as a Punkt is.
+
+Only captioned tables: a ruled box without a caption may be a note or a form,
+and removing it from the text would lose prose. Everything here is pure except
+:func:`extract_page_tables`, which reads a pdfplumber page.
+"""
+
 from __future__ import annotations
 
 import re
@@ -13,6 +36,7 @@ MAX_CHUNK_CHARS = 1600
 
 @dataclass
 class PageTable:
+    """One captioned table (or a continuation of one) found on one page."""
 
     table_id: str
     title: str
@@ -23,6 +47,7 @@ class PageTable:
 
 @dataclass
 class Table:
+    """A whole table, its fragments joined across pages."""
 
     table_id: str
     title: str
@@ -38,6 +63,13 @@ def _clean(cell: Any) -> str:
 
 
 def _caption_above(page: Any, top: float) -> tuple[str, str] | None:
+    """The „Tabelle N: title" standing just above ``top``, title joined across its lines.
+
+    The region is built from the page's own box, not from ``0`` and ``page.width``: a
+    page whose box does not start at the origin (a CAD export, ``(-1162, 1275, 1162,
+    3826)``) made pdfplumber refuse the region, and every table on it went unread
+    (2026-10, ``WR_25003_P*.pdf``).
+    """
     x0, page_top, x1, _bottom = page.bbox
     region = page.within_bbox((x0, max(page_top, top - _CAPTION_REACH), x1, max(page_top + 1.0, top)))
     lines = [line.strip() for line in (region.extract_text() or "").splitlines() if line.strip()]
@@ -50,10 +82,12 @@ def _caption_above(page: Any, top: float) -> tuple[str, str] | None:
 
 
 def _continues(previous: PageTable | None, page_number: int) -> bool:
+    """Whether a caption-less table on ``page_number`` may continue ``previous``: the very next page only."""
     return previous is not None and page_number == previous.page_number + 1
 
 
 def extract_page_tables(page: Any, page_number: int, previous: PageTable | None) -> list[tuple[PageTable, tuple]]:
+    """The captioned tables on ``page`` (and a continuation of ``previous``), with their bboxes."""
     found: list[tuple[PageTable, tuple]] = []
     for table in page.find_tables():
         rows = [[_clean(cell) for cell in row] for row in (table.extract() or [])]
@@ -71,10 +105,12 @@ def extract_page_tables(page: Any, page_number: int, previous: PageTable | None)
 
 
 def _header_rows(rows: list[list[str]]) -> int:
+    """Row 0 is the header; row 1 too when it only subdivides a column (its first cell empty)."""
     return 2 if len(rows) > 2 and not rows[1][0] and any(rows[1][1:]) else 1
 
 
 def join_fragments(fragments: list[PageTable]) -> list[Table]:
+    """Fragments in page order joined into tables; a repeated header on a continuation is dropped."""
     tables: list[Table] = []
     for fragment in fragments:
         if fragment.continuation and tables and tables[-1].table_id == fragment.table_id:
@@ -120,10 +156,17 @@ def _header_markdown(table: Table, width: int) -> list[str]:
 
 
 def markdown_chunks(table: Table, max_chars: int = MAX_CHUNK_CHARS) -> list[str]:
+    """The table as Markdown, cut into row groups under ``max_chars``, each with the header."""
     return [text for _first, _last, text in markdown_row_groups(table, max_chars)]
 
 
 def markdown_row_groups(table: Table, max_chars: int = MAX_CHUNK_CHARS) -> list[tuple[int, int, str]]:
+    """Row groups as ``(first, last, markdown)``, each repeating the header.
+
+    ``first``/``last`` are 0-based indexes into the table's BODY rows (header
+    excluded), which is what a row-range locator is built from: a spreadsheet
+    or CSV group names the rows it holds, so ``read_passage`` can open it.
+    """
     width = max(len(row) for row in table.rows)
     head = _header_markdown(table, width)
     head_chars = sum(len(line) + 1 for line in head)
@@ -140,6 +183,14 @@ def markdown_row_groups(table: Table, max_chars: int = MAX_CHUNK_CHARS) -> list[
 
 
 def page_text_with_tables(text: str, tables: list[PageTable]) -> str:
+    """A page's text with its tables appended as Markdown, for the per-page path.
+
+    A document without a Punkt outline is indexed per page; its tables were cut
+    out of the page text, so they are put back here, legible, rather than lost.
+    A continuation is rendered on its own page without its table's header, so
+    its rows are all body under an empty header row: its first row is data
+    unless the PDF repeated the header, and either way it is not a label.
+    """
     parts = [text] if text else []
     for fragment in tables:
         table = join_fragments([fragment])[0]

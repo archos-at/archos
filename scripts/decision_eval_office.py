@@ -156,8 +156,6 @@ async def _bounded(items: list[Any], work: Callable[[Any], Awaitable[Any]], limi
     return list(await asyncio.gather(*(one(item) for item in items)))
 
 
-
-
 @dataclass
 class PrecedentRow:
     id: str
@@ -252,8 +250,6 @@ async def evaluate_precedent() -> dict[str, Any]:
     )
     print(f"wants_reference on the held-out look rows and the loop-eval rule rows: {held_wants}")
     return {"rows": [asdict(row) for row in rows], "sweep": sweep, "wants_reference": wants, "held_out": held_wants}
-
-
 
 
 def _cited_projects(question: dict[str, Any], projects: list[dict[str, Any]]) -> set[str]:
@@ -369,8 +365,6 @@ async def evaluate_fit() -> dict[str, Any]:
     return {"rows": [asdict(row) for row in rows], "summary": summary}
 
 
-
-
 def _hit_of(project: dict[str, Any], document: dict[str, Any]) -> dict[str, Any]:
     return {
         "project": {"id": project["id"], "name": project["name"], "status": project["status"]},
@@ -444,8 +438,6 @@ async def evaluate_hits() -> dict[str, Any]:
     return {"sweep": sweep, "evidence_first": first, "questions": len(results), "injection": injection}
 
 
-
-
 async def evaluate_verify() -> dict[str, Any]:
     from agent.common.decisions import decide_many
     from agent.knowledge.fingerprint_verify import SLOT
@@ -464,7 +456,6 @@ async def evaluate_verify() -> dict[str, Any]:
         [p or 0.0 for _, p in scored],
     )
     return {"rows": [{"id": row["id"], "stated": row["stated"], "p": p} for row, p in scored], "sweep": sweep}
-
 
 
 EVALUATORS: dict[str, Callable[[], Awaitable[dict[str, Any]]]] = {

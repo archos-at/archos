@@ -1,3 +1,5 @@
+"""Renders one engine answer into the lines the model reads, operation by operation."""
+
 from collections.abc import Callable
 from typing import Any
 
@@ -16,6 +18,15 @@ def _element_line(entry: dict[str, Any]) -> str:
 
 
 def _provenance_line(answer: dict[str, Any]) -> str:
+    """The one line the agent quotes — with the right provenance verb in front.
+
+    Three provenances, three sentences, and a fourth for the undecidable case.
+    They are written out rather than composed from a template on purpose: the
+    difference between „das Modell deklariert 15,4 m²“ and „gemessen: 15,4 m²
+    (±5 mm)“ is the difference between reporting the architect's own statement
+    and reporting ours, and a reader has to be able to tell which they are being
+    handed.
+    """
     if not answer.get("decidable", True):
         missing = answer.get("missing") or {}
         what = missing.get("what") or "the required information"
@@ -41,6 +52,14 @@ def _provenance_line(answer: dict[str, Any]) -> str:
 
 
 def _value_with_unit(answer: dict[str, Any]) -> str:
+    """The answer's value, rounded to its band and carrying its unit.
+
+    Split out of :func:`_provenance_line` so the Herleitung card and the
+    sentence the agent reads are formatted by ONE function. A card that
+    re-derives „2,70 m" from the same envelope is a second implementation of a
+    rounding rule, and the first time the two disagree the surface that exists
+    to prove the derivation is the one contradicting it.
+    """
     unit = answer.get("unit")
     value = answer.get("value")
     decimals = _decimals(answer.get("tolerance")) if answer.get("provenance") == "computed" else None
@@ -51,6 +70,7 @@ def _value_with_unit(answer: dict[str, Any]) -> str:
 
 
 def _computed_decimals(answer: dict[str, Any]) -> int | None:
+    """Decimals for a `computed` value; a declared figure is the file's own statement and is not rounded."""
     return _decimals(answer.get("tolerance")) if answer.get("provenance") == "computed" else None
 
 
@@ -63,14 +83,13 @@ def _all_numbers(value: list) -> bool:
 
 
 def _trailer(answer: dict[str, Any]) -> list[str]:
+    """The caveat and the method, which close every special-shape answer."""
     lines: list[str] = []
     if answer.get("caveat"):
         lines.append(f"Note: {answer['caveat']}")
     if answer.get("method"):
         lines.append(f"Method: {answer['method']}")
     return lines
-
-
 
 
 def _render_light_entry(answer: dict[str, Any], list_limit: int) -> list[str]:
@@ -159,7 +178,6 @@ def _render_door_graph(answer: dict[str, Any], list_limit: int) -> list[str]:
     return lines + _trailer(answer)
 
 
-
 _ANSWER_SHAPES: tuple[tuple[Callable[[Any], bool], Callable[[dict[str, Any], int], list[str]]], ...] = (
     (lambda v: isinstance(v, dict) and "lightEntryArea" in v, _render_light_entry),
     (lambda v: isinstance(v, dict) and "legs" in v and "reachesOutside" in v, _render_egress),
@@ -168,6 +186,7 @@ _ANSWER_SHAPES: tuple[tuple[Callable[[Any], bool], Callable[[dict[str, Any], int
 
 
 def _prism_line(answer: dict[str, Any], decimals: int | None) -> str:
+    """FREI or NICHT FREI, with the prism's angles as the caller wrote them."""
     unit = answer.get("unit") or "m"
     prism = answer.get("prism") or {}
     angles = ""
@@ -186,6 +205,7 @@ def _prism_line(answer: dict[str, Any], decimals: int | None) -> str:
 
 
 def _list_entry(entry: Any, answer: dict[str, Any], decimals: int | None) -> str:
+    """One row of a list-valued answer, by what the row carries."""
     if not isinstance(entry, dict):
         return f"- {entry}"
     name = entry.get("name") or entry.get("globalId")
@@ -208,6 +228,7 @@ def _list_entry(entry: Any, answer: dict[str, Any], decimals: int | None) -> str
 
 
 def _render_answer(answer: dict[str, Any], *, list_limit: int = 40) -> list[str]:
+    """An :class:`ifc_spatial.envelope.Answer` as lines."""
     value = answer.get("value")
     for matches, render in _ANSWER_SHAPES:
         if matches(value):

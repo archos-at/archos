@@ -1,3 +1,13 @@
+"""[5] The full text into the session collection.
+
+Unchanged from ``ris_fetch_document``: same ``_safe_document_name``, same
+per-session ingest marker, same best-effort contract (a lookup must succeed
+even when ingestion cannot). It is what keeps a passage answer from costing the
+conversation the rest of the law — ``read_passage`` reopens any other § of a
+document that is in the session collection, and the „Bereits gelesen" digest
+sees it.
+"""
+
 from __future__ import annotations
 
 import asyncio
@@ -16,6 +26,12 @@ logger = logging.getLogger(__name__)
 
 
 async def ingest_documents(documents: list[FetchedDocument], enabled: bool) -> str | None:
+    """Ingest every fetched document; return the first stored name, or ``None``.
+
+    The name is what the model is told to reach for later, so the FIRST one is
+    the one reported: with the cap at two documents, naming both would put a
+    list in a sentence that exists to give the reader one handle.
+    """
     if not enabled:
         return None
     names = [await ingest_one(fetched) for fetched in documents]
@@ -23,6 +39,7 @@ async def ingest_documents(documents: list[FetchedDocument], enabled: bool) -> s
 
 
 async def ingest_one(fetched: FetchedDocument) -> str | None:
+    """Ingest one fetched document once per session; returns its stored name."""
     document = fetched.document
     file_name = _safe_document_name(fetched.candidate.document_number or document.url, document.title)
     collection = _resolve_session_collection()

@@ -1,3 +1,5 @@
+"""Pure statistical helpers for the tokenomics report. No project imports."""
+
 from __future__ import annotations
 
 import csv
@@ -5,6 +7,7 @@ from pathlib import Path
 
 
 def _pct(data: list, p: float) -> float:
+    """Return the p-th percentile of ``data`` (linear interpolation)."""
     if not data:
         return 0.0
     s = sorted(data)
@@ -28,6 +31,10 @@ def _latency_stats(durations_s: list[float]) -> dict:
 
 
 def _load_csv_predictions(trace_path: str) -> dict[str, float]:
+    """
+    Load NOVA-Predicted-OSL values from standardized_data_all.csv if it lives
+    alongside the trace file.  Returns UUID → predicted_osl mapping.
+    """
     csv_path = Path(trace_path).parent / "standardized_data_all.csv"
     if not csv_path.exists():
         return {}

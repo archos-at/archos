@@ -1,3 +1,36 @@
+"""Heading-aware chunking for tenant documents: cut on the document's own sections.
+
+Only the OIB Richtlinien had a structure-aware path (``clause_chunking``). Every other
+PDF -- a Brandschutzkonzept, a Baubeschreibung, a Gutachten -- was one ``Document`` per
+page, cut by ``SentenceSplitter(1024/128)``: the overlap never crossed a page, a section
+that began at the foot of page 4 was split from its body on page 5, and one 1024-token
+window blended several requirements into a vector that described none of them.
+
+This module reads the headings the document already has and chunks within them:
+
+* A heading is a short line set in a larger font than the body, set bold, or opened by a
+  German numbering (``3.2``, ``§ 3``, ``Artikel 4``, ``Anhang A``). Font size and weight
+  come from pdfplumber's characters (``line_styles``, collected at extraction); a page
+  without them (an OCR text layer) still has its numbering. A numbered line in body type
+  must also read as a title (:func:`_title_like`) and must not run on into a lowercase
+  next line: a wrapped sentence that happens to start ``§ 60 Abs. 1 … wird nach`` or
+  ``3.2 Die Brandabschnitte sind`` is body text, not a section.
+* A transcribed page (``transcription``) is Markdown without styles: its ATX lines
+  (``## 1 Befund``) are headings at their hash level, and the markers are stripped.
+* A section runs from its heading to the next heading of any level, across pages. It is
+  cut into chunks of :data:`CHUNK_TOKENS`, each prefixed by the heading breadcrumb the
+  way a Punkt chunk is, overlapping by :data:`OVERLAP_TOKENS` -- across a page break too,
+  because the section, not the page, is the unit.
+* ``page_label`` stays numeric: the page the chunk's own text starts on. ``page_end``
+  records where it ends. The heading's number (or, unnumbered, its title path) is the
+  chunk's ``clause_id``, so ``read_passage(clause=…)`` opens a section the way it opens a
+  Punkt, and ``clause_depth`` gives the document a Gliederung.
+
+When the document has no usable heading structure (:func:`structure_is_usable`) the
+caller keeps the per-page chunks. Pure over page dicts and line lists; llama-index is
+imported inside the builders only.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -72,6 +105,7 @@ _SENTENCE_END_RE = re.compile(r"[.!?:;]\s*$")
 
 @dataclass
 class Line:
+    """One text line and where it is: a page number (PDF) or a line number (text files)."""
 
     position: int
     text: str
@@ -87,6 +121,7 @@ class Line:
 
 @dataclass
 class Heading:
+    """A recognised heading: its locator number (``""`` when unnumbered), title, level."""
 
     number: str
     title: str
@@ -101,6 +136,7 @@ class Heading:
 
 @dataclass
 class Section:
+    """A heading and the lines under it, up to the next heading. ``heading`` None: the preamble."""
 
     heading: Heading | None
     path: list[str]
@@ -109,10 +145,12 @@ class Section:
 
     @property
     def heading_lines(self) -> list[Line]:
+        """The lines the heading itself occupies (the breadcrumb restates them)."""
         return self.lines[: self.heading.span] if self.heading else []
 
 
 def style_of_line(chars: list[dict[str, Any]]) -> tuple[float | None, float]:
+    """``(median font size, bold fraction)`` of one pdfplumber text line's characters."""
     glyphs = [char for char in chars if str(char.get("text", "")).strip()]
     if not glyphs:
         return None, 0.0
@@ -130,6 +168,13 @@ def _read_line_styles(page: Any) -> list[list[Any]]:
 
 
 def extract_line_styles(page: Any) -> list[list[Any]]:
+    """``[[text, size, bold_fraction], ...]`` for a pdfplumber page, in reading order.
+
+    Stored on the extracted page dict so heading detection needs no second pass over
+    the PDF. Fail-open, and wholly: it runs inside the per-page reader, where anything
+    it raised would count the page as unreadable and drop its TEXT. A page whose styles
+    cannot be read has none, and its headings are recognised by their numbering alone.
+    """
     try:
         return _read_line_styles(page)
     except Exception as exc:  # noqa: BLE001 - styles are an optional signal, never a reason to lose a page
@@ -138,6 +183,7 @@ def extract_line_styles(page: Any) -> list[list[Any]]:
 
 
 def _markdown_line(number: int, text: str) -> Line:
+    """A line of an unstyled page; an ATX heading loses its markers and keeps its level."""
     match = ATX_HEADING_RE.match(text)
     if match is None:
         return Line(number, text)
@@ -145,6 +191,11 @@ def _markdown_line(number: int, text: str) -> Line:
 
 
 def _page_lines(page: dict[str, Any]) -> list[Line]:
+    """A page's text lines with the style its ``line_styles`` recorded for the same text.
+
+    A page without styles (a transcription) is read as Markdown: its ATX headings are
+    recognised. A styled page is a PDF text layer, where a leading ``#`` is just text.
+    """
     recorded = page.get("line_styles") or []
     styles = {str(text): (size, bold) for text, size, bold in recorded}
     try:
@@ -165,16 +216,19 @@ def _page_lines(page: dict[str, Any]) -> list[Line]:
 
 
 def _furniture(pages: list[list[Line]]) -> set[str]:
+    """Normalised running headers/footers: an edge line repeating on most pages (``agent.common.page_text``)."""
     return running_furniture([[line.text for line in lines] for lines in pages])
 
 
 def document_lines(text_pages: list[dict[str, Any]]) -> list[Line]:
+    """The whole document as one line stream, running headers and footers removed."""
     pages = [_page_lines(page) for page in text_pages]
     furniture = _furniture(pages)
     return [line for lines in pages for line in lines if furniture_key(line.text) not in furniture]
 
 
 def body_size(lines: list[Line]) -> float | None:
+    """The font size most of the text is set in, weighted by characters."""
     sizes: Counter[float] = Counter()
     for line in lines:
         if line.size:
@@ -183,6 +237,7 @@ def body_size(lines: list[Line]) -> float | None:
 
 
 def _shape_ok(text: str) -> bool:
+    """Short, not a sentence, not a contents-page entry."""
     if len(text) > _MAX_HEADING_CHARS or len(text.split()) > _MAX_HEADING_WORDS:
         return False
     if _DOT_LEADER_RE.search(text):
@@ -195,11 +250,17 @@ def _shape_ok(text: str) -> bool:
 
 
 def normalise_locator(number: str) -> str:
+    """One spelling per legal locator: ``§3``, ``§  3`` -> ``§ 3``; ``Art.3`` -> ``Art. 3``."""
     spaced = re.sub(r"^(§|Art\.)\s*(?=\d)", r"\1 ", number.strip())
     return re.sub(r"\s+", " ", spaced)
 
 
 def _numbered(text: str) -> tuple[str, str, bool] | None:
+    """``(number, title, strong)`` for a numbered heading line, else ``None``.
+
+    Strong numbering (``3.2``, ``§ 3``, ``Artikel 4``) marks a heading on its own; a bare
+    ``1`` is also how a list item starts, so it counts only when the type says heading.
+    """
     word = _WORD_NUMBERED_RE.match(text)
     if word:
         return normalise_locator(word.group("num")), word.group("title").strip(), True
@@ -210,6 +271,11 @@ def _numbered(text: str) -> tuple[str, str, bool] | None:
 
 
 def _ends_mid_sentence(text: str) -> bool:
+    """Whether a line breaks off inside a sentence: a trailing comma or hyphen, or a lowercase last word.
+
+    German titles end on a noun (``Brandabschnitte``, ``Allgemeines``); a wrapped
+    sentence ends wherever the line did (``… mit dem amtlichen``, ``… erklärt und ist``).
+    """
     words = text.split()
     if not words or text.endswith((",", "-")):
         return bool(words)
@@ -217,6 +283,7 @@ def _ends_mid_sentence(text: str) -> bool:
 
 
 def _title_like(title: str) -> bool:
+    """Whether the text after a number reads as a title rather than a sentence. Empty is a bare ``§ 3``."""
     words = title.split()
     if not words:
         return True
@@ -228,6 +295,11 @@ def _title_like(title: str) -> bool:
 
 
 def _runs_on(line: Line, following: Line | None, styled: bool) -> bool:
+    """Whether the next line continues ``line``'s sentence: it opens lowercase, in body type.
+
+    A styled heading wrapped over two lines keeps its style on the second, so that
+    one is not a run-on.
+    """
     if following is None or not following.text[:1].islower():
         return False
     return not styled or (following.size, following.bold) != (line.size, line.bold)
@@ -236,6 +308,7 @@ def _runs_on(line: Line, following: Line | None, styled: bool) -> bool:
 def _numbered_heading(
     numbered: tuple[str, str, bool], line: Line, following: Line | None, styled: bool, unstyled: bool
 ) -> tuple[str, str] | None:
+    """A numbered line's verdict. ``unstyled``: no font information for this line at all."""
     number, title, strong = numbered
     if _runs_on(line, following, styled):
         return None
@@ -247,6 +320,7 @@ def _numbered_heading(
 
 
 def _atx_heading(line: Line) -> tuple[str, str] | None:
+    """A Markdown heading's ``(number, title)``; the author (or the transcriber) marked it."""
     if len(line.text) > _MAX_HEADING_CHARS:
         return None
     numbered = _numbered(line.text)
@@ -254,6 +328,7 @@ def _atx_heading(line: Line) -> tuple[str, str] | None:
 
 
 def classify(line: Line, body: float | None, following: Line | None = None) -> tuple[str, str] | None:
+    """``(number, title)`` when ``line`` is a heading, else ``None``. ``following``: the next line."""
     if line.atx:
         return _atx_heading(line)
     if not _shape_ok(line.text):
@@ -271,6 +346,7 @@ def classify(line: Line, body: float | None, following: Line | None = None) -> t
 
 
 def _is_title(found: list[tuple[int, str, str]], lines: list[Line]) -> bool:
+    """Whether the first heading is the document's title: unnumbered, in a size no other heading has."""
     if not found or found[0][1]:
         return False
     size = lines[found[0][0]].size or 0.0
@@ -278,6 +354,14 @@ def _is_title(found: list[tuple[int, str, str]], lines: list[Line]) -> bool:
 
 
 def _levels(found: list[tuple[int, str, str]], lines: list[Line]) -> list[Heading]:
+    """Assign outline levels: numbering depth where numbered, font rank where not.
+
+    The document title (:func:`_is_title`) is level 0: every section sits under it and
+    no chapter closes it. The other headings' sizes are ranked, numbered ones included
+    (largest = 1), so an unnumbered bold line at body size ranks below a 14 pt chapter.
+    ``§``/``Artikel`` sit under ``Kapitel``/``Abschnitt`` when the document uses those,
+    and are top-level when it does not.
+    """
     title = _is_title(found, lines)
     rest = found[1:] if title else found
     sizes = sorted({lines[index].size or 0.0 for index, _number, _title in rest}, reverse=True)
@@ -292,6 +376,7 @@ def _levels(found: list[tuple[int, str, str]], lines: list[Line]) -> list[Headin
 
 
 def _level(number: str, size_rank: int, has_chapters: bool) -> int:
+    """One heading's level: ``3.2`` is 2; ``§ 4`` is 1, or 2 under chapters; unnumbered, its size rank."""
     if number[:1].isdigit():
         return number.count(".") + 1
     if number:
@@ -300,12 +385,17 @@ def _level(number: str, size_rank: int, has_chapters: bool) -> int:
 
 
 def _continues_heading(previous: Line, line: Line, number: str) -> bool:
+    """Whether ``line`` is the wrapped second line of the unnumbered heading on ``previous``.
+
+    Markdown headings never wrap: each ATX line is its own heading.
+    """
     if previous.atx or line.atx:
         return False
     return not number and previous.size == line.size and previous.bold == line.bold
 
 
 def _wrap_ok(joined: str, span: int) -> bool:
+    """Whether a heading wrapped to ``span`` lines, reading ``joined``, is still heading-sized."""
     return (
         span <= _MAX_WRAPPED_HEADING_LINES
         and len(joined) <= _MAX_WRAPPED_HEADING_CHARS
@@ -314,15 +404,35 @@ def _wrap_ok(joined: str, span: int) -> bool:
 
 
 def _numeric(number: str) -> tuple[int, ...]:
+    """``"3.2"`` -> ``(3, 2)``; empty for a word number (``§ 3``) or none."""
     return tuple(int(part) for part in number.split(".")) if number[:1].isdigit() else ()
 
 
 def _goes_backwards(number: str, numbering: tuple[int, ...]) -> bool:
+    """Whether a numbered line falls behind the outline so far: a table's row label.
+
+    A document's numbering only moves forward, and a table laid out with a numbered
+    first column restarts at 1 (the guard ``clause_chunking`` measured on the OIB corpus,
+    in its weakest form: no chain search, no contents page).
+    """
     candidate = _numeric(number)
     return bool(candidate and numbering and candidate <= numbering)
 
 
 def find_headings(lines: list[Line]) -> dict[int, Heading]:
+    """Line index -> heading, for every heading line in the stream.
+
+    A heading wrapped over two lines in the same type is one heading, not two. A
+    word-numbered heading with no title on its line (``§ 3`` above ``Begriffe``) takes
+    the next line as its title when that line is heading-shaped. Either way the extra
+    line is part of the heading (``span``), not of the body.
+
+    A wrap holds only while the joined title is still heading-shaped. A longer run in
+    one heading type is a block set large (a drawing's legend, a cover sheet), and none
+    of it is a heading: joined, a plan sheet's legend became one 470-token "heading"
+    that the breadcrumb metadata carried three times, past the splitter's chunk size,
+    and the whole file failed (2026-10, ``WR_25003_P*.pdf``).
+    """
     body = body_size(lines)
     found: list[list[Any]] = []  # [index, number, title, span]
     numbering: tuple[int, ...] = ()
@@ -360,9 +470,8 @@ def find_headings(lines: list[Line]) -> dict[int, Heading]:
     return headings
 
 
-
-
 def _breadcrumb(stack: list[Heading], heading: Heading) -> list[Heading]:
+    """The ancestors still open at ``heading``'s level, then ``heading`` itself."""
     while stack and stack[-1].level >= heading.level:
         stack.pop()
     stack.append(heading)
@@ -370,6 +479,11 @@ def _breadcrumb(stack: list[Heading], heading: Heading) -> list[Heading]:
 
 
 def _locator(path: list[Heading], taken: set[str]) -> str:
+    """The Punkt-style address of a section: its number, else its last two titles.
+
+    Unique within the document: a repeated address (two „Allgemeines", an annex that
+    restarts at 1) gets `` (2)``, `` (3)`` … so ``read_passage`` never mixes two sections.
+    """
     heading = path[-1]
     base = heading.number or BREADCRUMB_SEP.join(item.title for item in path[-2:])
     candidate, counter = base, 1
@@ -381,6 +495,7 @@ def _locator(path: list[Heading], taken: set[str]) -> str:
 
 
 def build_sections(lines: list[Line], headings: dict[int, Heading]) -> list[Section]:
+    """Cut the stream at every heading; lines before the first heading are the preamble."""
     sections: list[Section] = [Section(None, [])]
     stack: list[Heading] = []
     taken: set[str] = set()
@@ -395,6 +510,12 @@ def build_sections(lines: list[Line], headings: dict[int, Heading]) -> list[Sect
 
 
 def structure_is_usable(lines: list[Line], sections: list[Section]) -> bool:
+    """Whether cutting on these headings beats cutting on pages.
+
+    Three gates, each tested: at least :data:`MIN_HEADINGS` headings; at least
+    :data:`MIN_SECTION_COVERAGE` of the text under one; and no more than
+    :data:`MAX_HEADING_LINE_SHARE` of the lines being headings.
+    """
     headed = [section for section in sections if section.heading is not None]
     if len(headed) < MIN_HEADINGS or not lines:
         return False
@@ -405,9 +526,8 @@ def structure_is_usable(lines: list[Line], sections: list[Section]) -> bool:
     return len(headed) / len(lines) <= MAX_HEADING_LINE_SHARE
 
 
-
-
 def _token_counter() -> Callable[[str], int]:
+    """The splitter's own tokenizer when available, else a German characters-per-token estimate."""
     try:
         from llama_index.core.utils import get_tokenizer
 
@@ -418,6 +538,7 @@ def _token_counter() -> Callable[[str], int]:
 
 
 def _cut_index(lines: list[Line], start: int) -> int:
+    """Where to end a full chunk: after the last sentence end in its back half, else at its end."""
     for index in range(len(lines) - 1, max(start, len(lines) // 2) - 1, -1):
         if _SENTENCE_END_RE.search(lines[index].text):
             return index + 1
@@ -425,6 +546,7 @@ def _cut_index(lines: list[Line], start: int) -> int:
 
 
 def _overlap_tail(lines: list[Line], count: Callable[[str], int], budget: int) -> list[Line]:
+    """The last whole lines of a chunk that fit in ``budget`` tokens."""
     tail: list[Line] = []
     used = 0
     for line in reversed(lines):
@@ -441,6 +563,12 @@ def pack(
     budget: int = CHUNK_TOKENS,
     overlap: int = OVERLAP_TOKENS,
 ) -> list[tuple[list[Line], int]]:
+    """Group lines into chunks of at most ``budget`` tokens: ``[(lines, overlap_count), ...]``.
+
+    A chunk ends at a sentence end where one is near, and the next opens with the tail of
+    the previous (``overlap_count`` lines of it). A single line longer than the budget is
+    its own chunk, and the splitter downstream cuts it.
+    """
     count = count or _token_counter()
     chunks: list[tuple[list[Line], int]] = []
     current: list[Line] = []
@@ -462,10 +590,12 @@ def pack(
 
 
 def join_lines(lines: list[Line]) -> str:
+    """Lines as text, PDF line-break hyphenation healed (``unterstüt-\\nzenden``)."""
     return _HYPHEN_BREAK_RE.sub(r"\1\2", "\n".join(line.text for line in lines))
 
 
 def apply_exclusions(document: Any) -> None:
+    """The adapter's embed/LLM exclusions plus this module's own (see ``clause_chunking``)."""
     try:
         from knowledge_layer.ingest.chunk_metadata import apply_metadata_exclusions
 
@@ -479,6 +609,7 @@ def apply_exclusions(document: Any) -> None:
 
 
 def section_metadata(section: Section, order: int) -> dict[str, Any]:
+    """The locator fields a section's chunks carry; none for the preamble."""
     metadata: dict[str, Any] = {"section_order": order}
     if section.heading is None:
         return metadata
@@ -494,13 +625,12 @@ def section_metadata(section: Section, order: int) -> dict[str, Any]:
 
 
 def chunk_text(section: Section, lines: list[Line]) -> str:
+    """A chunk's text: the breadcrumb, a blank line, the body. The preamble has no breadcrumb."""
     if not section.path:
         return join_lines(lines)
     heading = section.heading_lines
     body = join_lines([line for line in lines if not any(line is own for own in heading)])
     return f"{BREADCRUMB_SEP.join(section.path)}\n\n{body}".rstrip()
-
-
 
 
 def _pdf_section_documents(
@@ -525,6 +655,7 @@ def _pdf_section_documents(
 
 
 def _table_documents(text_pages: list[dict[str, Any]], base: dict[str, Any]) -> list[Document]:
+    """Captioned tables, cut out of the page text at extraction, as header-repeating row groups."""
     from knowledge_layer.ingest.captioned_tables import join_fragments
     from knowledge_layer.ingest.captioned_tables import markdown_row_groups
     from llama_index.core import Document
@@ -557,6 +688,13 @@ def _clean_cell(cell: Any) -> str:
 
 
 def uncaptioned_table_documents(table: dict[str, Any], file_name: str, file_size: int) -> list[Document]:
+    """A table without a caption (``_extract_tables_from_pdf``) as header-repeating row groups.
+
+    It was one Document holding the whole Markdown table, which the splitter cut wherever
+    its budget ran out: every piece after the first was a run of cells under no header.
+    Each group now repeats the header row, so the splitter never has to cut a table.
+    A table dict without its raw ``cells`` keeps the single Document.
+    """
     from knowledge_layer.ingest.captioned_tables import Table
     from knowledge_layer.ingest.captioned_tables import markdown_row_groups
     from llama_index.core import Document
@@ -588,6 +726,11 @@ def uncaptioned_table_documents(table: dict[str, Any], file_name: str, file_size
 
 
 def section_documents(text_pages: list[dict[str, Any]], file_name: str, file_size: int) -> list[Document] | None:
+    """Chunk a PDF on its own headings, or ``None`` when it has no usable heading structure.
+
+    ``text_pages`` is ``_extract_text_from_pdf``'s output. ``None`` sends the caller back
+    to the per-page Documents it has always built.
+    """
     lines = document_lines(text_pages)
     if not lines:
         return None

@@ -71,8 +71,6 @@ def model() -> SpatialModel:
     return SpatialModel(str(SAMPLE_HOUSE))
 
 
-
-
 def test_finds_the_wall_the_window_sits_in(model: SpatialModel) -> None:
     answer = op.hosted_in(model, WINDOW)
     assert answer.decidable
@@ -160,8 +158,6 @@ def test_enclosed_by_is_the_inverse_of_bounds(model: SpatialModel) -> None:
         ", ".join(sorted(r.name or "" for r in answer.value)),
         informational=True,
     )
-
-
 
 
 @pytest.mark.parametrize(
@@ -323,8 +319,6 @@ def test_clear_height_is_where_the_two_engines_used_to_disagree(model: SpatialMo
     )
 
 
-
-
 def test_seats_the_facade_plane_on_a_real_face(model: SpatialModel) -> None:
     plane = op.facade_plane_of(model, NORTH_WALL)
     assert plane.decidable
@@ -458,8 +452,6 @@ def test_it_returns_geometry_and_refuses_to_turn_it_into_a_verdict(model: Spatia
     assert not any(word in serialised.lower() for word in ("compliant", "erfüllt", "verstoß", "konform", "zulässig"))
 
 
-
-
 def test_an_unknown_global_id_raises_and_is_never_an_undecidable(model: SpatialModel) -> None:
     for call in (
         lambda: op.extent(model, "nichtvorhanden"),
@@ -510,8 +502,6 @@ def test_the_file_is_georeferenced_and_no_blind_spot_is_invented(model: SpatialM
 def test_no_solar_operator_exists(model: SpatialModel) -> None:
     surface = " ".join(dir(op))
     assert not any(word in surface.lower() for word in ("sunpath", "besonnung", "solar"))
-
-
 
 
 @pytest.fixture(scope="session", autouse=True)

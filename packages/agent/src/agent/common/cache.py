@@ -1,3 +1,17 @@
+"""Shared cache for cross-replica state (ADR-0020).
+
+Backed by a Redis-protocol store (Dragonfly in the compose stack) when
+``REDIS_URL`` is set; falls back to an in-process TTL map otherwise, so all
+call sites behave identically on a single replica with no cache container.
+
+Values round-trip through JSON — anything that only works in-process would
+silently break the moment a second replica appears.
+
+All operations are synchronous with tight socket timeouts and degrade to the
+fallback on any error: a cache outage must never take a request down. Call
+from async code via ``asyncio.to_thread`` when on the event loop.
+"""
+
 from __future__ import annotations
 
 import json
@@ -36,7 +50,6 @@ _client_lock = threading.Lock()
 _CLIENT_RETRY_SECONDS = 30.0
 
 
-
 _STORE_DOWN_WARN_INTERVAL_SECONDS = 300.0
 
 _store_down_warned_at: float | None = None
@@ -45,6 +58,14 @@ _warn_lock = threading.Lock()
 
 @dataclass(frozen=True)
 class CacheCounters:
+    """How the shared cache answered, since a process or a turn started.
+
+    ``shared_*`` is the Dragonfly tier, ``local_*`` the in-process fallback map;
+    a read is counted in exactly one of them. ``errors`` counts operations the
+    store refused or could not answer, whichever tier they landed on — a read
+    that errors is an error and NOT a miss, because the two have different
+    fixes.
+    """
 
     shared_hits: int = 0
     shared_misses: int = 0
@@ -53,9 +74,11 @@ class CacheCounters:
     errors: int = 0
 
     def __bool__(self) -> bool:
+        """False when nothing was counted — a turn that never touched the cache."""
         return any(vars(self).values())
 
     def since(self, earlier: CacheCounters) -> CacheCounters:
+        """This snapshot minus an earlier one."""
         return CacheCounters(
             shared_hits=self.shared_hits - earlier.shared_hits,
             shared_misses=self.shared_misses - earlier.shared_misses,
@@ -65,6 +88,7 @@ class CacheCounters:
         )
 
     def as_facts(self, prefix: str = "cache") -> dict[str, int]:
+        """The counters as flat span facts (``cache_shared_hits`` …)."""
         return {f"{prefix}_{name}": value for name, value in vars(self).items()}
 
 
@@ -75,6 +99,7 @@ _turn_counters: ContextVar[CacheCounters | None] = ContextVar("turn_cache_counte
 
 
 def _count(**deltas: int) -> None:
+    """Add to the process totals and, when one is open, the turn's scope."""
     global _process_counters
     with _counters_lock:
         _process_counters = replace(
@@ -86,12 +111,19 @@ def _count(**deltas: int) -> None:
 
 
 def cache_counters() -> CacheCounters:
+    """The open turn scope's counters, or the process totals when there is none."""
     scoped = _turn_counters.get()
     return scoped if scoped is not None else _process_counters
 
 
 @contextmanager
 def count_cache_operations() -> Iterator[None]:
+    """Count this turn's cache traffic on its own, for the profiler to stamp.
+
+    Read the numbers with :func:`cache_counters` inside the block (the profiler
+    does it at teardown, where the totals are final). Never raises, and never
+    changes what a cache call returns.
+    """
     token = _turn_counters.set(CacheCounters())
     try:
         yield
@@ -100,6 +132,13 @@ def count_cache_operations() -> Iterator[None]:
 
 
 def _warn_store_down(message: str, *args: Any) -> None:
+    """Warn that the store is unreachable — once per window, debug in between.
+
+    The traceback rides the FIRST warning of a window only. An outage means
+    every operation of every turn takes this path, so an unthrottled
+    ``exc_info=True`` costs one stack per cache call and buries the line that
+    says the cache is gone.
+    """
     global _store_down_warned_at
     now = time.monotonic()
     with _warn_lock:
@@ -113,6 +152,7 @@ def _warn_store_down(message: str, *args: Any) -> None:
 
 
 def _get_client() -> Any | None:
+    """Lazily build the Redis client; None when unset, unavailable, or cooling down."""
     global _client, _client_failed_at
     url = os.environ.get(_REDIS_URL_ENV)
     if not url:
@@ -170,6 +210,21 @@ _MAX_CONNECTIONS_ERROR: Any | None = _exc_type("MaxConnectionsError")
 
 
 def _is_transport_error(exc: BaseException) -> bool:
+    """Whether ``exc`` says the STORE is unreachable, as opposed to this call.
+
+    Store-down (global cooldown + local fallback): ConnectionError, TimeoutError
+    and the deployment-wide rejections above (OOM, read-only, ACL, cluster
+    down, busy-loading, auth, wedged-protocol InvalidResponse).
+
+    Per-call (fail open for this key only, no cooldown, no local replica):
+    ResponseError incl. WRONGTYPE, NoScriptError, ExecAbortError, DataError,
+    ValueError / JSON decode errors. ``MaxConnectionsError`` is explicitly
+    per-call despite inheriting ConnectionError: it is a client-side pool leak,
+    and a global cooldown would hide it for 30s.
+
+    Redis missing means unclassifiable: return False (fail-open, never engage
+    the global cooldown for something we cannot identify).
+    """
     if _redis_exceptions is None:
         return False
     if _MAX_CONNECTIONS_ERROR is not None and isinstance(exc, _MAX_CONNECTIONS_ERROR):
@@ -207,6 +262,16 @@ def _local_set(key: str, value: str, ttl_seconds: float) -> None:
 
 
 def reset_local_store() -> None:
+    """Clear this module's per-process state. Test-support only.
+
+    The fallback (`REDIS_URL` unset) is a module-global map that otherwise leaks
+    cached values across tests. No effect on a real Redis backend.
+
+    The counters and the warn throttle are per-process state of the same kind
+    and are cleared with it, so a test that asserts "warns once" is not decided
+    by which test ran before it. The suite calls this around every test
+    (``tests/conftest.py``), which is what makes both assertions stable.
+    """
     global _store_down_warned_at, _process_counters
     with _local_lock:
         _local_store.clear()
@@ -232,6 +297,7 @@ def _tombstone_active(key: str) -> bool:
 
 
 def get_json(key: str) -> Any | None:
+    """Fetch and JSON-decode a value; None on miss or any store error."""
     if _tombstone_active(key):
         _count(local_misses=1)
         return None
@@ -263,6 +329,7 @@ def get_json(key: str) -> Any | None:
 
 
 def set_json(key: str, value: Any, ttl_seconds: float) -> None:
+    """JSON-encode and store a value with a TTL; errors are swallowed."""
     try:
         raw = json.dumps(value)
     except TypeError, ValueError:
@@ -285,6 +352,13 @@ def set_json(key: str, value: Any, ttl_seconds: float) -> None:
 
 
 def delete(key: str) -> bool:
+    """Drop a key from the shared cache (and the local fallback).
+
+    Returns True when the shared delete succeeded (or there is no shared
+    client); False when the shared delete failed. A failure sets a
+    short-lived tombstone so get_json hides the not-deleted server copy
+    instead of resurrecting it on the next read.
+    """
     client = _get_client()
     if client is not None:
         try:
@@ -305,6 +379,17 @@ def delete(key: str) -> bool:
 
 
 def _repair_window_ttl(client: Any, key: str, window_seconds: int, cause: BaseException) -> None:
+    """Give a fixed-window counter a TTL when the pipelined ``EXPIRE`` was dropped.
+
+    ``EXPIRE ... NX`` needs Redis >= 7.0, and an ACL can deny EXPIRE outright,
+    so this is a standing deployment property rather than a blip: every INCR on
+    that key lands on a key with no expiry until someone notices. Retrying with
+    a plain EXPIRE covers both causes, and it is issued only when the key really
+    has no TTL, so it cannot slide a window that is already ticking.
+
+    Raises on failure, which puts the caller on the local per-process window —
+    an advisory count is a better answer than a count that never resets.
+    """
     ttl = client.ttl(key)
     if isinstance(ttl, int) and ttl >= 0:
         return
@@ -317,6 +402,18 @@ def _repair_window_ttl(client: Any, key: str, window_seconds: int, cause: BaseEx
 
 
 def incr_fixed_window(key: str, window_seconds: int) -> int | None:
+    """Increment a fixed-window counter (rate limiting).
+
+    Returns the counter value within the current window, or None when only
+    the in-process fallback is available AND the caller should treat the
+    limiter as best-effort (the local counter is still returned — it simply
+    only sees this process's traffic).
+
+    NOTE: the local fallback is advisory — with N replicas each counting
+    locally, the effective limit is N x the nominal one. Callers enforcing
+    hard budgets (money, quota) must treat a local/advisory count as such
+    and never as a globally enforced ceiling.
+    """
     client = _get_client()
     if client is not None:
         try:
@@ -354,6 +451,16 @@ def incr_fixed_window(key: str, window_seconds: int) -> int | None:
 
 
 def eval_script(script: str, keys: list[str], args: list[Any]) -> Any | None:
+    """Run a Lua script on the shared store; None when it is unavailable.
+
+    The one primitive the JSON helpers above cannot express: a read-modify-write
+    that is atomic on the server. `turn_admission` needs it — a semaphore built
+    from separate count and add calls admits more than its limit under exactly
+    the concurrency it exists to bound.
+
+    Returns None (never raises) when there is no shared store or the call fails,
+    so callers decide their own failure policy rather than inheriting one.
+    """
     client = _get_client()
     if client is None:
         return None

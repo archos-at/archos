@@ -1,3 +1,7 @@
+"""The estate read as the model sees it: the settled row of each read or listing, the preamble and trailer, and
+the rendering of each page or chunk hit.
+"""
+
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -20,6 +24,13 @@ if TYPE_CHECKING:
 
 
 def _settle_listing(row: Any, listing: Listing) -> None:
+    """A listing's Herleitung row: ``list`` with its file and folder counts (ADR-0132).
+
+    A folder that is not there is ``empty`` and ``missing`` („nicht gefunden“), not
+    a failure; a restricted folder answers exactly so (listing is not use,
+    ADR-0088). A folder that is there and holds nothing (a new project, a chat
+    without uploads) is ``ok`` with its zeros: it was found, and it is empty.
+    """
     if listing.error:
         row.finish("empty", missing=True)
         return
@@ -28,6 +39,7 @@ def _settle_listing(row: Any, listing: Listing) -> None:
 
 @dataclass(frozen=True)
 class ReadRowFacts:
+    """What a ``read_file`` row may say about the read, beside the blocks it served (ADR-0132, ADR-0088)."""
 
     target: str | None = None
     shelf: str | None = None
@@ -38,6 +50,13 @@ class ReadRowFacts:
 
 
 def _settle_read(row: Any, output: ToolOutput, facts: ReadRowFacts, *, asked: str | None) -> None:
+    """A read's Herleitung row (ADR-0132): the document it may name, the pages it SERVED, what it found.
+
+    The pages are the ones the blocks hold, not the ones asked for: a read without
+    ``pages`` serves the opening page, and one cut at the character budget serves
+    fewer than it was asked. A Punkt stays a Punkt; a refused ``pages`` value is
+    the model's mistake, never printed. A miss is ``empty`` („nicht gefunden“).
+    """
     if facts.card is not None:
         counts = {"files": facts.card.files, "folders": facts.card.folders}
         row.finish("ok", counts=counts, verb="list", **action_place(facts.card_folder))
@@ -150,6 +169,12 @@ def _older_revision_notice(file: EstateFile) -> str:
 
 
 def document_licence(collection: str, file_name: str, *, unindexed: Any = None) -> Any:
+    """The licence a document's points carry (``licensed_text.licence_from_metadata``), or ``None`` when unmarked.
+
+    Read off one point of the file, where the office layer stamps it. Fails CLOSED: a store that cannot be
+    read answers a licensed, unattested copy, so its text is listed and never sent unguarded. A process with no
+    store configured at all (``QDRANT_URL`` unset: a test, a CLI) holds no mark, so nothing there is licensed.
+    """
     import os
 
     from knowledge_layer.vector_store import get_store
@@ -174,6 +199,7 @@ def document_licence(collection: str, file_name: str, *, unindexed: Any = None) 
 
 
 def file_licence(row: Any) -> Any:
+    """The licence of a document row: what the row states (``FileRow.licence_class``), else what its points carry."""
     from agent.common.licensed_text import licence_from_metadata
 
     stated = licence_from_metadata(
@@ -190,6 +216,12 @@ _RECALL_POINTS = 4000
 
 
 def licensed_passage_sources(collection: str, file_name: str, page: int | None) -> tuple[Any, list[str]]:
+    """What a licensed reference from an earlier turn may be read again from: the document's licence now, and
+    the texts a hit on ``page`` was rendered from (its points' text, the page as the estate reads it).
+
+    No text when the copy is not a licensed, attested one any more: the caller then expands nothing. The
+    caller checks each candidate against the reference's hash (``agent.common.licensed_recall``).
+    """
     import asyncio
 
     from knowledge_layer.vector_store import TEXT_FIELD
@@ -207,6 +239,7 @@ def licensed_passage_sources(collection: str, file_name: str, page: int | None) 
 
 
 def _page_hit(file: EstateFile, page: stored_pages.Page, *, budget: int, paged: bool = True) -> Any:
+    """One page as a grounding record: the page's text, the file's own row, the ``file, p.N`` key."""
     from knowledge_layer.search.grounding_hits import _citation_key_for
 
     from agent.common.grounding_block import GroundingHit
@@ -239,6 +272,7 @@ def _page_hit(file: EstateFile, page: stored_pages.Page, *, budget: int, paged: 
 
 
 def _chunk_hit(file: EstateFile, chunk: Any) -> Any:
+    """A Punkt's chunk as a record, with the file's row and path."""
     from knowledge_layer.search.grounding_hits import _CHUNK_TRUNCATE_CHARS
     from knowledge_layer.search.grounding_hits import _citation_key_for
     from knowledge_layer.search.grounding_hits import _hit_provenance
@@ -275,6 +309,7 @@ def _chunk_hit(file: EstateFile, chunk: Any) -> Any:
 
 
 def _render(hits: tuple[Any, ...], *, preamble: str, notices: Sequence[str], trailer: str, tool: str) -> ToolOutput:
+    """The block, rendered and filed (ADR-0061); the hits noted for the call's artifact."""
     from knowledge_layer.search import trace_lanes_for_hits
 
     from agent.common.grounding_block import GroundingBlock

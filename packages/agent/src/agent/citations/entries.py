@@ -1,3 +1,5 @@
+"""What a cited source is (``SourceEntry``) and what a verification run reports (``CitationVerificationResult``)."""
+
 from __future__ import annotations
 
 import logging
@@ -17,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class SourceEntry:
+    """A single source captured from a tool call result."""
 
     url: str | None = None
     title: str | None = None
@@ -48,6 +51,7 @@ class SourceEntry:
 
 @dataclass
 class CitationVerificationResult:
+    """Result of running verify_citations()."""
 
     verified_report: str
     removed_citations: list[dict] = field(default_factory=list)
@@ -58,6 +62,16 @@ DUPLICATE_REASON_PREFIX = "duplicate_of_citation_"
 
 
 def lost_citations(removed_citations: Sequence[dict]) -> list[dict]:
+    """The removals that cost the answer a citation: every one except a merged duplicate.
+
+    Two Punkte read from one page are one registry entry, so an answer that
+    lists "file.pdf, p.4" twice gets the second merged into the first. Counted
+    as a failure, that merge bought a full repair rewrite (16 s, measured in
+    the September 2026 census) and a "Belege entfernt" note for a citation the
+    reader still has. Telemetry keeps the full list; the reader's note reads
+    this one (``ledger.citations_removed_summary`` on chat, ``finalize`` in
+    deep research).
+    """
     return [
         entry
         for entry in removed_citations
@@ -66,6 +80,13 @@ def lost_citations(removed_citations: Sequence[dict]) -> list[dict]:
 
 
 def merged_citations(removed_citations: Sequence[dict]) -> dict[int, int]:
+    """Each merged duplicate's number and the number it was rewritten to, before renumbering.
+
+    The removals :func:`lost_citations` leaves out: ``verify_citations``
+    rewrote the prose's ``[N]`` of each to the line it duplicates. Anything
+    else that carries the answer's numbers (a surface's ``Text``) takes the
+    same rewrite before sanitize's renumbering, or loses the citation.
+    """
     merged: dict[int, int] = {}
     for entry in removed_citations:
         reason = str(entry.get("reason") or "") if isinstance(entry, dict) else ""
@@ -76,6 +97,7 @@ def merged_citations(removed_citations: Sequence[dict]) -> dict[int, int]:
 
 
 class EmptySourceRegistryError(Exception):
+    """Raised when no sources were captured during research."""
 
     def __init__(
         self,
@@ -107,6 +129,11 @@ _TRACKING_PARAMS = frozenset(
 
 
 def normalize_url(url: str) -> str:
+    """Normalize a URL for comparison.
+
+    Lowercases scheme/host, strips trailing slash, removes fragments
+    and common tracking parameters.
+    """
     url = unescape(url).strip()
     parsed = urlparse(url)
     scheme = parsed.scheme.lower()
@@ -132,9 +159,16 @@ LOOK_TOOL = "look"
 
 
 def is_look_tool(tool_name: str) -> bool:
+    """Whether ``tool_name`` is ``look`` (bare, or as a member of a function group)."""
     name = (tool_name or "").lower()
     return name == LOOK_TOOL or name.endswith(f"__{LOOK_TOOL}")
 
 
 def is_look_place(entry: SourceEntry) -> bool:
+    """Whether the entry is a place a look read and no retrieved passage.
+
+    Such a source is evidence of what Piloti read off a drawing. It is never
+    ``citation_grounded`` and never grounds a claim about the law (ADR-0125,
+    amendment of 2026-10-22).
+    """
     return bool(entry.read) and not entry.chunk_text

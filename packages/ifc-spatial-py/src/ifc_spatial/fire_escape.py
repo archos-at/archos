@@ -1,3 +1,5 @@
+"""Escape level: which storey a person leaves a building from, judged storey by storey against the ground."""
+
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -18,6 +20,69 @@ from .model import SpatialModel
 
 
 def escape_level(model: SpatialModel) -> Answer[dict[str, Any]]:
+    """The topmost occupied floor level above the lowest adjoining ground, in metres.
+
+    ``Fluchtniveau`` in the OIB sense: *die Höhenlage des höchstgelegenen zum
+    Aufenthalt von Menschen bestimmten Fußbodenniveaus über dem tiefer gelegenen
+    anschließenden Gelände*. Both halves of that sentence are geometric, and
+    neither of them is trivial.
+
+    ## The upper half is a judgement, so it is ``inferred``
+
+    "Zum Aufenthalt von Menschen bestimmt" is a statement about intent. Nothing
+    in an IFC file settles it — a 16 m² room under the roof is a Kinderzimmer or
+    a Lüftungszentrale depending on the Einreichplan. Two signals are used, both
+    of them evidence and neither of them proof, **and they are ranked**:
+
+    1. the rooms on it, classified by this package's existing room lexicon
+       (:func:`~ifc_spatial.briefing.classify_rooms`) — one Aufenthaltsraum
+       counts the storey, and a storey whose every room is a Neben- or
+       Erschließungsfläche is not a level people stay on;
+    2. only where the lexicon places nothing at all: the storey's own NAME
+       against :data:`NOT_OCCUPIED_TERMS` (``Technikgeschoss``,
+       ``Dachgeschoss``, ``Attika``), and then only while every unplaceable room
+       name falls in that same vocabulary.
+
+    The order is not cosmetic. Tested first, the name vetoed unconditionally and
+    reported **1.00 m** instead of **3.70 m** for ``AC20-FZK-Haus.ifc``, whose
+    „Dachgeschoss" holds a 107 m² Galerie — see :func:`_judge_one_storey`.
+
+    A storey is removed only on **positive** evidence. A storey with no rooms in
+    the export, or with rooms the lexicon cannot place and a name nothing
+    corroborates, is COUNTED, because a Fluchtniveau reported too low is the
+    dangerous direction: it understates the height the Gebäudeklasse turns on,
+    and every requirement behind that classification loosens with it. Every
+    storey comes back in ``storeys`` with its reason, counted or not.
+
+    ## The lower half is a measurement with three possible references
+
+    In priority order, and the one actually used is named in
+    ``groundReference.via``:
+
+    1. **``IfcSite`` body geometry** — the lowest point of the modelled terrain.
+       The only route that measures *Gelände* at all, and the one almost no
+       architectural export supports.
+    2. **the lowest declared storey elevation** (``IfcBuildingStorey.Elevation``).
+       This is a FLOOR level, not a terrain level; on a building with a
+       basement it sits metres below the ground and the answer comes out too
+       large, on a building whose ground floor is raised above the terrain it
+       comes out too small.
+    3. **the lowest point of the built geometry** — the underside of the lowest
+       slab or footing, when no storey declares an elevation at all.
+
+    ``RefElevation`` is deliberately NOT a route: it is defined relative to sea
+    level, the geometry is not, and mixing the two produces exactly the
+    tens-of-metres datum error that
+    :func:`~ifc_spatial.operators._storey_datum_drift` exists to catch. It is
+    reported under ``candidates`` for a human to compare, never subtracted.
+
+    ## What this returns, and what it never returns
+
+    A height in metres. **Never a Gebäudeklasse** — see the module docstring;
+    that classification is law plus Landesrecht plus facts this file does not
+    hold, and a library that emits „GK5“ has quietly applied a rule it never
+    read.
+    """
     method = "escape_level(model)"
     storeys = model.storeys
     if not storeys:
@@ -129,6 +194,13 @@ def escape_level(model: SpatialModel) -> Answer[dict[str, Any]]:
 
 
 def _judge_storeys(model: SpatialModel, storeys: Sequence[Any]) -> list[StoreyJudgement]:
+    """Every storey, with the occupancy call and the signal that made it.
+
+    The room classification is taken from :func:`classify_rooms` rather than
+    re-derived here, for the reason that function itself gives: two independent
+    classifiers over one model is a contradiction waiting to be quoted, and this
+    module would be the one quoting it.
+    """
     rooms = {room.global_id: room for room in classify_rooms(model)}
     per_storey: dict[str, list[Any]] = {}
     for space in model.file.by_type("IfcSpace"):
@@ -168,6 +240,47 @@ def _judge_storeys(model: SpatialModel, storeys: Sequence[Any]) -> list[StoreyJu
 
 
 def _judge_one_storey(storey: Any, described: Sequence[dict[str, Any]]) -> tuple[bool, str]:
+    """Counted or not, and the German reason — rooms first, storey name last.
+
+    ## The order is the fix, and it is the second time it had to be made
+
+    The room evidence is read FIRST and the storey's own name only breaks a tie.
+    Until this ordering the storey name was tested ahead of everything and
+    vetoed unconditionally, which is the same mistake the comment below records
+    against ROOM names, one level up: a substring is not the positive evidence
+    the rule demands, and it was outranking the rooms that are.
+
+    Measured on ``AC20-FZK-Haus.ifc``: the „Dachgeschoss" at elevation 2.70 m
+    holds the 107 m² **Galerie** — two windows, a stair up to it, a 2.70 m drop
+    into the living room — and was struck out because the German word for an
+    attic storey contains „dach". The Fluchtniveau came back **1.00 m** instead
+    of **3.70 m**, on the one number the Gebäudeklasse hangs on and in the
+    direction the module docstring names as the dangerous one.
+
+    ## Why the name still has a job, and exactly how small a one
+
+    ``Ifc4_SampleHouse.ifc`` has a storey called „Roof" at 2.50 m whose single
+    space is also called „Roof" — a bungalow, Fluchtniveau **0.00 m**, and
+    counting that level would report 2.50 m for a single-storey house. Nothing
+    in the lexicon places a room called „Roof", so the room evidence there is
+    silent and only the names are left. So the name decides ONLY where the
+    lexicon has no opinion at all, and only while the rooms do not dispute it:
+    every room the lexicon could not place must itself fall in the same
+    not-occupied vocabulary. „Roof" in a „Roof" corroborates; „Galerie" in a
+    „Dachgeschoss" does not, and 107 m² of Galerie is precisely the thing a
+    substring must not be allowed to overrule.
+
+    Note what this is NOT: :data:`NOT_OCCUPIED_TERMS` never removes a room the
+    lexicon has placed — that veto was taken out once already (see below) and
+    stays out. It is read over room names only to corroborate a storey name
+    where the lexicon returned nothing, and never to contradict it.
+
+    ``AC20-Institute-Var-2.ifc`` needs none of this: its „Dachgeschoss" at
+    9.00 m holds ``Dachboden-1``, ``Dachboden-2`` and a Flur, all three placed
+    by the lexicon as Neben-/Erschließungsflächen, so the room branch drops it
+    on room evidence alone and the Fluchtniveau stays **9.30 m**. That is the
+    proof that the name was never carrying this case.
+    """
     habitable = [entry for entry in described if entry["use"] == "habitable_room"]
     placed = [entry for entry in described if entry["use"] is not None]
     unplaced = [entry for entry in described if entry["use"] is None]
@@ -224,6 +337,12 @@ def _judge_one_storey(storey: Any, described: Sequence[dict[str, Any]]) -> tuple
 
 
 def _ground_reference(model: SpatialModel) -> dict[str, Any] | None:
+    """The lower datum, the route it came from, and every route that was available.
+
+    ``candidates`` is not decoration. The three routes disagree by the depth of
+    a foundation, and a reviewer who knows the terrain falls 1.8 m to the north
+    can only substitute their own number if they can see which one was used.
+    """
     candidates: list[dict[str, Any]] = []
 
     site_low: float | None = None
@@ -288,6 +407,7 @@ def _ground_reference(model: SpatialModel) -> dict[str, Any] | None:
 def _escape_level_reasons(
     judgements: Sequence[StoreyJudgement], top: StoreyJudgement, ground: dict[str, Any]
 ) -> tuple[list[str], float]:
+    """The `because` list and a confidence that moves for stated reasons only."""
     because = [
         f"Oberstes mitgezähltes Geschoß: „{top.name or top.global_id}“ auf {_metres(top.elevation)} ({top.why}).",
         f"Unterer Bezug: {ground['via']}, {_metres(ground['z'])}.",

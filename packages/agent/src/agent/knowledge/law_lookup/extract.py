@@ -1,3 +1,22 @@
+"""[4] Which provisions answer the question. CAP: six, across two documents.
+
+Two paths, and the first one is free:
+
+* **Deterministic**: the caller named a provision, or a list of them, so
+  ``sections`` finds each by number and returns it with its parts, all from
+  the one document already fetched. No LLM call at all, which is the whole
+  reason ``address.py`` runs first.
+* **Ranked**: nobody named one, so ONE call to the picker model reads the
+  law's HEADINGS (never a body: that keeps this call's input bounded by the
+  table of contents rather than by the length of the law) and returns up to
+  six ids. The grammar then cuts those provisions out, so what reaches the
+  answering model is the law's own text, not the picker's summary of it.
+
+A document the grammar finds no provisions in (a court decision) is one
+passage. A document whose provisions answer nothing puts its headings on the
+trace, as an INDEX: see ``miss.miss_message``.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -22,12 +41,14 @@ MAX_DOCUMENTS = 2
 
 @dataclass(frozen=True)
 class Selection:
+    """The sections picked out of ONE document, each with its part (or none)."""
 
     fetched: FetchedDocument
     picks: tuple[tuple[Section, str], ...]
 
 
 async def select_passages(picker, question: str, address: Address, documents, trace: LookupTrace, law: LawSource):
+    """At most six passages across at most two documents, as ``Selection``s."""
     selections: list[Selection] = []
     budget = MAX_PASSAGES
     for fetched in documents[:MAX_DOCUMENTS]:
@@ -43,11 +64,13 @@ async def select_passages(picker, question: str, address: Address, documents, tr
 
 
 def _index_for(fetched: FetchedDocument, sections: list[Section], law: LawSource) -> str:
+    """One read-but-unanswering document's heading index, titled."""
     title = fetched.document.title or fetched.candidate.title
     return f"{title}:\n{headings_index(sections, law.section_plural)}"
 
 
 async def _pick(picker, question, address: Address, sections, fetched, law: LawSource) -> list[tuple[Section, str]]:
+    """``(section, subsection)`` pairs to return: deterministic first, LLM second."""
     if not sections:
         return _whole_document(fetched)
     if address.has_section:
@@ -63,6 +86,13 @@ async def _pick(picker, question, address: Address, sections, fetched, law: LawS
 
 
 def _addressed(section: Section, address: Address, law: LawSource) -> list[tuple[Section, str]]:
+    """The named part first, and the whole provision beside it when the provision fits.
+
+    "Part 2 means part 2" keeps the citation precise, but read alone it was a
+    keyhole: asked for one part, the agent came back for the others one lookup
+    at a time (answer suite, 92 s). The provision under its own key costs one
+    passage and ends that.
+    """
     if not address.subsection or len(section.body) > SECTION_MAX_CHARS:
         return [(section, address.subsection)]
     if not subsection_body(section, address.subsection, law.grammar)[1]:
@@ -75,11 +105,13 @@ def _is_addressed(section: Section, address: Address) -> bool:
 
 
 def _whole_document(fetched: FetchedDocument) -> list[tuple[Section, str]]:
+    """A document with no provision grammar (a court decision) is one passage, unnumbered."""
     document = fetched.document
     return [(Section(kind="", number="", heading=document.title, body=document.text), "")]
 
 
 async def _picker_picks(picker, question: str, sections: list[Section], law: LawSource) -> list[tuple[Section, str]]:
+    """One picker call over the HEADINGS; unknown ids are dropped, not guessed."""
     try:
         plan = await picker(question, headings_index(sections, law.section_plural))
     except Exception:  # noqa: BLE001 — a failed pick returns the index, never a guess
@@ -91,5 +123,6 @@ async def _picker_picks(picker, question: str, sections: list[Section], law: Law
 
 
 def _normalize_label(label: str, law: LawSource) -> str:
+    """``"§ 63."`` / ``"Artikel 5"`` → ``"§63"`` / ``"art5"`` for lookup."""
     kind, number = section_in(label, law.grammar)
     return f"{kind.lower()}{number.lower()}" if number else label.strip().casefold()

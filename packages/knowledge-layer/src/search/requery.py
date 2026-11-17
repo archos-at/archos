@@ -1,3 +1,25 @@
+"""Sufficiency judgement and re-query for ``knowledge_search``.
+
+Retrieval used to be one shot: the query went to every collection in scope,
+the channels were fused, the pool was reranked, and whatever came out was the
+answer's evidence. Nothing judged whether that pool could answer the question,
+and nothing tried a second formulation when it could not. A question phrased
+the way a planner talks ("wie lang darf der Fluchtweg sein") and a corpus that
+says it the way a norm talks ("Gehweglänge … höchstens 40 m") met only if the
+embedding bridged the gap.
+
+This module is the judge half of that loop. Shown the question and the fused
+pool, the model says whether the pool contains what is needed and, if not,
+proposes a handful of alternative formulations a search index would match.
+The caller retrieves those, fuses the new channels into the same RRF, and
+reranks the widened pool. The fusion machinery was already N-ary; this is the
+part that was missing (rag-system-audit-2026-08 F13).
+
+Fail-open throughout: a missing model, a timeout, an unparseable reply or a
+reply that proposes nothing all read as "sufficient", and the search proceeds
+exactly as it did before this module existed.
+"""
+
 from __future__ import annotations
 
 import asyncio
@@ -54,6 +76,7 @@ _SYSTEM_PROMPT = (
 
 @dataclass(frozen=True)
 class SufficiencyVerdict:
+    """What the judge decided, and what to search next if it decided "no"."""
 
     sufficient: bool
     queries: list[str] = field(default_factory=list)
@@ -71,6 +94,14 @@ def _normalised(text: str) -> str:
 
 
 def _parse_verdict(raw: str, *, original_query: str, max_queries: int) -> SufficiencyVerdict | None:
+    """Read the judge's JSON; ``None`` for anything that is not the contract.
+
+    Lenient about a code fence or prose around the object, strict about the
+    object itself: ``sufficient`` must be a real boolean and ``queries`` a list
+    of strings. Proposed queries are de-duplicated, trimmed, and compared to
+    the original so a model that paraphrases by repeating cannot spend a
+    retrieval on the query that already ran.
+    """
     text = raw.strip()
     if text.startswith("```"):
         text = text.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
@@ -118,6 +149,26 @@ async def judge_sufficiency(
     decider: str = DECIDER_LLM,
     decision_threshold: float | None = None,
 ) -> SufficiencyVerdict:
+    """Ask ``llm`` whether ``chunks`` can answer ``query``; fail-open to sufficient.
+
+    Args:
+        llm: LangChain chat model with an async ``ainvoke``; ``None`` disables.
+        query: The user's question, as asked.
+        chunks: The fused candidate pool, best first. May be empty — an empty
+            pool is the strongest reason to try another formulation.
+        max_queries: Ceiling on proposed alternative queries.
+        timeout_seconds: Upper bound for the judge call.
+        decider: :data:`DECIDER_LLM` or :data:`DECIDER_JEV`. With ``jev`` the
+            decision model answers the yes/no over the head first; a head it
+            finds sufficient costs no judge call, and a decision that did not
+            run (absent, disabled, failed) falls back to the judge.
+        decision_threshold: The sufficiency threshold for ``jev``; ``None``
+            is the module default.
+
+    Returns:
+        The verdict. On any failure, :data:`SUFFICIENT`, so the caller's search
+        is exactly the one-shot search it always was.
+    """
     if llm is None or not query or max_queries <= 0:
         return SUFFICIENT
 
@@ -162,6 +213,26 @@ async def judge_sufficiency(
 
 
 def requery_notice(queries: Sequence[str]) -> str:
+    """The one line about the widening that the MODEL reads, or ``""``.
+
+    Until this existed the loop was invisible to the agent that had asked for
+    the search: the judge decided the first pool could not answer the question,
+    the pipeline searched again in words the model never chose, and the model
+    was handed the widened excerpts as if they were the answer to its own
+    query. Whichever way the turn then went — an answer built on a paraphrase
+    of the question, or a second search repeating a formulation that had
+    already been tried — the model could not know which, because nothing told
+    it. The live status line said so to the READER (``emit_retrieval_requery``)
+    and to nobody else.
+
+    German, because the model writes German and this line sits in the tool
+    result beside German excerpts. One sentence, named formulations, no
+    instruction: what to do about it is the model's next decision, and a line
+    that told it would be the pipeline steering the loop a second time.
+
+    Returns ``""`` when nothing was widened, so the common one-shot search
+    carries no prefix at all.
+    """
     named = [" ".join(query.split())[:_NOTICE_QUERY_CHARS] for query in queries if query and query.strip()]
     if not named:
         return ""
@@ -173,10 +244,13 @@ def requery_notice(queries: Sequence[str]) -> str:
     )
 
 
-
-
 @dataclass(frozen=True)
 class CoverageGap:
+    """The decider read every judged passage and none answers the question.
+
+    ``unjudged`` delivered passages past :data:`_COVERAGE_MAX_JUDGED` were not
+    read, and the reason says so: the claim covers the judged ones only.
+    """
 
     judged: int
     best: float
@@ -185,6 +259,7 @@ class CoverageGap:
     unjudged: int = 0
 
     def reason(self) -> str:
+        """The clause after "Coverage: insufficient — " (``grounding_block.COVERAGE_GAP_LABEL``)."""
         after = ", even after reformulating the search" if self.widened else ""
         which = f"best {self.judged}" if self.unjudged else f"{self.judged} shown"
         rest = f"; the remaining {self.unjudged} passages were not checked" if self.unjudged else ""
@@ -202,6 +277,15 @@ async def judge_coverage(
     threshold: float,
     widened: bool,
 ) -> CoverageGap | None:
+    """A :class:`CoverageGap` when the decider says no passage answers; else ``None``.
+
+    Reads ``chunks`` (the pool as the model will get it, best first) up to
+    :data:`_COVERAGE_MAX_JUDGED`, with the same question and threshold as the
+    first pass, in one decider batch. ``None``
+    for everything that is not a complete "no": a passage that answers, a
+    decision that did not run, a passage the decider left unanswered, an empty
+    pool. Missing evidence is never read as an absent answer. Never raises.
+    """
     pool = list(chunks or [])
     head = pool[:_COVERAGE_MAX_JUDGED]
     if not head or not query:
@@ -221,7 +305,6 @@ async def judge_coverage(
     )
 
 
-
 _STRONG_TOP1_FLOOR = 0.88
 
 _STRONG_TOP3_MEAN_FLOOR = 0.80
@@ -232,6 +315,13 @@ _CALIBRATED_EMBEDDING_MODELS = ("multilingual-e5-small",)
 
 
 def _is_calibrated_embedding(model_name: str | None) -> bool:
+    """True when the deployed embedder is one the floors were calibrated on.
+
+    Suffix match so a provider-qualified or path-qualified id
+    (``intfloat/multilingual-e5-small``) still matches. Unknown reads False:
+    an uncalibrated deployment keeps the judge, which is the direction the
+    failure has to lean.
+    """
     if not isinstance(model_name, str) or not model_name.strip():
         return False
     name = model_name.strip().lower().replace("\\", "/")
@@ -278,6 +368,13 @@ _REQUERY_TURN_ID: ContextVar[str | None] = ContextVar("knowledge_requery_turn", 
 
 
 def _current_turn_id() -> str | None:
+    """This turn's id when the agent-runtime context states one, else ``None``.
+
+    Prefers the per-turn user message id and falls back to the workflow run
+    id. The conversation id alone is per-conversation, not per-turn, so it
+    is never a turn id. Fail-open to ``None`` (unstamped): instrumentation
+    never breaks the search.
+    """
     try:
         from nat.plugin_api import Context
 
@@ -294,12 +391,19 @@ def _current_turn_id() -> str | None:
 
 
 def _has_narrow_anchor(query: str) -> bool:
+    """True when ``query`` carries a specific locator, not just a topic word.
+
+    Pure string test: the identifier WITH its marker ("Tabelle 1b",
+    "Pkt. 5.1", "OIB-RL 2", a file name). A bare mention ("Welche Tabelle
+    gilt …") returns False, so the gate keeps such topic questions eligible.
+    """
     if not isinstance(query, str) or not query.strip():
         return False
     return _NARROW_ANCHOR_RE.search(query) is not None
 
 
 def _head_scores(chunks: Sequence[Any]) -> list[float]:
+    """The head cosine scores, best first, or ``[]`` when unreadable."""
     try:
         scores: list[float] = []
         for chunk in list(chunks or [])[:_STRONG_MIN_CHUNKS]:
@@ -316,6 +420,12 @@ def _head_scores(chunks: Sequence[Any]) -> list[float]:
 
 
 def scores_decisively_strong(chunks: Sequence[Any]) -> bool:
+    """True when the pool's head is strong enough that judging wastes a call.
+
+    Pure, so tests pin it without a model: top-1 at or above
+    :data:`_STRONG_TOP1_FLOOR` AND the top-3 mean at or above
+    :data:`_STRONG_TOP3_MEAN_FLOOR`. Anything unreadable is not strong.
+    """
     scores = _head_scores(chunks)
     if len(scores) < _STRONG_MIN_CHUNKS:
         return False
@@ -323,6 +433,12 @@ def scores_decisively_strong(chunks: Sequence[Any]) -> bool:
 
 
 def is_known_entity_lookup(query: str) -> bool:
+    """True when ``query`` names a family, a Fundstelle or a file.
+
+    Pure string test, no model: an OIB-RL mention, a Punkt/paragraph/page
+    marker or a filename means the caller is addressing evidence, and the
+    judge's paraphrases are the opposite of what was asked.
+    """
     if not isinstance(query, str) or not query.strip():
         return False
     return _KNOWN_ENTITY_RE.search(query) is not None
@@ -338,6 +454,28 @@ def should_skip_judge(
     folder: str | None = None,
     embedding_model: str | None = None,
 ) -> tuple[bool, str]:
+    """Whether the judge should not run, and the machine-readable reason.
+
+    Returns ``(True, reason)`` with reason one of ``"file_pinned"``,
+    ``"strong_scores"`` or ``"known_entity"``, else ``(False, "")``.
+    A pinned ``file_name`` is the existing precision-lookup rule, stated here
+    so instrumentation and tests read one gate instead of two. Never raises.
+
+    Three load-bearing guards:
+
+    * Empty pool forces the judge: even with every skip signal present, an
+      empty pool widens once (bounded by the per-turn cap) rather than
+      answering from nothing.
+    * ``strong_scores`` needs the CALIBRATED embedder
+      (:data:`_CALIBRATED_EMBEDDING_MODELS`): the floors are a number on one
+      model's cosine distribution, and an uncalibrated deployment gets the
+      judge instead of a threshold that means nothing there.
+    * ``known_entity`` needs anchoring: the entity mention
+      (:func:`is_known_entity_lookup`) PLUS a narrow scope — a specific
+      locator in the query (:func:`_has_narrow_anchor`) or a caller filter
+      (``file_name``/``doc_class``/``title_contains``/``folder``). A topic
+      question that merely mentions a table stays eligible.
+    """
     try:
         pool = list(chunks or [])
         if not pool:
@@ -364,6 +502,7 @@ _REQUERY_SPENT_LOCK = Lock()
 
 
 def _visible_turn_id() -> str | None:
+    """The turn id this context was stamped with, if any (never raises)."""
     try:
         turn = _REQUERY_TURN_ID.get()
     except Exception:
@@ -372,6 +511,7 @@ def _visible_turn_id() -> str | None:
 
 
 def requery_already_fired() -> bool:
+    """Whether this turn already spent its one requery firing."""
     turn = _visible_turn_id()
     if turn is not None:
         with _REQUERY_SPENT_LOCK:
@@ -384,6 +524,14 @@ def requery_already_fired() -> bool:
 
 
 def claim_requery_slot() -> bool:
+    """Claim the turn's one firing; False means it was already spent.
+
+    The first caller wins — across sequential searches AND across the parallel
+    rounds of one turn, which is why the claim is recorded per TURN (the
+    shared ledger) and not only per context: three sequential searches cost at
+    most one second round no matter what three judges would have said, and two
+    concurrent ones cost one, not two.
+    """
     turn = _visible_turn_id()
     if turn is not None:
         with _REQUERY_SPENT_LOCK:
@@ -407,6 +555,7 @@ def claim_requery_slot() -> bool:
 
 
 def reset_requery_slot() -> None:
+    """Open a new turn's firing slot. Fail-open; never raises."""
     try:
         _REQUERY_FIRED.set(False)
     except Exception:
@@ -418,6 +567,15 @@ def reset_requery_slot() -> None:
 
 
 def reset_requery_slot_for_turn(span_round: int | None = None, *, turn_id: str | None = None) -> None:
+    """Open the slot when a new turn starts; unstamped callers get a slot.
+
+    Resolution order: the explicit ``turn_id`` (tests) else the context turn
+    id (:func:`_current_turn_id`); when no turn id is visible, the
+    executing-round stamp (0 opens a new turn); when neither is visible
+    (tests, standalone callers), open the slot so the caller gets one firing
+    rather than inheriting another context's spent cap. Fail-open; never
+    raises.
+    """
     try:
         current = turn_id if turn_id is not None else _current_turn_id()
         if current is not None:

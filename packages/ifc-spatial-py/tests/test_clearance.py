@@ -108,8 +108,6 @@ def hand_built(tmp_path_factory: pytest.TempPathFactory) -> SpatialModel:
     return SpatialModel(str(path))
 
 
-
-
 def test_the_opening_between_two_walls_is_the_clear_width_not_the_axis_distance(
     hand_built: SpatialModel,
 ) -> None:
@@ -208,8 +206,6 @@ def test_running_out_of_budget_refuses_instead_of_reporting_an_upper_bound(
     assert "OBERGRENZE" in answer.missing.remedy
 
 
-
-
 def _sampled_pair_distance(first: np.ndarray, second: np.ndarray, steps: int = 40) -> float:
     weights = np.array(
         [(i / steps, j / steps, 1 - i / steps - j / steps) for i in range(steps + 1) for j in range(steps + 1 - i)]
@@ -256,8 +252,6 @@ def test_the_pruned_search_finds_what_the_unpruned_one_would(house: SpatialModel
     pruned = cl._soup_distance(left, right, 60.0)[0]
     brute = min(float(cl._triangle_distances(triangle, right)[0].min()) for triangle in left)
     assert pruned == pytest.approx(brute, abs=1e-12)
-
-
 
 
 @pytest.mark.parametrize(
@@ -353,8 +347,6 @@ def test_clear_opening_width_aimed_at_a_wall_says_which_operator_wanted(house: S
         cl.clear_opening_width(house, NORTH_WALL)
     assert "IfcWall" in str(raised.value)
     assert "hosts()" in str(raised.value)
-
-
 
 
 def test_a_wall_skewed_thirty_degrees_is_measured_as_itself(hand_built: SpatialModel) -> None:

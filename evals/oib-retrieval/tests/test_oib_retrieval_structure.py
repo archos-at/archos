@@ -68,8 +68,6 @@ def synthetic_index() -> ClauseIndex:
     )
 
 
-
-
 def test_every_indexed_clause_is_located_in_the_extracted_line_stream(synthetic_index, synthetic_pages):
     _results, located, _parents, unlocated = structure.measure_document(
         synthetic_index, "9", synthetic_pages, FILE_NAME, 1024
@@ -121,8 +119,6 @@ def test_text_after_the_imprint_is_not_absorbed_into_the_last_clause(synthetic_i
     assert results[corpus.ARM_CLAUSE].contiguous == results[corpus.ARM_CLAUSE].leaf_clauses
 
 
-
-
 def test_the_clause_arm_emits_more_and_smaller_chunks_than_the_page_arm(synthetic_pages):
     page_chunks = corpus._chunks_from_documents(
         corpus.page_documents(synthetic_pages, FILE_NAME, 1024), FILE_NAME, corpus.ARM_PAGE
@@ -154,8 +150,6 @@ def test_the_production_exclusion_list_still_covers_every_change_log_pdf():
     change_logs = {path.name for path in corpus_dir.glob("aenderungen_*.pdf")}
     assert change_logs, "no aenderungen_* files found — the forbidden-hit metric would measure nothing"
     assert change_logs <= excluded
-
-
 
 
 @pytest.fixture(scope="module")
@@ -201,8 +195,6 @@ def test_the_document_frequency_ceiling_is_not_applied_to_a_collection_this_smal
     assert select_terms(["gehweglang"], {"gehweglang": 3}, 100, df_ceiling_ratio=0.2, min_total=1) == ["gehweglang"]
 
 
-
-
 def test_the_hashed_embedder_is_deterministic_and_unit_normalised():
     import numpy as np
 
@@ -227,8 +219,6 @@ def test_the_dense_index_returns_the_requested_depth_in_descending_similarity(sy
 def test_asking_for_an_unknown_embedder_is_an_error_not_a_silent_fallback():
     with pytest.raises(ValueError):
         dense.make_embedder("text-embedding-3-large")
-
-
 
 
 def test_the_hybrid_path_runs_through_the_production_fusion_and_merge(synthetic_pages):
@@ -269,8 +259,6 @@ def test_the_production_diversity_cap_limits_pages_taken_from_one_document(synth
     first_pass = fused[:cap]
     assert all(unit[0] == FILE_NAME for unit in first_pass)
     assert len({unit[1] for unit in first_pass}) == len(first_pass), "the cap must not repeat a page"
-
-
 
 
 def test_a_numbered_table_derails_clause_chunking_and_the_metric_shows_it():

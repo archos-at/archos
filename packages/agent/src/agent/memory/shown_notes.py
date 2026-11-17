@@ -1,3 +1,26 @@
+"""The restricted memory a conversation's turns were shown (ADR-0087).
+
+Each turn's prompt carries a project-memory digest, re-ranked per turn against
+the question and capped (1,800 characters on the BFF). A note tagged
+``restricted`` that reached the prompt in turn 3 may be gone from the digest in
+turn 7, while what it said is still in the history the model answers from. The
+memory restriction decision (``memory/restriction.py``) must still see it, or a
+paraphrase written in turn 7 would be filed as open memory, and with no
+restricted document listable the decision would not even ask its judge.
+
+So every turn records, per conversation, the restricted notes its prompt carried
+and the ones it wrote as restricted, each with the restricted collections of
+the scope it was shown under (a digest line does not say which folder it came
+from; the note is restricted to some of these). Later turns read the record as
+evidence. It lives beside the citation registry, the other piece of
+per-conversation evidence the decision reads, in the shared cache
+(ADR-0020): the cache key is the conversation id, unique across tenants.
+
+The record is bounded (:data:`MAX_NOTES`). A note that no longer fits is not
+forgotten silently: its collections move to ``overflowed``, and every later
+memory of the conversation is restricted to them, which fails closed.
+"""
+
 from __future__ import annotations
 
 import asyncio
@@ -22,6 +45,7 @@ _MAX_NOTE_CHARS = 300
 
 @dataclass(frozen=True)
 class ShownNotes:
+    """What earlier turns of one conversation were shown of restricted memory."""
 
     notes: tuple[RestrictedNote, ...] = ()
     overflowed: tuple[str, ...] = ()
@@ -65,6 +89,10 @@ def _encode(shown: ShownNotes) -> dict[str, Any]:
 
 
 def load_shown_notes(conversation_id: str | None) -> ShownNotes:
+    """The conversation's record; empty for no conversation or on any read failure.
+
+    Synchronous (a cache round trip); call it through ``asyncio.to_thread``.
+    """
     if not conversation_id:
         return ShownNotes()
     from agent.common import cache
@@ -77,6 +105,11 @@ def load_shown_notes(conversation_id: str | None) -> ShownNotes:
 
 
 def merged(shown: ShownNotes, contents: Iterable[str], collections: Sequence[str]) -> ShownNotes:
+    """``shown`` plus ``contents`` shown under ``collections``, bounded; newest last.
+
+    A note seen again under a different scope keeps both scopes' collections:
+    it could have come from either.
+    """
     restricted = tuple(dict.fromkeys(restricted_collections_in(collections)))
     if not restricted:
         return shown
@@ -97,6 +130,7 @@ def merged(shown: ShownNotes, contents: Iterable[str], collections: Sequence[str
 
 
 def persist_shown_notes(conversation_id: str | None, shown: ShownNotes) -> None:
+    """Write the record (synchronous, best-effort). An empty record writes nothing."""
     if not conversation_id or shown.empty:
         return
     from agent.common import cache
@@ -104,11 +138,11 @@ def persist_shown_notes(conversation_id: str | None, shown: ShownNotes) -> None:
     cache.set_json(_key(conversation_id), _encode(shown), _TTL_SECONDS)
 
 
-
 _turn_shown_notes: ContextVar[ShownNotes | None] = ContextVar("turn_shown_restricted_notes", default=None)
 
 
 def bind_shown_notes(shown: ShownNotes) -> Token:
+    """Make what EARLIER turns were shown visible to this turn's tools; reset with the token."""
     return _turn_shown_notes.set(shown)
 
 
@@ -117,6 +151,7 @@ def unbind_shown_notes(token: Token) -> None:
 
 
 def turn_shown_notes() -> ShownNotes:
+    """What earlier turns of this conversation were shown; empty outside a turn."""
     return _turn_shown_notes.get() or ShownNotes()
 
 
@@ -131,6 +166,7 @@ async def _persist(conversation_id: str, shown: ShownNotes) -> None:
 
 
 def schedule_shown_notes_persist(conversation_id: str | None, shown: ShownNotes) -> None:
+    """Persist the record off the answer's path, like the citation registry."""
     if not conversation_id or shown.empty:
         return
     task = asyncio.get_running_loop().create_task(_persist(conversation_id, shown))

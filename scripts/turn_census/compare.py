@@ -13,7 +13,6 @@ ARM_ORDER = ("semantic", "grep", "hybrid")
 
 @dataclass
 class Measured:
-
     label: str
     meta: dict[str, Any]
     runs: list[dict[str, Any]]
@@ -55,8 +54,6 @@ def totals(runs: Iterable[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-
-
 def _label(meta: dict[str, Any], fallback: str) -> str:
     arm = meta.get("arm")
     if arm:
@@ -91,7 +88,6 @@ def pairs(before: list[Measured], after: list[Measured]) -> list[tuple[Measured,
         return [(before[0], after[0])]
     by_label = {m.label: m for m in before}
     return [(by_label[m.label], m) for m in after if m.label in by_label]
-
 
 
 HEADER = (

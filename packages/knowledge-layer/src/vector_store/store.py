@@ -1,3 +1,13 @@
+"""The Qdrant client and every write the knowledge layer makes.
+
+This package is the only code that imports ``qdrant_client`` (an
+import-linter contract fails the build otherwise), so the scope filter, the
+BM25 options and the payload shape cannot drift between callers.
+
+Writes address points by scope and chunk id or by scope and file name, never
+by a bare id list from elsewhere: a delete names what it deletes.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -57,6 +67,7 @@ RETRY_BACKOFF_SECONDS = (0.2, 0.8, 2.0)
 
 
 def _transient(error: BaseException) -> bool:
+    """True for a failure a retry can cure: no connection, a timeout, a 5xx. Never a 4xx."""
     if isinstance(error, UnexpectedResponse):
         return error.status_code is not None and error.status_code >= 500
     if isinstance(error, ResponseHandlingException):
@@ -69,6 +80,14 @@ def _sleep(seconds: float) -> None:
 
 
 def with_retry[T](label: str, work: Callable[[], T]) -> T:
+    """Run one write, or a read whose answer decides one, retrying a transient failure after each pause.
+
+    Every write this store makes is idempotent (an upsert or set by point id
+    or filter, a delete by filter), so a retry after a timeout whose request
+    did land changes nothing; a read changes nothing at all. ``work`` must
+    return the whole answer (a list, not a lazy scroll), so a retry starts
+    over. The pauses are :data:`RETRY_BACKOFF_SECONDS`.
+    """
     for pause in RETRY_BACKOFF_SECONDS:
         try:
             return work()
@@ -81,10 +100,17 @@ def with_retry[T](label: str, work: Callable[[], T]) -> T:
 
 
 def bm25(text: str, length: Mapping[str, float] | None = None) -> models.Document:
+    """The text as Qdrant's server-side BM25 input: the one German analysis, and the collection's length normalisation.
+
+    ``length`` (``k``, ``b``, ``avg_len``) is the target collection's
+    (:meth:`QdrantStore.bm25_length`); without one Qdrant's defaults apply, which is
+    what every collection not built by a tuning rebuild was written with.
+    """
     return models.Document(text=text, model=BM25_MODEL, options={**BM25_OPTIONS, **dict(length or {})})
 
 
 class QdrantStore:
+    """Writes and plain reads against the two physical collections."""
 
     def __init__(self, client: QdrantClient, identity: Mapping[str, str] | None = None):
         self.client = client
@@ -99,9 +125,11 @@ class QdrantStore:
 
     @staticmethod
     def alias(scope: str) -> str:
+        """The alias of the physical collection holding ``scope``."""
         return ALIASES[physical_for_scope(scope)]
 
     def ensure(self, scope: str, dense_size: int) -> str:
+        """Make sure ``scope``'s physical collection exists; returns its alias."""
         physical = physical_for_scope(scope)
         if physical not in self._ensured:
             with self._ensure_lock:
@@ -111,6 +139,12 @@ class QdrantStore:
         return ALIASES[physical]
 
     def exists(self, scope: str) -> bool:
+        """True when ``scope``'s physical collection exists (no point need exist in it).
+
+        A positive answer is remembered: a collection is never dropped under a
+        running process (a rebuild switches the alias to a new one), so only
+        "not yet" needs asking again.
+        """
         physical = physical_for_scope(scope)
         if physical in self._ensured or physical in self._present:
             return True
@@ -122,12 +156,25 @@ class QdrantStore:
         return False
 
     def _ensure_indexes(self, alias: str) -> None:
+        """Add the payload indexes a collection made by older code lacks, before this process reads it.
+
+        A process that only reads never calls :meth:`ensure`, and without the
+        index strict mode refuses the filter. A key that may not create
+        indexes is logged here and the read goes on: a query that needs the
+        missing index then fails at the server, naming the field.
+        """
         try:
             ensure_payload_indexes(self.client, alias)
         except Exception:  # noqa: BLE001 - see the docstring; the refusal surfaces on the query
             logger.error("Qdrant %s: could not create missing payload indexes", alias, exc_info=True)
 
     def bm25_length(self, scope: str) -> dict[str, float]:
+        """The BM25 length normalisation ``scope``'s collection was written with (``{}``: Qdrant's defaults).
+
+        Read from the collection's metadata (``schema.BM25_LENGTH_KEY``) and kept for
+        :data:`BM25_LENGTH_TTL_SECONDS`: every write and query must compute with the
+        collection's own, and a rebuild may move the alias to one with another.
+        """
         physical = physical_for_scope(scope)
         cached = self._bm25_lengths.get(physical)
         now = time.monotonic()
@@ -140,6 +187,11 @@ class QdrantStore:
         return dict(length)
 
     def check_identity(self, scope: str) -> None:
+        """Raise when ``scope``'s collection holds vectors from another embedder than this process's.
+
+        Checked once per physical collection per process. Without a known
+        identity (a process that never embeds) there is nothing to compare.
+        """
         physical = physical_for_scope(scope)
         if not self.identity or physical in self._verified or not self.exists(scope):
             return
@@ -147,7 +199,6 @@ class QdrantStore:
         if mismatch:
             raise RuntimeError(f"{ALIASES[physical]}: {mismatch}")
         self._verified.add(physical)
-
 
     def upsert(
         self,
@@ -157,6 +208,20 @@ class QdrantStore:
         *,
         insert_only: bool = False,
     ) -> int:
+        """Write ``records`` into ``scope``; returns how many points were sent.
+
+        The dense vector is the one the caller computed (ingestion's embedder,
+        or a migration's copy: no embedding call here); the lexical vector is
+        computed by Qdrant from the text. A point with the same id is replaced
+        whole, which is what a retried write needs.
+
+        ``insert_only`` leaves a point that already exists exactly as it is
+        (Qdrant's ``update_mode: insert_only``) and merges only the fields the
+        chunk alone decides onto it (:func:`payload.chunk_own_payload`). It is
+        the backfill's mode: a chunk id names immutable content, and the
+        point ingestion wrote carries ids (office, project, BFF document) the
+        backfill cannot know and must not strip.
+        """
         usable = [record for record in records if record.embedding is not None and len(record.embedding)]
         if not usable:
             return 0
@@ -210,18 +275,26 @@ class QdrantStore:
         )
 
     def delete_chunks(self, scope: str, chunk_ids: Sequence[str]) -> None:
+        """Delete these chunks of ``scope``, in bounded requests. Ids with no point are no error."""
         ids = list(dict.fromkeys(str(chunk_id) for chunk_id in chunk_ids if chunk_id))
         for start in range(0, len(ids), DELETE_BATCH):
             batch = ids[start : start + DELETE_BATCH]
             self._delete(scope, models.FieldCondition(key=CHUNK_ID_FIELD, match=models.MatchAny(any=batch)))
 
     def delete_file(self, scope: str, file_name: str, matches: Callable[[str], bool] | None = None) -> None:
+        """Delete every chunk of one file in ``scope``.
+
+        ``matches`` widens "this file" to every stored spelling it accepts
+        (the adapter's rule: a ``tmp…_`` upload prefix, percent-encoding), read
+        from the scope's own ``file_name`` values.
+        """
         names = {file_name}
         if matches is not None:
             names.update(name for name in self.file_names(scope) if matches(name))
         self._delete(scope, models.FieldCondition(key="file_name", match=models.MatchAny(any=sorted(names))))
 
     def delete_scope(self, scope: str) -> None:
+        """Delete every point of ``scope``, folder card points too: a collection deleted, uploads reaped."""
         self._delete(scope)
 
     @staticmethod
@@ -231,6 +304,10 @@ class QdrantStore:
         )
 
     def set_file_payloads(self, scope: str, payloads: Mapping[str, Mapping[str, Any]]) -> None:
+        """Overwrite these payload fields on every chunk of each file (a person changed a fact); others are kept.
+
+        A bounded batch per request, never one request per file.
+        """
         payloads = {name: dict(values) for name, values in payloads.items() if values}
         if not payloads or not self.exists(scope):
             return
@@ -243,6 +320,16 @@ class QdrantStore:
         self._batch(self.alias(scope), f"set payloads in {scope}", operations)
 
     def restore_chunk_doc_classes(self, scope: str, file_names: Iterable[str]) -> None:
+        """Put each file's own Dokumentart back on its points after a person cleared theirs.
+
+        The stored class beats the chunk's, so the copy wrote it over the
+        chunk's; with the stored class gone, the chunk's is what a reader falls
+        back to (``hit_metadata.hit_doc_class``) and what a ``doc_class``
+        pre-filter must match. It is per file (ingestion stamps it per file),
+        so one point of each file says it: one small read per file, then every
+        change in bounded batches. A point written before
+        :data:`payload.CHUNK_DOC_CLASS_FIELD` existed cannot say it, and is left.
+        """
         names = sorted(set(file_names))
         if not names or not self.exists(scope):
             return
@@ -277,7 +364,6 @@ class QdrantStore:
                 )
         self._batch(alias, f"restore doc_class in {scope}", operations)
 
-
     def _facet_counts(self, alias: str, key: str, facet_filter: models.Filter | None) -> dict[str, int]:
         response = self.client.facet(alias, key=key, facet_filter=facet_filter, limit=FACET_LIMIT, exact=True)
         if len(response.hits) >= FACET_LIMIT:
@@ -288,25 +374,30 @@ class QdrantStore:
         return list(self._facet_counts(alias, key, facet_filter))
 
     def file_names(self, scope: str) -> list[str]:
+        """Every ``file_name`` value the points of ``scope`` carry."""
         if not self.exists(scope):
             return []
         return self._facet(self.alias(scope), "file_name", scope_filter([scope]))
 
     def file_counts(self, scope: str) -> dict[str, int]:
+        """``file_name -> chunks`` for every file with a point in ``scope``, one exact facet."""
         if not self.exists(scope):
             return {}
         return self._facet_counts(self.alias(scope), "file_name", scope_filter([scope]))
 
     def scopes(self, physical: Physical) -> list[str]:
+        """Every logical scope with at least one point in ``physical``'s collection."""
         return list(self.scope_counts(physical))
 
     def scope_counts(self, physical: Physical) -> dict[str, int]:
+        """``scope -> chunks`` for every logical scope with at least one point in ``physical``'s collection."""
         alias = ALIASES[physical]
         if not any(entry.alias_name == alias for entry in self.client.get_aliases().aliases):
             return {}
         return self._facet_counts(alias, SCOPE_FIELD, kind_filter("chunk"))
 
     def chunk_ids(self, scope: str) -> Iterable[str]:
+        """The chunk id of every point of ``scope``, read by scroll with nothing else in the payload."""
         if not self.exists(scope):
             return
         query_filter = scope_filter([scope])
@@ -326,6 +417,7 @@ class QdrantStore:
                 return
 
     def missing_chunk_ids(self, scope: str, chunk_ids: Sequence[str]) -> list[str]:
+        """Those of ``chunk_ids`` with no point in ``scope``."""
         if not chunk_ids:
             return []
         if not self.exists(scope):
@@ -344,6 +436,7 @@ class QdrantStore:
         return [chunk_id for point, chunk_id in by_point.items() if point not in present]
 
     def sample_chunk_ids(self, scope: str, size: int) -> list[str]:
+        """About ``size`` chunk ids of ``scope``, read from a random place in point-id order (wrapping round)."""
         if not self.exists(scope) or size <= 0:
             return []
         query_filter = scope_filter([scope])
@@ -363,6 +456,13 @@ class QdrantStore:
         return list(ids)
 
     def set_scope_payload(self, scope: str, payload: Mapping[str, Any]) -> bool:
+        """Overwrite these payload fields on every point of ``scope``; False when it has no point yet.
+
+        The project facts mirror (``PUT /v1/collections/{c}/project-facts``):
+        one call per scope, whatever its size, since the filter names the
+        scope rather than a list of ids. A top-level key replaces the stored
+        value whole, so a nested object loses the keys it no longer has.
+        """
         if not payload or not self.exists(scope):
             return False
         if self.count(scope) == 0:
@@ -377,12 +477,16 @@ class QdrantStore:
     def facet_counts(
         self, scope: str, key: str, filters: dict[str, Any] | None = None, *extra: models.Condition | models.Filter
     ) -> dict[str, int]:
+        """``key value -> chunks`` in ``scope`` under ``filters`` and ``extra``, one exact facet.
+
+        The tenancy condition comes from :func:`scope_filter`, as for every read.
+        """
         if not self.exists(scope):
             return {}
         return self._facet_counts(self.alias(scope), key, scope_filter([scope], filters, *extra))
 
-
     def count(self, scope: str, filters: dict[str, Any] | None = None, *extra: models.Condition) -> int:
+        """Chunks of ``scope`` matching ``filters`` (exact)."""
         if not self.exists(scope):
             return 0
         result = self.client.count(self.alias(scope), count_filter=scope_filter([scope], filters, *extra), exact=True)
@@ -397,6 +501,11 @@ class QdrantStore:
         fields: Sequence[str] | None = None,
         page_size: int = SCROLL_PAGE,
     ) -> Iterator[models.Record]:
+        """Every chunk of ``scope`` matching ``filters`` and ``extra``, in point-id order, payload only.
+
+        ``fields`` limits the payload to those keys: a listing that needs a
+        file's name and page reads no chunk text.
+        """
         if not self.exists(scope):
             return
         query_filter = scope_filter([scope], filters, *extra)
@@ -429,6 +538,13 @@ class QdrantStore:
         descending: bool = False,
         fields: Sequence[str] | None = None,
     ) -> list[models.Record]:
+        """The first ``limit`` chunks of ``scope`` matching ``filters``, ordered by the integer field ``order_by``.
+
+        Ascending unless ``descending``. Qdrant skips a point that lacks the
+        field, so a caller asks this only of a set it knows carries it
+        (``reads.fetch``), or one where a missing value means "unknown"
+        (:meth:`newest`).
+        """
         if not self.exists(scope):
             return []
         direction = models.Direction.DESC if descending else models.Direction.ASC
@@ -443,11 +559,13 @@ class QdrantStore:
         return list(page)
 
     def newest(self, scope: str, field: str, *, oldest: bool = False) -> int | None:
+        """The largest (``oldest``: smallest) value of the integer ``field`` in ``scope``; None if none has one."""
         page = self.scroll_ordered(scope, None, field, 1, descending=not oldest, fields=[field])
         value = (page[0].payload or {}).get(field) if page else None
         return int(value) if value is not None else None
 
     def has_index(self, scope: str, field: str) -> bool:
+        """Whether ``scope``'s collection indexes ``field``. Only "yes" is remembered: a writer may add one later."""
         physical = physical_for_scope(scope)
         if (physical, field) in self._indexed:
             return True
@@ -456,6 +574,12 @@ class QdrantStore:
         return field in present
 
     def text_index_sound(self, scope: str) -> bool:
+        """Whether ``scope``'s full-text index tokenizes as :data:`schema.TEXT_INDEX` does. Only "yes" is remembered.
+
+        A collection built with another tokenizer is reported by
+        ``ensure_payload_indexes``; a reader that narrows by tokens asks this
+        first, because under ``multilingual`` a number is no token at all.
+        """
         physical = physical_for_scope(scope)
         if physical in self._sound_text:
             return True
@@ -466,6 +590,7 @@ class QdrantStore:
         return True
 
     def health(self) -> bool:
+        """True when the cluster answers."""
         try:
             self.client.get_aliases()
             return True
@@ -478,6 +603,9 @@ _store_lock = threading.Lock()
 
 
 def make_client() -> QdrantClient:
+    """A client for the configured cluster. ``cloud_inference`` sends ``Document``
+    inputs to the server, whose own BM25 analyses them, rather than to a local
+    FastEmbed model this image does not ship."""
     return QdrantClient(
         url=qdrant_url(),
         api_key=qdrant_api_key(),
@@ -488,6 +616,8 @@ def make_client() -> QdrantClient:
 
 
 def get_store(identity: Mapping[str, str] | None = None) -> QdrantStore:
+    """The process-wide store. ``identity`` (the embedder's fingerprint) is
+    taken from the first caller that passes one; every later caller shares it."""
     global _store
     with _store_lock:
         if _store is None:
@@ -498,6 +628,7 @@ def get_store(identity: Mapping[str, str] | None = None) -> QdrantStore:
 
 
 def reset_store() -> None:
+    """Drop the process-wide store (tests, and a process that changed its config)."""
     global _store
     with _store_lock:
         _store = None

@@ -373,8 +373,6 @@ def _render(
     return "\n".join(line for line in lines if line)
 
 
-
-
 def _trace(operation: str, detail: str, *, outcome: str) -> None:
     """The SHAPE of the call for Langfuse: names from the closed vocabularies here, never model-authored text."""
     known = operation if operation in VALID_OPERATIONS else "unknown"

@@ -1,3 +1,39 @@
+"""
+Agent-runtime trace → list[RequestProfile]
+==========================================
+
+Converts an agent-runtime profiler trace JSON file (produced by ``nat eval``) into
+structured :class:`~agent.tokenomics.profile.RequestProfile` objects
+ready for the tokenomics HTML report.
+
+Architecture note
+-----------------
+The workflow is registered as ``deep_research_agent``.  Version 1.5.0 traces of the agent runtime still
+emit ``FUNCTION_START`` / ``FUNCTION_END`` for **tools** (e.g. search helpers),
+but **planner-agent** and **researcher-agent** runs live inside the ``task``
+tool: they do not get distinct ``FUNCTION_*`` names.  Traces from this stack
+typically have no per-step ``function_ancestry`` (or equivalent) carrying
+subagent identity — calling ``subagent.ainvoke()`` does not surface as separate
+agent-runtime function scopes for Planner vs Researcher.
+
+Subagent attribution is therefore inferred post-hoc via timing windows: every
+``task`` TOOL_START/END pair brackets one subagent invocation and carries
+``subagent_type`` in its input.  For each ``LLM_END`` we use that step's
+``event_timestamp`` (completion time, not ``span_event_timestamp``): if it
+lies inside a task window, the call is attributed to that phase; otherwise
+**orchestrator-phase**.
+
+``_build_task_windows`` appends windows in ``task`` TOOL_END order.
+``_infer_phase`` returns the **first** window in that list whose bounds contain
+``ts``.  Overlapping researcher windows share the same phase label, so order is
+unimportant in the common parallel-researcher case.
+
+If the agent runtime later attaches subagent phase directly on each step (e.g.
+``function_ancestry`` or explicit ``FUNCTION_*`` scopes for subagents),
+``_infer_phase`` can be replaced with a field read and the rest of this module
+can stay the same.
+"""
+
 from __future__ import annotations
 
 import ast
@@ -17,10 +53,9 @@ from .profile import RequestProfile
 logger = logging.getLogger(__name__)
 
 
-
-
 @dataclass
 class _TaskWindow:
+    """Time span of a single subagent (task tool) invocation."""
 
     uuid: str
     subagent_type: str  # "planner-agent" | "researcher-agent"
@@ -35,6 +70,7 @@ class _TaskWindow:
 
 
 def _extract_subagent_type(raw_input: Any) -> str | None:
+    """Pull subagent_type out of the task tool's input field."""
     if isinstance(raw_input, dict):
         return raw_input.get("subagent_type")
     if isinstance(raw_input, str):
@@ -51,6 +87,7 @@ def _extract_subagent_type(raw_input: Any) -> str | None:
 
 
 def _build_task_windows(steps: list[dict]) -> list[_TaskWindow]:
+    """Build a list of completed task-tool windows from a request's steps."""
     open_windows: dict[str, _TaskWindow] = {}
     closed: list[_TaskWindow] = []
 
@@ -82,6 +119,13 @@ def _build_task_windows(steps: list[dict]) -> list[_TaskWindow]:
 
 
 def _infer_phase(ts: float, windows: list[_TaskWindow]) -> str:
+    """
+    Return the phase label for an LLM call from its ``LLM_END`` time ``ts``.
+
+    ``windows`` is ordered by ``task`` TOOL_END (see ``_build_task_windows``).
+    The first window with ``start_ts <= ts <= end_ts`` wins.  Overlapping
+    researcher windows all map to ``researcher-phase`` anyway.
+    """
     for win in windows:
         if win.start_ts <= ts <= win.end_ts:
             return win.phase
@@ -89,6 +133,7 @@ def _infer_phase(ts: float, windows: list[_TaskWindow]) -> str:
 
 
 def _parse_request(request_index: int, steps: list[dict], pricing: PricingRegistry) -> RequestProfile:
+    """Convert one request's step list into a RequestProfile."""
 
     wf_start_ts = wf_end_ts = 0.0
     question = ""
@@ -211,9 +256,20 @@ def _parse_request(request_index: int, steps: list[dict], pricing: PricingRegist
     )
 
 
-
-
 def parse_trace(path: str, pricing: PricingRegistry) -> list[RequestProfile]:
+    """
+    Parse an agent-runtime profiler trace JSON file and return one
+    :class:`~agent.tokenomics.profile.RequestProfile` per request.
+
+    Parameters
+    ----------
+    path:
+        Path to the ``all_requests_profiler_traces.json`` file produced by
+        ``nat eval``.
+    pricing:
+        A :class:`~agent.tokenomics.pricing.PricingRegistry` built from
+        the ``tokenomics.pricing`` section of the eval config YAML.
+    """
     with open(path) as f:
         data = json.load(f)
 

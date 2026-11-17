@@ -1,3 +1,6 @@
+"""State models for Piloti: one turn's, the conversation's, and the
+clarification step's."""
+
 from .clarify import ClarificationResponse
 from .clarify import ClarifyRequest
 from .clarify import ClarifyResult

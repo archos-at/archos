@@ -78,6 +78,7 @@ IDENTITY_ATTRIBUTES_ENV = "TRACE_IDENTITY_ATTRIBUTES"
 
 SESSION_ID_ATTRIBUTE = "langfuse.session.id"
 TAGS_ATTRIBUTE = "langfuse.trace.tags"
+# Names from https://langfuse.com/integrations/native/opentelemetry.
 METADATA_PREFIX = "langfuse.trace.metadata."
 
 
@@ -274,8 +275,6 @@ def reset_contributions() -> None:
     for tests that need a blank slate without holding a token.
     """
     _CONTRIBUTED.set(None)
-
-
 
 
 OBSERVATION_PROMPT_NAME = "langfuse.observation.prompt.name"

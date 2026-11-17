@@ -1,3 +1,72 @@
+"""A measurement as a SOURCE — the derivation trail a measured answer earns.
+
+The agent measures a basement correctly and the Herleitungspfad shows nothing.
+That is the defect this module closes, and the reason it was open is worth
+stating: ``ifc_measure`` is deliberately not a data source
+(:mod:`agent.agents.piloti.grounding`), so nothing it produced
+ever reached the citation registry, and the Herleitung is fed from the
+registry.
+
+Which is a shame, because a measurement carries a BETTER audit trail than a
+citation does. Every :class:`ifc_spatial.envelope.Answer` states the GlobalIds
+the value was derived from in the order they were used, the operator expression
+as "text a reviewer can read back", an absolute tolerance in the value's unit,
+a provenance (``declared``/``computed``/``inferred``) and a caveat the answer is
+not valid without. A citation says "this passage exists in this document"; a
+measurement says "this number came from these elements by this method, ±this
+much". Only the second is reproducible.
+
+## Why this is a separate channel and not a ``SourceEntry``
+
+``citation_grounded`` is derived from the contents of
+:class:`~citations.registry.SourceRegistry`: a non-empty
+registry runs ``verify_citations``, a surviving citation sets the flag, and a
+registry holding exactly ONE source triggers the single-source fallback that
+sets it too. That flag is the only route to a surfaced "high", and the
+normative brake in ``grounding`` is gated on its absence.
+
+So a measurement in the registry would mean: an answer that measured a basement
+and then asserted „…und erfüllt damit OIB 4 Punkt 2.1" — with no passage behind
+the second half — reaches the model's own confidence on the strength of the
+first. That is the laundering path four rounds of adversarial review closed,
+and re-opening it through the Herleitung would be an unusually quiet way to do
+it. It would also change what ``EmptySourceRegistryError`` means: a turn that
+retrieved nothing and measured something would stop being a turn with no
+retrieved evidence.
+
+Hence: measurements never touch the registry. They accumulate in their own
+per-turn capture log — the same ContextVar shape ``citations.session``'s
+``begin_turn_capture`` uses — and meet the retrieved sources only on the wire,
+where the coarse ``kind`` is all that is left of either and the rendering
+surfaces pick both up automatically (``source_kinds.MEASUREMENT_SOURCE_KIND``).
+
+## What is and is not emitted
+
+Exactly the values ``measure_register._measured_count`` counts as EVIDENCE:
+decidable, ``declared``/``computed``, and quantity-shaped. That is not a
+coincidence to be maintained by hand — it is the same predicate, applied once,
+so the number of measurement cards in the Herleitung equals the count in the
+result's own „Messwerte in diesem Ergebnis:" trailer, which is the number the
+confidence gate stands on.
+
+Two exclusions follow from it and both are deliberate:
+
+- an **undecidable** answer produces no card. „Dieser Export liefert keine
+  IfcSpace-Elemente" is a finding about the EXPORT, not evidence about the
+  building, and a card claiming otherwise would put a source chip under an
+  answer that measured nothing. The renderer still says it, in prose, where it
+  reads as the remedy it is.
+- an **inferred** answer produces no card, for the reason the renderer already
+  gives it: „ein Vorschlag zur Bestätigung, keine Feststellung". A heuristic
+  must not raise anybody's confidence, and a chip labelled „Belegt durch" is a
+  confidence claim.
+
+The German is the renderer's own. ``PROVENANCE_LABELS`` holds the same three
+verbs ``measure_register._provenance_line`` puts in front of a value, and the
+value/tolerance text is formatted by that module's helpers rather than re-derived
+here, so a card and the sentence the agent writes about it cannot disagree.
+"""
+
 from __future__ import annotations
 
 import contextvars
@@ -20,6 +89,24 @@ PROVENANCE_LABELS: dict[str, str] = {
 
 
 def note_model_read(filename: str | None, operation: str, detail: str | None = None) -> None:
+    """File the model THIS call read under the turn's retrieval round.
+
+    The Herleitung draws one layer per retrieval round and hangs on it the
+    documents that round returned, read off the lane-hit capture the evidence
+    tools feed (``turn_status.record_lane_hit``). Both IFC tools are announced
+    as retrieval rounds („Sucht im Gebäudemodell …"), and until this function
+    neither returned a document to hang: a measurement turn drew one empty
+    „Suche" layer per model call, indistinguishable from a search that found
+    nothing. An ``.ifc`` is a project file and a query is a read of it, so it
+    is filed the way a passage is — the file as the document, the operation as
+    the locus where a passage carries its page.
+
+    This is NOT the measurement channel above, and the separation stands: a
+    lane hit is what the Herleitung draws, never what the citation registry
+    grounds (the module docstring says why a measurement must not reach it).
+    Best-effort by ``record_lane_hit``'s own contract: a no-op outside a turn,
+    and it never raises.
+    """
     if not filename:
         return
     locus = f"{operation} · {detail}" if detail else operation
@@ -28,6 +115,12 @@ def note_model_read(filename: str | None, operation: str, detail: str | None = N
 
 @dataclass(frozen=True)
 class MeasuredElement:
+    """One element a value was derived from — a GlobalId, named where known.
+
+    The name matters more than it looks. A reviewer who has to act on „einer
+    dieser Räume ist 0,25 m hoch" needs to know WHICH, and a 22-character
+    GlobalId is not something a person can carry to a CAD window.
+    """
 
     global_id: str
     name: str | None = None
@@ -40,6 +133,12 @@ class MeasuredElement:
 
 @dataclass(frozen=True)
 class MeasurementSource:
+    """One measured value, with everything needed to audit it.
+
+    Every field is copied off an :class:`ifc_spatial.envelope.Answer` or
+    formatted from one by ``measure_register``; nothing here is inferred from
+    the German prose around it.
+    """
 
     headline: str
     statement: str
@@ -53,9 +152,21 @@ class MeasurementSource:
 
     @property
     def provenance_label(self) -> str:
+        """The German verb for this provenance; the raw token when unknown."""
         return PROVENANCE_LABELS.get(self.provenance, self.provenance)
 
     def identity(self) -> str:
+        """Stable document identity for this measurement.
+
+        Deterministic (no clock, no randomness) and derived from what the
+        measurement IS — the method, the value and the elements — so the same
+        measurement keys the same way across processes, and re-measuring the
+        same element in a later turn folds onto one card instead of two.
+
+        Namespaced ``measure:`` because the frontend's document identity would
+        otherwise fall through to a label key, where an element named after a
+        Richtlinie could collapse a measurement onto a document.
+        """
         digest = hashlib.sha256(
             "\x1f".join(
                 (
@@ -69,6 +180,16 @@ class MeasurementSource:
         return f"measure:{digest}"
 
     def to_wire(self) -> dict[str, Any]:
+        """The wire shape, alongside the retrieved sources it renders beside.
+
+        Deliberately the same envelope ``source_entry_to_wire`` produces —
+        ``document_id`` / ``title`` / ``kind`` / ``lane`` — so every surface
+        that already folds wire sources into documents picks this up without
+        learning a second shape. The measurement-only facts hang off one
+        ``measurement`` object rather than being smeared across new top-level
+        fields, so a consumer that does not know about measurements renders a
+        titled, tinted card and nothing is malformed.
+        """
         measurement: dict[str, Any] = {
             "provenance": self.provenance,
             "provenance_label": self.provenance_label,
@@ -96,27 +217,40 @@ class MeasurementSource:
         }
 
 
-
 _turn_measurements: contextvars.ContextVar[list[MeasurementSource] | None] = contextvars.ContextVar(
     "_turn_measurements", default=None
 )
 
 
 def begin_measurement_capture() -> contextvars.Token:
+    """Start recording this turn's measurements. Pair with :func:`end_measurement_capture`."""
     return _turn_measurements.set([])
 
 
 def end_measurement_capture(token: contextvars.Token) -> None:
+    """Stop recording this turn's measurements."""
     _turn_measurements.reset(token)
 
 
 def record_measurements(entries: Sequence[MeasurementSource]) -> None:
+    """Note measurements a tool call produced. No-op when nothing is recording.
+
+    Silent when unbound on purpose: ``measure_register._render`` is a formatting
+    function called from tests, from the CLI and from paths that have no turn
+    around them, and none of them should have to know this log exists.
+    """
     log = _turn_measurements.get()
     if log is not None:
         log.extend(entries)
 
 
 def get_measurement_captures() -> list[MeasurementSource]:
+    """Distinct measurements this turn produced, in first-seen order.
+
+    Deduplicated on :meth:`MeasurementSource.identity`, so an agent that asks
+    the same question twice within a turn — which the retry-shaped tool loop
+    makes routine — contributes one card, not two.
+    """
     log = _turn_measurements.get()
     if not log:
         return []
@@ -132,4 +266,5 @@ def get_measurement_captures() -> list[MeasurementSource]:
 
 
 def measurement_sources_to_wire(entries: Sequence[MeasurementSource]) -> list[dict[str, Any]]:
+    """Serialize measurements for the citation wire."""
     return [entry.to_wire() for entry in entries]

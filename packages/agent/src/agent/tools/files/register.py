@@ -91,8 +91,6 @@ def _document(name: str) -> ResolvedDocument | str:
     return resolved.message if isinstance(resolved, Refusal) else resolved
 
 
-
-
 async def _move(document: str, target_folder: str, reason: str = "") -> str:
     resolved = _document(document)
     if isinstance(resolved, str):
@@ -186,7 +184,6 @@ async def _assign(document: str, member: str, reason: str = "") -> str:
     if not await propose_file_operation(operation="assign", title="Datei zuweisen", item=item):
         return _NOT_PROPOSED
     return f"Proposed: `{resolved.file_name}` → {person}. {_PROPOSED}"
-
 
 
 _DESCRIPTION = (

@@ -173,8 +173,6 @@ def licence_from_metadata(metadata: Mapping[str, Any] | None) -> LicenceTerms | 
     )
 
 
-
-
 @dataclass
 class LicensedCapture:
     """One turn's licensed passages, by reference. In memory only; never serialised."""
@@ -285,8 +283,6 @@ def quotable(body: str, terms: LicenceTerms | None) -> str | None:
     return (body[: terms.quote_max_chars] or None) if terms.ai_processing else None
 
 
-
-
 def _expand_text(
     text: str, passages: Mapping[str, tuple[str, int]], used: dict[str, tuple[str, int]], send: bool
 ) -> str:
@@ -347,8 +343,6 @@ def expand_messages(messages: Any, *, zero_retention: bool) -> tuple[Any, QuoteC
     if all(a is b for a, b in zip(out, messages, strict=True)):
         return messages, None
     return out, QuoteCap(used.values(), capture) if used else None
-
-
 
 
 def _normalised(char: str) -> str:
@@ -488,7 +482,6 @@ class _Run:
         return self._length > self._cap or self._owner.quoted >= self._owner.budget
 
 
-
 _metadata_only: ContextVar[bool] = ContextVar("licensed_ingest", default=False)
 _reads_refused: ContextVar[bool] = ContextVar("licensed_reads_refused", default=False)
 
@@ -554,7 +547,6 @@ def trace_payload(text: str) -> str:
     capture = _capture.get()
     cap = capture.quote_cap() if capture is not None else None
     return cap.cap_text(text, json_raw=True) if cap is not None else text
-
 
 
 WEB_SEARCH_REFUSAL = (

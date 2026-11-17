@@ -1,3 +1,44 @@
+"""The answer contract — a faithful port of ``packages/ifc-spatial/src/envelope.ts``.
+
+Every operator in this library returns an :class:`Answer`, and an ``Answer``
+always says three things beyond the value itself: **how it was obtained**,
+**which elements it came from**, and **whether it could be obtained at all**.
+
+## Why this shape, and not ``float``
+
+The consumer of this library is a language model writing a sentence that a human
+being will sign. Three claims that a bare number cannot tell apart:
+
+  - *the model says the wall is 290 mm thick* — the file declares it, and the
+    claim is wrong only if the export is wrong;
+  - *I measured the roof projecting 0.647 m past the facade* — geometry, true
+    within a tolerance that must travel with it;
+  - *this room is probably an Aufenthaltsraum* — a heuristic with a reason.
+
+Collapsing those into one number is how a guess gets stamped. So provenance is
+not optional metadata; it is the first field a caller reads, and the renderer is
+expected to put a different German verb in front of each one (``deklariert`` /
+``gemessen`` / ``vermutlich``).
+
+## Undecidable is a result, not an error
+
+``decidable=False`` means the question was well-formed and this file cannot
+answer it. It carries :attr:`Answer.missing` — what would settle it — because
+"the model does not publish a fire rating" is a finding about the EXPORT that
+the architect can act on, while a raised exception is a finding about us.
+
+An exception is reserved for the third case: we could not look at all. A caller
+must be able to distinguish "looked, and the file cannot say" from "never
+looked". See :class:`ifc_spatial.model.UnknownElementError`.
+
+## What changes in the port, and what may not
+
+Nothing in this module is allowed to change. The engine underneath swaps from a
+WASM tessellator to IfcOpenShell/OCCT; the sentence an architect reads must not.
+The only Python-specific liberty taken is that ``from`` is a keyword, so the
+field is ``from_`` and serialises back to ``from`` in :func:`to_dict`.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -9,6 +50,7 @@ Provenance = Literal["declared", "computed", "inferred"]
 
 @dataclass(frozen=True)
 class MissingFact:
+    """What would make an undecidable question decidable."""
 
     what: str
     remedy: str
@@ -17,6 +59,7 @@ class MissingFact:
 
 @dataclass
 class Answer[T]:
+    """One answer, with everything needed to audit it."""
 
     value: T | None
     unit: str | None
@@ -32,6 +75,12 @@ class Answer[T]:
     agreement: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
+        """The wire shape, with ``from_`` spelled ``from`` as in the TS envelope.
+
+        Optional fields are omitted rather than sent as ``null``, so that a
+        consumer written against the TypeScript JSON cannot tell the two engines
+        apart — which is the whole point of the port.
+        """
         out: dict[str, Any] = {
             "value": self.value,
             "unit": self.unit,
@@ -65,6 +114,7 @@ def declared[T](
     unit: str | None = None,
     caveat: str | None = None,
 ) -> Answer[T]:
+    """The file states it."""
     return Answer(
         value=value,
         unit=unit,
@@ -86,6 +136,7 @@ def computed[T](
     tolerance: float | None = None,
     caveat: str | None = None,
 ) -> Answer[T]:
+    """We worked it out, within a tolerance."""
     return Answer(
         value=value,
         unit=unit,
@@ -108,6 +159,12 @@ def inferred[T](
     unit: str | None = None,
     caveat: str | None = None,
 ) -> Answer[T]:
+    """A heuristic.
+
+    ``because`` is required rather than optional: an inference whose reasons are
+    invisible cannot be argued with, and this library's whole stance is that a
+    reviewer must be able to disagree with it in specific terms.
+    """
     return Answer(
         value=value,
         unit=unit,
@@ -129,6 +186,12 @@ def undecidable(
     missing: MissingFact,
     provenance: Provenance = "declared",
 ) -> Answer[Any]:
+    """Well-formed question, and this file cannot answer it.
+
+    ``provenance`` stays meaningful here — it records which ROUTE was attempted,
+    so "no declared value" and "geometry absent" are different answers to the
+    reader even though both are undecidable.
+    """
     return Answer(
         value=None,
         unit=None,
@@ -148,6 +211,35 @@ def triangulate(
     method: str = "triangulate",
     relative_tolerance: float = 0.02,
 ) -> Answer[float]:
+    """Two independent routes to the same number, and what to say about the pair.
+
+    Agreement raises confidence in a declared value; disagreement is a finding
+    about the export — the architect's schedule and their geometry are saying
+    different things, which is worth more to them than either number alone.
+
+    ``relative_tolerance`` defaults to 2 %, the band inside which two ways of
+    measuring the same room are not usefully different.
+
+    The returned answer carries ``agreement`` ∈ {``agree``, ``disagree``,
+    ``single``} in addition to the envelope's own fields.
+
+    ## Why ``agree`` now writes a caveat too
+
+    It only wrote one on ``disagree``. An agreeing pair came back as a bare
+    ``computed``, which the renderer prints as „aus der Geometrie berechnet,
+    **nicht deklariert**" — and the sample house's Bedroom
+    (``3w0zWKm7n8SB1qbfwUzt0J``) declares ``BaseQuantities.NetFloorArea =
+    15.41678125`` against a measured 15.4168 m². The file DOES declare it, the
+    two routes agree to seven digits, and the answer said it was not declared at
+    all: „declared and confirmed" and „no schedule entry exists" rendered
+    identically, with the stronger of the two claims wearing the weaker one's
+    sentence.
+
+    Two independent routes agreeing is a stronger statement than either alone —
+    it is the one thing that rules out both an authoring slip in the schedule and
+    a tessellation problem in the body, and it is what makes a declared quantity
+    quotable. So it is said, in the same place a contradiction would be said.
+    """
     both = a.decidable and b.decidable and isinstance(a.value, (int, float)) and isinstance(b.value, (int, float))
 
     if not both:
@@ -225,6 +317,18 @@ def _fmt(n: float) -> str:
 
 @dataclass(frozen=True)
 class ElementRef:
+    """What an element looks like when it is the ANSWER rather than the subject.
+
+    A bare GlobalId is unusable at both ends of the pipe: an agent cannot write a
+    sentence about ``3Zq7$fRxT8kOa1bC2dE3fG``, and a reviewer cannot check one.
+    So every topological operator hands back the fields needed to NAME the thing
+    — plus ``via``, which records how it was reached whenever the edge that
+    produced it was derived rather than declared.
+
+    ``name`` follows the TS rule: ``IfcSpace.LongName`` wins over ``Name``,
+    because a space's ``Name`` is routinely a room number (``1.14``) while the
+    name a person would use (``Wohnzimmer``) is in ``LongName``.
+    """
 
     global_id: str
     ifc_type: str

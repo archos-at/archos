@@ -243,7 +243,6 @@ def register_metadata(store: Any, project: FilesProject, file: FixtureFile) -> N
 
 
 class FilesWorkspace:
-
     office = {"organizationId": ORGANIZATION_ID, "userId": USER_ID}
     project_id = PROJECT_ID
 

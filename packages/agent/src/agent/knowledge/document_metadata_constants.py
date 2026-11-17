@@ -10,7 +10,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-
 _OFFICE_TIMEZONE = ZoneInfo("Europe/Vienna")
 
 
@@ -20,9 +19,7 @@ ENGINE_CACHE_TTL_SECONDS = 3600
 ENGINE_CACHE_MAX_SIZE = 10
 
 
-
 TABLE_NAME = "document_metadata"
-
 
 
 LEGACY_TABLE_NAME = "summaries"
@@ -32,7 +29,6 @@ _INDEX_NAME = "idx_document_metadata_collection"
 
 
 _LEGACY_INDEX_NAME = "idx_summaries_collection"
-
 
 
 _OPTIONAL_COLUMNS: tuple[str, ...] = (
@@ -59,17 +55,13 @@ _OPTIONAL_COLUMNS: tuple[str, ...] = (
 )
 
 
-
 _OPTIONAL_COLUMN_TYPES: dict[str, str] = {"page_count": "INTEGER"}
-
 
 
 TAGS_SET_BY_PERSON = "person"
 
 
-
 SUGGESTION_BASES = ("title_block", "name", "content")
-
 
 
 _DOCUMENT_COLUMNS = (
@@ -79,17 +71,13 @@ _DOCUMENT_COLUMNS = (
 )
 
 
-
 RETAINED_TABLE_NAME = "document_revision_retained"
-
 
 
 LEGACY_RETAINED_TABLE_NAME = "document_fassung_retained"
 
 
-
 _RETAINED_COLUMNS = ("superseded_by", "revision_suggestion", "change_summary", "change_basis")
-
 
 
 REFUSAL_REASON = "Von einer Person abgelehnt."

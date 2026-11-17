@@ -1,3 +1,8 @@
+"""The answer's Quellen section and its inline ``[n]`` citations.
+
+The patterns that find them, and which registered source a reference line names.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -71,6 +76,18 @@ _MAX_CITATION_RANGE = 20
 
 
 def expand_grouped_citations(text: str, *, unterminated_fence_is_code: bool = False) -> str:
+    """``[2–5]`` → ``[2][3][4][5]`` and ``[2, 3]`` → ``[2][3]``.
+
+    The model is told to write one marker per source and sometimes writes a
+    range. Every reader downstream knows ``[N]`` only: the verifier checked
+    none of a range's sources and removed none of them, and the chat showed
+    ``[2–5]`` as literal text beside its neighbours' pills (answer suite,
+    2026-09-24). Expanded first, each source is verified and linked alone.
+
+    Code is left as written: ``grid[1, 2]`` is an index, not two citations.
+    A reader of a text still being written passes
+    ``unterminated_fence_is_code=True`` (see :func:`code_spans`).
+    """
     code = code_spans(text, unterminated_fence_is_code=unterminated_fence_is_code)
 
     def expand(match: re.Match) -> str:
@@ -110,6 +127,13 @@ _FILENAME_INNER_CHARS = "_-."
 
 
 def _filename_token_ends(haystack_lower: str, needle_lower: str) -> Iterator[int]:
+    """Every index just past ``needle_lower`` where it occurs as a standalone token.
+
+    Yields nothing when the filename only occurs as part of a longer one. Each
+    occurrence is yielded because one source section can name the SAME filename
+    on two different shelves (`Plan.pdf (Büroablage)` and `Plan.pdf
+    (Projektwissen)`), and those are two citations, not one.
+    """
     index = haystack_lower.find(needle_lower)
     while index != -1:
         end = index + len(needle_lower)
@@ -123,15 +147,43 @@ def _filename_token_ends(haystack_lower: str, needle_lower: str) -> Iterator[int
 
 
 def _filename_occurs_as_token(haystack_lower: str, needle_lower: str) -> int | None:
+    """Index just past ``needle_lower`` when it occurs as a standalone token.
+
+    Returns ``None`` when the filename only occurs as part of a longer one.
+    """
     return next(_filename_token_ends(haystack_lower, needle_lower), None)
 
 
 def document_identity(entry: SourceEntry) -> tuple[str | None, str]:
+    """The `(collection, filename)` a document is unique under, page aside.
+
+    Same identity :meth:`SourceRegistry._identity` dedups on, minus the page:
+    two pages of one document are one cited document.
+    """
     collection, filename, _page = SourceRegistry._identity(entry)
     return collection, filename
 
 
 def _match_registry_filename(ref_text: str, registry: SourceRegistry) -> str | None:
+    """Resolve a reference line to a registered document key, page included.
+
+    Scans the line for any filename the registry actually holds and rebuilds a
+    canonical ``filename, p.N`` key from it: the registry's spelling of the
+    filename (so it always matches), the scope qualifier the line states (so two
+    same-named documents on different shelves stay apart), plus the page THE LINE
+    states (so a document retrieved at several pages resolves to the one the
+    answer is citing).
+
+    The longest match wins, so `bestandsplan.pdf` is never resolved to a
+    registered `plan.pdf`. ``None`` when the line names no registered document.
+
+    This runs on the RAW line, before any title/parenthetical trimming, because
+    those trims are exactly what used to lose the locator: a line written as
+    ``OIB-Richtlinie 2 (oib-rl_2.pdf, p.12)`` had its whole locator removed as
+    if it were an "(Internal)" annotation, and ``Titel - oib-rl_2.pdf, p.12``
+    had the title swallowed into the filename — both dropping a citation to a
+    document that was genuinely retrieved.
+    """
     lowered = ref_text.lower()
     best_name: str | None = None
     best_end = 0
@@ -164,6 +216,13 @@ _MIN_TITLE_HEAD_CHARS = 10
 
 
 def _title_occurs_as_token(haystack_lower: str, title_lower: str) -> int | None:
+    """Index just past ``title_lower`` when it occurs as a whole name in the line.
+
+    Whole, not substring: the character before must not continue a word, and
+    the character after must END the name. A dot is not an end — ``OIB-Richtlinie 2``
+    inside ``OIB-Richtlinie 2.1`` is a different document, and ``.`` followed
+    by a digit is exactly how the two differ.
+    """
     start = 0
     while True:
         at = haystack_lower.find(title_lower, start)
@@ -179,6 +238,12 @@ def _title_occurs_as_token(haystack_lower: str, title_lower: str) -> int | None:
 
 
 def _registry_titles(entry: SourceEntry) -> list[str]:
+    """The names a retrieved document answers to besides its file name.
+
+    The stored title (what the tool's own ``Source:`` line printed, and so
+    what an answer copies), and its head before the edition when that head is
+    long enough to be a name. Empty for a source with no title.
+    """
     title = (entry.title or "").strip()
     if not title:
         return []
@@ -190,6 +255,23 @@ def _registry_titles(entry: SourceEntry) -> list[str]:
 
 
 def _match_registry_title(ref_text: str, registry: SourceRegistry) -> str | None:
+    """Resolve a reference line that names a retrieved document by its TITLE.
+
+    The knowledge tools print two names for every hit — ``Source:`` carries the
+    display title, ``Citation:`` the file name — and the prompt asks for the
+    second while a German answer, naturally, copies the first
+    („OIB-Richtlinie 2, Ausgabe Mai 2023, S. 12"). The registry holds both
+    (:attr:`SourceEntry.title`), so a title-cited line is a citation to a
+    document this turn really retrieved, and removing it cost the answer its
+    source AND a repair pass (two searches and a rewrite) to put back what was
+    never missing.
+
+    Same shape as :func:`_match_registry_filename`: the longest matching name
+    wins, and the key is rebuilt from the registry's own file name plus the
+    page the line states. A title head shared by two DIFFERENT files (two
+    editions of one Richtlinie) resolves nothing: naming the edition is what
+    tells them apart, and guessing would cite the wrong one.
+    """
     lowered = ref_text.lower()
     matches: dict[str, set[str]] = {}
     ends: dict[str, int] = {}
@@ -216,6 +298,12 @@ _TITLE_PREFIX_SEPARATOR_RE = re.compile(r"\s+[-\u2013\u2014]\s+|:\s+")
 
 
 def _title_prefix_tails(text: str) -> list[str]:
+    """Every tail of ``text`` after a ``Title - `` / ``Title – `` / ``Title: `` separator.
+
+    Shortest tail first (the segment after the LAST separator), because a
+    reference line that decorates its filename with a title puts the title in
+    front, and the filename is what is left at the end.
+    """
     tails: list[str] = []
     for match in _TITLE_PREFIX_SEPARATOR_RE.finditer(text):
         tail = text[match.end() :].strip()
@@ -225,6 +313,21 @@ def _title_prefix_tails(text: str) -> list[str]:
 
 
 def is_digest_shaped_line(ref_text: str) -> bool:
+    """Whether a source line is an already-read DIGEST line, not a citation.
+
+    The digest (``knowledge.already_read``) is an index, not evidence: one line
+    per opened document — ``"<file> | <collection> | Seiten <p> | Punkte <n> |
+    Turn <k>"`` — and its own prompt block says the line itself is never cited;
+    quoting or citing re-opens the passage with ``read_passage`` first. A source
+    line in that shape cites the INDEX, so verification rejects it even when the
+    filename names a genuinely retrieved document (the registry scan below would
+    otherwise accept it on the filename alone).
+
+    Structural, not imported: ``already_read.parse_digest_line`` is the same
+    test, but that module imports ``parse_citation_key`` from HERE, so sharing
+    it would be a cycle. The last three pipe segments are the digest's own
+    markers; a real citation key never carries them.
+    """
     parts = [part.strip() for part in ref_text.split("|")]
     if len(parts) < 5:
         return False
@@ -242,6 +345,14 @@ _LINK_SEPARATOR = r"[-–—:,|]"
 
 
 def drop_url(text: str, url: str) -> str:
+    """``text`` without ``url``, and without the separator or label that goes with it.
+
+    ``[Title](url)`` keeps its title, ``<url>``, ``(url)`` and ``[url]`` go whole, a bare
+    ``Title - url`` or ``Title | url`` loses the separator with the link,
+    ``Title – Source: url`` and ``Title (Source: url)`` the label too, a
+    leading ``url - Title`` the separator after it, and ``Title (url, 2024)``
+    the link and its comma, keeping ``(2024)``.
+    """
     escaped = re.escape(url)
     text = re.sub(rf"\[([^\]]*)\]\({escaped}\)", r"\1", text)
     text, leading = re.subn(
@@ -260,6 +371,18 @@ def drop_url(text: str, url: str) -> str:
 
 
 def is_knowledge_citation(ref_text: str, registry: SourceRegistry | None = None) -> tuple[bool, str | None]:
+    """Check if reference text looks like a knowledge-layer citation.
+
+    Matching strategy:
+    1. If a registry is provided, resolve the line against the documents that
+       were actually retrieved (:func:`_match_registry_filename`). This is both
+       the most reliable signal and the most forgiving of LLM formatting, so it
+       runs first.
+    2. Otherwise fall back to the shape test (``filename.ext, p.N``) after
+       trimming a trailing parenthetical and markdown emphasis.
+
+    Returns (is_kl, citation_key_or_none).
+    """
     unemphasized = re.sub(r"\*+", "", ref_text).strip()
 
     if registry is not None:

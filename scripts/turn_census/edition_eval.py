@@ -75,8 +75,6 @@ def load_questions(path: Path = QUESTIONS) -> list[dict]:
     return [{**row, "set": "editions"} for row in rows]
 
 
-
-
 def load_pack(path: Path = PACK) -> list[dict]:
     return json.loads(path.read_text(encoding="utf-8"))["records"]
 
@@ -119,8 +117,6 @@ def territories(records: list[dict]) -> dict[str, str]:
 def _year(label: str) -> str:
     found = re.search(r"\d{4}", label)
     return found.group(0) if found else ""
-
-
 
 
 def _edition_pattern(guideline: str, year: str) -> str:
@@ -211,8 +207,6 @@ def _dates(text: str) -> list[str]:
     return found + re.findall(r"\b\d{4}-\d{2}-\d{2}\b", text)
 
 
-
-
 def set_checks(
     question: dict, run: Any, answer: str, judge: Judge | None, records: list[dict] | None = None
 ) -> dict[str, bool]:
@@ -274,8 +268,6 @@ def _judged(judge: Judge | None, kind: str, question: str, answer: str, signals:
     if verdict is None and answer.strip():
         signals.append(f"{JUDGE_UNAVAILABLE}{kind}")
     return bool(verdict)
-
-
 
 
 def report_lines(runs: list[Any], meta: dict[str, Any] | None = None) -> list[str]:

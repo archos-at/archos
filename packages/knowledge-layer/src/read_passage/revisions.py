@@ -1,3 +1,7 @@
+"""The older-Fassung notice: which revision of a document a read is on, and the one-line note when it is an older
+one.
+"""
+
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -7,6 +11,12 @@ from .models import PassageTarget
 
 
 def _current_revision(document: Any, documents: Sequence[Any]) -> str | None:
+    """The file that now stands for ``document`` once a person confirmed it replaced, else ``None``.
+
+    Follows ``superseded_by`` to the end of the chain (B was replaced by C, C by D: D), inside the
+    document's own collection and only through rows that still exist. A loop, which the store
+    refuses, stops where it closes.
+    """
     by_name = {str(getattr(doc, "file_name", "")): doc for doc in documents}
     seen = {str(getattr(document, "file_name", ""))}
     current: str | None = None
@@ -19,6 +29,13 @@ def _current_revision(document: Any, documents: Sequence[Any]) -> str | None:
 
 
 def _older_revision_notice(targets: Sequence[PassageTarget]) -> str:
+    """The one line that tells the model the document it opened is an older Fassung, and which one is current.
+
+    Rides the grounding block's notice slot, like „Ältere Fassungen ausgeblendet“ in the search, so
+    the block's hash still matches the bytes the model reads. A read of an older Fassung is allowed:
+    it is what „Index B“ and „die alte Fassung“ ask for. The line only keeps the answer from presenting it
+    as the document's current state. A file in a restricted collection nobody admitted is never named.
+    """
     from agent.knowledge.restricted_use import may_name
 
     older = {(target.file_name, target.current) for target in targets if target.current and may_name(target.collection)}
@@ -28,6 +45,7 @@ def _older_revision_notice(targets: Sequence[PassageTarget]) -> str:
 
 
 def older_revision_line(name: str, current: str) -> str:
+    """The notice line for one older Fassung a tool hands the model: which file replaced it, and what to say."""
     return (
         f"Older Fassung: {name} is replaced by {current} (confirmed); {current} is current. "
         "Say in the answer that you are reading the older Fassung.\n\n"
@@ -35,6 +53,14 @@ def older_revision_line(name: str, current: str) -> str:
 
 
 def _mail_origin_notice(targets: Sequence[PassageTarget]) -> str:
+    """The line that says which mail a document came with, in the words of its Verlauf (ADR-0137).
+
+    So a passage of an attachment is attributed to the message that brought it
+    („laut der E-Mail von Ing. Gruber vom 04.05.2026“), and a sender nobody
+    confirmed reads as „Domain nicht bestätigt“, never as the domain's owner.
+    Rides the notice slot like :func:`_older_revision_notice`; a file of a
+    restricted collection nobody admitted is never named.
+    """
     from agent.knowledge.mail_facts import mail_origin_label
     from agent.knowledge.restricted_use import may_name
 
@@ -47,4 +73,5 @@ def _mail_origin_notice(targets: Sequence[PassageTarget]) -> str:
 
 
 def _target_notices(targets: Sequence[PassageTarget]) -> str:
+    """Every notice about the documents read: an older Fassung first, then the mail it came with."""
     return _older_revision_notice(targets) + _mail_origin_notice(targets)

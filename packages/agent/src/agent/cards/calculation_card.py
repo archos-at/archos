@@ -1,3 +1,5 @@
+"""The calculation card: a derivation the reader can follow step by step, and the procedure behind it."""
+
 from typing import Literal
 
 from pydantic import Field
@@ -34,6 +36,18 @@ referencing an earlier one's result (:attr:`CalculationOperand.step`).
 
 
 class CalculationOperand(CardModel):
+    """One number entering a step of the derivation, with where it came from.
+
+    Either a literal ``value`` or a reference to an earlier ``step`` — never
+    both, because a stated value beside a reference is two answers to the same
+    question and the renderer would have to pick one.
+
+    Carries the same provenance vocabulary as :class:`DimensionCheck`, for the
+    same reason: a derived number is only as honest as its inputs, and a
+    Schrittmaß computed from a measurement of ours is our claim, not the
+    architect's. The renderer propagates every band it is given into the result,
+    so a tolerance dropped here is a tolerance dropped from the answer.
+    """
 
     label: str = Field(
         description=(
@@ -106,6 +120,12 @@ class CalculationOperand(CardModel):
 
 
 class CalculationStep(CardModel):
+    """One line of the Rechenweg: an operation over its operands.
+
+    The step states no result. The renderer evaluates ``operation`` over
+    ``operands`` and prints what it computed — which is the whole point of the
+    card, so there is no field here for the model to disagree with it in.
+    """
 
     label: str = Field(
         min_length=1, description="What this step computes, e.g. 'Netto-Grundfläche', 'Geschossflächenzahl'"
@@ -143,6 +163,13 @@ class CalculationStep(CardModel):
 
 
 class CalculationLimit(CardModel):
+    """The Bestimmung the derived result is held against.
+
+    The comparator and the bound are the model's to supply — they are read out
+    of the Richtlinie. The VERDICT is not: the renderer compares its own
+    computed result against this and colours the card accordingly, so a card
+    cannot show a green tick above arithmetic that fails.
+    """
 
     comparator: Literal["<=", ">=", "between"] = Field(
         description="How the result must relate to the bound: at most, at least, or inside a range"
@@ -171,6 +198,27 @@ class CalculationLimit(CardModel):
 
 
 class CalculationCard(CardModel):
+    """Emit for the arithmetic behind a number — the Rechenweg a Ziviltechniker re-checks.
+
+    Whenever the answer computes something (a GFZ, a Brandabschnitt's
+    Netto-Grundfläche, a Brandlast, a required parking count), this card is the
+    derivation laid out line by line instead of a sentence the reader has to
+    re-derive to trust. The four named rules are NOT a calculation: a U-value
+    from its layers, the Schrittmaßregel, an escape route's Gehweglänge and a
+    Lichteintrittsfläche are a `formula`, which owns their bounds.
+
+    YOU SUPPLY THE INPUTS, NEVER THE ANSWER. Give each operand its label, value
+    and unit, name the operation, and give the limit if there is one. The card
+    evaluates every step itself, carries the tolerance bands through, formats
+    the numbers in Austrian convention and decides pass/fail. There is no field
+    for a result, and that absence is the feature: a stated result that
+    disagreed with its own operands would be the worst artefact this product can
+    produce, because this is the part that gets screenshotted into a submission.
+
+    Several steps chain by reference: a later operand can name an earlier step
+    (`step: 1`) instead of carrying a value, so a two-stage derivation stays
+    auditable rather than collapsing into one pre-computed figure.
+    """
 
     type: Literal["calculation"]
     title: str = Field(min_length=1, description="What is being computed, e.g. 'Netto-Grundfläche Brandabschnitt BA 2'")

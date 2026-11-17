@@ -1,3 +1,22 @@
+"""[4] Which paragraphs answer the question. CAP: six, across two documents.
+
+Two paths, and the first one is free:
+
+* **Deterministic** — the caller named a § or Artikel, or a list of §§, so
+  ``grammar`` finds each by number and returns it with its Absätze, all from
+  the one document already fetched. No LLM call at all, which is the whole
+  reason ``address.py`` runs first.
+* **Ranked** — nobody named one, so ONE call to the picker model reads the
+  law's § HEADINGS (never a body: that is what keeps this call's input bounded
+  by the table of contents rather than by the length of the law) and returns up
+  to six ids. The grammar then cuts those §§ out, so what reaches the answering
+  model is the law's own text, not the picker's summary of it.
+
+A document the grammar finds no §§ in (a court decision) is one passage. A
+document whose §§ answer nothing puts its headings on the trace, as an INDEX —
+see ``miss.miss_message``.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -21,12 +40,14 @@ MAX_DOCUMENTS = 2
 
 @dataclass(frozen=True)
 class Selection:
+    """The sections picked out of ONE document, each with its Absatz (or none)."""
 
     fetched: FetchedDocument
     picks: tuple[tuple[Section, str], ...]
 
 
 async def select_passages(picker, question: str, address: Address, documents, trace: LookupTrace):
+    """At most six passages across at most two documents, as ``Selection``s."""
     selections: list[Selection] = []
     budget = MAX_PASSAGES
     for fetched in documents[:MAX_DOCUMENTS]:
@@ -42,11 +63,13 @@ async def select_passages(picker, question: str, address: Address, documents, tr
 
 
 def _index_for(fetched: FetchedDocument, sections: list[Section]) -> str:
+    """One read-but-unanswering document's heading index, titled."""
     title = fetched.document.title or fetched.candidate.title
     return f"{title}:\n{headings_index(sections)}"
 
 
 async def _pick(picker, question, address: Address, sections, fetched) -> list[tuple[Section, str]]:
+    """``(section, subsection)`` pairs to return: deterministic first, LLM second."""
     if not sections:
         return _whole_document(fetched)
     if address.has_section:
@@ -59,6 +82,13 @@ async def _pick(picker, question, address: Address, sections, fetched) -> list[t
 
 
 def _addressed(section: Section, address: Address) -> list[tuple[Section, str]]:
+    """The named Absatz first, and the whole § beside it when the § fits.
+
+    "Abs 2 means Abs 2" keeps the citation precise, but read alone it was a
+    keyhole: asked for § 2 Abs 2 of the Salzburger Baupolizeigesetz, the agent
+    came back for Abs 4, 5 and 3 one lookup at a time (answer suite, 92 s). The
+    § under its own key costs one passage and ends that.
+    """
     if not address.subsection or len(section.body) > SECTION_MAX_CHARS:
         return [(section, address.subsection)]
     if not subsection_body(section, address.subsection)[1]:
@@ -71,11 +101,13 @@ def _is_addressed(section: Section, address: Address) -> bool:
 
 
 def _whole_document(fetched: FetchedDocument) -> list[tuple[Section, str]]:
+    """A document with no § grammar (a court decision) is one passage, unnumbered."""
     document = fetched.document
     return [(Section(kind="", number="", heading=document.title, body=document.text), "")]
 
 
 async def _picker_picks(picker, question: str, sections: list[Section]) -> list[tuple[Section, str]]:
+    """One picker call over the § HEADINGS; unknown ids are dropped, not guessed."""
     try:
         plan = await picker(question, headings_index(sections))
     except Exception:  # noqa: BLE001 — a failed pick returns the index, never a guess
@@ -87,5 +119,6 @@ async def _picker_picks(picker, question: str, sections: list[Section]) -> list[
 
 
 def _normalize_label(label: str) -> str:
+    """``"§ 63."`` / ``"Artikel 5"`` → ``"§63"`` / ``"art5"`` for lookup."""
     kind, number = section_in(label)
     return f"{kind.lower()}{number.lower()}" if number else label.strip().casefold()

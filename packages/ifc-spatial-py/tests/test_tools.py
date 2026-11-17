@@ -34,8 +34,6 @@ def house(tools: list) -> str:
     return call(tools, "open_model", {"path": str(SAMPLE_HOUSE)})["model"]
 
 
-
-
 def test_opens_the_fixture_and_resolves_the_window_to_its_room(tools: list, house: str) -> None:
     found = call(tools, "find_elements", {"model": house, "ifcType": "IfcWindow"})
     assert found["total"] == 4 and found["truncated"] is False
@@ -70,8 +68,6 @@ def test_every_result_survives_json(tools: list, house: str) -> None:
     ]:
         text = json.dumps(call(tools, name, args), ensure_ascii=False)
         assert text and "ndarray" not in text and "object at 0x" not in text
-
-
 
 
 def test_an_unknown_global_id_is_an_error_not_an_undecidable(tools: list, house: str) -> None:
@@ -122,8 +118,6 @@ def test_open_and_briefing_do_not_run_geometry() -> None:
     assert "Geometrie-Pass noch nicht gelaufen" in call(fresh, "briefing", {"model": opened["model"]})["briefing"]
 
 
-
-
 def test_the_tool_list_is_the_ported_surface_plus_what_the_port_added(tools: list) -> None:
     assert [tool.name for tool in tools] == [
         "open_model",
@@ -164,8 +158,6 @@ def test_draw_writes_a_file_and_does_not_return_the_svg(tools: list, house: str)
     assert path.read_text(encoding="utf-8", errors="replace").lstrip().startswith("<?xml")
     assert "svg" not in result
     assert "Maße nicht aus dem Bild ablesen" in result["note"]
-
-
 
 
 def test_overhang_measures_the_number_the_agent_called_unmeasurable(tools: list, house: str) -> None:
@@ -303,7 +295,6 @@ def test_a_failed_read_in_the_preflight_is_not_a_refusal(
 
 
 class TestTheEnvelopeReachesTheSurface:
-
     def test_all_three_aspects_answer_through_the_tool(self, tools: list, house: str) -> None:
         for what in ("thermalEnvelope", "areaByOrientation", "compactness"):
             answer = call(tools, "envelope", {"model": house, "what": what})
@@ -350,7 +341,6 @@ class TestTheEnvelopeReachesTheSurface:
 
 
 class TestTheClearanceReachesTheSurface:
-
     def test_the_box_gap_and_the_clear_dimension_disagree_by_a_metre(self, tools: list, house: str) -> None:
         box = call(tools, "distance", {"model": house, "a": ROOF, "b": PARTITION, "mode": "min"})
         assert box["value"] == pytest.approx(0.0, abs=1e-9)
@@ -378,7 +368,6 @@ class TestTheClearanceReachesTheSurface:
 
 
 class TestTheDoorGraphReachesTheSurface:
-
     def test_the_graph_answers_through_fire_and_names_the_room_with_no_exit(self, tools: list, house: str) -> None:
         answer = call(tools, "fire", {"model": house, "what": "doorGraph"})
         assert answer["decidable"] is True
@@ -404,7 +393,6 @@ class TestTheDoorGraphReachesTheSurface:
 
 
 class TestTheSunPositionReachesTheSurface:
-
     def test_the_almanac_position_arrives_through_the_tool(self, tools: list, house: str) -> None:
         answer = call(tools, "sun_position", {"model": house, "when": "2026-06-21T12:00:00Z"})
         assert answer["decidable"] is True
@@ -440,8 +428,6 @@ class TestTheSunPositionReachesTheSurface:
             {"model": handle, "when": "2026-06-21T12:00:00+02:00", "latitude": 48.2082, "longitude": 16.3738},
         )
         assert smuggled["decidable"] is False, "the tool forwarded coordinates it must not accept"
-
-
 
 
 OPERATOR_MODULES = (
@@ -538,8 +524,6 @@ def test_the_deliberate_omissions_are_still_real_functions() -> None:
     for qualified in NOT_ON_THE_SURFACE:
         module, _, name = qualified.rpartition(".")
         assert hasattr(importlib.import_module(f"ifc_spatial.{module}"), name), qualified
-
-
 
 
 def test_survey_measures_every_room_and_reports_the_spread(tools: list, house: str) -> None:
@@ -639,8 +623,6 @@ def test_every_measure_subject_names_a_real_measure_and_a_real_type(tools: list)
     for name, subjects in MEASURE_SUBJECT.items():
         for subject in subjects:
             assert subject.startswith("Ifc"), f"{name} names {subject}, which is not an IFC type"
-
-
 
 
 def test_a_wrong_type_in_the_selection_does_not_kill_the_survey(tools: list, house: str) -> None:

@@ -1,3 +1,5 @@
+"""The frozen records a stair is read into: treads, flights, bodies, running surfaces and rakes."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -5,9 +7,9 @@ from dataclasses import dataclass
 import numpy as np
 
 
-
 @dataclass(frozen=True)
 class _Tread:
+    """One horizontal step surface, as the mesh shows it."""
 
     z: float
     area: float
@@ -17,6 +19,11 @@ class _Tread:
 
 @dataclass(frozen=True)
 class _Flight:
+    """Everything one flight's solid says about its steps.
+
+    One flight, not one body: a body that runs up, turns at a landing and runs
+    up again holds three of these. See :func:`_read_body`.
+    """
 
     global_id: str
     treads: list[_Tread]
@@ -35,6 +42,13 @@ class _Flight:
 
 @dataclass(frozen=True)
 class _Body:
+    """What one solid holds: its flights, its landings, and what it refused.
+
+    ``refusals`` is the part of the body the reader would not turn into numbers,
+    in German and with the measurement that decided it. It is not an error
+    channel — a body can yield two good flights and one refusal — and it is what
+    the operators put in front of the reader instead of a number they made up.
+    """
 
     flights: list[_Flight]
     landings: int
@@ -42,10 +56,9 @@ class _Body:
     levels: int
 
 
-
-
 @dataclass(frozen=True)
 class _Running:
+    """A ramp flight's running surface: the dominant up-facing planar cluster."""
 
     global_id: str
     normal: np.ndarray
@@ -56,10 +69,9 @@ class _Running:
     corners: np.ndarray
 
 
-
-
 @dataclass(frozen=True)
 class _Rake:
+    """The walking plane of one flight, as a rectangle with a normal."""
 
     global_id: str
     corners: np.ndarray

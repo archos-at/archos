@@ -16,8 +16,9 @@ A procedure is a skill here only when it is agent-specific; everything a
 contributor needs as much as an agent is documentation. The rule and the audit
 that applied it:
 [`../docs/contributing/agent-skills.md`](../docs/contributing/agent-skills.md#skill-or-document).
-Today there are none. The last one, `aiq-research`, was an upstream NVIDIA
-catalog skill for driving a blueprint backend, and was removed.
+Today there is one: `verify-on-dev`, the loop of acting on dev through the
+office MCP door and reading the resulting Langfuse trace through the platform
+MCP gateway, which only an agent holding those two servers can run.
 
 The agent's own skills, the ones the product reads at run time, are a different
 thing and live in `packages/agent/src/agent/skills/` (ADR-0046).

@@ -1,5 +1,6 @@
-from __future__ import annotations
+"""Tolerances, probe offsets and the verdict sentinel the accessibility checks share."""
 
+from __future__ import annotations
 
 FLOOR_CONTACT = 0.02
 

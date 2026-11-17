@@ -45,7 +45,6 @@ def with_law(answer: dict[str, Any], project: dict[str, Any] | None = None) -> d
 
 
 class _LawOnly:
-
     def __init__(self) -> None:
         self._sites: dict[str, str | None] = {}
 

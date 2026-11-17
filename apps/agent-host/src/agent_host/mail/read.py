@@ -1,3 +1,38 @@
+"""Read one raw message (RFC 5322 bytes) into a :class:`~.models.MailRead`.
+
+:func:`read_message` is the whole reading, synchronous and total: whatever the
+bytes are, it returns a ``MailRead``, and a part it could not read is named in
+``unreadable_reasons`` rather than raised.
+
+:func:`read_message_within` is how the route runs it: in a child process
+(``python -I -m agent_host.mail.read``, the bytes on stdin, the JSON on stdout),
+under a deadline (:data:`~.limits.READ_TIMEOUT_SECONDS`), at most
+:data:`~.limits.MAX_CONCURRENT_READS` at a time. A thread would not do. The
+caps bound each parser's input, but not every parser's worst case on it:
+``mail-parser-reply``'s German "Am … schrieb …:" pattern is cubic in a line
+that repeats "schrieb" (a 3,000-character line took 64 s; found by the seeded
+mutation loop in ``tests/mail/test_hostile.py``), and ``asyncio.wait_for``
+over a thread only stops waiting: the CPU keeps burning in the process that
+also serves people's requests. A child is killed at the deadline, whatever
+parser it is stuck in, and the read is ``unreadable`` (``timeout``). It
+starts with an empty environment, so no secret of the API process is in
+reach of the stranger's bytes. ``multiprocessing`` was tried first and left:
+its ``spawn`` and ``forkserver`` children re-import the parent's ``__main__``
+(NAT's CLI here), and ``fork`` copies a process full of threads.
+
+The body is chosen as the archive does it, plain before HTML before RTF
+(:mod:`.body_text`), from the parts Python's ``email`` package names as the
+body (``get_body``: the alternatives of the message, not its attachments, not a
+forwarded message inside it). ``format=flowed`` plain text (RFC 3676) is
+unwrapped first, so a paragraph is one line again. Calendar parts are read
+wherever they are in the message, except inside a forwarded one, and an event
+Outlook sends twice (inline and as ``invite.ics``) is kept once.
+
+What the bytes are made of beyond the body (headers, the sender's
+authentication, the attachments) is the BFF's to read; nothing here looks at it.
+No log line carries a byte of the message.
+"""
+
 from __future__ import annotations
 
 import asyncio
@@ -36,6 +71,7 @@ _slots: asyncio.Semaphore | None = None
 
 
 async def read_message_within(raw: bytes, timeout: float = limits.READ_TIMEOUT_SECONDS) -> MailRead:
+    """:func:`read_message` in a child process; ``unreadable`` (timeout) past ``timeout`` seconds."""
     global _slots
     if _slots is None:
         _slots = asyncio.Semaphore(limits.MAX_CONCURRENT_READS)
@@ -67,6 +103,7 @@ async def read_message_within(raw: bytes, timeout: float = limits.READ_TIMEOUT_S
 
 
 def read_message(raw: bytes) -> MailRead:
+    """What ``raw`` says, as far as it can be read. Never raises."""
     if len(raw) > limits.MAX_MESSAGE_BYTES:
         return MailRead.unread(UnreadableReason.MESSAGE_TOO_LARGE)
     try:
@@ -104,6 +141,7 @@ def _read(raw: bytes) -> MailRead:
 
 
 def _body_forms(message: EmailMessage, reasons: list[UnreadableReason]) -> tuple[str | None, str | None, bytes | None]:
+    """The plain, HTML and RTF body, each ``None`` when absent or past its cap."""
     plain_part = message.get_body(preferencelist=("plain",))
     html_part = message.get_body(preferencelist=("html",))
     rtf_part = next((part for part in _parts(message) if _is_body_rtf(part)), None)
@@ -128,12 +166,14 @@ def _capped(
 
 
 async def _reap(process: asyncio.subprocess.Process) -> None:
+    """Kill the reading process if it still runs, and wait for it, so no child outlives its read."""
     if process.returncode is None:
         process.kill()
         await process.wait()
 
 
 def _calendar(message: EmailMessage, reasons: list[UnreadableReason]) -> tuple[list[CalendarEvent], bool]:
+    """The events of every calendar part, once each, and whether any were left out."""
     events: list[CalendarEvent] = []
     seen: set[tuple[str | None, int | None, str | None, str | None]] = set()
     truncated = False
@@ -158,6 +198,7 @@ def _add_new_events(
     seen: set[tuple[str | None, int | None, str | None, str | None]],
     found: tuple[CalendarEvent, ...],
 ) -> bool:
+    """Append each event not seen before, up to the cap; whether one was left out for the cap."""
     for event in found:
         key = (event.uid, event.sequence, event.start, event.summary)
         if key in seen:
@@ -175,6 +216,7 @@ def _note(reasons: list[UnreadableReason], reason: UnreadableReason) -> None:
 
 
 def _parts(message: EmailMessage) -> Iterator[EmailMessage]:
+    """Every leaf part of the message, not descending into a message it carries."""
     stack = [message]
     while stack:
         part = stack.pop()
@@ -188,6 +230,7 @@ def _parts(message: EmailMessage) -> Iterator[EmailMessage]:
 
 
 def _children(part: EmailMessage) -> list[EmailMessage]:
+    """A multipart's parts; none when its payload is not a list."""
     payload = part.get_payload()
     return payload if isinstance(payload, list) else []
 
@@ -204,6 +247,7 @@ def _is_body_rtf(part: EmailMessage) -> bool:
 
 
 def _is_encrypted(message: EmailMessage) -> bool:
+    """The message, or the part that would be its body, is S/MIME or PGP encrypted."""
     return any(_is_encrypted_part(part) for part in (message, *_top_parts(message)))
 
 
@@ -223,11 +267,13 @@ def _top_parts(message: EmailMessage) -> list[EmailMessage]:
 
 
 def _payload(part: EmailMessage) -> bytes:
+    """The part's bytes, transfer encoding undone."""
     payload = part.get_payload(decode=True)
     return payload if isinstance(payload, bytes) else b""
 
 
 def _part_text(part: EmailMessage) -> str:
+    """The part's text in its declared charset, or the way :func:`~.body_text.decode` guesses it."""
     payload = _payload(part)
     charset = (part.get_content_charset() or "").strip().lower()
     if not charset or charset in _LOOSE_CHARSETS:
@@ -240,6 +286,7 @@ def _part_text(part: EmailMessage) -> str:
 
 
 def _flowed_text(part: EmailMessage) -> str:
+    """A plain part's text, unwrapped when it is ``format=flowed`` (RFC 3676)."""
     text = _part_text(part)
     if str(part.get_param("format", "")).lower() != "flowed":
         return text
@@ -247,6 +294,12 @@ def _flowed_text(part: EmailMessage) -> str:
 
 
 def unflow(text: str, delete_space: bool = False) -> str:
+    """RFC 3676 §4: join soft line breaks, undo space-stuffing, keep the signature separator.
+
+    A line ending in a space continues on the next line of the same quote
+    depth; ``delete_space`` (``DelSp=yes``) drops that space when joining. The
+    signature separator ``-- `` is never a soft break.
+    """
     lines: list[str] = []
     pieces: list[str] = []
     pieces_depth = 0
@@ -274,6 +327,7 @@ def unflow(text: str, delete_space: bool = False) -> str:
 
 
 def _main() -> None:
+    """The child of :func:`read_message_within`: raw bytes on stdin, the read as JSON on stdout."""
     raw = sys.stdin.buffer.read(limits.MAX_MESSAGE_BYTES + 1)
     sys.stdout.buffer.write(read_message(raw).model_dump_json().encode())
 

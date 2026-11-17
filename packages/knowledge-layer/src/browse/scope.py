@@ -1,3 +1,5 @@
+"""The shelves an exact search covers, and the statements and notes that say what it could and could not read."""
+
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -15,12 +17,18 @@ from .turn import _entry_shelf
 
 @dataclass(frozen=True)
 class ShelfScope:
+    """One shelf a literal search read: how many documents it held in scope, or None when that is not counted."""
 
     shelf: str | None
     documents: int | None
 
 
 def shelf_scopes(entries: Sequence[Any], documents: Mapping[str, int]) -> list[ShelfScope]:
+    """The shelves of the searched ``entries`` in a stable order, each with the documents searched on it.
+
+    ``documents`` counts the inventory's documents per collection that the search could read. A shelf
+    whose collections have no inventory (the Basiswissen corpus is not enumerated) has no count.
+    """
     order = [*KNOWN_SHELVES, None]
     by_shelf: dict[str | None, list[str]] = {}
     for entry in entries:
@@ -33,6 +41,7 @@ def shelf_scopes(entries: Sequence[Any], documents: Mapping[str, int]) -> list[S
 
 
 def _scope_statement(scopes: Sequence[ShelfScope]) -> str:
+    """How many documents were searched, and on which shelves: the denominator of every "no" and every count."""
     if not scopes:
         return ""
     parts = []
@@ -47,6 +56,7 @@ def _scope_statement(scopes: Sequence[ShelfScope]) -> str:
 
 
 def _shelf_lines(groups: Sequence[FileMatches], scopes: Sequence[ShelfScope]) -> list[str]:
+    """One line per searched shelf: its matches and files with matches against the files it holds, 0 included."""
     lines = []
     for scope in scopes:
         mine = [group for group in groups if group.shelf == scope.shelf]
@@ -62,6 +72,11 @@ def _shelf_lines(groups: Sequence[FileMatches], scopes: Sequence[ShelfScope]) ->
 
 
 def _collection_names(collections: Sequence[str]) -> str:
+    """Collections as a message names them: a restricted folder's by what it is, never by its id.
+
+    Its id in a result would make the admission treat the whole result as that
+    folder's content (ADR-0088), and an outage is not content.
+    """
     from agent.knowledge.restricted_collections import is_restricted_collection
 
     return ", ".join(
@@ -97,6 +112,7 @@ def _wanted(phrases: Sequence[str], regex_mode: bool) -> str:
 
 
 def _candidate_lines(candidates: Mapping[str, int] | None, counted: Mapping[str, int], limit: int = 10) -> list[str]:
+    """The files a capped search could not finish counting, by how many passages hold the pattern's words."""
     if not candidates:
         return []
     ranked = sorted(candidates.items(), key=lambda item: (-item[1], fold(item[0])))
