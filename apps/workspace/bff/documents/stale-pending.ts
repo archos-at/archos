@@ -3,6 +3,7 @@ import { withTenant } from '@/lib/db/tenant-context'
 import { reconcileDocumentStatuses } from './reconcile-status'
 import { listStalePendingDocuments } from './repository'
 
+// Measured: a document stayed pending 6 hours in one office on 2026-11-02, days in another on 2026-10-28.
 export const STALE_PENDING_AFTER_MINUTES = 5
 export const STALE_PENDING_BATCH = 200
 

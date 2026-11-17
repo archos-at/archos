@@ -15,6 +15,7 @@ export function renderAgentDocumentMarkdown(
     branding.disclaimer,
     branding.footerLine,
   ].join('\n\n')
+  // Art. 50 AI Act guidelines (2026-11-05, point 36): the AI label goes at the top of what an agent sends.
   const text =
     `${branding.headerLine}\n\n*${branding.aiDisclosure}*\n\n${body.trim()}\n\n---\n\n${footer}\n\n` +
     `<!-- ${branding.aiGeneratorName} -->\n\n\`\`\`\n${marking}\n\`\`\`\n`

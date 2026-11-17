@@ -219,6 +219,7 @@ export async function streamDocumentFile(
     headers: {
       'Content-Type': 'application/pdf',
       'Content-Disposition': `inline; filename="${asciiName}"`,
+      // Private: these bytes are tenant data.
       'Cache-Control': 'private, max-age=300',
       'X-Frame-Options': 'SAMEORIGIN',
       'Content-Security-Policy': "frame-ancestors 'self'",

@@ -1,3 +1,4 @@
+// Coordinates place a person: shown to people with access to the document, never sent to a model.
 export interface PhotoCapture {
   capturedAt?: string
   latitude?: number
