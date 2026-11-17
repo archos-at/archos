@@ -377,12 +377,12 @@ function Foot({ personalDoor = false }: { personalDoor?: boolean }): JSX.Element
 }
 
 /** The page beside the rail: enough of a chat to say where the reader is and who reads along. */
-function Page({ me, fresh = false }: { me: boolean; fresh?: boolean }): JSX.Element {
+function Page({ me, fresh = false, noneLabel = 'Ohne Projekt' }: { me: boolean; fresh?: boolean; noneLabel?: string }): JSX.Element {
   const project = PROJECTS[0]!.name
   return (
     <main className="flex min-h-0 min-w-0 flex-1 flex-col">
       <header className="flex flex-col gap-1 px-8 pb-4 pt-6">
-        <span className="text-muted-foreground text-meta">{me ? 'Ohne Projekt' : project}</span>
+        <span className="text-muted-foreground text-meta">{me ? noneLabel : project}</span>
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-pane-title">{fresh ? 'Neuer Chat' : me ? 'Rampenneigung Tiefgarage' : 'Fluchtweglänge im Erdgeschoss'}</h1>
           <span className="bg-sheet shadow-press text-name inline-flex h-7 items-center gap-1.5 rounded-full px-2.5">
@@ -417,16 +417,18 @@ export default function PersonalAreaRailPreview(): JSX.Element {
   const place = params?.get('place') ?? 'me'
   const me = place === 'me'
   const fresh = place === 'new'
+  // What the top says for a chat without a project (g): `?label=`.
+  const noneLabel = params?.get('label') ?? 'Ohne Projekt'
   return (
     <div className="bg-background text-foreground flex h-dvh overflow-hidden">
       <SidebarProvider className="h-full min-h-0 w-auto shrink-0">
         <Sidebar collapsible="icon" data-scope="project" aria-label="Navigation">
-          {variant === 'g' ? <VariantE me={me} noneLabel="Ohne Projekt" current={fresh ? null : undefined} /> : variant === 'f' ? <VariantE me={me} sticky current={fresh ? null : undefined} /> : variant === 'e' ? <VariantE me={me} /> : variant === 'd' ? <VariantD me={me} /> : variant === 'c' ? <VariantC me={me} /> : variant === 'b' ? <VariantB me={me} /> : <VariantA me={me} />}
-          <Foot personalDoor={['e', 'f', 'g'].includes(variant)} />
+          {variant === 'g' ? <VariantE me={me} noneLabel={noneLabel} current={fresh ? null : undefined} /> : variant === 'f' ? <VariantE me={me} sticky current={fresh ? null : undefined} /> : variant === 'e' ? <VariantE me={me} /> : variant === 'd' ? <VariantD me={me} /> : variant === 'c' ? <VariantC me={me} /> : variant === 'b' ? <VariantB me={me} /> : <VariantA me={me} />}
+          <Foot personalDoor={['e', 'f'].includes(variant)} />
           <SidebarRail aria-label="Breite ändern" />
         </Sidebar>
       </SidebarProvider>
-      <Page me={me} fresh={fresh} />
+      <Page me={me} fresh={fresh} noneLabel={variant === 'g' && noneLabel === 'Projekte' ? 'Ohne Projekt' : noneLabel} />
     </div>
   )
 }
