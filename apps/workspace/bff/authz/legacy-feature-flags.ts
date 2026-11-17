@@ -1,4 +1,4 @@
-// drop after release 2026-W48
+// drop after release 2026-W50
 export const LEGACY_FLAG_KEYS: Readonly<Partial<Record<string, string>>> = {
   'agent-thread-replies': 'piloti-wakes',
   'agent-direct-edits': 'piloti-acts',

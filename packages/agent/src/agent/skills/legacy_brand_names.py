@@ -1,4 +1,4 @@
-# drop after release 2026-W48
+# drop after release 2026-W50
 LEGACY_PLATFORM_SKILL_NAMES: dict[str, str] = {
     "piloti-voice": "tone-of-voice",
     "piloti-cards": "answer-cards",
